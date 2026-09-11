@@ -1,6 +1,6 @@
-// Mock del EmailService antes de importar el service (mismo patrón que
-// sequenceRecipientsAndSeed.test.ts — el motor lo referencia aunque estos
-// tests solo ejercitan el canal whatsapp).
+// Mock EmailService before importing the service (same pattern as
+// sequenceRecipientsAndSeed.test.ts — the engine references it even though
+// these tests only exercise the whatsapp channel).
 jest.mock('@/services/emailService', () => ({
 	EmailService: jest.fn(() => ({
 		sendEmail: jest.fn(async () => true),
@@ -18,13 +18,14 @@ import { ParticipantShirtSize } from '@/entities/participantShirtSize.entity';
 import { formatCurrency } from '@repo/utils';
 
 /**
- * Secuencia "Confirmación de camisetas (servidores)": el motor arma
- * `{participant.shirtOrderSummary}` y `{participant.shirtCharge}` on-demand
- * (mismo patrón lazy que `{table.*}`) consultando `participant_shirt_size`
- * scopeado al retiro. Cubre: resumen con prendas y precio, fallback sin
- * tallas configuradas, y que la audiencia 'server' no enrola caminantes.
+ * "Confirmación de camisetas (servidores)" sequence: the engine builds
+ * `{participant.shirtOrderSummary}` and `{participant.shirtCharge}` on-demand
+ * (same lazy pattern as `{table.*}`) by querying `participant_shirt_size`
+ * scoped to the retreat. Covers: summary with garments and price, fallback
+ * with no sizes configured, and that the 'server' audience doesn't enroll
+ * walkers.
  */
-describe('MessageSequence — confirmación de camisetas a servidores', () => {
+describe('MessageSequence — server shirt confirmation', () => {
 	let svc: MessageSequenceService;
 
 	beforeAll(async () => {
@@ -53,7 +54,7 @@ describe('MessageSequence — confirmación de camisetas a servidores', () => {
 		return repo.save(repo.create({ participantId, shirtTypeId, size }));
 	}
 
-	it('servidor con prendas configuradas: resolvedContent trae el resumen y el total formateado', async () => {
+	it('server with garments configured: resolvedContent carries the summary and the formatted total', async () => {
 		const retreat = await TestDataFactory.createTestRetreat({ timezone: 'America/Mexico_City' });
 		const server = await TestDataFactory.createTestParticipant(retreat.id, {
 			type: 'server',
@@ -117,14 +118,14 @@ describe('MessageSequence — confirmación de camisetas a servidores', () => {
 		expect(sm?.resolvedContent).toContain(`Total: ${formatCurrency(410)}`);
 	});
 
-	it('servidor sin tallas configuradas: cae al texto de fallback, sin romper', async () => {
+	it('server with no sizes configured: falls back to the fallback text, without breaking', async () => {
 		const retreat = await TestDataFactory.createTestRetreat({ timezone: 'America/Mexico_City' });
 		const server = await TestDataFactory.createTestParticipant(retreat.id, {
 			type: 'server',
 			firstName: 'Beto',
 			cellPhone: '5511112222',
 		} as any);
-		// Tipo de camiseta existe en el retiro pero el servidor no configuró talla.
+		// A shirt type exists on the retreat but the server never configured a size.
 		await createShirtType(retreat.id, 'Camiseta Blanca', 135);
 
 		await createTemplate(
@@ -171,7 +172,7 @@ describe('MessageSequence — confirmación de camisetas a servidores', () => {
 		expect(sm?.resolvedContent).toContain('Aún no has configurado tus tallas');
 	});
 
-	it('prenda de OTRO retiro no se mezcla en el resumen del retiro en contexto', async () => {
+	it('a garment from ANOTHER retreat does not mix into the in-context retreat summary', async () => {
 		const retreatA = await TestDataFactory.createTestRetreat({ timezone: 'America/Mexico_City' });
 		const retreatB = await TestDataFactory.createTestRetreat({ timezone: 'America/Mexico_City' });
 		const server = await TestDataFactory.createTestParticipant(retreatA.id, {
@@ -228,7 +229,7 @@ describe('MessageSequence — confirmación de camisetas a servidores', () => {
 		expect(sm?.resolvedContent).toContain(`— ${formatCurrency(100)}`);
 	});
 
-	it('audiencia "server": al enrolar, no crea ScheduledMessage para un caminante', async () => {
+	it('"server" audience: enrolling doesn\'t create a ScheduledMessage for a walker', async () => {
 		const retreat = await TestDataFactory.createTestRetreat({
 			timezone: 'America/Mexico_City',
 			startDate: new Date(Date.now() + 25 * 24 * 3600_000),
@@ -274,5 +275,78 @@ describe('MessageSequence — confirmación de camisetas a servidores', () => {
 		const forWalker = await repo.findOne({ where: { participantId: walker.id } });
 		expect(forServer).not.toBeNull();
 		expect(forWalker).toBeNull();
+	});
+
+	// Regression: `{...participant, shirtOrderSummary, shirtCharge}` (spreading
+	// the instance) loses the class getters (paymentRemaining, chargeBreakdown,
+	// ...) because they live on the prototype, not as own properties of the
+	// object — spread doesn't copy them. Without the fix, `paymentRemaining`
+	// would be `undefined` and the variable would come out as an EMPTY string
+	// in the message (buildParticipantReplacements: `!= null ? formatCurrency(...) : ''`).
+	// None of the tests above catch this because the seeded templates never
+	// combine {participant.shirt*} with another computed variable.
+	//
+	// NOTE: in this context (the sequence engine via processDue) the numeric
+	// value of paymentRemaining always comes out $0.00 — that's a separate,
+	// pre-existing bug (`participant.retreat` is never hydrated in
+	// processDue(), so ANY getter depending on `this.retreat`/unloaded
+	// relations gives 0 there, for any template, not just this one). That's
+	// why the test verifies the variable RESOLVES TO A VALUE (the fix works),
+	// not a specific amount.
+	it('a template combining {participant.shirtCharge} with {participant.paymentRemaining} resolves both (neither is left empty)', async () => {
+		const retreat = await TestDataFactory.createTestRetreat({
+			timezone: 'America/Mexico_City',
+			serverFeeAmount: 1000,
+		} as any);
+		const server = await TestDataFactory.createTestParticipant(retreat.id, {
+			type: 'server',
+			cellPhone: '5512345678',
+		} as any);
+		const shirt = await createShirtType(retreat.id, 'Playera', 150);
+		await assignShirtSize(server.id, shirt.id, 'M');
+
+		await createTemplate(
+			retreat.id,
+			'SERVER_SHIRT_CONFIRMATION',
+			'Debes [{participant.paymentRemaining}]. Tus prendas: {participant.shirtCharge}.',
+		);
+		const seq = await svc.createSequence({
+			name: 'Confirmación de camisetas (servidores)',
+			retreatId: retreat.id,
+			trigger: 'days_before_retreat',
+			audience: 'server',
+			steps: [
+				{
+					stepOrder: 0,
+					offsetDays: 21,
+					sendHour: 9,
+					templateType: 'SERVER_SHIRT_CONFIRMATION',
+					channel: 'whatsapp',
+					recipientTarget: 'participant',
+				} as any,
+			],
+		});
+		const repo = AppDataSource.getRepository(ScheduledMessage);
+		await repo.save(
+			repo.create({
+				sequenceId: seq.id,
+				stepId: seq.steps![0].id,
+				participantId: server.id,
+				retreatId: retreat.id,
+				channel: 'whatsapp',
+				templateType: 'SERVER_SHIRT_CONFIRMATION',
+				recipientTarget: 'participant',
+				scheduledFor: new Date(Date.now() - 3600_000),
+				status: 'pending',
+			}),
+		);
+
+		await svc.processDue();
+
+		const sm = await repo.findOne({ where: { participantId: server.id } });
+		expect(sm?.status).toBe('queued');
+		// Without the fix (spread) this would be "Debes []" — the variable resolves, it's not left empty.
+		expect(sm?.resolvedContent).toContain(`Debes [${formatCurrency(0)}]`);
+		expect(sm?.resolvedContent).toContain(`prendas: ${formatCurrency(150)}`);
 	});
 });

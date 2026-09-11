@@ -529,9 +529,15 @@ export class MessageSequenceService {
 				: message.includes('{participant.shirt')
 					? await getParticipantShirtOrderSummary(participant.id, retreatId)
 					: null;
+		// OJO: `{...participant, ...}` NO alcanza — un spread de la instancia solo
+		// copia propiedades propias enumerables, y los getters de la clase
+		// (paymentRemaining, chargeBreakdown, paymentStatus, ...) viven en el
+		// prototipo, así que se perderían para CUALQUIER otra variable basada en
+		// getter que la plantilla combine con {participant.shirt*}. `toJSON()` ya
+		// resuelve exactamente este problema (ver su comentario en la entidad).
 		const participantWithShirtOrder = shirtOrder
 			? {
-					...participant,
+					...participant.toJSON(),
 					shirtOrderSummary: shirtOrder.shirtOrderSummary,
 					shirtCharge: shirtOrder.shirtCharge,
 				}
@@ -1135,9 +1141,12 @@ export class MessageSequenceService {
 		const shirtOrder = template.message.includes('{participant.shirt')
 			? await getParticipantShirtOrderSummary(participant.id, input.retreatId)
 			: null;
+		// Mismo motivo que en resolveContent: toJSON() en vez de spread para no
+		// perder los getters (paymentRemaining, chargeBreakdown, ...) cuando la
+		// plantilla combina {participant.shirt*} con otra variable calculada.
 		const participantWithShirtOrder = shirtOrder
 			? {
-					...participant,
+					...participant.toJSON(),
 					shirtOrderSummary: shirtOrder.shirtOrderSummary,
 					shirtCharge: shirtOrder.shirtCharge,
 				}
@@ -1145,7 +1154,7 @@ export class MessageSequenceService {
 
 		const content = await this.resolveContent(
 			template.message,
-			participantWithShirtOrder,
+			participantWithShirtOrder as any,
 			retreat,
 			recipient.contactKey,
 			input.retreatId,

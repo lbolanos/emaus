@@ -19,6 +19,20 @@ const syncInventoryShirts = async (retreatId: string): Promise<void> => {
 
 export const MEXICAN_DEFAULT_SIZES = ['S', 'M', 'G', 'X', '2'];
 
+/**
+ * Normaliza un precio de entrada: negativo, no-numérico o infinito → NULL
+ * (equivale a "sin cargo"); positivo → redondeado a centavos. El controller
+ * no envuelve estas funciones en try/catch, así que rechazar con throw no
+ * llegaría al cliente como 400 — clampear es la opción segura que no
+ * depende de eso.
+ */
+const normalizePrice = (price: number | null | undefined): number | null => {
+	if (price == null) return null;
+	const n = Number(price);
+	if (!Number.isFinite(n) || n <= 0) return null;
+	return Math.round(n * 100) / 100;
+};
+
 export type ShirtTypeInput = {
 	name: string;
 	color?: string | null;
@@ -55,7 +69,7 @@ export const createShirtType = async (retreatId: string, data: ShirtTypeInput) =
 		optionalForServers: data.optionalForServers ?? true,
 		sortOrder: data.sortOrder ?? 0,
 		availableSizes: normalizeSizes(data.availableSizes),
-		price: data.price ?? null,
+		price: normalizePrice(data.price),
 	});
 	const saved = await repo().save(entity);
 	await syncInventoryShirts(retreatId);
@@ -75,8 +89,8 @@ export const updateShirtType = async (id: string, data: Partial<ShirtTypeInput>)
 	if ('optionalForServers' in data) updates.optionalForServers = !!data.optionalForServers;
 	if ('sortOrder' in data) updates.sortOrder = data.sortOrder ?? 0;
 	if ('availableSizes' in data) updates.availableSizes = normalizeSizes(data.availableSizes);
-	// NULL limpia el precio (sin cargo); '' del input se trata como null.
-	if ('price' in data) updates.price = data.price == null ? null : Number(data.price) || 0;
+	// NULL limpia el precio (sin cargo); negativo/no-numérico también cae a null.
+	if ('price' in data) updates.price = normalizePrice(data.price);
 
 	if (Object.keys(updates).length > 0) {
 		await repo().update({ id }, updates);

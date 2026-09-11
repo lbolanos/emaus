@@ -4,14 +4,14 @@ import { AppDataSource } from '@/data-source';
 import { ServerShirtPricingAndConfirmation20260910120000 } from '@/migrations/sqlite/20260910120000_ServerShirtPricingAndConfirmation';
 
 /**
- * Seed-and-verify de la migración de precio de camisetas + secuencia de
- * confirmación a servidores. La DB de test usa `synchronize` (las entidades
- * ya declaran `retreat_shirt_type.price` y los 2 tipos de plantilla nuevos),
- * así que el `ADD COLUMN` y el recreate del CHECK son no-ops funcionales —
- * lo que importa es que `up()` corra limpio sobre ese esquema y siembre la
- * secuencia + plantillas, y que `down()` revierta.
+ * Seed-and-verify for the shirt-price + server confirmation-sequence
+ * migration. The test DB uses `synchronize` (the entities already declare
+ * `retreat_shirt_type.price` and the 2 new template types), so the
+ * `ADD COLUMN` and the CHECK recreate are functional no-ops here — what
+ * matters is that `up()` runs clean against that schema and seeds the
+ * sequence + templates, and that `down()` reverts it.
  */
-describe('ServerShirtPricingAndConfirmation — precio de camisetas + secuencia', () => {
+describe('ServerShirtPricingAndConfirmation — shirt price + confirmation sequence', () => {
 	beforeAll(async () => {
 		await setupTestDatabase();
 	});
@@ -22,7 +22,7 @@ describe('ServerShirtPricingAndConfirmation — precio de camisetas + secuencia'
 		await clearTestData();
 	});
 
-	it('siembra la secuencia de 2 pasos (21/7 días, whatsapp, audiencia server)', async () => {
+	it('seeds the 2-step sequence (21/7 days, whatsapp, server audience)', async () => {
 		const migration = new ServerShirtPricingAndConfirmation20260910120000();
 		const qr = AppDataSource.createQueryRunner();
 
@@ -64,7 +64,7 @@ describe('ServerShirtPricingAndConfirmation — precio de camisetas + secuencia'
 		await qr.release();
 	});
 
-	it('siembra las 2 plantillas globales con el texto esperado', async () => {
+	it('seeds the 2 global templates with the expected text', async () => {
 		const migration = new ServerShirtPricingAndConfirmation20260910120000();
 		const qr = AppDataSource.createQueryRunner();
 
@@ -84,7 +84,7 @@ describe('ServerShirtPricingAndConfirmation — precio de camisetas + secuencia'
 		await qr.release();
 	});
 
-	it('copia las plantillas a cada retiro EXISTENTE al momento de correr la migración', async () => {
+	it('copies the templates to every EXISTING retreat when the migration runs', async () => {
 		const retreatBefore = await TestDataFactory.createTestRetreat({});
 
 		const migration = new ServerShirtPricingAndConfirmation20260910120000();
@@ -100,12 +100,12 @@ describe('ServerShirtPricingAndConfirmation — precio de camisetas + secuencia'
 		await qr.release();
 	});
 
-	it('el ALTER TABLE de price es idempotente: PRAGMA table_info sigue reportando la columna tras 2 corridas', async () => {
+	it('the price ALTER TABLE is idempotent: PRAGMA table_info still reports the column after 2 runs', async () => {
 		const migration = new ServerShirtPricingAndConfirmation20260910120000();
 		const qr = AppDataSource.createQueryRunner();
 
 		await migration.up(qr);
-		await migration.up(qr); // segunda corrida no debe romper con "duplicate column name"
+		await migration.up(qr); // second run must not break with "duplicate column name"
 
 		const columns: { name: string }[] = await qr.query(`PRAGMA table_info("retreat_shirt_type")`);
 		expect(columns.some((c) => c.name === 'price')).toBe(true);
@@ -113,7 +113,7 @@ describe('ServerShirtPricingAndConfirmation — precio de camisetas + secuencia'
 		await qr.release();
 	});
 
-	it('re-ejecutar up() no duplica la secuencia ni sus pasos (INSERT OR IGNORE)', async () => {
+	it('re-running up() does not duplicate the sequence or its steps (INSERT OR IGNORE)', async () => {
 		const migration = new ServerShirtPricingAndConfirmation20260910120000();
 		const qr = AppDataSource.createQueryRunner();
 
@@ -135,15 +135,15 @@ describe('ServerShirtPricingAndConfirmation — precio de camisetas + secuencia'
 		await qr.release();
 	});
 
-	it('down() revierte: borra secuencia, pasos y plantillas sembradas (deja las editadas por el coordinador)', async () => {
+	it('down() reverts: deletes the seeded sequence, steps and templates (leaves the ones the coordinator edited)', async () => {
 		const retreat = await TestDataFactory.createTestRetreat({});
 
 		const migration = new ServerShirtPricingAndConfirmation20260910120000();
 		const qr = AppDataSource.createQueryRunner();
 		await migration.up(qr);
 
-		// El coordinador editó la plantilla per-retiro del aviso: down() no debe
-		// tocarla — solo borra las que conservan el texto sembrado exacto.
+		// The coordinator edited the per-retreat notice template: down() must not
+		// touch it — it only deletes the ones that still hold the exact seeded text.
 		await qr.query(
 			`UPDATE message_templates SET message = 'Texto editado por el coordinador' WHERE retreatId = ? AND type = 'SERVER_SHIRT_CONFIRMATION'`,
 			[retreat.id],
@@ -164,7 +164,7 @@ describe('ServerShirtPricingAndConfirmation — precio de camisetas + secuencia'
 		);
 		expect(Number(globalTemplates[0].c)).toBe(0);
 
-		// El recordatorio (sin editar) se borró; el aviso editado sobrevive.
+		// The unedited reminder was deleted; the edited notice survives.
 		const perRetreat = await qr.query(
 			`SELECT type, message FROM message_templates WHERE retreatId = ? AND type IN ('SERVER_SHIRT_CONFIRMATION', 'SERVER_SHIRT_CONFIRMATION_REMINDER')`,
 			[retreat.id],

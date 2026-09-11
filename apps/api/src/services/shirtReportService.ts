@@ -153,11 +153,36 @@ export type ParticipantShirtOrderSummary = {
  * ambos — el motor de secuencias automáticas y el endpoint que alimenta el
  * envío manual (`GET /participants/:id/shirt-order`) — compartan una sola
  * implementación sin crear un import circular entre esos dos servicios.
+ *
+ * El VALOR (`shirtCharge`) solo aplica a servidores/angelitos, igual que
+ * `Participant.computeCharges()`: un caminante puede tener filas en
+ * `participant_shirt_size` (prenda `requiredForWalkers`), pero su prenda va
+ * incluida en la cuota del retiro — mostrarle un cargo aquí sería engañoso
+ * (el saldo real nunca se lo cobra). `participantType` es un atajo opcional
+ * para un caller que ya tenga el tipo hidratado (evita la query extra); si no
+ * viene, se resuelve acá con una consulta a `retreat_participants`. Ninguno de
+ * los llamadores actuales (`messageSequenceService`, el controller HTTP) tiene
+ * el tipo a mano en ese punto — `participant.type` es un campo virtual que
+ * solo se hidrata cuando alguien hace overlay explícito desde
+ * `retreat_participants` (`findAllParticipants`/`findParticipantById`), así
+ * que hoy siempre cae a la query interna. El parámetro queda para el caller
+ * que sí lo tenga.
  */
 export const getParticipantShirtOrderSummary = async (
 	participantId: string,
 	retreatId: string,
+	participantType?: string | null,
 ): Promise<ParticipantShirtOrderSummary> => {
+	let type = participantType;
+	if (type === undefined) {
+		const rp: { type: string | null }[] = await AppDataSource.query(
+			`SELECT type FROM retreat_participants WHERE participantId = ? AND retreatId = ? LIMIT 1`,
+			[participantId, retreatId],
+		);
+		type = rp[0]?.type ?? null;
+	}
+	const chargeable = type === 'server' || type === 'partial_server';
+
 	const rows: { name: string; size: string; price: string | number | null }[] =
 		await AppDataSource.query(
 			`SELECT rst.name, pss.size, rst.price
@@ -176,12 +201,12 @@ export const getParticipantShirtOrderSummary = async (
 	let total = 0;
 	const lines = rows.map((r) => {
 		const price = r.price != null && r.price !== '' ? Number(r.price) : 0;
-		total += price;
-		const priceSuffix = price > 0 ? ` — ${formatCurrency(price)}` : '';
+		if (chargeable) total += price;
+		const priceSuffix = chargeable && price > 0 ? ` — ${formatCurrency(price)}` : '';
 		return `• ${r.name} (talla ${r.size})${priceSuffix}`;
 	});
 	return {
 		shirtOrderSummary: lines.join('\n'),
-		shirtCharge: Math.round(total * 100) / 100,
+		shirtCharge: chargeable ? Math.round(total * 100) / 100 : 0,
 	};
 };

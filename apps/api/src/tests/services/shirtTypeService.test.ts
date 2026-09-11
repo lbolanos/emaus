@@ -236,6 +236,53 @@ describe('Shirt Type Service', () => {
 		});
 	});
 
+	describe('price', () => {
+		it('createShirtType persists a positive price rounded to cents', async () => {
+			const retreatId = await makeRetreat();
+			const created = await createShirtType(retreatId, { name: 'Playera', price: 135.999 });
+			expect(created.price).toBe(136);
+		});
+
+		it('createShirtType defaults price to null when omitted', async () => {
+			const retreatId = await makeRetreat();
+			const created = await createShirtType(retreatId, { name: 'Sin precio' });
+			expect(created.price).toBeNull();
+		});
+
+		it('createShirtType clamps a negative price to null (no charge)', async () => {
+			const retreatId = await makeRetreat();
+			const created = await createShirtType(retreatId, { name: 'Negativo', price: -50 });
+			expect(created.price).toBeNull();
+		});
+
+		it('createShirtType clamps zero to null (same as no charge)', async () => {
+			const retreatId = await makeRetreat();
+			const created = await createShirtType(retreatId, { name: 'Cero', price: 0 });
+			expect(created.price).toBeNull();
+		});
+
+		it('updateShirtType sets a positive price', async () => {
+			const retreatId = await makeRetreat();
+			const created = await createShirtType(retreatId, { name: 'X' });
+			const updated = await updateShirtType(created.id, { price: 275 });
+			expect(updated!.price).toBe(275);
+		});
+
+		it('updateShirtType clears the price with null', async () => {
+			const retreatId = await makeRetreat();
+			const created = await createShirtType(retreatId, { name: 'X', price: 100 });
+			const updated = await updateShirtType(created.id, { price: null });
+			expect(updated!.price).toBeNull();
+		});
+
+		it('updateShirtType clamps a negative price to null instead of persisting it', async () => {
+			const retreatId = await makeRetreat();
+			const created = await createShirtType(retreatId, { name: 'X', price: 100 });
+			const updated = await updateShirtType(created.id, { price: -10 });
+			expect(updated!.price).toBeNull();
+		});
+	});
+
 	describe('validateSizesAgainstType', () => {
 		it('accepts a size present in availableSizes', async () => {
 			const retreatId = await makeRetreat();

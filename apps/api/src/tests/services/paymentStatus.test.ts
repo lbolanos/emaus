@@ -262,10 +262,10 @@ describe('Participant — cargos por tipo (paz y salvo v2)', () => {
 	});
 });
 
-describe('Participant — cargo de camisetas (totalShirtCharge / chargeBreakdown.shirts)', () => {
+describe('Participant — shirt charge (totalShirtCharge / chargeBreakdown.shirts)', () => {
 	const retreat = () => makeRetreat('$2,800', { serverFeeAmount: 1500, mealCost: 150, id: 'ret-1' });
 
-	it('servidor con una prenda con precio: se suma al esperado', () => {
+	it('server with one priced garment: it is added to the expected amount', () => {
 		const shirtType = makeShirtType('st-1', 'ret-1', 250);
 		const p = makeParticipant({
 			type: 'server',
@@ -277,7 +277,7 @@ describe('Participant — cargo de camisetas (totalShirtCharge / chargeBreakdown
 		expect(p.chargeBreakdown.expected).toBe(1750);
 	});
 
-	it('servidor con varias prendas: se suman todas', () => {
+	it('server with several garments: all of them are added up', () => {
 		const shirtType1 = makeShirtType('st-1', 'ret-1', 250);
 		const shirtType2 = makeShirtType('st-2', 'ret-1', 500);
 		const p = makeParticipant({
@@ -290,7 +290,7 @@ describe('Participant — cargo de camisetas (totalShirtCharge / chargeBreakdown
 		expect(p.chargeBreakdown.expected).toBe(2250);
 	});
 
-	it('caminante con la misma prenda: NO se le suma (va incluida en la cuota del retiro)', () => {
+	it('walker with the same garment: it is NOT added (it is included in the retreat fee)', () => {
 		const shirtType = makeShirtType('st-1', 'ret-1', 250);
 		const p = makeParticipant({
 			type: 'walker',
@@ -301,7 +301,7 @@ describe('Participant — cargo de camisetas (totalShirtCharge / chargeBreakdown
 		expect(p.chargeBreakdown.expected).toBe(2800);
 	});
 
-	it('angelito (partial_server) con prenda: se suma igual que a un servidor', () => {
+	it('angelito (partial_server) with a garment: added the same as for a server', () => {
 		const shirtType = makeShirtType('st-1', 'ret-1', 300);
 		const p = makeParticipant({
 			type: 'partial_server',
@@ -313,7 +313,7 @@ describe('Participant — cargo de camisetas (totalShirtCharge / chargeBreakdown
 		expect(p.chargeBreakdown.expected).toBe(600);
 	});
 
-	it('becado: exento del cargo de camisetas también (esperado 0)', () => {
+	it('scholarship: exempt from the shirt charge too (expected 0)', () => {
 		const shirtType = makeShirtType('st-1', 'ret-1', 250);
 		const p = makeParticipant({
 			type: 'server',
@@ -325,7 +325,7 @@ describe('Participant — cargo de camisetas (totalShirtCharge / chargeBreakdown
 		expect(p.chargeBreakdown.expected).toBe(0);
 	});
 
-	it('tipo de prenda sin precio (null): no suma nada', () => {
+	it('garment type with no price (null): adds nothing', () => {
 		const shirtType = makeShirtType('st-1', 'ret-1', null);
 		const p = makeParticipant({
 			type: 'server',
@@ -337,10 +337,10 @@ describe('Participant — cargo de camisetas (totalShirtCharge / chargeBreakdown
 		expect(p.chargeBreakdown.expected).toBe(1500);
 	});
 
-	it('prenda de OTRO retiro (mismo participante global): se excluye del cargo', () => {
-		// participant_shirt_size no tiene retreatId propio — el filtro es vía
-		// shirtType.retreatId === participant.retreat.id. Una fila de otro
-		// retiro nunca debe sumarse al saldo del retiro en contexto.
+	it('garment from ANOTHER retreat (same global participant): excluded from the charge', () => {
+		// participant_shirt_size has no retreatId of its own — the filter is via
+		// shirtType.retreatId === participant.retreat.id. A row from another
+		// retreat must never be added to the balance of the retreat in context.
 		const shirtTypeOtherRetreat = makeShirtType('st-1', 'ret-OTHER', 250);
 		const p = makeParticipant({
 			type: 'server',
@@ -352,13 +352,13 @@ describe('Participant — cargo de camisetas (totalShirtCharge / chargeBreakdown
 		expect(p.chargeBreakdown.expected).toBe(1500);
 	});
 
-	it('sin shirtSizes cargado (relación no incluida): totalShirtCharge es 0, no rompe', () => {
+	it('with shirtSizes not loaded (relation not included): totalShirtCharge is 0, doesn\'t break', () => {
 		const p = makeParticipant({ type: 'server', retreat: retreat(), takesFridayMeal: false });
 		expect(p.totalShirtCharge).toBe(0);
 		expect(p.chargeBreakdown.shirts).toBe(0);
 	});
 
-	it('el cargo de camisetas reduce paymentRemaining junto con el resto de cargos', () => {
+	it('the shirt charge reduces paymentRemaining along with the rest of the charges', () => {
 		const shirtType = makeShirtType('st-1', 'ret-1', 250);
 		const p = makeParticipant({
 			type: 'server',
@@ -367,7 +367,7 @@ describe('Participant — cargo de camisetas (totalShirtCharge / chargeBreakdown
 			shirtSizes: [makeShirtSize(shirtType)],
 			payments: [makePayment(1000)],
 		});
-		// expected = 1500 (fee) + 250 (shirt) = 1750; pagado 1000 → falta 750
+		// expected = 1500 (fee) + 250 (shirt) = 1750; paid 1000 → 750 remaining
 		expect(p.paymentRemaining).toBe(750);
 	});
 });

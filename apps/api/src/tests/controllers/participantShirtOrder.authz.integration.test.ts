@@ -22,18 +22,19 @@ function mockRes() {
 }
 
 /**
- * Autorización de `GET /participants/:id/shirt-order` (endpoint que alimenta
- * el envío MANUAL de mensajes: MessageDialog/BaseMessageTemplateModal arman
- * el participante desde un objeto ya en memoria, sin `shirtSizes` cargado, así
- * que sin este fetch {participant.shirtOrderSummary}/{participant.shirtCharge}
- * quedan vacías).
+ * Authorization for `GET /participants/:id/shirt-order` (the endpoint that
+ * feeds MANUAL message sending: MessageDialog/BaseMessageTemplateModal build
+ * the participant from an object already in memory, without `shirtSizes`
+ * loaded, so without this fetch {participant.shirtOrderSummary}/
+ * {participant.shirtCharge} would come back empty).
  *
- * El `retreatId` llega por query param (no como `:retreatId` de la ruta), así
- * que `requireRetreatAccess` no lo cubre — el controller valida con
- * `ensureRetreatAccess` dentro. Este test cierra ese gate: sin `retreatId` es
- * 400, sin acceso al retiro es 403, y con acceso resuelve el resumen real.
+ * `retreatId` arrives as a query param (not as the route's `:retreatId`), so
+ * `requireRetreatAccess` doesn't cover it — the controller validates with
+ * `ensureRetreatAccess` inline. This test closes that gate: missing
+ * `retreatId` is 400, no access to the retreat is 403, and with access it
+ * resolves the real summary.
  */
-describe('getParticipantShirtOrder — autorización y resolución', () => {
+describe('getParticipantShirtOrder — authorization and resolution', () => {
 	let retreatA: Retreat;
 	let retreatB: Retreat;
 	let participant: Participant;
@@ -72,14 +73,14 @@ describe('getParticipantShirtOrder — autorización y resolución', () => {
 		);
 	});
 
-	it('400 cuando falta retreatId', async () => {
+	it('400 when retreatId is missing', async () => {
 		const req: any = { params: { id: participant.id }, query: {}, user: { id: 'someone' } };
 		const res = mockRes();
 		await getParticipantShirtOrder(req, res, jest.fn());
 		expect(res.statusCode).toBe(400);
 	});
 
-	it('401 sin usuario autenticado', async () => {
+	it('401 without an authenticated user', async () => {
 		const req: any = {
 			params: { id: participant.id },
 			query: { retreatId: retreatA.id },
@@ -89,7 +90,7 @@ describe('getParticipantShirtOrder — autorización y resolución', () => {
 		expect(res.statusCode).toBe(401);
 	});
 
-	it('403 cuando el caller no tiene acceso al retiro pedido', async () => {
+	it('403 when the caller has no access to the requested retreat', async () => {
 		jest.spyOn(authorizationService, 'hasRetreatAccess').mockResolvedValue(false);
 		const req: any = {
 			params: { id: participant.id },
@@ -101,7 +102,7 @@ describe('getParticipantShirtOrder — autorización y resolución', () => {
 		expect(res.statusCode).toBe(403);
 	});
 
-	it('200 con el resumen resuelto cuando el caller sí tiene acceso', async () => {
+	it('200 with the resolved summary when the caller does have access', async () => {
 		jest.spyOn(authorizationService, 'hasRetreatAccess').mockResolvedValue(true);
 		const req: any = {
 			params: { id: participant.id },
@@ -116,7 +117,7 @@ describe('getParticipantShirtOrder — autorización y resolución', () => {
 		expect(res.body.shirtOrderSummary).toContain('talla M');
 	});
 
-	it('no mezcla el pedido de OTRO retiro aunque el caller tenga acceso ahí también', async () => {
+	it('does not mix in the order from ANOTHER retreat even if the caller has access there too', async () => {
 		jest.spyOn(authorizationService, 'hasRetreatAccess').mockResolvedValue(true);
 		const req: any = {
 			params: { id: participant.id },
