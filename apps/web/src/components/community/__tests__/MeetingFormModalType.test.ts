@@ -58,7 +58,11 @@ const factory = (props: Record<string, unknown> = {}) =>
 
 const fillRequiredFields = async (wrapper: any) => {
 	wrapper.vm.form.title = 'Preparación semana 1';
-	wrapper.vm.form.date = '2026-09-10';
+	// The form rejects dates before today: a hardcoded "today" expires the
+	// test. Two days out is future in every timezone the CI may run on.
+	wrapper.vm.form.date = new Date(Date.now() + 48 * 60 * 60 * 1000)
+		.toISOString()
+		.slice(0, 10);
 	wrapper.vm.form.time = '20:00';
 	await flushPromises();
 };

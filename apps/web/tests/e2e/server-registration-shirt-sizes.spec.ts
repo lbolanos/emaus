@@ -22,8 +22,9 @@ import { test, expect, type APIRequestContext, type Page } from '@playwright/tes
  * and writes nothing, so the spec never creates participants in the dev database.
  *
  * Requires a public retreat with at least two shirt types available to servers.
- * Defaults to the Celaya retreat seeded in the dev database; override with
- * E2E_RETREAT_ID.
+ * Defaults to a public retreat of the dev database; any dated default eventually
+ * expires (Celaya did on 2026-08-30), so the suite skips with a readable reason
+ * once the retreat closes. Override with E2E_RETREAT_ID.
  */
 
 type ShirtType = {
@@ -37,7 +38,7 @@ type ShirtType = {
 // defaults to en-US and the app follows navigator.language when nothing is stored.
 test.use({ locale: 'es-MX' });
 
-const RETREAT_ID = process.env.E2E_RETREAT_ID ?? '96f06c40-327a-4513-ae48-fb4c60bbab17';
+const RETREAT_ID = process.env.E2E_RETREAT_ID ?? 'e9b3c568-050a-4d66-a99d-305f287a59df';
 const REGISTRATION_URL = `/register/server/${RETREAT_ID}?test=true`;
 
 const LEGACY_SHIRT_LABELS = [
@@ -126,6 +127,18 @@ async function summaryRow(page: Page, label: string): Promise<string> {
 }
 
 test.describe('Server registration — shirt sizes', () => {
+	test.beforeEach(async ({ request }) => {
+		// A dated default retreat eventually expires: the landing then shows
+		// "Este retiro ya terminó" and every test would die on the same 10s
+		// timeout waiting for "Regístrate Ahora". Skip with a readable reason.
+		const response = await request.get(`/api/retreats/public/${RETREAT_ID}`);
+		const retreat = response.ok() ? await response.json() : null;
+		test.skip(
+			!retreat?.isPublic || retreat?.isRegistrationClosed,
+			`Retreat ${RETREAT_ID} is not open for public registration`,
+		);
+	});
+
 	test('step 5 offers every shirt type the retreat opens to servers', async ({ page, request }) => {
 		const shirtTypes = await fetchServerShirtTypes(request);
 		test.skip(shirtTypes.length === 0, `Retreat ${RETREAT_ID} has no shirt types for servers`);

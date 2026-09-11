@@ -1791,6 +1791,12 @@
     "sharedAddressHint": "The address is captured once for both.",
     "useDifferentEmergencyContacts": "Use different emergency contacts for each spouse",
     "shirtsTitle": "Shirt sizes",
+    "shirtConfirm": {
+      "title": "Don't you need shirts?",
+      "description": "Neither of you picked a shirt size. If either of you needs one, go back and choose your sizes before continuing.",
+      "confirm": "We don't need shirts, register us",
+      "back": "We want to pick sizes"
+    },
     "husbandShirtSize": "His size",
     "wifeShirtSize": "Her size",
     "inviterTitle": "Who invites you?",

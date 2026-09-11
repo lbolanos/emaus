@@ -33,7 +33,11 @@ Cinco cosas que hacen fallar un spec nuevo por razones que no son del código:
 - **Datos del retiro por variable de entorno.** Los specs que necesitan un retiro real lo toman de
   `process.env.E2E_RETREAT_ID` con un default de la base de dev, y hacen `test.skip(...)` con un
   motivo legible si ese retiro no existe o no cumple las condiciones. Así el spec no se vuelve rojo
-  en una base distinta.
+  en una base distinta. Ojo: **el default es perecedero** — todo retiro con fecha vence. El skip
+  tiene que cubrir también `isRegistrationClosed`, no solo la shape de los datos: cuando el retiro
+  default vence, la landing muestra «Este retiro ya terminó» y cada test muere con el mismo
+  timeout de 10s esperando «Regístrate Ahora» (pasó el 2026-09-11 con Celaya, default original de
+  `server-registration-shirt-sizes`, vencido el 2026-08-30).
 - **Nombres con acento en una descarga: normalizá a NFC.** En macOS, WebKit devuelve
   `download.suggestedFilename()` en **NFD** (la `ó` como `o` + acento combinante), así que
   `"Oración.pdf"` deja de ser igual a la cadena del documento aunque en pantalla se vean idénticas
