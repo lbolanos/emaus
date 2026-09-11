@@ -78,8 +78,12 @@ describe('ServerShirtPricingAndConfirmation — shirt price + confirmation seque
 		const reminder = templates.find((t: any) => t.type === 'SERVER_SHIRT_CONFIRMATION_REMINDER');
 		expect(notice.message).toContain('{participant.shirtOrderSummary}');
 		expect(notice.message).toContain('{participant.shirtCharge}');
+		// The balance line: the server should see the combined amount due
+		// (fee + meals + garments - payments) in the same message.
+		expect(notice.message).toContain('{participant.paymentRemaining}');
 		expect(reminder.message).toContain('{participant.shirtOrderSummary}');
 		expect(reminder.message).toContain('{participant.shirtCharge}');
+		expect(reminder.message).toContain('{participant.paymentRemaining}');
 
 		await qr.release();
 	});

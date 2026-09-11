@@ -277,22 +277,20 @@ describe('MessageSequence — server shirt confirmation', () => {
 		expect(forWalker).toBeNull();
 	});
 
-	// Regression: `{...participant, shirtOrderSummary, shirtCharge}` (spreading
-	// the instance) loses the class getters (paymentRemaining, chargeBreakdown,
-	// ...) because they live on the prototype, not as own properties of the
-	// object — spread doesn't copy them. Without the fix, `paymentRemaining`
-	// would be `undefined` and the variable would come out as an EMPTY string
-	// in the message (buildParticipantReplacements: `!= null ? formatCurrency(...) : ''`).
-	// None of the tests above catch this because the seeded templates never
-	// combine {participant.shirt*} with another computed variable.
+	// Regression, two layers it took to get a REAL balance here:
+	// 1. `{...participant, shirtOrderSummary, shirtCharge}` (spreading the
+	//    instance) loses the class getters (paymentRemaining, chargeBreakdown,
+	//    ...) because they live on the prototype, not as own properties of the
+	//    object — spread doesn't copy them. The engine builds the combined
+	//    object through `toJSON()` now, which resolves the getters.
+	// 2. The participant that reaches processDue comes from a bare leftJoin,
+	//    without relations and without the per-retreat overlay, so every getter
+	//    depending on `this.retreat`/`payments`/`debts` gave 0 and
+	//    paymentRemaining resolved to $0.00. The engine now lazily hydrates the
+	//    participant when the template uses {participant.paymentRemaining}
+	//    (`hydrateParticipantForTemplateVariables`).
 	//
-	// NOTE: in this context (the sequence engine via processDue) the numeric
-	// value of paymentRemaining always comes out $0.00 — that's a separate,
-	// pre-existing bug (`participant.retreat` is never hydrated in
-	// processDue(), so ANY getter depending on `this.retreat`/unloaded
-	// relations gives 0 there, for any template, not just this one). That's
-	// why the test verifies the variable RESOLVES TO A VALUE (the fix works),
-	// not a specific amount.
+	// Server fee 1000 + garment 150, no payments → 1150 remaining.
 	it('a template combining {participant.shirtCharge} with {participant.paymentRemaining} resolves both (neither is left empty)', async () => {
 		const retreat = await TestDataFactory.createTestRetreat({
 			timezone: 'America/Mexico_City',
@@ -345,8 +343,9 @@ describe('MessageSequence — server shirt confirmation', () => {
 
 		const sm = await repo.findOne({ where: { participantId: server.id } });
 		expect(sm?.status).toBe('queued');
-		// Without the fix (spread) this would be "Debes []" — the variable resolves, it's not left empty.
-		expect(sm?.resolvedContent).toContain(`Debes [${formatCurrency(0)}]`);
+		// Real balance, not just "not empty": server fee 1000 + garment 150,
+		// no payments → 1150 remaining (see the comment above for both layers).
+		expect(sm?.resolvedContent).toContain(`Debes [${formatCurrency(1150)}]`);
 		expect(sm?.resolvedContent).toContain(`prendas: ${formatCurrency(150)}`);
 	});
 });

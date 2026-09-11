@@ -644,6 +644,9 @@ export class MessageSequenceService {
 	 * Se hidrata con el mismo criterio que el sidebar (findParticipantById,
 	 * extraído a participantRetreatHydration para evitar el import circular), y
 	 * solo cuando la plantilla usa la variable — patrón lazy igual que `{table.*}`.
+	 * `shirtSizes` (+ su tipo) viene porque el saldo del servidor/angelito ya
+	 * incluye el cargo por prendas: sin la relación, `totalShirtCharge` da 0 y el
+	 * saldo de la confirmación de prendas saldría sin su propio cargo.
 	 *
 	 * Una futura variable basada en getters debe sumarse a este guard.
 	 */
@@ -655,7 +658,7 @@ export class MessageSequenceService {
 		if (!templateMessage.includes('{participant.paymentRemaining}')) return participant;
 		const hydrated = await AppDataSource.getRepository(Participant).findOne({
 			where: { id: participant.id },
-			relations: ['retreat', 'payments', 'debts'],
+			relations: ['retreat', 'payments', 'debts', 'shirtSizes', 'shirtSizes.shirtType'],
 		});
 		if (!hydrated) return participant;
 		await hydrateParticipantRetreatContext(hydrated, retreatId);

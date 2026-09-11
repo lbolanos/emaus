@@ -20,7 +20,9 @@ import { v4 as uuidv4 } from 'uuid';
  *    The message renders the server's current garment setup through two new
  *    participant variables: `{participant.shirtOrderSummary}` (one line per
  *    requested garment, or "Aún no has configurado tus tallas" when empty) and
- *    `{participant.shirtCharge}` (formatted total).
+ *    `{participant.shirtCharge}` (formatted total), plus
+ *    `{participant.paymentRemaining}` so the server sees the combined balance
+ *    (fee + meals + garments - payments) in the same message.
  *
  * Seeds the templates (global + per retreat, so the step finds them) and the
  * importable global sequence. The imported copy arrives INACTIVE, like the rest
@@ -55,6 +57,8 @@ Lo que tenemos registrado para ti:
 
 El valor de tus prendas se suma a tu cuenta: {participant.shirtCharge}.
 
+Tu saldo total, prendas incluidas, queda en {participant.paymentRemaining}.
+
 Si todo está bien, respóndeme confirmándome. Si falta algo o hay que cambiar una talla, dime y lo corregimos.`;
 
 	private static readonly REMINDER_TEMPLATE_NAME = 'Recordatorio de prendas';
@@ -62,7 +66,8 @@ Si todo está bien, respóndeme confirmándome. Si falta algo o hay que cambiar 
 
 {participant.shirtOrderSummary}
 
-Total: {participant.shirtCharge}.
+Total de prendas: {participant.shirtCharge}.
+Tu saldo total, prendas incluidas, es de {participant.paymentRemaining}.
 
 ¿Me confirmas que está correcto o qué hay que cambiar?`;
 
