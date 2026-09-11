@@ -8,8 +8,9 @@ import {
   normalizeParticipantPhones,
 } from "@repo/types";
 import { z } from "zod";
-import { authorizationService } from "../middleware/authorization";
+import { authorizationService, ensureRetreatAccess } from "../middleware/authorization";
 import { participantAvailabilityService } from "../services/participantAvailabilityService";
+import { getParticipantShirtOrderSummary } from "../services/shirtReportService";
 
 const recaptchaService = new RecaptchaService();
 
@@ -201,6 +202,43 @@ export const getParticipantNextMeeting = async (
       undefined,
       allowedCommunityIds,
     );
+    res.json(result);
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Resumen del pedido de prendas de un participante en un retiro, para las
+ * variables de plantilla `{participant.shirtOrderSummary}`/`{participant.shirtCharge}`.
+ *
+ * El motor de secuencias automáticas ya las resuelve solo (server-side, sin
+ * pasar por HTTP). Este endpoint existe para el envío MANUAL desde el cliente
+ * (MessageDialog/BaseMessageTemplateModal): esos componentes arman el
+ * participante desde un objeto ya en memoria (una fila de lista, sin
+ * `shirtSizes` cargado), así que sin este fetch las variables quedan vacías.
+ * Mismo patrón que `getParticipantNextMeeting` (`{retreat.next_meeting_date}`).
+ *
+ * `retreatId` es obligatorio: `participant_shirt_size` no tiene retiro propio,
+ * el pedido se scopea vía `retreatShirtType.retreatId`.
+ *
+ * Como el retiro llega por query param (no como `:retreatId` de la ruta),
+ * `requireRetreatAccess` no lo cubre — se valida acá dentro con
+ * `ensureRetreatAccess`, igual que otras lecturas por participante cuyo
+ * recurso puede tocar un retiro que el caller no administra.
+ */
+export const getParticipantShirtOrder = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const retreatId = req.query.retreatId;
+    if (typeof retreatId !== "string" || retreatId.trim().length === 0) {
+      return res.status(400).json({ message: "retreatId es requerido" });
+    }
+    if (!(await ensureRetreatAccess(req, res, retreatId))) return;
+    const result = await getParticipantShirtOrderSummary(req.params.id, retreatId);
     res.json(result);
   } catch (error) {
     next(error);

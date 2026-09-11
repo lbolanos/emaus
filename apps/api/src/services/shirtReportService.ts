@@ -1,5 +1,6 @@
 import { AppDataSource } from '../data-source';
 import { RetreatShirtType } from '../entities/retreatShirtType.entity';
+import { formatCurrency } from '@repo/utils';
 
 export type ShirtReportShirt = {
 	shirtTypeId: string;
@@ -7,6 +8,7 @@ export type ShirtReportShirt = {
 	color: string | null;
 	sortOrder: number;
 	size: string;
+	price: number | null;
 };
 
 export type ShirtReportParticipant = {
@@ -16,6 +18,7 @@ export type ShirtReportParticipant = {
 	idOnRetreat: number | null;
 	type: 'server' | 'partial_server';
 	shirts: ShirtReportShirt[];
+	shirtCharge: number;
 };
 
 export type ShirtReportShirtType = {
@@ -23,11 +26,13 @@ export type ShirtReportShirtType = {
 	name: string;
 	color: string | null;
 	sortOrder: number;
+	price: number | null;
 };
 
 export type ShirtReportResponse = {
 	shirtTypes: ShirtReportShirtType[];
 	participants: ShirtReportParticipant[];
+	totalCharge: number;
 };
 
 type Row = {
@@ -41,6 +46,8 @@ type Row = {
 	color: string | null;
 	sortOrder: number;
 	size: string;
+	// SQLite devuelve decimal como string en queries crudos.
+	price: string | number | null;
 };
 
 export const getShirtOrdersForRetreat = async (
@@ -57,6 +64,7 @@ export const getShirtOrdersForRetreat = async (
 		name: t.name,
 		color: t.color ?? null,
 		sortOrder: t.sortOrder,
+		price: t.price != null ? Number(t.price) : null,
 	}));
 
 	// Single query: join participants + retreat_participants + participant_shirt_size + retreat_shirt_type
@@ -72,7 +80,8 @@ export const getShirtOrdersForRetreat = async (
        rst.name          AS shirtTypeName,
        rst.color         AS color,
        rst.sortOrder     AS sortOrder,
-       pss.size          AS size
+       pss.size          AS size,
+       rst.price         AS price
      FROM participants p
      INNER JOIN retreat_participants rp
        ON rp.participantId = p.id
@@ -102,20 +111,77 @@ export const getShirtOrdersForRetreat = async (
 				idOnRetreat: r.idOnRetreat,
 				type: r.type,
 				shirts: [],
+				shirtCharge: 0,
 			};
 			byParticipant.set(r.participantId, entry);
 		}
+		const price = r.price != null && r.price !== '' ? Number(r.price) : null;
 		entry.shirts.push({
 			shirtTypeId: r.shirtTypeId,
 			shirtTypeName: r.shirtTypeName,
 			color: r.color,
 			sortOrder: r.sortOrder,
 			size: r.size,
+			price,
 		});
+		entry.shirtCharge = Math.round((entry.shirtCharge + (price || 0)) * 100) / 100;
 	}
+
+	const participants = Array.from(byParticipant.values());
+	const totalCharge = Math.round(participants.reduce((sum, p) => sum + p.shirtCharge, 0) * 100) / 100;
 
 	return {
 		shirtTypes,
-		participants: Array.from(byParticipant.values()),
+		participants,
+		totalCharge,
+	};
+};
+
+export type ParticipantShirtOrderSummary = {
+	shirtOrderSummary: string;
+	shirtCharge: number;
+};
+
+/**
+ * Resumen del pedido de prendas de un participante en un retiro, para las
+ * variables de plantilla `{participant.shirtOrderSummary}` y
+ * `{participant.shirtCharge}` (confirmación de camisetas a servidores). Una
+ * línea por prenda con talla y precio (sin sufijo de precio si es 0/null);
+ * texto de fallback cuando el participante no configuró tallas.
+ *
+ * Vive aquí (no en `messageSequenceService` ni `participantService`) para que
+ * ambos — el motor de secuencias automáticas y el endpoint que alimenta el
+ * envío manual (`GET /participants/:id/shirt-order`) — compartan una sola
+ * implementación sin crear un import circular entre esos dos servicios.
+ */
+export const getParticipantShirtOrderSummary = async (
+	participantId: string,
+	retreatId: string,
+): Promise<ParticipantShirtOrderSummary> => {
+	const rows: { name: string; size: string; price: string | number | null }[] =
+		await AppDataSource.query(
+			`SELECT rst.name, pss.size, rst.price
+			 FROM participant_shirt_size pss
+			 INNER JOIN retreat_shirt_type rst ON rst.id = pss.shirtTypeId
+			 WHERE pss.participantId = ? AND rst.retreatId = ?
+			 ORDER BY rst.sortOrder IS NULL, rst.sortOrder, rst.name`,
+			[participantId, retreatId],
+		);
+	if (rows.length === 0) {
+		return {
+			shirtOrderSummary: 'Aún no has configurado tus tallas',
+			shirtCharge: 0,
+		};
+	}
+	let total = 0;
+	const lines = rows.map((r) => {
+		const price = r.price != null && r.price !== '' ? Number(r.price) : 0;
+		total += price;
+		const priceSuffix = price > 0 ? ` — ${formatCurrency(price)}` : '';
+		return `• ${r.name} (talla ${r.size})${priceSuffix}`;
+	});
+	return {
+		shirtOrderSummary: lines.join('\n'),
+		shirtCharge: Math.round(total * 100) / 100,
 	};
 };

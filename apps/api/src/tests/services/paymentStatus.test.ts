@@ -4,6 +4,8 @@ import { Participant } from '../../entities/participant.entity';
 import { Payment } from '../../entities/payment.entity';
 import { ParticipantDebt } from '../../entities/participantDebt.entity';
 import { Retreat } from '../../entities/retreat.entity';
+import { ParticipantShirtSize } from '../../entities/participantShirtSize.entity';
+import { RetreatShirtType } from '../../entities/retreatShirtType.entity';
 
 const makePayment = (amount: number): Payment => {
 	const p = new Payment();
@@ -24,6 +26,7 @@ const makeRetreat = (
 	fees?: {
 		serverFeeAmount?: number | null;
 		mealCost?: number | null;
+		id?: string;
 	},
 ): Retreat => {
 	const r = new Retreat();
@@ -31,8 +34,25 @@ const makeRetreat = (
 	if (fees) {
 		if (fees.serverFeeAmount !== undefined) r.serverFeeAmount = fees.serverFeeAmount;
 		if (fees.mealCost !== undefined) r.mealCost = fees.mealCost;
+		if (fees.id !== undefined) r.id = fees.id;
 	}
 	return r;
+};
+
+const makeShirtType = (id: string, retreatId: string, price: number | null): RetreatShirtType => {
+	const t = new RetreatShirtType();
+	t.id = id;
+	t.retreatId = retreatId;
+	t.price = price;
+	return t;
+};
+
+const makeShirtSize = (shirtType: RetreatShirtType, size = 'M'): ParticipantShirtSize => {
+	const s = new ParticipantShirtSize();
+	s.shirtTypeId = shirtType.id;
+	s.shirtType = shirtType;
+	s.size = size;
+	return s;
 };
 
 const makeParticipant = (opts: {
@@ -43,6 +63,7 @@ const makeParticipant = (opts: {
 	mealCount?: number | null;
 	takesFridayMeal?: boolean | null;
 	retreat?: Retreat | null;
+	shirtSizes?: ParticipantShirtSize[];
 }): Participant => {
 	const p = new Participant();
 	if (opts.type !== undefined) (p as any).type = opts.type;
@@ -54,6 +75,7 @@ const makeParticipant = (opts: {
 	if (opts.retreat !== undefined) {
 		p.retreat = opts.retreat as any;
 	}
+	if (opts.shirtSizes !== undefined) p.shirtSizes = opts.shirtSizes;
 	return p;
 };
 
@@ -237,6 +259,116 @@ describe('Participant — cargos por tipo (paz y salvo v2)', () => {
 		});
 		expect(p.chargeBreakdown.expected).toBe(0);
 		expect(p.paymentStatus).toBe('scholarship');
+	});
+});
+
+describe('Participant — cargo de camisetas (totalShirtCharge / chargeBreakdown.shirts)', () => {
+	const retreat = () => makeRetreat('$2,800', { serverFeeAmount: 1500, mealCost: 150, id: 'ret-1' });
+
+	it('servidor con una prenda con precio: se suma al esperado', () => {
+		const shirtType = makeShirtType('st-1', 'ret-1', 250);
+		const p = makeParticipant({
+			type: 'server',
+			retreat: retreat(),
+			takesFridayMeal: false,
+			shirtSizes: [makeShirtSize(shirtType)],
+		});
+		expect(p.chargeBreakdown.shirts).toBe(250);
+		expect(p.chargeBreakdown.expected).toBe(1750);
+	});
+
+	it('servidor con varias prendas: se suman todas', () => {
+		const shirtType1 = makeShirtType('st-1', 'ret-1', 250);
+		const shirtType2 = makeShirtType('st-2', 'ret-1', 500);
+		const p = makeParticipant({
+			type: 'server',
+			retreat: retreat(),
+			takesFridayMeal: false,
+			shirtSizes: [makeShirtSize(shirtType1), makeShirtSize(shirtType2, 'G')],
+		});
+		expect(p.chargeBreakdown.shirts).toBe(750);
+		expect(p.chargeBreakdown.expected).toBe(2250);
+	});
+
+	it('caminante con la misma prenda: NO se le suma (va incluida en la cuota del retiro)', () => {
+		const shirtType = makeShirtType('st-1', 'ret-1', 250);
+		const p = makeParticipant({
+			type: 'walker',
+			retreat: retreat(),
+			shirtSizes: [makeShirtSize(shirtType)],
+		});
+		expect(p.chargeBreakdown.shirts).toBe(0);
+		expect(p.chargeBreakdown.expected).toBe(2800);
+	});
+
+	it('angelito (partial_server) con prenda: se suma igual que a un servidor', () => {
+		const shirtType = makeShirtType('st-1', 'ret-1', 300);
+		const p = makeParticipant({
+			type: 'partial_server',
+			retreat: retreat(),
+			mealCount: 2,
+			shirtSizes: [makeShirtSize(shirtType)],
+		});
+		expect(p.chargeBreakdown.shirts).toBe(300);
+		expect(p.chargeBreakdown.expected).toBe(600);
+	});
+
+	it('becado: exento del cargo de camisetas también (esperado 0)', () => {
+		const shirtType = makeShirtType('st-1', 'ret-1', 250);
+		const p = makeParticipant({
+			type: 'server',
+			isScholarship: true,
+			retreat: retreat(),
+			shirtSizes: [makeShirtSize(shirtType)],
+		});
+		expect(p.chargeBreakdown.shirts).toBe(0);
+		expect(p.chargeBreakdown.expected).toBe(0);
+	});
+
+	it('tipo de prenda sin precio (null): no suma nada', () => {
+		const shirtType = makeShirtType('st-1', 'ret-1', null);
+		const p = makeParticipant({
+			type: 'server',
+			retreat: retreat(),
+			takesFridayMeal: false,
+			shirtSizes: [makeShirtSize(shirtType)],
+		});
+		expect(p.chargeBreakdown.shirts).toBe(0);
+		expect(p.chargeBreakdown.expected).toBe(1500);
+	});
+
+	it('prenda de OTRO retiro (mismo participante global): se excluye del cargo', () => {
+		// participant_shirt_size no tiene retreatId propio — el filtro es vía
+		// shirtType.retreatId === participant.retreat.id. Una fila de otro
+		// retiro nunca debe sumarse al saldo del retiro en contexto.
+		const shirtTypeOtherRetreat = makeShirtType('st-1', 'ret-OTHER', 250);
+		const p = makeParticipant({
+			type: 'server',
+			retreat: retreat(), // ret-1
+			takesFridayMeal: false,
+			shirtSizes: [makeShirtSize(shirtTypeOtherRetreat)],
+		});
+		expect(p.chargeBreakdown.shirts).toBe(0);
+		expect(p.chargeBreakdown.expected).toBe(1500);
+	});
+
+	it('sin shirtSizes cargado (relación no incluida): totalShirtCharge es 0, no rompe', () => {
+		const p = makeParticipant({ type: 'server', retreat: retreat(), takesFridayMeal: false });
+		expect(p.totalShirtCharge).toBe(0);
+		expect(p.chargeBreakdown.shirts).toBe(0);
+	});
+
+	it('el cargo de camisetas reduce paymentRemaining junto con el resto de cargos', () => {
+		const shirtType = makeShirtType('st-1', 'ret-1', 250);
+		const p = makeParticipant({
+			type: 'server',
+			retreat: retreat(),
+			takesFridayMeal: false,
+			shirtSizes: [makeShirtSize(shirtType)],
+			payments: [makePayment(1000)],
+		});
+		// expected = 1500 (fee) + 250 (shirt) = 1750; pagado 1000 → falta 750
+		expect(p.paymentRemaining).toBe(750);
 	});
 });
 

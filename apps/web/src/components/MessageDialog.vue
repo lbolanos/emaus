@@ -466,6 +466,7 @@ import {
 	sendEmailViaBackend,
 	sendCommunityEmailViaBackend,
 	getParticipantNextMeeting,
+	getParticipantShirtOrder,
 } from '@/services/api';
 import ParticipantMessageHistory from './ParticipantMessageHistory.vue';
 import CommunityMessageHistory from './CommunityMessageHistory.vue';
@@ -562,6 +563,11 @@ const hasSavedSendMethodPref = ref(false);
 const nextMeetingFormatted = ref<string | null>(null);
 const nextMeetingTitle = ref<string | null>(null);
 const nextMeetingId = ref<string | null>(null);
+// Resumen del pedido de prendas (servidores/angelitos), para resolver
+// {participant.shirtOrderSummary}/{participant.shirtCharge}. Solo aplica en
+// contexto retreat (las prendas son por retiro). Null = not loaded yet.
+const shirtOrderSummary = ref<string | null>(null);
+const shirtCharge = ref<number | null>(null);
 
 // Computed properties
 const contextId = computed(() => props.context === 'retreat' ? props.retreatId : props.communityId);
@@ -821,6 +827,16 @@ const updateMessagePreview = () => {
 	// {participant.firstName} debe resolver al overlay si existe.
 	const isCommunityCtx = props.context === 'community';
 	let participantData = (enrichedParticipantData.value ?? props.participant) as ParticipantData;
+	// Inyecta el resumen de prendas (fetched on dialog open) para resolver
+	// {participant.shirtOrderSummary}/{participant.shirtCharge}. Solo aplica
+	// en contexto retreat — ver loadShirtOrder().
+	if (!isCommunityCtx) {
+		participantData = {
+			...participantData,
+			shirtOrderSummary: shirtOrderSummary.value || '',
+			shirtCharge: shirtCharge.value ?? undefined,
+		};
+	}
 	if (isCommunityCtx && props.participant && 'participant' in props.participant) {
 		const overlay = resolveMemberProfile(props.participant as any);
 		participantData = {
@@ -1516,6 +1532,37 @@ const loadNextMeeting = async () => {
 	}
 };
 
+const loadShirtOrder = async () => {
+	// Solo aplica en contexto retreat: las prendas se scopean por retiro y el
+	// modo community no tiene uno.
+	if (props.context !== 'retreat' || !props.retreatId || !props.participant) {
+		shirtOrderSummary.value = '';
+		shirtCharge.value = null;
+		return;
+	}
+	const participantData = 'participant' in props.participant && props.participant.participant
+		? props.participant.participant
+		: props.participant;
+	const pid = (participantData as any).id;
+	if (!pid) {
+		shirtOrderSummary.value = '';
+		shirtCharge.value = null;
+		return;
+	}
+	try {
+		const result = await getParticipantShirtOrder(pid, props.retreatId);
+		shirtOrderSummary.value = result?.shirtOrderSummary || '';
+		shirtCharge.value = result?.shirtCharge ?? null;
+	} catch {
+		// Silent fail — placeholders resolverán a empty.
+		shirtOrderSummary.value = '';
+		shirtCharge.value = null;
+	}
+	if (selectedTemplate.value && !isUserEditing.value) {
+		updateMessagePreview();
+	}
+};
+
 // Watchers
 watch(() => props.open, (newValue: boolean) => {
 	if (newValue && props.participant) {
@@ -1560,6 +1607,9 @@ watch(() => props.open, (newValue: boolean) => {
 		nextMeetingTitle.value = null;
 		nextMeetingId.value = null;
 		loadNextMeeting();
+		shirtOrderSummary.value = null;
+		shirtCharge.value = null;
+		loadShirtOrder();
 
 		// Load templates based on context
 		if (props.context === 'community' && props.communityId) {

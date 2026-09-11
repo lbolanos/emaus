@@ -229,4 +229,82 @@ describe('Shirt Report Service', () => {
 		expect(result.participants[0].shirts).toHaveLength(1);
 		expect(result.participants[0].shirts[0].shirtTypeName).toBe('Playera A');
 	});
+
+	// --- Precio / shirtCharge / totalCharge ---
+
+	it('shirtTypes en la respuesta incluyen el precio (o null si no está configurado)', async () => {
+		const retreatId = await makeRetreat();
+		await createShirtType(retreatId, { name: 'Playera', sortOrder: 1, price: 135 });
+		await createShirtType(retreatId, { name: 'Chamarra', sortOrder: 2 });
+
+		const result = await getShirtOrdersForRetreat(retreatId);
+		const playera = result.shirtTypes.find((t) => t.name === 'Playera')!;
+		const chamarra = result.shirtTypes.find((t) => t.name === 'Chamarra')!;
+		expect(playera.price).toBe(135);
+		expect(chamarra.price).toBeNull();
+	});
+
+	it('shirtCharge por participante suma el precio de cada prenda pedida', async () => {
+		const retreatId = await makeRetreat();
+		const playera = await createShirtType(retreatId, { name: 'Playera', sortOrder: 1, price: 135 });
+		const chamarra = await createShirtType(retreatId, { name: 'Chamarra', sortOrder: 2, price: 275 });
+
+		const server = await TestDataFactory.createTestParticipant(retreatId, {
+			firstName: 'Ana',
+			lastName: 'López',
+			type: 'server',
+		} as any);
+		await assignShirtSize(server.id, playera.id, 'M');
+		await assignShirtSize(server.id, chamarra.id, 'G');
+
+		const result = await getShirtOrdersForRetreat(retreatId);
+		expect(result.participants[0].shirtCharge).toBe(410);
+		expect(result.participants[0].shirts.find((s) => s.shirtTypeName === 'Playera')?.price).toBe(
+			135,
+		);
+	});
+
+	it('shirtCharge es 0 cuando el tipo no tiene precio configurado', async () => {
+		const retreatId = await makeRetreat();
+		const shirt = await createShirtType(retreatId, { name: 'Playera' });
+
+		const server = await TestDataFactory.createTestParticipant(retreatId, {
+			firstName: 'Sin',
+			lastName: 'Precio',
+			type: 'server',
+		} as any);
+		await assignShirtSize(server.id, shirt.id, 'M');
+
+		const result = await getShirtOrdersForRetreat(retreatId);
+		expect(result.participants[0].shirtCharge).toBe(0);
+		expect(result.participants[0].shirts[0].price).toBeNull();
+	});
+
+	it('totalCharge en la respuesta suma el shirtCharge de todos los participantes', async () => {
+		const retreatId = await makeRetreat();
+		const playera = await createShirtType(retreatId, { name: 'Playera', price: 135 });
+
+		const server = await TestDataFactory.createTestParticipant(retreatId, {
+			firstName: 'Ana',
+			lastName: 'López',
+			type: 'server',
+		} as any);
+		await assignShirtSize(server.id, playera.id, 'M');
+
+		const angel = await TestDataFactory.createTestParticipant(retreatId, {
+			firstName: 'Beto',
+			lastName: 'Pérez',
+			type: 'partial_server',
+		} as any);
+		await assignShirtSize(angel.id, playera.id, 'S');
+
+		const result = await getShirtOrdersForRetreat(retreatId);
+		expect(result.totalCharge).toBe(270);
+	});
+
+	it('totalCharge es 0 cuando no hay participantes con prendas', async () => {
+		const retreatId = await makeRetreat();
+		const result = await getShirtOrdersForRetreat(retreatId);
+		expect(result.totalCharge).toBe(0);
+	});
 });

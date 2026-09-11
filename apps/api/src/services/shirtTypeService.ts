@@ -26,6 +26,8 @@ export type ShirtTypeInput = {
 	optionalForServers?: boolean;
 	sortOrder?: number;
 	availableSizes?: string[] | null;
+	/** Precio de la prenda para el servidor que la pide. NULL = sin cargo. */
+	price?: number | null;
 };
 
 const normalizeSizes = (sizes: string[] | null | undefined): string[] | null => {
@@ -53,6 +55,7 @@ export const createShirtType = async (retreatId: string, data: ShirtTypeInput) =
 		optionalForServers: data.optionalForServers ?? true,
 		sortOrder: data.sortOrder ?? 0,
 		availableSizes: normalizeSizes(data.availableSizes),
+		price: data.price ?? null,
 	});
 	const saved = await repo().save(entity);
 	await syncInventoryShirts(retreatId);
@@ -72,6 +75,8 @@ export const updateShirtType = async (id: string, data: Partial<ShirtTypeInput>)
 	if ('optionalForServers' in data) updates.optionalForServers = !!data.optionalForServers;
 	if ('sortOrder' in data) updates.sortOrder = data.sortOrder ?? 0;
 	if ('availableSizes' in data) updates.availableSizes = normalizeSizes(data.availableSizes);
+	// NULL limpia el precio (sin cargo); '' del input se trata como null.
+	if ('price' in data) updates.price = data.price == null ? null : Number(data.price) || 0;
 
 	if (Object.keys(updates).length > 0) {
 		await repo().update({ id }, updates);

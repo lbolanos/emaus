@@ -2,9 +2,10 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRetreatStore } from '@/stores/retreatStore'
 import { Input } from '@repo/ui'
+import { formatCurrency } from '@repo/utils'
 import { getShirtReport } from '@/services/api'
 import type { ShirtReportResponse, ShirtReportParticipant } from '@repo/types'
-import { Shirt, Printer, Search, X, Users, Sparkles, Package } from 'lucide-vue-next'
+import { Shirt, Printer, Search, X, Users, Sparkles, Package, Wallet } from 'lucide-vue-next'
 
 const retreatStore = useRetreatStore()
 
@@ -38,6 +39,8 @@ const totals = computed(() => {
   }
   return { servers, angelitos, garments, total: list.length }
 })
+
+const totalCharge = computed(() => report.value?.totalCharge ?? 0)
 
 function clearSearch() {
   searchQuery.value = ''
@@ -104,6 +107,13 @@ onMounted(async () => {
             <div class="leading-tight text-left">
               <div class="text-lg font-bold text-indigo-700">{{ totals.garments }}</div>
               <div class="text-[10px] text-indigo-500 uppercase tracking-wide">Prendas</div>
+            </div>
+          </div>
+          <div class="text-center px-3 py-1.5 rounded-lg bg-emerald-50 border border-emerald-100 flex items-center gap-2">
+            <Wallet class="w-4 h-4 text-emerald-600" />
+            <div class="leading-tight text-left">
+              <div class="text-lg font-bold text-emerald-700">{{ formatCurrency(totalCharge) }}</div>
+              <div class="text-[10px] text-emerald-600 uppercase tracking-wide">Valor total</div>
             </div>
           </div>
 
@@ -176,6 +186,9 @@ onMounted(async () => {
               >
                 {{ t.name }}
               </th>
+              <th class="px-3 py-2.5 w-20 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                Valor
+              </th>
               <th class="print-only px-3 py-2.5 w-12 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">
                 ✓
               </th>
@@ -208,13 +221,16 @@ onMounted(async () => {
                 </span>
                 <span v-else class="text-gray-300 text-xs">—</span>
               </td>
+              <td class="px-3 py-2.5 text-right text-xs font-medium text-gray-700 tabular-nums">
+                {{ formatCurrency(participant.shirtCharge) }}
+              </td>
               <td class="print-only px-3 py-2.5 text-center">
                 <span class="inline-block w-5 h-5 border-2 border-gray-300 rounded" />
               </td>
             </tr>
 
             <tr v-if="filteredParticipants.length === 0">
-              <td :colspan="2 + sortedShirtTypes.length" class="px-4 py-12 text-center">
+              <td :colspan="3 + sortedShirtTypes.length" class="px-4 py-12 text-center">
                 <div class="flex flex-col items-center gap-2 text-gray-400">
                   <Search class="w-8 h-8 opacity-40" />
                   <p class="text-sm font-medium">Sin resultados para tu búsqueda.</p>

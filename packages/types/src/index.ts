@@ -726,6 +726,7 @@ export const shirtReportShirtSchema = z.object({
 	color: z.string().nullable(),
 	sortOrder: z.number(),
 	size: z.string(),
+	price: z.number().nullable(),
 });
 export type ShirtReportShirt = z.infer<typeof shirtReportShirtSchema>;
 
@@ -736,6 +737,7 @@ export const shirtReportParticipantSchema = z.object({
 	idOnRetreat: z.number().nullable(),
 	type: z.enum(['server', 'partial_server']),
 	shirts: z.array(shirtReportShirtSchema),
+	shirtCharge: z.number(),
 });
 export type ShirtReportParticipant = z.infer<typeof shirtReportParticipantSchema>;
 
@@ -744,12 +746,14 @@ export const shirtReportShirtTypeSchema = z.object({
 	name: z.string(),
 	color: z.string().nullable(),
 	sortOrder: z.number(),
+	price: z.number().nullable(),
 });
 export type ShirtReportShirtType = z.infer<typeof shirtReportShirtTypeSchema>;
 
 export const shirtReportResponseSchema = z.object({
 	shirtTypes: z.array(shirtReportShirtTypeSchema),
 	participants: z.array(shirtReportParticipantSchema),
+	totalCharge: z.number(),
 });
 export type ShirtReportResponse = z.infer<typeof shirtReportResponseSchema>;
 
@@ -1177,6 +1181,7 @@ export const retreatShirtTypeSchema = z.object({
 	optionalForServers: z.boolean(),
 	sortOrder: z.number(),
 	availableSizes: z.array(z.string()).nullable().optional(),
+	price: z.number().nullable().optional(),
 });
 export type RetreatShirtType = z.infer<typeof retreatShirtTypeSchema>;
 

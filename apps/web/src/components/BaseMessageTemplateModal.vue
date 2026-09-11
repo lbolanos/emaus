@@ -422,7 +422,7 @@ import { useRetreatStore } from '@/stores/retreatStore';
 import RichTextEditor from './RichTextEditor.vue';
 import { messageTemplateTypes, getMessageTemplateAudience } from '@repo/types';
 import { convertHtmlToWhatsApp, convertHtmlToEmail, detectEmailClient, copyRichTextToClipboard, testEmojiConversion, beautifyHtml, replaceAllVariables, buildServerRegistrationLink, ParticipantData, RetreatData } from '@/utils/message';
-import { getParticipantNextMeeting } from '@/services/api';
+import { getParticipantNextMeeting, getParticipantShirtOrder } from '@/services/api';
 import { sanitizeHtml, sanitizeEmailHtml } from '@/utils/sanitize';
 
 interface Props {
@@ -487,6 +487,12 @@ const selectedParticipant = ref('');
 // preview matches the actual send output for {retreat.next_meeting_date}.
 // `null` = not loaded; empty string = no meeting (use mock fallback).
 const previewNextMeetingDate = ref<string | null>(null);
+// Resumen del pedido de prendas para el participante de muestra. Solo aplica
+// a templates de retiro (isGlobal o no, mientras haya un retiro seleccionado
+// en el store); community-scoped no tiene noción de prendas. `null` = not
+// loaded/no aplica; el preview cae al mock de @repo/utils en ese caso.
+const previewShirtOrderSummary = ref<string | null>(null);
+const previewShirtCharge = ref<number | null>(null);
 
 const formData = ref({
   name: '',
@@ -609,6 +615,8 @@ const participantVariables = computed(() => [
   { key: 'palanqueroEmail', label: 'Palanquero del Caminante (Email)' },
   { key: 'palanqueroCellPhone', label: 'Palanquero del Caminante (Móvil)' },
   { key: 'paymentRemaining', label: 'Saldo pendiente (falta por pagar)' },
+  { key: 'shirtOrderSummary', label: 'Resumen de prendas pedidas (servidor)' },
+  { key: 'shirtCharge', label: 'Valor total de las prendas' },
 ]);
 
 const retreatVariables = computed(() => [
@@ -862,6 +870,19 @@ const previewMessage = computed(() => {
       }
     : baseRetreat;
 
+  // Inyecta el resumen de prendas (fetched cuando cambia el participante de
+  // muestra) para que {participant.shirtOrderSummary}/{participant.shirtCharge}
+  // no aparezcan como "variable vacía" con un participante real seleccionado.
+  // Sin participante seleccionado, replaceAllVariables cae al mock de
+  // @repo/utils, que ya trae valores de ejemplo para ambas.
+  const participantData: ParticipantData | null = selectedParticipantData.value
+    ? {
+        ...(selectedParticipantData.value as ParticipantData),
+        shirtOrderSummary: previewShirtOrderSummary.value || '',
+        shirtCharge: previewShirtCharge.value ?? undefined,
+      }
+    : (selectedParticipantData.value as ParticipantData | null);
+
   // For community-scoped templates we pass `null` as community so
   // replaceCommunityVariables falls back to mock data and the preview
   // shows realistic placeholder values for {community.X}.
@@ -870,7 +891,7 @@ const previewMessage = computed(() => {
   // template actually contains table placeholders, e.g. TABLE_LEADER_BRIEFING).
   message = replaceAllVariables(
     message,
-    selectedParticipantData.value as ParticipantData,
+    participantData,
     retreatData,
     undefined,
     isCommunityScope.value ? null : undefined,
@@ -917,6 +938,8 @@ watch(
   async (participantId) => {
     if (!participantId) {
       previewNextMeetingDate.value = null;
+      previewShirtOrderSummary.value = null;
+      previewShirtCharge.value = null;
       return;
     }
     try {
@@ -928,6 +951,24 @@ watch(
       previewNextMeetingDate.value = result?.formattedDate || '';
     } catch {
       previewNextMeetingDate.value = '';
+    }
+    // Prendas: no aplica a templates community-scoped (no hay noción de
+    // retiro ahí). Requiere un retiro seleccionado en el store.
+    if (!isCommunityScope.value && retreatStore.selectedRetreatId) {
+      try {
+        const shirtResult = await getParticipantShirtOrder(
+          participantId,
+          retreatStore.selectedRetreatId,
+        );
+        previewShirtOrderSummary.value = shirtResult?.shirtOrderSummary || '';
+        previewShirtCharge.value = shirtResult?.shirtCharge ?? null;
+      } catch {
+        previewShirtOrderSummary.value = '';
+        previewShirtCharge.value = null;
+      }
+    } else {
+      previewShirtOrderSummary.value = null;
+      previewShirtCharge.value = null;
     }
   },
   { immediate: false },

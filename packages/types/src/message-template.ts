@@ -34,6 +34,11 @@ export const messageTemplateTypes = z.enum([
 	// decir a gente que todavía NO está inscrita. Se despacha por la bandeja de
 	// WhatsApp, uno por uno, desde el teléfono del coordinador.
 	'SERVER_CONVOCATION',
+	// Confirmación de prendas (camisetas/chamarras) del servidor: aviso y
+	// recordatorio con su configuración actual y el valor a su cargo. Mismo
+	// canal asistido que la convocatoria.
+	'SERVER_SHIRT_CONFIRMATION',
+	'SERVER_SHIRT_CONFIRMATION_REMINDER',
 	// Family invitation to closing mass
 	'FAMILY_CLOSING_INVITATION_WHATSAPP',
 	'FAMILY_CLOSING_INVITATION_EMAIL',
@@ -97,6 +102,8 @@ const MESSAGE_TEMPLATE_AUDIENCE_BY_TYPE: Record<string, MessageTemplateAudience>
 	// Servidor
 	SERVER_WELCOME: 'server',
 	SERVER_CONVOCATION: 'server',
+	SERVER_SHIRT_CONFIRMATION: 'server',
+	SERVER_SHIRT_CONFIRMATION_REMINDER: 'server',
 	// Líder/colíder de mesa
 	TABLE_LEADER_BRIEFING: 'table_leader',
 	// Responsable (palanquero recibe el aviso de nuevo caminante)

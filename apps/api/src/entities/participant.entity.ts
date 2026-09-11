@@ -14,6 +14,7 @@ import { TableMesa } from './tableMesa.entity';
 import { Responsability } from './responsability.entity';
 import { Payment } from './payment.entity';
 import { ParticipantDebt } from './participantDebt.entity';
+import { ParticipantShirtSize } from './participantShirtSize.entity';
 import { retreatFeeForType } from '../utils/retreatCharges';
 import { RetreatBed } from './retreatBed.entity';
 import { ParticipantTag } from './participantTag.entity';
@@ -313,6 +314,12 @@ export class Participant {
 	@OneToMany(() => ParticipantDebt, (debt) => debt.participant)
 	debts!: ParticipantDebt[];
 
+	// Pedido de prendas (camisetas/chamarras): una fila = pidió esa prenda en
+	// esa talla. La relación es global al participante; el cargo se scopea al
+	// retiro en contexto vía shirtType.retreatId (ver totalShirtCharge).
+	@OneToMany(() => ParticipantShirtSize, (shirtSize) => shirtSize.participant)
+	shirtSizes?: ParticipantShirtSize[];
+
 	@OneToMany(() => ParticipantTag, (participantTag) => participantTag.participant)
 	tags!: ParticipantTag[];
 
@@ -387,22 +394,42 @@ export class Participant {
 	}
 
 	/**
+	 * Valor de las prendas pedidas para el retiro en contexto. Solo cuentan las
+	 * filas cuyo tipo pertenece a `this.retreat`: participant_shirt_size es
+	 * global al participante y sin ese filtro las prendas de otros retiros se
+	 * sumarían al saldo. Sin la relación cargada (o sin precio) → 0.
+	 */
+	get totalShirtCharge(): number {
+		if (!this.shirtSizes || this.shirtSizes.length === 0) {
+			return 0;
+		}
+		const retreatId = this.retreat?.id;
+		const total = this.shirtSizes
+			.filter((s) => s.shirtType != null && s.shirtType.retreatId === retreatId)
+			.reduce((sum, s) => sum + (Number(s.shirtType.price) || 0), 0);
+		return Math.round(total * 100) / 100;
+	}
+
+	/**
 	 * Calcula el desglose de cargos esperados del participante según su tipo:
 	 *   - retreatFee: cobro del retiro. Caminante → el texto `cost` del retiro
 	 *     (parseado). Servidor → serverFeeAmount (fallback a `cost` si es null).
 	 *   - meals: angelito (partial_server) → nº comidas × mealCost; server → comida del viernes.
 	 *   - debts: suma de deudas manuales.
+	 *   - shirts: valor de las prendas pedidas. Solo servidores/angelitos: la
+	 *     prenda del caminante va incluida en la cuota del retiro.
 	 * Becado (isScholarship) queda exento de todo → expected 0 (paz y salvo automático).
 	 */
 	private computeCharges(): {
 		retreatFee: number;
 		meals: number;
 		debts: number;
+		shirts: number;
 		expected: number;
 	} {
 		const retreat = this.retreat;
 		if (this.isScholarship || !retreat) {
-			return { retreatFee: 0, meals: 0, debts: 0, expected: 0 };
+			return { retreatFee: 0, meals: 0, debts: 0, shirts: 0, expected: 0 };
 		}
 
 		// Cobro del retiro según tipo (helper consolidado).
@@ -420,6 +447,8 @@ export class Participant {
 		}
 
 		const debts = this.totalDebt;
+		const shirts =
+			this.type === 'server' || this.type === 'partial_server' ? this.totalShirtCharge : 0;
 		// Redondeo a centavos: las sumas en float pueden acumular error binario
 		// (ej. 0.1 + 0.2); el dinero del modelo siempre se trata a 2 decimales.
 		const round2 = (n: number) => Math.round(n * 100) / 100;
@@ -427,7 +456,8 @@ export class Participant {
 			retreatFee: round2(retreatFee),
 			meals: round2(meals),
 			debts: round2(debts),
-			expected: round2(retreatFee + meals + debts),
+			shirts: round2(shirts),
+			expected: round2(retreatFee + meals + debts + shirts),
 		};
 	}
 
@@ -438,6 +468,7 @@ export class Participant {
 		retreatFee: number;
 		meals: number;
 		debts: number;
+		shirts: number;
 		expected: number;
 		totalPaid: number;
 		balance: number;
