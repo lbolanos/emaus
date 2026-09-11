@@ -28,11 +28,17 @@ test.use({ locale: 'es-MX' });
 const COUPLES_RETREAT_ID =
 	process.env.E2E_COUPLES_RETREAT_ID ?? 'e9b3c568-050a-4d66-a99d-305f287a59df';
 const INDIVIDUAL_RETREAT_ID =
-	process.env.E2E_RETREAT_ID ?? '96f06c40-327a-4513-ae48-fb4c60bbab17';
+	process.env.E2E_RETREAT_ID ?? 'e9b3c568-050a-4d66-a99d-305f287a59df';
 
 const SHARED_EMAIL = 'qa.pareja@example.com';
 
-type PublicRetreat = { id: string; isPublic: boolean; retreat_type?: string | null };
+type PublicRetreat = {
+	id: string;
+	isPublic: boolean;
+	isRegistrationClosed?: boolean;
+	retreat_type?: string | null;
+	shirtTypes?: Array<{ optionalForServers?: boolean }>;
+};
 
 async function fetchPublicRetreat(
 	request: APIRequestContext,
@@ -43,7 +49,7 @@ async function fetchPublicRetreat(
 	return response.json();
 }
 
-async function openCoupleRegistration(page: Page) {
+async function openCoupleRegistration(page: Page, type: 'walker' | 'server' = 'walker') {
 	await page.addInitScript(() => localStorage.setItem('preferred-locale', 'es'));
 	// A stale draft from a previous run would pre-fill the wizard and mask a
 	// regression in the "fresh form" assertions.
@@ -52,7 +58,7 @@ async function openCoupleRegistration(page: Page) {
 			if (key.startsWith('registration-draft:couple:')) localStorage.removeItem(key);
 		}
 	});
-	await page.goto(`/register/walker/${COUPLES_RETREAT_ID}?test=true`);
+	await page.goto(`/register/${type}/${COUPLES_RETREAT_ID}?test=true`);
 	await expect(page.getByText('Registro de pareja')).toBeVisible();
 }
 
@@ -169,8 +175,10 @@ test.describe('Registro de pareja (retiro de matrimonios)', () => {
 	}) => {
 		const retreat = await fetchPublicRetreat(request, INDIVIDUAL_RETREAT_ID);
 		test.skip(
-			!retreat?.isPublic || retreat?.retreat_type === 'couples',
-			`Retreat ${INDIVIDUAL_RETREAT_ID} is not a public non-couples retreat`,
+			!retreat?.isPublic
+				|| retreat?.retreat_type === 'couples'
+				|| retreat?.isRegistrationClosed,
+			`Retreat ${INDIVIDUAL_RETREAT_ID} is not an open public non-couples retreat`,
 		);
 
 		await page.addInitScript(() => localStorage.setItem('preferred-locale', 'es'));
@@ -262,5 +270,68 @@ test.describe('Registro de pareja (retiro de matrimonios)', () => {
 
 		expect(response.status()).toBe(200);
 		expect(await response.json()).toMatchObject({ valid: true });
+	});
+
+	// The server flow picks shirt sizes through Step5ServerInfo, whose select
+	// ships with "No necesita" preselected: a couple that never touches it is
+	// about to register without a single size. The app asks once, covering both
+	// spouses, and only then sends the (dry-run) payload.
+	test('la pareja servidora sin tallas ve la pregunta de playeras antes de registrar', async ({
+		page,
+		request,
+	}) => {
+		const retreat = await fetchPublicRetreat(request, COUPLES_RETREAT_ID);
+		test.skip(
+			!retreat?.shirtTypes?.some((shirtType) => shirtType.optionalForServers),
+			`Retreat ${COUPLES_RETREAT_ID} offers no optional shirts for servers`,
+		);
+
+		await openCoupleRegistration(page, 'server');
+
+		await fillPersonal(page, {
+			firstName: 'Ernesto',
+			lastName: 'QA Pareja',
+			birthDate: '1978-03-15',
+			cellPhone: '5511122233',
+		});
+		await clickNext(page);
+		await fillPersonal(page, {
+			firstName: 'Lucía',
+			lastName: 'QA Pareja',
+			birthDate: '1980-07-22',
+			cellPhone: '5544455566',
+		});
+		await clickNext(page);
+
+		await fillAddress(page);
+		await clickNext(page);
+
+		await answerHealthNo(page); // él
+		await clickNext(page);
+		await answerHealthNo(page); // ella
+		await clickNext(page);
+
+		// Emergency contacts are optional for servers: skip through.
+		await expect(page.getByTestId('toggle-different-emergency')).toBeVisible();
+		await clickNext(page);
+
+		// 'Other' step: both spouses' server info, no size picked on purpose.
+		await expect(page.getByText('Playeras y comida')).toBeVisible();
+		await clickNext(page);
+
+		await expect(page.getByTestId('couple-submit')).toBeVisible();
+		const postRequest = page.waitForRequest(
+			(r) => r.url().includes('/participants/couple/new') && r.method() === 'POST',
+		);
+		await page.getByTestId('couple-submit').click();
+
+		// The question appears and its copy addresses the couple.
+		await expect(page.getByText('¿No necesitan playera?')).toBeVisible();
+		await page.getByRole('button', { name: /No necesitamos playeras, regístranos/i }).click();
+
+		const body = (await postRequest).postDataJSON();
+		// Guard: the spec never writes to the database.
+		expect(body.dryRun).toBe(true);
+		expect(body.type).toBe('server');
 	});
 });

@@ -26,6 +26,7 @@ import Step2AddressInfo from '@/components/registration/Step2AddressInfo.vue'
 import Step3ServiceInfo from '@/components/registration/Step3ServiceInfo.vue'
 import Step4EmergencyContact from '@/components/registration/Step4EmergencyContact.vue'
 import Step5ServerInfo from '@/components/registration/Step5ServerInfo.vue'
+import ShirtConfirmBanner from '@/components/registration/ShirtConfirmBanner.vue'
 import { Input } from '@repo/ui'
 
 const props = defineProps<{ retreatId?: string; slug?: string; type: string }>()
@@ -395,6 +396,8 @@ const nextStep = () => {
 }
 
 const prevStep = () => {
+	// A shirt question left open does not survive leaving the summary.
+	shirtConfirmOpen.value = false
 	if (currentStep.value > 1) currentStep.value--
 }
 
@@ -479,6 +482,47 @@ const walkerSizes = computed<string[]>(() => {
 	if (!type || !type.availableSizes || type.availableSizes.length === 0) return FALLBACK_SIZES
 	return type.availableSizes
 })
+
+// ---------- Playeras (pareja servidora) ----------
+
+// Same rationale as the individual server registration: the shirt select ships
+// with "No necesita" preselected, so submitting without a size is almost never
+// a conscious decision. The question covers the couple — it appears only when
+// neither spouse picked any size; one active choice means they saw the selects.
+const serverShirtTypes = computed<any[]>(() =>
+	(retreatData.value?.shirtTypes || []).filter((shirtType: any) => shirtType.optionalForServers),
+)
+
+const anyServerShirtChosen = (spouse: Record<string, any>): boolean =>
+	Object.values(spouse.shirtSizesByType ?? {}).some((size) => size && size !== 'null')
+
+const needsShirtConfirm = (): boolean =>
+	!isWalker.value &&
+	serverShirtTypes.value.length > 0 &&
+	!anyServerShirtChosen(husbandData.value) &&
+	!anyServerShirtChosen(wifeData.value)
+
+const shirtConfirmOpen = ref(false)
+
+/** Submit button: asks about shirts before the final submit. */
+const attemptSubmit = () => {
+	if (needsShirtConfirm()) {
+		shirtConfirmOpen.value = true
+		return
+	}
+	handleSubmit()
+}
+
+const confirmNoShirtNeeded = () => {
+	shirtConfirmOpen.value = false
+	handleSubmit()
+}
+
+const backToShirtSelection = () => {
+	shirtConfirmOpen.value = false
+	// Both spouses' shirt selects live on the shared 'other' step.
+	currentStep.value = steps.value.findIndex((step) => step.key === 'other') + 1
+}
 
 // ---------- Submit ----------
 
@@ -947,10 +991,20 @@ onMounted(async () => {
 						v-else
 						:disabled="isSubmitting"
 						data-testid="couple-submit"
-						@click="handleSubmit"
+						@click="attemptSubmit"
 					>
 						{{ $t('common.submit') }}
 					</Button>
+				</div>
+
+				<!-- Confirmación de playeras: enviar sin talla no suele ser decisión consciente -->
+				<div v-if="shirtConfirmOpen" class="pt-2">
+					<ShirtConfirmBanner
+						:disabled="isSubmitting"
+						i18n-prefix="coupleRegistration"
+						@confirm="confirmNoShirtNeeded"
+						@back="backToShirtSelection"
+					/>
 				</div>
 			</template>
 		</div>

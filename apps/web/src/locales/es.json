@@ -1886,6 +1886,12 @@
     "sharedAddressHint": "La dirección se registra una sola vez para los dos.",
     "useDifferentEmergencyContacts": "Usar contactos de emergencia diferentes para cada uno",
     "shirtsTitle": "Tallas de playera",
+    "shirtConfirm": {
+      "title": "¿No necesitan playera?",
+      "description": "Ninguno de los dos registró talla de ninguna playera. Si alguno necesita, vuelve y elijan su talla antes de continuar.",
+      "confirm": "No necesitamos playeras, regístranos",
+      "back": "Queremos elegir talla"
+    },
     "husbandShirtSize": "Talla de él",
     "wifeShirtSize": "Talla de ella",
     "inviterTitle": "¿Quién los invita?",
