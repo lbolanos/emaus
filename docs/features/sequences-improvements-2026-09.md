@@ -302,4 +302,25 @@ M6 en paralelo con todo, desde el día 1
   migración (guard no-op + roundtrip down/up). Web: 12/12 store (update pasa los counts intactos)
   + 10/10 vista (PUT con counts refresca programados+stats; cambio inocuo no refetch-ea). Guard
   i18n 67/67 (2 llaves nuevas es/en).
-- M6: _pendiente_
+- M6 (cerrado 2026-09-12): implementado como especificado, con cinco matices:
+  1. `refreshStatsInBackground` (D3) también se disparó en `retry`/`discard`, no sólo en
+     `dispatch`/`skip` — es la misma clase de bug (badges viejos tras mutating la bandeja o la
+     lista de problemas) y el helper fire-and-forget lo hacía gratis.
+  2. La confirmación de D5 también aplica al "Omitir" del panel de DETALLE (`skipFromDetail`),
+     no sólo al botón de la bandeja: es la misma acción sin retorno y el panel la expone igual.
+  3. `bulkIssues` (D6) ganó un guard `if (!n) return`: con filtro activo y cero filas visibles,
+     el bulk NO cae al "todo el retiro" del server — un bulk-todo accidental tras limpiar la
+     búsqueda sería la peor lectura posible de "respetar lo que se ve".
+  4. El toast de D1 (`duplicated`) explica la semántica («la copia queda inactiva hasta que la
+     actives») en vez de sólo confirmar — el estado inactivo de la copia es SU feature de
+     seguridad y merece decirse en voz alta.
+  5. Al correr vue-tsc se cazó un leftover de M5 que su filtro no vio: el ternario
+     `update ?: create` de `saveDraft` estrechaba el tipo a la unión (los counts ad-hoc del PUT
+     no existen en el tipo del POST) → `TS2339` en runtime-inofensivo pero sucio. Reestructurado
+     a `if/else` con los counts viviendo sólo en la rama del PUT.
+  Tests: web 15/15 store (12 + 3 nuevos: bulk con ids, dispatch/skip refrescan stats con el
+  retiro recordado, sin retiro no refresca) + 16/16 vista (10 + 6 nuevos: D1 copia inactiva con
+  pasos sin id, D2 toggle, D5 confirm cancela, D6 ids filtrados + confirm con lo filtrado +
+  sin filtro undefined, D7 descripción, D4 nombre legible sin type crudo). Guard i18n 66+1
+  skipped (8 llaves nuevas es/en). Nota de fixture: el fetchStats mockeado VACÍA `issues` —
+  un test que encadena dos bulk debe re-sembrar la lista entre llamadas.

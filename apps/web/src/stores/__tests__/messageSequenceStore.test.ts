@@ -101,8 +101,44 @@ describe('messageSequenceStore — despacho/ownership/opt-out', () => {
 		api.getSequenceQueue.mockResolvedValue([]);
 		api.getSequenceStats.mockResolvedValue({ stats: {}, issues: [] });
 		const res = await store.bulkResolveIssues('r1', 'discard');
-		expect(api.bulkResolveSequenceIssues).toHaveBeenCalledWith('r1', 'discard');
+		// Sin filtro activo la UI NO acota: ids viaja undefined (bulk-todo server-side).
+		expect(api.bulkResolveSequenceIssues).toHaveBeenCalledWith('r1', 'discard', undefined);
 		expect(res).toEqual({ affected: 5 });
+	});
+
+	it('bulkResolveIssues acota el bulk a los ids filtrados (M6-D6)', async () => {
+		api.bulkResolveSequenceIssues.mockResolvedValue({ affected: 2 });
+		api.getSequenceQueue.mockResolvedValue([]);
+		api.getSequenceStats.mockResolvedValue({ stats: {}, issues: [] });
+		await store.bulkResolveIssues('r1', 'retry', ['x', 'y']);
+		expect(api.bulkResolveSequenceIssues).toHaveBeenCalledWith('r1', 'retry', ['x', 'y']);
+	});
+
+	it('dispatch/skip refrescan stats en el fondo con el retiro recordado (M6-D3)', async () => {
+		// El store recuerda el retreatId del último fetch (fetchScheduled/fetchSequences).
+		api.fetchScheduledMessages.mockResolvedValue({
+			items: [], total: 0, page: 1, totalPages: 1, timezone: 'America/Mexico_City',
+		});
+		await store.fetchScheduled('r1');
+
+		api.getSequenceStats.mockClear();
+		api.dispatchScheduledMessage.mockResolvedValue(undefined);
+		api.skipScheduledMessage.mockResolvedValue(undefined);
+		store.queue = [{ id: 'a' }];
+		// fetchStats invoca el mock de forma síncrona → al resolver la acción ya fue llamado.
+		await store.dispatch('a');
+		expect(api.getSequenceStats).toHaveBeenCalledWith('r1');
+		api.getSequenceStats.mockClear();
+		await store.skip('a');
+		expect(api.getSequenceStats).toHaveBeenCalledWith('r1');
+	});
+
+	it('sin retiro recordado, dispatch no dispara el refresh de stats', async () => {
+		// Store recién creado (ningún fetch) → currentRetreatId null → nada que refrescar.
+		api.dispatchScheduledMessage.mockResolvedValue(undefined);
+		store.queue = [{ id: 'a' }];
+		await store.dispatch('a');
+		expect(api.getSequenceStats).not.toHaveBeenCalled();
 	});
 
 	it('fetchScheduled guarda página, total y la timezone del servidor', async () => {

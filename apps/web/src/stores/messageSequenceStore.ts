@@ -154,9 +154,10 @@ export const useMessageSequenceStore = defineStore('message-sequence', () => {
 		return result;
 	};
 
-	// Acción masiva sobre los mensajes con problema (reenviar/descartar).
-	const bulkResolveIssues = async (retreatId: string, action: 'retry' | 'discard') => {
-		const result = await bulkResolveSequenceIssues(retreatId, action);
+	// Acción masiva sobre los mensajes con problema (reenviar/descartar). Con
+	// `ids` acota el bulk a las filas filtradas/visibles en la UI (M6-D6).
+	const bulkResolveIssues = async (retreatId: string, action: 'retry' | 'discard', ids?: string[]) => {
+		const result = await bulkResolveSequenceIssues(retreatId, action, ids);
 		await fetchQueue(retreatId);
 		await fetchStats(retreatId);
 		return result;
@@ -177,14 +178,24 @@ export const useMessageSequenceStore = defineStore('message-sequence', () => {
 		return result;
 	};
 
+	// Refresca stats en el fondo (M6-D3): despachar/omitir/reintentar/descartar
+	// cambian los contadores de los badges de la lista. Fire-and-forget — nunca
+	// bloquea la acción ni la rompe si el fetch falla.
+	const refreshStatsInBackground = () => {
+		if (!currentRetreatId) return;
+		fetchStats(currentRetreatId).catch(() => {});
+	};
+
 	const dispatch = async (id: string) => {
 		await dispatchScheduledMessage(id);
 		queue.value = queue.value.filter((q) => q.id !== id);
+		refreshStatsInBackground();
 	};
 
 	const skip = async (id: string) => {
 		await skipScheduledMessage(id);
 		queue.value = queue.value.filter((q) => q.id !== id);
+		refreshStatsInBackground();
 	};
 
 	// Re-encola un fallido: sale de la lista de problemas (volverá a la cola/cron).
@@ -192,6 +203,7 @@ export const useMessageSequenceStore = defineStore('message-sequence', () => {
 		await retryScheduledMessage(id);
 		issues.value = issues.value.filter((q) => q.id !== id);
 		queue.value = queue.value.filter((q) => q.id !== id);
+		refreshStatsInBackground();
 	};
 
 	// Descarta: sale de la lista de problemas y no reaparece.
@@ -199,6 +211,7 @@ export const useMessageSequenceStore = defineStore('message-sequence', () => {
 		await discardScheduledMessage(id);
 		issues.value = issues.value.filter((q) => q.id !== id);
 		queue.value = queue.value.filter((q) => q.id !== id);
+		refreshStatsInBackground();
 	};
 
 	// Registra apertura del deep-link (≠ enviado): el ítem permanece en la bandeja.

@@ -3,7 +3,7 @@ import { ref, computed, onMounted, watch } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useI18n } from 'vue-i18n';
 import { useToast, Button, Input } from '@repo/ui';
-import { Plus, Trash2, X, Play, Pencil, Send, Clock, AlertTriangle, Globe, RefreshCw, MoreVertical, CalendarDays, MessageCircle } from 'lucide-vue-next';
+import { Plus, Trash2, X, Play, Pencil, Send, Clock, AlertTriangle, Globe, RefreshCw, MoreVertical, CalendarDays, MessageCircle, Power, Copy } from 'lucide-vue-next';
 import { useRetreatStore } from '@/stores/retreatStore';
 import { useParticipantStore } from '@/stores/participantStore';
 import { useMessageSequenceStore } from '@/stores/messageSequenceStore';
@@ -472,21 +472,25 @@ async function saveDraft() {
 		})),
 	};
 	try {
-		// M5: el PUT devuelve lo que el edit le hizo a las filas materializadas.
-		const res = draft.value.id
-			? await sequenceStore.update(draft.value.id, payload)
-			: await sequenceStore.create(payload);
+		// M5: el PUT devuelve lo que el edit le hizo a las filas materializadas
+		// (el POST de create no lleva counts — no hay filas previas que mover).
+		let counts: { cancelledPendingCount?: number; archivedStepCount?: number; archivedPendingCount?: number } = {};
+		if (draft.value.id) {
+			counts = await sequenceStore.update(draft.value.id, payload);
+		} else {
+			await sequenceStore.create(payload);
+		}
 		toast({ title: t('sequences.saved') });
 		// Cambió el disparador/audiencia → las pending se re-materializaron con
 		// las fechas nuevas; pasos quitados → sus pendientes quedaron cancelados.
 		// Avisar (no confirmar: el editor ya es un diálogo deliberado) y refrescar.
-		if (res?.cancelledPendingCount) {
-			toast({ title: t('sequences.reenrolled', { n: res.cancelledPendingCount }) });
+		if (counts.cancelledPendingCount) {
+			toast({ title: t('sequences.reenrolled', { n: counts.cancelledPendingCount }) });
 		}
-		if (res?.archivedStepCount) {
-			toast({ title: t('sequences.archivedStepsDone', { n: res.archivedPendingCount }) });
+		if (counts.archivedStepCount) {
+			toast({ title: t('sequences.archivedStepsDone', { n: counts.archivedPendingCount }) });
 		}
-		if (res?.cancelledPendingCount || res?.archivedStepCount) {
+		if (counts.cancelledPendingCount || counts.archivedStepCount) {
 			await sequenceStore.fetchStats(retreatId.value);
 			await loadScheduled();
 		}
@@ -510,6 +514,58 @@ async function confirmDelete() {
 		toast({ title: t('sequences.deleted') });
 	} catch {
 		toast({ title: t('sequences.deleteError'), variant: 'destructive' });
+	}
+}
+
+// M6-D2: activar/desactivar sin abrir el editor (mismo patrón que la vista global).
+async function toggleActive(seq: any) {
+	try {
+		await sequenceStore.update(seq.id, { isActive: !seq.isActive });
+	} catch {
+		toast({ title: t('sequences.toggleError'), variant: 'destructive' });
+	}
+}
+
+// M6-D1: duplicar como copia INACTIVA con pasos nuevos (sin id) — no reenvía
+// nada hasta que se revise y se active a propósito.
+async function duplicateSequence(seq: any) {
+	if (!retreatId.value) return;
+	try {
+		await sequenceStore.create({
+			name: `${seq.name} (copia)`,
+			description: seq.description || undefined,
+			retreatId: retreatId.value,
+			trigger: seq.trigger,
+			audience: seq.audience,
+			isActive: false,
+			maxOverdueDays: seq.maxOverdueDays ?? null,
+			steps: (seq.steps || []).map((s: any, i: number) => ({
+				// Sin id: steps nuevos — la copia parte de cero filas materializadas.
+				stepOrder: i,
+				offsetDays: s.offsetDays,
+				sendHour: s.sendHour,
+				templateType: s.templateType,
+				channel: s.channel,
+				recipientTarget: s.recipientTarget || 'participant',
+				recipientResponsibility: s.recipientResponsibility || null,
+				condition: s.condition ?? null,
+			})),
+		});
+		toast({ title: t('sequences.duplicated', { name: seq.name }) });
+	} catch {
+		toast({ title: t('sequences.duplicateError'), variant: 'destructive' });
+	}
+}
+
+// M6-D5: omitir pide confirmación — un tap accidental en móvil no debe omitir
+// sin retorno (mismo mecanismo que las acciones masivas).
+async function skipItem(item: any) {
+	if (!window.confirm(t('sequences.skipConfirm'))) return;
+	try {
+		await sequenceStore.skip(item.id);
+		toast({ title: t('sequences.skipDone') });
+	} catch {
+		toast({ title: t('sequences.skipError'), variant: 'destructive' });
 	}
 }
 
@@ -931,6 +987,8 @@ async function dispatchFromDetail() {
 async function skipFromDetail() {
 	const item = detailItem.value;
 	if (!item) return;
+	// D5: misma confirmación que el botón de la bandeja (también es "omitir").
+	if (!window.confirm(t('sequences.skipConfirm'))) return;
 	closeDetail();
 	await sequenceStore.skip(item.id);
 }
@@ -1027,14 +1085,24 @@ async function discardIssue(item: any) {
 	}
 }
 
-// Acciones masivas sobre todos los mensajes con problema (reenviar / descartar).
+// Acciones masivas sobre los mensajes con problema (reenviar / descartar).
+// D6: respetan lo que se VE — con búsqueda o chip de secuencia activos, sólo
+// las filas filtradas; sin filtro, todo el retiro (el server lo resuelve).
 const bulkBusy = ref(false);
+const issuesFilterActive = computed(
+	() => !!issuesSearch.value.trim() || !!issuesSequenceFilter.value,
+);
 async function bulkIssues(action: 'retry' | 'discard') {
 	if (!retreatId.value || bulkBusy.value) return;
-	if (!window.confirm(t('sequences.bulkConfirm', { n: issues.value.length }))) return;
+	const ids = issuesFilterActive.value
+		? filteredIssues.value.map((it: any) => it.id)
+		: undefined;
+	const n = ids ? ids.length : issues.value.length;
+	if (!n) return; // nada visible que tocar (evita un bulk-todo accidental)
+	if (!window.confirm(t('sequences.bulkConfirm', { n }))) return;
 	bulkBusy.value = true;
 	try {
-		const res = await sequenceStore.bulkResolveIssues(retreatId.value, action);
+		const res = await sequenceStore.bulkResolveIssues(retreatId.value, action, ids);
 		toast({ title: t('sequences.bulkDone', { n: res.affected }) });
 	} catch {
 		toast({ title: t('sequences.bulkError'), variant: 'destructive' });
@@ -1158,6 +1226,10 @@ async function toggleDoNotContact() {
 							{{ t('sequences.inactive') }}
 						</span>
 					</div>
+					<!-- D7: la descripción editada por fin se ve (1 línea, el title la completa). -->
+					<div v-if="seq.description" class="text-xs text-gray-400 truncate" :title="seq.description">
+						{{ seq.description }}
+					</div>
 					<div class="text-xs text-gray-500">
 						{{ t('sequences.triggers.' + seq.trigger) }} · {{ t('sequences.audiences.' + seq.audience) }}
 						· {{ t('sequences.stepCount', { count: seq.steps?.length || 0 }) }}
@@ -1203,6 +1275,17 @@ async function toggleDoNotContact() {
 					</div>
 				</div>
 				<div class="flex items-center gap-1 shrink-0">
+					<Button
+						variant="ghost"
+						size="icon"
+						:title="t('sequences.toggleActive')"
+						@click="toggleActive(seq)"
+					>
+						<Power class="w-4 h-4" :class="seq.isActive ? 'text-green-600' : 'text-gray-400'" />
+					</Button>
+					<Button variant="ghost" size="icon" :title="t('sequences.duplicate')" @click="duplicateSequence(seq)">
+						<Copy class="w-4 h-4" />
+					</Button>
 					<Button variant="ghost" size="icon" @click="openEdit(seq)"><Pencil class="w-4 h-4" /></Button>
 					<Button variant="ghost" size="icon" class="text-red-500" @click="askDelete(seq)">
 						<Trash2 class="w-4 h-4" />
@@ -1467,7 +1550,7 @@ async function toggleDoNotContact() {
 							</span>
 						</div>
 						<div class="text-xs text-gray-500">
-							{{ item.templateType }}
+							{{ templateLabel(item.templateType) }}
 							<span v-if="item.scheduledFor">· {{ fmtScheduled(item.scheduledFor) }}</span>
 							<span
 								v-if="item.recipientTarget && item.recipientTarget !== 'participant'"
@@ -1496,7 +1579,7 @@ async function toggleDoNotContact() {
 						>
 							{{ t('sequences.take') }}
 						</button>
-						<Button size="sm" variant="outline" class="shrink-0 px-2 sm:px-3" @click="sequenceStore.skip(item.id)">
+						<Button size="sm" variant="outline" class="shrink-0 px-2 sm:px-3" @click="skipItem(item)">
 							{{ t('sequences.skip') }}
 						</Button>
 						<Button
@@ -1630,7 +1713,7 @@ async function toggleDoNotContact() {
 							>
 								{{ it.participant?.firstName }} {{ it.participant?.lastName }}
 							</button>
-							· {{ it.templateType }}
+							· {{ templateLabel(it.templateType) }}
 						</div>
 						<div class="text-xs text-red-600 break-words">{{ it.error }}</div>
 						<div v-if="remediationFor(it)" class="text-xs text-gray-600 mt-0.5 flex gap-1">
@@ -2003,7 +2086,7 @@ async function toggleDoNotContact() {
 						<div>
 							<div class="text-xs font-medium text-gray-500 mb-1">
 								{{ t('sequences.messageToSend') }}
-								<span class="text-gray-400">· {{ detail.message.templateType }}</span>
+								<span class="text-gray-400">· {{ templateLabel(detail.message.templateType) }}</span>
 								<span v-if="detail.message.scheduledFor" class="text-gray-400">
 									· {{ fmtScheduled(detail.message.scheduledFor) }}
 								</span>

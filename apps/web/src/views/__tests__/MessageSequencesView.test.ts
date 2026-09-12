@@ -93,6 +93,7 @@ const PARTICIPANT = { id: 'p1', firstName: 'Ana', lastName: 'M3' };
 const SEQ = {
 	id: 'seq-1',
 	name: 'Confirmación de camisetas',
+	description: 'Recordar traer camiseta blanca',
 	trigger: 'days_before_retreat',
 	audience: 'server',
 	isActive: true,
@@ -380,5 +381,105 @@ describe('MessageSequencesView — guardar con cambios estructurales (M5)', () =
 		expect(apiMod.updateMessageSequence).toHaveBeenCalled();
 		expect(apiMod.fetchScheduledMessages).not.toHaveBeenCalled();
 		expect(apiMod.getSequenceStats).not.toHaveBeenCalled();
+	});
+});
+
+describe('MessageSequencesView — calidad de vida (M6)', () => {
+	it('D1: duplicar crea una copia inactiva con pasos NUEVOS (sin id)', async () => {
+		const wrapper = await mountView();
+		const apiMod: any = await import('@/services/api');
+		apiMod.createMessageSequence.mockResolvedValue({ id: 'seq-copy', ...SEQ, isActive: false });
+
+		await wrapper.vm.duplicateSequence(SEQ);
+		await flushPromises();
+
+		expect(apiMod.createMessageSequence).toHaveBeenCalledTimes(1);
+		const payload = apiMod.createMessageSequence.mock.calls[0][0];
+		expect(payload.name).toBe('Confirmación de camisetas (copia)');
+		expect(payload.isActive).toBe(false); // inactiva: no enrolla ni reenvía nada
+		expect(payload.retreatId).toBe(RETREAT_ID);
+		// Steps sin id → stepIds nuevos → cero filas materializadas heredadas.
+		expect(payload.steps).toHaveLength(1);
+		expect(payload.steps[0]).not.toHaveProperty('id');
+	});
+
+	it('D2: toggle desde la lista manda update con el isActive invertido', async () => {
+		const wrapper = await mountView();
+		const apiMod: any = await import('@/services/api');
+		apiMod.updateMessageSequence.mockResolvedValue({ ...SEQ, isActive: false });
+
+		await wrapper.vm.toggleActive(SEQ); // SEQ.isActive = true → apagar
+		await flushPromises();
+
+		expect(apiMod.updateMessageSequence).toHaveBeenCalledWith('seq-1', { isActive: false });
+	});
+
+	it('D5: omitir pide confirmación y no omite si se cancela', async () => {
+		const wrapper = await mountView();
+		const apiMod: any = await import('@/services/api');
+		apiMod.skipScheduledMessage.mockResolvedValue(undefined);
+
+		window.confirm = vi.fn(() => true) as any;
+		await wrapper.vm.skipItem(QUEUE_ITEM);
+		expect(window.confirm).toHaveBeenCalled();
+		expect(apiMod.skipScheduledMessage).toHaveBeenCalledWith('q-1');
+
+		// Cancelar el confirm NO omite (tap accidental en móvil).
+		apiMod.skipScheduledMessage.mockClear();
+		window.confirm = vi.fn(() => false) as any;
+		await wrapper.vm.skipItem(QUEUE_ITEM);
+		expect(apiMod.skipScheduledMessage).not.toHaveBeenCalled();
+	});
+
+	it('D6: el bulk respeta el filtro activo (ids) y sin filtro es todo el retiro', async () => {
+		const wrapper = await mountView();
+		const apiMod: any = await import('@/services/api');
+		const { useMessageSequenceStore } = await import('@/stores/messageSequenceStore');
+		const sequenceStore = useMessageSequenceStore();
+		sequenceStore.issues = [
+			{ id: 'i1', sequenceId: 'seq-1', participant: { firstName: 'A', lastName: 'A' }, templateType: 'T', error: 'x', status: 'failed' },
+			{ id: 'i2', sequenceId: 'seq-2', participant: { firstName: 'B', lastName: 'B' }, templateType: 'T', error: 'x', status: 'failed' },
+		] as any;
+		apiMod.bulkResolveSequenceIssues.mockResolvedValue({ affected: 1 });
+		apiMod.getSequenceQueue.mockResolvedValue([]);
+		apiMod.getSequenceStats.mockResolvedValue({ stats: {}, issues: [] });
+		window.confirm = vi.fn(() => true) as any;
+
+		// Con chip de secuencia: sólo las filas visibles de esa secuencia.
+		wrapper.vm.issuesSequenceFilter = 'seq-1';
+		await wrapper.vm.bulkIssues('discard');
+		expect(apiMod.bulkResolveSequenceIssues).toHaveBeenCalledWith(RETREAT_ID, 'discard', ['i1']);
+		// El confirm cuenta lo filtrado (1), no issues.length (2).
+		expect(String((window.confirm as any).mock.calls[0][0])).toContain('1');
+
+		// Sin filtro: ids undefined → el server resuelve el bulk-todo. (El primer
+		// bulk vació issues vía fetchStats mockeado — re-sembrar antes de seguir.)
+		sequenceStore.issues = [
+			{ id: 'i1', sequenceId: 'seq-1', participant: { firstName: 'A', lastName: 'A' }, templateType: 'T', error: 'x', status: 'failed' },
+			{ id: 'i2', sequenceId: 'seq-2', participant: { firstName: 'B', lastName: 'B' }, templateType: 'T', error: 'x', status: 'failed' },
+		] as any;
+		wrapper.vm.issuesSequenceFilter = null;
+		await wrapper.vm.bulkIssues('retry');
+		expect(apiMod.bulkResolveSequenceIssues).toHaveBeenLastCalledWith(RETREAT_ID, 'retry', undefined);
+	});
+
+	it('D7: la descripción de la secuencia se ve en la lista', async () => {
+		const wrapper = await mountView();
+		expect(wrapper.text()).toContain('Recordar traer camiseta blanca');
+	});
+
+	it('D4: bandeja/problemas/detalle muestran el nombre legible de la plantilla', async () => {
+		const wrapper = await mountView();
+		const { useMessageTemplateStore } = await import('@/stores/messageTemplateStore');
+		const templateStore = useMessageTemplateStore();
+		// El templateLabel ya está en pantalla; cargar la plantilla la re-renderiza.
+		templateStore.templates = [
+			{ id: 'tpl-1', type: 'SHIRT_CONFIRMATION', name: 'Confirmar talla (camiseta)' },
+		] as any;
+		await flushPromises();
+
+		// QUEUE_ITEM (bandeja) y sm-1 (programados) usan SHIRT_CONFIRMATION.
+		expect(wrapper.text()).toContain('Confirmar talla (camiseta)');
+		expect(wrapper.text()).not.toContain('SHIRT_CONFIRMATION');
 	});
 });
