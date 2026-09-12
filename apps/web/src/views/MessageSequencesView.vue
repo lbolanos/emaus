@@ -888,8 +888,18 @@ const filteredIssues = computed(() => {
 		items = items.filter((it: any) => it.sequenceId === issuesSequenceFilter.value);
 	}
 	if (q) {
+		// Se busca sobre el nombre del participante, el tipo CRUDO y el nombre
+		// LEGIBLE de la plantilla ("Bienvenida" debe matchear WALKER_WELCOME,
+		// que es como se muestra en la lista), el motivo y el destinatario.
 		items = items.filter((it: any) =>
-			[it.participant?.firstName, it.participant?.lastName, it.templateType, it.error]
+			[
+				it.participant?.firstName,
+				it.participant?.lastName,
+				it.templateType,
+				templateLabel(it.templateType),
+				it.error,
+				it.recipientName,
+			]
 				.filter(Boolean)
 				.join(' ')
 				.toLowerCase()

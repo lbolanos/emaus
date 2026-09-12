@@ -542,3 +542,35 @@ describe('MessageSequencesView — tab Problemas honesto (#2)', () => {
 		expect(wrapper.findAll('button').find((b) => b.text().includes('Cargar más'))).toBeFalsy();
 	});
 });
+
+describe('MessageSequencesView — buscar en Problemas por nombre legible (#3)', () => {
+	it('la búsqueda matchea el nombre de la plantilla, no sólo su tipo crudo', async () => {
+		const wrapper = await mountView();
+		const { useMessageTemplateStore } = await import('@/stores/messageTemplateStore');
+		const { useMessageSequenceStore } = await import('@/stores/messageSequenceStore');
+		const templateStore = useMessageTemplateStore();
+		const sequenceStore = useMessageSequenceStore();
+		// El tipo crudo WALKER_WELCOME se muestra como "Bienvenida a Caminantes":
+		// buscar "bienvenida" debe encontrarlo (antes sólo matcheaba el crudo).
+		templateStore.templates = [
+			{ id: 'tpl-1', type: 'WALKER_WELCOME', name: 'Bienvenida a Caminantes' },
+		] as any;
+		sequenceStore.issues = [
+			{ id: 'i-1', sequenceId: 'seq-1', participant: { firstName: 'Zoe', lastName: 'Z' }, templateType: 'WALKER_WELCOME', error: 'sin teléfono', status: 'skipped' },
+			{ id: 'i-2', sequenceId: 'seq-1', participant: { firstName: 'Otro', lastName: 'X' }, templateType: 'PALANQUERO_NEW_WALKER', error: 'sin email', status: 'failed' },
+		] as any;
+		sequenceStore.issuesTotal = 2;
+		await flushPromises();
+
+		wrapper.vm.issuesSearch = 'bienvenida';
+		expect(wrapper.vm.filteredIssues).toHaveLength(1);
+		expect(wrapper.vm.filteredIssues[0].id).toBe('i-1');
+
+		// El tipo crudo sigue siendo buscable (comportamiento previo intacto).
+		wrapper.vm.issuesSearch = 'WALKER_WELCOME';
+		expect(wrapper.vm.filteredIssues).toHaveLength(1);
+
+		wrapper.vm.issuesSearch = 'no-existe-nada';
+		expect(wrapper.vm.filteredIssues).toHaveLength(0);
+	});
+});
