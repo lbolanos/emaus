@@ -3074,6 +3074,7 @@
     "preview": "Preview (with a sample participant)",
     "missingTemplate": "There are {count} step(s) whose template type doesn't exist in this retreat; those messages will be skipped until you create the template.",
     "stat": {
+      "scheduled": "{n} scheduled",
       "sent": "{n} sent",
       "queued": "{n} queued",
       "skipped": "{n} skipped",

@@ -3400,6 +3400,7 @@
     "preview": "Vista previa (con un participante de ejemplo)",
     "missingTemplate": "Hay {count} paso(s) cuyo tipo de plantilla no existe en este retiro; esos mensajes se omitirán hasta que crees la plantilla.",
     "stat": {
+      "scheduled": "{n} programados",
       "sent": "{n} enviados",
       "queued": "{n} en cola",
       "skipped": "{n} omitidos",

@@ -853,6 +853,11 @@ async function toggleDoNotContact() {
 					</div>
 					<!-- Métricas por secuencia -->
 					<div class="flex flex-wrap gap-1.5 mt-1.5 text-[11px]">
+						<!-- programados = status 'pending' del API: mensajes materializados con
+						     fecha futura; el cron los pasa a 'queued' el día que vencen. -->
+						<span v-if="statusCount(seq.id, 'pending')" class="bg-blue-100 text-blue-700 rounded px-1.5 py-0.5">
+							{{ t('sequences.stat.scheduled', { n: statusCount(seq.id, 'pending') }) }}
+						</span>
 						<span v-if="statusCount(seq.id, 'sent')" class="bg-green-100 text-green-700 rounded px-1.5 py-0.5">
 							{{ t('sequences.stat.sent', { n: statusCount(seq.id, 'sent') }) }}
 						</span>
