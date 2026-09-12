@@ -1375,6 +1375,12 @@ const handleEditRetreat = async (retreatData: Partial<Retreat> & { id: string; _
     const { _refreshBeds, ...data } = retreatData;
     await retreatStore.updateRetreat(data as Retreat, _refreshBeds);
     isEditModalOpen.value = false;
+    // Editing the retreat can change charge inputs (mealCost, cost,
+    // serverFeeAmount, retreat_type): paymentRemaining/breakdown of the
+    // in-memory participant rows goes stale until the next full refetch, and
+    // MessageDialog resolves {participant.paymentRemaining} from those rows.
+    // Refresh the list so balances match what the server now computes.
+    participantStore.fetchParticipants().catch(() => {});
   } catch (err) {
     console.error('Failed to update retreat:', err);
   }
