@@ -3150,7 +3150,8 @@
     "previewRecipient": "Goes to",
     "previewEmptyVars": "Variables with no data",
     "previewParticipant": "Sample participant for previews",
-    "previewFirstParticipant": "First one in the retreat"
+    "previewFirstParticipant": "First one in the retreat",
+    "stepRangeFixed": "Se ajustaron {n} paso(s) a valores válidos (hora 0–23, días ≥ 0)"
   },
   "globalSequences": {
     "title": "Global sequence templates",

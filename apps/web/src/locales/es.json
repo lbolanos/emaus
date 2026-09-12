@@ -3476,7 +3476,8 @@
     "previewRecipient": "Le llega a",
     "previewEmptyVars": "Variables sin datos",
     "previewParticipant": "Participante de muestra para las vistas previas",
-    "previewFirstParticipant": "El primero del retiro"
+    "previewFirstParticipant": "El primero del retiro",
+    "stepRangeFixed": "Se ajustaron {n} paso(s) a valores válidos (hora 0–23, días ≥ 0)"
   },
   "globalSequences": {
     "title": "Plantillas globales de secuencias",

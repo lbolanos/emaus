@@ -95,7 +95,9 @@ export type MessageSequence = z.infer<typeof messageSequenceSchema>;
 const stepInputSchema = z.object({
 	id: idSchema.optional(),
 	stepOrder: z.number().int().min(0).default(0),
-	offsetDays: z.number().int().default(0),
+	// Negativo no es legítimo en ningún disparador: "antes del retiro" se
+	// expresa con days_before_retreat + offsetDays positivo.
+	offsetDays: z.number().int().min(0).default(0),
 	sendHour: z.number().int().min(0).max(23).default(9),
 	templateType: z.string().min(1),
 	channel: messageChannel,
@@ -241,7 +243,7 @@ export const previewSequenceScheduleSchema = z.object({
 		steps: z
 			.array(
 				z.object({
-					offsetDays: z.number().int().default(0),
+					offsetDays: z.number().int().min(0).default(0),
 					sendHour: z.number().int().min(0).max(23).default(9),
 				}),
 			)

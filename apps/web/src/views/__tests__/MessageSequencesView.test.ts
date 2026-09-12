@@ -547,6 +547,33 @@ describe('MessageSequencesView — tab Problemas honesto (#2)', () => {
 	});
 });
 
+describe('MessageSequencesView — validaciones blandas del editor (#4)', () => {
+	it('al guardar, horas fuera de 0–23 y días negativos se normalizan en el payload', async () => {
+		const wrapper = await mountView();
+		const apiMod: any = await import('@/services/api');
+		apiMod.updateMessageSequence.mockResolvedValue({ ...SEQ });
+
+		wrapper.vm.openEdit({
+			...SEQ,
+			steps: [{
+				id: 'st-1', offsetDays: 2, sendHour: 9,
+				templateType: 'SHIRT_CONFIRMATION', channel: 'email', recipientTarget: 'participant',
+			}],
+		});
+		// El input number deja teclear cualquier cosa; el guard no debe dejarla salir.
+		wrapper.vm.draft.steps[0].offsetDays = -5;
+		wrapper.vm.draft.steps[0].sendHour = 99;
+		apiMod.updateMessageSequence.mockClear();
+		await wrapper.vm.saveDraft();
+		await flushPromises();
+
+		expect(apiMod.updateMessageSequence).toHaveBeenCalled();
+		const payload = apiMod.updateMessageSequence.mock.calls[0][1];
+		expect(payload.steps[0].offsetDays).toBe(0);
+		expect(payload.steps[0].sendHour).toBe(23);
+	});
+});
+
 describe('MessageSequencesView — buscar en Problemas por nombre legible (#3)', () => {
 	it('la búsqueda matchea el nombre de la plantilla, no sólo su tipo crudo', async () => {
 		const wrapper = await mountView();

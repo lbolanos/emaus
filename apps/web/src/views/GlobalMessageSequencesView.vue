@@ -6,6 +6,7 @@ import { useToast, Button, Input } from '@repo/ui';
 import { Plus, Trash2, X, Pencil, Power } from 'lucide-vue-next';
 import { useGlobalMessageSequenceStore } from '@/stores/globalMessageSequenceStore';
 import { useGlobalMessageTemplateStore } from '@/stores/globalMessageTemplateStore';
+import { clampStepRanges } from '@/utils/sequenceStepInput';
 import { getMessageTemplateAudience } from '@repo/types';
 
 const { t } = useI18n();
@@ -213,6 +214,10 @@ function removeStep(i: number) {
 
 async function saveDraft() {
 	if (!draft.value.name.trim()) return;
+	// #4: normalizar horas/días fuera de rango antes de enviar (el input
+	// numérico no enforcement lo tecleado a mano).
+	const fixedSteps = clampStepRanges(draft.value.steps);
+	if (fixedSteps) toast({ title: t('sequences.stepRangeFixed', { n: fixedSteps }) });
 	const payload = {
 		name: draft.value.name.trim(),
 		description: draft.value.description || undefined,
@@ -393,7 +398,7 @@ async function confirmDelete() {
 								<div class="grid grid-cols-2 md:grid-cols-6 gap-3">
 									<div class="md:col-span-1">
 										<label class="text-xs text-gray-500">{{ t('sequences.offsetDays') }}</label>
-										<input type="number" v-model.number="step.offsetDays" class="w-full mt-1 p-2 border rounded-md text-sm" />
+										<input type="number" min="0" v-model.number="step.offsetDays" class="w-full mt-1 p-2 border rounded-md text-sm" />
 									</div>
 									<div class="md:col-span-1">
 										<label class="text-xs text-gray-500">{{ t('sequences.sendHour') }}</label>
