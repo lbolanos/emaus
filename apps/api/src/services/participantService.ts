@@ -643,13 +643,21 @@ export const findAllParticipants = async (
       "tags.tag",
       "shirtSizes",
       "shirtSizes.shirtType",
+      "shirtSizes.shirtType.sizePrices",
     ]),
   ];
   if (includePayments) {
     allRelations.push("payments.recordedByUser");
   }
 
-  const queryBuilder = participantRepository.createQueryBuilder("participant");
+  // Resolve the repository per call, not the module-level one: it binds at
+  // import time, before the test harness swaps AppDataSource, and its query
+  // builder then misses the entity metadata ("Class constructor Participant
+  // cannot be invoked without 'new'"). Same pattern as updateParticipant and
+  // anonymizeParticipantByToken below.
+  const queryBuilder = AppDataSource.getRepository(
+    Participant,
+  ).createQueryBuilder("participant");
 
   // Join through retreat_participants to find all participants for this retreat,
   // even if their current participant.retreatId has moved to a different retreat
@@ -713,6 +721,17 @@ export const findAllParticipants = async (
             tagRetreatId: retreatId,
           },
         );
+      } else if (
+        parts.length === 3 &&
+        parts[0] === "shirtSizes" &&
+        parts[1] === "shirtType" &&
+        parts[2] === "sizePrices"
+      ) {
+        // Three-part relation: the generic else below only handles two parts
+        // (it would re-join "shirtSizes.shirtType" under a duplicate alias).
+        // The "shirtType" alias exists by the time this runs — Set insertion
+        // order guarantees "shirtSizes.shirtType" is processed first.
+        queryBuilder.leftJoinAndSelect("shirtType.sizePrices", "shirtSizeTypeSizePrices");
       } else {
         // Handle nested relations like 'retreat.house'
         queryBuilder.leftJoinAndSelect(`${parts[0]}.${parts[1]}`, parts[1]);
@@ -1196,9 +1215,11 @@ export const findParticipantById = async (
       name: string;
       price: string | number | null;
     }[] = await AppDataSource.query(
-      `SELECT pss.shirtTypeId, pss.size, rst.name, rst.price
+      `SELECT pss.shirtTypeId, pss.size, rst.name, COALESCE(ssp.price, rst.price) AS price
        FROM participant_shirt_size pss
        INNER JOIN retreat_shirt_type rst ON rst.id = pss.shirtTypeId
+       LEFT JOIN retreat_shirt_type_size_price ssp
+         ON ssp.shirtTypeId = rst.id AND ssp.size = pss.size
        WHERE pss.participantId = ? AND rst.retreatId = ?
        ORDER BY rst.sortOrder IS NULL, rst.sortOrder, rst.name`,
       [participant.id, overlayRetreatId],
@@ -1210,6 +1231,10 @@ export const findParticipantById = async (
         id: r.shirtTypeId,
         name: r.name,
         retreatId: overlayRetreatId,
+        // CONTRACT: `price` comes out of the SQL already EFFECTIVE (per-size
+        // override coalesced over the base). The embedded shirtType carries NO
+        // `sizePrices`, so totalShirtCharge's override lookup finds nothing and
+        // does NOT apply the override a second time.
         price: r.price != null && r.price !== "" ? Number(r.price) : null,
       },
     }));

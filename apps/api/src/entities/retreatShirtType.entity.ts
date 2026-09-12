@@ -11,6 +11,7 @@ import {
 } from 'typeorm';
 import { Retreat } from './retreat.entity';
 import { ParticipantShirtSize } from './participantShirtSize.entity';
+import { RetreatShirtTypeSizePrice } from './retreatShirtTypeSizePrice.entity';
 
 @Entity('retreat_shirt_type')
 @Index('IDX_retreat_shirt_type_retreat', ['retreatId'])
@@ -54,6 +55,13 @@ export class RetreatShirtType {
 
 	@OneToMany(() => ParticipantShirtSize, (s) => s.shirtType)
 	sizes?: ParticipantShirtSize[];
+
+	/**
+	 * Per-size price overrides: rows only for sizes that differ from the base
+	 * price. A size's effective charge is COALESCE(override, price, 0).
+	 */
+	@OneToMany(() => RetreatShirtTypeSizePrice, (sp) => sp.shirtType)
+	sizePrices?: RetreatShirtTypeSizePrice[];
 
 	@CreateDateColumn()
 	createdAt!: Date;

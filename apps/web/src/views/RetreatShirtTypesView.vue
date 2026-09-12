@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed, watch } from 'vue'
 import { useRetreatStore } from '@/stores/retreatStore'
+import { useParticipantStore } from '@/stores/participantStore'
 import { useAuthPermissions } from '@/composables/useAuthPermissions'
 import { useToast } from '@repo/ui'
 import { Button } from '@repo/ui'
@@ -16,10 +17,13 @@ import {
 } from '@/services/api'
 
 const retreatStore = useRetreatStore()
+const participantStore = useParticipantStore()
 const { hasPermission } = useAuthPermissions()
 const canManage = computed(() => hasPermission('shirtType:manage'))
 const { toast } = useToast()
-const items = ref<(ShirtTypeDTO & { _newSize?: string })[]>([])
+// _sizePriceMap mirrors sizePrices as a size → price record for the per-size
+// inputs; like _newSize it is local-only state, stripped before the payload.
+const items = ref<(ShirtTypeDTO & { _newSize?: string; _sizePriceMap: Record<string, number | null> })[]>([])
 const loading = ref(false)
 
 const retreatId = computed(() => retreatStore.selectedRetreatId)
@@ -30,7 +34,7 @@ const SIZE_PRESETS: Record<string, string[]> = {
   Internacional: ['XS', 'S', 'M', 'L', 'XL', 'XXL'],
 }
 
-const draft = ref<Partial<ShirtTypeDTO> & { _newSize?: string }>({
+const draft = ref<Partial<ShirtTypeDTO> & { _newSize?: string; _sizePriceMap: Record<string, number | null> }>({
   name: '',
   color: '#ffffff',
   requiredForWalkers: false,
@@ -39,7 +43,33 @@ const draft = ref<Partial<ShirtTypeDTO> & { _newSize?: string }>({
   availableSizes: ['S', 'M', 'G', 'X', '2'],
   price: null,
   _newSize: '',
+  _sizePriceMap: {},
 })
+
+// --- per-size price override helpers ---
+function toSizePriceMap(
+  sizePrices: { size: string; price: number }[] | null | undefined,
+): Record<string, number | null> {
+  const map: Record<string, number | null> = {}
+  for (const sp of sizePrices || []) map[sp.size] = Number(sp.price)
+  return map
+}
+/**
+ * Builds the full-replace sizePrices payload from the local map: only sizes
+ * still present in availableSizes, only values > 0 (empty/invalid = "use the
+ * base price" = no row). Switching presets drops overrides of removed sizes
+ * (WYSIWYG).
+ */
+function buildSizePricesPayload(target: {
+  availableSizes?: string[] | null
+  _sizePriceMap: Record<string, number | null>
+}): { size: string; price: number }[] {
+  const sizes = new Set(target.availableSizes || [])
+  return Object.entries(target._sizePriceMap || {}).flatMap(([size, v]) => {
+    if (!sizes.has(size) || typeof v !== 'number' || !Number.isFinite(v) || v <= 0) return []
+    return [{ size, price: Math.round(v * 100) / 100 }]
+  })
+}
 
 // --- color helpers (keep legacy named-color compatibility) ---
 const NAMED_COLORS: Record<string, string> = {
@@ -100,6 +130,7 @@ async function load() {
           ? t.availableSizes
           : [...SIZE_PRESETS['México']],
       _newSize: '',
+      _sizePriceMap: toSizePriceMap(t.sizePrices),
     }))
   } catch (e: any) {
     toast({ title: 'Error', description: e?.response?.data?.message || 'Error al cargar', variant: 'destructive' })
@@ -111,7 +142,8 @@ async function load() {
 async function add() {
   if (!retreatId.value || !draft.value.name) return
   try {
-    const { _newSize, ...payload } = draft.value
+    const { _newSize, _sizePriceMap, ...payload } = draft.value
+    payload.sizePrices = buildSizePricesPayload(draft.value)
     await createShirtType(retreatId.value, payload)
     const carriedSizes = [...(draft.value.availableSizes || [])]
     draft.value = {
@@ -123,22 +155,33 @@ async function add() {
       availableSizes: carriedSizes,
       price: null,
       _newSize: '',
+      _sizePriceMap: {},
     }
     await load()
+    // Price changes alter expected/paymentRemaining in memory; refresh so
+    // MessageDialog resolves balances from up-to-date rows (same as Sidebar).
+    participantStore.fetchParticipants().catch(() => {})
     toast({ title: 'Tipo de playera agregado' })
   } catch (e: any) {
     toast({ title: 'Error', description: e?.response?.data?.message || 'Error', variant: 'destructive' })
   }
 }
 
-async function save(item: ShirtTypeDTO & { _newSize?: string }) {
+async function save(item: ShirtTypeDTO & { _newSize?: string; _sizePriceMap: Record<string, number | null> }) {
   try {
     // Flush any pending text in the chip input before saving.
     if (item._newSize && item._newSize.trim().length > 0) addSize(item)
-    const { _newSize, ...payload } = item
+    const { _newSize, _sizePriceMap, ...payload } = item
+    payload.sizePrices = buildSizePricesPayload(item)
     const updated = await updateShirtType(item.id, payload)
     // Reflect server response back into the local row so the UI matches DB exactly.
-    Object.assign(item, updated, { _newSize: '' })
+    Object.assign(item, updated, {
+      _newSize: '',
+      _sizePriceMap: toSizePriceMap(updated.sizePrices),
+    })
+    // Price changes alter expected/paymentRemaining in memory; refresh so
+    // MessageDialog resolves balances from up-to-date rows (same as Sidebar).
+    participantStore.fetchParticipants().catch(() => {})
     const sizes = (updated.availableSizes || []).join(', ') || '(sin tallas)'
     toast({ title: 'Guardado', description: `${item.name} · Tallas: ${sizes}` })
   } catch (e: any) {
@@ -151,6 +194,8 @@ async function remove(item: ShirtTypeDTO) {
   try {
     await deleteShirtType(item.id)
     await load()
+    // Removing the type drops its charges from participants' balances.
+    participantStore.fetchParticipants().catch(() => {})
     toast({ title: 'Eliminado' })
   } catch (e: any) {
     toast({ title: 'Error', description: e?.response?.data?.message || 'Error', variant: 'destructive' })
@@ -240,6 +285,24 @@ watch(retreatId, (newId, oldId) => {
             <span class="text-sm">Opcional para servidores</span>
           </button>
         </div>
+
+        <details class="rounded-md border bg-background px-3 py-2">
+          <summary class="cursor-pointer select-none text-sm font-medium">Precio por talla (opcional)</summary>
+          <div class="mt-3 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
+            <div v-for="s in (draft.availableSizes || [])" :key="s">
+              <Label class="text-xs">{{ s }}</Label>
+              <Input
+                type="number"
+                step="0.01"
+                min="0"
+                v-model.number="draft._sizePriceMap[s]"
+                placeholder="Base"
+              />
+            </div>
+          </div>
+          <p v-if="!(draft.availableSizes || []).length" class="text-xs text-muted-foreground mt-2">Agrega tallas primero.</p>
+          <p v-else class="text-xs text-muted-foreground mt-2">Vacío = usa el precio base. Solo para tallas con precio distinto.</p>
+        </details>
 
         <div>
           <div class="flex items-center justify-between mb-1.5">
@@ -368,6 +431,24 @@ watch(retreatId, (newId, oldId) => {
                 <span class="text-sm">Opcional para servidores</span>
               </button>
             </div>
+
+            <details class="rounded-md border bg-background px-3 py-2">
+              <summary class="cursor-pointer select-none text-sm font-medium">Precio por talla (opcional)</summary>
+              <div class="mt-3 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
+                <div v-for="s in (item.availableSizes || [])" :key="s">
+                  <Label class="text-xs">{{ s }}</Label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    v-model.number="item._sizePriceMap[s]"
+                    placeholder="Base"
+                  />
+                </div>
+              </div>
+              <p v-if="!(item.availableSizes || []).length" class="text-xs text-muted-foreground mt-2">Agrega tallas primero.</p>
+              <p v-else class="text-xs text-muted-foreground mt-2">Vacío = usa el precio base. Solo para tallas con precio distinto.</p>
+            </details>
 
             <div>
               <div class="flex items-center justify-between mb-1.5">

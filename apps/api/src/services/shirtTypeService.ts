@@ -1,5 +1,7 @@
+import { EntityManager } from 'typeorm';
 import { AppDataSource } from '../data-source';
 import { RetreatShirtType } from '../entities/retreatShirtType.entity';
+import { RetreatShirtTypeSizePrice } from '../entities/retreatShirtTypeSizePrice.entity';
 
 const repo = () => AppDataSource.getRepository(RetreatShirtType);
 
@@ -42,6 +44,13 @@ export type ShirtTypeInput = {
 	availableSizes?: string[] | null;
 	/** Precio de la prenda para el servidor que la pide. NULL = sin cargo. */
 	price?: number | null;
+	/**
+	 * Per-size price overrides. Array (not a record) so numeric-like sizes
+	 * such as '2' keep their order and don't hit JS key-reordering quirks.
+	 * Semantics: undefined in PATCH = leave untouched; []/null = delete all;
+	 * entries with null/<=0/non-finite price are dropped (= "use the base").
+	 */
+	sizePrices?: Array<{ size: string; price: number | null }> | null;
 };
 
 const normalizeSizes = (sizes: string[] | null | undefined): string[] | null => {
@@ -53,27 +62,76 @@ const normalizeSizes = (sizes: string[] | null | undefined): string[] | null => 
 	return cleaned.length > 0 ? cleaned : null;
 };
 
+/**
+ * Normalizes per-size price overrides: trimmed sizes (empty ones dropped),
+ * price clamped like the base one (null/<=0/non-finite = "use the base", so
+ * no row), and deduped per size (last entry wins).
+ */
+const normalizeSizePrices = (
+	input: Array<{ size: string; price: number | null }> | null | undefined,
+): Array<{ size: string; price: number }> => {
+	if (!input) return [];
+	const bySize = new Map<string, number>();
+	for (const entry of input) {
+		const size = typeof entry?.size === 'string' ? entry.size.trim() : '';
+		if (!size) continue;
+		const price = normalizePrice(entry?.price);
+		if (price == null) continue;
+		bySize.set(size, price);
+	}
+	return [...bySize].map(([size, price]) => ({ size, price }));
+};
+
+const saveSizePrices = async (
+	entityManager: EntityManager,
+	shirtTypeId: string,
+	sizePrices: Array<{ size: string; price: number }>,
+) => {
+	const priceRepo = entityManager.getRepository(RetreatShirtTypeSizePrice);
+	if (sizePrices.length > 0) {
+		await priceRepo.save(
+			sizePrices.map((sp) =>
+				priceRepo.create({
+					shirtTypeId,
+					size: sp.size,
+					price: sp.price,
+				}),
+			),
+		);
+	}
+};
+
 export const listShirtTypes = async (retreatId: string) => {
+	// relations feeds BOTH the admin view and the public registration endpoint
+	// (retreatController.getRetreatBy*Public calls this same service).
 	return repo().find({
 		where: { retreatId },
 		order: { sortOrder: 'ASC', createdAt: 'ASC' },
+		relations: ['sizePrices'],
 	});
 };
 
 export const createShirtType = async (retreatId: string, data: ShirtTypeInput) => {
-	const entity = repo().create({
-		retreatId,
-		name: data.name,
-		color: data.color ?? null,
-		requiredForWalkers: data.requiredForWalkers ?? false,
-		optionalForServers: data.optionalForServers ?? true,
-		sortOrder: data.sortOrder ?? 0,
-		availableSizes: normalizeSizes(data.availableSizes),
-		price: normalizePrice(data.price),
+	const sizePrices = normalizeSizePrices(data.sizePrices);
+	const savedType = await AppDataSource.transaction(async (em) => {
+		const typeRepo = em.getRepository(RetreatShirtType);
+		const entity = typeRepo.create({
+			retreatId,
+			name: data.name,
+			color: data.color ?? null,
+			requiredForWalkers: data.requiredForWalkers ?? false,
+			optionalForServers: data.optionalForServers ?? true,
+			sortOrder: data.sortOrder ?? 0,
+			availableSizes: normalizeSizes(data.availableSizes),
+			price: normalizePrice(data.price),
+		});
+		const saved = await typeRepo.save(entity);
+		await saveSizePrices(em, saved.id, sizePrices);
+		return saved;
 	});
-	const saved = await repo().save(entity);
 	await syncInventoryShirts(retreatId);
-	return saved;
+	// Re-fetch with overrides so the response carries them.
+	return repo().findOne({ where: { id: savedType.id }, relations: ['sizePrices'] });
 };
 
 export const updateShirtType = async (id: string, data: Partial<ShirtTypeInput>) => {
@@ -95,13 +153,25 @@ export const updateShirtType = async (id: string, data: Partial<ShirtTypeInput>)
 	if (Object.keys(updates).length > 0) {
 		await repo().update({ id }, updates);
 	}
-	const updated = await repo().findOne({ where: { id } });
+	// Full replace when the client sent the array at all ('sizePrices' in data,
+	// same convention as 'price'): delete every override, insert the new set.
+	if ('sizePrices' in data) {
+		const sizePrices = normalizeSizePrices(data.sizePrices);
+		await AppDataSource.transaction(async (em) => {
+			await em.getRepository(RetreatShirtTypeSizePrice).delete({ shirtTypeId: id });
+			await saveSizePrices(em, id, sizePrices);
+		});
+	}
+	const updated = await repo().findOne({ where: { id }, relations: ['sizePrices'] });
 	if (updated) await syncInventoryShirts(updated.retreatId);
 	return updated;
 };
 
 export const deleteShirtType = async (id: string) => {
 	const target = await repo().findOne({ where: { id } });
+	// Explicit delete of overrides before the type: defends environments where
+	// SQLite FK enforcement is off and CASCADE would not fire.
+	await AppDataSource.getRepository(RetreatShirtTypeSizePrice).delete({ shirtTypeId: id });
 	const result = await repo().delete({ id });
 	if (target) await syncInventoryShirts(target.retreatId);
 	return (result.affected ?? 0) > 0;

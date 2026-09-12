@@ -27,6 +27,8 @@ export type ShirtReportShirtType = {
 	color: string | null;
 	sortOrder: number;
 	price: number | null;
+	/** Per-size overrides; a size's effective price is COALESCE(override, price, 0). */
+	sizePrices: { size: string; price: number }[];
 };
 
 export type ShirtReportResponse = {
@@ -57,6 +59,7 @@ export const getShirtOrdersForRetreat = async (
 	const types = await shirtTypeRepo.find({
 		where: { retreatId },
 		order: { sortOrder: 'ASC', createdAt: 'ASC' },
+		relations: ['sizePrices'],
 	});
 
 	const shirtTypes: ShirtReportShirtType[] = types.map((t) => ({
@@ -65,10 +68,16 @@ export const getShirtOrdersForRetreat = async (
 		color: t.color ?? null,
 		sortOrder: t.sortOrder,
 		price: t.price != null ? Number(t.price) : null,
+		sizePrices: (t.sizePrices ?? []).map((sp) => ({
+			size: sp.size,
+			price: Number(sp.price),
+		})),
 	}));
 
 	// Single query: join participants + retreat_participants + participant_shirt_size + retreat_shirt_type
 	// scoping shirt-types to this retreat so cross-retreat sizes are excluded.
+	// The LEFT JOIN coalesces the per-size override over the type's base price,
+	// so each row's `price` is already EFFECTIVE.
 	const rows: Row[] = await AppDataSource.query(
 		`SELECT
        p.id              AS participantId,
@@ -81,7 +90,7 @@ export const getShirtOrdersForRetreat = async (
        rst.color         AS color,
        rst.sortOrder     AS sortOrder,
        pss.size          AS size,
-       rst.price         AS price
+       COALESCE(ssp.price, rst.price) AS price
      FROM participants p
      INNER JOIN retreat_participants rp
        ON rp.participantId = p.id
@@ -96,6 +105,9 @@ export const getShirtOrdersForRetreat = async (
      INNER JOIN retreat_shirt_type rst
        ON rst.id = pss.shirtTypeId
        AND rst.retreatId = ?
+     LEFT JOIN retreat_shirt_type_size_price ssp
+       ON ssp.shirtTypeId = rst.id
+       AND ssp.size = pss.size
      ORDER BY p.lastName ASC, p.firstName ASC, rst.sortOrder ASC`,
 		[retreatId, retreatId],
 	);
@@ -183,11 +195,14 @@ export const getParticipantShirtOrderSummary = async (
 	}
 	const chargeable = type === 'server' || type === 'partial_server';
 
+	// Per-size override coalesced over the base price: `price` comes out EFFECTIVE.
 	const rows: { name: string; size: string; price: string | number | null }[] =
 		await AppDataSource.query(
-			`SELECT rst.name, pss.size, rst.price
+			`SELECT rst.name, pss.size, COALESCE(ssp.price, rst.price) AS price
 			 FROM participant_shirt_size pss
 			 INNER JOIN retreat_shirt_type rst ON rst.id = pss.shirtTypeId
+			 LEFT JOIN retreat_shirt_type_size_price ssp
+			   ON ssp.shirtTypeId = rst.id AND ssp.size = pss.size
 			 WHERE pss.participantId = ? AND rst.retreatId = ?
 			 ORDER BY rst.sortOrder IS NULL, rst.sortOrder, rst.name`,
 			[participantId, retreatId],

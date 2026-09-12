@@ -307,6 +307,80 @@ describe('Shirt Report Service', () => {
 		const result = await getShirtOrdersForRetreat(retreatId);
 		expect(result.totalCharge).toBe(0);
 	});
+
+	// --- Precio por talla (override sobre el base) ---
+
+	it('per-size override wins over the base price; non-overridden sizes keep the base', async () => {
+		const retreatId = await makeRetreat();
+		const polo = await createShirtType(retreatId, {
+			name: 'Polo',
+			sortOrder: 1,
+			price: 135,
+			sizePrices: [
+				{ size: 'XXL', price: 250 },
+			],
+		});
+
+		// UNIQUE(participantId, shirtTypeId): one size per participant per type,
+		// so the two-size scenario spans two servers.
+		const ana = await TestDataFactory.createTestParticipant(retreatId, {
+			firstName: 'Ana',
+			lastName: 'López',
+			type: 'server',
+		} as any);
+		await assignShirtSize(ana.id, polo.id, 'XXL');
+
+		const beto = await TestDataFactory.createTestParticipant(retreatId, {
+			firstName: 'Beto',
+			lastName: 'Pérez',
+			type: 'server',
+		} as any);
+		await assignShirtSize(beto.id, polo.id, 'M');
+
+		const result = await getShirtOrdersForRetreat(retreatId);
+		const anaRow = result.participants.find((p) => p.firstName === 'Ana')!;
+		const betoRow = result.participants.find((p) => p.firstName === 'Beto')!;
+		expect(anaRow.shirts.find((s) => s.size === 'XXL')?.price).toBe(250);
+		expect(betoRow.shirts.find((s) => s.size === 'M')?.price).toBe(135);
+		expect(anaRow.shirtCharge).toBe(250);
+		expect(betoRow.shirtCharge).toBe(135);
+		expect(result.totalCharge).toBe(385);
+		// Header exposes both the base and the override set.
+		const header = result.shirtTypes.find((t) => t.id === polo.id)!;
+		expect(header.price).toBe(135);
+		expect(header.sizePrices).toEqual([{ size: 'XXL', price: 250 }]);
+	});
+
+	it('override with null base charges only the override; size without override stays free', async () => {
+		const retreatId = await makeRetreat();
+		// No base price: only the XXL override carries a charge.
+		const sudadera = await createShirtType(retreatId, {
+			name: 'Sudadera',
+			sizePrices: [{ size: 'XXL', price: 250 }],
+		});
+
+		const ana = await TestDataFactory.createTestParticipant(retreatId, {
+			firstName: 'Ana',
+			lastName: 'López',
+			type: 'server',
+		} as any);
+		await assignShirtSize(ana.id, sudadera.id, 'XXL');
+
+		const beto = await TestDataFactory.createTestParticipant(retreatId, {
+			firstName: 'Beto',
+			lastName: 'Pérez',
+			type: 'server',
+		} as any);
+		await assignShirtSize(beto.id, sudadera.id, 'M');
+
+		const result = await getShirtOrdersForRetreat(retreatId);
+		const anaRow = result.participants.find((p) => p.firstName === 'Ana')!;
+		const betoRow = result.participants.find((p) => p.firstName === 'Beto')!;
+		expect(anaRow.shirts.find((s) => s.size === 'XXL')?.price).toBe(250);
+		expect(betoRow.shirts.find((s) => s.size === 'M')?.price).toBeNull();
+		expect(anaRow.shirtCharge).toBe(250);
+		expect(betoRow.shirtCharge).toBe(0);
+	});
 });
 
 describe('getParticipantShirtOrderSummary', () => {
@@ -407,5 +481,39 @@ describe('getParticipantShirtOrderSummary', () => {
 		const result = await getParticipantShirtOrderSummary(server.id, retreatId);
 		expect(result.shirtOrderSummary).toBe('Aún no has configurado tus tallas');
 		expect(result.shirtCharge).toBe(0);
+	});
+
+	it('applies the per-size override over the base price in line and total', async () => {
+		const retreatId = await makeRetreat();
+		const polo = await createShirtType(retreatId, {
+			name: 'Polo',
+			price: 135,
+			sizePrices: [{ size: 'XXL', price: 250 }],
+		});
+		const server = await TestDataFactory.createTestParticipant(retreatId, {
+			type: 'server',
+		} as any);
+		await assignShirtSize(server.id, polo.id, 'XXL');
+
+		const result = await getParticipantShirtOrderSummary(server.id, retreatId);
+		expect(result.shirtCharge).toBe(250);
+		expect(result.shirtOrderSummary).toContain('Polo (talla XXL) — $250.00');
+	});
+
+	it('sizes without an override fall back to the base price in the summary', async () => {
+		const retreatId = await makeRetreat();
+		const polo = await createShirtType(retreatId, {
+			name: 'Polo',
+			price: 135,
+			sizePrices: [{ size: 'XXL', price: 250 }],
+		});
+		const server = await TestDataFactory.createTestParticipant(retreatId, {
+			type: 'server',
+		} as any);
+		await assignShirtSize(server.id, polo.id, 'M');
+
+		const result = await getParticipantShirtOrderSummary(server.id, retreatId);
+		expect(result.shirtCharge).toBe(135);
+		expect(result.shirtOrderSummary).toContain('Polo (talla M) — $135.00');
 	});
 });

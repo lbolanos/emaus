@@ -22,7 +22,7 @@ vi.mock('@repo/ui', () => ({
 		template: '<div class="select"><slot /></div>',
 	},
 	SelectContent: { template: '<div><slot /></div>' },
-	SelectItem: { props: ['value'], template: '<div><slot /></div>' },
+	SelectItem: { name: 'SelectItem', props: ['value'], template: '<div><slot /></div>' },
 	SelectTrigger: { props: ['id'], template: '<div><slot /></div>' },
 	SelectValue: { props: ['placeholder'], template: '<div><slot /></div>' },
 }));
@@ -90,5 +90,86 @@ describe('Step5ServerInfo — shirt sizes', () => {
 		});
 
 		expect(wrapper.text()).toContain('serverRegistration.fields.noShirtsConfigured');
+	});
+});
+
+// Effective price per size: COALESCE(override, base, 0). The dropdown LABEL
+// carries the price; the VALUE stays the bare size so the payload is unchanged.
+describe('Step5ServerInfo — per-size price labels', () => {
+	beforeEach(() => vi.clearAllMocks());
+
+	const mountWithTypes = (shirtTypes: any[]) =>
+		mount(Step5ServerInfo, {
+			props: { modelValue: {}, errors: {}, shirtTypes },
+			global: { mocks: { $t: (k: string) => k } },
+		});
+
+	it('shows the effective price per size: override for XXL, base for the rest', () => {
+		const wrapper = mountWithTypes([
+			{
+				id: 'type-polo',
+				name: 'Polo',
+				requiredForWalkers: false,
+				optionalForServers: true,
+				sortOrder: 1,
+				availableSizes: ['S', 'M', 'XXL'],
+				price: 135,
+				sizePrices: [{ size: 'XXL', price: 250 }],
+			},
+		]);
+		const items = wrapper.findAllComponents({ name: 'SelectItem' }).map((i) => i.text());
+
+		expect(items).toContain('S — $135.00');
+		expect(items).toContain('M — $135.00');
+		expect(items).toContain('XXL — $250.00');
+		// "No necesita" never carries a price suffix.
+		expect(items).toContain('serverRegistration.fields.noSizeNeeded');
+	});
+
+	it('without prices configured the labels stay the bare sizes (regression)', () => {
+		const wrapper = mountWithTypes(SHIRT_TYPES as any);
+		const items = wrapper.findAllComponents({ name: 'SelectItem' }).map((i) => i.text());
+
+		expect(items).toContain('S');
+		expect(items).toContain('M');
+		expect(items).toContain('G');
+		expect(items.join(' ')).not.toContain('—');
+	});
+
+	it('with only a base price every size shows the same suffix', () => {
+		const wrapper = mountWithTypes([
+			{
+				id: 'type-polo',
+				name: 'Polo',
+				requiredForWalkers: false,
+				optionalForServers: true,
+				sortOrder: 1,
+				availableSizes: ['S', 'M'],
+				price: 135,
+			},
+		]);
+		const items = wrapper.findAllComponents({ name: 'SelectItem' }).map((i) => i.text());
+
+		expect(items).toContain('S — $135.00');
+		expect(items).toContain('M — $135.00');
+	});
+
+	it('override with no base price: only the overridden size shows a price', () => {
+		const wrapper = mountWithTypes([
+			{
+				id: 'type-sudadera',
+				name: 'Sudadera',
+				requiredForWalkers: false,
+				optionalForServers: true,
+				sortOrder: 1,
+				availableSizes: ['M', 'XXL'],
+				price: null,
+				sizePrices: [{ size: 'XXL', price: 250 }],
+			},
+		]);
+		const items = wrapper.findAllComponents({ name: 'SelectItem' }).map((i) => i.text());
+
+		expect(items).toContain('M');
+		expect(items).toContain('XXL — $250.00');
 	});
 });

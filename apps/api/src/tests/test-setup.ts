@@ -53,6 +53,7 @@ import { ServiceTeam } from '../entities/serviceTeam.entity';
 import { ServiceTeamMember } from '../entities/serviceTeamMember.entity';
 import { RetreatShirtType } from '../entities/retreatShirtType.entity';
 import { ParticipantShirtSize } from '../entities/participantShirtSize.entity';
+import { RetreatShirtTypeSizePrice } from '../entities/retreatShirtTypeSizePrice.entity';
 import { SavedSegment } from '../entities/savedSegment.entity';
 import { MessageSequence } from '../entities/messageSequence.entity';
 import { SequenceStep } from '../entities/sequenceStep.entity';
@@ -131,6 +132,7 @@ const entities = [
 	ServiceTeamMember,
 	RetreatShirtType,
 	ParticipantShirtSize,
+	RetreatShirtTypeSizePrice,
 	ScheduleTemplate,
 	ScheduleTemplateSet,
 	ResponsabilityAttachment,

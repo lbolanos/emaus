@@ -15,9 +15,13 @@ Dos piezas relacionadas:
 
 `/app/settings/shirt-types` (`RetreatShirtTypesView.vue`) — campo **"Precio ($)"** por tipo de prenda, con el helper "Vacío o 0 = sin cargo". Columna `retreat_shirt_type.price` (`decimal(10,2)`, nullable).
 
+Debajo del precio base, el desplegable **"Precio por talla (opcional)"** permite sobreescribirlo para tallas específicas (p. ej. XXL más cara). Cada override es una fila en `retreat_shirt_type_size_price` (UNIQUE por tipo+talla); vacío o 0 = usa el precio base. Guardar reemplaza el set completo (WYSIWYG: retirar una talla del preset elimina su override).
+
 ### Cómo se cobra
 
 El cargo **es computado**, no una fila manual en `participant_debts`: se deriva en caliente de `participant_shirt_size` en `Participant.computeCharges()` (`apps/api/src/entities/participant.entity.ts`). Consecuencia práctica: si el coordinador cambia la talla o el tipo de prenda de alguien, el saldo se recalcula solo, sin tocar nada más.
+
+El precio efectivo de cada prenda es `COALESCE(override_de_talla, precio_base, 0)` — mismo criterio en la ficha, la lista, el reporte y las plantillas. El registro público muestra el precio efectivo junto a cada talla (`"XXL — $250.00"`); sin precios configurados, el dropdown queda igual que siempre.
 
 ```ts
 // Participant.totalShirtCharge — suma las prendas del retiro EN CONTEXTO

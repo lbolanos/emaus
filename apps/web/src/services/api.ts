@@ -3717,6 +3717,12 @@ export type ShirtTypeDTO = {
   availableSizes?: string[] | null;
   /** Precio de la prenda. Se cobra solo a servidores/angelitos. Null/0 = sin cargo. */
   price?: number | null;
+  /**
+   * Overrides de precio por talla: solo filas para tallas que difieren del
+   * base. Precio efectivo = COALESCE(override, price, 0). Array (no record)
+   * para que tallas numéricas como '2' no sufran el reordenamiento de claves.
+   */
+  sizePrices?: { size: string; price: number }[] | null;
 };
 
 export const listShirtTypes = async (retreatId: string): Promise<ShirtTypeDTO[]> => {

@@ -398,6 +398,7 @@ export class Participant {
 	 * filas cuyo tipo pertenece a `this.retreat`: participant_shirt_size es
 	 * global al participante y sin ese filtro las prendas de otros retiros se
 	 * sumarían al saldo. Sin la relación cargada (o sin precio) → 0.
+	 * A per-size override (shirtType.sizePrices) wins over the type's base price.
 	 */
 	get totalShirtCharge(): number {
 		if (!this.shirtSizes || this.shirtSizes.length === 0) {
@@ -406,7 +407,10 @@ export class Participant {
 		const retreatId = this.retreat?.id;
 		const total = this.shirtSizes
 			.filter((s) => s.shirtType != null && s.shirtType.retreatId === retreatId)
-			.reduce((sum, s) => sum + (Number(s.shirtType.price) || 0), 0);
+			.reduce((sum, s) => {
+				const override = s.shirtType.sizePrices?.find((p) => p.size === s.size);
+				return sum + (Number(override ? override.price : s.shirtType.price) || 0);
+			}, 0);
 		return Math.round(total * 100) / 100;
 	}
 

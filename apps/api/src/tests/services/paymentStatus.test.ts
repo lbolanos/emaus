@@ -39,11 +39,17 @@ const makeRetreat = (
 	return r;
 };
 
-const makeShirtType = (id: string, retreatId: string, price: number | null): RetreatShirtType => {
+const makeShirtType = (
+	id: string,
+	retreatId: string,
+	price: number | null,
+	sizePrices?: { size: string; price: number }[],
+): RetreatShirtType => {
 	const t = new RetreatShirtType();
 	t.id = id;
 	t.retreatId = retreatId;
 	t.price = price;
+	t.sizePrices = sizePrices?.map((sp) => ({ ...sp, shirtTypeId: id }) as any);
 	return t;
 };
 
@@ -369,6 +375,45 @@ describe('Participant — shirt charge (totalShirtCharge / chargeBreakdown.shirt
 		});
 		// expected = 1500 (fee) + 250 (shirt) = 1750; paid 1000 → 750 remaining
 		expect(p.paymentRemaining).toBe(750);
+	});
+
+	// --- Per-size price overrides (COALESCE(override, base, 0)) ---
+
+	it('per-size override wins over the base price for the ordered size', () => {
+		const shirtType = makeShirtType('st-1', 'ret-1', 135, [{ size: 'XXL', price: 250 }]);
+		const p = makeParticipant({
+			type: 'server',
+			retreat: retreat(),
+			takesFridayMeal: false,
+			shirtSizes: [makeShirtSize(shirtType, 'XXL')],
+		});
+		expect(p.chargeBreakdown.shirts).toBe(250);
+	});
+
+	it('size without an override falls back to the base price', () => {
+		const shirtType = makeShirtType('st-1', 'ret-1', 135, [{ size: 'XXL', price: 250 }]);
+		const p = makeParticipant({
+			type: 'server',
+			retreat: retreat(),
+			takesFridayMeal: false,
+			shirtSizes: [makeShirtSize(shirtType, 'M')],
+		});
+		expect(p.chargeBreakdown.shirts).toBe(135);
+	});
+
+	it('override with a null base charges only the override', () => {
+		const polo = makeShirtType('st-1', 'ret-1', null, [{ size: 'XXL', price: 250 }]);
+		const sudadera = makeShirtType('st-2', 'ret-1', null);
+		const p = makeParticipant({
+			type: 'server',
+			retreat: retreat(),
+			takesFridayMeal: false,
+			// One size per type (UNIQUE(participantId, shirtTypeId)): the free
+			// fallback lives on a second type, not a second row of the same one.
+			shirtSizes: [makeShirtSize(polo, 'XXL'), makeShirtSize(sudadera, 'M')],
+		});
+		// Polo XXL → override 250; sudadera M → null base, no override → 0.
+		expect(p.chargeBreakdown.shirts).toBe(250);
 	});
 });
 

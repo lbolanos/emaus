@@ -283,6 +283,112 @@ describe('Shirt Type Service', () => {
 		});
 	});
 
+	describe('size price overrides', () => {
+		// SQLite decimals come back as strings via raw entities; normalize for assertions.
+		const overridesOf = (t: RetreatShirtType | null) =>
+			(t?.sizePrices ?? []).map((sp) => ({ size: sp.size, price: Number(sp.price) }));
+
+		it('createShirtType persists the override rows and returns them', async () => {
+			const retreatId = await makeRetreat();
+			const created = await createShirtType(retreatId, {
+				name: 'Polo',
+				price: 135,
+				sizePrices: [
+					{ size: 'XXL', price: 250 },
+					{ size: 'M', price: 150 },
+				],
+			});
+			expect(overridesOf(created)).toEqual([
+				{ size: 'XXL', price: 250 },
+				{ size: 'M', price: 150 },
+			]);
+		});
+
+		it('createShirtType drops null/<=0 prices and dedupes by size (last wins)', async () => {
+			const retreatId = await makeRetreat();
+			const created = await createShirtType(retreatId, {
+				name: 'Polo',
+				price: 135,
+				sizePrices: [
+					{ size: 'XXL', price: 250 },
+					{ size: 'XXL', price: 260 }, // dedupe: last wins
+					{ size: 'M', price: null }, // null = use the base → no row
+					{ size: 'G', price: 0 }, // <= 0 → no row
+					{ size: '  ', price: 100 }, // empty size → no row
+				],
+			});
+			expect(overridesOf(created)).toEqual([{ size: 'XXL', price: 260 }]);
+		});
+
+		it('listShirtTypes returns the overrides (feeds admin + public registration)', async () => {
+			const retreatId = await makeRetreat();
+			const created = await createShirtType(retreatId, {
+				name: 'Polo',
+				price: 135,
+				sizePrices: [{ size: 'XXL', price: 250 }],
+			});
+			const listed = await listShirtTypes(retreatId);
+			expect(overridesOf(listed.find((t) => t.id === created.id)!)).toEqual([
+				{ size: 'XXL', price: 250 },
+			]);
+		});
+
+		it('updateShirtType replaces the full override set', async () => {
+			const retreatId = await makeRetreat();
+			const created = await createShirtType(retreatId, {
+				name: 'Polo',
+				price: 135,
+				sizePrices: [
+					{ size: 'XXL', price: 250 },
+					{ size: 'M', price: 150 },
+				],
+			});
+			const updated = await updateShirtType(created.id, {
+				sizePrices: [{ size: 'G', price: 180 }],
+			});
+			expect(overridesOf(updated)).toEqual([{ size: 'G', price: 180 }]);
+		});
+
+		it('updateShirtType with [] clears every override', async () => {
+			const retreatId = await makeRetreat();
+			const created = await createShirtType(retreatId, {
+				name: 'Polo',
+				price: 135,
+				sizePrices: [{ size: 'XXL', price: 250 }],
+			});
+			const updated = await updateShirtType(created.id, { sizePrices: [] });
+			expect(overridesOf(updated)).toEqual([]);
+		});
+
+		it('updateShirtType without sizePrices (undefined) leaves the overrides untouched', async () => {
+			const retreatId = await makeRetreat();
+			const created = await createShirtType(retreatId, {
+				name: 'Polo',
+				price: 135,
+				sizePrices: [{ size: 'XXL', price: 250 }],
+			});
+			const updated = await updateShirtType(created.id, { name: 'Polo renombrado' });
+			expect(updated!.name).toBe('Polo renombrado');
+			expect(overridesOf(updated)).toEqual([{ size: 'XXL', price: 250 }]);
+		});
+
+		it('deleteShirtType removes the override rows too', async () => {
+			const ds = getDS();
+			const retreatId = await makeRetreat();
+			const created = await createShirtType(retreatId, {
+				name: 'Polo',
+				price: 135,
+				sizePrices: [{ size: 'XXL', price: 250 }],
+			});
+			await deleteShirtType(created.id);
+			const rows = await ds.query(
+				'SELECT COUNT(*) AS c FROM retreat_shirt_type_size_price WHERE shirtTypeId = ?',
+				[created.id],
+			);
+			expect(rows[0].c).toBe(0);
+		});
+	});
+
 	describe('validateSizesAgainstType', () => {
 		it('accepts a size present in availableSizes', async () => {
 			const retreatId = await makeRetreat();

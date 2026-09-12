@@ -741,12 +741,22 @@ export const shirtReportParticipantSchema = z.object({
 });
 export type ShirtReportParticipant = z.infer<typeof shirtReportParticipantSchema>;
 
+// Per-size price override: a row exists only for sizes that differ from the
+// shirt type's base price; the effective price is COALESCE(override, base, 0).
+export const shirtTypeSizePriceSchema = z.object({
+	id: z.string().optional(),
+	size: z.string().min(1),
+	price: z.number(),
+});
+export type ShirtTypeSizePrice = z.infer<typeof shirtTypeSizePriceSchema>;
+
 export const shirtReportShirtTypeSchema = z.object({
 	id: z.string(),
 	name: z.string(),
 	color: z.string().nullable(),
 	sortOrder: z.number(),
 	price: z.number().nullable(),
+	sizePrices: z.array(shirtTypeSizePriceSchema).optional(),
 });
 export type ShirtReportShirtType = z.infer<typeof shirtReportShirtTypeSchema>;
 

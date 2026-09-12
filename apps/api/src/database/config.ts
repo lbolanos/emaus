@@ -68,6 +68,7 @@ import { RetreatPreparation } from '../entities/retreatPreparation.entity';
 import { RetreatPreparationDocument } from '../entities/retreatPreparationDocument.entity';
 import { RetreatShirtType } from '../entities/retreatShirtType.entity';
 import { ParticipantShirtSize } from '../entities/participantShirtSize.entity';
+import { RetreatShirtTypeSizePrice } from '../entities/retreatShirtTypeSizePrice.entity';
 import { RetreatMemoryPhoto } from '../entities/retreatMemoryPhoto.entity';
 import { RetreatMemorySong } from '../entities/retreatMemorySong.entity';
 import { SavedSegment } from '../entities/savedSegment.entity';
@@ -163,6 +164,7 @@ export function createDatabaseConfig() {
 		// Shirt types per retreat
 		RetreatShirtType,
 		ParticipantShirtSize,
+		RetreatShirtTypeSizePrice,
 		// Retreat memories (galleries)
 		RetreatMemoryPhoto,
 		RetreatMemorySong,

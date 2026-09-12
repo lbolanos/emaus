@@ -6,6 +6,7 @@ import { Input } from '@repo/ui'
 import { Checkbox } from '@repo/ui'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@repo/ui'
 import AngelitoAvailabilityEditor from '@/components/AngelitoAvailabilityEditor.vue'
+import { shirtSizeLabel } from '@/utils/shirtPrice'
 
 type ShirtType = {
   id: string
@@ -15,6 +16,9 @@ type ShirtType = {
   optionalForServers: boolean
   sortOrder: number
   availableSizes?: string[] | null
+  /** Base price and per-size overrides: effective = COALESCE(override, price, 0). */
+  price?: number | string | null
+  sizePrices?: { size: string; price: number | string }[] | null
 }
 
 // withDefaults es OBLIGATORIO por `allowAngelito`: Vue castea una prop booleana
@@ -176,7 +180,9 @@ function getSize(typeId: string): string {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="null">{{ $t('serverRegistration.fields.noSizeNeeded') }}</SelectItem>
-            <SelectItem v-for="s in sizesFor(t)" :key="s" :value="s">{{ s }}</SelectItem>
+            <!-- Value stays the bare size; only the visible label carries the
+                 effective price, so submission is unchanged with or without prices. -->
+            <SelectItem v-for="s in sizesFor(t)" :key="s" :value="s">{{ shirtSizeLabel(t, s) }}</SelectItem>
           </SelectContent>
         </Select>
       </div>

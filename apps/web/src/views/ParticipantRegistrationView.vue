@@ -34,6 +34,7 @@ import Step4EmergencyContact from '@/components/registration/Step4EmergencyConta
 import Step5OtherInfo from '@/components/registration/Step5OtherInfo.vue'
 import Step5ServerInfo from '@/components/registration/Step5ServerInfo.vue'
 import AngelitoAvailabilityEditor from '@/components/AngelitoAvailabilityEditor.vue'
+import { shirtSizeLabel } from '@/utils/shirtPrice'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@repo/ui'
 
 const props = defineProps<{ retreatId?: string; slug?: string; type: string }>()
@@ -1081,7 +1082,9 @@ const summaryData = computed<SummaryItem[]>(() => {
       data.push({
         label: t.name,
         rawLabel: true,
-        value: !size || size === 'null' ? 'serverRegistration.fields.noSizeNeeded' : size,
+        // With prices configured the row shows the effective price for the
+        // chosen size; without them it stays the bare size (as before).
+        value: !size || size === 'null' ? 'serverRegistration.fields.noSizeNeeded' : shirtSizeLabel(t, size),
       })
     }
   }

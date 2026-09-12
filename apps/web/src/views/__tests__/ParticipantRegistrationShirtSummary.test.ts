@@ -156,6 +156,27 @@ describe('Server registration — shirt size summary (step 6)', () => {
 		);
 	});
 
+	it('appends the effective price to the size when prices are configured', async () => {
+		const priced = [
+			{
+				id: 'type-polo',
+				name: 'Polo',
+				optionalForServers: true,
+				requiredForWalkers: false,
+				sortOrder: 1,
+				availableSizes: ['S', 'M', 'XXL'],
+				price: 135,
+				sizePrices: [{ size: 'XXL', price: 250 }],
+			},
+		];
+		const wrapper = await mountAtSummary({ 'type-polo': 'XXL' }, priced);
+		const rows = (wrapper.vm as any).summaryData;
+
+		expect(rows).toEqual(
+			expect.arrayContaining([{ label: 'Polo', rawLabel: true, value: 'XXL — $250.00' }]),
+		);
+	});
+
 	it('adds no shirt rows when the retreat has no types configured', async () => {
 		const wrapper = await mountAtSummary({}, []);
 		const rows = (wrapper.vm as any).summaryData as Array<{ rawLabel?: boolean }>;
