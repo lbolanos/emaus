@@ -8,9 +8,13 @@
  *    con chip de secuencia removible.
  */
 
-import { describe, it, expect, vi } from 'vitest';
-import { mount, flushPromises, VueWrapper } from '@vue/test-utils';
+import { describe, it, expect, vi, afterEach } from 'vitest';
+import { mount, flushPromises, VueWrapper, enableAutoUnmount } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
+
+// Los tests de a11y (#5) siguen el foco real (document.activeElement): la
+// vista se monta atacheada al body y se desmonta tras cada test.
+enableAutoUnmount(afterEach);
 
 vi.mock('vue-router', () => ({
 	useRoute: () => ({ params: {} }),
@@ -174,7 +178,7 @@ async function mountView(): Promise<VueWrapper<any>> {
 
 	const { default: i18n } = await import('@/i18n');
 	const MessageSequencesView = (await import('@/views/MessageSequencesView.vue')).default;
-	const wrapper = mount(MessageSequencesView, { global: { plugins: [i18n] } });
+	const wrapper = mount(MessageSequencesView, { global: { plugins: [i18n] }, attachTo: document.body });
 	await flushPromises();
 	return wrapper;
 }
@@ -572,5 +576,71 @@ describe('MessageSequencesView — buscar en Problemas por nombre legible (#3)',
 
 		wrapper.vm.issuesSearch = 'no-existe-nada';
 		expect(wrapper.vm.filteredIssues).toHaveLength(0);
+	});
+});
+
+describe('MessageSequencesView — accesibilidad (#5)', () => {
+	it('los tabs exponen role/aria-selected y las flechas mueven el tab activo con el foco', async () => {
+		const wrapper = await mountView();
+		const tablist = wrapper.find('[role="tablist"]');
+		expect(tablist.exists()).toBe(true);
+		const tabs = tablist.findAll('[role="tab"]');
+		expect(tabs).toHaveLength(4);
+		expect(tabs[0].attributes('aria-selected')).toBe('true');
+		expect(tabs[1].attributes('aria-selected')).toBe('false');
+		// Tab ↔ panel enlazados vía aria-controls/aria-labelledby.
+		expect(tabs[0].attributes('aria-controls')).toBe('seq-panel-sequences');
+		expect(wrapper.find('#seq-panel-sequences').attributes('aria-labelledby')).toBe('seq-tab-sequences');
+
+		await tablist.trigger('keydown', { key: 'ArrowRight' });
+		expect(wrapper.vm.activeTab).toBe('scheduled');
+		expect(document.activeElement?.id).toBe('seq-tab-scheduled');
+		expect(wrapper.find('#seq-tab-scheduled').attributes('aria-selected')).toBe('true');
+
+		// Wrap-around con flechas y salto directo con Home/End.
+		await tablist.trigger('keydown', { key: 'End' });
+		expect(wrapper.vm.activeTab).toBe('issues');
+		await tablist.trigger('keydown', { key: 'ArrowRight' });
+		expect(wrapper.vm.activeTab).toBe('sequences');
+		await tablist.trigger('keydown', { key: 'Home' });
+		expect(wrapper.vm.activeTab).toBe('sequences');
+	});
+
+	it('los icon-buttons de la lista tienen nombre accesible', async () => {
+		const wrapper = await mountView();
+		const labels = wrapper.findAll('button').map((b) => b.attributes('aria-label'));
+		expect(labels).toContain('Editar');
+		expect(labels).toContain('Eliminar');
+		expect(labels).toContain('Duplicar');
+		expect(labels).toContain('Activar/desactivar');
+	});
+
+	it('el editor abre como diálogo accesible y Escape lo cierra', async () => {
+		const wrapper = await mountView();
+		wrapper.vm.openCreate();
+		await flushPromises();
+		const dialog = wrapper.find('[role="dialog"][aria-modal="true"]');
+		expect(dialog.exists()).toBe(true);
+		expect(dialog.attributes('aria-label')).toBeTruthy();
+		// El foco entra al contenedor del diálogo (rAF del composable).
+		await new Promise((r) => setTimeout(r, 20));
+		expect(document.activeElement?.getAttribute('role')).toBe('dialog');
+
+		document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+		await flushPromises();
+		expect(wrapper.vm.isEditorOpen).toBe(false);
+	});
+
+	it('la confirmación de borrado se cancela con Escape sin borrar nada', async () => {
+		const wrapper = await mountView();
+		const apiMod: any = await import('@/services/api');
+		wrapper.vm.askDelete(SEQ);
+		await flushPromises();
+		expect(wrapper.vm.seqToDelete).toBeTruthy();
+
+		document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+		await flushPromises();
+		expect(wrapper.vm.seqToDelete).toBeNull();
+		expect(apiMod.deleteMessageSequence).not.toHaveBeenCalled();
 	});
 });

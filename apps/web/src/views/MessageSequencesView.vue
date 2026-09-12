@@ -17,6 +17,7 @@ import { sanitizePhoneForWhatsapp } from '@/utils/phone';
 import { getMessageTemplateAudience } from '@repo/types';
 import type { SequenceStepPreview } from '@repo/types';
 import { previewSequenceStep, previewSequenceSchedule } from '@/services/api';
+import { useModalA11y } from '@/composables/useModalA11y';
 
 const { t } = useI18n();
 const { toast } = useToast();
@@ -255,6 +256,8 @@ function filtersToCondition(f: any): StepCondition {
 }
 
 const isEditorOpen = ref(false);
+const editorModalRef = ref<HTMLElement | null>(null);
+useModalA11y(isEditorOpen, () => { isEditorOpen.value = false; }, editorModalRef);
 const draft = ref<SequenceDraft>(emptyDraft());
 
 function emptyDraft(): SequenceDraft {
@@ -502,6 +505,9 @@ async function saveDraft() {
 
 // Confirmación antes de eliminar (un clic ya no borra directo).
 const seqToDelete = ref<any>(null);
+const deleteModalOpen = computed(() => !!seqToDelete.value);
+const deleteModalRef = ref<HTMLElement | null>(null);
+useModalA11y(deleteModalOpen, () => { seqToDelete.value = null; }, deleteModalRef);
 function askDelete(seq: any) {
 	seqToDelete.value = seq;
 }
@@ -590,6 +596,25 @@ const regenerating = ref(false);
 
 // Tabs de la página (secuencias / programados / pendientes / problemas).
 const activeTab = ref<'sequences' | 'scheduled' | 'pending' | 'issues'>('sequences');
+// Teclado del tablist (patrón WAI-ARIA): flechas/Home/End mueven el tab
+// activo y llevan el foco con él. Sin roving tabindex — los 4 tabs siguen
+// alcanzables por Tab para no dejar ninguno fuera del orden del documento.
+const TAB_KEYS = ['sequences', 'scheduled', 'pending', 'issues'] as const;
+function switchTab(key: (typeof TAB_KEYS)[number]) {
+	activeTab.value = key;
+	document.getElementById(`seq-tab-${key}`)?.focus();
+}
+function onTablistKeydown(e: KeyboardEvent) {
+	const idx = TAB_KEYS.indexOf(activeTab.value);
+	let next: number | null = null;
+	if (e.key === 'ArrowRight') next = (idx + 1) % TAB_KEYS.length;
+	else if (e.key === 'ArrowLeft') next = (idx - 1 + TAB_KEYS.length) % TAB_KEYS.length;
+	else if (e.key === 'Home') next = 0;
+	else if (e.key === 'End') next = TAB_KEYS.length - 1;
+	if (next === null) return;
+	e.preventDefault();
+	switchTab(TAB_KEYS[next]);
+}
 const QUEUE_PAGE_SIZE = 10;
 const queuePage = ref(1);
 const queueSort = ref<'scheduled' | 'name' | 'template' | 'recent'>('scheduled');
@@ -783,6 +808,8 @@ const reschedStep = ref<{ id: string; label: string } | null>(null);
 const reschedDate = ref('');
 const reschedHour = ref<number>(9);
 const reschedSaving = ref(false);
+const reschedModalRef = ref<HTMLElement | null>(null);
+useModalA11y(reschedDialog, () => { reschedDialog.value = false; }, reschedModalRef);
 
 // Partes de pared (Y/M/D + hora) de una fecha absoluta en una TZ dada — para
 // precargar el diálogo con la fecha vigente del propio paso.
@@ -945,6 +972,8 @@ async function regenerateQueue() {
 
 // Importar una plantilla global de secuencia a este retiro (queda inactiva).
 const isImportOpen = ref(false);
+const importModalRef = ref<HTMLElement | null>(null);
+useModalA11y(isImportOpen, () => { isImportOpen.value = false; }, importModalRef);
 const importLoading = ref(false);
 const globalSequences = computed(() =>
 	(globalSequenceStore.sequences || []).filter((s: any) => s.isActive),
@@ -978,6 +1007,8 @@ async function importGlobal(globalSeq: any) {
 // decidir con contexto si enviar u omitir.
 const detailItem = ref<any>(null);
 const isDetailOpen = computed(() => !!detailItem.value);
+const detailModalRef = ref<HTMLElement | null>(null);
+useModalA11y(isDetailOpen, closeDetail, detailModalRef);
 
 function openDetail(item: any) {
 	detailItem.value = item;
@@ -1171,39 +1202,60 @@ async function toggleDoNotContact() {
 		</div>
 
 		<!-- Tabs: Secuencias / Programados / Bandeja WhatsApp / Problemas -->
-		<div class="flex items-stretch border-b">
+		<div
+			class="flex items-stretch border-b"
+			role="tablist"
+			:aria-label="t('sequences.title')"
+			@keydown="onTablistKeydown"
+		>
 			<button
 				type="button"
+				role="tab"
+				id="seq-tab-sequences"
+				:aria-selected="activeTab === 'sequences'"
+				aria-controls="seq-panel-sequences"
 				class="flex-1 sm:flex-none justify-center sm:justify-start min-w-0 px-2 sm:px-3 py-2 text-sm font-medium border-b-2 -mb-px flex items-center gap-1.5 whitespace-nowrap"
 				:class="activeTab === 'sequences' ? 'border-purple-500 text-purple-700' : 'border-transparent text-gray-500 hover:text-gray-700'"
-				@click="activeTab = 'sequences'"
+				@click="switchTab('sequences')"
 			>
 				<Send class="w-4 h-4" /> {{ t('sequences.tabSequences') }}
 				<span class="text-xs bg-purple-100 text-purple-700 rounded-full px-1.5">{{ sequences.length }}</span>
 			</button>
 			<button
 				type="button"
+				role="tab"
+				id="seq-tab-scheduled"
+				:aria-selected="activeTab === 'scheduled'"
+				aria-controls="seq-panel-scheduled"
 				class="flex-1 sm:flex-none justify-center sm:justify-start min-w-0 px-2 sm:px-3 py-2 text-sm font-medium border-b-2 -mb-px flex items-center gap-1.5 whitespace-nowrap"
 				:class="activeTab === 'scheduled' ? 'border-blue-500 text-blue-700' : 'border-transparent text-gray-500 hover:text-gray-700'"
-				@click="activeTab = 'scheduled'"
+				@click="switchTab('scheduled')"
 			>
 				<CalendarDays class="w-4 h-4" /> {{ t('sequences.tabScheduled') }}
 				<span class="text-xs bg-blue-100 text-blue-700 rounded-full px-1.5">{{ scheduledTabCount }}</span>
 			</button>
 			<button
 				type="button"
+				role="tab"
+				id="seq-tab-pending"
+				:aria-selected="activeTab === 'pending'"
+				aria-controls="seq-panel-pending"
 				class="flex-1 sm:flex-none justify-center sm:justify-start min-w-0 px-2 sm:px-3 py-2 text-sm font-medium border-b-2 -mb-px flex items-center gap-1.5 whitespace-nowrap"
 				:class="activeTab === 'pending' ? 'border-amber-500 text-amber-700' : 'border-transparent text-gray-500 hover:text-gray-700'"
-				@click="activeTab = 'pending'"
+				@click="switchTab('pending')"
 			>
 				<MessageCircle class="w-4 h-4" /> {{ t('sequences.tabPending') }}
 				<span class="text-xs bg-amber-100 text-amber-700 rounded-full px-1.5">{{ queue.length }}</span>
 			</button>
 			<button
 				type="button"
+				role="tab"
+				id="seq-tab-issues"
+				:aria-selected="activeTab === 'issues'"
+				aria-controls="seq-panel-issues"
 				class="flex-1 sm:flex-none justify-center sm:justify-start min-w-0 px-2 sm:px-3 py-2 text-sm font-medium border-b-2 -mb-px flex items-center gap-1.5 whitespace-nowrap"
 				:class="activeTab === 'issues' ? 'border-red-500 text-red-700' : 'border-transparent text-gray-500 hover:text-gray-700'"
-				@click="activeTab = 'issues'"
+				@click="switchTab('issues')"
 			>
 				<AlertTriangle class="w-4 h-4" /> {{ t('sequences.tabIssues') }}
 				<span v-if="issuesTotal" class="text-xs bg-red-100 text-red-700 rounded-full px-1.5">{{ issuesTotal }}</span>
@@ -1211,7 +1263,7 @@ async function toggleDoNotContact() {
 		</div>
 
 		<!-- Tab: Secuencias -->
-		<div v-show="activeTab === 'sequences'">
+		<div v-show="activeTab === 'sequences'" role="tabpanel" id="seq-panel-sequences" aria-labelledby="seq-tab-sequences">
 			<!-- Barra de acciones -->
 			<div class="flex items-center justify-between gap-2 mb-3">
 				<p class="text-xs text-gray-500 whitespace-nowrap">
@@ -1302,15 +1354,37 @@ async function toggleDoNotContact() {
 						variant="ghost"
 						size="icon"
 						:title="t('sequences.toggleActive')"
+						:aria-label="t('sequences.toggleActive')"
 						@click="toggleActive(seq)"
 					>
 						<Power class="w-4 h-4" :class="seq.isActive ? 'text-green-600' : 'text-gray-400'" />
 					</Button>
-					<Button variant="ghost" size="icon" :title="t('sequences.duplicate')" @click="duplicateSequence(seq)">
+					<Button
+						variant="ghost"
+						size="icon"
+						:title="t('sequences.duplicate')"
+						:aria-label="t('sequences.duplicate')"
+						@click="duplicateSequence(seq)"
+					>
 						<Copy class="w-4 h-4" />
 					</Button>
-					<Button variant="ghost" size="icon" @click="openEdit(seq)"><Pencil class="w-4 h-4" /></Button>
-					<Button variant="ghost" size="icon" class="text-red-500" @click="askDelete(seq)">
+					<Button
+						variant="ghost"
+						size="icon"
+						:title="t('sequences.edit')"
+						:aria-label="t('sequences.edit')"
+						@click="openEdit(seq)"
+					>
+						<Pencil class="w-4 h-4" />
+					</Button>
+					<Button
+						variant="ghost"
+						size="icon"
+						class="text-red-500"
+						:title="t('sequences.delete')"
+						:aria-label="t('sequences.delete')"
+						@click="askDelete(seq)"
+					>
 						<Trash2 class="w-4 h-4" />
 					</Button>
 				</div>
@@ -1326,7 +1400,7 @@ async function toggleDoNotContact() {
 		</div>
 
 			<!-- Tab: Programados (mensajes materializados, con la fecha en que saldrán/salieron) -->
-			<div v-show="activeTab === 'scheduled'">
+			<div v-show="activeTab === 'scheduled'" role="tabpanel" id="seq-panel-scheduled" aria-labelledby="seq-tab-scheduled">
 				<!-- Filtros server-side: búsqueda con debounce + estado + orden -->
 				<div class="flex items-center gap-2 mb-2 flex-wrap">
 					<input
@@ -1453,7 +1527,7 @@ async function toggleDoNotContact() {
 			</div>
 
 			<!-- Tab: Pendientes de WhatsApp -->
-			<div v-show="activeTab === 'pending'">
+			<div v-show="activeTab === 'pending'" role="tabpanel" id="seq-panel-pending" aria-labelledby="seq-tab-pending">
 				<!-- Buscador + (móvil) menú de acciones -->
 				<div v-if="queue.length" class="flex items-center gap-2 mb-2">
 					<input
@@ -1639,7 +1713,7 @@ async function toggleDoNotContact() {
 			</div>
 
 			<!-- Tab: Problemas (omitidos o fallidos, con su motivo) -->
-			<div v-show="activeTab === 'issues'">
+			<div v-show="activeTab === 'issues'" role="tabpanel" id="seq-panel-issues" aria-labelledby="seq-tab-issues">
 				<!-- Chip de secuencia (viene del badge clickeable de la lista) -->
 				<div v-if="issuesSequenceFilter" class="flex items-center gap-2 mb-2 text-xs">
 					<span class="inline-flex items-center gap-1 bg-red-100 text-red-700 rounded-full px-2 py-0.5">
@@ -1791,12 +1865,26 @@ async function toggleDoNotContact() {
 			class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
 			@click.self="isEditorOpen = false"
 		>
-			<div class="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+			<div
+				ref="editorModalRef"
+				role="dialog"
+				aria-modal="true"
+				tabindex="-1"
+				:aria-label="draft.id ? t('sequences.editTitle') : t('sequences.newTitle')"
+				class="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col focus:outline-none"
+			>
 				<div class="flex items-center justify-between p-6 border-b">
 					<h2 class="text-xl font-semibold">
 						{{ draft.id ? t('sequences.editTitle') : t('sequences.newTitle') }}
 					</h2>
-					<Button variant="ghost" size="icon" @click="isEditorOpen = false"><X class="w-5 h-5" /></Button>
+					<Button
+						variant="ghost"
+						size="icon"
+						:aria-label="t('sequences.close')"
+						@click="isEditorOpen = false"
+					>
+						<X class="w-5 h-5" />
+					</Button>
 				</div>
 				<div class="p-6 space-y-4 overflow-y-auto">
 					<div>
@@ -2044,13 +2132,27 @@ async function toggleDoNotContact() {
 			class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
 			@click.self="isImportOpen = false"
 		>
-			<div class="bg-white rounded-lg shadow-xl max-w-lg w-full max-h-[90vh] overflow-hidden flex flex-col">
+			<div
+				ref="importModalRef"
+				role="dialog"
+				aria-modal="true"
+				tabindex="-1"
+				:aria-label="t('sequences.importTitle')"
+				class="bg-white rounded-lg shadow-xl max-w-lg w-full max-h-[90vh] overflow-hidden flex flex-col focus:outline-none"
+			>
 				<div class="flex items-center justify-between p-5 border-b">
 					<div>
 						<h2 class="text-lg font-semibold">{{ t('sequences.importTitle') }}</h2>
 						<p class="text-xs text-gray-500">{{ t('sequences.importHint') }}</p>
 					</div>
-					<Button variant="ghost" size="icon" @click="isImportOpen = false"><X class="w-5 h-5" /></Button>
+					<Button
+						variant="ghost"
+						size="icon"
+						:aria-label="t('sequences.close')"
+						@click="isImportOpen = false"
+					>
+						<X class="w-5 h-5" />
+					</Button>
 				</div>
 				<div class="p-5 overflow-y-auto">
 					<div v-if="globalSequences.length" class="border rounded-md divide-y">
@@ -2080,7 +2182,14 @@ async function toggleDoNotContact() {
 			class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
 			@click.self="closeDetail"
 		>
-			<div class="bg-white rounded-lg shadow-xl max-w-lg w-full max-h-[90vh] overflow-hidden flex flex-col">
+			<div
+				ref="detailModalRef"
+				role="dialog"
+				aria-modal="true"
+				tabindex="-1"
+				:aria-label="t('sequences.detailTitle')"
+				class="bg-white rounded-lg shadow-xl max-w-lg w-full max-h-[90vh] overflow-hidden flex flex-col focus:outline-none"
+			>
 				<div class="flex items-center justify-between p-5 border-b">
 					<div class="min-w-0">
 						<h2 class="text-lg font-semibold truncate">
@@ -2088,7 +2197,9 @@ async function toggleDoNotContact() {
 						</h2>
 						<p class="text-xs text-gray-500">{{ t('sequences.detailTitle') }}</p>
 					</div>
-					<Button variant="ghost" size="icon" @click="closeDetail"><X class="w-5 h-5" /></Button>
+					<Button variant="ghost" size="icon" :aria-label="t('sequences.close')" @click="closeDetail">
+						<X class="w-5 h-5" />
+					</Button>
 				</div>
 
 				<div class="p-5 space-y-4 overflow-y-auto text-sm">
@@ -2206,7 +2317,14 @@ async function toggleDoNotContact() {
 			class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
 			@click.self="seqToDelete = null"
 		>
-			<div class="bg-white rounded-lg shadow-xl max-w-sm w-full p-6">
+			<div
+				ref="deleteModalRef"
+				role="dialog"
+				aria-modal="true"
+				tabindex="-1"
+				:aria-label="t('sequences.deleteTitle')"
+				class="bg-white rounded-lg shadow-xl max-w-sm w-full p-6 focus:outline-none"
+			>
 				<h2 class="text-lg font-semibold">{{ t('sequences.deleteTitle') }}</h2>
 				<p class="text-sm text-gray-600 mt-1">
 					{{ t('sequences.deleteConfirm', { name: seqToDelete.name }) }}
@@ -2224,7 +2342,14 @@ async function toggleDoNotContact() {
 			class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
 			@click.self="reschedDialog = false"
 		>
-			<div class="bg-white rounded-lg shadow-xl max-w-sm w-full p-6">
+			<div
+				ref="reschedModalRef"
+				role="dialog"
+				aria-modal="true"
+				tabindex="-1"
+				:aria-label="t('sequences.reschedTitle')"
+				class="bg-white rounded-lg shadow-xl max-w-sm w-full p-6 focus:outline-none"
+			>
 				<h2 class="text-lg font-semibold">{{ t('sequences.reschedTitle') }}</h2>
 				<p class="text-sm text-gray-600 mt-1">
 					{{ t('sequences.reschedHint', { name: reschedStep?.label }) }}
