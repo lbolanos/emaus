@@ -256,3 +256,31 @@ export interface SequenceSchedulePreview {
 	dates: Array<string | null>;
 	timezone: string;
 }
+
+/**
+ * Reprogramar un paso ya materializado: mueve TODOS sus mensajes `pending` a
+ * una fecha absoluta interpretada EN LA TZ DEL RETIRO (o a "ahora" con
+ * `immediate`, que además dispara el procesamiento del retiro para que caigan
+ * en la bandeja de una vez). Lo ya `queued`/`sent` no se toca.
+ */
+export const rescheduleStepSchema = z.object({
+	body: z
+		.object({
+			immediate: z.boolean().optional(),
+			date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+			hour: z.number().int().min(0).max(23).optional(),
+		})
+		.refine((b) => b.immediate || !!b.date, {
+			message: 'Se requiere immediate o date',
+		}),
+	params: z.object({ stepId: z.string().uuid() }),
+});
+export type RescheduleStepRequest = z.infer<typeof rescheduleStepSchema>;
+
+/** Respuesta de reschedule: filas movidas y la fecha compartida resultante. */
+export interface RescheduleStepResponse {
+	affected: number;
+	scheduledFor: string;
+	/** Sólo con immediate: mensajes procesados por el run encadenado. */
+	processed?: number;
+}

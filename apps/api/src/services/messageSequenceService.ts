@@ -1390,6 +1390,49 @@ export class MessageSequenceService {
 		return { dates, timezone: this.resolveTz(retreat) };
 	}
 
+	/** Paso con su secuencia (para que el controller valide el retiro correcto). */
+	async findStepWithSequence(stepId: string) {
+		return AppDataSource.getRepository(SequenceStep).findOne({
+			where: { id: stepId },
+			relations: ['sequence'],
+		});
+	}
+
+	/**
+	 * Reprogramar un paso ya materializado (B1): mueve TODOS sus `pending` a
+	 * una fecha absoluta interpretada en la TZ del retiro. `hour` sin valor
+	 * conserva el `sendHour` del paso. Sólo toca `pending`: lo `queued` ya está
+	 * en la bandeja y lo `sent` es historial. B2 ("encolar ya") es este mismo
+	 * método con fecha=ahora; el run encadenado lo dispara el controller.
+	 */
+	async rescheduleStep(
+		step: SequenceStep,
+		payload: { immediate?: boolean; date?: string; hour?: number },
+	): Promise<{ affected: number; scheduledFor: Date }> {
+		let target: Date;
+		if (payload.immediate) {
+			target = new Date();
+		} else {
+			if (!payload.date) throw new Error('Se requiere immediate o date');
+			const [y, m0, d] = payload.date.split('-').map((n) => parseInt(n, 10));
+			// La fecha es "de pared" en la TZ del retiro: se resuelve vía la
+			// secuencia del paso (el controller ya cargó la relación).
+			const retreatRow = await AppDataSource.getRepository(Retreat).findOne({
+				where: { id: step.sequence?.retreatId },
+			});
+			const tz = this.resolveTz(retreatRow);
+			target = makeDateInTimezone(y, m0 - 1, d, payload.hour ?? step.sendHour ?? 9, 0, tz);
+		}
+		const now = new Date();
+		const res = await AppDataSource.getRepository(ScheduledMessage)
+			.createQueryBuilder()
+			.update(ScheduledMessage)
+			.set({ scheduledFor: target, updatedAt: now })
+			.where('stepId = :stepId AND status = :status', { stepId: step.id, status: 'pending' })
+			.execute();
+		return { affected: res.affected ?? 0, scheduledFor: target };
+	}
+
 	/**
 	 * Detalle del participante de un pendiente de la bandeja, para que el
 	 * coordinador decida si enviar u omitir con todo el contexto a la vista:

@@ -250,6 +250,25 @@ M6 en paralelo con todo, desde el día 1
   (fila con fecha TZ + hint de zona, bandeja pinta scheduledFor, contador desde stats, badge →
   tab filtrada con chip removible, timeline del editor con fecha del servidor, paso sin fecha).
   Guard i18n 67/67 (es/en en paridad).
-- M4: _pendiente_
+- M4 (cerrado 2026-09-12): implementado como especificado, con cuatro matices:
+  1. La spec pedía "menú ⋯ por fila/grupo en Programados"; se implementaron botones compactos
+     inline por fila ("Reprogramar" / "Encolar ya", sólo en filas `pending`) — consistente con el
+     resto de la bandeja, que no usa menús desplegables. El alcance por-lote lo aclara el hint del
+     diálogo ("se moverán TODOS los pendientes del paso").
+  2. El aviso de catch-up compara PARED contra PARED (`wallPartsInTz` del `scheduledFor` vs
+     reloj actual en TZ del retiro), no instantes: el cliente jamás convierte TZ→UTC — el server
+     (`makeDateInTimezone`) es la única fuente de verdad de la conversión. Matiz técnico:
+     `Intl.formatToParts` NO parsea strings ISO (RangeError "Invalid time value") — normaliza a
+     `new Date()` primero.
+  3. `immediate` devuelve `processed` además de `affected` (cuántos cayeron a la bandeja tras el
+     `processDue` encadenado del retiro); el toast de "Encolar ya" prefiere `processed`.
+  4. El botón por paso en el editor sólo aparece para pasos ya guardados (`step.id`): un paso
+     recién añadido en el draft no tiene filas materializadas que mover.
+  Tests: backend 79/79 en `messageSequence.test.ts` (75 + 4 nuevos: sólo pending se mueve con
+  fecha UTC exacta 15:00Z, hour omitido conserva sendHour, immediate ≈ now, affected 0 +
+  findStepWithSequence null). Web: 11/11 store (rescheduleStep manda el stepId al endpoint y
+  refresca bandeja+stats) + 8/8 vista (diálogo con defaults de pared de la fila, payload exacto,
+  aviso de pasado, refetch; "Encolar ya" manda immediate). Guard i18n 67/67 (11 llaves nuevas
+  es/en).
 - M5: _pendiente_
 - M6: _pendiente_

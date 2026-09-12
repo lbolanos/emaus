@@ -705,6 +705,110 @@ function schedStatusClass(status: string): string {
 	);
 }
 
+// --------------------------------------------------------------------------
+// M4: reprogramar / encolar ya (B1-B2). Mueve TODOS los pending del paso —
+// el diálogo aclara el alcance. La conversión TZ la hace el SERVER
+// (`makeDateInTimezone`); aquí sólo se arma la pared (fecha/hora) inicial.
+// --------------------------------------------------------------------------
+const reschedDialog = ref(false);
+const reschedStep = ref<{ id: string; label: string } | null>(null);
+const reschedDate = ref('');
+const reschedHour = ref<number>(9);
+const reschedSaving = ref(false);
+
+// Partes de pared (Y/M/D + hora) de una fecha absoluta en una TZ dada — para
+// precargar el diálogo con la fecha vigente del propio paso.
+function wallPartsInTz(
+	date: string | Date,
+	tz: string,
+): { year: number; month: number; day: number; hour: number } {
+	// formatToParts no parsea strings ISO — normaliza a Date primero.
+	const parts = new Intl.DateTimeFormat('en-US', {
+		timeZone: tz,
+		year: 'numeric',
+		month: '2-digit',
+		day: '2-digit',
+		hour: '2-digit',
+		hour12: false,
+	})
+		.formatToParts(new Date(date))
+		.reduce<Record<string, string>>((acc, p) => {
+			if (p.type !== 'literal') acc[p.type] = p.value;
+			return acc;
+		}, {});
+	return {
+		year: Number(parts.year),
+		month: Number(parts.month),
+		day: Number(parts.day),
+		hour: Number(parts.hour === '24' ? '0' : parts.hour),
+	};
+}
+
+// Fecha/hora "ahora" en pared del retiro, para el aviso de catch-up.
+function retreatWallNow(): { date: string; hour: number } {
+	const { year, month, day, hour } = wallPartsInTz(new Date(), retreatTimezone.value);
+	return {
+		date: `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`,
+		hour,
+	};
+}
+
+// Comparación de pared (no de instantes): el server es la fuente de verdad de
+// la conversión; esto es sólo el aviso "quedó en el pasado → corre el cron".
+const reschedIsPast = computed(() => {
+	if (!reschedDate.value) return false;
+	const now = retreatWallNow();
+	if (reschedDate.value < now.date) return true;
+	return reschedDate.value === now.date && reschedHour.value <= now.hour;
+});
+
+function openReschedule(stepId: string, label: string, scheduledFor?: string | null) {
+	reschedStep.value = { id: stepId, label };
+	const base = scheduledFor
+		? wallPartsInTz(scheduledFor, retreatTimezone.value)
+		: wallPartsInTz(new Date(), retreatTimezone.value);
+	reschedDate.value = `${base.year}-${String(base.month).padStart(2, '0')}-${String(base.day).padStart(2, '0')}`;
+	reschedHour.value = base.hour;
+	reschedDialog.value = true;
+}
+
+// Botón del editor: sólo pasos ya guardados (sin id no hay filas que mover).
+function openRescheduleDraftStep(step: any, i: number) {
+	if (!step?.id) return;
+	openReschedule(step.id, t('sequences.stepN', { n: i + 1 }), stepDates.value[i]);
+}
+
+async function confirmReschedule() {
+	if (!retreatId.value || !reschedStep.value || !reschedDate.value) return;
+	reschedSaving.value = true;
+	try {
+		const res = await sequenceStore.rescheduleStep(retreatId.value, reschedStep.value.id, {
+			date: reschedDate.value,
+			hour: reschedHour.value,
+		});
+		toast({ title: t('sequences.reschedDone', { n: res.affected }) });
+		reschedDialog.value = false;
+		await loadScheduled();
+	} catch (e: any) {
+		toast({ title: t('sequences.reschedError'), description: e?.message, variant: 'destructive' });
+	} finally {
+		reschedSaving.value = false;
+	}
+}
+
+// B2 "encolar ya": fecha=ahora + el server encadena el procesamiento del
+// retiro, así que los mensajes caen a la bandeja de una vez.
+async function enqueueNow(stepId: string) {
+	if (!retreatId.value) return;
+	try {
+		const res = await sequenceStore.rescheduleStep(retreatId.value, stepId, { immediate: true });
+		toast({ title: t('sequences.enqueueDone', { n: res.processed ?? res.affected }) });
+		await loadScheduled();
+	} catch (e: any) {
+		toast({ title: t('sequences.reschedError'), description: e?.message, variant: 'destructive' });
+	}
+}
+
 // Problemas: buscador + orden.
 const issuesSearch = ref('');
 const issuesSort = ref<'recent' | 'name' | 'template' | 'status'>('recent');
@@ -1182,6 +1286,29 @@ async function toggleDoNotContact() {
 							<span class="text-[10px] uppercase text-gray-400 shrink-0">
 								{{ t('sequences.channels.' + it.channel) }}
 							</span>
+							<!-- M4: sólo pending (queued ya está materializado en la bandeja). -->
+							<template v-if="it.status === 'pending'">
+								<Button
+									variant="outline"
+									size="sm"
+									class="h-6 px-1.5 text-[11px]"
+									@click="openReschedule(
+										it.stepId,
+										[seqName(it.sequenceId), templateLabel(it.templateType)].filter(Boolean).join(' · '),
+										it.scheduledFor,
+									)"
+								>
+									<CalendarDays class="w-3 h-3" /> {{ t('sequences.reschedule') }}
+								</Button>
+								<Button
+									variant="outline"
+									size="sm"
+									class="h-6 px-1.5 text-[11px]"
+									@click="enqueueNow(it.stepId)"
+								>
+									<Send class="w-3 h-3" /> {{ t('sequences.enqueueNow') }}
+								</Button>
+							</template>
 						</div>
 					</div>
 				</div>
@@ -1617,9 +1744,22 @@ async function toggleDoNotContact() {
 											→ {{ fmtStepDate(stepDates[i]) }}
 										</span>
 									</div>
-									<Button variant="ghost" size="icon" class="text-red-500 -my-1" @click="removeStep(i)">
-										<Trash2 class="w-4 h-4" />
-									</Button>
+									<div class="flex items-center gap-1 shrink-0">
+										<!-- M4: reprogramar el paso materializado (sólo pasos guardados). -->
+										<Button
+											v-if="step.id"
+											variant="ghost"
+											size="icon"
+											class="text-gray-500 -my-1"
+											:title="t('sequences.reschedule')"
+											@click="openRescheduleDraftStep(step, i)"
+										>
+											<Clock class="w-4 h-4" />
+										</Button>
+										<Button variant="ghost" size="icon" class="text-red-500 -my-1" @click="removeStep(i)">
+											<Trash2 class="w-4 h-4" />
+										</Button>
+									</div>
 								</div>
 								<!-- Plantilla (filtrada por la audiencia del destinatario) -->
 								<div>
@@ -1950,6 +2090,55 @@ async function toggleDoNotContact() {
 				<div class="flex justify-end gap-2 mt-4">
 					<Button variant="outline" @click="seqToDelete = null">{{ t('common.actions.cancel') }}</Button>
 					<Button variant="destructive" @click="confirmDelete">{{ t('common.actions.delete') }}</Button>
+				</div>
+			</div>
+		</div>
+
+		<!-- M4: diálogo de reprogramación de un paso (mueve todos sus pending) -->
+		<div
+			v-if="reschedDialog"
+			class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+			@click.self="reschedDialog = false"
+		>
+			<div class="bg-white rounded-lg shadow-xl max-w-sm w-full p-6">
+				<h2 class="text-lg font-semibold">{{ t('sequences.reschedTitle') }}</h2>
+				<p class="text-sm text-gray-600 mt-1">
+					{{ t('sequences.reschedHint', { name: reschedStep?.label }) }}
+				</p>
+				<div class="grid grid-cols-2 gap-3 mt-4">
+					<div>
+						<label class="text-xs text-gray-500">{{ t('sequences.reschedDate') }}</label>
+						<input
+							type="date"
+							v-model="reschedDate"
+							class="w-full mt-1 p-2 border rounded-md text-sm"
+						/>
+					</div>
+					<div>
+						<label class="text-xs text-gray-500">{{ t('sequences.reschedHour') }}</label>
+						<input
+							type="number"
+							min="0"
+							max="23"
+							v-model.number="reschedHour"
+							class="w-full mt-1 p-2 border rounded-md text-sm"
+						/>
+					</div>
+				</div>
+				<p class="text-xs text-gray-400 mt-1">
+					{{ t('sequences.reschedTzHint', { tz: retreatTimezone }) }}
+				</p>
+				<p v-if="reschedIsPast" class="text-xs text-amber-600 mt-2 flex items-start gap-1">
+					<AlertTriangle class="w-3.5 h-3.5 shrink-0 mt-0.5" />
+					{{ t('sequences.reschedPast') }}
+				</p>
+				<div class="flex justify-end gap-2 mt-4">
+					<Button variant="outline" :disabled="reschedSaving" @click="reschedDialog = false">
+						{{ t('common.actions.cancel') }}
+					</Button>
+					<Button :disabled="reschedSaving || !reschedDate" @click="confirmReschedule">
+						{{ reschedSaving ? '…' : t('sequences.reschedule') }}
+					</Button>
 				</div>
 			</div>
 		</div>

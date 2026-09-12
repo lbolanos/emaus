@@ -20,6 +20,7 @@ import {
 	assignScheduledMessage,
 	setParticipantDoNotContact,
 	fetchScheduledMessages,
+	rescheduleSequenceStep,
 	type ScheduledMessageQueueItem,
 	type ScheduledMessageDetail,
 	type ScheduledMessageListItem,
@@ -161,6 +162,21 @@ export const useMessageSequenceStore = defineStore('message-sequence', () => {
 		return result;
 	};
 
+	/**
+	 * Reprogramar/encolar-ya un paso: mueve sus `pending` y refresca las tres
+	 * vistas que pueden verse afectadas (Programados, bandeja y stats — con
+	 * `immediate` los mensajes caen a `queued` en el servidor).
+	 */
+	const rescheduleStep = async (
+		retreatId: string,
+		stepId: string,
+		payload: { immediate?: boolean; date?: string; hour?: number },
+	) => {
+		const result = await rescheduleSequenceStep(stepId, payload);
+		await Promise.all([fetchQueue(retreatId), fetchStats(retreatId)]);
+		return result;
+	};
+
 	const dispatch = async (id: string) => {
 		await dispatchScheduledMessage(id);
 		queue.value = queue.value.filter((q) => q.id !== id);
@@ -232,6 +248,7 @@ export const useMessageSequenceStore = defineStore('message-sequence', () => {
 		run,
 		regenerateQueue,
 		bulkResolveIssues,
+		rescheduleStep,
 		dispatch,
 		skip,
 		retry,

@@ -1591,4 +1591,93 @@ describe('MessageSequenceService', () => {
 			})).toBeNull();
 		});
 	});
+
+	describe('M4: reprogramar y encolar ya (rescheduleStep)', () => {
+		/** Retiro CDMX + secuencia de 1 paso (sendHour 9) + filas por estado. */
+		async function seedReschedule(rows: Array<{
+			status: string; scheduledFor: Date; firstName: string;
+		}>) {
+			const retreat = await TestDataFactory.createTestRetreat({
+				timezone: 'America/Mexico_City',
+			} as any);
+			const seq = await svc.createSequence({
+				name: 'M4', retreatId: retreat.id, trigger: 'participant_created', audience: 'walker',
+				steps: [{ stepOrder: 0, offsetDays: 5, sendHour: 9, templateType: 'WALKER_WELCOME', channel: 'whatsapp' } as any],
+			});
+			const repo = AppDataSource.getRepository(ScheduledMessage);
+			const created: ScheduledMessage[] = [];
+			for (const r of rows) {
+				const p = await TestDataFactory.createTestParticipant(retreat.id, {
+					type: 'walker', firstName: r.firstName, lastName: 'M4',
+					email: `${r.firstName.toLowerCase()}-m4@example.com`,
+				} as any);
+				created.push(await repo.save(repo.create({
+					sequenceId: seq.id, stepId: seq.steps![0].id, participantId: p.id,
+					retreatId: retreat.id, channel: 'whatsapp', templateType: 'WALKER_WELCOME',
+					recipientTarget: 'participant', scheduledFor: r.scheduledFor,
+					status: r.status as any,
+				})));
+			}
+			return { retreat, seq, repo, created };
+		}
+
+		it('mueve SOLO los pending del paso a la fecha "de pared" en la TZ del retiro', async () => {
+			const { seq, repo, created } = await seedReschedule([
+				{ status: 'pending', scheduledFor: new Date('2026-09-25T15:00:00Z'), firstName: 'Ana' },
+				{ status: 'pending', scheduledFor: new Date('2026-09-26T15:00:00Z'), firstName: 'Beto' },
+				{ status: 'queued', scheduledFor: new Date('2026-09-20T15:00:00Z'), firstName: 'Caro' },
+				{ status: 'sent', scheduledFor: new Date('2026-09-01T15:00:00Z'), firstName: 'Dani' },
+			]);
+			const step = await svc.findStepWithSequence(seq.steps![0].id);
+			expect(step?.sequence?.retreatId).toBe(seq.retreatId); // relations para el controller
+
+			const { affected, scheduledFor } = await svc.rescheduleStep(step!, {
+				date: '2026-09-30', hour: 9,
+			});
+			expect(affected).toBe(2);
+			// 9:00 CDMX (UTC-6, sin DST) → 15:00 UTC exacto.
+			expect(scheduledFor.toISOString()).toBe('2026-09-30T15:00:00.000Z');
+
+			const reload = async (i: number) =>
+				(await repo.findOneByOrFail({ id: created[i].id })).scheduledFor;
+			expect((await reload(0)).toISOString()).toBe('2026-09-30T15:00:00.000Z');
+			expect((await reload(1)).toISOString()).toBe('2026-09-30T15:00:00.000Z');
+			// Lo queued (ya en bandeja) y lo sent (historial) quedan intactos.
+			expect((await reload(2)).toISOString()).toBe('2026-09-20T15:00:00.000Z');
+			expect((await reload(3)).toISOString()).toBe('2026-09-01T15:00:00.000Z');
+		});
+
+		it('hour sin valor conserva el sendHour del paso', async () => {
+			const { seq } = await seedReschedule([
+				{ status: 'pending', scheduledFor: new Date('2026-09-25T15:00:00Z'), firstName: 'Ana' },
+			]);
+			const step = await svc.findStepWithSequence(seq.steps![0].id);
+			const { affected, scheduledFor } = await svc.rescheduleStep(step!, { date: '2026-10-01' });
+			expect(affected).toBe(1);
+			expect(scheduledFor.toISOString()).toBe('2026-10-01T15:00:00.000Z'); // sendHour 9
+		});
+
+		it('immediate programa ≈ ahora (encolar ya: el controller encadena el run)', async () => {
+			const { seq } = await seedReschedule([
+				{ status: 'pending', scheduledFor: new Date('2026-10-09T15:00:00Z'), firstName: 'Ana' },
+			]);
+			const step = await svc.findStepWithSequence(seq.steps![0].id);
+			const before = Date.now();
+			const { affected, scheduledFor } = await svc.rescheduleStep(step!, { immediate: true });
+			const after = Date.now();
+			expect(affected).toBe(1);
+			expect(scheduledFor.getTime()).toBeGreaterThanOrEqual(before);
+			expect(scheduledFor.getTime()).toBeLessThanOrEqual(after);
+		});
+
+		it('paso sin pendientes → affected 0; paso inexistente → null', async () => {
+			const { seq } = await seedReschedule([
+				{ status: 'sent', scheduledFor: new Date('2026-09-01T15:00:00Z'), firstName: 'Ana' },
+			]);
+			const step = await svc.findStepWithSequence(seq.steps![0].id);
+			const { affected } = await svc.rescheduleStep(step!, { date: '2026-10-01', hour: 9 });
+			expect(affected).toBe(0);
+			expect(await svc.findStepWithSequence('00000000-0000-0000-0000-000000000000')).toBeNull();
+		});
+	});
 });

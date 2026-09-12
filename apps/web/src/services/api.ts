@@ -3963,6 +3963,20 @@ export const previewSequenceSchedule = async (
   return r.data;
 };
 
+/**
+ * Reprogramar/encolar-ya un paso ya materializado: mueve TODOS sus `pending`
+ * a la fecha dada (interpretada en la TZ del retiro) o a ahora (`immediate`,
+ * que además dispara el procesamiento del retiro en el servidor). Devuelve
+ * cuántas filas se movieron y a qué fecha quedaron.
+ */
+export const rescheduleSequenceStep = async (
+  stepId: string,
+  payload: { immediate?: boolean; date?: string; hour?: number },
+): Promise<{ affected: number; scheduledFor: string; processed?: number }> => {
+  const r = await api.post(`/message-sequences/steps/${stepId}/reschedule`, payload);
+  return r.data;
+};
+
 /** Detalle del participante de un pendiente (notas, cartas, seguimiento, historial). */
 export interface ScheduledMessageDetail {
   message: {

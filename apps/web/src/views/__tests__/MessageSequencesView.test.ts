@@ -26,6 +26,8 @@ vi.mock('@repo/ui', () => new Proxy(
 			if (n === 'useToast') return () => ({ toast: vi.fn() });
 			if (n === 'toast') return vi.fn();
 			if (n.startsWith('use')) return () => ({});
+			// Button como <button> real: los tests de M4 clickean por texto.
+			if (n === 'Button') return { name: n, template: '<button><slot /></button>' };
 			return { name: n, template: '<div><slot /></div>' };
 		},
 		has: () => true,
@@ -69,6 +71,7 @@ vi.mock('@/services/api', () => ({
 	assignScheduledMessage: vi.fn(),
 	setParticipantDoNotContact: vi.fn(),
 	fetchScheduledMessages: vi.fn(),
+	rescheduleSequenceStep: vi.fn(),
 	// globalMessageSequenceStore
 	getGlobalSequences: vi.fn(),
 	createGlobalSequence: vi.fn(),
@@ -274,5 +277,64 @@ describe('MessageSequencesView — timeline del editor (A4)', () => {
 
 		expect(wrapper.vm.stepDates).toEqual([null]);
 		expect(wrapper.text()).toContain('sin fecha');
+	});
+});
+
+describe('MessageSequencesView — reprogramar y encolar ya (M4)', () => {
+	it('el diálogo abre con los defaults de la fila y confirma el payload exacto', async () => {
+		const wrapper = await mountView();
+		const apiMod: any = await import('@/services/api');
+		apiMod.rescheduleSequenceStep.mockResolvedValue({
+			affected: 2,
+			scheduledFor: '2026-09-30T15:00:00.000Z',
+		});
+		apiMod.fetchScheduledMessages.mockClear();
+
+		const btn = wrapper.findAll('button').find((b) => b.text().includes('Reprogramar'));
+		expect(btn).toBeTruthy();
+		await btn!.trigger('click');
+		await flushPromises();
+
+		// Defaults = pared del scheduledFor de la fila (15:00Z = 25 sep, 9:00 CDMX).
+		expect(wrapper.vm.reschedDialog).toBe(true);
+		expect(wrapper.vm.reschedDate).toBe('2026-09-25');
+		expect(wrapper.vm.reschedHour).toBe(9);
+		// El hint nombra el paso (nombre de la secuencia · plantilla).
+		expect(wrapper.text()).toContain('Confirmación de camisetas');
+		// Aviso de catch-up: la comparación es de pared, no de instantes.
+		wrapper.vm.reschedDate = '2020-01-01';
+		expect(wrapper.vm.reschedIsPast).toBe(true);
+
+		wrapper.vm.reschedDate = '2026-09-30';
+		wrapper.vm.reschedHour = 10;
+		await wrapper.vm.confirmReschedule();
+		await flushPromises();
+
+		expect(apiMod.rescheduleSequenceStep).toHaveBeenCalledWith('st-1', {
+			date: '2026-09-30',
+			hour: 10,
+		});
+		expect(wrapper.vm.reschedDialog).toBe(false);
+		// La pestaña Programados se refresca tras mover las filas.
+		expect(apiMod.fetchScheduledMessages).toHaveBeenCalled();
+	});
+
+	it('"Encolar ya" manda immediate y refresca la pestaña', async () => {
+		const wrapper = await mountView();
+		const apiMod: any = await import('@/services/api');
+		apiMod.rescheduleSequenceStep.mockResolvedValue({
+			affected: 2,
+			scheduledFor: '2026-09-12T18:00:00.000Z',
+			processed: 2,
+		});
+		apiMod.fetchScheduledMessages.mockClear();
+
+		const btn = wrapper.findAll('button').find((b) => b.text().includes('Encolar ya'));
+		expect(btn).toBeTruthy();
+		await btn!.trigger('click');
+		await flushPromises();
+
+		expect(apiMod.rescheduleSequenceStep).toHaveBeenCalledWith('st-1', { immediate: true });
+		expect(apiMod.fetchScheduledMessages).toHaveBeenCalled();
 	});
 });

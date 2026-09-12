@@ -21,6 +21,7 @@ vi.mock('@/services/api', () => ({
 	assignScheduledMessage: vi.fn(),
 	setParticipantDoNotContact: vi.fn(),
 	fetchScheduledMessages: vi.fn(),
+	rescheduleSequenceStep: vi.fn(),
 }));
 
 describe('messageSequenceStore — despacho/ownership/opt-out', () => {
@@ -127,5 +128,17 @@ describe('messageSequenceStore — despacho/ownership/opt-out', () => {
 		await store.setDoNotContact('r1', 'p1', true);
 		expect(api.setParticipantDoNotContact).toHaveBeenCalledWith('r1', 'p1', true);
 		expect(store.detail.participant.doNotContact).toBe(true);
+	});
+
+	it('rescheduleStep llama al endpoint con el stepId y refresca bandeja+stats', async () => {
+		api.rescheduleSequenceStep.mockResolvedValue({ affected: 7, scheduledFor: '2026-09-30T15:00:00.000Z' });
+		api.getSequenceQueue.mockResolvedValue([]);
+		api.getSequenceStats.mockResolvedValue({ stats: {}, issues: [] });
+		const res = await store.rescheduleStep('r1', 'st-1', { date: '2026-09-30', hour: 9 });
+		// El payload va al paso, no al retiro (la ruta es /steps/:stepId/reschedule).
+		expect(api.rescheduleSequenceStep).toHaveBeenCalledWith('st-1', { date: '2026-09-30', hour: 9 });
+		expect(api.getSequenceQueue).toHaveBeenCalledWith('r1');
+		expect(api.getSequenceStats).toHaveBeenCalledWith('r1');
+		expect(res.affected).toBe(7);
 	});
 });

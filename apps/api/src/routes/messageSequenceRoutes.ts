@@ -38,6 +38,8 @@ router.get('/scheduled/:id/detail', controller.getQueueItemDetail);
 router.post('/preview', controller.previewStep);
 // Fechas TZ de los pasos para un participante real (timeline del editor).
 router.post('/schedule-preview', controller.schedulePreview);
+// Reprogramar/encolar-ya un paso materializado: autoriza por retiro del paso.
+router.post('/steps/:stepId/reschedule', controller.rescheduleStep);
 router.post('/scheduled/:id/dispatch', controller.markDispatched);
 router.post('/scheduled/:id/open', controller.markOpened);
 router.post('/scheduled/:id/assign', controller.assign);

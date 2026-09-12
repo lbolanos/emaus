@@ -6,6 +6,7 @@ import {
 	updateMessageSequenceSchema,
 	previewSequenceStepSchema,
 	previewSequenceScheduleSchema,
+	rescheduleStepSchema,
 } from '@repo/types';
 import { crmService } from '../services/crmService';
 
@@ -191,6 +192,42 @@ export class MessageSequenceController {
 		} catch (error) {
 			console.error('Error building schedule preview:', error);
 			res.status(500).json({ error: 'Error al generar la vista previa de fechas' });
+		}
+	};
+
+	// POST /message-sequences/steps/:stepId/reschedule — mover TODOS los pending
+	// del paso a una fecha (TZ del retiro) o a "ahora" (encolar ya: B2 encadena
+	// el procesamiento del retiro para que caigan en la bandeja de una vez).
+	rescheduleStep = async (req: Request, res: Response) => {
+		try {
+			const { stepId } = req.params;
+			const parsed = rescheduleStepSchema.safeParse({ body: req.body, params: { stepId } });
+			if (!parsed.success) {
+				return res.status(400).json({ error: 'Datos inválidos', details: parsed.error.flatten() });
+			}
+			const step = await messageSequenceService.findStepWithSequence(stepId);
+			if (!step?.sequence) return res.status(404).json({ error: 'Paso no encontrado' });
+			if (!(await callerHasRetreatAccess(req, step.sequence.retreatId))) {
+				return res.status(403).json({ error: 'Forbidden' });
+			}
+			const { affected, scheduledFor } = await messageSequenceService.rescheduleStep(
+				step,
+				parsed.data.body,
+			);
+			let processed: number | undefined;
+			if (parsed.data.body.immediate && affected > 0) {
+				// Sólo este retiro, como el run manual: no enviar mensajes de otros.
+				const run = await messageSequenceService.processDue(
+					new Date(),
+					undefined,
+					step.sequence.retreatId,
+				);
+				processed = run.processed;
+			}
+			res.json({ affected, scheduledFor, processed });
+		} catch (error) {
+			console.error('Error rescheduling step:', error);
+			res.status(500).json({ error: 'Error al reprogramar el paso' });
 		}
 	};
 
