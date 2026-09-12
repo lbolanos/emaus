@@ -20,6 +20,7 @@ vi.mock('@/services/api', () => ({
 	openScheduledMessage: vi.fn(),
 	assignScheduledMessage: vi.fn(),
 	setParticipantDoNotContact: vi.fn(),
+	fetchScheduledMessages: vi.fn(),
 }));
 
 describe('messageSequenceStore — despacho/ownership/opt-out', () => {
@@ -101,6 +102,23 @@ describe('messageSequenceStore — despacho/ownership/opt-out', () => {
 		const res = await store.bulkResolveIssues('r1', 'discard');
 		expect(api.bulkResolveSequenceIssues).toHaveBeenCalledWith('r1', 'discard');
 		expect(res).toEqual({ affected: 5 });
+	});
+
+	it('fetchScheduled guarda página, total y la timezone del servidor', async () => {
+		api.fetchScheduledMessages.mockResolvedValue({
+			items: [{ id: 'sm-1', status: 'pending', scheduledFor: '2026-09-25T15:00:00.000Z' }],
+			total: 41,
+			page: 1,
+			totalPages: 1,
+			timezone: 'America/Mexico_City',
+		});
+		await store.fetchScheduled('r1', { statuses: ['pending'], page: 1 });
+		expect(api.fetchScheduledMessages).toHaveBeenCalledWith('r1', { statuses: ['pending'], page: 1 });
+		expect(store.scheduled).toHaveLength(1);
+		expect(store.scheduledTotal).toBe(41);
+		expect(store.scheduledTotalPages).toBe(1);
+		expect(store.scheduledTimezone).toBe('America/Mexico_City');
+		expect(store.scheduledLoading).toBe(false);
 	});
 
 	it('setDoNotContact actualiza el detalle abierto del participante', async () => {

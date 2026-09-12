@@ -5,6 +5,7 @@ import {
 	createMessageSequenceSchema,
 	updateMessageSequenceSchema,
 	previewSequenceStepSchema,
+	previewSequenceScheduleSchema,
 } from '@repo/types';
 import { crmService } from '../services/crmService';
 
@@ -121,6 +122,75 @@ export class MessageSequenceController {
 		} catch (error) {
 			console.error('Error fetching queue:', error);
 			res.status(500).json({ error: 'Error al obtener la bandeja de pendientes' });
+		}
+	};
+
+	// GET /message-sequences/retreat/:retreatId/scheduled — programados paginados
+	// (pestaña "Programados"). Query: status (CSV, default pending), sequenceId,
+	// participantId, search, page, limit (cap 200), order=scheduled|recent.
+	getScheduled = async (req: Request, res: Response) => {
+		try {
+			const { retreatId } = req.params;
+			const q = (req.query ?? {}) as Record<string, unknown>;
+			const ALLOWED_STATUSES = [
+				'pending',
+				'processing',
+				'sent',
+				'queued',
+				'skipped',
+				'failed',
+				'cancelled',
+			];
+			const raw = String(q.status ?? 'pending')
+				.split(',')
+				.map((s) => s.trim())
+				.filter(Boolean);
+			const invalid = raw.filter((s) => !ALLOWED_STATUSES.includes(s));
+			if (invalid.length) {
+				return res
+					.status(400)
+					.json({ error: `Estados inválidos: ${invalid.join(', ')} (válidos: ${ALLOWED_STATUSES.join(', ')})` });
+			}
+			const str = (v: unknown): string | undefined =>
+				typeof v === 'string' && v.length > 0 ? v : undefined;
+			const result = await messageSequenceService.listScheduled(retreatId, {
+				statuses: raw,
+				sequenceId: str(q.sequenceId),
+				participantId: str(q.participantId),
+				search: str(q.search),
+				page: Math.max(1, Number(q.page) || 1),
+				limit: Math.min(200, Math.max(1, Number(q.limit) || 50)),
+				order: q.order === 'recent' ? 'recent' : 'scheduled',
+			});
+			res.json(result);
+		} catch (error) {
+			console.error('Error fetching scheduled messages:', error);
+			res.status(500).json({ error: 'Error al obtener los mensajes programados' });
+		}
+	};
+
+	// POST /message-sequences/schedule-preview — fechas TZ que tendría cada paso
+	// para un participante real (timeline del editor).
+	schedulePreview = async (req: Request, res: Response) => {
+		try {
+			const parsed = previewSequenceScheduleSchema.safeParse({ body: req.body });
+			if (!parsed.success) {
+				return res.status(400).json({ error: 'Datos inválidos', details: parsed.error.flatten() });
+			}
+			const body = parsed.data.body;
+			if (!(await callerHasRetreatAccess(req, body.retreatId))) {
+				return res.status(403).json({ error: 'Forbidden' });
+			}
+			// Mismo gate IDOR que previewStep: el participante debe ser del retiro.
+			if (!(await crmService.participantBelongsToRetreat(body.participantId, body.retreatId))) {
+				return res.status(404).json({ error: 'Participante no encontrado en este retiro' });
+			}
+			const preview = await messageSequenceService.schedulePreview(body);
+			if (!preview) return res.status(404).json({ error: 'No se pudo generar la vista previa' });
+			res.json(preview);
+		} catch (error) {
+			console.error('Error building schedule preview:', error);
+			res.status(500).json({ error: 'Error al generar la vista previa de fechas' });
 		}
 	};
 

@@ -3,7 +3,7 @@ import { ref, computed, onMounted, watch } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useI18n } from 'vue-i18n';
 import { useToast, Button, Input } from '@repo/ui';
-import { Plus, Trash2, X, Play, Pencil, Send, Clock, AlertTriangle, Globe, RefreshCw, MoreVertical } from 'lucide-vue-next';
+import { Plus, Trash2, X, Play, Pencil, Send, Clock, AlertTriangle, Globe, RefreshCw, MoreVertical, CalendarDays, MessageCircle } from 'lucide-vue-next';
 import { useRetreatStore } from '@/stores/retreatStore';
 import { useParticipantStore } from '@/stores/participantStore';
 import { useMessageSequenceStore } from '@/stores/messageSequenceStore';
@@ -16,7 +16,7 @@ import type { ParticipantData, RetreatData } from '@/utils/message';
 import { sanitizePhoneForWhatsapp } from '@/utils/phone';
 import { getMessageTemplateAudience } from '@repo/types';
 import type { SequenceStepPreview } from '@repo/types';
-import { previewSequenceStep } from '@/services/api';
+import { previewSequenceStep, previewSequenceSchedule } from '@/services/api';
 
 const { t } = useI18n();
 const { toast } = useToast();
@@ -36,6 +36,9 @@ const responsibilityNames = computed(() => {
 });
 
 const { sequences, queue, stats, issues, detail, detailLoading } = storeToRefs(sequenceStore);
+const {
+	scheduled, scheduledTotal, scheduledTotalPages, scheduledTimezone, scheduledLoading,
+} = storeToRefs(sequenceStore);
 
 // Filtros disponibles para la condición de un paso (subconjunto de SegmentFilters).
 const CONDITION_TYPES = ['walker', 'server', 'waiting', 'partial_server'] as const;
@@ -273,6 +276,9 @@ async function load() {
 		sequenceStore.fetchSequences(retreatId.value),
 		sequenceStore.fetchQueue(retreatId.value),
 		sequenceStore.fetchStats(retreatId.value),
+		// Pestaña Programados: primera página lista al abrirla y, de paso, la TZ
+		// del retiro (fallback para pintar fechas de bandeja/detalle).
+		sequenceStore.fetchScheduled(retreatId.value),
 		templateStore.fetchTemplates(retreatId.value),
 		participantStore.fetchParticipants().catch(() => {}),
 		responsabilityStore.fetchResponsibilities(retreatId.value, { silent: true }).catch(() => {}),
@@ -392,6 +398,52 @@ function closeStepPreview() {
 watch(previewParticipantId, () => {
 	if (previewStepIndex.value !== null) openStepPreview(previewStepIndex.value);
 });
+
+// --------------------------------------------------------------------------
+// A4 timeline del editor: fecha que TENDRÍA cada paso para el participante de
+// muestra, resuelta por el servidor con `computeScheduledFor` (misma función
+// del enrolamiento → el preview y lo materializado nunca divergen). Se
+// recomputa al abrir el editor, al cambiar trigger/offsets/horas y al cambiar
+// el participante de muestra, con debounce para no spamear el endpoint.
+// --------------------------------------------------------------------------
+const stepDates = ref<Array<string | null>>([]);
+const stepDatesLoading = ref(false);
+
+const stepsSignature = computed(() =>
+	JSON.stringify({
+		trigger: draft.value.trigger,
+		steps: draft.value.steps.map((s) => [s.offsetDays, s.sendHour]),
+	}),
+);
+
+async function refreshStepDates() {
+	// Sin participante no hay fechas; el template muestra sólo el paso.
+	if (!isEditorOpen.value || !retreatId.value || !previewParticipant.value) {
+		stepDates.value = [];
+		return;
+	}
+	stepDatesLoading.value = true;
+	try {
+		const res = await previewSequenceSchedule(
+			retreatId.value,
+			previewParticipant.value.id,
+			draft.value.trigger,
+			draft.value.steps.map((s) => ({ offsetDays: s.offsetDays, sendHour: s.sendHour })),
+		);
+		stepDates.value = res.dates;
+	} catch {
+		stepDates.value = []; // el header muestra la fecha vacía, no rompe el editor
+	} finally {
+		stepDatesLoading.value = false;
+	}
+}
+
+let stepDatesTimer: number | undefined;
+watch([isEditorOpen, stepsSignature, previewParticipantId], () => {
+	window.clearTimeout(stepDatesTimer);
+	stepDatesTimer = window.setTimeout(refreshStepDates, 400);
+});
+
 function removeStep(i: number) {
 	draft.value.steps.splice(i, 1);
 }
@@ -468,8 +520,8 @@ watch(autoConfirmSend, (v) => localStorage.setItem('seq.autoConfirmSend', v ? '1
 
 const regenerating = ref(false);
 
-// Tabs de la página (secuencias / pendientes / problemas), paginación y orden.
-const activeTab = ref<'sequences' | 'pending' | 'issues'>('sequences');
+// Tabs de la página (secuencias / programados / pendientes / problemas).
+const activeTab = ref<'sequences' | 'scheduled' | 'pending' | 'issues'>('sequences');
 const QUEUE_PAGE_SIZE = 10;
 const queuePage = ref(1);
 const queueSort = ref<'scheduled' | 'name' | 'template' | 'recent'>('scheduled');
@@ -523,12 +575,146 @@ watch(
 	},
 );
 
+// --------------------------------------------------------------------------
+// Pestaña "Programados" (mensajes materializados: pending futuros, enviados…).
+// TODO server-side: filtros, orden y paginación los resuelve el API; aquí sólo
+// se mantiene el estado de los controles y se refetch-ea con debounce.
+// --------------------------------------------------------------------------
+const SCHED_STATUSES = ['pending', 'queued', 'sent', 'skipped', 'failed', 'cancelled'] as const;
+const schedSearch = ref('');
+const schedSearchDebounced = ref('');
+const schedStatus = ref<string>('pending');
+const schedOrder = ref<'scheduled' | 'recent'>('scheduled');
+const schedSequenceFilter = ref<string | null>(null); // chip de secuencia (badge clickeable)
+const schedPage = ref(1);
+let schedSearchTimer: number | undefined;
+
+watch(schedSearch, (v) => {
+	window.clearTimeout(schedSearchTimer);
+	schedSearchTimer = window.setTimeout(() => (schedSearchDebounced.value = v), 300);
+});
+
+// Contador del TAB: pending total del retiro, derivado de stats — igual fuente
+// que los badges por secuencia. Independiente de los filtros de la pestaña
+// (scheduledTotal cambia con el status elegido; este no).
+const scheduledTabCount = computed(() =>
+	Object.values(stats.value || {}).reduce(
+		(n: number, byStatus) => n + ((byStatus as Record<string, number>).pending || 0),
+		0,
+	),
+);
+
+async function loadScheduled() {
+	if (!retreatId.value) return;
+	await sequenceStore.fetchScheduled(retreatId.value, {
+		statuses: [schedStatus.value],
+		sequenceId: schedSequenceFilter.value ?? undefined,
+		search: schedSearchDebounced.value.trim() || undefined,
+		page: schedPage.value,
+		order: schedOrder.value,
+	});
+}
+
+// Refetch al cambiar cualquier control; los filtros además vuelven a página 1.
+watch([schedSearchDebounced, schedStatus, schedOrder, schedSequenceFilter], () => {
+	schedPage.value = 1;
+	loadScheduled();
+});
+watch(schedPage, loadScheduled);
+// Al entrar a la pestaña, datos frescos (las fechas vencen con el paso del tiempo).
+watch(activeTab, (tab) => {
+	if (tab === 'scheduled') loadScheduled();
+});
+
+// A5: badge "N programados" de una secuencia → pestaña Programados filtrada.
+function openScheduledForSequence(seq: any) {
+	schedSequenceFilter.value = seq.id;
+	schedStatus.value = 'pending';
+	activeTab.value = 'scheduled';
+}
+function clearSchedSequenceFilter() {
+	schedSequenceFilter.value = null; // el watch refetch-ea
+}
+// A5: badge problemas de una secuencia → pestaña Problemas con chip removible.
+const issuesSequenceFilter = ref<string | null>(null);
+function openIssuesForSequence(seq: any) {
+	issuesSequenceFilter.value = seq.id;
+	activeTab.value = 'issues';
+}
+
+// Nombre legible de una secuencia por id (columna/tab de Programados).
+function seqName(sequenceId: string | null | undefined): string {
+	if (!sequenceId) return '';
+	return sequences.value.find((s: any) => s.id === sequenceId)?.name || '';
+}
+// Nombre legible del tipo de plantilla (fallback al tipo crudo).
+function templateLabel(type: string | null | undefined): string {
+	if (!type) return '';
+	return templates.value.find((tpl: any) => tpl.type === type)?.name || type;
+}
+
+// --------------------------------------------------------------------------
+// Fechas en la TZ del retiro (A3). La zona la resuelve el SERVER (viene en la
+// respuesta del listado); el fallback al retreatStore cubre la bandeja/detalle
+// antes del primer fetch de Programados.
+// --------------------------------------------------------------------------
+const retreatTimezone = computed<string>(() => {
+	const tz = scheduledTimezone.value || (retreatStore.selectedRetreat as any)?.timezone;
+	return tz || 'America/Mexico_City';
+});
+
+function formatInRetreatTz(
+	date: string | Date | null | undefined,
+	opts: { withTime?: boolean; withTz?: boolean } = {},
+): string {
+	if (!date) return '';
+	const dt = new Date(date);
+	if (Number.isNaN(dt.getTime())) return '';
+	const parts: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'short' };
+	if (opts.withTime !== false) {
+		parts.hour = 'numeric';
+		parts.minute = '2-digit';
+	}
+	if (opts.withTz !== false) parts.timeZoneName = 'short';
+	return new Intl.DateTimeFormat('es-MX', { ...parts, timeZone: retreatTimezone.value }).format(dt);
+}
+
+// Fila de Programados: fecha completa "25 sep 2026, 9:00 a.m. CDMX".
+function fmtScheduled(date: string | null): string {
+	if (!date) return t('sequences.scheduledNoDate');
+	return formatInRetreatTz(date, {});
+}
+// Header del paso en el editor: compacto "→ 12 sep, 9:00 CDMX".
+function fmtStepDate(date: string | null): string {
+	if (!date) return t('sequences.stepNoDate');
+	return formatInRetreatTz(date, { withTz: true });
+}
+
+// Color del badge de estado en la tabla de Programados.
+function schedStatusClass(status: string): string {
+	return (
+		{
+			pending: 'bg-blue-100 text-blue-700',
+			processing: 'bg-purple-100 text-purple-700',
+			queued: 'bg-amber-100 text-amber-700',
+			sent: 'bg-green-100 text-green-700',
+			skipped: 'bg-gray-100 text-gray-600',
+			failed: 'bg-red-100 text-red-700',
+			cancelled: 'bg-gray-100 text-gray-500',
+		}[status] || 'bg-gray-100 text-gray-600'
+	);
+}
+
 // Problemas: buscador + orden.
 const issuesSearch = ref('');
 const issuesSort = ref<'recent' | 'name' | 'template' | 'status'>('recent');
 const filteredIssues = computed(() => {
 	const q = issuesSearch.value.trim().toLowerCase();
 	let items = [...issues.value];
+	// Chip de secuencia removible (badge clickeable de la lista de secuencias).
+	if (issuesSequenceFilter.value) {
+		items = items.filter((it: any) => it.sequenceId === issuesSequenceFilter.value);
+	}
 	if (q) {
 		items = items.filter((it: any) =>
 			[it.participant?.firstName, it.participant?.lastName, it.templateType, it.error]
@@ -777,7 +963,7 @@ async function toggleDoNotContact() {
 			<p class="text-gray-600 text-sm">{{ t('sequences.subtitle') }}</p>
 		</div>
 
-		<!-- Tabs: Secuencias / Pendientes / Problemas -->
+		<!-- Tabs: Secuencias / Programados / Bandeja WhatsApp / Problemas -->
 		<div class="flex items-stretch border-b">
 			<button
 				type="button"
@@ -791,10 +977,19 @@ async function toggleDoNotContact() {
 			<button
 				type="button"
 				class="flex-1 sm:flex-none justify-center sm:justify-start min-w-0 px-2 sm:px-3 py-2 text-sm font-medium border-b-2 -mb-px flex items-center gap-1.5 whitespace-nowrap"
+				:class="activeTab === 'scheduled' ? 'border-blue-500 text-blue-700' : 'border-transparent text-gray-500 hover:text-gray-700'"
+				@click="activeTab = 'scheduled'"
+			>
+				<CalendarDays class="w-4 h-4" /> {{ t('sequences.tabScheduled') }}
+				<span class="text-xs bg-blue-100 text-blue-700 rounded-full px-1.5">{{ scheduledTabCount }}</span>
+			</button>
+			<button
+				type="button"
+				class="flex-1 sm:flex-none justify-center sm:justify-start min-w-0 px-2 sm:px-3 py-2 text-sm font-medium border-b-2 -mb-px flex items-center gap-1.5 whitespace-nowrap"
 				:class="activeTab === 'pending' ? 'border-amber-500 text-amber-700' : 'border-transparent text-gray-500 hover:text-gray-700'"
 				@click="activeTab = 'pending'"
 			>
-				<Clock class="w-4 h-4" /> {{ t('sequences.tabPending') }}
+				<MessageCircle class="w-4 h-4" /> {{ t('sequences.tabPending') }}
 				<span class="text-xs bg-amber-100 text-amber-700 rounded-full px-1.5">{{ queue.length }}</span>
 			</button>
 			<button
@@ -851,25 +1046,44 @@ async function toggleDoNotContact() {
 						{{ t('sequences.triggers.' + seq.trigger) }} · {{ t('sequences.audiences.' + seq.audience) }}
 						· {{ t('sequences.stepCount', { count: seq.steps?.length || 0 }) }}
 					</div>
-					<!-- Métricas por secuencia -->
+					<!-- Métricas por secuencia. Los badges de programados y problemas son
+					     clickeables (A5): filtran la pestaña correspondiente por secuencia. -->
 					<div class="flex flex-wrap gap-1.5 mt-1.5 text-[11px]">
 						<!-- programados = status 'pending' del API: mensajes materializados con
 						     fecha futura; el cron los pasa a 'queued' el día que vencen. -->
-						<span v-if="statusCount(seq.id, 'pending')" class="bg-blue-100 text-blue-700 rounded px-1.5 py-0.5">
+						<button
+							v-if="statusCount(seq.id, 'pending')"
+							type="button"
+							class="bg-blue-100 text-blue-700 rounded px-1.5 py-0.5 hover:bg-blue-200 transition-colors cursor-pointer"
+							:title="t('sequences.stat.scheduledHint')"
+							@click="openScheduledForSequence(seq)"
+						>
 							{{ t('sequences.stat.scheduled', { n: statusCount(seq.id, 'pending') }) }}
-						</span>
+						</button>
 						<span v-if="statusCount(seq.id, 'sent')" class="bg-green-100 text-green-700 rounded px-1.5 py-0.5">
 							{{ t('sequences.stat.sent', { n: statusCount(seq.id, 'sent') }) }}
 						</span>
 						<span v-if="statusCount(seq.id, 'queued')" class="bg-amber-100 text-amber-700 rounded px-1.5 py-0.5">
 							{{ t('sequences.stat.queued', { n: statusCount(seq.id, 'queued') }) }}
 						</span>
-						<span v-if="statusCount(seq.id, 'skipped')" class="bg-gray-100 text-gray-600 rounded px-1.5 py-0.5">
+						<button
+							v-if="statusCount(seq.id, 'skipped')"
+							type="button"
+							class="bg-gray-100 text-gray-600 rounded px-1.5 py-0.5 hover:bg-gray-200 transition-colors cursor-pointer"
+							:title="t('sequences.stat.issuesHint')"
+							@click="openIssuesForSequence(seq)"
+						>
 							{{ t('sequences.stat.skipped', { n: statusCount(seq.id, 'skipped') }) }}
-						</span>
-						<span v-if="statusCount(seq.id, 'failed')" class="bg-red-100 text-red-700 rounded px-1.5 py-0.5">
+						</button>
+						<button
+							v-if="statusCount(seq.id, 'failed')"
+							type="button"
+							class="bg-red-100 text-red-700 rounded px-1.5 py-0.5 hover:bg-red-200 transition-colors cursor-pointer"
+							:title="t('sequences.stat.issuesHint')"
+							@click="openIssuesForSequence(seq)"
+						>
 							{{ t('sequences.stat.failed', { n: statusCount(seq.id, 'failed') }) }}
-						</span>
+						</button>
 					</div>
 				</div>
 				<div class="flex items-center gap-1 shrink-0">
@@ -888,6 +1102,110 @@ async function toggleDoNotContact() {
 			</Button>
 		</div>
 		</div>
+
+			<!-- Tab: Programados (mensajes materializados, con la fecha en que saldrán/salieron) -->
+			<div v-show="activeTab === 'scheduled'">
+				<!-- Filtros server-side: búsqueda con debounce + estado + orden -->
+				<div class="flex items-center gap-2 mb-2 flex-wrap">
+					<input
+						v-model="schedSearch"
+						type="search"
+						:placeholder="t('sequences.searchPlaceholder')"
+						class="flex-1 min-w-40 p-2 border rounded-md text-sm"
+					/>
+					<label class="flex items-center gap-1.5 text-xs text-gray-600">
+						{{ t('sequences.schedStatusLabel') }}
+						<select v-model="schedStatus" class="p-1 border rounded-md text-xs bg-white">
+							<option v-for="s in SCHED_STATUSES" :key="s" :value="s">
+								{{ t('sequences.statuses.' + s) }}
+							</option>
+						</select>
+					</label>
+					<label class="flex items-center gap-1.5 text-xs text-gray-600">
+						{{ t('sequences.sortLabel') }}
+						<select v-model="schedOrder" class="p-1 border rounded-md text-xs bg-white">
+							<option value="scheduled">{{ t('sequences.sort.scheduled') }}</option>
+							<option value="recent">{{ t('sequences.sort.recent') }}</option>
+						</select>
+					</label>
+				</div>
+				<!-- Chip de secuencia (viene del badge clickeable de la lista) -->
+				<div v-if="schedSequenceFilter" class="flex items-center gap-2 mb-2 text-xs">
+					<span class="inline-flex items-center gap-1 bg-blue-100 text-blue-700 rounded-full px-2 py-0.5">
+						{{ seqName(schedSequenceFilter) }}
+						<button
+							type="button"
+							class="hover:text-blue-900"
+							:aria-label="t('sequences.clearFilter')"
+							@click="clearSchedSequenceFilter"
+						>
+							<X class="w-3 h-3" />
+						</button>
+					</span>
+				</div>
+				<p v-if="scheduledTimezone" class="text-[11px] text-gray-400 mb-2">
+					{{ t('sequences.scheduledTzHint', { tz: scheduledTimezone }) }}
+				</p>
+
+				<div v-if="scheduledLoading" class="text-sm text-gray-500 border rounded-md p-4 text-center">
+					{{ t('common.loading') }}
+				</div>
+				<div v-else-if="scheduled.length" class="border rounded-md divide-y">
+					<div
+						v-for="it in scheduled"
+						:key="it.id"
+						class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 p-3"
+					>
+						<div class="min-w-0">
+							<div class="text-sm font-medium truncate">{{ it.participantName }}</div>
+							<div class="text-xs text-gray-500 truncate">
+								{{ templateLabel(it.templateType) }}
+								<span v-if="it.stepOrder != null">· {{ t('sequences.stepN', { n: it.stepOrder + 1 }) }}</span>
+								<span
+									v-if="it.recipientTarget && it.recipientTarget !== 'participant'"
+									class="text-amber-600"
+								>
+									· → {{ it.recipientName || t('sequences.recipients.' + it.recipientTarget) }}
+								</span>
+								<span v-if="seqName(it.sequenceId)">· {{ seqName(it.sequenceId) }}</span>
+							</div>
+							<div v-if="it.error" class="text-xs text-red-600 break-words">{{ it.error }}</div>
+						</div>
+						<div class="flex items-center flex-nowrap gap-1.5 shrink-0">
+							<span class="text-xs text-gray-700 whitespace-nowrap">{{ fmtScheduled(it.scheduledFor) }}</span>
+							<span
+								class="text-xs rounded px-1.5 py-0.5 shrink-0"
+								:class="schedStatusClass(it.status)"
+							>
+								{{ t('sequences.statuses.' + it.status) }}
+							</span>
+							<span class="text-[10px] uppercase text-gray-400 shrink-0">
+								{{ t('sequences.channels.' + it.channel) }}
+							</span>
+						</div>
+					</div>
+				</div>
+				<div v-else class="text-sm text-gray-500 border rounded-md p-4 text-center">
+					{{ t('sequences.scheduledEmpty') }}
+				</div>
+
+				<!-- Paginación server-side -->
+				<div v-if="scheduledTotalPages > 1" class="flex items-center justify-center gap-3 mt-3 text-sm">
+					<Button size="sm" variant="outline" :disabled="schedPage <= 1" @click="schedPage = schedPage - 1">‹</Button>
+					<span class="text-gray-600">
+						{{ t('sequences.pageOf', { page: schedPage, total: scheduledTotalPages }) }}
+						· {{ t('sequences.scheduledTotal', { n: scheduledTotal }) }}
+					</span>
+					<Button
+						size="sm"
+						variant="outline"
+						:disabled="schedPage >= scheduledTotalPages"
+						@click="schedPage = schedPage + 1"
+					>
+						›
+					</Button>
+				</div>
+			</div>
 
 			<!-- Tab: Pendientes de WhatsApp -->
 			<div v-show="activeTab === 'pending'">
@@ -1011,6 +1329,7 @@ async function toggleDoNotContact() {
 						</div>
 						<div class="text-xs text-gray-500">
 							{{ item.templateType }}
+							<span v-if="item.scheduledFor">· {{ fmtScheduled(item.scheduledFor) }}</span>
 							<span
 								v-if="item.recipientTarget && item.recipientTarget !== 'participant'"
 								class="text-amber-600"
@@ -1076,6 +1395,20 @@ async function toggleDoNotContact() {
 
 			<!-- Tab: Problemas (omitidos o fallidos, con su motivo) -->
 			<div v-show="activeTab === 'issues'">
+				<!-- Chip de secuencia (viene del badge clickeable de la lista) -->
+				<div v-if="issuesSequenceFilter" class="flex items-center gap-2 mb-2 text-xs">
+					<span class="inline-flex items-center gap-1 bg-red-100 text-red-700 rounded-full px-2 py-0.5">
+						{{ seqName(issuesSequenceFilter) }}
+						<button
+							type="button"
+							class="hover:text-red-900"
+							:aria-label="t('sequences.clearFilter')"
+							@click="issuesSequenceFilter = null"
+						>
+							<X class="w-3 h-3" />
+						</button>
+					</span>
+				</div>
 				<!-- Buscador + (móvil) menú de acciones -->
 				<div v-if="issues.length" class="flex items-center gap-2 mb-2">
 					<input
@@ -1270,8 +1603,20 @@ async function toggleDoNotContact() {
 						</div>
 						<div v-if="draft.steps.length" class="space-y-3">
 							<div v-for="(step, i) in draft.steps" :key="i" class="rounded-lg border bg-white p-3 space-y-3 shadow-sm">
-								<div class="flex items-center justify-between">
-									<span class="text-sm font-semibold text-gray-700">{{ t('sequences.stepN', { n: i + 1 }) }}</span>
+								<div class="flex items-center justify-between gap-2">
+									<div class="flex items-baseline gap-2 min-w-0">
+										<span class="text-sm font-semibold text-gray-700 shrink-0">{{ t('sequences.stepN', { n: i + 1 }) }}</span>
+										<!-- A4: fecha que tendría este paso para el participante de muestra,
+										     en la TZ del retiro (resuelta por el servidor). -->
+										<span v-if="stepDatesLoading" class="text-xs text-gray-400">…</span>
+										<span
+											v-else-if="stepDates.length"
+											class="text-xs text-gray-500 truncate"
+											:title="t('sequences.stepDateHint')"
+										>
+											→ {{ fmtStepDate(stepDates[i]) }}
+										</span>
+									</div>
 									<Button variant="ghost" size="icon" class="text-red-500 -my-1" @click="removeStep(i)">
 										<Trash2 class="w-4 h-4" />
 									</Button>
@@ -1507,6 +1852,9 @@ async function toggleDoNotContact() {
 							<div class="text-xs font-medium text-gray-500 mb-1">
 								{{ t('sequences.messageToSend') }}
 								<span class="text-gray-400">· {{ detail.message.templateType }}</span>
+								<span v-if="detail.message.scheduledFor" class="text-gray-400">
+									· {{ fmtScheduled(detail.message.scheduledFor) }}
+								</span>
 								<span
 									v-if="detail.message.recipientTarget !== 'participant'"
 									class="text-amber-600"

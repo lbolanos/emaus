@@ -227,7 +227,29 @@ M6 en paralelo con todo, desde el día 1
   dispatch/skip/retry/discard/assign, carrera de dispatch, ids inexistentes →
   null, bulk con/sin ids con affected real) + 4/4 en
   `messageSequenceAssign.integration.test.ts` (seed actualizado a queued).
-- M3: _pendiente_
+- M3 (cerrado 2026-09-12): implementado como especificado, con cinco matices:
+  1. **Paginación con `.offset()/.limit()`** en `listScheduled`, no `skip/take`: el DISTINCT-ID
+     subquery de TypeORM 0.3.27 no puede ORDER BY columnas joined en SQLite (SqliteError
+     `distinciAlias`). Seguro aquí porque los joins son many-to-one (1 fila por mensaje).
+  2. **`leftJoinAndSelect`** (no `leftJoin`) para hidratar participante/paso/secuencia en
+     `getMany()` — el join plano no hidrata en 0.3.27 y `participantName` salía vacío.
+  3. El contador del tab "Programados" NO usa `scheduledTotal` (que sigue los filtros activos y
+     mentiría al filtrar): suma los `pending` por secuencia de `stats` — mismo número que el
+     badge de la secuencia, siempre del retiro completo.
+  4. `formatInRetreatTz` interpreta sus opts como opt-OUT (`withTime !== false`): la bandeja y
+     Programados pintan fecha+hora+TZ por defecto; `fmtScheduled`/`fmtStepDate` solo traducen
+     el null al texto i18n.
+  5. Tests de la vista: el setup global de vitest mockea `vue-i18n` con `t = clave`; este
+     archivo lo restaura con `vi.mock('vue-i18n', importOriginal)` para afirmar sobre textos
+     reales del locale es ('Pendiente', 'Programados'). Y el mock de `'@/services/api'` debe
+     ser un objeto plano con los named exports enumerados — un Proxy como factory de `vi.mock`
+     no sobrevive la síntesis de namespace de vite-node.
+  Backend: 75/75 en `messageSequence.test.ts` (70 + 5 nuevos: listScheduled filtros/paginación/
+  timezone/DTO sin PII, schedule-preview fechas UTC exactas) + 4/4 integration. Web: 10/10 store
+  (fetchScheduled guarda página/total/timezone) + 6/6 vista nueva `MessageSequencesView.test.ts`
+  (fila con fecha TZ + hint de zona, bandeja pinta scheduledFor, contador desde stats, badge →
+  tab filtrada con chip removible, timeline del editor con fecha del servidor, paso sin fecha).
+  Guard i18n 67/67 (es/en en paridad).
 - M4: _pendiente_
 - M5: _pendiente_
 - M6: _pendiente_

@@ -226,3 +226,33 @@ export interface SequenceStepPreview {
 	emptyVariables: string[];
 	warning: string | null;
 }
+
+/**
+ * Timeline de fechas de los pasos de una secuencia para un participante real
+ * (visibilidad del tiempo). El servidor loopéa `computeScheduledFor` — la misma
+ * función del motor — para que el preview del editor y el enrolamiento nunca
+ * divergan; el cliente nunca duplica triggers/TZ.
+ */
+export const previewSequenceScheduleSchema = z.object({
+	body: z.object({
+		retreatId: z.string().uuid(),
+		participantId: z.string().uuid(),
+		trigger: sequenceTrigger,
+		steps: z
+			.array(
+				z.object({
+					offsetDays: z.number().int().default(0),
+					sendHour: z.number().int().min(0).max(23).default(9),
+				}),
+			)
+			.min(1)
+			.max(50),
+	}),
+});
+export type PreviewSequenceSchedule = z.infer<typeof previewSequenceScheduleSchema>;
+
+/** Respuesta de schedule-preview: fecha por paso (null = falta dato del disparador). */
+export interface SequenceSchedulePreview {
+	dates: Array<string | null>;
+	timezone: string;
+}

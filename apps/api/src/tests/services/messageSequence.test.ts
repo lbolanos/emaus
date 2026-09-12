@@ -1450,4 +1450,145 @@ describe('MessageSequenceService', () => {
 			expect(await svc.bulkResolveIssues(retreat.id, 'discard')).toBe(0);
 		});
 	});
+
+	describe('M3: visibilidad del tiempo (listScheduled + schedulePreview)', () => {
+		/**
+		 * Siembra un retiro CDMX con una secuencia de 1 paso y `n` filas de
+		 * scheduled_messages (una por participante) con las fechas dadas.
+		 */
+		async function seedList(rows: Array<{
+			status: string; scheduledFor: Date; firstName: string;
+		}>) {
+			const retreat = await TestDataFactory.createTestRetreat({
+				timezone: 'America/Mexico_City',
+			} as any);
+			const seq = await svc.createSequence({
+				name: 'M3', retreatId: retreat.id, trigger: 'participant_created', audience: 'walker',
+				steps: [{ stepOrder: 0, offsetDays: 5, sendHour: 9, templateType: 'WALKER_WELCOME', channel: 'whatsapp' } as any],
+			});
+			const repo = AppDataSource.getRepository(ScheduledMessage);
+			const created: ScheduledMessage[] = [];
+			for (const r of rows) {
+				const p = await TestDataFactory.createTestParticipant(retreat.id, {
+					type: 'walker', firstName: r.firstName, lastName: 'M3',
+					email: `${r.firstName.toLowerCase()}-m3@example.com`,
+				} as any);
+				created.push(await repo.save(repo.create({
+					sequenceId: seq.id, stepId: seq.steps![0].id, participantId: p.id,
+					retreatId: retreat.id, channel: 'whatsapp', templateType: 'WALKER_WELCOME',
+					recipientTarget: 'participant', scheduledFor: r.scheduledFor,
+					status: r.status as any,
+				})));
+			}
+			return { retreat, seq, repo, created };
+		}
+
+		it('listScheduled: default pending only, DTO sin PII, timezone del servidor', async () => {
+			const { retreat, seq, created } = await seedList([
+				{ status: 'pending', scheduledFor: new Date('2026-09-25T15:00:00Z'), firstName: 'Ana' },
+				{ status: 'queued', scheduledFor: new Date('2026-09-20T15:00:00Z'), firstName: 'Beto' },
+			]);
+			const res = await svc.listScheduled(retreat.id);
+			expect(res.total).toBe(1);
+			expect(res.items).toHaveLength(1);
+			const item = res.items[0];
+			expect(item.id).toBe(created[0].id);
+			expect(item.participantName).toBe('Ana M3');
+			expect(item.sequenceId).toBe(seq.id);
+			expect(item.stepOrder).toBe(0);
+			expect(item.offsetDays).toBe(5);
+			expect(item.sendHour).toBe(9);
+			expect(item.scheduledFor).toEqual(new Date('2026-09-25T15:00:00Z'));
+			// La TZ la resuelve el servidor desde el retiro — el cliente nunca la infiere.
+			expect(res.timezone).toBe('America/Mexico_City');
+			// El DTO no arrastra la entity del participante (PII) a la lista.
+			expect((item as any).participant).toBeUndefined();
+			expect((item as any).resolvedContact).toBeUndefined();
+		});
+
+		it('listScheduled: filtra por statuses, secuencia y search (LIKE sobre nombre)', async () => {
+			const { retreat } = await seedList([
+				{ status: 'pending', scheduledFor: new Date('2026-09-25T15:00:00Z'), firstName: 'Ana' },
+				{ status: 'queued', scheduledFor: new Date('2026-09-20T15:00:00Z'), firstName: 'Beto' },
+				{ status: 'pending', scheduledFor: new Date('2026-10-09T15:00:00Z'), firstName: 'Ximena' },
+			]);
+			const queued = await svc.listScheduled(retreat.id, { statuses: ['queued'] });
+			expect(queued.total).toBe(1);
+			expect(queued.items[0].participantName).toBe('Beto M3');
+
+			// Sin la secuencia de la siembra no hay nada (aisla de corridas previas).
+			const otherSeq = await svc.listScheduled(retreat.id, {
+				sequenceId: '00000000-0000-0000-0000-000000000000',
+			});
+			expect(otherSeq.total).toBe(0);
+
+			const byName = await svc.listScheduled(retreat.id, { search: 'xim' });
+			expect(byName.total).toBe(1);
+			expect(byName.items[0].participantName).toBe('Ximena M3');
+		});
+
+		it('listScheduled: paginación y orden por scheduledFor ASC', async () => {
+			const { retreat } = await seedList([
+				{ status: 'pending', scheduledFor: new Date('2026-10-09T15:00:00Z'), firstName: 'C' },
+				{ status: 'pending', scheduledFor: new Date('2026-09-25T15:00:00Z'), firstName: 'A' },
+				{ status: 'pending', scheduledFor: new Date('2026-10-01T15:00:00Z'), firstName: 'B' },
+			]);
+			const page1 = await svc.listScheduled(retreat.id, { page: 1, limit: 2 });
+			expect(page1.total).toBe(3);
+			expect(page1.totalPages).toBe(2);
+			expect(page1.items.map((i) => i.participantName)).toEqual(['A M3', 'B M3']);
+			const page2 = await svc.listScheduled(retreat.id, { page: 2, limit: 2 });
+			expect(page2.items.map((i) => i.participantName)).toEqual(['C M3']);
+		});
+
+		it('schedulePreview: loopéa computeScheduledFor — 9:00 CDMX = 15:00 UTC exacto', async () => {
+			const retreat = await TestDataFactory.createTestRetreat({
+				timezone: 'America/Mexico_City',
+			} as any);
+			// 12:00 UTC = 06:00 CDMX del MISMO día → base calendario 2026-09-10.
+			const participant = await TestDataFactory.createTestParticipant(retreat.id, {
+				registrationDate: new Date('2026-09-10T12:00:00Z'),
+			} as any);
+			const res = await svc.schedulePreview({
+				retreatId: retreat.id,
+				participantId: participant.id,
+				trigger: 'participant_created',
+				steps: [
+					{ offsetDays: 0, sendHour: 9 },  // alta +0 → 10-sep 9:00 CDMX
+					{ offsetDays: 2, sendHour: 20 }, // alta +2 → 12-sep 20:00 CDMX
+				],
+			});
+			expect(res).not.toBeNull();
+			expect(res!.timezone).toBe('America/Mexico_City');
+			// El servicio devuelve Dates (el DTO over-the-wire las serializa a ISO).
+			expect((res!.dates[0] as Date).toISOString()).toBe('2026-09-10T15:00:00.000Z');
+			expect((res!.dates[1] as Date).toISOString()).toBe('2026-09-13T02:00:00.000Z'); // 20:00 CDMX (UTC-6)
+		});
+
+		it('schedulePreview: null por paso cuando falta el dato del disparador; null si no existe el participante', async () => {
+			const retreat = await TestDataFactory.createTestRetreat({
+				timezone: 'America/Mexico_City',
+			} as any);
+			// registrationDate es CreateDateColumn (siempre existe); el caso `null`
+			// real es birthday con el centinela 1900 (miembros importados sin fecha).
+			const participant = await TestDataFactory.createTestParticipant(retreat.id, {
+				birthDate: new Date('1900-01-01'),
+			} as any);
+			const res = await svc.schedulePreview({
+				retreatId: retreat.id,
+				participantId: participant.id,
+				trigger: 'birthday',
+				steps: [{ offsetDays: 0, sendHour: 9 }],
+			});
+			expect(res).not.toBeNull();
+			expect(res!.dates).toEqual([null]);
+
+			expect(await svc.schedulePreview({
+				retreatId: retreat.id,
+				participantId: '00000000-0000-0000-0000-000000000000',
+				trigger: 'participant_created',
+				steps: [{ offsetDays: 0, sendHour: 9 }],
+			})).toBeNull();
+		});
+	});
 });

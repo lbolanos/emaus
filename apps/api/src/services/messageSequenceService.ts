@@ -1245,6 +1245,152 @@ export class MessageSequenceService {
 	}
 
 	/**
+	 * Listado paginado de los mensajes materializados de un retiro (A1) — la
+	 * pestaña "Programados": lo que SALDRÁ (pending), lo que salió (sent), lo que
+	 * quedó en bandeja (queued)… Filtra por estado/secuencia/participante/texto,
+	 * ordena por fecha de envío (o última actualización) y resuelve la TZ del
+	 * retiro en el servidor — el cliente nunca infiere la zona.
+	 *
+	 * Devuelve un DTO plano (no la entity): la tabla sólo necesita nombre del
+	 * participante, no arrastrar su PII completa a una lista.
+	 */
+	async listScheduled(
+		retreatId: string,
+		opts: {
+			statuses?: string[];
+			sequenceId?: string;
+			participantId?: string;
+			search?: string;
+			page?: number;
+			limit?: number;
+			order?: 'scheduled' | 'recent';
+		} = {},
+	): Promise<{
+		items: Array<{
+			id: string;
+			sequenceId: string;
+			stepId: string;
+			participantId: string;
+			participantName: string;
+			templateType: string;
+			channel: MessageChannel;
+			recipientTarget: string;
+			recipientName: string | null;
+			status: string;
+			scheduledFor: Date;
+			error: string | null;
+			stepOrder: number | null;
+			offsetDays: number | null;
+			sendHour: number | null;
+			updatedAt: Date;
+		}>;
+		total: number;
+		page: number;
+		totalPages: number;
+		timezone: string;
+	}> {
+		const repo = AppDataSource.getRepository(ScheduledMessage);
+		// leftJoinAndSelect (no leftJoin plano): el DTO lee participant/step de la
+		// entity hidratada. Con tope de 200 filas por página el costo es acotado,
+		// y la respuesta al cliente sigue siendo el DTO plano sin PII.
+		const qb = repo
+			.createQueryBuilder('sm')
+			.leftJoinAndSelect('sm.participant', 'participant')
+			.leftJoinAndSelect('sm.step', 'step')
+			.where('sm.retreatId = :retreatId', { retreatId });
+		const statuses = opts.statuses?.length ? opts.statuses : ['pending'];
+		qb.andWhere('sm.status IN (:...statuses)', { statuses });
+		if (opts.sequenceId) {
+			qb.andWhere('sm.sequenceId = :sequenceId', { sequenceId: opts.sequenceId });
+		}
+		if (opts.participantId) {
+			qb.andWhere('sm.participantId = :participantId', { participantId: opts.participantId });
+		}
+		if (opts.search) {
+			qb.andWhere(
+				'(participant.firstName LIKE :q OR participant.lastName LIKE :q OR participant.nickname LIKE :q)',
+				{ q: `%${opts.search}%` },
+			);
+		}
+		const total = await qb.clone().getCount();
+		const page = Math.max(1, opts.page ?? 1);
+		const limit = Math.min(200, Math.max(1, opts.limit ?? 50));
+		if (opts.order === 'recent') {
+			qb.orderBy('sm.updatedAt', 'DESC');
+		} else {
+			qb.orderBy('sm.scheduledFor', 'ASC').addOrderBy('participant.lastName', 'ASC');
+		}
+		// offset/limit (NO skip/take): la paginación de skip/take envuelve en un
+		// SELECT DISTINCT subquery que no soporta ORDER BY sobre columnas del join
+		// en SQLite ("no such column: distinctAlias.participant_lastName"). Los dos
+		// joins son many-to-one → no hay duplicación de filas, offset es seguro.
+		qb.offset((page - 1) * limit).limit(limit);
+		const rows = await qb.getMany();
+		const retreat = await AppDataSource.getRepository(Retreat).findOne({
+			where: { id: retreatId },
+			relations: ['house'],
+		});
+		return {
+			items: rows.map((sm) => ({
+				id: sm.id,
+				sequenceId: sm.sequenceId,
+				stepId: sm.stepId,
+				participantId: sm.participantId,
+				participantName: sm.participant
+					? `${sm.participant.firstName || ''} ${sm.participant.lastName || ''}`.trim()
+					: '',
+				templateType: sm.templateType,
+				channel: sm.channel,
+				recipientTarget: sm.recipientTarget,
+				recipientName: sm.recipientName ?? null,
+				status: sm.status,
+				scheduledFor: sm.scheduledFor,
+				error: sm.error ?? null,
+				stepOrder: sm.step?.stepOrder ?? null,
+				offsetDays: sm.step?.offsetDays ?? null,
+				sendHour: sm.step?.sendHour ?? null,
+				updatedAt: sm.updatedAt,
+			})),
+			total,
+			page,
+			totalPages: Math.max(1, Math.ceil(total / limit)),
+			timezone: this.resolveTz(retreat),
+		};
+	}
+
+	/**
+	 * Fechas de envío que TENDRÍA cada paso para un participante real (A4): el
+	 * editor muestra "→ 12 sep, 9:00 (CDMX)" junto a cada paso. Loopéa
+	 * `computeScheduledFor` — la misma función del enrolamiento — para que el
+	 * preview y lo materializado nunca diverjan. `null` en un paso = falta el
+	 * dato del disparador (fecha de alta, fecha del retiro, cumpleaños…).
+	 */
+	async schedulePreview(input: {
+		retreatId: string;
+		participantId: string;
+		trigger: MessageSequence['trigger'];
+		steps: Array<{ offsetDays?: number; sendHour?: number }>;
+	}): Promise<{ dates: Array<Date | null>; timezone: string } | null> {
+		const [participant, retreat] = await Promise.all([
+			AppDataSource.getRepository(Participant).findOne({ where: { id: input.participantId } }),
+			AppDataSource.getRepository(Retreat).findOne({
+				where: { id: input.retreatId },
+				relations: ['house'],
+			}),
+		]);
+		if (!participant || !retreat) return null;
+		const dates = input.steps.map((s) =>
+			this.computeScheduledFor(
+				input.trigger,
+				{ offsetDays: s.offsetDays ?? 0, sendHour: s.sendHour ?? 9 },
+				participant,
+				retreat,
+			),
+		);
+		return { dates, timezone: this.resolveTz(retreat) };
+	}
+
+	/**
 	 * Detalle del participante de un pendiente de la bandeja, para que el
 	 * coordinador decida si enviar u omitir con todo el contexto a la vista:
 	 * notas, cartas/palancas recibidas, estado de seguimiento (+ nota) y las

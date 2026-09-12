@@ -19,8 +19,12 @@ import {
 	openScheduledMessage,
 	assignScheduledMessage,
 	setParticipantDoNotContact,
+	fetchScheduledMessages,
 	type ScheduledMessageQueueItem,
 	type ScheduledMessageDetail,
+	type ScheduledMessageListItem,
+	type ScheduledMessagesPage,
+	type FetchScheduledMessagesOptions,
 } from '@/services/api';
 
 /**
@@ -36,9 +40,21 @@ export const useMessageSequenceStore = defineStore('message-sequence', () => {
 	const loading = ref(false);
 	const error = ref<string | null>(null);
 
+	// Pestaña "Programados": paginado server-side (filtros/orden/página en el API).
+	const scheduled = ref<ScheduledMessageListItem[]>([]);
+	const scheduledTotal = ref(0);
+	const scheduledPage = ref(1);
+	const scheduledTotalPages = ref(1);
+	const scheduledTimezone = ref<string | null>(null);
+	const scheduledLoading = ref(false);
+	// Retiro del último fetch: alimenta el fallback de TZ y los refresh de stats
+	// fire-and-forget (sin andar pasando el retreatId por todos lados).
+	let currentRetreatId: string | null = null;
+
 	const fetchSequences = async (retreatId: string) => {
 		loading.value = true;
 		error.value = null;
+		currentRetreatId = retreatId;
 		try {
 			sequences.value = await getRetreatSequences(retreatId);
 		} catch (e: any) {
@@ -63,6 +79,29 @@ export const useMessageSequenceStore = defineStore('message-sequence', () => {
 			issues.value = res.issues;
 		} catch (e: any) {
 			error.value = e?.message || 'Failed to fetch stats';
+		}
+	};
+
+	/**
+	 * Pestaña "Programados": TODO el filtrado/orden/paginación lo resuelve el
+	 * servidor. La TZ viene en la respuesta (el cliente nunca la infiere); se
+	 * expone como `scheduledTimezone` para pintar fechas y como fallback del
+	 * resto de la vista (bandeja/detalle).
+	 */
+	const fetchScheduled = async (retreatId: string, opts: FetchScheduledMessagesOptions = {}) => {
+		scheduledLoading.value = true;
+		currentRetreatId = retreatId;
+		try {
+			const res: ScheduledMessagesPage = await fetchScheduledMessages(retreatId, opts);
+			scheduled.value = res.items;
+			scheduledTotal.value = res.total;
+			scheduledPage.value = res.page;
+			scheduledTotalPages.value = res.totalPages;
+			scheduledTimezone.value = res.timezone;
+		} catch (e: any) {
+			error.value = e?.message || 'Failed to fetch scheduled messages';
+		} finally {
+			scheduledLoading.value = false;
 		}
 	};
 
@@ -175,9 +214,16 @@ export const useMessageSequenceStore = defineStore('message-sequence', () => {
 		detailLoading,
 		loading,
 		error,
+		scheduled,
+		scheduledTotal,
+		scheduledPage,
+		scheduledTotalPages,
+		scheduledTimezone,
+		scheduledLoading,
 		fetchSequences,
 		fetchQueue,
 		fetchStats,
+		fetchScheduled,
 		fetchDetail,
 		clearDetail,
 		create,

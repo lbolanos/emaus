@@ -3887,6 +3887,82 @@ export const getSequenceQueue = async (
   return r.data;
 };
 
+/** Fila de la pestaña "Programados": DTO plano del servidor, sin PII. */
+export interface ScheduledMessageListItem {
+  id: string;
+  sequenceId: string;
+  stepId: string;
+  participantId: string;
+  participantName: string;
+  templateType: string;
+  channel: 'email' | 'whatsapp';
+  recipientTarget: string;
+  recipientName: string | null;
+  status: string;
+  scheduledFor: string;
+  error: string | null;
+  stepOrder: number | null;
+  offsetDays: number | null;
+  sendHour: number | null;
+  updatedAt: string;
+}
+
+export interface ScheduledMessagesPage {
+  items: ScheduledMessageListItem[];
+  total: number;
+  page: number;
+  totalPages: number;
+  timezone: string;
+}
+
+/** Query de la pestaña "Programados" — TODO server-side (filtros, orden, página). */
+export interface FetchScheduledMessagesOptions {
+  statuses?: string[];
+  sequenceId?: string;
+  participantId?: string;
+  search?: string;
+  page?: number;
+  limit?: number;
+  order?: 'scheduled' | 'recent';
+}
+
+export const fetchScheduledMessages = async (
+  retreatId: string,
+  opts: FetchScheduledMessagesOptions = {},
+): Promise<ScheduledMessagesPage> => {
+  const params = new URLSearchParams();
+  if (opts.statuses?.length) params.set('status', opts.statuses.join(','));
+  if (opts.sequenceId) params.set('sequenceId', opts.sequenceId);
+  if (opts.participantId) params.set('participantId', opts.participantId);
+  if (opts.search) params.set('search', opts.search);
+  if (opts.page) params.set('page', String(opts.page));
+  if (opts.limit) params.set('limit', String(opts.limit));
+  if (opts.order) params.set('order', opts.order);
+  const qs = params.toString();
+  const r = await api.get(`/message-sequences/retreat/${retreatId}/scheduled${qs ? `?${qs}` : ''}`);
+  return r.data;
+};
+
+/**
+ * Fechas TZ que tendrá cada paso para un participante real (timeline del
+ * editor). El servidor loopéa computeScheduledFor — el cliente no duplica
+ * triggers/TZ. `null` = falta el dato del disparador.
+ */
+export const previewSequenceSchedule = async (
+  retreatId: string,
+  participantId: string,
+  trigger: string,
+  steps: Array<{ offsetDays?: number; sendHour?: number }>,
+): Promise<{ dates: Array<string | null>; timezone: string }> => {
+  const r = await api.post('/message-sequences/schedule-preview', {
+    retreatId,
+    participantId,
+    trigger,
+    steps,
+  });
+  return r.data;
+};
+
 /** Detalle del participante de un pendiente (notas, cartas, seguimiento, historial). */
 export interface ScheduledMessageDetail {
   message: {
