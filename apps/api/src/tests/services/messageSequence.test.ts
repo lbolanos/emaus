@@ -196,6 +196,101 @@ describe('MessageSequenceService', () => {
 		});
 	});
 
+	describe('#1: birthday dispara una vez por año (occurrenceYear)', () => {
+		it('el envío del cumpleaños pasado no bloquea el del año siguiente', async () => {
+			// Sin endDate → isRetreatClosed false: la secuencia de cumpleaños
+			// sigue viva pase lo que pase con las fechas del retiro.
+			const retreat = await TestDataFactory.createTestRetreat({
+				startDate: new Date('2026-12-01T00:00:00.000Z'),
+				timezone: 'America/Mexico_City',
+			});
+			const participant = await TestDataFactory.createTestParticipant(retreat.id, {
+				type: 'walker',
+				email: 'cumple-anual@example.com',
+				// 20 de mayo: el cumpleaños de este año ya pasó → el motor agenda
+				// la próxima ocurrencia (año siguiente) desde hoy.
+				birthDate: new Date('1990-05-20T00:00:00.000Z'),
+			} as any);
+
+			const seq = await svc.createSequence({
+				name: 'Felicitación de cumpleaños',
+				retreatId: retreat.id,
+				trigger: 'birthday',
+				audience: 'walker',
+				steps: [{ stepOrder: 0, offsetDays: 0, sendHour: 9, templateType: 'GENERAL', channel: 'email' } as any],
+			});
+			const step = seq.steps![0];
+
+			// El envío del cumpleaños de ESTE año (2026) ya existe y salió: con la
+			// UQ vieja (stepId, participantId) el motor jamás volvería a enrolar
+			// este paso — era el bug #1.
+			const smRepo = AppDataSource.getRepository(ScheduledMessage);
+			const past = await smRepo.save(
+				smRepo.create({
+					sequenceId: seq.id,
+					stepId: step.id,
+					participantId: participant.id,
+					retreatId: retreat.id,
+					channel: 'email',
+					templateType: 'GENERAL',
+					recipientTarget: 'participant',
+					scheduledFor: new Date('2026-05-20T15:00:00.000Z'),
+					occurrenceYear: 2026,
+					status: 'sent',
+					sentAt: new Date('2026-05-20T15:05:00.000Z'),
+				}),
+			);
+
+			const created = await svc.enrollSequence(seq);
+			expect(created).toBe(1); // el año siguiente SÍ se agenda
+
+			const rows = await smRepo.find({ where: { sequenceId: seq.id } });
+			expect(rows).toHaveLength(2);
+			expect(rows.map((r) => r.occurrenceYear).sort()).toEqual([2026, 2027]);
+
+			const next = rows.find((r) => r.id !== past.id)!;
+			expect(next.status).toBe('pending');
+			expect(next.occurrenceYear).toBe(2027);
+			// 20 may 2027 09:00 CDMX (UTC-6) = 15:00 UTC.
+			expect(new Date(next.scheduledFor).toISOString()).toBe('2027-05-20T15:00:00.000Z');
+
+			// La fila histórica no se toca, y el re-enrol es idempotente dentro
+			// del mismo año.
+			const pastAfter = await smRepo.findOne({ where: { id: past.id } });
+			expect(pastAfter!.status).toBe('sent');
+			expect(pastAfter!.occurrenceYear).toBe(2026);
+			expect(await svc.enrollSequence(seq)).toBe(0);
+		});
+
+		it('los triggers no-birthday siguen siendo una sola vez en la vida (occurrenceYear 0)', async () => {
+			const retreat = await TestDataFactory.createTestRetreat({
+				startDate: new Date('2026-12-01T00:00:00.000Z'),
+				timezone: 'America/Mexico_City',
+			});
+			await TestDataFactory.createTestParticipant(retreat.id, {
+				type: 'walker',
+				email: 'vida-unica@example.com',
+			} as any);
+
+			const seq = await svc.createSequence({
+				name: 'Bienvenida única',
+				retreatId: retreat.id,
+				trigger: 'participant_created',
+				audience: 'walker',
+				steps: [{ stepOrder: 0, offsetDays: 0, sendHour: 9, templateType: 'WALKER_WELCOME', channel: 'email' } as any],
+			});
+
+			expect(await svc.enrollSequence(seq)).toBe(1);
+			const rows = await AppDataSource.getRepository(ScheduledMessage).find({
+				where: { sequenceId: seq.id },
+			});
+			expect(rows).toHaveLength(1);
+			// La parte de año de la clave queda neutralizada para los no-birthday.
+			expect(rows[0].occurrenceYear).toBe(0);
+			expect(await svc.enrollSequence(seq)).toBe(0);
+		});
+	});
+
 	describe('processDue', () => {
 		it('email: envía, marca sent y registra la comunicación', async () => {
 			const retreat = await TestDataFactory.createTestRetreat({ timezone: 'America/Mexico_City' });

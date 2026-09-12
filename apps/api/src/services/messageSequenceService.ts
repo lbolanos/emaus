@@ -108,7 +108,8 @@ function addDays(y: number, m0: number, d: number, delta: number): { y: number; 
  * Motor de secuencias de mensajes (drip CRM).
  *
  * - Enrola participantes elegibles de cada secuencia activa y programa cada paso
- *   (idempotente vía unique (stepId, participantId)).
+ *   (idempotente vía unique (stepId, participantId, occurrenceYear): birthday
+ *   dispara una vez por año, el resto una sola vez en la vida).
  * - Procesa los mensajes vencidos: EMAIL se envía solo (desatendido) y se
  *   registra; WHATSAPP pasa a `queued` (bandeja de pendientes) para que el
  *   coordinador lo despache desde su propia cuenta.
@@ -313,21 +314,38 @@ export class MessageSequenceService {
 		participants = participants.filter((p) => !p.doNotContact);
 		if (!participants.length) return 0;
 
-		// Set de (stepId:participantId) ya programados → idempotencia.
+		// Set de claves ya programadas → idempotencia. Para birthday la clave
+		// incluye el año agendado (#1): el mismo paso puede volver a disparar
+		// el año siguiente; para el resto de triggers (occurrenceYear = 0)
+		// sigue siendo una sola vez en la vida.
+		const tz = this.resolveTz(retreat);
+		const isBirthday = seq.trigger === 'birthday';
 		const existing = await AppDataSource.getRepository(ScheduledMessage).find({
 			where: { sequenceId: seq.id },
-			select: ['stepId', 'participantId'],
+			select: ['stepId', 'participantId', 'occurrenceYear'],
 		});
-		const seen = new Set(existing.map((e) => `${e.stepId}:${e.participantId}`));
+		const seen = new Set(
+			existing.map((e) =>
+				e.occurrenceYear
+					? `${e.stepId}:${e.participantId}:${e.occurrenceYear}`
+					: `${e.stepId}:${e.participantId}`,
+			),
+		);
 
 		const repo = AppDataSource.getRepository(ScheduledMessage);
 		const toCreate: ScheduledMessage[] = [];
 		for (const participant of participants) {
 			for (const step of steps) {
-				const key = `${step.id}:${participant.id}`;
-				if (seen.has(key)) continue;
 				const scheduledFor = this.computeScheduledFor(seq.trigger, step, participant, retreat);
 				if (!scheduledFor) continue;
+				// Año de la ocurrencia EN LA TZ DEL RETIRO (la misma en la que
+				// computeScheduledFor construyó la fecha): es la parte de la
+				// clave que habilita un envío por cumpleaños.
+				const occurrenceYear = isBirthday ? ymdInTz(scheduledFor, tz).y : 0;
+				const key = occurrenceYear
+					? `${step.id}:${participant.id}:${occurrenceYear}`
+					: `${step.id}:${participant.id}`;
+				if (seen.has(key)) continue;
 				toCreate.push(
 					repo.create({
 						sequenceId: seq.id,
@@ -338,6 +356,7 @@ export class MessageSequenceService {
 						templateType: step.templateType,
 						recipientTarget: step.recipientTarget ?? "participant",
 						scheduledFor,
+						occurrenceYear,
 						status: 'pending',
 					}),
 				);
@@ -1212,9 +1231,10 @@ export class MessageSequenceService {
 		}
 		let cancelledPendingCount = 0;
 		if (semanticsChanged) {
-			// DELETE (no cancel): la UQ (stepId, participantId) aplica a TODAS las
-			// filas, así que una cancelled bloquearía el re-enrolamiento. Las
-			// sent/queued se conservan — la idempotencia las respeta al re-crear.
+			// DELETE (no cancel): la UQ (stepId, participantId, occurrenceYear)
+			// aplica a TODAS las filas, así que una cancelled bloquearía el
+			// re-enrolamiento. Las sent/queued se conservan — la idempotencia las
+			// respeta al re-crear.
 			const del = await AppDataSource.getRepository(ScheduledMessage)
 				.createQueryBuilder()
 				.delete()
@@ -1240,7 +1260,7 @@ export class MessageSequenceService {
 	/**
 	 * Sincroniza los pasos de una secuencia preservando la identidad de los
 	 * existentes (los que llegan con `id`): así NO cambia el `stepId` y la
-	 * idempotencia (stepId, participantId) se mantiene — editar no re-envía a
+	 * idempotencia (stepId, participantId, occurrenceYear) se mantiene — editar no re-envía a
 	 * quien ya recibió. Los pasos quitados se ARCHIVAN (borrarlos cascadería
 	 * hasta sus scheduled_messages sent) y sus `pending` se CANCELAN.
 	 */
@@ -1482,6 +1502,10 @@ export class MessageSequenceService {
 	 * conserva el `sendHour` del paso. Sólo toca `pending`: lo `queued` ya está
 	 * en la bandeja y lo `sent` es historial. B2 ("encolar ya") es este mismo
 	 * método con fecha=ahora; el run encadenado lo dispara el controller.
+	 *
+	 * Nota birthday: el `occurrenceYear` de las filas NO se recalcula — es el
+	 * año que el motor agendó y sigue siendo la clave de idempotencia; el
+	 * siguiente ciclo anual lo computa fresh en el re-enrolamiento.
 	 */
 	async rescheduleStep(
 		step: SequenceStep,
@@ -2063,8 +2087,8 @@ export class MessageSequenceService {
 	): Promise<{ items: ScheduledMessage[]; total: number }> {
 		const repo = AppDataSource.getRepository(ScheduledMessage);
 		const where = [
-			{ retreatId, status: 'skipped' },
-			{ retreatId, status: 'failed' },
+			{ retreatId, status: 'skipped' as const },
+			{ retreatId, status: 'failed' as const },
 		];
 		// Orden sobre columna de la tabla raíz → skip/take es seguro aquí (el
 		// problema del DISTINCT subquery solo aparece ordenando por el join).
