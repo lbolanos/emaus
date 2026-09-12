@@ -286,7 +286,8 @@ M6 en paralelo con todo, desde el día 1
      re-crear un paso que sólo está archivado.
   4. Migración: `ALTER TABLE` aditiva con guard `PRAGMA table_info` (re-arranque tras `up()`
      parcial con `transaction = false`); no importa `@repo/types` (regla de migraciones de prod).
-     El runner la descubre por escaneo fs — no hay registro que tocar.
+     El runner la descubre por escaneo fs, pero el e2e demostró que eso NO basta: el verifier
+     jamás la corría por un bug de conteo — ver la entrada "E2E" al final de desviaciones.
   5. Fixture gotcha documentado para el futuro: sembrar fechas del retiro a medianoche UTC y
      dejarlas persistir corrompe el día calendario — el DateTimeTransformer corre el instante al
      guardar y `ymdUtc(startDate)` aterriza en el día anterior (el test esperaba 11-05 y recibía
@@ -324,3 +325,22 @@ M6 en paralelo con todo, desde el día 1
   sin filtro undefined, D7 descripción, D4 nombre legible sin type crudo). Guard i18n 66+1
   skipped (8 llaves nuevas es/en). Nota de fixture: el fetchStats mockeado VACÍA `issues` —
   un test que encadena dos bulk debe re-sembrar la lista entre llamadas.
+- E2E (2026-09-12): el pase manual arrancó roto — los 3 GET del feature morían con
+  `no such column: step.isArchived` pese a que el log decía "All migrations and seed data are
+  up to date". Causa raíz: `showMigrations()` calculaba `pending` como resta de cardinalidades
+  (`allMigrations.length - executedMigrations.length`). La DB copiada del main traía registrada
+  `SizePriceOverridesOnShirtTypes` (commiteada en master DESPUÉS de crear este worktree, sin
+  archivo en el branch) → 120 archivos vs 120 filas → pending 0 → el verifier reportaba "todo
+  al día" y nunca llamaba a `runMigrations()`. Los arranques tempranos del worktree (119 vs 120
+  → pending −1) caían en la rama "Pending migrations have been executed" sin ejecutar nada.
+  Nota: `getPendingMigrations()` (comparación por nombre) SÍ la veía — el bug vivía sólo en las
+  stats con las que el verifier DECIDE. Fix de paso: `apps/api/src/database/migration-stats.ts`
+  — módulo puro (patrón de `transaction-policy.ts`, que documenta por qué
+  `base-migration-manager.ts` es intestable por Jest: `import.meta.url`) que cuenta pendientes
+  por NOMBRE vía `Set`; `executed` cuenta sólo archivos registrados (mantiene
+  `total = executed + pending`) y las registradas-sin-archivo no aparecen en ningún contador.
+  Tests: 4/4 en `migration-stats.test.ts` (fantasma no enmascara nuevas; estado consistente →
+  0; nombres repetidos en la tabla no inflan executed; tabla vacía → todo pendiente).
+  Verificado en vivo tras reinicio del API: `Running migration: ArchiveSequenceSteps` en el
+  log, columna presente en `sequence_steps`, fila registrada en `migrations`, health OK y los
+  GET respondiendo.
