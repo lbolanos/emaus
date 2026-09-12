@@ -20,6 +20,7 @@ import {
 	buildServerRegistrationLink,
 	convertHtmlToEmail,
 	replaceAllVariables,
+	type CommunityData,
 	type TableData,
 	isPlaceholderBirthDate,
 	findEmptyVariables,
@@ -27,6 +28,7 @@ import {
 import { getMessageTemplateAudience } from '@repo/types';
 import { savedSegmentService } from './savedSegmentService';
 import { CommunityMember } from '../entities/communityMember.entity';
+import { Community } from '../entities/community.entity';
 import { EMAIL_SILENT_STATES } from './communityService';
 import { getParticipantShirtOrderSummary } from './shirtReportService';
 
@@ -553,15 +555,37 @@ export class MessageSequenceService {
 				retreat,
 			),
 		};
+		// `{community.*}`: la comunidad REAL del retiro cuando la plantilla la usa
+		// (lazy, igual que {table.*}). NUNCA pasar `null`: replaceAllVariables
+		// sólo sustituye {community.*} si el argumento es !== undefined, y el
+		// fallback a getMockCommunity() ("Comunidad Emaús Demo") existe SÓLO para
+		// el preview de UI — al motor le llegaba texto inventado a destinatarios
+		// reales. Sin comunidad vinculada queda undefined y el placeholder se
+		// reporta como literal (la guarda de processDue lo skippea antes del envío).
+		const communityData =
+			message.includes('{community.') && retreat.communityId
+				? await this.loadCommunityData(retreat.communityId)
+				: undefined;
 		return replaceAllVariables(
 			message,
 			participantWithShirtOrder as any,
 			retreatWithLinks as any,
 			contactKey,
-			null,
-			tableData,
+			communityData,
+			// Ídem {table.*}: `null` (sin mesa) activaría el mock del briefing;
+			// `undefined` deja el placeholder literal.
+			tableData ?? undefined,
 			escapeHtmlValues,
 		);
+	}
+
+	/** Data parcial `{community.*}` (name/parish) desde la comunidad vinculada. */
+	private async loadCommunityData(communityId: string): Promise<CommunityData | undefined> {
+		const community = await AppDataSource.getRepository(Community).findOne({
+			where: { id: communityId },
+		});
+		if (!community) return undefined;
+		return { name: community.name, parish: community.parish ?? undefined };
 	}
 
 	/** Titular (asignado) de una responsabilidad del retiro, por nombre. */
@@ -684,6 +708,9 @@ export class MessageSequenceService {
 		limit = Number(process.env.SEQUENCE_PROCESS_LIMIT) || 200,
 		retreatId?: string,
 	): Promise<number> {
+		// Filas atascadas en `processing` (crash/restart a mitad de una corrida
+		// previa) vuelven a `pending` antes de leer candidatas.
+		await this.reapStaleProcessing();
 		const repo = AppDataSource.getRepository(ScheduledMessage);
 		// Solo de secuencias activas; pendientes o fallidos con reintentos restantes.
 		const dueQb = repo
@@ -730,213 +757,299 @@ export class MessageSequenceService {
 			// con que la leímos. Si otra corrida concurrente (cron, runNow, o el
 			// fire-and-forget del alta) ya la tomó, affected=0 → la saltamos. Evita el
 			// doble envío del mismo mensaje a un participante.
+			// `updatedAt` va EXPLÍCITO: repo.update() NO pisa @UpdateDateColumn
+			// solo (verificado con TypeORM 0.3.27) y reapStaleProcessing se guía
+			// por updatedAt para devolver a `pending` filas huérfanas — sin esto
+			// el reaper robaría un claim en curso.
 			const claim = await repo.update(
 				{ id: sm.id, status: sm.status },
-				{ status: 'processing' },
+				{ status: 'processing', updatedAt: new Date() },
 			);
 			if (!claim.affected) continue;
 
-			const participant = sm.participant;
-			const retreat = sm.retreat;
-			if (!participant || !retreat) {
-				sm.status = 'skipped';
-				sm.error = 'participante o retiro no encontrado';
-				await repo.save(sm);
-				continue;
-			}
-
-			// Opt-out: lista de no-contacto.
-			if (participant.doNotContact) {
-				sm.status = 'skipped';
-				sm.error = 'participante en lista de no-contacto';
-				await repo.save(sm);
-				continue;
-			}
-
-			// No enviar a participantes cancelados del retiro.
-			const rp = await AppDataSource.getRepository(RetreatParticipant).findOne({
-				where: { participantId: participant.id, retreatId: sm.retreatId },
-			});
-			if (rp?.isCancelled) {
-				sm.status = 'cancelled';
-				sm.error = 'participante cancelado';
-				await repo.save(sm);
-				continue;
-			}
-
-			// Salvaguarda anti-backfill (red de seguridad): no enviar mensajes de un
-			// retiro que ya cerró su ventana para este trigger, aunque quedaran filas
-			// `pending` materializadas (p. ej. de una activación previa de la feature).
-			const seq = sm.sequence;
-			if (this.isRetreatClosed(retreat, seq?.trigger, now)) {
-				sm.status = 'skipped';
-				sm.error = 'retiro finalizado';
-				await repo.save(sm);
-				continue;
-			}
-
-			// Ventana de gracia: no enviar un paso vencido hace más de N días.
-			if (seq?.maxOverdueDays != null) {
-				const overdueDays = (now.getTime() - new Date(sm.scheduledFor).getTime()) / 86400000;
-				if (overdueDays > seq.maxOverdueDays) {
-					sm.status = 'skipped';
-					sm.error = `vencido hace más de ${seq.maxOverdueDays} día(s)`;
-					await repo.save(sm);
-					continue;
-				}
-			}
-
-			// Parar al responder: declinó → no enviar; confirmó → parar si la secuencia lo pide.
-			// Freno global: si el coordinador marcó "declinó" en el seguimiento, no
-			// se le envía nada. (Parar al CONFIRMAR no es un freno global: se modela
-			// como condición de paso `attendanceFilter='pending'` sobre la
-			// confirmación de asistencia real — ver resolveRecipient/condición.)
-			const followUp = await AppDataSource.getRepository(ParticipantFollowUp).findOne({
-				where: { participantId: participant.id, retreatId: sm.retreatId },
-			});
-			if (followUp?.status === 'declined') {
-				sm.status = 'skipped';
-				sm.error = 'participante declinó (seguimiento)';
-				await repo.save(sm);
-				continue;
-			}
-
-			// Condición del paso: el participante debe cumplir los filtros.
-			const condition = sm.step?.condition;
-			if (condition && Object.keys(condition).length > 0) {
-				const key = `${sm.retreatId}:${JSON.stringify(condition)}`;
-				let allowed = conditionCache.get(key);
-				if (!allowed) {
-					const matches = await savedSegmentService.evaluateFilters(sm.retreatId, condition as any);
-					allowed = new Set(matches.map((p) => p.id));
-					conditionCache.set(key, allowed);
-				}
-				if (!allowed.has(participant.id)) {
-					sm.status = 'skipped';
-					sm.error = 'no cumple la condición del paso';
-					await repo.save(sm);
-					continue;
-				}
-			}
-
-			// Tope diario por participante: posponer (no marcar) si ya alcanzó el límite.
-			if (maxPerDay > 0 && (sentToday.get(participant.id) ?? 0) >= maxPerDay) {
-				continue;
-			}
-
-			const template = await AppDataSource.getRepository(MessageTemplate).findOne({
-				where: { retreatId: sm.retreatId, type: sm.templateType as any },
-			});
-			if (!template) {
-				sm.status = 'skipped';
-				sm.error = `sin plantilla ${sm.templateType} en el retiro`;
-				await repo.save(sm);
-				continue;
-			}
-
-			// Variables basadas en getters ({participant.paymentRemaining}): el
-			// participante del join viene sin relations ni overlay per-retiro.
-			const participantForTemplate = await this.hydrateParticipantForTemplateVariables(
-				participant,
-				sm.retreatId,
-				template.message,
-			);
-
-			const target = (sm.recipientTarget || 'participant') as MessageRecipientTarget;
-			const recipient = await this.resolveRecipient(
-				participantForTemplate,
-				target,
-				sm.retreatId,
-				sm.step?.recipientResponsibility,
-			);
-			// Si el destinatario indirecto (invitador/líder/responsable) NO EXISTE
-			// (sin nombre ni contacto), no es un error a corregir: el caminante
-			// simplemente no tiene ese vínculo. Se cancela en silencio (fuera de la
-			// lista de "Problemas"), con motivo claro para auditoría.
-			if (
-				target !== 'participant' &&
-				!recipient.name &&
-				!recipient.phone &&
-				!recipient.email
-			) {
-				sm.status = 'cancelled';
-				sm.error = this.missingRecipientReason(target);
-				await repo.save(sm);
-				continue;
-			}
-			const content = await this.resolveContent(
-				template.message,
-				participantForTemplate,
-				retreat,
-				recipient.contactKey,
-				sm.retreatId,
-			);
-
-			if (sm.channel === 'whatsapp') {
-				if (!recipient.phone) {
-					sm.status = 'skipped';
-					sm.error = 'destinatario sin teléfono';
-					await repo.save(sm);
-					continue;
-				}
-				// Snapshot del envío para la bandeja (no recalcula variables al despachar).
-				sm.status = 'queued';
-				sm.resolvedContent = content;
-				sm.resolvedContact = recipient.phone;
-				sm.recipientName = recipient.name;
-				await repo.save(sm);
-				sentToday.set(participant.id, (sentToday.get(participant.id) ?? 0) + 1);
-				processed++;
-				continue;
-			}
-
-			// EMAIL desatendido.
-			if (!recipient.email) {
-				sm.status = 'skipped';
-				sm.error = 'destinatario sin email';
-				await repo.save(sm);
-				continue;
-			}
-			const subject = template.name || 'Mensaje';
-			// HTML del email: re-resuelve escapando los valores de las variables
-			// (anti-inyección de HTML vía datos del participante). El `text` plano usa
-			// el `content` sin escapar para no mostrar entidades (&amp;) al destinatario.
-			const htmlContent = await this.resolveContent(
-				template.message,
-				participantForTemplate,
-				retreat,
-				recipient.contactKey,
-				sm.retreatId,
-				true,
-			);
-			const html = convertHtmlToEmail(htmlContent, { format: 'enhanced' });
-			const text = content.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
 			try {
-				const ok = await this.emailService.sendEmail({ to: recipient.email, subject, html, text });
-				if (!ok) {
+				const participant = sm.participant;
+				const retreat = sm.retreat;
+				if (!participant || !retreat) {
+					sm.status = 'skipped';
+					sm.error = 'participante o retiro no encontrado';
+					await repo.save(sm);
+					continue;
+				}
+
+				// Opt-out: lista de no-contacto.
+				if (participant.doNotContact) {
+					sm.status = 'skipped';
+					sm.error = 'participante en lista de no-contacto';
+					await repo.save(sm);
+					continue;
+				}
+
+				// No enviar a participantes cancelados del retiro.
+				const rp = await AppDataSource.getRepository(RetreatParticipant).findOne({
+					where: { participantId: participant.id, retreatId: sm.retreatId },
+				});
+				if (rp?.isCancelled) {
+					sm.status = 'cancelled';
+					sm.error = 'participante cancelado';
+					await repo.save(sm);
+					continue;
+				}
+
+				// Salvaguarda anti-backfill (red de seguridad): no enviar mensajes de un
+				// retiro que ya cerró su ventana para este trigger, aunque quedaran filas
+				// `pending` materializadas (p. ej. de una activación previa de la feature).
+				const seq = sm.sequence;
+				if (this.isRetreatClosed(retreat, seq?.trigger, now)) {
+					sm.status = 'skipped';
+					sm.error = 'retiro finalizado';
+					await repo.save(sm);
+					continue;
+				}
+
+				// Ventana de gracia: no enviar un paso vencido hace más de N días.
+				if (seq?.maxOverdueDays != null) {
+					const overdueDays = (now.getTime() - new Date(sm.scheduledFor).getTime()) / 86400000;
+					if (overdueDays > seq.maxOverdueDays) {
+						sm.status = 'skipped';
+						sm.error = `vencido hace más de ${seq.maxOverdueDays} día(s)`;
+						await repo.save(sm);
+						continue;
+					}
+				}
+
+				// Parar al responder: declinó → no enviar; confirmó → parar si la secuencia lo pide.
+				// Freno global: si el coordinador marcó "declinó" en el seguimiento, no
+				// se le envía nada. (Parar al CONFIRMAR no es un freno global: se modela
+				// como condición de paso `attendanceFilter='pending'` sobre la
+				// confirmación de asistencia real — ver resolveRecipient/condición.)
+				const followUp = await AppDataSource.getRepository(ParticipantFollowUp).findOne({
+					where: { participantId: participant.id, retreatId: sm.retreatId },
+				});
+				if (followUp?.status === 'declined') {
+					sm.status = 'skipped';
+					sm.error = 'participante declinó (seguimiento)';
+					await repo.save(sm);
+					continue;
+				}
+
+				// Condición del paso: el participante debe cumplir los filtros.
+				const condition = sm.step?.condition;
+				if (condition && Object.keys(condition).length > 0) {
+					const key = `${sm.retreatId}:${JSON.stringify(condition)}`;
+					let allowed = conditionCache.get(key);
+					if (!allowed) {
+						const matches = await savedSegmentService.evaluateFilters(sm.retreatId, condition as any);
+						allowed = new Set(matches.map((p) => p.id));
+						conditionCache.set(key, allowed);
+					}
+					if (!allowed.has(participant.id)) {
+						sm.status = 'skipped';
+						sm.error = 'no cumple la condición del paso';
+						await repo.save(sm);
+						continue;
+					}
+				}
+
+				// Tope diario por participante: posponer si ya alcanzó el límite. Se
+				// revierte el claim al estado original (condicional sobre 'processing'
+				// por si una corrida concurrente ya la movió) — antes este `continue`
+				// dejaba la fila `processing` para siempre: el cron sólo toma
+				// pending/failed, así que el mensaje nunca salía ni reportaba nada.
+				if (maxPerDay > 0 && (sentToday.get(participant.id) ?? 0) >= maxPerDay) {
+					await repo.update(
+						{ id: sm.id, status: 'processing' },
+						{ status: sm.status, updatedAt: new Date() },
+					);
+					continue;
+				}
+
+				const template = await AppDataSource.getRepository(MessageTemplate).findOne({
+					where: { retreatId: sm.retreatId, type: sm.templateType as any },
+				});
+				if (!template) {
+					sm.status = 'skipped';
+					sm.error = `sin plantilla ${sm.templateType} en el retiro`;
+					await repo.save(sm);
+					continue;
+				}
+
+				// Variables basadas en getters ({participant.paymentRemaining}): el
+				// participante del join viene sin relations ni overlay per-retiro.
+				const participantForTemplate = await this.hydrateParticipantForTemplateVariables(
+					participant,
+					sm.retreatId,
+					template.message,
+				);
+
+				const target = (sm.recipientTarget || 'participant') as MessageRecipientTarget;
+				const recipient = await this.resolveRecipient(
+					participantForTemplate,
+					target,
+					sm.retreatId,
+					sm.step?.recipientResponsibility,
+				);
+				// Si el destinatario indirecto (invitador/líder/responsable) NO EXISTE
+				// (sin nombre ni contacto), no es un error a corregir: el caminante
+				// simplemente no tiene ese vínculo. Se cancela en silencio (fuera de la
+				// lista de "Problemas"), con motivo claro para auditoría.
+				if (
+					target !== 'participant' &&
+					!recipient.name &&
+					!recipient.phone &&
+					!recipient.email
+				) {
+					sm.status = 'cancelled';
+					sm.error = this.missingRecipientReason(target);
+					await repo.save(sm);
+					continue;
+				}
+				// Guardas pre-envío para variables contextuales: si la plantilla usa
+				// {table.*} el participante debe liderar una mesa, y si usa {community.*}
+				// el retiro debe tener comunidad vinculada. Sin contexto real el mensaje
+				// saldría con el placeholder literal (resolveContent ya no cae a mocks);
+				// mejor skip con motivo accionable (visible en Problemas) que entregar
+				// texto roto. El roster se arma UNA vez y se reutiliza en los dos renders
+				// (texto y HTML del email) — buildTableData hace ~6 consultas.
+				let precomputedTableData: TableData | null | undefined;
+				if (template.message.includes('{table.')) {
+					precomputedTableData = await this.buildTableData(participant.id, sm.retreatId);
+					if (!precomputedTableData) {
+						sm.status = 'skipped';
+						sm.error = 'sin mesa asignada (briefing de mesa)';
+						await repo.save(sm);
+						continue;
+					}
+				}
+				if (template.message.includes('{community.') && !retreat.communityId) {
+					sm.status = 'skipped';
+					sm.error = 'plantilla usa {community.*} sin comunidad vinculada';
+					await repo.save(sm);
+					continue;
+				}
+				const content = await this.resolveContent(
+					template.message,
+					participantForTemplate,
+					retreat,
+					recipient.contactKey,
+					sm.retreatId,
+					false,
+					precomputedTableData,
+				);
+
+				if (sm.channel === 'whatsapp') {
+					if (!recipient.phone) {
+						sm.status = 'skipped';
+						sm.error = 'destinatario sin teléfono';
+						await repo.save(sm);
+						continue;
+					}
+					// Snapshot del envío para la bandeja (no recalcula variables al despachar).
+					sm.status = 'queued';
+					sm.resolvedContent = content;
+					sm.resolvedContact = recipient.phone;
+					sm.recipientName = recipient.name;
+					await repo.save(sm);
+					sentToday.set(participant.id, (sentToday.get(participant.id) ?? 0) + 1);
+					processed++;
+					continue;
+				}
+
+				// EMAIL desatendido.
+				if (!recipient.email) {
+					sm.status = 'skipped';
+					sm.error = 'destinatario sin email';
+					await repo.save(sm);
+					continue;
+				}
+				const subject = template.name || 'Mensaje';
+				// HTML del email: re-resuelve escapando los valores de las variables
+				// (anti-inyección de HTML vía datos del participante). El `text` plano usa
+				// el `content` sin escapar para no mostrar entidades (&amp;) al destinatario.
+				const htmlContent = await this.resolveContent(
+					template.message,
+					participantForTemplate,
+					retreat,
+					recipient.contactKey,
+					sm.retreatId,
+					true,
+					precomputedTableData,
+				);
+				const html = convertHtmlToEmail(htmlContent, { format: 'enhanced' });
+				const text = content.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+				try {
+					const ok = await this.emailService.sendEmail({ to: recipient.email, subject, html, text });
+					if (!ok) {
+						sm.attempts += 1;
+						sm.status = 'failed';
+						sm.error = 'envío SMTP falló';
+						await repo.save(sm);
+						continue;
+					}
+					sm.status = 'sent';
+					sm.sentAt = now;
+					sm.resolvedContent = html;
+					sm.resolvedContact = recipient.email;
+					sm.recipientName = recipient.name;
+					await repo.save(sm);
+					await this.recordCommunication(sm, template, recipient, html, subject);
+					sentToday.set(participant.id, (sentToday.get(participant.id) ?? 0) + 1);
+					processed++;
+				} catch (err) {
 					sm.attempts += 1;
 					sm.status = 'failed';
-					sm.error = 'envío SMTP falló';
+					sm.error = err instanceof Error ? err.message : 'error desconocido';
 					await repo.save(sm);
-					continue;
 				}
-				sm.status = 'sent';
-				sm.sentAt = now;
-				sm.resolvedContent = html;
-				sm.resolvedContact = recipient.email;
-				sm.recipientName = recipient.name;
-				await repo.save(sm);
-				await this.recordCommunication(sm, template, recipient, html, subject);
-				sentToday.set(participant.id, (sentToday.get(participant.id) ?? 0) + 1);
-				processed++;
 			} catch (err) {
+				// Excepción inesperada post-claim: sin esto la fila quedaba `processing`
+				// para siempre (el cron sólo toma pending/failed). Mismo formato que el
+				// catch de SMTP: failed + attempts++ con el mensaje como motivo. La
+				// corrida sigue con las demás filas del lote.
 				sm.attempts += 1;
 				sm.status = 'failed';
 				sm.error = err instanceof Error ? err.message : 'error desconocido';
-				await repo.save(sm);
+				try {
+					await repo.save(sm);
+				} catch (saveErr) {
+					console.error(`❌ Sequences: no se pudo registrar el fallo del mensaje ${sm.id}:`, saveErr);
+				}
 			}
 		}
 		return processed;
+	}
+
+	/**
+	 * Devuelve a `pending` las filas `processing` cuya última actualización es más
+	 * vieja que SEQUENCE_PROCESSING_STALE_MINUTES (default 10, env-configurable).
+	 * Cubre el crash/restart del API a mitad de processDue: el cron sólo toma
+	 * pending/failed, así que sin esto esas filas quedaban huérfanas para siempre.
+	 *
+	 * Corre al inicio de processDue (cron horario, runNow manual y el disparo del
+	 * alta de participante). NO se agrega `processing` al WHERE de processDue:
+	 * competiría con corridas concurrentes legítimas por el claim condicional.
+	 *
+	 * Riesgo aceptado: puede re-procesar un mensaje cuyo email salió pero que
+	 * crasheó antes del save → doble envío en una ventana minúscula (mismo
+	 * trade-off que un restart del proceso a mitad de corrida).
+	 */
+	async reapStaleProcessing(now: Date = new Date()): Promise<number> {
+		const staleMinutes = Number(process.env.SEQUENCE_PROCESSING_STALE_MINUTES) || 10;
+		const cutoff = new Date(now.getTime() - staleMinutes * 60_000);
+		const repo = AppDataSource.getRepository(ScheduledMessage);
+		// updatedAt va explícito: qb.update() NO pisa @UpdateDateColumn solo
+		// (verificado con TypeORM 0.3.27), y el claim también lo escribe — sin
+		// esto una fila re-claimada al vuelo volvería a parecer "vieja".
+		// OJO: sin alias 'sm' — SQLite rechaza alias en UPDATE ("no such column:
+		// sm.status"); las columnas van sin prefijo.
+		const res = await repo
+			.createQueryBuilder()
+			.update(ScheduledMessage)
+			.set({ status: 'pending', updatedAt: now })
+			.where("status = 'processing'")
+			.andWhere('updatedAt < :cutoff', { cutoff })
+			.execute();
+		return res.affected ?? 0;
 	}
 
 	/** Registra el envío automático en participant_communications (sentBy = null). */
@@ -1472,9 +1585,17 @@ export class MessageSequenceService {
 	 * contra la plantilla VIGENTE (snapshot `resolvedContent`/`resolvedContact`/
 	 * `recipientName`). Útil tras editar una plantilla: la bandeja muestra el
 	 * snapshot congelado al encolar, así que esto lo "renueva" sin cambiar su
-	 * programación ni re-enrolar. Devuelve cuántos se regeneraron.
+	 * programación ni re-enrolar.
+	 *
+	 * Devuelve `{ regenerated, skipped }`: los saltados (participante/plantilla
+	 * desaparecidos, sin teléfono, o sin el contexto que exige la plantilla —
+	 * `{table.*}` sin mesa, `{community.*}` sin comunidad) conservan su snapshot
+	 * anterior en vez de quedar con placeholders literales.
 	 */
-	async regenerateQueuedForRetreat(retreatId: string): Promise<number> {
+	async regenerateQueuedForRetreat(retreatId: string): Promise<{
+		regenerated: number;
+		skipped: number;
+	}> {
 		const repo = AppDataSource.getRepository(ScheduledMessage);
 		const queued = await repo
 			.createQueryBuilder('sm')
@@ -1487,35 +1608,69 @@ export class MessageSequenceService {
 			.getMany();
 
 		let regenerated = 0;
+		let skipped = 0;
 		for (const sm of queued) {
 			const participant = sm.participant;
 			const retreat = sm.retreat;
-			if (!participant || !retreat) continue;
+			if (!participant || !retreat) {
+				skipped++;
+				continue;
+			}
 			const template = await AppDataSource.getRepository(MessageTemplate).findOne({
 				where: { retreatId, type: sm.templateType as any },
 			});
-			if (!template) continue;
+			if (!template) {
+				skipped++;
+				continue;
+			}
+			// Variables basadas en getters ({participant.paymentRemaining}): el
+			// participante del join viene sin relations ni overlay per-retiro — sin
+			// hidratar, el saldo se regeneraba en $0.00 (pariente de aac190fe).
+			const participantForTemplate = await this.hydrateParticipantForTemplateVariables(
+				participant,
+				retreatId,
+				template.message,
+			);
 			const target = (sm.recipientTarget || 'participant') as MessageRecipientTarget;
 			const recipient = await this.resolveRecipient(
-				participant,
+				participantForTemplate,
 				target,
 				retreatId,
 				sm.step?.recipientResponsibility,
 			);
-			if (!recipient.phone) continue;
+			if (!recipient.phone) {
+				skipped++;
+				continue;
+			}
+			// Mismas guardas de contexto que processDue: sin mesa/comunidad real el
+			// render saldría con placeholders literales — mejor conservar el
+			// snapshot viejo que "renovarlo" a algo inservible.
+			const tableData = template.message.includes('{table.')
+				? await this.buildTableData(participant.id, retreatId)
+				: null;
+			if (template.message.includes('{table.') && !tableData) {
+				skipped++;
+				continue;
+			}
+			if (template.message.includes('{community.') && !retreat.communityId) {
+				skipped++;
+				continue;
+			}
 			sm.resolvedContent = await this.resolveContent(
 				template.message,
-				participant,
+				participantForTemplate,
 				retreat,
 				recipient.contactKey,
 				retreatId,
+				false,
+				tableData,
 			);
 			sm.resolvedContact = recipient.phone;
 			sm.recipientName = recipient.name;
 			await repo.save(sm);
 			regenerated++;
 		}
-		return regenerated;
+		return { regenerated, skipped };
 	}
 
 	/**

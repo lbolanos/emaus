@@ -196,7 +196,24 @@ M6 en paralelo con todo, desde el día 1
 
 - M0: sin desviaciones (commit `1e366297` en master; verificado levantando este worktree en
   3003/5175 con env overrides, `--port` respetado, DB con `-wal`/`-shm` y `.env` copiados).
-- M1: _pendiente_
+- M1 (cerrado 2026-09-12): implementado como especificado, con tres matices:
+  1. El reaper corre al INICIO de `processDue()` (no como paso separado del cron). Cubre las tres
+     vías de `processDue` (cron horario, runNow manual, disparo del alta) sin tocar el scheduler;
+     la spec lo describía como "al inicio del ciclo del cron", que es exactamente este punto.
+     NO se agregó `processing` al WHERE de candidatas: competiría con corridas concurrentes
+     legítimas por el claim condicional.
+  2. Claim y reaper escriben `updatedAt: new Date()` EXPLÍCITO: `repo.update()`/`qb.update()` NO
+     pisan `@UpdateDateColumn` solos (verificado con TypeORM 0.3.27 + better-sqlite3) — sin esto el
+     reaper robaría claims en curso. Además, el UPDATE del reaper va SIN alias: SQLite rechaza
+     alias en UPDATE ("no such column: sm.status"); lo pilló la suite, no el tsc.
+  3. `{community.*}` con comunidad vinculada ahora resuelve el nombre REAL de la comunidad
+     (`loadCommunityData`), no solo evita el mock — el test de la spec pedía "sin 'Emaús Demo'"
+     y se exigió además el nombre real de la comunidad sembrada.
+  Tests: 55/55 en `messageSequence.test.ts` (47 base + 8 nuevos: maxPerDay sin atascar,
+  excepción→failed attempts=1, reaper retoma fila vieja, reaper no roba claim fresco,
+  {community.*} sin/ con comunidad, {table.*} a no-líder, regenerate con paymentRemaining +
+  skipped). Aislamiento: `clearTestData()` no limpia tablas de secuencias → los tests nuevos no
+  assert el retorno de `processDue()` y el spy de la excepción es participant-scoped.
 - M2: _pendiente_
 - M3: _pendiente_
 - M4: _pendiente_

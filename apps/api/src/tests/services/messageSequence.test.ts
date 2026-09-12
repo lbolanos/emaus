@@ -17,6 +17,8 @@ import { RetreatParticipant } from '@/entities/retreatParticipant.entity';
 import { ParticipantFollowUp } from '@/entities/participantFollowUp.entity';
 import { Participant } from '@/entities/participant.entity';
 import { Retreat } from '@/entities/retreat.entity';
+import { Payment } from '@/entities/payment.entity';
+import { formatCurrency } from '@repo/utils';
 
 describe('MessageSequenceService', () => {
 	let svc: MessageSequenceService;
@@ -1118,11 +1120,205 @@ describe('MessageSequenceService', () => {
 				{ message: 'NUEVO contenido para {participant.firstName}' } as any,
 			);
 
-			const n = await svc.regenerateQueuedForRetreat(retreat.id);
-			expect(n).toBe(1);
+			const res = await svc.regenerateQueuedForRetreat(retreat.id);
+			expect(res.regenerated).toBe(1);
+			expect(res.skipped).toBe(0);
 			queued = await repo.findOne({ where: { id: sm.id } });
 			expect(queued?.status).toBe('queued'); // no cambia su programación
 			expect(queued?.resolvedContent).toContain('NUEVO contenido');
+		});
+	});
+
+	describe('M1: fixes de correctitud del motor', () => {
+		// NOTA de aislamiento: clearTestData() NO limpia las tablas de secuencias,
+		// así que filas de tests anteriores sobreviven con participantId huérfano
+		// (el participant sí se borra). Esas filas se saltan ANTES de llegar a
+		// resolveRecipient, así que no interfieren con los asserts de acá — pero
+		// nunca asserts el valor de retorno de processDue() (contaría sobrantes).
+		async function seedDueWithTemplate(
+			message: string,
+			opts: {
+				channel?: 'email' | 'whatsapp';
+				retreatOverrides?: Record<string, unknown>;
+				steps?: Array<Record<string, unknown>>;
+			} = {},
+		) {
+			const retreat = await TestDataFactory.createTestRetreat({
+				timezone: 'America/Mexico_City',
+				...(opts.retreatOverrides || {}),
+			} as any);
+			const participant = await TestDataFactory.createTestParticipant(retreat.id, {
+				type: 'walker', email: 'm1@example.com', cellPhone: '5512345678',
+			} as any);
+			await createTemplate(retreat.id, 'WALKER_WELCOME', message);
+			const seq = await svc.createSequence({
+				name: 'M1', retreatId: retreat.id, trigger: 'participant_created', audience: 'walker',
+				steps: (opts.steps as any) || [{
+					stepOrder: 0, offsetDays: 0, sendHour: 9, templateType: 'WALKER_WELCOME',
+					channel: opts.channel || 'email',
+				}],
+			});
+			const repo = AppDataSource.getRepository(ScheduledMessage);
+			const rows = seq.steps!.map((step) =>
+				repo.create({
+					sequenceId: seq.id, stepId: step.id, participantId: participant.id, retreatId: retreat.id,
+					channel: step.channel, templateType: step.templateType, recipientTarget: 'participant',
+					scheduledFor: new Date(Date.now() - 3600_000), status: 'pending',
+				}),
+			);
+			const saved = await repo.save(rows);
+			return { retreat, participant, seq, repo, sm: saved[0], all: saved };
+		}
+
+		it('maxPerDay: el mensaje excedente vuelve a pending, no queda atascado en processing', async () => {
+			const { participant, repo } = await seedDueWithTemplate('Hola {participant.firstName}', {
+				steps: [
+					{ stepOrder: 0, offsetDays: 0, sendHour: 9, templateType: 'WALKER_WELCOME', channel: 'email' },
+					{ stepOrder: 1, offsetDays: 0, sendHour: 9, templateType: 'WALKER_WELCOME', channel: 'email' },
+				],
+			});
+			process.env.SEQUENCE_MAX_PER_PARTICIPANT_PER_DAY = '1';
+			try {
+				await svc.processDue();
+			} finally {
+				delete process.env.SEQUENCE_MAX_PER_PARTICIPANT_PER_DAY;
+			}
+			const statuses = (await repo.find({ where: { participantId: participant.id } }))
+				.map((r) => r.status)
+				.sort();
+			expect(statuses).toEqual(['pending', 'sent']);
+		});
+
+		it('excepción inesperada post-claim: la fila queda failed con attempts=1 y motivo', async () => {
+			const { participant, sm, repo } = await seedDueWithTemplate('Hola {participant.firstName}');
+			const svcAny = svc as any;
+			const original = svcAny.resolveRecipient.bind(svcAny);
+			const spy = jest
+				.spyOn(svcAny, 'resolveRecipient')
+				.mockImplementation(async (...args: any[]) => {
+					if (args[0]?.id === participant.id) throw new Error('boom DB');
+					return original(...args);
+				});
+			try {
+				await svc.processDue();
+			} finally {
+				spy.mockRestore();
+			}
+			const after = await repo.findOne({ where: { id: sm.id } });
+			expect(after?.status).toBe('failed');
+			expect(after?.attempts).toBe(1);
+			expect(after?.error).toContain('boom DB');
+		});
+
+		it('reaper: una fila processing con updatedAt vieja vuelve al ciclo y se envía', async () => {
+			const { sm, repo } = await seedDueWithTemplate('Hola {participant.firstName}');
+			// updatedAt va EXPLÍCITO: repo.update() NO pisa @UpdateDateColumn solo
+			// (verificado con TypeORM 0.3.27) — sin esto la fila no luciría "vieja".
+			await repo.update(sm.id, {
+				status: 'processing',
+				updatedAt: new Date(Date.now() - 3600_000),
+			} as any);
+			await svc.processDue();
+			const after = await repo.findOne({ where: { id: sm.id } });
+			expect(after?.status).toBe('sent');
+		});
+
+		it('reaper: no roba un claim fresco (processing reciente se queda processing)', async () => {
+			const { sm, repo } = await seedDueWithTemplate('Hola {participant.firstName}');
+			await repo.update(sm.id, { status: 'processing', updatedAt: new Date() } as any);
+			const reaped = await svc.reapStaleProcessing();
+			expect(reaped).toBe(0);
+			expect((await repo.findOne({ where: { id: sm.id } }))?.status).toBe('processing');
+		});
+
+		it('{community.*} sin comunidad vinculada: skipped con motivo (antes salía "Emaús Demo")', async () => {
+			const { sm, repo } = await seedDueWithTemplate(
+				'Te espera {community.name} ({community.parish})',
+				{ channel: 'whatsapp' },
+			);
+			await svc.processDue();
+			const after = await repo.findOne({ where: { id: sm.id } });
+			expect(after?.status).toBe('skipped');
+			expect(after?.error).toContain('sin comunidad vinculada');
+			expect(after?.resolvedContent ?? '').not.toContain('Emaús Demo');
+		});
+
+		it('{community.*} con comunidad vinculada: resuelve el nombre real, no el mock', async () => {
+			const { retreat, sm, repo } = await seedDueWithTemplate(
+				'Te espera {community.name} ({community.parish})',
+				{ channel: 'whatsapp' },
+			);
+			const user = await TestDataFactory.createTestUser();
+			const community = await TestDataFactory.createTestCommunity(user.id, {
+				name: 'Emaús del Valle',
+				parish: 'El Señor del Buen Despacho',
+			});
+			await AppDataSource.getRepository(Retreat).update(retreat.id, {
+				communityId: community.id,
+			} as any);
+			await svc.processDue();
+			const after = await repo.findOne({ where: { id: sm.id } });
+			expect(after?.status).toBe('queued');
+			expect(after?.resolvedContent).toContain('Emaús del Valle');
+			expect(after?.resolvedContent).toContain('El Señor del Buen Despacho');
+			expect(after?.resolvedContent).not.toContain('Emaús Demo');
+		});
+
+		it('{table.*} a quien no lidera mesa: skipped con motivo accionable', async () => {
+			const { sm, repo } = await seedDueWithTemplate(
+				'Mesa {table.name}: {table.walkersRoster}',
+				{ channel: 'whatsapp' },
+			);
+			await svc.processDue();
+			const after = await repo.findOne({ where: { id: sm.id } });
+			expect(after?.status).toBe('skipped');
+			expect(after?.error).toContain('sin mesa asignada');
+		});
+
+		it('regenerate: hidrata {participant.paymentRemaining} y reporta los saltados', async () => {
+			// Caminante con cuota $2,500 y $1,000 pagados → saldo real $1,500.
+			// Sin hidratación el getter resolvía contra el join "pelado" y el
+			// snapshot se "renovaba" a $0.00 (pariente del bug aac190fe).
+			const { retreat, participant, sm, repo } = await seedDueWithTemplate(
+				'Tu saldo: {participant.paymentRemaining}',
+				{ channel: 'whatsapp', retreatOverrides: { cost: '$2,500' } },
+			);
+			const payRepo = AppDataSource.getRepository(Payment);
+			await payRepo.save(payRepo.create({
+				participantId: participant.id,
+				retreatId: retreat.id,
+				amount: 1000 as any,
+				paymentDate: new Date(),
+				paymentMethod: 'cash',
+			}));
+			await repo.update(sm.id, {
+				status: 'queued', resolvedContent: 'VIEJO saldo', resolvedContact: '5512345678',
+				recipientName: 'Test',
+			} as any);
+
+			// Segunda fila queued cuyo template exige contexto que no existe
+			// ({community.*} sin comunidad) → debe saltarse y conservar su snapshot.
+			await createTemplate(retreat.id, 'GENERAL', 'Comunidad {community.name}');
+			const seq2 = await svc.createSequence({
+				name: 'M1b', retreatId: retreat.id, trigger: 'participant_created', audience: 'walker',
+				steps: [{ stepOrder: 0, offsetDays: 0, sendHour: 9, templateType: 'GENERAL', channel: 'whatsapp' } as any],
+			});
+			const sm2 = await repo.save(repo.create({
+				sequenceId: seq2.id, stepId: seq2.steps![0].id, participantId: participant.id,
+				retreatId: retreat.id, channel: 'whatsapp', templateType: 'GENERAL',
+				recipientTarget: 'participant', scheduledFor: new Date(Date.now() - 3600_000),
+				status: 'queued', resolvedContent: 'VIEJO comunidad', resolvedContact: '5512345678',
+				recipientName: 'Test',
+			}));
+
+			const res = await svc.regenerateQueuedForRetreat(retreat.id);
+			expect(res).toEqual({ regenerated: 1, skipped: 1 });
+
+			const after1 = await repo.findOne({ where: { id: sm.id } });
+			expect(after1?.resolvedContent).toContain(formatCurrency(1500));
+			expect(after1?.resolvedContent).not.toContain('$0.00');
+			const after2 = await repo.findOne({ where: { id: sm2.id } });
+			expect(after2?.resolvedContent).toBe('VIEJO comunidad');
 		});
 	});
 });

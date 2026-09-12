@@ -297,8 +297,9 @@ export class MessageSequenceController {
 	regenerateQueue = async (req: Request, res: Response) => {
 		try {
 			const { retreatId } = req.params;
-			const regenerated = await messageSequenceService.regenerateQueuedForRetreat(retreatId);
-			res.json({ regenerated });
+			const { regenerated, skipped } =
+				await messageSequenceService.regenerateQueuedForRetreat(retreatId);
+			res.json({ regenerated, skipped });
 		} catch (error) {
 			console.error('Error regenerating queue:', error);
 			res.status(500).json({ error: 'Error al regenerar la bandeja' });

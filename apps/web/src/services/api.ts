@@ -3940,7 +3940,7 @@ export const runSequences = async (
 /** Refresca el snapshot de los pendientes de la bandeja con la plantilla vigente. */
 export const regenerateSequenceQueue = async (
   retreatId: string,
-): Promise<{ regenerated: number }> => {
+): Promise<{ regenerated: number; skipped: number }> => {
   const r = await api.post(`/message-sequences/retreat/${retreatId}/regenerate-queue`);
   return r.data;
 };
