@@ -2200,10 +2200,11 @@ export class MessageSequenceService {
 	}
 
 	/**
-	 * Enrola + procesa AHORA las secuencias activas de un retiro. Se usa tras dar
-	 * de alta a un participante para que los pasos `participant_created` offset-0
-	 * (bienvenida, privacidad, aviso al palanquero) salgan al momento, sin esperar
-	 * al cron horario.
+	 * Enrola + procesa AHORA las secuencias activas de un retiro. Lo usan el alta
+	 * de un participante (para que los pasos `participant_created` offset-0 —
+	 * bienvenida, privacidad, aviso al palanquero — salgan al momento, sin esperar
+	 * al cron horario) y el endpoint manual "Procesar ahora" del controller (#11:
+	 * una sola implementación, sin duplicar la rutina en el controller).
 	 */
 	async runForRetreat(retreatId: string): Promise<{ enrolled: number; processed: number }> {
 		const sequences = await this.findByRetreat(retreatId);

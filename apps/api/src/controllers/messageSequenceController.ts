@@ -394,14 +394,10 @@ export class MessageSequenceController {
 	runNow = async (req: Request, res: Response) => {
 		try {
 			const { retreatId } = req.params;
-			const sequences = await messageSequenceService.findByRetreat(retreatId);
-			let enrolled = 0;
-			for (const seq of sequences) {
-				if (seq.isActive) enrolled += await messageSequenceService.enrollSequence(seq);
-			}
-			// Solo procesar este retiro: el disparo manual no debe enviar mensajes de
-			// otros retiros (la ruta solo valida acceso a :retreatId).
-			const processed = await messageSequenceService.processDue(new Date(), undefined, retreatId);
+			// Misma rutina que el alta de un participante (participantService):
+			// enrola las activas y procesa SÓLO este retiro — el disparo manual
+			// no debe enviar mensajes de otros (la ruta valida acceso a :retreatId).
+			const { enrolled, processed } = await messageSequenceService.runForRetreat(retreatId);
 			res.json({ enrolled, processed });
 		} catch (error) {
 			console.error('Error running sequences:', error);
