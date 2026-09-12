@@ -701,3 +701,43 @@ describe('MessageSequencesView — accesibilidad (#5)', () => {
 		expect(apiMod.deleteMessageSequence).not.toHaveBeenCalled();
 	});
 });
+
+describe('MessageSequencesView — import de plantilla global con preview (#10)', () => {
+	it('"Ver pasos" despliega los pasos con offset legible y aviso de plantilla faltante', async () => {
+		const wrapper = await mountView();
+		const apiMod: any = await import('@/services/api');
+		apiMod.getGlobalSequences.mockResolvedValue([
+			{
+				id: 'g-1',
+				name: 'Camino global',
+				trigger: 'days_before_retreat',
+				audience: 'walker',
+				isActive: true,
+				steps: [
+					{ templateType: 'SHIRT_CONFIRMATION', channel: 'whatsapp', offsetDays: 3, sendHour: 9, recipientTarget: 'participant' },
+					{ templateType: 'WALKER_WELCOME', channel: 'email', offsetDays: 0, sendHour: 10, recipientTarget: 'participant' },
+				],
+			},
+		]);
+
+		await wrapper.vm.openImport();
+		await flushPromises();
+
+		// Acordeón cerrado: nada de los pasos se filtra en la lista.
+		expect(wrapper.text()).not.toContain('antes del inicio del retiro');
+
+		const toggle = wrapper.findAll('button').find((b) => b.text().includes('Ver pasos'));
+		expect(toggle).toBeTruthy();
+		await toggle!.trigger('click');
+		await flushPromises();
+
+		// Re-encontrar el botón tras el re-render (el wrapper previo queda stale).
+		const liveToggle = wrapper.findAll('button').find((b) => b.text().includes('Ver pasos'));
+		expect(liveToggle!.attributes('aria-expanded')).toBe('true');
+		// Offset legible según el trigger (days_before_retreat = ANTES del inicio).
+		expect(wrapper.text()).toContain('3 día(s) antes del inicio del retiro');
+		expect(wrapper.text()).toContain('el día del inicio del retiro');
+		// El retiro (mock) no tiene estas plantillas → aviso accionable.
+		expect(wrapper.text()).toContain('sin plantilla en este retiro');
+	});
+});

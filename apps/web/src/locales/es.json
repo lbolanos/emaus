@@ -3249,6 +3249,20 @@
     "importHint": "Se creará una copia en este retiro. Quedará inactiva para que la revises y la actives.",
     "import": "Importar",
     "noGlobal": "No hay plantillas globales de secuencias activas.",
+    "previewSteps": "Ver pasos",
+    "previewCondition": "con condición",
+    "previewMissingTemplate": "sin plantilla en este retiro",
+    "previewAnchor": {
+      "participant_created": "del alta",
+      "days_before_retreat": "del inicio del retiro",
+      "days_after_retreat": "del fin del retiro",
+      "birthday": "del cumpleaños"
+    },
+    "previewOffset": {
+      "sameDay": "el día {anchor}",
+      "before": "{n} día(s) antes {anchor}",
+      "after": "{n} día(s) después {anchor}"
+    },
     "importedInactive": "«{name}» importada (inactiva). Revísala y actívala cuando quieras.",
     "importError": "No se pudo importar la plantilla global",
     "alreadyImported": "Ya existe una secuencia «{name}» en este retiro.",

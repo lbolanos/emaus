@@ -2923,6 +2923,20 @@
     "importHint": "A copy will be created in this retreat. It will be inactive so you can review and activate it.",
     "import": "Import",
     "noGlobal": "There are no active global sequence templates.",
+    "previewSteps": "View steps",
+    "previewCondition": "with condition",
+    "previewMissingTemplate": "no template in this retreat",
+    "previewAnchor": {
+      "participant_created": "of signup",
+      "days_before_retreat": "of the retreat start",
+      "days_after_retreat": "of the retreat end",
+      "birthday": "of the birthday"
+    },
+    "previewOffset": {
+      "sameDay": "on the day {anchor}",
+      "before": "{n} day(s) before {anchor}",
+      "after": "{n} day(s) after {anchor}"
+    },
     "importedInactive": "\"{name}\" imported (inactive). Review and activate it when ready.",
     "importError": "Could not import the global template",
     "alreadyImported": "A sequence \"{name}\" already exists in this retreat.",

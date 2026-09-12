@@ -3,7 +3,7 @@ import { ref, computed, onMounted, watch } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useI18n } from 'vue-i18n';
 import { useToast, Button, Input } from '@repo/ui';
-import { Plus, Trash2, X, Play, Pencil, Send, Clock, AlertTriangle, Globe, RefreshCw, MoreVertical, CalendarDays, MessageCircle, Power, Copy } from 'lucide-vue-next';
+import { Plus, Trash2, X, Play, Pencil, Send, Clock, AlertTriangle, Globe, RefreshCw, MoreVertical, CalendarDays, MessageCircle, Power, Copy, ChevronDown } from 'lucide-vue-next';
 import { useRetreatStore } from '@/stores/retreatStore';
 import { useParticipantStore } from '@/stores/participantStore';
 import { useMessageSequenceStore } from '@/stores/messageSequenceStore';
@@ -1017,6 +1017,30 @@ async function importGlobal(globalSeq: any) {
 	} finally {
 		importLoading.value = false;
 	}
+}
+
+// #10: preview de los pasos ANTES de importar una plantilla global — el botón
+// deja de ser a ciegas. Acordeón por fila en el modal de import.
+const expandedImportId = ref<string | null>(null);
+function toggleImportPreview(id: string) {
+	expandedImportId.value = expandedImportId.value === id ? null : id;
+}
+// Offset legible según el ancla del trigger (misma semántica que
+// computeScheduledFor del servidor): days_before_retreat es ANTES del inicio;
+// el resto, DESPUÉS de su ancla.
+function importOffsetText(trigger: string, offsetDays: number): string {
+	const anchor = t('sequences.previewAnchor.' + trigger);
+	const n = Math.abs(offsetDays);
+	if (!n) return t('sequences.previewOffset.sameDay', { anchor });
+	const isBefore = trigger === 'days_before_retreat' ? offsetDays > 0 : offsetDays < 0;
+	return isBefore
+		? t('sequences.previewOffset.before', { n, anchor })
+		: t('sequences.previewOffset.after', { n, anchor });
+}
+// La plantilla LOCAL que resolverá el paso tras importar; null = el retiro no
+// la tiene y el paso quedaría skipped al procesarse ("sin plantilla X").
+function importTemplateFor(type: string): any | null {
+	return templates.value.find((tpl: any) => tpl.type === type) || null;
 }
 
 // Panel de detalle del participante (al hacer clic en su nombre en la bandeja):
@@ -2194,17 +2218,63 @@ async function toggleDoNotContact() {
 				</div>
 				<div class="p-5 overflow-y-auto">
 					<div v-if="globalSequences.length" class="border rounded-md divide-y">
-						<div v-for="g in globalSequences" :key="g.id" class="flex items-center justify-between gap-3 p-3">
-							<div class="min-w-0">
-								<div class="font-medium text-sm truncate">{{ g.name }}</div>
-								<div class="text-xs text-gray-500">
-									{{ t('sequences.triggers.' + g.trigger) }} · {{ t('sequences.audiences.' + g.audience) }}
-									· {{ t('sequences.stepCount', { count: g.steps?.length || 0 }) }}
+						<div v-for="g in globalSequences" :key="g.id" class="p-3">
+							<div class="flex items-center justify-between gap-3">
+								<div class="min-w-0">
+									<div class="font-medium text-sm truncate">{{ g.name }}</div>
+									<div class="text-xs text-gray-500">
+										{{ t('sequences.triggers.' + g.trigger) }} · {{ t('sequences.audiences.' + g.audience) }}
+										· {{ t('sequences.stepCount', { count: g.steps?.length || 0 }) }}
+									</div>
+								</div>
+								<div class="flex items-center gap-1 shrink-0">
+									<Button
+										size="sm"
+										variant="outline"
+										:aria-expanded="expandedImportId === g.id"
+										@click="toggleImportPreview(g.id)"
+									>
+										<ChevronDown
+											class="w-3.5 h-3.5 transition-transform"
+											:class="expandedImportId === g.id ? 'rotate-180' : ''"
+										/>
+										{{ t('sequences.previewSteps') }}
+									</Button>
+									<Button size="sm" :disabled="importLoading" @click="importGlobal(g)">
+										{{ t('sequences.import') }}
+									</Button>
 								</div>
 							</div>
-							<Button size="sm" :disabled="importLoading" @click="importGlobal(g)">
-								{{ t('sequences.import') }}
-							</Button>
+							<!-- #10: los pasos que traerá la importación. El tipo de plantilla se
+							     resuelve al nombre local; en ámbar si el retiro NO la tiene (ese paso
+							     quedaría skipped al procesarse). -->
+							<div v-if="expandedImportId === g.id" class="mt-2 border-t pt-2 space-y-1">
+								<div
+									v-for="(st, i) in g.steps || []"
+									:key="i"
+									class="text-xs text-gray-600 flex flex-wrap items-baseline gap-x-2"
+								>
+									<span class="text-gray-400">{{ i + 1 }}.</span>
+									<span :class="importTemplateFor(st.templateType) ? '' : 'text-amber-600 font-medium'">
+										{{ templateLabel(st.templateType) }}
+									</span>
+									<span>· {{ importOffsetText(g.trigger, st.offsetDays) }}</span>
+									<span>· {{ st.sendHour }}:00</span>
+									<span>· {{ t('sequences.channels.' + st.channel) }}</span>
+									<span
+										v-if="st.recipientTarget && st.recipientTarget !== 'participant'"
+										class="text-amber-600"
+									>
+										· → {{ t('sequences.recipients.' + st.recipientTarget) }}
+									</span>
+									<span v-if="st.condition && Object.keys(st.condition).length" class="text-gray-400">
+										· {{ t('sequences.previewCondition') }}
+									</span>
+									<span v-if="!importTemplateFor(st.templateType)" class="text-amber-600">
+										· {{ t('sequences.previewMissingTemplate') }}
+									</span>
+								</div>
+							</div>
 						</div>
 					</div>
 					<div v-else class="text-sm text-gray-500 text-center py-6">
