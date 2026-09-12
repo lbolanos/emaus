@@ -16,6 +16,26 @@ import type { ParticipantData, RetreatData } from '@/utils/message';
 import { sanitizePhoneForWhatsapp } from '@/utils/phone';
 import { clampStepRanges } from '@/utils/sequenceStepInput';
 import { getMessageTemplateAudience } from '@repo/types';
+// #8: catálogos y helpers del editor compartidos con la vista global de
+// plantillas — antes vivían duplicados en ambas vistas.
+import {
+	TRIGGERS,
+	CHANNELS,
+	LOCAL_AUDIENCES,
+	CONDITION_TYPES,
+	CONDITION_PAYMENTS,
+	CONDITION_ATTENDANCE,
+	audiencesByTrigger,
+	availableAudiencesFor,
+	recipientAudienceFor,
+	audienceMatches,
+	pickTemplateForAudience,
+	templatesForStepAudience,
+	hasCondition,
+	conditionToFilters,
+	filtersToCondition,
+	type StepDraft,
+} from './sequenceEditorShared';
 import type { SequenceStepPreview } from '@repo/types';
 import { previewSequenceStep, previewSequenceSchedule } from '@/services/api';
 import { useModalA11y } from '@/composables/useModalA11y';
@@ -42,10 +62,6 @@ const {
 	scheduled, scheduledTotal, scheduledTotalPages, scheduledTimezone, scheduledLoading,
 } = storeToRefs(sequenceStore);
 
-// Filtros disponibles para la condición de un paso (subconjunto de SegmentFilters).
-const CONDITION_TYPES = ['walker', 'server', 'waiting', 'partial_server'] as const;
-const CONDITION_PAYMENTS = ['paid', 'partial', 'unpaid', 'overpaid', 'scholarship'] as const;
-const CONDITION_ATTENDANCE = ['pending', 'confirmed', 'declined'] as const;
 const { templates } = storeToRefs(templateStore);
 
 // Plantillas relevantes para una secuencia: del retiro, excluyendo system (SYS_).
@@ -101,57 +117,31 @@ function followUpBadgeClass(status: string): string {
 
 const retreatId = computed(() => retreatStore.selectedRetreatId || '');
 
-const TRIGGERS = ['participant_created', 'days_before_retreat', 'days_after_retreat', 'birthday'] as const;
-const AUDIENCES = ['all', 'walker', 'server', 'table_leaders', 'responsables', 'community_roster'] as const;
-const CHANNELS = ['email', 'whatsapp'] as const;
-
-// Audiencias válidas según el disparador. "Al registrarse" solo aplica a quien
-// se registra (caminante/servidor); líderes/responsables se asignan después.
-const AUDIENCES_BY_TRIGGER: Record<string, readonly string[]> = {
-	participant_created: ['walker', 'server'],
-	// El padrón de comunidad queda fuera del cumpleaños: quien nunca dio su fecha
-	// lleva el centinela, y todos caerían el mismo día. El backend además los
-	// salta (`isPlaceholderBirthDate` en `computeScheduledFor`); esto es para no
-	// ofrecer una combinación que no va a hacer lo que el usuario espera.
-	birthday: ['walker', 'server', 'all'],
-};
-const availableAudiences = computed<string[]>(() => {
-	const base = [...(AUDIENCES_BY_TRIGGER[draft.value.trigger] ?? AUDIENCES)];
-	// Incluir el valor actual si no está (no romper secuencias existentes, p.ej. 'all').
-	return base.includes(draft.value.audience) ? base : [draft.value.audience, ...base];
-});
+// Editor LOCAL (con retiro): mismas reglas que el editor global, más la
+// audiencia community_roster y el disparador birthday. Catálogos y reglas
+// puras en ./sequenceEditorShared.ts (#8).
+const availableAudiences = computed<string[]>(() =>
+	availableAudiencesFor(draft.value.trigger, draft.value.audience, 'local'),
+);
 // Al cambiar audiencia: si la plantilla de un paso ya no corresponde a la
 // categoría del destinatario, reasignarla a la primera válida (evita que quede
 // "Bienvenida Caminante" al pasar a Servidores).
 function onAudienceChange() {
 	for (const step of draft.value.steps) {
-		const aud = recipientAudience(step);
+		const aud = recipientAudienceFor(step.recipientTarget, draft.value.audience);
 		if (!aud) continue;
 		if (audienceMatches(getMessageTemplateAudience(step.templateType), aud)) continue;
-		// Preferir misma categoría → luego 'participant' (si aplica) → luego general.
-		const both = aud === 'walker' || aud === 'server';
-		const first =
-			usableTemplates.value.find((t: any) => getMessageTemplateAudience(t.type) === aud) ||
-			(both && usableTemplates.value.find((t: any) => getMessageTemplateAudience(t.type) === 'participant')) ||
-			usableTemplates.value.find((t: any) => getMessageTemplateAudience(t.type) === 'general');
+		const first = pickTemplateForAudience(usableTemplates.value, aud);
 		if (first) step.templateType = first.type;
 	}
 }
 // Al cambiar el disparador (acción del usuario), corrige la audiencia si quedó
 // inválida y revalida las plantillas.
 function onTriggerChange() {
-	const base = AUDIENCES_BY_TRIGGER[draft.value.trigger] ?? AUDIENCES;
+	const base = audiencesByTrigger('local')[draft.value.trigger] ?? LOCAL_AUDIENCES;
 	if (!base.includes(draft.value.audience)) draft.value.audience = base[0] as any;
 	onAudienceChange();
 }
-const RECIPIENT_TARGETS = [
-	'participant',
-	'emergencyContact1',
-	'emergencyContact2',
-	'inviter',
-	'tableLeader',
-	'responsibility',
-] as const;
 
 // "Enviar a" ordenado por relevancia según el enrolamiento (más usados primero),
 // pero la lista es completa (flexible): cualquier destinatario sigue disponible.
@@ -168,92 +158,21 @@ const recipientOptions = computed<string[]>(() => {
 	return ['participant', 'tableLeader', 'responsibility', 'inviter', 'emergencyContact1', 'emergencyContact2'];
 });
 
-// Audiencia de plantilla que corresponde al DESTINATARIO de un paso (para filtrar
-// las plantillas mostradas). Regla: el filtro sigue al "enviar a", no al enrolamiento.
-function recipientAudience(step: { recipientTarget: string }): string | null {
-	const t = step.recipientTarget;
-	if (t === 'inviter' || t === 'emergencyContact1' || t === 'emergencyContact2') return 'family';
-	if (t === 'tableLeader') return 'table_leader';
-	if (t === 'responsibility') return 'responsible';
-	// participant → audiencia derivada del enrolamiento
-	const byAudience: Record<string, string | null> = {
-		walker: 'walker',
-		server: 'server',
-		table_leaders: 'table_leader',
-		responsables: 'responsible',
-		// El padrón se convoca a SERVIR: las plantillas que aplican son las de
-		// servidor (SERVER_CONVOCATION, SERVER_WELCOME…).
-		community_roster: 'server',
-		all: null,
-	};
-	return byAudience[draft.value.audience] ?? null;
-}
-
 // Plantillas mostradas para un paso: las de la audiencia del destinatario + general
 // + la actualmente seleccionada (para no perderla al editar). 'all' (null) = todas.
-// ¿La audiencia de una plantilla aplica a la audiencia del destinatario? Las
-// plantillas 'participant' (ambos tipos) valen para caminantes y servidores.
-function audienceMatches(a: string, aud: string): boolean {
-	return a === aud || a === 'general' || (a === 'participant' && (aud === 'walker' || aud === 'server'));
-}
-
 function templatesForStep(step: { recipientTarget: string; templateType: string }) {
-	const aud = recipientAudience(step);
-	if (!aud) return usableTemplates.value;
-	return usableTemplates.value.filter(
-		(tpl: any) => audienceMatches(getMessageTemplateAudience(tpl.type), aud) || tpl.type === step.templateType,
-	);
+	return templatesForStepAudience(usableTemplates.value, step, draft.value.audience);
 }
 
-type RecipientTarget = (typeof RECIPIENT_TARGETS)[number];
-
-interface StepCondition {
-	participantType?: string | null;
-	paymentStatus?: string | null;
-	attendanceFilter?: string;
-}
-interface StepDraft {
-	id?: string; // presente al editar un paso existente → conserva identidad (no re-envía)
-	offsetDays: number;
-	sendHour: number;
-	templateType: string;
-	channel: 'email' | 'whatsapp';
-	recipientTarget: RecipientTarget;
-	recipientResponsibility: string;
-	condition: StepCondition;
-	condOpen?: boolean; // solo UI: muestra/oculta el bloque de condición
-}
-
-// ¿El paso tiene alguna condición configurada?
-function hasCondition(c: StepCondition): boolean {
-	return !!(c.participantType || c.paymentStatus || (c.attendanceFilter && c.attendanceFilter !== 'all'));
-}
 interface SequenceDraft {
 	id?: string;
 	name: string;
 	description: string;
 	trigger: (typeof TRIGGERS)[number];
-	audience: (typeof AUDIENCES)[number];
+	audience: (typeof LOCAL_AUDIENCES)[number];
 	isActive: boolean;
 	maxOverdueDays: number | null;
 	steps: StepDraft[];
-}
-
-// Convierte el objeto condición del editor en SegmentFilters (omitiendo vacíos),
-// o undefined si no hay ninguna condición.
-function conditionToFilters(c: StepCondition): Record<string, unknown> | undefined {
-	const out: Record<string, unknown> = {};
-	if (c.participantType) out.participantType = c.participantType;
-	if (c.paymentStatus) out.paymentStatus = c.paymentStatus;
-	if (c.attendanceFilter && c.attendanceFilter !== 'all') out.attendanceFilter = c.attendanceFilter;
-	return Object.keys(out).length ? out : undefined;
-}
-function filtersToCondition(f: any): StepCondition {
-	return {
-		participantType: f?.participantType ?? null,
-		paymentStatus: f?.paymentStatus ?? null,
-		attendanceFilter: f?.attendanceFilter ?? 'all',
-	};
 }
 
 const isEditorOpen = ref(false);
