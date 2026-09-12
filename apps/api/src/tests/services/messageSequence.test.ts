@@ -291,6 +291,81 @@ describe('MessageSequenceService', () => {
 		});
 	});
 
+	describe('#7: syncSteps con diff real', () => {
+		afterEach(() => {
+			// clearAllMocks (el beforeEach global) NO restaura spies.
+			jest.restoreAllMocks();
+		});
+
+		it('un save con pasos idénticos no escribe ningún UPDATE; el cambio puntual escribe uno', async () => {
+			const retreat = await TestDataFactory.createTestRetreat({
+				startDate: new Date('2026-12-01T00:00:00.000Z'),
+				timezone: 'America/Mexico_City',
+			});
+			const seq = await svc.createSequence({
+				name: 'Diff de pasos',
+				retreatId: retreat.id,
+				trigger: 'days_before_retreat',
+				audience: 'walker',
+				steps: [{ stepOrder: 0, offsetDays: 5, sendHour: 9, templateType: 'WALKER_WELCOME', channel: 'email' } as any],
+			});
+			const step = seq.steps![0];
+
+			const stepRepo = AppDataSource.getRepository(SequenceStep);
+			const updateSpy = jest.spyOn(stepRepo, 'update');
+
+			// El editor reenvía el paso tal como lo leyó → nada que escribir.
+			await svc.updateSequence(seq.id, {
+				steps: [{
+					id: step.id, stepOrder: 0, offsetDays: 5, sendHour: 9,
+					templateType: 'WALKER_WELCOME', channel: 'email', recipientTarget: 'participant',
+				} as any],
+			});
+			expect(updateSpy).not.toHaveBeenCalled();
+
+			// Un campo cambiado → exactamente un UPDATE con el valor nuevo.
+			await svc.updateSequence(seq.id, {
+				steps: [{
+					id: step.id, stepOrder: 0, offsetDays: 6, sendHour: 9,
+					templateType: 'WALKER_WELCOME', channel: 'email', recipientTarget: 'participant',
+				} as any],
+			});
+			expect(updateSpy).toHaveBeenCalledTimes(1);
+			const after = await stepRepo.findOne({ where: { id: step.id } });
+			expect(after!.offsetDays).toBe(6);
+		});
+
+		it('condition con las claves en otro orden cuenta como sin cambios (comparación semántica)', async () => {
+			const retreat = await TestDataFactory.createTestRetreat({
+				startDate: new Date('2026-12-01T00:00:00.000Z'),
+				timezone: 'America/Mexico_City',
+			});
+			const seq = await svc.createSequence({
+				name: 'Diff de condición',
+				retreatId: retreat.id,
+				trigger: 'days_before_retreat',
+				audience: 'walker',
+				steps: [{
+					stepOrder: 0, offsetDays: 5, sendHour: 9,
+					templateType: 'WALKER_WELCOME', channel: 'email',
+					condition: { attendanceFilter: 'pending', minPayments: 1 },
+				} as any],
+			});
+			const step = seq.steps![0];
+
+			const updateSpy = jest.spyOn(AppDataSource.getRepository(SequenceStep), 'update');
+			await svc.updateSequence(seq.id, {
+				steps: [{
+					id: step.id, stepOrder: 0, offsetDays: 5, sendHour: 9,
+					templateType: 'WALKER_WELCOME', channel: 'email',
+					// Mismos pares clave/valor, otro orden de inserción.
+					condition: { minPayments: 1, attendanceFilter: 'pending' },
+				} as any],
+			});
+			expect(updateSpy).not.toHaveBeenCalled();
+		});
+	});
+
 	describe('processDue', () => {
 		it('email: envía, marca sent y registra la comunicación', async () => {
 			const retreat = await TestDataFactory.createTestRetreat({ timezone: 'America/Mexico_City' });

@@ -64,6 +64,46 @@ type StepSyncInput = {
 	condition?: Record<string, unknown> | null;
 };
 
+/** Payload normalizado que syncSteps escribe en cada paso. */
+type StepWriteData = {
+	stepOrder: number;
+	offsetDays: number;
+	sendHour: number;
+	templateType: string;
+	channel: MessageChannel;
+	recipientTarget: MessageRecipientTarget;
+	recipientResponsibility: string | null;
+	condition: Record<string, unknown> | null;
+};
+
+/**
+ * JSON con claves ordenadas recursivamente: comparación semántica de objetos
+ * (la `condition` del paso) sin depender del orden de inserción de claves.
+ */
+function stableJson(value: unknown): string {
+	if (value === null || typeof value !== 'object') return JSON.stringify(value) ?? 'null';
+	if (Array.isArray(value)) return `[${value.map(stableJson).join(',')}]`;
+	const entries = Object.entries(value as Record<string, unknown>)
+		.filter(([, v]) => v !== undefined)
+		.sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+		.map(([k, v]) => `${JSON.stringify(k)}:${stableJson(v)}`);
+	return `{${entries.join(',')}}`;
+}
+
+/** ¿El payload del editor cambia algo respecto a la fila existente? (#7) */
+function stepPayloadChanged(current: SequenceStep, data: StepWriteData): boolean {
+	return (
+		current.stepOrder !== data.stepOrder ||
+		current.offsetDays !== data.offsetDays ||
+		current.sendHour !== data.sendHour ||
+		current.templateType !== data.templateType ||
+		current.channel !== data.channel ||
+		(current.recipientTarget ?? 'participant') !== data.recipientTarget ||
+		(current.recipientResponsibility ?? null) !== data.recipientResponsibility ||
+		stableJson(current.condition ?? null) !== stableJson(data.condition)
+	);
+}
+
 /**
  * Violación de la máquina de transiciones de un scheduled message. El
  * controller la traduce a HTTP 409: el conflicto es de estado, no de sintaxis
@@ -1263,6 +1303,10 @@ export class MessageSequenceService {
 	 * idempotencia (stepId, participantId, occurrenceYear) se mantiene — editar no re-envía a
 	 * quien ya recibió. Los pasos quitados se ARCHIVAN (borrarlos cascadería
 	 * hasta sus scheduled_messages sent) y sus `pending` se CANCELAN.
+	 *
+	 * Diff real (#7): el editor reenvía TODOS los pasos en cada save; un paso
+	 * cuyo payload no cambió no se escribe — sin esto cada guardado disparaba
+	 * un UPDATE por paso (puntual, pero pisaba `updatedAt` de pasos intactos).
 	 */
 	private async syncSteps(
 		sequenceId: string,
@@ -1273,7 +1317,7 @@ export class MessageSequenceService {
 		const keep = new Set<string>();
 		for (let i = 0; i < steps.length; i++) {
 			const s = steps[i];
-			const data = {
+			const data: StepWriteData = {
 				stepOrder: s.stepOrder ?? i,
 				offsetDays: s.offsetDays ?? 0,
 				sendHour: s.sendHour ?? 9,
@@ -1281,14 +1325,16 @@ export class MessageSequenceService {
 				channel: s.channel,
 				recipientTarget: s.recipientTarget ?? 'participant',
 				recipientResponsibility: s.recipientResponsibility ?? null,
-				condition: (s.condition ?? null) as any,
+				condition: s.condition ?? null,
 			};
 			const current = s.id ? existing.find((e) => e.id === s.id) : undefined;
 			if (current) {
 				keep.add(current.id);
-				await stepRepo.update(current.id, data);
+				if (stepPayloadChanged(current, data)) {
+					await stepRepo.update(current.id, data as any);
+				}
 			} else {
-				const created = await stepRepo.save(stepRepo.create({ sequenceId, ...data }));
+				const created = await stepRepo.save(stepRepo.create({ sequenceId, ...data }) as any);
 				keep.add(created.id);
 			}
 		}
