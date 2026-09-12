@@ -344,3 +344,17 @@ M6 en paralelo con todo, desde el día 1
   Verificado en vivo tras reinicio del API: `Running migration: ArchiveSequenceSteps` en el
   log, columna presente en `sequence_steps`, fila registrada en `migrations`, health OK y los
   GET respondiendo.
+
+  Pase completo (2026-09-12, web 5175 + API 3003, DB desechable del worktree): **todos los
+  ítems verificados en vivo**. Buen Despacho: A1/A2/A3 (tab Programados con los 50 reales,
+  "25 sep / 9 oct, 9:00 a.m. GMT-6", hint de zona), A5 (badge → tab filtrada con chip
+  removible), A4 (timeline del editor "→ 25 sep, 9:00 a.m. GMT-6", recompute en vivo al
+  cambiar offset 21→14 ⇒ 25-sep→2-oct), M4-B1 (reprogramar con defaults del paso, batch de
+  25 filas, `2026-10-08T15:00:00Z` exacto en DB), M4-B2 (Encolar ya: Programados 50→25,
+  Bandeja 29→54), D3 (contadores auto-refrescados), D4/D5/D7. D1 (copia "(copia)" inactiva +
+  toast explicativo), D2 (toggle ida y vuelta sobre la copia, sin tocar la original). D6 en
+  San Judas Tadeo (144 skipped reales): filtro "Palanquero" → 63 visibles, el confirm contó
+  **63 (lo filtrado, no `issues.length`)**, tras aceptar el contador pasó 100→81 (144−63) y
+  la DB quedó con 63 `cancelled` y las `sent` intactas. Nota del pase: el contador del tab
+  Problemas mostraba 100 por el cap preexistente del fetch de issues (144 reales) — no es
+  parte de este programa, quedó como hallazgo.
