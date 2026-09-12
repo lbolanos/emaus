@@ -222,7 +222,8 @@ export class MessageSequenceController {
 					undefined,
 					step.sequence.retreatId,
 				);
-				processed = run.processed;
+				// processDue devuelve el número de filas procesadas (no un objeto).
+				processed = run;
 			}
 			res.json({ affected, scheduledFor, processed });
 		} catch (error) {

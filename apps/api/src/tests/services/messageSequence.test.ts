@@ -18,6 +18,7 @@ import { ParticipantFollowUp } from '@/entities/participantFollowUp.entity';
 import { Participant } from '@/entities/participant.entity';
 import { Retreat } from '@/entities/retreat.entity';
 import { Payment } from '@/entities/payment.entity';
+import { SequenceStep } from '@/entities/sequenceStep.entity';
 import { formatCurrency } from '@repo/utils';
 
 describe('MessageSequenceService', () => {
@@ -1678,6 +1679,162 @@ describe('MessageSequenceService', () => {
 			const { affected } = await svc.rescheduleStep(step!, { date: '2026-10-01', hour: 9 });
 			expect(affected).toBe(0);
 			expect(await svc.findStepWithSequence('00000000-0000-0000-0000-000000000000')).toBeNull();
+		});
+	});
+
+	describe('M5-B4: archivado de pasos', () => {
+		/**
+		 * Retiro CDMX con fechas fijas (abierto: sin anti-backfill) + secuencia
+		 * de 2 pasos + 2 caminantes enrolados. Estados sembrados a mano para
+		 * probar qué sobrevive al archivar el paso 1.
+		 */
+		async function seedArchive() {
+			const retreat = await TestDataFactory.createTestRetreat({
+				timezone: 'America/Mexico_City',
+				// Mediodía UTC: el día calendario sobrevive el shift del
+				// DateTimeTransformer al persistir (misma razón que el 12:00Z de M3).
+				startDate: new Date('2026-11-10T12:00:00.000Z'),
+				endDate: new Date('2026-11-13T12:00:00.000Z'),
+			} as any);
+			await createTemplate(retreat.id, 'WALKER_WELCOME', 'Hola');
+			await createTemplate(retreat.id, 'PAYMENT_REMINDER', 'Pago');
+			const p1 = await TestDataFactory.createTestParticipant(retreat.id, {
+				type: 'walker', firstName: 'Ana', lastName: 'M5', email: 'ana-m5@example.com',
+			} as any);
+			const p2 = await TestDataFactory.createTestParticipant(retreat.id, {
+				type: 'walker', firstName: 'Beto', lastName: 'M5', email: 'beto-m5@example.com',
+			} as any);
+			const seq = await svc.createSequence({
+				name: 'M5', retreatId: retreat.id, trigger: 'days_before_retreat', audience: 'walker',
+				steps: [
+					{ stepOrder: 0, offsetDays: 5, sendHour: 9, templateType: 'WALKER_WELCOME', channel: 'whatsapp' } as any,
+					{ stepOrder: 1, offsetDays: 2, sendHour: 9, templateType: 'PAYMENT_REMINDER', channel: 'whatsapp' } as any,
+				],
+			});
+			expect(await svc.enrollSequence(seq)).toBe(4); // 2 pasos × 2 caminantes
+			// Estados sembrados a mano para probar qué sobrevive al archivar el
+			// paso 1: su fila de p1 queda sent (historial), su fila de p2 queda
+			// pending (la que debe cancelarse). El paso 2 conserva pending/queued.
+			const repo = AppDataSource.getRepository(ScheduledMessage);
+			const rows = await repo.find({ where: { sequenceId: seq.id } });
+			const byKey = (stepIdx: number, pid: string) =>
+				rows.find((r) => r.stepId === seq.steps![stepIdx].id && r.participantId === pid)!;
+			byKey(0, p1.id).status = 'sent';
+			byKey(1, p2.id).status = 'queued';
+			await repo.save([byKey(0, p1.id), byKey(1, p2.id)]);
+			return { retreat, seq, p1, p2, repo };
+		}
+
+		it('quitar un paso lo archiva (no lo borra) y cancela SOLO sus pending', async () => {
+			const { seq, p1, p2, repo } = await seedArchive();
+			const [step1, step2] = seq.steps!;
+
+			const res = await svc.updateSequence(seq.id, {
+				// Se conserva el paso 2 por id; el paso 1 desaparece del editor.
+				steps: [{ id: step2.id, stepOrder: 0, offsetDays: 2, sendHour: 9, templateType: 'PAYMENT_REMINDER', channel: 'whatsapp' } as any],
+			});
+			expect(res?.archivedStepCount).toBe(1);
+			expect(res?.archivedPendingCount).toBe(1); // el pending del paso archivado
+			expect(res?.cancelledPendingCount).toBe(0); // no cambió trigger/audiencia
+
+			// El paso 1 sigue en la DB, archivado (soft, el cascade nunca corre).
+			const stepRepo = AppDataSource.getRepository(SequenceStep);
+			const archived = await stepRepo.findOneByOrFail({ id: step1.id });
+			expect(archived.isArchived).toBe(true);
+			// Y findById ya no lo expone: el editor no puede revivirlo.
+			const visible = (await svc.findById(seq.id))!.steps!;
+			expect(visible.map((s) => s.id)).toEqual([step2.id]);
+
+			// sent (historial) del paso archivado: intacto.
+			const sent = await repo.findOneByOrFail({ stepId: step1.id, participantId: p1.id });
+			expect(sent.status).toBe('sent');
+			// El pending del paso archivado quedó cancelled con motivo accionable.
+			const cancelled = await repo.findOneByOrFail({ stepId: step1.id, participantId: p2.id });
+			expect(cancelled.status).toBe('cancelled');
+			expect(cancelled.error).toBe('paso archivado');
+			// El paso VIVO no se toca: su pending sigue pending, su queued queued.
+			const alivePending = await repo.findOneByOrFail({ stepId: step2.id, participantId: p1.id });
+			expect(alivePending.status).toBe('pending');
+			const aliveQueued = await repo.findOneByOrFail({ stepId: step2.id, participantId: p2.id });
+			expect(aliveQueued.status).toBe('queued');
+		});
+
+		it('los pasos archivados no vuelven a enrolar (nuevo participante)', async () => {
+			const { retreat, seq } = await seedArchive();
+			const [step1, step2] = seq.steps!;
+			await svc.updateSequence(seq.id, {
+				steps: [{ id: step2.id, stepOrder: 0, offsetDays: 2, sendHour: 9, templateType: 'PAYMENT_REMINDER', channel: 'whatsapp' } as any],
+			});
+
+			// Un caminante nuevo tras el archivado: sólo el paso vivo lo enrola.
+			const p3 = await TestDataFactory.createTestParticipant(retreat.id, {
+				type: 'walker', firstName: 'Caro', lastName: 'M5', email: 'caro-m5@example.com',
+			} as any);
+			const reloaded = (await svc.findById(seq.id))!;
+			expect(await svc.enrollSequence(reloaded)).toBe(1);
+			const rows = await AppDataSource.getRepository(ScheduledMessage).find({
+				where: { participantId: p3.id },
+			});
+			expect(rows).toHaveLength(1);
+			expect(rows[0].stepId).toBe(step2.id);
+			expect(rows[0].stepId).not.toBe(step1.id);
+		});
+	});
+
+	describe('M5-B3: cambio de trigger/audiencia re-materializa', () => {
+		async function seedRetrigger() {
+			const retreat = await TestDataFactory.createTestRetreat({
+				timezone: 'America/Mexico_City',
+				// Mediodía UTC: el día calendario sobrevive el shift del
+				// DateTimeTransformer al persistir (misma razón que el 12:00Z de M3).
+				startDate: new Date('2026-11-10T12:00:00.000Z'),
+				endDate: new Date('2026-11-13T12:00:00.000Z'),
+			} as any);
+			await createTemplate(retreat.id, 'WALKER_WELCOME', 'Hola');
+			await TestDataFactory.createTestParticipant(retreat.id, {
+				type: 'walker', firstName: 'Ana', lastName: 'M5', email: 'ana-m5b3@example.com',
+			} as any);
+			const seq = await svc.createSequence({
+				name: 'B3', retreatId: retreat.id, trigger: 'days_before_retreat', audience: 'walker',
+				steps: [{ stepOrder: 0, offsetDays: 5, sendHour: 9, templateType: 'WALKER_WELCOME', channel: 'whatsapp' } as any],
+			});
+			expect(await svc.enrollSequence(seq)).toBe(1);
+			// 10-nov − 5 días, 9:00 CDMX = 15:00 UTC.
+			const repo = AppDataSource.getRepository(ScheduledMessage);
+			const row = await repo.findOneByOrFail({ sequenceId: seq.id });
+			expect(row.scheduledFor.toISOString()).toBe('2026-11-05T15:00:00.000Z');
+			return { retreat, seq, repo };
+		}
+
+		it('cambiar el trigger borra las pending y las recrea con fechas nuevas', async () => {
+			const { seq, repo } = await seedRetrigger();
+
+			const res = await svc.updateSequence(seq.id, { trigger: 'days_after_retreat' });
+			expect(res?.cancelledPendingCount).toBe(1);
+			expect(res?.archivedStepCount).toBe(0);
+
+			// Una sola fila (la vieja se BORRÓ, no canceló: la UQ (stepId,
+			// participantId) habría bloqueado el re-enrolamiento) con la fecha
+			// del trigger nuevo: 13-nov + 5 días, 9:00 CDMX.
+			const rows = await repo.find({ where: { sequenceId: seq.id } });
+			expect(rows).toHaveLength(1);
+			expect(rows[0].status).toBe('pending');
+			expect(rows[0].scheduledFor.toISOString()).toBe('2026-11-18T15:00:00.000Z');
+		});
+
+		it('cambiar de solo nombre no toca las filas materializadas', async () => {
+			const { seq, repo } = await seedRetrigger();
+			const before = await repo.findOneByOrFail({ sequenceId: seq.id });
+
+			const res = await svc.updateSequence(seq.id, { name: 'Otro nombre' });
+			expect(res?.cancelledPendingCount).toBe(0);
+			expect(res?.archivedStepCount).toBe(0);
+			expect(res?.name).toBe('Otro nombre');
+
+			const after = await repo.findOneByOrFail({ sequenceId: seq.id });
+			expect(after.id).toBe(before.id);
+			expect(after.status).toBe('pending');
+			expect(after.scheduledFor.getTime()).toBe(before.scheduledFor.getTime());
 		});
 	});
 });

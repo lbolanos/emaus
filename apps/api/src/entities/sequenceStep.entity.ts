@@ -76,6 +76,13 @@ export class SequenceStep {
 	@Column({ type: 'simple-json', nullable: true })
 	condition?: Record<string, unknown> | null;
 
+	// Archivado blando: quitar un paso del editor NO lo borra — la FK de
+	// scheduled_messages es ON DELETE CASCADE y el borrado físico se llevaría el
+	// historial de enviados. Archivado = deja de enrolar y de aparecer en el
+	// editor; sus `pending` se cancelan, `sent`/`queued` quedan intactos.
+	@Column({ type: 'boolean', default: false })
+	isArchived!: boolean;
+
 	@CreateDateColumn({ type: 'datetime' })
 	createdAt!: Date;
 

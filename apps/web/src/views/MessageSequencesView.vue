@@ -472,12 +472,24 @@ async function saveDraft() {
 		})),
 	};
 	try {
-		if (draft.value.id) {
-			await sequenceStore.update(draft.value.id, payload);
-		} else {
-			await sequenceStore.create(payload);
-		}
+		// M5: el PUT devuelve lo que el edit le hizo a las filas materializadas.
+		const res = draft.value.id
+			? await sequenceStore.update(draft.value.id, payload)
+			: await sequenceStore.create(payload);
 		toast({ title: t('sequences.saved') });
+		// Cambió el disparador/audiencia → las pending se re-materializaron con
+		// las fechas nuevas; pasos quitados → sus pendientes quedaron cancelados.
+		// Avisar (no confirmar: el editor ya es un diálogo deliberado) y refrescar.
+		if (res?.cancelledPendingCount) {
+			toast({ title: t('sequences.reenrolled', { n: res.cancelledPendingCount }) });
+		}
+		if (res?.archivedStepCount) {
+			toast({ title: t('sequences.archivedStepsDone', { n: res.archivedPendingCount }) });
+		}
+		if (res?.cancelledPendingCount || res?.archivedStepCount) {
+			await sequenceStore.fetchStats(retreatId.value);
+			await loadScheduled();
+		}
 		isEditorOpen.value = false;
 	} catch {
 		toast({ title: t('sequences.saveError'), variant: 'destructive' });

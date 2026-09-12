@@ -338,3 +338,47 @@ describe('MessageSequencesView — reprogramar y encolar ya (M4)', () => {
 		expect(apiMod.fetchScheduledMessages).toHaveBeenCalled();
 	});
 });
+
+describe('MessageSequencesView — guardar con cambios estructurales (M5)', () => {
+	it('el PUT con cancelledPendingCount/archivedStepCount refresca programados+stats', async () => {
+		const wrapper = await mountView();
+		const apiMod: any = await import('@/services/api');
+		apiMod.updateMessageSequence.mockResolvedValue({
+			...SEQ,
+			cancelledPendingCount: 3,
+			archivedStepCount: 1,
+			archivedPendingCount: 2,
+		});
+		apiMod.fetchScheduledMessages.mockClear();
+		apiMod.getSequenceStats.mockClear();
+
+		wrapper.vm.openEdit(SEQ);
+		await wrapper.vm.saveDraft();
+		await flushPromises();
+
+		expect(apiMod.updateMessageSequence).toHaveBeenCalledWith('seq-1', expect.objectContaining({
+			retreatId: RETREAT_ID,
+			steps: expect.any(Array),
+		}));
+		// Las filas materializadas cambiaron → stats y Programados se refrescan.
+		expect(apiMod.getSequenceStats).toHaveBeenCalledWith(RETREAT_ID);
+		expect(apiMod.fetchScheduledMessages).toHaveBeenCalled();
+		expect(wrapper.vm.isEditorOpen).toBe(false);
+	});
+
+	it('un cambio inocuo (sin counts) no refetch-ea programados', async () => {
+		const wrapper = await mountView();
+		const apiMod: any = await import('@/services/api');
+		apiMod.updateMessageSequence.mockResolvedValue({ ...SEQ, cancelledPendingCount: 0, archivedStepCount: 0 });
+		apiMod.fetchScheduledMessages.mockClear();
+		apiMod.getSequenceStats.mockClear();
+
+		wrapper.vm.openEdit(SEQ);
+		await wrapper.vm.saveDraft();
+		await flushPromises();
+
+		expect(apiMod.updateMessageSequence).toHaveBeenCalled();
+		expect(apiMod.fetchScheduledMessages).not.toHaveBeenCalled();
+		expect(apiMod.getSequenceStats).not.toHaveBeenCalled();
+	});
+});

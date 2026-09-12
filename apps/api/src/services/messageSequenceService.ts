@@ -262,9 +262,15 @@ export class MessageSequenceService {
 
 	/** Enrola los participantes elegibles de una secuencia (idempotente). */
 	public async enrollSequence(seq: MessageSequence, now: Date = new Date()): Promise<number> {
-		const steps = seq.steps?.length
-			? seq.steps
-			: await AppDataSource.getRepository(SequenceStep).find({ where: { sequenceId: seq.id } });
+		// Sólo pasos vivos: los archivados ya no enrolan (B4). El filtro cubre
+		// ambas vías — la carga fresca y unos `seq.steps` hidratados sin filtro.
+		const steps = (
+			seq.steps?.length
+				? seq.steps
+				: await AppDataSource.getRepository(SequenceStep).find({
+						where: { sequenceId: seq.id, isArchived: false },
+					})
+		).filter((s) => !s.isArchived);
 		if (!steps.length) return 0;
 
 		const retreat = await AppDataSource.getRepository(Retreat).findOne({
@@ -1106,18 +1112,24 @@ export class MessageSequenceService {
 	// ---------------------------------------------------------------------
 
 	async findByRetreat(retreatId: string): Promise<MessageSequence[]> {
-		return AppDataSource.getRepository(MessageSequence).find({
+		const seqs = await AppDataSource.getRepository(MessageSequence).find({
 			where: { retreatId },
 			relations: ['steps'],
 			order: { createdAt: 'DESC' },
 		});
+		// Los pasos archivados no se exponen: el editor no debe revivirlos ni
+		// volver a enrolarlos (B4). Sus mensajes siguen visibles en Programados.
+		for (const seq of seqs) seq.steps = (seq.steps ?? []).filter((s) => !s.isArchived);
+		return seqs;
 	}
 
 	async findById(id: string): Promise<MessageSequence | null> {
-		return AppDataSource.getRepository(MessageSequence).findOne({
+		const seq = await AppDataSource.getRepository(MessageSequence).findOne({
 			where: { id },
 			relations: ['steps'],
 		});
+		if (seq) seq.steps = (seq.steps ?? []).filter((s) => !s.isArchived);
+		return seq;
 	}
 
 	async createSequence(input: {
@@ -1150,6 +1162,11 @@ export class MessageSequenceService {
 		return (await this.findById(seq.id))!;
 	}
 
+	/**
+	 * Cuenta lo que el edit le hizo a las filas ya materializadas, para que la
+	 * UI pueda avisar ("N mensajes re-programados"). Ad-hoc en la respuesta del
+	 * PUT, NO en la entity.
+	 */
 	async updateSequence(
 		id: string,
 		input: {
@@ -1162,10 +1179,25 @@ export class MessageSequenceService {
 			maxOverdueDays?: number | null;
 			steps?: StepSyncInput[];
 		},
-	): Promise<MessageSequence | null> {
+	): Promise<
+		| (MessageSequence & {
+				cancelledPendingCount: number;
+				archivedStepCount: number;
+				archivedPendingCount: number;
+		  })
+		| null
+	> {
 		const seqRepo = AppDataSource.getRepository(MessageSequence);
 		const seq = await seqRepo.findOne({ where: { id } });
 		if (!seq) return null;
+		// B3: cambio semántico (a quién/cuándo llega) → las pending materializadas
+		// con la semántica vieja ya no representan la realidad. Se detecta ANTES
+		// de mutar la entity.
+		const semanticsChanged =
+			(input.trigger !== undefined && input.trigger !== seq.trigger) ||
+			(input.audience !== undefined && input.audience !== seq.audience) ||
+			(input.segmentId !== undefined &&
+				(input.segmentId ?? null) !== (seq.segmentId ?? null));
 		if (input.name !== undefined) seq.name = input.name;
 		if (input.description !== undefined) seq.description = input.description;
 		if (input.trigger !== undefined) seq.trigger = input.trigger;
@@ -1174,20 +1206,48 @@ export class MessageSequenceService {
 		if (input.isActive !== undefined) seq.isActive = input.isActive;
 		if (input.maxOverdueDays !== undefined) seq.maxOverdueDays = input.maxOverdueDays;
 		await seqRepo.save(seq);
+		let archived = { archivedSteps: 0, cancelledPending: 0 };
 		if (input.steps !== undefined) {
-			await this.syncSteps(id, input.steps);
+			archived = await this.syncSteps(id, input.steps);
 		}
-		return this.findById(id);
+		let cancelledPendingCount = 0;
+		if (semanticsChanged) {
+			// DELETE (no cancel): la UQ (stepId, participantId) aplica a TODAS las
+			// filas, así que una cancelled bloquearía el re-enrolamiento. Las
+			// sent/queued se conservan — la idempotencia las respeta al re-crear.
+			const del = await AppDataSource.getRepository(ScheduledMessage)
+				.createQueryBuilder()
+				.delete()
+				.where('sequenceId = :sequenceId AND status = :status', {
+					sequenceId: id,
+					status: 'pending',
+				})
+				.execute();
+			cancelledPendingCount = del.affected ?? 0;
+			if (seq.isActive) await this.enrollSequence(seq);
+		}
+		const updated = await this.findById(id);
+		return updated
+			? {
+					...updated,
+					cancelledPendingCount,
+					archivedStepCount: archived.archivedSteps,
+					archivedPendingCount: archived.cancelledPending,
+			  }
+			: null;
 	}
 
 	/**
 	 * Sincroniza los pasos de una secuencia preservando la identidad de los
 	 * existentes (los que llegan con `id`): así NO cambia el `stepId` y la
 	 * idempotencia (stepId, participantId) se mantiene — editar no re-envía a
-	 * quien ya recibió. Los pasos quitados se borran (cascade cancela sus
-	 * scheduled_messages pendientes).
+	 * quien ya recibió. Los pasos quitados se ARCHIVAN (borrarlos cascadería
+	 * hasta sus scheduled_messages sent) y sus `pending` se CANCELAN.
 	 */
-	private async syncSteps(sequenceId: string, steps: StepSyncInput[]): Promise<void> {
+	private async syncSteps(
+		sequenceId: string,
+		steps: StepSyncInput[],
+	): Promise<{ archivedSteps: number; cancelledPending: number }> {
 		const stepRepo = AppDataSource.getRepository(SequenceStep);
 		const existing = await stepRepo.find({ where: { sequenceId } });
 		const keep = new Set<string>();
@@ -1213,7 +1273,25 @@ export class MessageSequenceService {
 			}
 		}
 		const remove = existing.filter((e) => !keep.has(e.id));
-		if (remove.length) await stepRepo.remove(remove);
+		if (!remove.length) return { archivedSteps: 0, cancelledPending: 0 };
+		// Archivar (soft): repo.update NO pisa @UpdateDateColumn en 0.3.27.
+		const now = new Date();
+		await stepRepo.update(
+			remove.map((r) => r.id),
+			{ isArchived: true, updatedAt: now },
+		);
+		// Cancelar (no borrar) las pending del paso archivado: queued sigue en la
+		// bandeja, sent queda como auditoría. UPDATE sin alias (SQLite lo rechaza).
+		const res = await AppDataSource.getRepository(ScheduledMessage)
+			.createQueryBuilder()
+			.update(ScheduledMessage)
+			.set({ status: 'cancelled', error: 'paso archivado', updatedAt: now })
+			.where('stepId IN (:...stepIds) AND status = :status', {
+				stepIds: remove.map((r) => r.id),
+				status: 'pending',
+			})
+			.execute();
+		return { archivedSteps: remove.length, cancelledPending: res.affected ?? 0 };
 	}
 
 	async deleteSequence(id: string): Promise<boolean> {

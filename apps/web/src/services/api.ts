@@ -3871,7 +3871,15 @@ export const createMessageSequence = async (
 export const updateMessageSequence = async (
   id: string,
   data: Record<string, unknown>,
-): Promise<MessageSequence> => {
+): Promise<
+  MessageSequence & {
+    // M5: cuenta lo que el edit le hizo a las filas materializadas (ad-hoc en
+    // el JSON del PUT, no en la entity) para que la UI pueda avisar.
+    cancelledPendingCount?: number;
+    archivedStepCount?: number;
+    archivedPendingCount?: number;
+  }
+> => {
   const r = await api.put(`/message-sequences/${id}`, data);
   return r.data;
 };

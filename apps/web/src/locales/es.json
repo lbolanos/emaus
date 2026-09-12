@@ -3362,6 +3362,8 @@
     "reschedDone": "{n} mensaje(s) reprogramados",
     "enqueueDone": "{n} mensaje(s) pasaron a la bandeja",
     "reschedError": "No se pudo reprogramar el paso",
+    "reenrolled": "Cambió el disparador/audiencia: {n} mensaje(s) re-programados",
+    "archivedStepsDone": "Paso(s) archivado(s): {n} pendiente(s) cancelados sin borrarse",
     "schedStatusLabel": "Estado",
     "scheduledTotal": "{n} en total",
     "issuesEmpty": "Sin mensajes con problema",

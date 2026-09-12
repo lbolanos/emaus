@@ -270,5 +270,36 @@ M6 en paralelo con todo, desde el día 1
   refresca bandeja+stats) + 8/8 vista (diálogo con defaults de pared de la fila, payload exacto,
   aviso de pasado, refetch; "Encolar ya" manda immediate). Guard i18n 67/67 (11 llaves nuevas
   es/en).
-- M5: _pendiente_
+- M5 (cerrado 2026-09-12): implementado como especificado, con seis matices:
+  1. El PUT devuelve DOS pares de counts, no uno: `cancelledPendingCount` (re-materialización por
+     cambio de trigger/audiencia/segmento, como la spec) + `archivedStepCount`/`archivedPendingCount`
+     (pasos quitados del editor). La UI los toast-ea por separado — "N re-programados" y "N
+     pendientes cancelados sin borrarse" son acciones distintas y el usuario merece distinguirlas.
+     Son campos ad-hoc del JSON del PUT (no viven en la entity ni en `@repo/types`).
+  2. Las `pending` del paso archivado se cancelan con `error = 'paso archivado'` (motivo
+     accionable en Problemas, consistente con los errores accionables de M1).
+  3. `enrollSequence` filtra `isArchived` DOS veces: en el query fresco y en memoria sobre
+     `seq.steps` hidratados — sin el segundo filtro, el path "cargó con relations y todos los pasos
+     están archivados → length 0 → refetch" podía colarse. `findByRetreat`/`findById` también
+     stripped, para que el editor no ofrezca revivir lo archivado. `syncSteps` carga TODOS los pasos
+     (incluidos archivados) a propósito: el diff keep/update/create necesita verlos para no
+     re-crear un paso que sólo está archivado.
+  4. Migración: `ALTER TABLE` aditiva con guard `PRAGMA table_info` (re-arranque tras `up()`
+     parcial con `transaction = false`); no importa `@repo/types` (regla de migraciones de prod).
+     El runner la descubre por escaneo fs — no hay registro que tocar.
+  5. Fixture gotcha documentado para el futuro: sembrar fechas del retiro a medianoche UTC y
+     dejarlas persistir corrompe el día calendario — el DateTimeTransformer corre el instante al
+     guardar y `ymdUtc(startDate)` aterriza en el día anterior (el test esperaba 11-05 y recibía
+     11-04). Los seeds usan mediodía UTC (`T12:00:00Z`), el mismo truco del `registrationDate`
+     del test de schedule-preview de M3.
+  6. Al verificar tsc se cazó un bug de M4 que el filtro de su momento no vio:
+     `processDue` devuelve `Promise<number>` y el controller leía `run.processed` (siempre
+     `undefined` en runtime — el toast de "Encolar ya" perdía el número de procesados). Corregido
+     a `processed = run` en este milestone.
+  Tests: backend 106/106 en la suite `messageSequence` (79 + 6 nuevos: archivado conserva sent,
+  cancela sólo sus pending con motivo, no re-enrola a nuevos participantes, cambio de trigger
+  borra+recrea con fecha UTC exacta 11-18T15:00Z, cambio de nombre no toca filas) + 2/2 test de
+  migración (guard no-op + roundtrip down/up). Web: 12/12 store (update pasa los counts intactos)
+  + 10/10 vista (PUT con counts refresca programados+stats; cambio inocuo no refetch-ea). Guard
+  i18n 67/67 (2 llaves nuevas es/en).
 - M6: _pendiente_

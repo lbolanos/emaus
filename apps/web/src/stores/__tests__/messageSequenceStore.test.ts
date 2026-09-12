@@ -141,4 +141,18 @@ describe('messageSequenceStore — despacho/ownership/opt-out', () => {
 		expect(api.getSequenceStats).toHaveBeenCalledWith('r1');
 		expect(res.affected).toBe(7);
 	});
+
+	it('update devuelve los counts de filas afectadas (M5) para que la vista avise', async () => {
+		api.updateMessageSequence.mockResolvedValue({
+			id: 'seq-1', name: 'S', cancelledPendingCount: 4, archivedStepCount: 1, archivedPendingCount: 2,
+		});
+		store.sequences = [{ id: 'seq-1', name: 'Viejo' }];
+		const res = await store.update('seq-1', { name: 'S', trigger: 'days_after_retreat' });
+		expect(api.updateMessageSequence).toHaveBeenCalledWith('seq-1', { name: 'S', trigger: 'days_after_retreat' });
+		// La secuencia del listado queda actualizada Y los counts pasan intactos.
+		expect(store.sequences[0].name).toBe('S');
+		expect(res.cancelledPendingCount).toBe(4);
+		expect(res.archivedStepCount).toBe(1);
+		expect(res.archivedPendingCount).toBe(2);
+	});
 });

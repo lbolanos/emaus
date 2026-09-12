@@ -3036,6 +3036,8 @@
     "reschedDone": "{n} message(s) rescheduled",
     "enqueueDone": "{n} message(s) moved to the tray",
     "reschedError": "Could not reschedule the step",
+    "reenrolled": "Trigger/audience changed: {n} message(s) rescheduled",
+    "archivedStepsDone": "Step(s) archived: {n} pending message(s) cancelled, not deleted",
     "schedStatusLabel": "Status",
     "scheduledTotal": "{n} total",
     "issuesEmpty": "No messages with issues",
