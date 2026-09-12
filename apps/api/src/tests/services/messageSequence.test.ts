@@ -16,6 +16,7 @@ import { TableMesa } from '@/entities/tableMesa.entity';
 import { RetreatParticipant } from '@/entities/retreatParticipant.entity';
 import { ParticipantFollowUp } from '@/entities/participantFollowUp.entity';
 import { Participant } from '@/entities/participant.entity';
+import { Community } from '@/entities/community.entity';
 import { Retreat } from '@/entities/retreat.entity';
 import { Payment } from '@/entities/payment.entity';
 import { SequenceStep } from '@/entities/sequenceStep.entity';
@@ -363,6 +364,80 @@ describe('MessageSequenceService', () => {
 				} as any],
 			});
 			expect(updateSpy).not.toHaveBeenCalled();
+		});
+	});
+
+	describe('#6: batching de processDue', () => {
+		afterEach(() => {
+			jest.restoreAllMocks();
+		});
+
+		it('la plantilla no se busca por mensaje: cero findOne tras procesar N vencidos', async () => {
+			const retreat = await TestDataFactory.createTestRetreat({
+				startDate: new Date('2026-12-01T00:00:00.000Z'),
+				timezone: 'America/Mexico_City',
+			});
+			await TestDataFactory.createTestParticipant(retreat.id, {
+				type: 'walker', email: 'batch1@example.com',
+			} as any);
+			await TestDataFactory.createTestParticipant(retreat.id, {
+				type: 'walker', email: 'batch2@example.com',
+			} as any);
+			await createTemplate(retreat.id, 'WALKER_WELCOME', 'Bienvenida');
+
+			const seq = await svc.createSequence({
+				name: 'Bienvenida batch',
+				retreatId: retreat.id,
+				trigger: 'participant_created',
+				audience: 'walker',
+				steps: [{ stepOrder: 0, offsetDays: 0, sendHour: 0, templateType: 'WALKER_WELCOME', channel: 'email' } as any],
+			});
+			expect(await svc.enrollSequence(seq)).toBe(2);
+
+			const templateFindOne = jest.spyOn(AppDataSource.getRepository(MessageTemplate), 'findOne');
+			const processed = await svc.processDue(new Date());
+			expect(processed).toBe(2);
+			// La plantilla vino del batch por corrida: ningún findOne por mensaje.
+			expect(templateFindOne).not.toHaveBeenCalled();
+			const sent = await AppDataSource.getRepository(ScheduledMessage).count({
+				where: { sequenceId: seq.id, status: 'sent' as const },
+			});
+			expect(sent).toBe(2);
+		});
+
+		it('email: {community.*} se consulta UNA vez aunque el mensaje se renderiza dos veces', async () => {
+			const user = await TestDataFactory.createTestUser();
+			const community = await TestDataFactory.createTestCommunity(user.id);
+			const retreat = await TestDataFactory.createTestRetreat({
+				startDate: new Date('2026-12-01T00:00:00.000Z'),
+				timezone: 'America/Mexico_City',
+			});
+			await AppDataSource.getRepository(Retreat).update(retreat.id, { communityId: community.id });
+			await TestDataFactory.createTestParticipant(retreat.id, {
+				type: 'walker', email: 'community-once@example.com',
+			} as any);
+			await createTemplate(retreat.id, 'GENERAL', `Saludos de {community.name}`);
+
+			const seq = await svc.createSequence({
+				name: 'Con comunidad',
+				retreatId: retreat.id,
+				trigger: 'participant_created',
+				audience: 'walker',
+				steps: [{ stepOrder: 0, offsetDays: 0, sendHour: 0, templateType: 'GENERAL', channel: 'email' } as any],
+			});
+			expect(await svc.enrollSequence(seq)).toBe(1);
+
+			const communityFindOne = jest.spyOn(AppDataSource.getRepository(Community), 'findOne');
+			const processed = await svc.processDue(new Date());
+			expect(processed).toBe(1);
+			// Texto y HTML comparten el contexto resuelto: una sola consulta.
+			expect(communityFindOne).toHaveBeenCalledTimes(1);
+
+			const sm = await AppDataSource.getRepository(ScheduledMessage).findOne({
+				where: { sequenceId: seq.id },
+			});
+			expect(sm!.status).toBe('sent');
+			expect(sm!.resolvedContent).toContain(community.name);
 		});
 	});
 
