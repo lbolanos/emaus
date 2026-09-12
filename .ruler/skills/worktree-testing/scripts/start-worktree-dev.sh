@@ -2,18 +2,20 @@
 # Levanta el dev de Emaús en un worktree usando puertos paralelos al main:
 #   - API:  :3002 (DB aislada en apps/api/database.worktree.sqlite)
 #   - Web:  :5174
+# Ambos overrides por env (para correr varios worktrees a la vez):
+#   API_PORT=3003 WEB_PORT=5175 bash .ruler/skills/worktree-testing/scripts/start-worktree-dev.sh
 # Logs en /tmp/emaus-worktree-{api,web}.log
 #
 # Uso (desde la raíz del worktree):
 #   bash .ruler/skills/worktree-testing/scripts/start-worktree-dev.sh
 #
-# Para detener:
+# Para detener (con los mismos overrides de puerto si los usaste):
 #   bash .ruler/skills/worktree-testing/scripts/stop-worktree-dev.sh
 
 set -euo pipefail
 
-API_PORT=3002
-WEB_PORT=5174
+API_PORT="${API_PORT:-3002}"
+WEB_PORT="${WEB_PORT:-5174}"
 MAIN_REPO="${EMAUS_MAIN_REPO:-$HOME/Developer/personal/emaus}"
 DB_NAME="database.worktree.sqlite"
 
@@ -51,7 +53,19 @@ if [[ ! -f "$MAIN_REPO/apps/api/database.sqlite" ]]; then
   exit 1
 fi
 echo "→ Copiando DB del main → apps/api/$DB_NAME"
-cp "$MAIN_REPO/apps/api/database.sqlite" "apps/api/$DB_NAME"
+# Los 3 archivos: sin el -wal/-shm la copia queda atrasada (o corrupta) si el
+# dev del main tiene contenido aún no checkpointeado.
+for EXT in "" "-wal" "-shm"; do
+  SRC="$MAIN_REPO/apps/api/database.sqlite$EXT"
+  [[ -f "$SRC" ]] && cp "$SRC" "apps/api/$DB_NAME$EXT"
+done
+
+# .env del API: sin MIGRATIONS_AUTO_RUN=true (y compañía) el API arranca y se
+# apaga solo con "Migration verification failed" en el primer boot del worktree.
+if [[ -f "$MAIN_REPO/apps/api/.env" && ! -f apps/api/.env ]]; then
+  echo "→ Copiando apps/api/.env del main"
+  cp "$MAIN_REPO/apps/api/.env" apps/api/.env
+fi
 
 # .env.local del web
 echo "→ Escribiendo apps/web/.env.local"
@@ -96,9 +110,11 @@ until curl -sf "http://localhost:$API_PORT/api/csrf-token" \
 done
 echo "  ✓ API arriba"
 
-# Arrancar web en background
+# Arrancar web en background. OJO: sin `--` entre `dev` y los flags — pnpm
+# pasa ese `--` literal a Vite y Vite lo lee como fin de opciones, con lo que
+# ignoraba --port/--strictPort y arrancaba en el 5173 (chocando con el main).
 echo "→ Arrancando web en :$WEB_PORT"
-pnpm --filter web dev -- --port $WEB_PORT --strictPort \
+pnpm --filter web dev --port "$WEB_PORT" --strictPort \
   > /tmp/emaus-worktree-web.log 2>&1 &
 WEB_PID=$!
 echo "  PID=$WEB_PID, log=/tmp/emaus-worktree-web.log"

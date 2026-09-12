@@ -1,12 +1,14 @@
 #!/usr/bin/env bash
-# Detiene el dev paralelo del worktree (API:3002 + web:5174).
+# Detiene el dev paralelo del worktree (API:3002 + web:5174 por default).
+# Si lo levantaste con overrides de puerto, pásalos también acá:
+#   API_PORT=3003 WEB_PORT=5175 bash .ruler/skills/worktree-testing/scripts/stop-worktree-dev.sh
 # Uso (desde cualquier directorio):
 #   bash .ruler/skills/worktree-testing/scripts/stop-worktree-dev.sh
 
 set -euo pipefail
 
-API_PORT=3002
-WEB_PORT=5174
+API_PORT="${API_PORT:-3002}"
+WEB_PORT="${WEB_PORT:-5174}"
 
 KILLED=0
 

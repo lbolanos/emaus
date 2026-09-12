@@ -14,9 +14,11 @@ Cuando estás en `.claude/worktrees/<branch>/` y el dev del main ya ocupa los pu
 ## TL;DR
 
 ```bash
-# Desde la raíz del worktree:
+# Desde la raíz del worktree (defaults 3002/5174):
 bash .ruler/skills/worktree-testing/scripts/start-worktree-dev.sh
-# Cuando termines:
+# Con otros puertos (varios worktrees a la vez):
+API_PORT=3003 WEB_PORT=5175 bash .ruler/skills/worktree-testing/scripts/start-worktree-dev.sh
+# Cuando termines (mismos overrides si los usaste):
 bash .ruler/skills/worktree-testing/scripts/stop-worktree-dev.sh
 ```
 
@@ -115,19 +117,26 @@ ps -Ao pid,args | grep -E "vite|nodemon" | grep worktrees | sed -E 's|.*/worktre
 ```
 
 Si hay otro worktree con dev arriba, **levanta el tuyo en otros puertos** (3003/5175, 3004/5176…)
-y ajusta los tres sitios: `FRONTEND_URL` del API, `.env.local` y `public/runtime-config.js`. Los
-dos últimos llevan el puerto **de la API**, no el del web.
+con los env overrides del script — él solo ajusta los tres sitios (`FRONTEND_URL` del API,
+`.env.local` y `public/runtime-config.js`):
 
-Y al terminar, mata solo los tuyos por PID — no `lsof -ti :3002 | xargs kill`, que se lleva el de
-la otra sesión.
+```bash
+API_PORT=3003 WEB_PORT=5175 bash .ruler/skills/worktree-testing/scripts/start-worktree-dev.sh
+```
+
+Y al terminar, mata solo los tuyos — para con los mismos overrides
+(`API_PORT=3003 WEB_PORT=5175 bash …/stop-worktree-dev.sh`) o por PID, no `lsof -ti :3002 | xargs
+kill` a secas, que se lleva el de la otra sesión.
 
 ## DB aislada (importante)
 
-**Nunca uses la DB del main en el worktree** — vas a contaminar el trabajo en curso del main (sesiones, datos de prueba, migrations a medias). Siempre copiá:
+**Nunca uses la DB del main en el worktree** — vas a contaminar el trabajo en curso del main (sesiones, datos de prueba, migrations a medias). Siempre copiá **los tres archivos** (sin el `-wal`/`-shm` la copia queda desparejada y el API puede morir con `SQLITE_CORRUPT`):
 
 ```bash
-cp /Users/lbolanos/Developer/personal/emaus/apps/api/database.sqlite \
-   apps/api/database.worktree.sqlite
+for EXT in "" "-wal" "-shm"; do
+  cp /Users/lbolanos/Developer/personal/emaus/apps/api/database.sqlite$EXT \
+     apps/api/database.worktree.sqlite$EXT 2>/dev/null || true
+done
 ```
 
 Si la copia falla por WAL/locks (poco común), usá:
@@ -174,8 +183,9 @@ FRONTEND_URL=http://localhost:5174 \
 until curl -sf http://localhost:3002/api/csrf-token \
   -H "Origin: http://localhost:5174" -o /dev/null; do sleep 1; done
 
-# 6. Arrancar web en background
-pnpm --filter web dev -- --port 5174 --strictPort \
+# 6. Arrancar web en background (SIN `--` entre dev y los flags: pnpm lo pasa
+#    literal y Vite lo lee como fin de opciones, ignorando el puerto)
+pnpm --filter web dev --port 5174 --strictPort \
   > /tmp/emaus-worktree-web.log 2>&1 &
 
 # 7. Esperar a que web responda
@@ -261,20 +271,24 @@ El setup de puertos paralelos sólo se necesita para **probar end-to-end con bro
 
 ---
 
-## Dos bugs del script de arranque
+## Bugs históricos del script de arranque (ya corregidos)
 
-Verificados el 2026-09-08; si el script sigue igual, hazlo a mano:
+Corregidos el 2026-09-12 directamente en los scripts; quedan documentados para no reintentarlos:
 
-- **`pnpm --filter web dev -- --port 5174`**: el `--` extra llega a Vite como argumento literal, así
-  que **ignora los flags y arranca en 5173** — el puerto del main. Se ve en el log
-  (`vite "--" "--port" "5174"`). Sin el `--` funciona.
-- **La copia de la DB no se lleva el `-wal`**, así que la copia queda con un WAL desparejado y el
-  API muere con `SQLITE_CORRUPT: database disk image is malformed`. Copia los **tres** archivos
-  (`.sqlite`, `-wal`, `-shm`) con `cp`; nunca el `sqlite3` CLI sobre la base viva.
+- **`pnpm --filter web dev -- --port 5174`**: el `--` extra llegaba a Vite como argumento literal,
+  así que **ignoraba los flags y arrancaba en 5173** — el puerto del main. Se veía en el log
+  (`vite "--" "--port" "5174"`). Fix: sin el `--`.
+- **La copia de la DB no se llevaba el `-wal`**: la copia quedaba con un WAL desparejado y el
+  API moría con `SQLITE_CORRUPT: database disk image is malformed`. Fix: copiar los **tres**
+  archivos (`.sqlite`, `-wal`, `-shm`) con `cp`; nunca el `sqlite3` CLI sobre la base viva.
+- **Faltaba `apps/api/.env`**: sin `MIGRATIONS_AUTO_RUN=true` el API del worktree arrancaba y se
+  apagaba solo ("Migration verification failed"). Fix: el script lo copia del main si no existe.
 
 ## Scripts incluidos
 
-- [`scripts/start-worktree-dev.sh`](scripts/start-worktree-dev.sh) — automatiza todo el setup arriba.
-- [`scripts/stop-worktree-dev.sh`](scripts/stop-worktree-dev.sh) — mata API+web en :3002/:5174.
+- [`scripts/start-worktree-dev.sh`](scripts/start-worktree-dev.sh) — automatiza todo el setup
+  arriba. Puertos configurables: `API_PORT`/`WEB_PORT` (defaults 3002/5174).
+- [`scripts/stop-worktree-dev.sh`](scripts/stop-worktree-dev.sh) — mata API+web en los puertos
+  configurados (mismos defaults/overrides).
 
 Ambos asumen que estás corriendo desde la raíz del worktree (donde está `pnpm-workspace.yaml`).
