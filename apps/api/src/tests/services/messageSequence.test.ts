@@ -17,6 +17,9 @@ import { RetreatParticipant } from '@/entities/retreatParticipant.entity';
 import { ParticipantFollowUp } from '@/entities/participantFollowUp.entity';
 import { Participant } from '@/entities/participant.entity';
 import { Retreat } from '@/entities/retreat.entity';
+import { Payment } from '@/entities/payment.entity';
+import { SequenceStep } from '@/entities/sequenceStep.entity';
+import { formatCurrency } from '@repo/utils';
 
 describe('MessageSequenceService', () => {
 	let svc: MessageSequenceService;
@@ -1000,7 +1003,9 @@ describe('MessageSequenceService', () => {
 		});
 
 		it('markDispatched registra quién lo despachó (dispatchedBy)', async () => {
-			const { sm } = await seedDue({ channel: 'whatsapp' });
+			const { sm, repo } = await seedDue({ channel: 'whatsapp' });
+			// El despacho manual sólo aplica a pendientes YA encolados (M2: queued→sent).
+			await repo.update(sm.id, { status: 'queued' } as any);
 			const updated = await svc.markDispatched(sm.id, 'user-123');
 			expect(updated?.status).toBe('sent');
 			expect(updated?.dispatchedBy).toBe('user-123');
@@ -1118,11 +1123,718 @@ describe('MessageSequenceService', () => {
 				{ message: 'NUEVO contenido para {participant.firstName}' } as any,
 			);
 
-			const n = await svc.regenerateQueuedForRetreat(retreat.id);
-			expect(n).toBe(1);
+			const res = await svc.regenerateQueuedForRetreat(retreat.id);
+			expect(res.regenerated).toBe(1);
+			expect(res.skipped).toBe(0);
 			queued = await repo.findOne({ where: { id: sm.id } });
 			expect(queued?.status).toBe('queued'); // no cambia su programación
 			expect(queued?.resolvedContent).toContain('NUEVO contenido');
+		});
+	});
+
+	describe('M1: fixes de correctitud del motor', () => {
+		// NOTA de aislamiento: clearTestData() NO limpia las tablas de secuencias,
+		// así que filas de tests anteriores sobreviven con participantId huérfano
+		// (el participant sí se borra). Esas filas se saltan ANTES de llegar a
+		// resolveRecipient, así que no interfieren con los asserts de acá — pero
+		// nunca asserts el valor de retorno de processDue() (contaría sobrantes).
+		async function seedDueWithTemplate(
+			message: string,
+			opts: {
+				channel?: 'email' | 'whatsapp';
+				retreatOverrides?: Record<string, unknown>;
+				steps?: Array<Record<string, unknown>>;
+			} = {},
+		) {
+			const retreat = await TestDataFactory.createTestRetreat({
+				timezone: 'America/Mexico_City',
+				...(opts.retreatOverrides || {}),
+			} as any);
+			const participant = await TestDataFactory.createTestParticipant(retreat.id, {
+				type: 'walker', email: 'm1@example.com', cellPhone: '5512345678',
+			} as any);
+			await createTemplate(retreat.id, 'WALKER_WELCOME', message);
+			const seq = await svc.createSequence({
+				name: 'M1', retreatId: retreat.id, trigger: 'participant_created', audience: 'walker',
+				steps: (opts.steps as any) || [{
+					stepOrder: 0, offsetDays: 0, sendHour: 9, templateType: 'WALKER_WELCOME',
+					channel: opts.channel || 'email',
+				}],
+			});
+			const repo = AppDataSource.getRepository(ScheduledMessage);
+			const rows = seq.steps!.map((step) =>
+				repo.create({
+					sequenceId: seq.id, stepId: step.id, participantId: participant.id, retreatId: retreat.id,
+					channel: step.channel, templateType: step.templateType, recipientTarget: 'participant',
+					scheduledFor: new Date(Date.now() - 3600_000), status: 'pending',
+				}),
+			);
+			const saved = await repo.save(rows);
+			return { retreat, participant, seq, repo, sm: saved[0], all: saved };
+		}
+
+		it('maxPerDay: el mensaje excedente vuelve a pending, no queda atascado en processing', async () => {
+			const { participant, repo } = await seedDueWithTemplate('Hola {participant.firstName}', {
+				steps: [
+					{ stepOrder: 0, offsetDays: 0, sendHour: 9, templateType: 'WALKER_WELCOME', channel: 'email' },
+					{ stepOrder: 1, offsetDays: 0, sendHour: 9, templateType: 'WALKER_WELCOME', channel: 'email' },
+				],
+			});
+			process.env.SEQUENCE_MAX_PER_PARTICIPANT_PER_DAY = '1';
+			try {
+				await svc.processDue();
+			} finally {
+				delete process.env.SEQUENCE_MAX_PER_PARTICIPANT_PER_DAY;
+			}
+			const statuses = (await repo.find({ where: { participantId: participant.id } }))
+				.map((r) => r.status)
+				.sort();
+			expect(statuses).toEqual(['pending', 'sent']);
+		});
+
+		it('excepción inesperada post-claim: la fila queda failed con attempts=1 y motivo', async () => {
+			const { participant, sm, repo } = await seedDueWithTemplate('Hola {participant.firstName}');
+			const svcAny = svc as any;
+			const original = svcAny.resolveRecipient.bind(svcAny);
+			const spy = jest
+				.spyOn(svcAny, 'resolveRecipient')
+				.mockImplementation(async (...args: any[]) => {
+					if (args[0]?.id === participant.id) throw new Error('boom DB');
+					return original(...args);
+				});
+			try {
+				await svc.processDue();
+			} finally {
+				spy.mockRestore();
+			}
+			const after = await repo.findOne({ where: { id: sm.id } });
+			expect(after?.status).toBe('failed');
+			expect(after?.attempts).toBe(1);
+			expect(after?.error).toContain('boom DB');
+		});
+
+		it('reaper: una fila processing con updatedAt vieja vuelve al ciclo y se envía', async () => {
+			const { sm, repo } = await seedDueWithTemplate('Hola {participant.firstName}');
+			// updatedAt va EXPLÍCITO: repo.update() NO pisa @UpdateDateColumn solo
+			// (verificado con TypeORM 0.3.27) — sin esto la fila no luciría "vieja".
+			await repo.update(sm.id, {
+				status: 'processing',
+				updatedAt: new Date(Date.now() - 3600_000),
+			} as any);
+			await svc.processDue();
+			const after = await repo.findOne({ where: { id: sm.id } });
+			expect(after?.status).toBe('sent');
+		});
+
+		it('reaper: no roba un claim fresco (processing reciente se queda processing)', async () => {
+			const { sm, repo } = await seedDueWithTemplate('Hola {participant.firstName}');
+			await repo.update(sm.id, { status: 'processing', updatedAt: new Date() } as any);
+			const reaped = await svc.reapStaleProcessing();
+			expect(reaped).toBe(0);
+			expect((await repo.findOne({ where: { id: sm.id } }))?.status).toBe('processing');
+		});
+
+		it('{community.*} sin comunidad vinculada: skipped con motivo (antes salía "Emaús Demo")', async () => {
+			const { sm, repo } = await seedDueWithTemplate(
+				'Te espera {community.name} ({community.parish})',
+				{ channel: 'whatsapp' },
+			);
+			await svc.processDue();
+			const after = await repo.findOne({ where: { id: sm.id } });
+			expect(after?.status).toBe('skipped');
+			expect(after?.error).toContain('sin comunidad vinculada');
+			expect(after?.resolvedContent ?? '').not.toContain('Emaús Demo');
+		});
+
+		it('{community.*} con comunidad vinculada: resuelve el nombre real, no el mock', async () => {
+			const { retreat, sm, repo } = await seedDueWithTemplate(
+				'Te espera {community.name} ({community.parish})',
+				{ channel: 'whatsapp' },
+			);
+			const user = await TestDataFactory.createTestUser();
+			const community = await TestDataFactory.createTestCommunity(user.id, {
+				name: 'Emaús del Valle',
+				parish: 'El Señor del Buen Despacho',
+			});
+			await AppDataSource.getRepository(Retreat).update(retreat.id, {
+				communityId: community.id,
+			} as any);
+			await svc.processDue();
+			const after = await repo.findOne({ where: { id: sm.id } });
+			expect(after?.status).toBe('queued');
+			expect(after?.resolvedContent).toContain('Emaús del Valle');
+			expect(after?.resolvedContent).toContain('El Señor del Buen Despacho');
+			expect(after?.resolvedContent).not.toContain('Emaús Demo');
+		});
+
+		it('{table.*} a quien no lidera mesa: skipped con motivo accionable', async () => {
+			const { sm, repo } = await seedDueWithTemplate(
+				'Mesa {table.name}: {table.walkersRoster}',
+				{ channel: 'whatsapp' },
+			);
+			await svc.processDue();
+			const after = await repo.findOne({ where: { id: sm.id } });
+			expect(after?.status).toBe('skipped');
+			expect(after?.error).toContain('sin mesa asignada');
+		});
+
+		it('regenerate: hidrata {participant.paymentRemaining} y reporta los saltados', async () => {
+			// Caminante con cuota $2,500 y $1,000 pagados → saldo real $1,500.
+			// Sin hidratación el getter resolvía contra el join "pelado" y el
+			// snapshot se "renovaba" a $0.00 (pariente del bug aac190fe).
+			const { retreat, participant, sm, repo } = await seedDueWithTemplate(
+				'Tu saldo: {participant.paymentRemaining}',
+				{ channel: 'whatsapp', retreatOverrides: { cost: '$2,500' } },
+			);
+			const payRepo = AppDataSource.getRepository(Payment);
+			await payRepo.save(payRepo.create({
+				participantId: participant.id,
+				retreatId: retreat.id,
+				amount: 1000 as any,
+				paymentDate: new Date(),
+				paymentMethod: 'cash',
+			}));
+			await repo.update(sm.id, {
+				status: 'queued', resolvedContent: 'VIEJO saldo', resolvedContact: '5512345678',
+				recipientName: 'Test',
+			} as any);
+
+			// Segunda fila queued cuyo template exige contexto que no existe
+			// ({community.*} sin comunidad) → debe saltarse y conservar su snapshot.
+			await createTemplate(retreat.id, 'GENERAL', 'Comunidad {community.name}');
+			const seq2 = await svc.createSequence({
+				name: 'M1b', retreatId: retreat.id, trigger: 'participant_created', audience: 'walker',
+				steps: [{ stepOrder: 0, offsetDays: 0, sendHour: 9, templateType: 'GENERAL', channel: 'whatsapp' } as any],
+			});
+			const sm2 = await repo.save(repo.create({
+				sequenceId: seq2.id, stepId: seq2.steps![0].id, participantId: participant.id,
+				retreatId: retreat.id, channel: 'whatsapp', templateType: 'GENERAL',
+				recipientTarget: 'participant', scheduledFor: new Date(Date.now() - 3600_000),
+				status: 'queued', resolvedContent: 'VIEJO comunidad', resolvedContact: '5512345678',
+				recipientName: 'Test',
+			}));
+
+			const res = await svc.regenerateQueuedForRetreat(retreat.id);
+			expect(res).toEqual({ regenerated: 1, skipped: 1 });
+
+			const after1 = await repo.findOne({ where: { id: sm.id } });
+			expect(after1?.resolvedContent).toContain(formatCurrency(1500));
+			expect(after1?.resolvedContent).not.toContain('$0.00');
+			const after2 = await repo.findOne({ where: { id: sm2.id } });
+			expect(after2?.resolvedContent).toBe('VIEJO comunidad');
+		});
+	});
+
+	describe('M2: transiciones de estado y bulk honesto', () => {
+		async function seedManual(status: string, overrides: Record<string, unknown> = {}) {
+			const retreat = await TestDataFactory.createTestRetreat({
+				timezone: 'America/Mexico_City',
+			} as any);
+			const participant = await TestDataFactory.createTestParticipant(retreat.id, {
+				type: 'walker', email: 'm2@example.com', cellPhone: '5512345678',
+			} as any);
+			const seq = await svc.createSequence({
+				name: 'M2', retreatId: retreat.id, trigger: 'participant_created', audience: 'walker',
+				steps: [{ stepOrder: 0, offsetDays: 0, sendHour: 9, templateType: 'WALKER_WELCOME', channel: 'whatsapp' } as any],
+			});
+			const repo = AppDataSource.getRepository(ScheduledMessage);
+			const sm = await repo.save(repo.create({
+				sequenceId: seq.id, stepId: seq.steps![0].id, participantId: participant.id,
+				retreatId: retreat.id, channel: 'whatsapp', templateType: 'WALKER_WELCOME',
+				recipientTarget: 'participant', scheduledFor: new Date(), status: status as any,
+				...overrides,
+			}));
+			return { retreat, participant, seq, repo, sm };
+		}
+
+		it('dispatch: solo desde queued — desde sent/pending lanza y no toca la fila', async () => {
+			const sent = await seedManual('sent', { dispatchedBy: 'user-a', sentAt: new Date() });
+			await expect(svc.markDispatched(sent.sm.id, 'user-b')).rejects.toThrow('Transición inválida');
+			let row = await sent.repo.findOne({ where: { id: sent.sm.id } });
+			expect(row?.status).toBe('sent');
+			expect(row?.dispatchedBy).toBe('user-a'); // no pisa la marca del primero
+
+			const pending = await seedManual('pending');
+			await expect(svc.markDispatched(pending.sm.id)).rejects.toThrow('Transición inválida');
+			row = await pending.repo.findOne({ where: { id: pending.sm.id } });
+			expect(row?.status).toBe('pending');
+		});
+
+		it('carrera de dispatch: dos llamadas seguidas — la segunda lanza (update condicional)', async () => {
+			const { sm, repo } = await seedManual('queued');
+			const first = await svc.markDispatched(sm.id, 'coord-1');
+			expect(first?.status).toBe('sent');
+			// El segundo coordinador (bandeja desactualizada) ya no puede pisarla.
+			await expect(svc.markDispatched(sm.id, 'coord-2')).rejects.toThrow('Transición inválida');
+			const row = await repo.findOne({ where: { id: sm.id } });
+			expect(row?.dispatchedBy).toBe('coord-1');
+		});
+
+		it('skip: solo desde queued — desde cancelled lanza', async () => {
+			const { sm, repo } = await seedManual('cancelled');
+			await expect(svc.markSkipped(sm.id)).rejects.toThrow('Transición inválida');
+			expect((await repo.findOne({ where: { id: sm.id } }))?.status).toBe('cancelled');
+		});
+
+		it('retry: solo desde failed|skipped — desde queued lanza, desde skipped re-encola', async () => {
+			const queued = await seedManual('queued');
+			await expect(svc.retryScheduled(queued.sm.id)).rejects.toThrow('Transición inválida');
+
+			const skipped = await seedManual('skipped', { attempts: 2, error: 'sin plantilla' });
+			const updated = await svc.retryScheduled(skipped.sm.id, 'user-1');
+			expect(updated?.status).toBe('pending');
+			expect(updated?.attempts).toBe(0);
+			expect(updated?.error).toBeNull();
+		});
+
+		it('discard: nunca desde sent — desde pending SÍ cancela', async () => {
+			const sent = await seedManual('sent');
+			await expect(svc.discardScheduled(sent.sm.id)).rejects.toThrow('Transición inválida');
+
+			const pending = await seedManual('pending');
+			const updated = await svc.discardScheduled(pending.sm.id, 'user-2');
+			expect(updated?.status).toBe('cancelled');
+		});
+
+		it('assign: solo sobre queued — desde sent lanza', async () => {
+			const sent = await seedManual('sent');
+			await expect(svc.assign(sent.sm.id, 'user-x')).rejects.toThrow('Transición inválida');
+			expect((await sent.repo.findOne({ where: { id: sent.sm.id } }))?.assignedTo).toBeFalsy();
+		});
+
+		it('dispatch sobre id inexistente devuelve null (404, no 409)', async () => {
+			expect(await svc.markDispatched('00000000-0000-0000-0000-000000000000')).toBeNull();
+		});
+
+		it('bulk con ids: afecta solo esos ids y affected coincide con lo tocado', async () => {
+			const { retreat, seq, repo } = await seedManual('failed', { attempts: 3 });
+			// Dos problemas más en el MISMO retiro/paso (participantes distintos).
+			const extraIds: string[] = [];
+			for (let i = 0; i < 2; i++) {
+				const p = await TestDataFactory.createTestParticipant(retreat.id, {
+					type: 'walker', email: `extra${i}@example.com`,
+				} as any);
+				const row = await repo.save(repo.create({
+					sequenceId: seq.id, stepId: seq.steps![0].id, participantId: p.id,
+					retreatId: retreat.id, channel: 'whatsapp', templateType: 'WALKER_WELCOME',
+					recipientTarget: 'participant', scheduledFor: new Date(), status: 'failed',
+				}));
+				extraIds.push(row.id);
+			}
+
+			const affected = await svc.bulkResolveIssues(retreat.id, 'discard', extraIds);
+			expect(affected).toBe(2); // sólo los ids, no los 3 problemas del retiro
+			const remaining = await repo.find({
+				where: { retreatId: retreat.id, status: 'failed' as any },
+			});
+			expect(remaining).toHaveLength(1); // el primero sigue failed
+			const cancelled = await repo.find({
+				where: { retreatId: retreat.id, status: 'cancelled' as any },
+			});
+			expect(cancelled).toHaveLength(2);
+		});
+
+		it('bulk sin ids (retry): resetea attempts/error, programa para ahora, y affected es real', async () => {
+			const { retreat, sm, repo } = await seedManual('failed', {
+				attempts: 3, error: 'envío SMTP falló', scheduledFor: new Date(Date.now() - 5 * 86400000),
+			});
+			const affected = await svc.bulkResolveIssues(retreat.id, 'retry');
+			expect(affected).toBe(1);
+			const row = await repo.findOne({ where: { id: sm.id } });
+			expect(row?.status).toBe('pending');
+			expect(row?.attempts).toBe(0);
+			expect(row?.error).toBeNull();
+			// scheduledFor ≈ ahora (datetime('now') crudo dejaba la fecha en UTC sin
+			// transformar; new Date() pasa por el DateTimeTransformer).
+			expect(Math.abs(row!.scheduledFor.getTime() - Date.now())).toBeLessThan(60_000);
+			// Ya no hay problemas en el retiro → affected real (no el count de antes).
+			expect(await svc.bulkResolveIssues(retreat.id, 'discard')).toBe(0);
+		});
+	});
+
+	describe('M3: visibilidad del tiempo (listScheduled + schedulePreview)', () => {
+		/**
+		 * Siembra un retiro CDMX con una secuencia de 1 paso y `n` filas de
+		 * scheduled_messages (una por participante) con las fechas dadas.
+		 */
+		async function seedList(rows: Array<{
+			status: string; scheduledFor: Date; firstName: string;
+		}>) {
+			const retreat = await TestDataFactory.createTestRetreat({
+				timezone: 'America/Mexico_City',
+			} as any);
+			const seq = await svc.createSequence({
+				name: 'M3', retreatId: retreat.id, trigger: 'participant_created', audience: 'walker',
+				steps: [{ stepOrder: 0, offsetDays: 5, sendHour: 9, templateType: 'WALKER_WELCOME', channel: 'whatsapp' } as any],
+			});
+			const repo = AppDataSource.getRepository(ScheduledMessage);
+			const created: ScheduledMessage[] = [];
+			for (const r of rows) {
+				const p = await TestDataFactory.createTestParticipant(retreat.id, {
+					type: 'walker', firstName: r.firstName, lastName: 'M3',
+					email: `${r.firstName.toLowerCase()}-m3@example.com`,
+				} as any);
+				created.push(await repo.save(repo.create({
+					sequenceId: seq.id, stepId: seq.steps![0].id, participantId: p.id,
+					retreatId: retreat.id, channel: 'whatsapp', templateType: 'WALKER_WELCOME',
+					recipientTarget: 'participant', scheduledFor: r.scheduledFor,
+					status: r.status as any,
+				})));
+			}
+			return { retreat, seq, repo, created };
+		}
+
+		it('listScheduled: default pending only, DTO sin PII, timezone del servidor', async () => {
+			const { retreat, seq, created } = await seedList([
+				{ status: 'pending', scheduledFor: new Date('2026-09-25T15:00:00Z'), firstName: 'Ana' },
+				{ status: 'queued', scheduledFor: new Date('2026-09-20T15:00:00Z'), firstName: 'Beto' },
+			]);
+			const res = await svc.listScheduled(retreat.id);
+			expect(res.total).toBe(1);
+			expect(res.items).toHaveLength(1);
+			const item = res.items[0];
+			expect(item.id).toBe(created[0].id);
+			expect(item.participantName).toBe('Ana M3');
+			expect(item.sequenceId).toBe(seq.id);
+			expect(item.stepOrder).toBe(0);
+			expect(item.offsetDays).toBe(5);
+			expect(item.sendHour).toBe(9);
+			expect(item.scheduledFor).toEqual(new Date('2026-09-25T15:00:00Z'));
+			// La TZ la resuelve el servidor desde el retiro — el cliente nunca la infiere.
+			expect(res.timezone).toBe('America/Mexico_City');
+			// El DTO no arrastra la entity del participante (PII) a la lista.
+			expect((item as any).participant).toBeUndefined();
+			expect((item as any).resolvedContact).toBeUndefined();
+		});
+
+		it('listScheduled: filtra por statuses, secuencia y search (LIKE sobre nombre)', async () => {
+			const { retreat } = await seedList([
+				{ status: 'pending', scheduledFor: new Date('2026-09-25T15:00:00Z'), firstName: 'Ana' },
+				{ status: 'queued', scheduledFor: new Date('2026-09-20T15:00:00Z'), firstName: 'Beto' },
+				{ status: 'pending', scheduledFor: new Date('2026-10-09T15:00:00Z'), firstName: 'Ximena' },
+			]);
+			const queued = await svc.listScheduled(retreat.id, { statuses: ['queued'] });
+			expect(queued.total).toBe(1);
+			expect(queued.items[0].participantName).toBe('Beto M3');
+
+			// Sin la secuencia de la siembra no hay nada (aisla de corridas previas).
+			const otherSeq = await svc.listScheduled(retreat.id, {
+				sequenceId: '00000000-0000-0000-0000-000000000000',
+			});
+			expect(otherSeq.total).toBe(0);
+
+			const byName = await svc.listScheduled(retreat.id, { search: 'xim' });
+			expect(byName.total).toBe(1);
+			expect(byName.items[0].participantName).toBe('Ximena M3');
+		});
+
+		it('listScheduled: paginación y orden por scheduledFor ASC', async () => {
+			const { retreat } = await seedList([
+				{ status: 'pending', scheduledFor: new Date('2026-10-09T15:00:00Z'), firstName: 'C' },
+				{ status: 'pending', scheduledFor: new Date('2026-09-25T15:00:00Z'), firstName: 'A' },
+				{ status: 'pending', scheduledFor: new Date('2026-10-01T15:00:00Z'), firstName: 'B' },
+			]);
+			const page1 = await svc.listScheduled(retreat.id, { page: 1, limit: 2 });
+			expect(page1.total).toBe(3);
+			expect(page1.totalPages).toBe(2);
+			expect(page1.items.map((i) => i.participantName)).toEqual(['A M3', 'B M3']);
+			const page2 = await svc.listScheduled(retreat.id, { page: 2, limit: 2 });
+			expect(page2.items.map((i) => i.participantName)).toEqual(['C M3']);
+		});
+
+		it('schedulePreview: loopéa computeScheduledFor — 9:00 CDMX = 15:00 UTC exacto', async () => {
+			const retreat = await TestDataFactory.createTestRetreat({
+				timezone: 'America/Mexico_City',
+			} as any);
+			// 12:00 UTC = 06:00 CDMX del MISMO día → base calendario 2026-09-10.
+			const participant = await TestDataFactory.createTestParticipant(retreat.id, {
+				registrationDate: new Date('2026-09-10T12:00:00Z'),
+			} as any);
+			const res = await svc.schedulePreview({
+				retreatId: retreat.id,
+				participantId: participant.id,
+				trigger: 'participant_created',
+				steps: [
+					{ offsetDays: 0, sendHour: 9 },  // alta +0 → 10-sep 9:00 CDMX
+					{ offsetDays: 2, sendHour: 20 }, // alta +2 → 12-sep 20:00 CDMX
+				],
+			});
+			expect(res).not.toBeNull();
+			expect(res!.timezone).toBe('America/Mexico_City');
+			// El servicio devuelve Dates (el DTO over-the-wire las serializa a ISO).
+			expect((res!.dates[0] as Date).toISOString()).toBe('2026-09-10T15:00:00.000Z');
+			expect((res!.dates[1] as Date).toISOString()).toBe('2026-09-13T02:00:00.000Z'); // 20:00 CDMX (UTC-6)
+		});
+
+		it('schedulePreview: null por paso cuando falta el dato del disparador; null si no existe el participante', async () => {
+			const retreat = await TestDataFactory.createTestRetreat({
+				timezone: 'America/Mexico_City',
+			} as any);
+			// registrationDate es CreateDateColumn (siempre existe); el caso `null`
+			// real es birthday con el centinela 1900 (miembros importados sin fecha).
+			const participant = await TestDataFactory.createTestParticipant(retreat.id, {
+				birthDate: new Date('1900-01-01'),
+			} as any);
+			const res = await svc.schedulePreview({
+				retreatId: retreat.id,
+				participantId: participant.id,
+				trigger: 'birthday',
+				steps: [{ offsetDays: 0, sendHour: 9 }],
+			});
+			expect(res).not.toBeNull();
+			expect(res!.dates).toEqual([null]);
+
+			expect(await svc.schedulePreview({
+				retreatId: retreat.id,
+				participantId: '00000000-0000-0000-0000-000000000000',
+				trigger: 'participant_created',
+				steps: [{ offsetDays: 0, sendHour: 9 }],
+			})).toBeNull();
+		});
+	});
+
+	describe('M4: reprogramar y encolar ya (rescheduleStep)', () => {
+		/** Retiro CDMX + secuencia de 1 paso (sendHour 9) + filas por estado. */
+		async function seedReschedule(rows: Array<{
+			status: string; scheduledFor: Date; firstName: string;
+		}>) {
+			const retreat = await TestDataFactory.createTestRetreat({
+				timezone: 'America/Mexico_City',
+			} as any);
+			const seq = await svc.createSequence({
+				name: 'M4', retreatId: retreat.id, trigger: 'participant_created', audience: 'walker',
+				steps: [{ stepOrder: 0, offsetDays: 5, sendHour: 9, templateType: 'WALKER_WELCOME', channel: 'whatsapp' } as any],
+			});
+			const repo = AppDataSource.getRepository(ScheduledMessage);
+			const created: ScheduledMessage[] = [];
+			for (const r of rows) {
+				const p = await TestDataFactory.createTestParticipant(retreat.id, {
+					type: 'walker', firstName: r.firstName, lastName: 'M4',
+					email: `${r.firstName.toLowerCase()}-m4@example.com`,
+				} as any);
+				created.push(await repo.save(repo.create({
+					sequenceId: seq.id, stepId: seq.steps![0].id, participantId: p.id,
+					retreatId: retreat.id, channel: 'whatsapp', templateType: 'WALKER_WELCOME',
+					recipientTarget: 'participant', scheduledFor: r.scheduledFor,
+					status: r.status as any,
+				})));
+			}
+			return { retreat, seq, repo, created };
+		}
+
+		it('mueve SOLO los pending del paso a la fecha "de pared" en la TZ del retiro', async () => {
+			const { seq, repo, created } = await seedReschedule([
+				{ status: 'pending', scheduledFor: new Date('2026-09-25T15:00:00Z'), firstName: 'Ana' },
+				{ status: 'pending', scheduledFor: new Date('2026-09-26T15:00:00Z'), firstName: 'Beto' },
+				{ status: 'queued', scheduledFor: new Date('2026-09-20T15:00:00Z'), firstName: 'Caro' },
+				{ status: 'sent', scheduledFor: new Date('2026-09-01T15:00:00Z'), firstName: 'Dani' },
+			]);
+			const step = await svc.findStepWithSequence(seq.steps![0].id);
+			expect(step?.sequence?.retreatId).toBe(seq.retreatId); // relations para el controller
+
+			const { affected, scheduledFor } = await svc.rescheduleStep(step!, {
+				date: '2026-09-30', hour: 9,
+			});
+			expect(affected).toBe(2);
+			// 9:00 CDMX (UTC-6, sin DST) → 15:00 UTC exacto.
+			expect(scheduledFor.toISOString()).toBe('2026-09-30T15:00:00.000Z');
+
+			const reload = async (i: number) =>
+				(await repo.findOneByOrFail({ id: created[i].id })).scheduledFor;
+			expect((await reload(0)).toISOString()).toBe('2026-09-30T15:00:00.000Z');
+			expect((await reload(1)).toISOString()).toBe('2026-09-30T15:00:00.000Z');
+			// Lo queued (ya en bandeja) y lo sent (historial) quedan intactos.
+			expect((await reload(2)).toISOString()).toBe('2026-09-20T15:00:00.000Z');
+			expect((await reload(3)).toISOString()).toBe('2026-09-01T15:00:00.000Z');
+		});
+
+		it('hour sin valor conserva el sendHour del paso', async () => {
+			const { seq } = await seedReschedule([
+				{ status: 'pending', scheduledFor: new Date('2026-09-25T15:00:00Z'), firstName: 'Ana' },
+			]);
+			const step = await svc.findStepWithSequence(seq.steps![0].id);
+			const { affected, scheduledFor } = await svc.rescheduleStep(step!, { date: '2026-10-01' });
+			expect(affected).toBe(1);
+			expect(scheduledFor.toISOString()).toBe('2026-10-01T15:00:00.000Z'); // sendHour 9
+		});
+
+		it('immediate programa ≈ ahora (encolar ya: el controller encadena el run)', async () => {
+			const { seq } = await seedReschedule([
+				{ status: 'pending', scheduledFor: new Date('2026-10-09T15:00:00Z'), firstName: 'Ana' },
+			]);
+			const step = await svc.findStepWithSequence(seq.steps![0].id);
+			const before = Date.now();
+			const { affected, scheduledFor } = await svc.rescheduleStep(step!, { immediate: true });
+			const after = Date.now();
+			expect(affected).toBe(1);
+			expect(scheduledFor.getTime()).toBeGreaterThanOrEqual(before);
+			expect(scheduledFor.getTime()).toBeLessThanOrEqual(after);
+		});
+
+		it('paso sin pendientes → affected 0; paso inexistente → null', async () => {
+			const { seq } = await seedReschedule([
+				{ status: 'sent', scheduledFor: new Date('2026-09-01T15:00:00Z'), firstName: 'Ana' },
+			]);
+			const step = await svc.findStepWithSequence(seq.steps![0].id);
+			const { affected } = await svc.rescheduleStep(step!, { date: '2026-10-01', hour: 9 });
+			expect(affected).toBe(0);
+			expect(await svc.findStepWithSequence('00000000-0000-0000-0000-000000000000')).toBeNull();
+		});
+	});
+
+	describe('M5-B4: archivado de pasos', () => {
+		/**
+		 * Retiro CDMX con fechas fijas (abierto: sin anti-backfill) + secuencia
+		 * de 2 pasos + 2 caminantes enrolados. Estados sembrados a mano para
+		 * probar qué sobrevive al archivar el paso 1.
+		 */
+		async function seedArchive() {
+			const retreat = await TestDataFactory.createTestRetreat({
+				timezone: 'America/Mexico_City',
+				// Mediodía UTC: el día calendario sobrevive el shift del
+				// DateTimeTransformer al persistir (misma razón que el 12:00Z de M3).
+				startDate: new Date('2026-11-10T12:00:00.000Z'),
+				endDate: new Date('2026-11-13T12:00:00.000Z'),
+			} as any);
+			await createTemplate(retreat.id, 'WALKER_WELCOME', 'Hola');
+			await createTemplate(retreat.id, 'PAYMENT_REMINDER', 'Pago');
+			const p1 = await TestDataFactory.createTestParticipant(retreat.id, {
+				type: 'walker', firstName: 'Ana', lastName: 'M5', email: 'ana-m5@example.com',
+			} as any);
+			const p2 = await TestDataFactory.createTestParticipant(retreat.id, {
+				type: 'walker', firstName: 'Beto', lastName: 'M5', email: 'beto-m5@example.com',
+			} as any);
+			const seq = await svc.createSequence({
+				name: 'M5', retreatId: retreat.id, trigger: 'days_before_retreat', audience: 'walker',
+				steps: [
+					{ stepOrder: 0, offsetDays: 5, sendHour: 9, templateType: 'WALKER_WELCOME', channel: 'whatsapp' } as any,
+					{ stepOrder: 1, offsetDays: 2, sendHour: 9, templateType: 'PAYMENT_REMINDER', channel: 'whatsapp' } as any,
+				],
+			});
+			expect(await svc.enrollSequence(seq)).toBe(4); // 2 pasos × 2 caminantes
+			// Estados sembrados a mano para probar qué sobrevive al archivar el
+			// paso 1: su fila de p1 queda sent (historial), su fila de p2 queda
+			// pending (la que debe cancelarse). El paso 2 conserva pending/queued.
+			const repo = AppDataSource.getRepository(ScheduledMessage);
+			const rows = await repo.find({ where: { sequenceId: seq.id } });
+			const byKey = (stepIdx: number, pid: string) =>
+				rows.find((r) => r.stepId === seq.steps![stepIdx].id && r.participantId === pid)!;
+			byKey(0, p1.id).status = 'sent';
+			byKey(1, p2.id).status = 'queued';
+			await repo.save([byKey(0, p1.id), byKey(1, p2.id)]);
+			return { retreat, seq, p1, p2, repo };
+		}
+
+		it('quitar un paso lo archiva (no lo borra) y cancela SOLO sus pending', async () => {
+			const { seq, p1, p2, repo } = await seedArchive();
+			const [step1, step2] = seq.steps!;
+
+			const res = await svc.updateSequence(seq.id, {
+				// Se conserva el paso 2 por id; el paso 1 desaparece del editor.
+				steps: [{ id: step2.id, stepOrder: 0, offsetDays: 2, sendHour: 9, templateType: 'PAYMENT_REMINDER', channel: 'whatsapp' } as any],
+			});
+			expect(res?.archivedStepCount).toBe(1);
+			expect(res?.archivedPendingCount).toBe(1); // el pending del paso archivado
+			expect(res?.cancelledPendingCount).toBe(0); // no cambió trigger/audiencia
+
+			// El paso 1 sigue en la DB, archivado (soft, el cascade nunca corre).
+			const stepRepo = AppDataSource.getRepository(SequenceStep);
+			const archived = await stepRepo.findOneByOrFail({ id: step1.id });
+			expect(archived.isArchived).toBe(true);
+			// Y findById ya no lo expone: el editor no puede revivirlo.
+			const visible = (await svc.findById(seq.id))!.steps!;
+			expect(visible.map((s) => s.id)).toEqual([step2.id]);
+
+			// sent (historial) del paso archivado: intacto.
+			const sent = await repo.findOneByOrFail({ stepId: step1.id, participantId: p1.id });
+			expect(sent.status).toBe('sent');
+			// El pending del paso archivado quedó cancelled con motivo accionable.
+			const cancelled = await repo.findOneByOrFail({ stepId: step1.id, participantId: p2.id });
+			expect(cancelled.status).toBe('cancelled');
+			expect(cancelled.error).toBe('paso archivado');
+			// El paso VIVO no se toca: su pending sigue pending, su queued queued.
+			const alivePending = await repo.findOneByOrFail({ stepId: step2.id, participantId: p1.id });
+			expect(alivePending.status).toBe('pending');
+			const aliveQueued = await repo.findOneByOrFail({ stepId: step2.id, participantId: p2.id });
+			expect(aliveQueued.status).toBe('queued');
+		});
+
+		it('los pasos archivados no vuelven a enrolar (nuevo participante)', async () => {
+			const { retreat, seq } = await seedArchive();
+			const [step1, step2] = seq.steps!;
+			await svc.updateSequence(seq.id, {
+				steps: [{ id: step2.id, stepOrder: 0, offsetDays: 2, sendHour: 9, templateType: 'PAYMENT_REMINDER', channel: 'whatsapp' } as any],
+			});
+
+			// Un caminante nuevo tras el archivado: sólo el paso vivo lo enrola.
+			const p3 = await TestDataFactory.createTestParticipant(retreat.id, {
+				type: 'walker', firstName: 'Caro', lastName: 'M5', email: 'caro-m5@example.com',
+			} as any);
+			const reloaded = (await svc.findById(seq.id))!;
+			expect(await svc.enrollSequence(reloaded)).toBe(1);
+			const rows = await AppDataSource.getRepository(ScheduledMessage).find({
+				where: { participantId: p3.id },
+			});
+			expect(rows).toHaveLength(1);
+			expect(rows[0].stepId).toBe(step2.id);
+			expect(rows[0].stepId).not.toBe(step1.id);
+		});
+	});
+
+	describe('M5-B3: cambio de trigger/audiencia re-materializa', () => {
+		async function seedRetrigger() {
+			const retreat = await TestDataFactory.createTestRetreat({
+				timezone: 'America/Mexico_City',
+				// Mediodía UTC: el día calendario sobrevive el shift del
+				// DateTimeTransformer al persistir (misma razón que el 12:00Z de M3).
+				startDate: new Date('2026-11-10T12:00:00.000Z'),
+				endDate: new Date('2026-11-13T12:00:00.000Z'),
+			} as any);
+			await createTemplate(retreat.id, 'WALKER_WELCOME', 'Hola');
+			await TestDataFactory.createTestParticipant(retreat.id, {
+				type: 'walker', firstName: 'Ana', lastName: 'M5', email: 'ana-m5b3@example.com',
+			} as any);
+			const seq = await svc.createSequence({
+				name: 'B3', retreatId: retreat.id, trigger: 'days_before_retreat', audience: 'walker',
+				steps: [{ stepOrder: 0, offsetDays: 5, sendHour: 9, templateType: 'WALKER_WELCOME', channel: 'whatsapp' } as any],
+			});
+			expect(await svc.enrollSequence(seq)).toBe(1);
+			// 10-nov − 5 días, 9:00 CDMX = 15:00 UTC.
+			const repo = AppDataSource.getRepository(ScheduledMessage);
+			const row = await repo.findOneByOrFail({ sequenceId: seq.id });
+			expect(row.scheduledFor.toISOString()).toBe('2026-11-05T15:00:00.000Z');
+			return { retreat, seq, repo };
+		}
+
+		it('cambiar el trigger borra las pending y las recrea con fechas nuevas', async () => {
+			const { seq, repo } = await seedRetrigger();
+
+			const res = await svc.updateSequence(seq.id, { trigger: 'days_after_retreat' });
+			expect(res?.cancelledPendingCount).toBe(1);
+			expect(res?.archivedStepCount).toBe(0);
+
+			// Una sola fila (la vieja se BORRÓ, no canceló: la UQ (stepId,
+			// participantId) habría bloqueado el re-enrolamiento) con la fecha
+			// del trigger nuevo: 13-nov + 5 días, 9:00 CDMX.
+			const rows = await repo.find({ where: { sequenceId: seq.id } });
+			expect(rows).toHaveLength(1);
+			expect(rows[0].status).toBe('pending');
+			expect(rows[0].scheduledFor.toISOString()).toBe('2026-11-18T15:00:00.000Z');
+		});
+
+		it('cambiar de solo nombre no toca las filas materializadas', async () => {
+			const { seq, repo } = await seedRetrigger();
+			const before = await repo.findOneByOrFail({ sequenceId: seq.id });
+
+			const res = await svc.updateSequence(seq.id, { name: 'Otro nombre' });
+			expect(res?.cancelledPendingCount).toBe(0);
+			expect(res?.archivedStepCount).toBe(0);
+			expect(res?.name).toBe('Otro nombre');
+
+			const after = await repo.findOneByOrFail({ sequenceId: seq.id });
+			expect(after.id).toBe(before.id);
+			expect(after.status).toBe('pending');
+			expect(after.scheduledFor.getTime()).toBe(before.scheduledFor.getTime());
 		});
 	});
 });

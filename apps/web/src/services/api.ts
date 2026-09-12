@@ -3877,7 +3877,15 @@ export const createMessageSequence = async (
 export const updateMessageSequence = async (
   id: string,
   data: Record<string, unknown>,
-): Promise<MessageSequence> => {
+): Promise<
+  MessageSequence & {
+    // M5: cuenta lo que el edit le hizo a las filas materializadas (ad-hoc en
+    // el JSON del PUT, no en la entity) para que la UI pueda avisar.
+    cancelledPendingCount?: number;
+    archivedStepCount?: number;
+    archivedPendingCount?: number;
+  }
+> => {
   const r = await api.put(`/message-sequences/${id}`, data);
   return r.data;
 };
@@ -3890,6 +3898,96 @@ export const getSequenceQueue = async (
   retreatId: string,
 ): Promise<ScheduledMessageQueueItem[]> => {
   const r = await api.get(`/message-sequences/retreat/${retreatId}/queue`);
+  return r.data;
+};
+
+/** Fila de la pestaña "Programados": DTO plano del servidor, sin PII. */
+export interface ScheduledMessageListItem {
+  id: string;
+  sequenceId: string;
+  stepId: string;
+  participantId: string;
+  participantName: string;
+  templateType: string;
+  channel: 'email' | 'whatsapp';
+  recipientTarget: string;
+  recipientName: string | null;
+  status: string;
+  scheduledFor: string;
+  error: string | null;
+  stepOrder: number | null;
+  offsetDays: number | null;
+  sendHour: number | null;
+  updatedAt: string;
+}
+
+export interface ScheduledMessagesPage {
+  items: ScheduledMessageListItem[];
+  total: number;
+  page: number;
+  totalPages: number;
+  timezone: string;
+}
+
+/** Query de la pestaña "Programados" — TODO server-side (filtros, orden, página). */
+export interface FetchScheduledMessagesOptions {
+  statuses?: string[];
+  sequenceId?: string;
+  participantId?: string;
+  search?: string;
+  page?: number;
+  limit?: number;
+  order?: 'scheduled' | 'recent';
+}
+
+export const fetchScheduledMessages = async (
+  retreatId: string,
+  opts: FetchScheduledMessagesOptions = {},
+): Promise<ScheduledMessagesPage> => {
+  const params = new URLSearchParams();
+  if (opts.statuses?.length) params.set('status', opts.statuses.join(','));
+  if (opts.sequenceId) params.set('sequenceId', opts.sequenceId);
+  if (opts.participantId) params.set('participantId', opts.participantId);
+  if (opts.search) params.set('search', opts.search);
+  if (opts.page) params.set('page', String(opts.page));
+  if (opts.limit) params.set('limit', String(opts.limit));
+  if (opts.order) params.set('order', opts.order);
+  const qs = params.toString();
+  const r = await api.get(`/message-sequences/retreat/${retreatId}/scheduled${qs ? `?${qs}` : ''}`);
+  return r.data;
+};
+
+/**
+ * Fechas TZ que tendrá cada paso para un participante real (timeline del
+ * editor). El servidor loopéa computeScheduledFor — el cliente no duplica
+ * triggers/TZ. `null` = falta el dato del disparador.
+ */
+export const previewSequenceSchedule = async (
+  retreatId: string,
+  participantId: string,
+  trigger: string,
+  steps: Array<{ offsetDays?: number; sendHour?: number }>,
+): Promise<{ dates: Array<string | null>; timezone: string }> => {
+  const r = await api.post('/message-sequences/schedule-preview', {
+    retreatId,
+    participantId,
+    trigger,
+    steps,
+  });
+  return r.data;
+};
+
+/**
+ * Reprogramar/encolar-ya un paso ya materializado: mueve TODOS sus `pending`
+ * a la fecha dada (interpretada en la TZ del retiro) o a ahora (`immediate`,
+ * que además dispara el procesamiento del retiro en el servidor). Devuelve
+ * cuántas filas se movieron y a qué fecha quedaron.
+ */
+export const rescheduleSequenceStep = async (
+  stepId: string,
+  payload: { immediate?: boolean; date?: string; hour?: number },
+): Promise<{ affected: number; scheduledFor: string; processed?: number }> => {
+  const r = await api.post(`/message-sequences/steps/${stepId}/reschedule`, payload);
   return r.data;
 };
 
@@ -3946,17 +4044,24 @@ export const runSequences = async (
 /** Refresca el snapshot de los pendientes de la bandeja con la plantilla vigente. */
 export const regenerateSequenceQueue = async (
   retreatId: string,
-): Promise<{ regenerated: number }> => {
+): Promise<{ regenerated: number; skipped: number }> => {
   const r = await api.post(`/message-sequences/retreat/${retreatId}/regenerate-queue`);
   return r.data;
 };
 
-/** Reenvía o descarta en masa los mensajes con problema (failed/skipped) del retiro. */
+/**
+ * Reenvía o descarta en masa los mensajes con problema (failed/skipped) del
+ * retiro. `ids` opcional acota el bulk a las filas filtradas/visibles en la UI.
+ */
 export const bulkResolveSequenceIssues = async (
   retreatId: string,
   action: 'retry' | 'discard',
+  ids?: string[],
 ): Promise<{ affected: number }> => {
-  const r = await api.post(`/message-sequences/retreat/${retreatId}/issues/bulk`, { action });
+  const r = await api.post(`/message-sequences/retreat/${retreatId}/issues/bulk`, {
+    action,
+    ...(ids?.length ? { ids } : {}),
+  });
   return r.data;
 };
 

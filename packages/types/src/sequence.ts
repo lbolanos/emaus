@@ -226,3 +226,61 @@ export interface SequenceStepPreview {
 	emptyVariables: string[];
 	warning: string | null;
 }
+
+/**
+ * Timeline de fechas de los pasos de una secuencia para un participante real
+ * (visibilidad del tiempo). El servidor loopéa `computeScheduledFor` — la misma
+ * función del motor — para que el preview del editor y el enrolamiento nunca
+ * divergan; el cliente nunca duplica triggers/TZ.
+ */
+export const previewSequenceScheduleSchema = z.object({
+	body: z.object({
+		retreatId: z.string().uuid(),
+		participantId: z.string().uuid(),
+		trigger: sequenceTrigger,
+		steps: z
+			.array(
+				z.object({
+					offsetDays: z.number().int().default(0),
+					sendHour: z.number().int().min(0).max(23).default(9),
+				}),
+			)
+			.min(1)
+			.max(50),
+	}),
+});
+export type PreviewSequenceSchedule = z.infer<typeof previewSequenceScheduleSchema>;
+
+/** Respuesta de schedule-preview: fecha por paso (null = falta dato del disparador). */
+export interface SequenceSchedulePreview {
+	dates: Array<string | null>;
+	timezone: string;
+}
+
+/**
+ * Reprogramar un paso ya materializado: mueve TODOS sus mensajes `pending` a
+ * una fecha absoluta interpretada EN LA TZ DEL RETIRO (o a "ahora" con
+ * `immediate`, que además dispara el procesamiento del retiro para que caigan
+ * en la bandeja de una vez). Lo ya `queued`/`sent` no se toca.
+ */
+export const rescheduleStepSchema = z.object({
+	body: z
+		.object({
+			immediate: z.boolean().optional(),
+			date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+			hour: z.number().int().min(0).max(23).optional(),
+		})
+		.refine((b) => b.immediate || !!b.date, {
+			message: 'Se requiere immediate o date',
+		}),
+	params: z.object({ stepId: z.string().uuid() }),
+});
+export type RescheduleStepRequest = z.infer<typeof rescheduleStepSchema>;
+
+/** Respuesta de reschedule: filas movidas y la fecha compartida resultante. */
+export interface RescheduleStepResponse {
+	affected: number;
+	scheduledFor: string;
+	/** Sólo con immediate: mensajes procesados por el run encadenado. */
+	processed?: number;
+}

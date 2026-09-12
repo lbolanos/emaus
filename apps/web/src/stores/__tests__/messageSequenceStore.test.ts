@@ -20,6 +20,8 @@ vi.mock('@/services/api', () => ({
 	openScheduledMessage: vi.fn(),
 	assignScheduledMessage: vi.fn(),
 	setParticipantDoNotContact: vi.fn(),
+	fetchScheduledMessages: vi.fn(),
+	rescheduleSequenceStep: vi.fn(),
 }));
 
 describe('messageSequenceStore — despacho/ownership/opt-out', () => {
@@ -99,8 +101,61 @@ describe('messageSequenceStore — despacho/ownership/opt-out', () => {
 		api.getSequenceQueue.mockResolvedValue([]);
 		api.getSequenceStats.mockResolvedValue({ stats: {}, issues: [] });
 		const res = await store.bulkResolveIssues('r1', 'discard');
-		expect(api.bulkResolveSequenceIssues).toHaveBeenCalledWith('r1', 'discard');
+		// Sin filtro activo la UI NO acota: ids viaja undefined (bulk-todo server-side).
+		expect(api.bulkResolveSequenceIssues).toHaveBeenCalledWith('r1', 'discard', undefined);
 		expect(res).toEqual({ affected: 5 });
+	});
+
+	it('bulkResolveIssues acota el bulk a los ids filtrados (M6-D6)', async () => {
+		api.bulkResolveSequenceIssues.mockResolvedValue({ affected: 2 });
+		api.getSequenceQueue.mockResolvedValue([]);
+		api.getSequenceStats.mockResolvedValue({ stats: {}, issues: [] });
+		await store.bulkResolveIssues('r1', 'retry', ['x', 'y']);
+		expect(api.bulkResolveSequenceIssues).toHaveBeenCalledWith('r1', 'retry', ['x', 'y']);
+	});
+
+	it('dispatch/skip refrescan stats en el fondo con el retiro recordado (M6-D3)', async () => {
+		// El store recuerda el retreatId del último fetch (fetchScheduled/fetchSequences).
+		api.fetchScheduledMessages.mockResolvedValue({
+			items: [], total: 0, page: 1, totalPages: 1, timezone: 'America/Mexico_City',
+		});
+		await store.fetchScheduled('r1');
+
+		api.getSequenceStats.mockClear();
+		api.dispatchScheduledMessage.mockResolvedValue(undefined);
+		api.skipScheduledMessage.mockResolvedValue(undefined);
+		store.queue = [{ id: 'a' }];
+		// fetchStats invoca el mock de forma síncrona → al resolver la acción ya fue llamado.
+		await store.dispatch('a');
+		expect(api.getSequenceStats).toHaveBeenCalledWith('r1');
+		api.getSequenceStats.mockClear();
+		await store.skip('a');
+		expect(api.getSequenceStats).toHaveBeenCalledWith('r1');
+	});
+
+	it('sin retiro recordado, dispatch no dispara el refresh de stats', async () => {
+		// Store recién creado (ningún fetch) → currentRetreatId null → nada que refrescar.
+		api.dispatchScheduledMessage.mockResolvedValue(undefined);
+		store.queue = [{ id: 'a' }];
+		await store.dispatch('a');
+		expect(api.getSequenceStats).not.toHaveBeenCalled();
+	});
+
+	it('fetchScheduled guarda página, total y la timezone del servidor', async () => {
+		api.fetchScheduledMessages.mockResolvedValue({
+			items: [{ id: 'sm-1', status: 'pending', scheduledFor: '2026-09-25T15:00:00.000Z' }],
+			total: 41,
+			page: 1,
+			totalPages: 1,
+			timezone: 'America/Mexico_City',
+		});
+		await store.fetchScheduled('r1', { statuses: ['pending'], page: 1 });
+		expect(api.fetchScheduledMessages).toHaveBeenCalledWith('r1', { statuses: ['pending'], page: 1 });
+		expect(store.scheduled).toHaveLength(1);
+		expect(store.scheduledTotal).toBe(41);
+		expect(store.scheduledTotalPages).toBe(1);
+		expect(store.scheduledTimezone).toBe('America/Mexico_City');
+		expect(store.scheduledLoading).toBe(false);
 	});
 
 	it('setDoNotContact actualiza el detalle abierto del participante', async () => {
@@ -109,5 +164,31 @@ describe('messageSequenceStore — despacho/ownership/opt-out', () => {
 		await store.setDoNotContact('r1', 'p1', true);
 		expect(api.setParticipantDoNotContact).toHaveBeenCalledWith('r1', 'p1', true);
 		expect(store.detail.participant.doNotContact).toBe(true);
+	});
+
+	it('rescheduleStep llama al endpoint con el stepId y refresca bandeja+stats', async () => {
+		api.rescheduleSequenceStep.mockResolvedValue({ affected: 7, scheduledFor: '2026-09-30T15:00:00.000Z' });
+		api.getSequenceQueue.mockResolvedValue([]);
+		api.getSequenceStats.mockResolvedValue({ stats: {}, issues: [] });
+		const res = await store.rescheduleStep('r1', 'st-1', { date: '2026-09-30', hour: 9 });
+		// El payload va al paso, no al retiro (la ruta es /steps/:stepId/reschedule).
+		expect(api.rescheduleSequenceStep).toHaveBeenCalledWith('st-1', { date: '2026-09-30', hour: 9 });
+		expect(api.getSequenceQueue).toHaveBeenCalledWith('r1');
+		expect(api.getSequenceStats).toHaveBeenCalledWith('r1');
+		expect(res.affected).toBe(7);
+	});
+
+	it('update devuelve los counts de filas afectadas (M5) para que la vista avise', async () => {
+		api.updateMessageSequence.mockResolvedValue({
+			id: 'seq-1', name: 'S', cancelledPendingCount: 4, archivedStepCount: 1, archivedPendingCount: 2,
+		});
+		store.sequences = [{ id: 'seq-1', name: 'Viejo' }];
+		const res = await store.update('seq-1', { name: 'S', trigger: 'days_after_retreat' });
+		expect(api.updateMessageSequence).toHaveBeenCalledWith('seq-1', { name: 'S', trigger: 'days_after_retreat' });
+		// La secuencia del listado queda actualizada Y los counts pasan intactos.
+		expect(store.sequences[0].name).toBe('S');
+		expect(res.cancelledPendingCount).toBe(4);
+		expect(res.archivedStepCount).toBe(1);
+		expect(res.archivedPendingCount).toBe(2);
 	});
 });

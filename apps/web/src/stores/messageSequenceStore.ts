@@ -19,8 +19,13 @@ import {
 	openScheduledMessage,
 	assignScheduledMessage,
 	setParticipantDoNotContact,
+	fetchScheduledMessages,
+	rescheduleSequenceStep,
 	type ScheduledMessageQueueItem,
 	type ScheduledMessageDetail,
+	type ScheduledMessageListItem,
+	type ScheduledMessagesPage,
+	type FetchScheduledMessagesOptions,
 } from '@/services/api';
 
 /**
@@ -36,9 +41,21 @@ export const useMessageSequenceStore = defineStore('message-sequence', () => {
 	const loading = ref(false);
 	const error = ref<string | null>(null);
 
+	// Pestaña "Programados": paginado server-side (filtros/orden/página en el API).
+	const scheduled = ref<ScheduledMessageListItem[]>([]);
+	const scheduledTotal = ref(0);
+	const scheduledPage = ref(1);
+	const scheduledTotalPages = ref(1);
+	const scheduledTimezone = ref<string | null>(null);
+	const scheduledLoading = ref(false);
+	// Retiro del último fetch: alimenta el fallback de TZ y los refresh de stats
+	// fire-and-forget (sin andar pasando el retreatId por todos lados).
+	let currentRetreatId: string | null = null;
+
 	const fetchSequences = async (retreatId: string) => {
 		loading.value = true;
 		error.value = null;
+		currentRetreatId = retreatId;
 		try {
 			sequences.value = await getRetreatSequences(retreatId);
 		} catch (e: any) {
@@ -63,6 +80,29 @@ export const useMessageSequenceStore = defineStore('message-sequence', () => {
 			issues.value = res.issues;
 		} catch (e: any) {
 			error.value = e?.message || 'Failed to fetch stats';
+		}
+	};
+
+	/**
+	 * Pestaña "Programados": TODO el filtrado/orden/paginación lo resuelve el
+	 * servidor. La TZ viene en la respuesta (el cliente nunca la infiere); se
+	 * expone como `scheduledTimezone` para pintar fechas y como fallback del
+	 * resto de la vista (bandeja/detalle).
+	 */
+	const fetchScheduled = async (retreatId: string, opts: FetchScheduledMessagesOptions = {}) => {
+		scheduledLoading.value = true;
+		currentRetreatId = retreatId;
+		try {
+			const res: ScheduledMessagesPage = await fetchScheduledMessages(retreatId, opts);
+			scheduled.value = res.items;
+			scheduledTotal.value = res.total;
+			scheduledPage.value = res.page;
+			scheduledTotalPages.value = res.totalPages;
+			scheduledTimezone.value = res.timezone;
+		} catch (e: any) {
+			error.value = e?.message || 'Failed to fetch scheduled messages';
+		} finally {
+			scheduledLoading.value = false;
 		}
 	};
 
@@ -114,22 +154,48 @@ export const useMessageSequenceStore = defineStore('message-sequence', () => {
 		return result;
 	};
 
-	// Acción masiva sobre los mensajes con problema (reenviar/descartar).
-	const bulkResolveIssues = async (retreatId: string, action: 'retry' | 'discard') => {
-		const result = await bulkResolveSequenceIssues(retreatId, action);
+	// Acción masiva sobre los mensajes con problema (reenviar/descartar). Con
+	// `ids` acota el bulk a las filas filtradas/visibles en la UI (M6-D6).
+	const bulkResolveIssues = async (retreatId: string, action: 'retry' | 'discard', ids?: string[]) => {
+		const result = await bulkResolveSequenceIssues(retreatId, action, ids);
 		await fetchQueue(retreatId);
 		await fetchStats(retreatId);
 		return result;
 	};
 
+	/**
+	 * Reprogramar/encolar-ya un paso: mueve sus `pending` y refresca las tres
+	 * vistas que pueden verse afectadas (Programados, bandeja y stats — con
+	 * `immediate` los mensajes caen a `queued` en el servidor).
+	 */
+	const rescheduleStep = async (
+		retreatId: string,
+		stepId: string,
+		payload: { immediate?: boolean; date?: string; hour?: number },
+	) => {
+		const result = await rescheduleSequenceStep(stepId, payload);
+		await Promise.all([fetchQueue(retreatId), fetchStats(retreatId)]);
+		return result;
+	};
+
+	// Refresca stats en el fondo (M6-D3): despachar/omitir/reintentar/descartar
+	// cambian los contadores de los badges de la lista. Fire-and-forget — nunca
+	// bloquea la acción ni la rompe si el fetch falla.
+	const refreshStatsInBackground = () => {
+		if (!currentRetreatId) return;
+		fetchStats(currentRetreatId).catch(() => {});
+	};
+
 	const dispatch = async (id: string) => {
 		await dispatchScheduledMessage(id);
 		queue.value = queue.value.filter((q) => q.id !== id);
+		refreshStatsInBackground();
 	};
 
 	const skip = async (id: string) => {
 		await skipScheduledMessage(id);
 		queue.value = queue.value.filter((q) => q.id !== id);
+		refreshStatsInBackground();
 	};
 
 	// Re-encola un fallido: sale de la lista de problemas (volverá a la cola/cron).
@@ -137,6 +203,7 @@ export const useMessageSequenceStore = defineStore('message-sequence', () => {
 		await retryScheduledMessage(id);
 		issues.value = issues.value.filter((q) => q.id !== id);
 		queue.value = queue.value.filter((q) => q.id !== id);
+		refreshStatsInBackground();
 	};
 
 	// Descarta: sale de la lista de problemas y no reaparece.
@@ -144,6 +211,7 @@ export const useMessageSequenceStore = defineStore('message-sequence', () => {
 		await discardScheduledMessage(id);
 		issues.value = issues.value.filter((q) => q.id !== id);
 		queue.value = queue.value.filter((q) => q.id !== id);
+		refreshStatsInBackground();
 	};
 
 	// Registra apertura del deep-link (≠ enviado): el ítem permanece en la bandeja.
@@ -175,9 +243,16 @@ export const useMessageSequenceStore = defineStore('message-sequence', () => {
 		detailLoading,
 		loading,
 		error,
+		scheduled,
+		scheduledTotal,
+		scheduledPage,
+		scheduledTotalPages,
+		scheduledTimezone,
+		scheduledLoading,
 		fetchSequences,
 		fetchQueue,
 		fetchStats,
+		fetchScheduled,
 		fetchDetail,
 		clearDetail,
 		create,
@@ -186,6 +261,7 @@ export const useMessageSequenceStore = defineStore('message-sequence', () => {
 		run,
 		regenerateQueue,
 		bulkResolveIssues,
+		rescheduleStep,
 		dispatch,
 		skip,
 		retry,

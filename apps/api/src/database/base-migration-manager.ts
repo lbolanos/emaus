@@ -3,6 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { shouldUseTransaction } from './transaction-policy';
+import { computeMigrationStats } from './migration-stats';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -153,11 +154,14 @@ export class ${this.camelize(timestamp)}${this.camelize(name)} implements Migrat
 	async showMigrations(options: ShowOptions = {}): Promise<MigrationStats> {
 		const allMigrations = await this.getAllMigrations();
 		const executedMigrations = await this.getExecutedMigrations();
+		// Pendientes por NOMBRE (ver migration-stats.ts): una migración
+		// registrada sin archivo no puede enmascarar migraciones nuevas.
+		const { total, executed, pending } = computeMigrationStats(allMigrations, executedMigrations);
 
 		const stats: MigrationStats = {
-			total: allMigrations.length,
-			executed: executedMigrations.length,
-			pending: allMigrations.length - executedMigrations.length,
+			total,
+			executed,
+			pending,
 			migrations: allMigrations.map((migration) => {
 				const executed = executedMigrations.find((em) => em.name === migration.name);
 				return {

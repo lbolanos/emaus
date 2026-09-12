@@ -3,7 +3,7 @@ import { In, LessThanOrEqual } from 'typeorm';
 import { AppDataSource } from '../data-source';
 import { MessageSequence } from '../entities/messageSequence.entity';
 import { SequenceStep } from '../entities/sequenceStep.entity';
-import { ScheduledMessage } from '../entities/scheduledMessage.entity';
+import { ScheduledMessage, type ScheduledMessageStatus } from '../entities/scheduledMessage.entity';
 import { Participant } from '../entities/participant.entity';
 import { RetreatParticipant } from '../entities/retreatParticipant.entity';
 import { TableMesa } from '../entities/tableMesa.entity';
@@ -20,6 +20,7 @@ import {
 	buildServerRegistrationLink,
 	convertHtmlToEmail,
 	replaceAllVariables,
+	type CommunityData,
 	type TableData,
 	isPlaceholderBirthDate,
 	findEmptyVariables,
@@ -27,6 +28,7 @@ import {
 import { getMessageTemplateAudience } from '@repo/types';
 import { savedSegmentService } from './savedSegmentService';
 import { CommunityMember } from '../entities/communityMember.entity';
+import { Community } from '../entities/community.entity';
 import { EMAIL_SILENT_STATES } from './communityService';
 import { getParticipantShirtOrderSummary } from './shirtReportService';
 
@@ -61,6 +63,22 @@ type StepSyncInput = {
 	recipientResponsibility?: string | null;
 	condition?: Record<string, unknown> | null;
 };
+
+/**
+ * Violación de la máquina de transiciones de un scheduled message. El
+ * controller la traduce a HTTP 409: el conflicto es de estado, no de sintaxis
+ * (400) ni de permisos (403) — el mensaje EXISTE pero ya no está en un estado
+ * desde el que la acción tenga sentido.
+ */
+export class InvalidTransitionError extends Error {
+	constructor(current: ScheduledMessageStatus, action: string, allowed: ScheduledMessageStatus[]) {
+		super(
+			`Transición inválida: no se puede ${action} un mensaje en estado '${current}'` +
+				(allowed.length ? ` (válido desde: ${allowed.join(', ')})` : ''),
+		);
+		this.name = 'InvalidTransitionError';
+	}
+}
 
 /** Componentes calendario UTC de un Date (para fechas almacenadas a medianoche UTC). */
 function ymdUtc(date: Date): { y: number; m0: number; d: number } {
@@ -244,9 +262,15 @@ export class MessageSequenceService {
 
 	/** Enrola los participantes elegibles de una secuencia (idempotente). */
 	public async enrollSequence(seq: MessageSequence, now: Date = new Date()): Promise<number> {
-		const steps = seq.steps?.length
-			? seq.steps
-			: await AppDataSource.getRepository(SequenceStep).find({ where: { sequenceId: seq.id } });
+		// Sólo pasos vivos: los archivados ya no enrolan (B4). El filtro cubre
+		// ambas vías — la carga fresca y unos `seq.steps` hidratados sin filtro.
+		const steps = (
+			seq.steps?.length
+				? seq.steps
+				: await AppDataSource.getRepository(SequenceStep).find({
+						where: { sequenceId: seq.id, isArchived: false },
+					})
+		).filter((s) => !s.isArchived);
 		if (!steps.length) return 0;
 
 		const retreat = await AppDataSource.getRepository(Retreat).findOne({
@@ -553,15 +577,37 @@ export class MessageSequenceService {
 				retreat,
 			),
 		};
+		// `{community.*}`: la comunidad REAL del retiro cuando la plantilla la usa
+		// (lazy, igual que {table.*}). NUNCA pasar `null`: replaceAllVariables
+		// sólo sustituye {community.*} si el argumento es !== undefined, y el
+		// fallback a getMockCommunity() ("Comunidad Emaús Demo") existe SÓLO para
+		// el preview de UI — al motor le llegaba texto inventado a destinatarios
+		// reales. Sin comunidad vinculada queda undefined y el placeholder se
+		// reporta como literal (la guarda de processDue lo skippea antes del envío).
+		const communityData =
+			message.includes('{community.') && retreat.communityId
+				? await this.loadCommunityData(retreat.communityId)
+				: undefined;
 		return replaceAllVariables(
 			message,
 			participantWithShirtOrder as any,
 			retreatWithLinks as any,
 			contactKey,
-			null,
-			tableData,
+			communityData,
+			// Ídem {table.*}: `null` (sin mesa) activaría el mock del briefing;
+			// `undefined` deja el placeholder literal.
+			tableData ?? undefined,
 			escapeHtmlValues,
 		);
+	}
+
+	/** Data parcial `{community.*}` (name/parish) desde la comunidad vinculada. */
+	private async loadCommunityData(communityId: string): Promise<CommunityData | undefined> {
+		const community = await AppDataSource.getRepository(Community).findOne({
+			where: { id: communityId },
+		});
+		if (!community) return undefined;
+		return { name: community.name, parish: community.parish ?? undefined };
 	}
 
 	/** Titular (asignado) de una responsabilidad del retiro, por nombre. */
@@ -684,6 +730,9 @@ export class MessageSequenceService {
 		limit = Number(process.env.SEQUENCE_PROCESS_LIMIT) || 200,
 		retreatId?: string,
 	): Promise<number> {
+		// Filas atascadas en `processing` (crash/restart a mitad de una corrida
+		// previa) vuelven a `pending` antes de leer candidatas.
+		await this.reapStaleProcessing();
 		const repo = AppDataSource.getRepository(ScheduledMessage);
 		// Solo de secuencias activas; pendientes o fallidos con reintentos restantes.
 		const dueQb = repo
@@ -730,213 +779,299 @@ export class MessageSequenceService {
 			// con que la leímos. Si otra corrida concurrente (cron, runNow, o el
 			// fire-and-forget del alta) ya la tomó, affected=0 → la saltamos. Evita el
 			// doble envío del mismo mensaje a un participante.
+			// `updatedAt` va EXPLÍCITO: repo.update() NO pisa @UpdateDateColumn
+			// solo (verificado con TypeORM 0.3.27) y reapStaleProcessing se guía
+			// por updatedAt para devolver a `pending` filas huérfanas — sin esto
+			// el reaper robaría un claim en curso.
 			const claim = await repo.update(
 				{ id: sm.id, status: sm.status },
-				{ status: 'processing' },
+				{ status: 'processing', updatedAt: new Date() },
 			);
 			if (!claim.affected) continue;
 
-			const participant = sm.participant;
-			const retreat = sm.retreat;
-			if (!participant || !retreat) {
-				sm.status = 'skipped';
-				sm.error = 'participante o retiro no encontrado';
-				await repo.save(sm);
-				continue;
-			}
-
-			// Opt-out: lista de no-contacto.
-			if (participant.doNotContact) {
-				sm.status = 'skipped';
-				sm.error = 'participante en lista de no-contacto';
-				await repo.save(sm);
-				continue;
-			}
-
-			// No enviar a participantes cancelados del retiro.
-			const rp = await AppDataSource.getRepository(RetreatParticipant).findOne({
-				where: { participantId: participant.id, retreatId: sm.retreatId },
-			});
-			if (rp?.isCancelled) {
-				sm.status = 'cancelled';
-				sm.error = 'participante cancelado';
-				await repo.save(sm);
-				continue;
-			}
-
-			// Salvaguarda anti-backfill (red de seguridad): no enviar mensajes de un
-			// retiro que ya cerró su ventana para este trigger, aunque quedaran filas
-			// `pending` materializadas (p. ej. de una activación previa de la feature).
-			const seq = sm.sequence;
-			if (this.isRetreatClosed(retreat, seq?.trigger, now)) {
-				sm.status = 'skipped';
-				sm.error = 'retiro finalizado';
-				await repo.save(sm);
-				continue;
-			}
-
-			// Ventana de gracia: no enviar un paso vencido hace más de N días.
-			if (seq?.maxOverdueDays != null) {
-				const overdueDays = (now.getTime() - new Date(sm.scheduledFor).getTime()) / 86400000;
-				if (overdueDays > seq.maxOverdueDays) {
-					sm.status = 'skipped';
-					sm.error = `vencido hace más de ${seq.maxOverdueDays} día(s)`;
-					await repo.save(sm);
-					continue;
-				}
-			}
-
-			// Parar al responder: declinó → no enviar; confirmó → parar si la secuencia lo pide.
-			// Freno global: si el coordinador marcó "declinó" en el seguimiento, no
-			// se le envía nada. (Parar al CONFIRMAR no es un freno global: se modela
-			// como condición de paso `attendanceFilter='pending'` sobre la
-			// confirmación de asistencia real — ver resolveRecipient/condición.)
-			const followUp = await AppDataSource.getRepository(ParticipantFollowUp).findOne({
-				where: { participantId: participant.id, retreatId: sm.retreatId },
-			});
-			if (followUp?.status === 'declined') {
-				sm.status = 'skipped';
-				sm.error = 'participante declinó (seguimiento)';
-				await repo.save(sm);
-				continue;
-			}
-
-			// Condición del paso: el participante debe cumplir los filtros.
-			const condition = sm.step?.condition;
-			if (condition && Object.keys(condition).length > 0) {
-				const key = `${sm.retreatId}:${JSON.stringify(condition)}`;
-				let allowed = conditionCache.get(key);
-				if (!allowed) {
-					const matches = await savedSegmentService.evaluateFilters(sm.retreatId, condition as any);
-					allowed = new Set(matches.map((p) => p.id));
-					conditionCache.set(key, allowed);
-				}
-				if (!allowed.has(participant.id)) {
-					sm.status = 'skipped';
-					sm.error = 'no cumple la condición del paso';
-					await repo.save(sm);
-					continue;
-				}
-			}
-
-			// Tope diario por participante: posponer (no marcar) si ya alcanzó el límite.
-			if (maxPerDay > 0 && (sentToday.get(participant.id) ?? 0) >= maxPerDay) {
-				continue;
-			}
-
-			const template = await AppDataSource.getRepository(MessageTemplate).findOne({
-				where: { retreatId: sm.retreatId, type: sm.templateType as any },
-			});
-			if (!template) {
-				sm.status = 'skipped';
-				sm.error = `sin plantilla ${sm.templateType} en el retiro`;
-				await repo.save(sm);
-				continue;
-			}
-
-			// Variables basadas en getters ({participant.paymentRemaining}): el
-			// participante del join viene sin relations ni overlay per-retiro.
-			const participantForTemplate = await this.hydrateParticipantForTemplateVariables(
-				participant,
-				sm.retreatId,
-				template.message,
-			);
-
-			const target = (sm.recipientTarget || 'participant') as MessageRecipientTarget;
-			const recipient = await this.resolveRecipient(
-				participantForTemplate,
-				target,
-				sm.retreatId,
-				sm.step?.recipientResponsibility,
-			);
-			// Si el destinatario indirecto (invitador/líder/responsable) NO EXISTE
-			// (sin nombre ni contacto), no es un error a corregir: el caminante
-			// simplemente no tiene ese vínculo. Se cancela en silencio (fuera de la
-			// lista de "Problemas"), con motivo claro para auditoría.
-			if (
-				target !== 'participant' &&
-				!recipient.name &&
-				!recipient.phone &&
-				!recipient.email
-			) {
-				sm.status = 'cancelled';
-				sm.error = this.missingRecipientReason(target);
-				await repo.save(sm);
-				continue;
-			}
-			const content = await this.resolveContent(
-				template.message,
-				participantForTemplate,
-				retreat,
-				recipient.contactKey,
-				sm.retreatId,
-			);
-
-			if (sm.channel === 'whatsapp') {
-				if (!recipient.phone) {
-					sm.status = 'skipped';
-					sm.error = 'destinatario sin teléfono';
-					await repo.save(sm);
-					continue;
-				}
-				// Snapshot del envío para la bandeja (no recalcula variables al despachar).
-				sm.status = 'queued';
-				sm.resolvedContent = content;
-				sm.resolvedContact = recipient.phone;
-				sm.recipientName = recipient.name;
-				await repo.save(sm);
-				sentToday.set(participant.id, (sentToday.get(participant.id) ?? 0) + 1);
-				processed++;
-				continue;
-			}
-
-			// EMAIL desatendido.
-			if (!recipient.email) {
-				sm.status = 'skipped';
-				sm.error = 'destinatario sin email';
-				await repo.save(sm);
-				continue;
-			}
-			const subject = template.name || 'Mensaje';
-			// HTML del email: re-resuelve escapando los valores de las variables
-			// (anti-inyección de HTML vía datos del participante). El `text` plano usa
-			// el `content` sin escapar para no mostrar entidades (&amp;) al destinatario.
-			const htmlContent = await this.resolveContent(
-				template.message,
-				participantForTemplate,
-				retreat,
-				recipient.contactKey,
-				sm.retreatId,
-				true,
-			);
-			const html = convertHtmlToEmail(htmlContent, { format: 'enhanced' });
-			const text = content.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
 			try {
-				const ok = await this.emailService.sendEmail({ to: recipient.email, subject, html, text });
-				if (!ok) {
+				const participant = sm.participant;
+				const retreat = sm.retreat;
+				if (!participant || !retreat) {
+					sm.status = 'skipped';
+					sm.error = 'participante o retiro no encontrado';
+					await repo.save(sm);
+					continue;
+				}
+
+				// Opt-out: lista de no-contacto.
+				if (participant.doNotContact) {
+					sm.status = 'skipped';
+					sm.error = 'participante en lista de no-contacto';
+					await repo.save(sm);
+					continue;
+				}
+
+				// No enviar a participantes cancelados del retiro.
+				const rp = await AppDataSource.getRepository(RetreatParticipant).findOne({
+					where: { participantId: participant.id, retreatId: sm.retreatId },
+				});
+				if (rp?.isCancelled) {
+					sm.status = 'cancelled';
+					sm.error = 'participante cancelado';
+					await repo.save(sm);
+					continue;
+				}
+
+				// Salvaguarda anti-backfill (red de seguridad): no enviar mensajes de un
+				// retiro que ya cerró su ventana para este trigger, aunque quedaran filas
+				// `pending` materializadas (p. ej. de una activación previa de la feature).
+				const seq = sm.sequence;
+				if (this.isRetreatClosed(retreat, seq?.trigger, now)) {
+					sm.status = 'skipped';
+					sm.error = 'retiro finalizado';
+					await repo.save(sm);
+					continue;
+				}
+
+				// Ventana de gracia: no enviar un paso vencido hace más de N días.
+				if (seq?.maxOverdueDays != null) {
+					const overdueDays = (now.getTime() - new Date(sm.scheduledFor).getTime()) / 86400000;
+					if (overdueDays > seq.maxOverdueDays) {
+						sm.status = 'skipped';
+						sm.error = `vencido hace más de ${seq.maxOverdueDays} día(s)`;
+						await repo.save(sm);
+						continue;
+					}
+				}
+
+				// Parar al responder: declinó → no enviar; confirmó → parar si la secuencia lo pide.
+				// Freno global: si el coordinador marcó "declinó" en el seguimiento, no
+				// se le envía nada. (Parar al CONFIRMAR no es un freno global: se modela
+				// como condición de paso `attendanceFilter='pending'` sobre la
+				// confirmación de asistencia real — ver resolveRecipient/condición.)
+				const followUp = await AppDataSource.getRepository(ParticipantFollowUp).findOne({
+					where: { participantId: participant.id, retreatId: sm.retreatId },
+				});
+				if (followUp?.status === 'declined') {
+					sm.status = 'skipped';
+					sm.error = 'participante declinó (seguimiento)';
+					await repo.save(sm);
+					continue;
+				}
+
+				// Condición del paso: el participante debe cumplir los filtros.
+				const condition = sm.step?.condition;
+				if (condition && Object.keys(condition).length > 0) {
+					const key = `${sm.retreatId}:${JSON.stringify(condition)}`;
+					let allowed = conditionCache.get(key);
+					if (!allowed) {
+						const matches = await savedSegmentService.evaluateFilters(sm.retreatId, condition as any);
+						allowed = new Set(matches.map((p) => p.id));
+						conditionCache.set(key, allowed);
+					}
+					if (!allowed.has(participant.id)) {
+						sm.status = 'skipped';
+						sm.error = 'no cumple la condición del paso';
+						await repo.save(sm);
+						continue;
+					}
+				}
+
+				// Tope diario por participante: posponer si ya alcanzó el límite. Se
+				// revierte el claim al estado original (condicional sobre 'processing'
+				// por si una corrida concurrente ya la movió) — antes este `continue`
+				// dejaba la fila `processing` para siempre: el cron sólo toma
+				// pending/failed, así que el mensaje nunca salía ni reportaba nada.
+				if (maxPerDay > 0 && (sentToday.get(participant.id) ?? 0) >= maxPerDay) {
+					await repo.update(
+						{ id: sm.id, status: 'processing' },
+						{ status: sm.status, updatedAt: new Date() },
+					);
+					continue;
+				}
+
+				const template = await AppDataSource.getRepository(MessageTemplate).findOne({
+					where: { retreatId: sm.retreatId, type: sm.templateType as any },
+				});
+				if (!template) {
+					sm.status = 'skipped';
+					sm.error = `sin plantilla ${sm.templateType} en el retiro`;
+					await repo.save(sm);
+					continue;
+				}
+
+				// Variables basadas en getters ({participant.paymentRemaining}): el
+				// participante del join viene sin relations ni overlay per-retiro.
+				const participantForTemplate = await this.hydrateParticipantForTemplateVariables(
+					participant,
+					sm.retreatId,
+					template.message,
+				);
+
+				const target = (sm.recipientTarget || 'participant') as MessageRecipientTarget;
+				const recipient = await this.resolveRecipient(
+					participantForTemplate,
+					target,
+					sm.retreatId,
+					sm.step?.recipientResponsibility,
+				);
+				// Si el destinatario indirecto (invitador/líder/responsable) NO EXISTE
+				// (sin nombre ni contacto), no es un error a corregir: el caminante
+				// simplemente no tiene ese vínculo. Se cancela en silencio (fuera de la
+				// lista de "Problemas"), con motivo claro para auditoría.
+				if (
+					target !== 'participant' &&
+					!recipient.name &&
+					!recipient.phone &&
+					!recipient.email
+				) {
+					sm.status = 'cancelled';
+					sm.error = this.missingRecipientReason(target);
+					await repo.save(sm);
+					continue;
+				}
+				// Guardas pre-envío para variables contextuales: si la plantilla usa
+				// {table.*} el participante debe liderar una mesa, y si usa {community.*}
+				// el retiro debe tener comunidad vinculada. Sin contexto real el mensaje
+				// saldría con el placeholder literal (resolveContent ya no cae a mocks);
+				// mejor skip con motivo accionable (visible en Problemas) que entregar
+				// texto roto. El roster se arma UNA vez y se reutiliza en los dos renders
+				// (texto y HTML del email) — buildTableData hace ~6 consultas.
+				let precomputedTableData: TableData | null | undefined;
+				if (template.message.includes('{table.')) {
+					precomputedTableData = await this.buildTableData(participant.id, sm.retreatId);
+					if (!precomputedTableData) {
+						sm.status = 'skipped';
+						sm.error = 'sin mesa asignada (briefing de mesa)';
+						await repo.save(sm);
+						continue;
+					}
+				}
+				if (template.message.includes('{community.') && !retreat.communityId) {
+					sm.status = 'skipped';
+					sm.error = 'plantilla usa {community.*} sin comunidad vinculada';
+					await repo.save(sm);
+					continue;
+				}
+				const content = await this.resolveContent(
+					template.message,
+					participantForTemplate,
+					retreat,
+					recipient.contactKey,
+					sm.retreatId,
+					false,
+					precomputedTableData,
+				);
+
+				if (sm.channel === 'whatsapp') {
+					if (!recipient.phone) {
+						sm.status = 'skipped';
+						sm.error = 'destinatario sin teléfono';
+						await repo.save(sm);
+						continue;
+					}
+					// Snapshot del envío para la bandeja (no recalcula variables al despachar).
+					sm.status = 'queued';
+					sm.resolvedContent = content;
+					sm.resolvedContact = recipient.phone;
+					sm.recipientName = recipient.name;
+					await repo.save(sm);
+					sentToday.set(participant.id, (sentToday.get(participant.id) ?? 0) + 1);
+					processed++;
+					continue;
+				}
+
+				// EMAIL desatendido.
+				if (!recipient.email) {
+					sm.status = 'skipped';
+					sm.error = 'destinatario sin email';
+					await repo.save(sm);
+					continue;
+				}
+				const subject = template.name || 'Mensaje';
+				// HTML del email: re-resuelve escapando los valores de las variables
+				// (anti-inyección de HTML vía datos del participante). El `text` plano usa
+				// el `content` sin escapar para no mostrar entidades (&amp;) al destinatario.
+				const htmlContent = await this.resolveContent(
+					template.message,
+					participantForTemplate,
+					retreat,
+					recipient.contactKey,
+					sm.retreatId,
+					true,
+					precomputedTableData,
+				);
+				const html = convertHtmlToEmail(htmlContent, { format: 'enhanced' });
+				const text = content.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+				try {
+					const ok = await this.emailService.sendEmail({ to: recipient.email, subject, html, text });
+					if (!ok) {
+						sm.attempts += 1;
+						sm.status = 'failed';
+						sm.error = 'envío SMTP falló';
+						await repo.save(sm);
+						continue;
+					}
+					sm.status = 'sent';
+					sm.sentAt = now;
+					sm.resolvedContent = html;
+					sm.resolvedContact = recipient.email;
+					sm.recipientName = recipient.name;
+					await repo.save(sm);
+					await this.recordCommunication(sm, template, recipient, html, subject);
+					sentToday.set(participant.id, (sentToday.get(participant.id) ?? 0) + 1);
+					processed++;
+				} catch (err) {
 					sm.attempts += 1;
 					sm.status = 'failed';
-					sm.error = 'envío SMTP falló';
+					sm.error = err instanceof Error ? err.message : 'error desconocido';
 					await repo.save(sm);
-					continue;
 				}
-				sm.status = 'sent';
-				sm.sentAt = now;
-				sm.resolvedContent = html;
-				sm.resolvedContact = recipient.email;
-				sm.recipientName = recipient.name;
-				await repo.save(sm);
-				await this.recordCommunication(sm, template, recipient, html, subject);
-				sentToday.set(participant.id, (sentToday.get(participant.id) ?? 0) + 1);
-				processed++;
 			} catch (err) {
+				// Excepción inesperada post-claim: sin esto la fila quedaba `processing`
+				// para siempre (el cron sólo toma pending/failed). Mismo formato que el
+				// catch de SMTP: failed + attempts++ con el mensaje como motivo. La
+				// corrida sigue con las demás filas del lote.
 				sm.attempts += 1;
 				sm.status = 'failed';
 				sm.error = err instanceof Error ? err.message : 'error desconocido';
-				await repo.save(sm);
+				try {
+					await repo.save(sm);
+				} catch (saveErr) {
+					console.error(`❌ Sequences: no se pudo registrar el fallo del mensaje ${sm.id}:`, saveErr);
+				}
 			}
 		}
 		return processed;
+	}
+
+	/**
+	 * Devuelve a `pending` las filas `processing` cuya última actualización es más
+	 * vieja que SEQUENCE_PROCESSING_STALE_MINUTES (default 10, env-configurable).
+	 * Cubre el crash/restart del API a mitad de processDue: el cron sólo toma
+	 * pending/failed, así que sin esto esas filas quedaban huérfanas para siempre.
+	 *
+	 * Corre al inicio de processDue (cron horario, runNow manual y el disparo del
+	 * alta de participante). NO se agrega `processing` al WHERE de processDue:
+	 * competiría con corridas concurrentes legítimas por el claim condicional.
+	 *
+	 * Riesgo aceptado: puede re-procesar un mensaje cuyo email salió pero que
+	 * crasheó antes del save → doble envío en una ventana minúscula (mismo
+	 * trade-off que un restart del proceso a mitad de corrida).
+	 */
+	async reapStaleProcessing(now: Date = new Date()): Promise<number> {
+		const staleMinutes = Number(process.env.SEQUENCE_PROCESSING_STALE_MINUTES) || 10;
+		const cutoff = new Date(now.getTime() - staleMinutes * 60_000);
+		const repo = AppDataSource.getRepository(ScheduledMessage);
+		// updatedAt va explícito: qb.update() NO pisa @UpdateDateColumn solo
+		// (verificado con TypeORM 0.3.27), y el claim también lo escribe — sin
+		// esto una fila re-claimada al vuelo volvería a parecer "vieja".
+		// OJO: sin alias 'sm' — SQLite rechaza alias en UPDATE ("no such column:
+		// sm.status"); las columnas van sin prefijo.
+		const res = await repo
+			.createQueryBuilder()
+			.update(ScheduledMessage)
+			.set({ status: 'pending', updatedAt: now })
+			.where("status = 'processing'")
+			.andWhere('updatedAt < :cutoff', { cutoff })
+			.execute();
+		return res.affected ?? 0;
 	}
 
 	/** Registra el envío automático en participant_communications (sentBy = null). */
@@ -977,18 +1112,24 @@ export class MessageSequenceService {
 	// ---------------------------------------------------------------------
 
 	async findByRetreat(retreatId: string): Promise<MessageSequence[]> {
-		return AppDataSource.getRepository(MessageSequence).find({
+		const seqs = await AppDataSource.getRepository(MessageSequence).find({
 			where: { retreatId },
 			relations: ['steps'],
 			order: { createdAt: 'DESC' },
 		});
+		// Los pasos archivados no se exponen: el editor no debe revivirlos ni
+		// volver a enrolarlos (B4). Sus mensajes siguen visibles en Programados.
+		for (const seq of seqs) seq.steps = (seq.steps ?? []).filter((s) => !s.isArchived);
+		return seqs;
 	}
 
 	async findById(id: string): Promise<MessageSequence | null> {
-		return AppDataSource.getRepository(MessageSequence).findOne({
+		const seq = await AppDataSource.getRepository(MessageSequence).findOne({
 			where: { id },
 			relations: ['steps'],
 		});
+		if (seq) seq.steps = (seq.steps ?? []).filter((s) => !s.isArchived);
+		return seq;
 	}
 
 	async createSequence(input: {
@@ -1021,6 +1162,11 @@ export class MessageSequenceService {
 		return (await this.findById(seq.id))!;
 	}
 
+	/**
+	 * Cuenta lo que el edit le hizo a las filas ya materializadas, para que la
+	 * UI pueda avisar ("N mensajes re-programados"). Ad-hoc en la respuesta del
+	 * PUT, NO en la entity.
+	 */
 	async updateSequence(
 		id: string,
 		input: {
@@ -1033,10 +1179,25 @@ export class MessageSequenceService {
 			maxOverdueDays?: number | null;
 			steps?: StepSyncInput[];
 		},
-	): Promise<MessageSequence | null> {
+	): Promise<
+		| (MessageSequence & {
+				cancelledPendingCount: number;
+				archivedStepCount: number;
+				archivedPendingCount: number;
+		  })
+		| null
+	> {
 		const seqRepo = AppDataSource.getRepository(MessageSequence);
 		const seq = await seqRepo.findOne({ where: { id } });
 		if (!seq) return null;
+		// B3: cambio semántico (a quién/cuándo llega) → las pending materializadas
+		// con la semántica vieja ya no representan la realidad. Se detecta ANTES
+		// de mutar la entity.
+		const semanticsChanged =
+			(input.trigger !== undefined && input.trigger !== seq.trigger) ||
+			(input.audience !== undefined && input.audience !== seq.audience) ||
+			(input.segmentId !== undefined &&
+				(input.segmentId ?? null) !== (seq.segmentId ?? null));
 		if (input.name !== undefined) seq.name = input.name;
 		if (input.description !== undefined) seq.description = input.description;
 		if (input.trigger !== undefined) seq.trigger = input.trigger;
@@ -1045,20 +1206,48 @@ export class MessageSequenceService {
 		if (input.isActive !== undefined) seq.isActive = input.isActive;
 		if (input.maxOverdueDays !== undefined) seq.maxOverdueDays = input.maxOverdueDays;
 		await seqRepo.save(seq);
+		let archived = { archivedSteps: 0, cancelledPending: 0 };
 		if (input.steps !== undefined) {
-			await this.syncSteps(id, input.steps);
+			archived = await this.syncSteps(id, input.steps);
 		}
-		return this.findById(id);
+		let cancelledPendingCount = 0;
+		if (semanticsChanged) {
+			// DELETE (no cancel): la UQ (stepId, participantId) aplica a TODAS las
+			// filas, así que una cancelled bloquearía el re-enrolamiento. Las
+			// sent/queued se conservan — la idempotencia las respeta al re-crear.
+			const del = await AppDataSource.getRepository(ScheduledMessage)
+				.createQueryBuilder()
+				.delete()
+				.where('sequenceId = :sequenceId AND status = :status', {
+					sequenceId: id,
+					status: 'pending',
+				})
+				.execute();
+			cancelledPendingCount = del.affected ?? 0;
+			if (seq.isActive) await this.enrollSequence(seq);
+		}
+		const updated = await this.findById(id);
+		return updated
+			? {
+					...updated,
+					cancelledPendingCount,
+					archivedStepCount: archived.archivedSteps,
+					archivedPendingCount: archived.cancelledPending,
+			  }
+			: null;
 	}
 
 	/**
 	 * Sincroniza los pasos de una secuencia preservando la identidad de los
 	 * existentes (los que llegan con `id`): así NO cambia el `stepId` y la
 	 * idempotencia (stepId, participantId) se mantiene — editar no re-envía a
-	 * quien ya recibió. Los pasos quitados se borran (cascade cancela sus
-	 * scheduled_messages pendientes).
+	 * quien ya recibió. Los pasos quitados se ARCHIVAN (borrarlos cascadería
+	 * hasta sus scheduled_messages sent) y sus `pending` se CANCELAN.
 	 */
-	private async syncSteps(sequenceId: string, steps: StepSyncInput[]): Promise<void> {
+	private async syncSteps(
+		sequenceId: string,
+		steps: StepSyncInput[],
+	): Promise<{ archivedSteps: number; cancelledPending: number }> {
 		const stepRepo = AppDataSource.getRepository(SequenceStep);
 		const existing = await stepRepo.find({ where: { sequenceId } });
 		const keep = new Set<string>();
@@ -1084,7 +1273,25 @@ export class MessageSequenceService {
 			}
 		}
 		const remove = existing.filter((e) => !keep.has(e.id));
-		if (remove.length) await stepRepo.remove(remove);
+		if (!remove.length) return { archivedSteps: 0, cancelledPending: 0 };
+		// Archivar (soft): repo.update NO pisa @UpdateDateColumn en 0.3.27.
+		const now = new Date();
+		await stepRepo.update(
+			remove.map((r) => r.id),
+			{ isArchived: true, updatedAt: now },
+		);
+		// Cancelar (no borrar) las pending del paso archivado: queued sigue en la
+		// bandeja, sent queda como auditoría. UPDATE sin alias (SQLite lo rechaza).
+		const res = await AppDataSource.getRepository(ScheduledMessage)
+			.createQueryBuilder()
+			.update(ScheduledMessage)
+			.set({ status: 'cancelled', error: 'paso archivado', updatedAt: now })
+			.where('stepId IN (:...stepIds) AND status = :status', {
+				stepIds: remove.map((r) => r.id),
+				status: 'pending',
+			})
+			.execute();
+		return { archivedSteps: remove.length, cancelledPending: res.affected ?? 0 };
 	}
 
 	async deleteSequence(id: string): Promise<boolean> {
@@ -1113,6 +1320,195 @@ export class MessageSequenceService {
 		return items.map((it) =>
 			Object.assign(it, { followUpStatus: statusByParticipant.get(it.participantId) ?? null }),
 		);
+	}
+
+	/**
+	 * Listado paginado de los mensajes materializados de un retiro (A1) — la
+	 * pestaña "Programados": lo que SALDRÁ (pending), lo que salió (sent), lo que
+	 * quedó en bandeja (queued)… Filtra por estado/secuencia/participante/texto,
+	 * ordena por fecha de envío (o última actualización) y resuelve la TZ del
+	 * retiro en el servidor — el cliente nunca infiere la zona.
+	 *
+	 * Devuelve un DTO plano (no la entity): la tabla sólo necesita nombre del
+	 * participante, no arrastrar su PII completa a una lista.
+	 */
+	async listScheduled(
+		retreatId: string,
+		opts: {
+			statuses?: string[];
+			sequenceId?: string;
+			participantId?: string;
+			search?: string;
+			page?: number;
+			limit?: number;
+			order?: 'scheduled' | 'recent';
+		} = {},
+	): Promise<{
+		items: Array<{
+			id: string;
+			sequenceId: string;
+			stepId: string;
+			participantId: string;
+			participantName: string;
+			templateType: string;
+			channel: MessageChannel;
+			recipientTarget: string;
+			recipientName: string | null;
+			status: string;
+			scheduledFor: Date;
+			error: string | null;
+			stepOrder: number | null;
+			offsetDays: number | null;
+			sendHour: number | null;
+			updatedAt: Date;
+		}>;
+		total: number;
+		page: number;
+		totalPages: number;
+		timezone: string;
+	}> {
+		const repo = AppDataSource.getRepository(ScheduledMessage);
+		// leftJoinAndSelect (no leftJoin plano): el DTO lee participant/step de la
+		// entity hidratada. Con tope de 200 filas por página el costo es acotado,
+		// y la respuesta al cliente sigue siendo el DTO plano sin PII.
+		const qb = repo
+			.createQueryBuilder('sm')
+			.leftJoinAndSelect('sm.participant', 'participant')
+			.leftJoinAndSelect('sm.step', 'step')
+			.where('sm.retreatId = :retreatId', { retreatId });
+		const statuses = opts.statuses?.length ? opts.statuses : ['pending'];
+		qb.andWhere('sm.status IN (:...statuses)', { statuses });
+		if (opts.sequenceId) {
+			qb.andWhere('sm.sequenceId = :sequenceId', { sequenceId: opts.sequenceId });
+		}
+		if (opts.participantId) {
+			qb.andWhere('sm.participantId = :participantId', { participantId: opts.participantId });
+		}
+		if (opts.search) {
+			qb.andWhere(
+				'(participant.firstName LIKE :q OR participant.lastName LIKE :q OR participant.nickname LIKE :q)',
+				{ q: `%${opts.search}%` },
+			);
+		}
+		const total = await qb.clone().getCount();
+		const page = Math.max(1, opts.page ?? 1);
+		const limit = Math.min(200, Math.max(1, opts.limit ?? 50));
+		if (opts.order === 'recent') {
+			qb.orderBy('sm.updatedAt', 'DESC');
+		} else {
+			qb.orderBy('sm.scheduledFor', 'ASC').addOrderBy('participant.lastName', 'ASC');
+		}
+		// offset/limit (NO skip/take): la paginación de skip/take envuelve en un
+		// SELECT DISTINCT subquery que no soporta ORDER BY sobre columnas del join
+		// en SQLite ("no such column: distinctAlias.participant_lastName"). Los dos
+		// joins son many-to-one → no hay duplicación de filas, offset es seguro.
+		qb.offset((page - 1) * limit).limit(limit);
+		const rows = await qb.getMany();
+		const retreat = await AppDataSource.getRepository(Retreat).findOne({
+			where: { id: retreatId },
+			relations: ['house'],
+		});
+		return {
+			items: rows.map((sm) => ({
+				id: sm.id,
+				sequenceId: sm.sequenceId,
+				stepId: sm.stepId,
+				participantId: sm.participantId,
+				participantName: sm.participant
+					? `${sm.participant.firstName || ''} ${sm.participant.lastName || ''}`.trim()
+					: '',
+				templateType: sm.templateType,
+				channel: sm.channel,
+				recipientTarget: sm.recipientTarget,
+				recipientName: sm.recipientName ?? null,
+				status: sm.status,
+				scheduledFor: sm.scheduledFor,
+				error: sm.error ?? null,
+				stepOrder: sm.step?.stepOrder ?? null,
+				offsetDays: sm.step?.offsetDays ?? null,
+				sendHour: sm.step?.sendHour ?? null,
+				updatedAt: sm.updatedAt,
+			})),
+			total,
+			page,
+			totalPages: Math.max(1, Math.ceil(total / limit)),
+			timezone: this.resolveTz(retreat),
+		};
+	}
+
+	/**
+	 * Fechas de envío que TENDRÍA cada paso para un participante real (A4): el
+	 * editor muestra "→ 12 sep, 9:00 (CDMX)" junto a cada paso. Loopéa
+	 * `computeScheduledFor` — la misma función del enrolamiento — para que el
+	 * preview y lo materializado nunca diverjan. `null` en un paso = falta el
+	 * dato del disparador (fecha de alta, fecha del retiro, cumpleaños…).
+	 */
+	async schedulePreview(input: {
+		retreatId: string;
+		participantId: string;
+		trigger: MessageSequence['trigger'];
+		steps: Array<{ offsetDays?: number; sendHour?: number }>;
+	}): Promise<{ dates: Array<Date | null>; timezone: string } | null> {
+		const [participant, retreat] = await Promise.all([
+			AppDataSource.getRepository(Participant).findOne({ where: { id: input.participantId } }),
+			AppDataSource.getRepository(Retreat).findOne({
+				where: { id: input.retreatId },
+				relations: ['house'],
+			}),
+		]);
+		if (!participant || !retreat) return null;
+		const dates = input.steps.map((s) =>
+			this.computeScheduledFor(
+				input.trigger,
+				{ offsetDays: s.offsetDays ?? 0, sendHour: s.sendHour ?? 9 },
+				participant,
+				retreat,
+			),
+		);
+		return { dates, timezone: this.resolveTz(retreat) };
+	}
+
+	/** Paso con su secuencia (para que el controller valide el retiro correcto). */
+	async findStepWithSequence(stepId: string) {
+		return AppDataSource.getRepository(SequenceStep).findOne({
+			where: { id: stepId },
+			relations: ['sequence'],
+		});
+	}
+
+	/**
+	 * Reprogramar un paso ya materializado (B1): mueve TODOS sus `pending` a
+	 * una fecha absoluta interpretada en la TZ del retiro. `hour` sin valor
+	 * conserva el `sendHour` del paso. Sólo toca `pending`: lo `queued` ya está
+	 * en la bandeja y lo `sent` es historial. B2 ("encolar ya") es este mismo
+	 * método con fecha=ahora; el run encadenado lo dispara el controller.
+	 */
+	async rescheduleStep(
+		step: SequenceStep,
+		payload: { immediate?: boolean; date?: string; hour?: number },
+	): Promise<{ affected: number; scheduledFor: Date }> {
+		let target: Date;
+		if (payload.immediate) {
+			target = new Date();
+		} else {
+			if (!payload.date) throw new Error('Se requiere immediate o date');
+			const [y, m0, d] = payload.date.split('-').map((n) => parseInt(n, 10));
+			// La fecha es "de pared" en la TZ del retiro: se resuelve vía la
+			// secuencia del paso (el controller ya cargó la relación).
+			const retreatRow = await AppDataSource.getRepository(Retreat).findOne({
+				where: { id: step.sequence?.retreatId },
+			});
+			const tz = this.resolveTz(retreatRow);
+			target = makeDateInTimezone(y, m0 - 1, d, payload.hour ?? step.sendHour ?? 9, 0, tz);
+		}
+		const now = new Date();
+		const res = await AppDataSource.getRepository(ScheduledMessage)
+			.createQueryBuilder()
+			.update(ScheduledMessage)
+			.set({ scheduledFor: target, updatedAt: now })
+			.where('stepId = :stepId AND status = :status', { stepId: step.id, status: 'pending' })
+			.execute();
+		return { affected: res.affected ?? 0, scheduledFor: target };
 	}
 
 	/**
@@ -1360,15 +1756,62 @@ export class MessageSequenceService {
 		};
 	}
 
-	/** Marca un pendiente de WhatsApp como despachado (el coordinador YA lo envió). */
+	/**
+	 * Máquina de estados de las acciones manuales sobre scheduled_messages.
+	 * Una sola fuente de verdad para qué acción es legal desde qué estado:
+	 *  - `sent`/`cancelled` son terminales de auditoría: nada sale de ellos.
+	 *  - `processing` es transient del motor (claim de processDue): ninguna acción
+	 *    manual lo toma como origen — la fila está enviándose justo ahora.
+	 */
+	private static readonly MANUAL_TRANSITIONS: Record<
+		string,
+		{ from: ScheduledMessageStatus[]; label: string }
+	> = {
+		dispatch: { from: ['queued'], label: 'marcar como enviado' },
+		skip: { from: ['queued'], label: 'omitir' },
+		retry: { from: ['failed', 'skipped'], label: 'reintentar' },
+		discard: { from: ['pending', 'queued', 'failed', 'skipped'], label: 'descartar' },
+		assign: { from: ['queued'], label: 'asignar' },
+	};
+
+	/**
+	 * Valida que la acción manual sea legal desde el estado actual de la fila.
+	 * Lanza InvalidTransitionError (→ 409 en el controller) si no lo es.
+	 */
+	private assertTransition(sm: ScheduledMessage, action: string): void {
+		const rule = MessageSequenceService.MANUAL_TRANSITIONS[action];
+		if (!rule) throw new Error(`Acción manual desconocida: ${action}`);
+		if (!rule.from.includes(sm.status)) {
+			throw new InvalidTransitionError(sm.status, rule.label, rule.from);
+		}
+	}
+
+	/**
+	 * Marca un pendiente de WhatsApp como despachado (el coordinador YA lo envió).
+	 *
+	 * Update CONDICIONAL sobre `status='queued'`: si dos coordinadores tienen la
+	 * bandeja abierta a la vez, el segundo recibe `affected=0` → 409, en vez de
+	 * pisar la marca del primero o "despachar" algo que el otro ya omitió.
+	 * `updatedAt` va explícito (repo.update NO pisa @UpdateDateColumn solo).
+	 */
 	async markDispatched(id: string, userId?: string | null): Promise<ScheduledMessage | null> {
 		const repo = AppDataSource.getRepository(ScheduledMessage);
-		const sm = await repo.findOne({ where: { id } });
-		if (!sm) return null;
-		sm.status = 'sent';
-		sm.sentAt = new Date();
-		sm.dispatchedBy = userId ?? null;
-		return repo.save(sm);
+		const res = await repo.update(
+			{ id, status: 'queued' },
+			{
+				status: 'sent',
+				sentAt: new Date(),
+				dispatchedBy: userId ?? null,
+				updatedAt: new Date(),
+			},
+		);
+		if (!res.affected) {
+			// Distinguir 404 (no existe) de 409 (existe pero ya no está queued).
+			const sm = await repo.findOne({ where: { id } });
+			if (!sm) return null;
+			throw new InvalidTransitionError(sm.status, 'marcar como enviado', ['queued']);
+		}
+		return repo.findOne({ where: { id } });
 	}
 
 	/**
@@ -1393,6 +1836,9 @@ export class MessageSequenceService {
 		const repo = AppDataSource.getRepository(ScheduledMessage);
 		const sm = await repo.findOne({ where: { id } });
 		if (!sm) return null;
+		// Sólo pendientes de la bandeja (queued): asignar un enviado/cancelado no
+		// tiene a quién responsabilizar y contamina la auditoría de ownership.
+		this.assertTransition(sm, 'assign');
 		sm.assignedTo = userId;
 		return repo.save(sm);
 	}
@@ -1402,6 +1848,7 @@ export class MessageSequenceService {
 		const repo = AppDataSource.getRepository(ScheduledMessage);
 		const sm = await repo.findOne({ where: { id } });
 		if (!sm) return null;
+		this.assertTransition(sm, 'skip');
 		sm.status = 'skipped';
 		sm.error = 'omitido manualmente';
 		sm.dispatchedBy = userId ?? null;
@@ -1418,6 +1865,7 @@ export class MessageSequenceService {
 		const repo = AppDataSource.getRepository(ScheduledMessage);
 		const sm = await repo.findOne({ where: { id } });
 		if (!sm) return null;
+		this.assertTransition(sm, 'retry');
 		sm.status = 'pending';
 		sm.attempts = 0;
 		sm.error = null;
@@ -1435,6 +1883,7 @@ export class MessageSequenceService {
 		const repo = AppDataSource.getRepository(ScheduledMessage);
 		const sm = await repo.findOne({ where: { id } });
 		if (!sm) return null;
+		this.assertTransition(sm, 'discard');
 		sm.status = 'cancelled';
 		sm.error = 'descartado por el coordinador';
 		sm.dispatchedBy = userId ?? null;
@@ -1445,26 +1894,44 @@ export class MessageSequenceService {
 	 * Acción masiva sobre los mensajes con problema (failed/skipped) de un retiro:
 	 *  - 'retry'   → los re-encola (pending, attempts=0, vencimiento ahora).
 	 *  - 'discard' → los descarta (cancelled): salen de la lista y no reaparecen.
-	 * Un solo UPDATE (eficiente para cientos de filas). Devuelve cuántos afectó.
+	 *
+	 * `ids` opcional acota el UPDATE a las filas visibles/filtradas en la UI (el
+	 * bulk de "Problemas" sobre una búsqueda activa); tope de 500 por IN gigantes.
+	 *
+	 * Un solo UPDATE y `res.affected` como conteo REAL: el count-then-update de
+	 * antes reportaba filas que la carrera ya había movido. OJO SQLite: sin alias
+	 * en el update (columnas sin prefijo) y `new Date()` explícito para las fechas
+	 * — `datetime('now')` escribía UTC crudo sin pasar por el DateTimeTransformer,
+	 * y qb.update() NO pisa @UpdateDateColumn solo (TypeORM 0.3.27).
 	 */
-	async bulkResolveIssues(retreatId: string, action: 'retry' | 'discard'): Promise<number> {
+	async bulkResolveIssues(
+		retreatId: string,
+		action: 'retry' | 'discard',
+		ids?: string[],
+	): Promise<number> {
 		const repo = AppDataSource.getRepository(ScheduledMessage);
-		const affected = await repo
-			.createQueryBuilder('sm')
-			.where('sm.retreatId = :retreatId', { retreatId })
-			.andWhere("sm.status IN ('failed','skipped')")
-			.getCount();
-		if (affected === 0) return 0;
-		const set =
-			action === 'retry'
-				? `status = 'pending', attempts = 0, error = NULL, scheduledFor = datetime('now')`
-				: `status = 'cancelled', error = 'descartado (masivo)'`;
-		await repo.query(
-			`UPDATE scheduled_messages SET ${set}
-			 WHERE retreatId = ? AND status IN ('failed', 'skipped')`,
-			[retreatId],
-		);
-		return affected;
+		const qb = repo
+			.createQueryBuilder()
+			.update(ScheduledMessage)
+			.where('retreatId = :retreatId', { retreatId })
+			.andWhere("status IN ('failed','skipped')");
+		if (ids?.length) {
+			qb.andWhere('id IN (:...ids)', { ids: ids.slice(0, 500) });
+		}
+		const now = new Date();
+		if (action === 'retry') {
+			qb.set({
+				status: 'pending',
+				attempts: 0,
+				error: null,
+				scheduledFor: now,
+				updatedAt: now,
+			});
+		} else {
+			qb.set({ status: 'cancelled', error: 'descartado (masivo)', updatedAt: now });
+		}
+		const res = await qb.execute();
+		return res.affected ?? 0;
 	}
 
 	/**
@@ -1472,9 +1939,17 @@ export class MessageSequenceService {
 	 * contra la plantilla VIGENTE (snapshot `resolvedContent`/`resolvedContact`/
 	 * `recipientName`). Útil tras editar una plantilla: la bandeja muestra el
 	 * snapshot congelado al encolar, así que esto lo "renueva" sin cambiar su
-	 * programación ni re-enrolar. Devuelve cuántos se regeneraron.
+	 * programación ni re-enrolar.
+	 *
+	 * Devuelve `{ regenerated, skipped }`: los saltados (participante/plantilla
+	 * desaparecidos, sin teléfono, o sin el contexto que exige la plantilla —
+	 * `{table.*}` sin mesa, `{community.*}` sin comunidad) conservan su snapshot
+	 * anterior en vez de quedar con placeholders literales.
 	 */
-	async regenerateQueuedForRetreat(retreatId: string): Promise<number> {
+	async regenerateQueuedForRetreat(retreatId: string): Promise<{
+		regenerated: number;
+		skipped: number;
+	}> {
 		const repo = AppDataSource.getRepository(ScheduledMessage);
 		const queued = await repo
 			.createQueryBuilder('sm')
@@ -1487,35 +1962,69 @@ export class MessageSequenceService {
 			.getMany();
 
 		let regenerated = 0;
+		let skipped = 0;
 		for (const sm of queued) {
 			const participant = sm.participant;
 			const retreat = sm.retreat;
-			if (!participant || !retreat) continue;
+			if (!participant || !retreat) {
+				skipped++;
+				continue;
+			}
 			const template = await AppDataSource.getRepository(MessageTemplate).findOne({
 				where: { retreatId, type: sm.templateType as any },
 			});
-			if (!template) continue;
+			if (!template) {
+				skipped++;
+				continue;
+			}
+			// Variables basadas en getters ({participant.paymentRemaining}): el
+			// participante del join viene sin relations ni overlay per-retiro — sin
+			// hidratar, el saldo se regeneraba en $0.00 (pariente de aac190fe).
+			const participantForTemplate = await this.hydrateParticipantForTemplateVariables(
+				participant,
+				retreatId,
+				template.message,
+			);
 			const target = (sm.recipientTarget || 'participant') as MessageRecipientTarget;
 			const recipient = await this.resolveRecipient(
-				participant,
+				participantForTemplate,
 				target,
 				retreatId,
 				sm.step?.recipientResponsibility,
 			);
-			if (!recipient.phone) continue;
+			if (!recipient.phone) {
+				skipped++;
+				continue;
+			}
+			// Mismas guardas de contexto que processDue: sin mesa/comunidad real el
+			// render saldría con placeholders literales — mejor conservar el
+			// snapshot viejo que "renovarlo" a algo inservible.
+			const tableData = template.message.includes('{table.')
+				? await this.buildTableData(participant.id, retreatId)
+				: null;
+			if (template.message.includes('{table.') && !tableData) {
+				skipped++;
+				continue;
+			}
+			if (template.message.includes('{community.') && !retreat.communityId) {
+				skipped++;
+				continue;
+			}
 			sm.resolvedContent = await this.resolveContent(
 				template.message,
-				participant,
+				participantForTemplate,
 				retreat,
 				recipient.contactKey,
 				retreatId,
+				false,
+				tableData,
 			);
 			sm.resolvedContact = recipient.phone;
 			sm.recipientName = recipient.name;
 			await repo.save(sm);
 			regenerated++;
 		}
-		return regenerated;
+		return { regenerated, skipped };
 	}
 
 	/**
