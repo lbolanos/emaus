@@ -2052,17 +2052,33 @@ export class MessageSequenceService {
 	/**
 	 * Mensajes con problema (omitidos o fallidos) del retiro, con el participante
 	 * y el motivo (`error`), para que el coordinador sepa qué no salió y por qué.
+	 *
+	 * Devuelve `{ items, total }`: `total` es el conteo REAL de problemas (sin
+	 * cap) para que el contador del tab no mienta cuando hay más de `limit` —
+	 * la UI pagina con "cargar más" (offset) en vez de recortar en silencio.
 	 */
-	async getIssuesByRetreat(retreatId: string, limit = 100): Promise<ScheduledMessage[]> {
-		return AppDataSource.getRepository(ScheduledMessage).find({
-			where: [
-				{ retreatId, status: 'skipped' },
-				{ retreatId, status: 'failed' },
-			],
-			relations: ['participant'],
-			order: { updatedAt: 'DESC' },
-			take: limit,
-		});
+	async getIssuesByRetreat(
+		retreatId: string,
+		opts: { limit?: number; offset?: number } = {},
+	): Promise<{ items: ScheduledMessage[]; total: number }> {
+		const repo = AppDataSource.getRepository(ScheduledMessage);
+		const where = [
+			{ retreatId, status: 'skipped' },
+			{ retreatId, status: 'failed' },
+		];
+		// Orden sobre columna de la tabla raíz → skip/take es seguro aquí (el
+		// problema del DISTINCT subquery solo aparece ordenando por el join).
+		const [items, total] = await Promise.all([
+			repo.find({
+				where,
+				relations: ['participant'],
+				order: { updatedAt: 'DESC' },
+				take: opts.limit ?? 100,
+				skip: opts.offset ?? 0,
+			}),
+			repo.count({ where }),
+		]);
+		return { items, total };
 	}
 
 	/**

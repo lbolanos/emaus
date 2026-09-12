@@ -100,15 +100,23 @@ export class MessageSequenceController {
 		}
 	};
 
-	// GET /message-sequences/retreat/:retreatId/stats — métricas + problemas por secuencia
+	// GET /message-sequences/retreat/:retreatId/stats — métricas + problemas por secuencia.
+	// Query: issuesOffset/issuesLimit (cap 500) para el "cargar más" del tab
+	// Problemas; `issuesTotal` trae el conteo real sin cap.
 	getStats = async (req: Request, res: Response) => {
 		try {
 			const { retreatId } = req.params;
+			const q = (req.query ?? {}) as Record<string, unknown>;
+			const issuesOffset = Math.max(0, Number(q.issuesOffset) || 0);
+			const issuesLimit = Math.min(500, Math.max(1, Number(q.issuesLimit) || 100));
 			const [stats, issues] = await Promise.all([
 				messageSequenceService.getStatsByRetreat(retreatId),
-				messageSequenceService.getIssuesByRetreat(retreatId),
+				messageSequenceService.getIssuesByRetreat(retreatId, {
+					limit: issuesLimit,
+					offset: issuesOffset,
+				}),
 			]);
-			res.json({ stats, issues });
+			res.json({ stats, issues: issues.items, issuesTotal: issues.total });
 		} catch (error) {
 			console.error('Error fetching sequence stats:', error);
 			res.status(500).json({ error: 'Error al obtener las métricas de secuencias' });

@@ -3049,6 +3049,8 @@
     "schedStatusLabel": "Status",
     "scheduledTotal": "{n} total",
     "issuesEmpty": "No messages with issues",
+    "loadMore": "Load more ({remaining} remaining)",
+    "loadMoreError": "Could not load more messages with issues",
     "pageOf": "Page {page} of {total}",
     "filterLabel": "Show",
     "filter": {

@@ -483,3 +483,62 @@ describe('MessageSequencesView — calidad de vida (M6)', () => {
 		expect(wrapper.text()).not.toContain('SHIRT_CONFIRMATION');
 	});
 });
+
+describe('MessageSequencesView — tab Problemas honesto (#2)', () => {
+	it('el contador del tab muestra el total real (issuesTotal), no el cap de página', async () => {
+		const wrapper = await mountView();
+		const { useMessageSequenceStore } = await import('@/stores/messageSequenceStore');
+		const sequenceStore = useMessageSequenceStore();
+		// 100 filas cargadas (cap de página), 144 problemas reales → el tab
+		// debe decir 144; decir 100 es lo que este fix corrige.
+		sequenceStore.issues = Array.from({ length: 100 }, (_, i) => ({
+			id: `i-${i}`,
+			sequenceId: 'seq-1',
+			participant: { firstName: `P${i}`, lastName: 'X' },
+			templateType: 'T',
+			error: 'sin teléfono',
+			status: 'skipped',
+		})) as any;
+		sequenceStore.issuesTotal = 144;
+		await flushPromises();
+
+		const tab = wrapper.findAll('button').find((b) => b.text().includes('Problemas'));
+		expect(tab).toBeTruthy();
+		expect(tab!.text()).toContain('144');
+	});
+
+	it('"Cargar más" pide la página siguiente con offset, appendea sin duplicar y desaparece al completar', async () => {
+		const wrapper = await mountView();
+		const apiMod: any = await import('@/services/api');
+		const { useMessageSequenceStore } = await import('@/stores/messageSequenceStore');
+		const sequenceStore = useMessageSequenceStore();
+		sequenceStore.issues = [
+			{ id: 'i-1', sequenceId: 'seq-1', participant: { firstName: 'A', lastName: 'A' }, templateType: 'T', error: 'x', status: 'skipped' },
+			{ id: 'i-2', sequenceId: 'seq-1', participant: { firstName: 'B', lastName: 'B' }, templateType: 'T', error: 'x', status: 'skipped' },
+		] as any;
+		sequenceStore.issuesTotal = 3;
+		// La página 2 trae la fila restante — y repite la i-2 (cambió de estado
+		// entre fetches) para afirmar el dedupe por id.
+		apiMod.getSequenceStats.mockResolvedValue({
+			stats: {},
+			issues: [
+				{ id: 'i-3', sequenceId: 'seq-1', participant: { firstName: 'C', lastName: 'C' }, templateType: 'T', error: 'x', status: 'skipped' },
+				{ id: 'i-2', sequenceId: 'seq-1', participant: { firstName: 'B', lastName: 'B' }, templateType: 'T', error: 'x', status: 'skipped' },
+			],
+			issuesTotal: 3,
+		});
+		await flushPromises();
+
+		const btn = wrapper.findAll('button').find((b) => b.text().includes('Cargar más'));
+		expect(btn).toBeTruthy();
+		expect(btn!.text()).toContain('1'); // 1 restante (3 reales - 2 cargadas)
+		await btn!.trigger('click');
+		await flushPromises();
+
+		// El offset es la cantidad de filas ya cargadas.
+		expect(apiMod.getSequenceStats).toHaveBeenCalledWith(RETREAT_ID, { issuesOffset: 2 });
+		expect(sequenceStore.issues).toHaveLength(3); // dedupe: i-2 no se duplica
+		// Ya está todo cargado → el botón desaparece.
+		expect(wrapper.findAll('button').find((b) => b.text().includes('Cargar más'))).toBeFalsy();
+	});
+});

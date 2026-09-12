@@ -788,9 +788,48 @@ describe('MessageSequenceService', () => {
 
 			const stats = await svc.getStatsByRetreat(retreat.id);
 			expect(stats[seq.id]?.skipped).toBe(1);
-			const issues = await svc.getIssuesByRetreat(retreat.id);
-			expect(issues).toHaveLength(1);
-			expect(issues[0].error).toBe('sin plantilla');
+			const { items, total } = await svc.getIssuesByRetreat(retreat.id);
+			expect(items).toHaveLength(1);
+			expect(total).toBe(1);
+			expect(items[0].error).toBe('sin plantilla');
+		});
+
+		it('issues: total real sin cap + paginación offset/limit (cargar más)', async () => {
+			const retreat = await TestDataFactory.createTestRetreat({ timezone: 'America/Mexico_City' });
+			const p1 = await TestDataFactory.createTestParticipant(retreat.id, { type: 'walker', email: 'a@example.com' } as any);
+			const p2 = await TestDataFactory.createTestParticipant(retreat.id, { type: 'walker', email: 'b@example.com' } as any);
+			const p3 = await TestDataFactory.createTestParticipant(retreat.id, { type: 'walker', email: 'c@example.com' } as any);
+			const seq = await svc.createSequence({
+				name: 'S', retreatId: retreat.id, trigger: 'participant_created', audience: 'walker',
+				steps: [{ stepOrder: 0, offsetDays: 0, sendHour: 9, templateType: 'WALKER_WELCOME', channel: 'email' } as any],
+			});
+			const repo = AppDataSource.getRepository(ScheduledMessage);
+			const rows: ScheduledMessage[] = [];
+			for (const p of [p1, p2, p3]) {
+				rows.push(await repo.save(repo.create({
+					sequenceId: seq.id, stepId: seq.steps![0].id, participantId: p.id,
+					retreatId: retreat.id, channel: 'email', templateType: 'WALKER_WELCOME',
+					recipientTarget: 'participant', scheduledFor: new Date(), status: 'skipped',
+				})));
+			}
+			// updatedAt escalonado y EXPLÍCITO: repo.update no pisa @UpdateDateColumn
+			// (TypeORM 0.3.27), así que el orden updatedAt DESC queda determinista.
+			await repo.update(rows[0].id, { updatedAt: new Date('2026-01-01T00:00:01Z') } as any);
+			await repo.update(rows[1].id, { updatedAt: new Date('2026-01-01T00:00:02Z') } as any);
+			await repo.update(rows[2].id, { updatedAt: new Date('2026-01-01T00:00:03Z') } as any);
+
+			// Primera página capada: items recortados pero total = 3 (contador honesto).
+			const page1 = await svc.getIssuesByRetreat(retreat.id, { limit: 2 });
+			expect(page1.total).toBe(3);
+			expect(page1.items).toHaveLength(2);
+			expect(page1.items[0].participantId).toBe(p3.id); // más reciente primero
+			expect(page1.items[1].participantId).toBe(p2.id);
+
+			// "Cargar más": la segunda página trae el resto.
+			const page2 = await svc.getIssuesByRetreat(retreat.id, { limit: 2, offset: 2 });
+			expect(page2.total).toBe(3);
+			expect(page2.items).toHaveLength(1);
+			expect(page2.items[0].participantId).toBe(p1.id);
 		});
 
 		it('bandeja: incluye el estado de seguimiento del participante y omitir lo saca', async () => {
@@ -1046,8 +1085,8 @@ describe('MessageSequenceService', () => {
 			expect(updated?.dispatchedBy).toBe('user-2');
 
 			// getIssuesByRetreat solo trae failed/skipped → ya no aparece.
-			const issues = await svc.getIssuesByRetreat(retreat.id);
-			expect(issues.some((i) => i.id === sm.id)).toBe(false);
+			const { items } = await svc.getIssuesByRetreat(retreat.id);
+			expect(items.some((i) => i.id === sm.id)).toBe(false);
 		});
 
 		it('retry/discard sobre id inexistente devuelven null', async () => {
@@ -1070,8 +1109,9 @@ describe('MessageSequenceService', () => {
 
 			const n = await svc.bulkResolveIssues(retreat.id, 'discard');
 			expect(n).toBe(2);
-			const issues = await svc.getIssuesByRetreat(retreat.id);
-			expect(issues).toHaveLength(0); // ya no quedan failed/skipped
+			const { items, total } = await svc.getIssuesByRetreat(retreat.id);
+			expect(items).toHaveLength(0); // ya no quedan failed/skipped
+			expect(total).toBe(0);
 			expect((await repo.findOne({ where: { id: sm2.id } }))?.status).toBe('cancelled');
 		});
 
@@ -1084,8 +1124,8 @@ describe('MessageSequenceService', () => {
 			expect(after?.status).toBe('cancelled'); // no 'skipped'
 			expect(after?.error).toContain('invitador');
 			// No aparece en "Problemas" (solo failed/skipped).
-			const issues = await svc.getIssuesByRetreat(retreat.id);
-			expect(issues.some((i) => i.id === sm.id)).toBe(false);
+			const { items } = await svc.getIssuesByRetreat(retreat.id);
+			expect(items.some((i) => i.id === sm.id)).toBe(false);
 		});
 
 		it('destinatario con nombre pero sin teléfono → sigue en Problemas (skipped)', async () => {

@@ -3375,6 +3375,8 @@
     "schedStatusLabel": "Estado",
     "scheduledTotal": "{n} en total",
     "issuesEmpty": "Sin mensajes con problema",
+    "loadMore": "Cargar más ({remaining} restantes)",
+    "loadMoreError": "No se pudieron cargar más mensajes con problema",
     "pageOf": "Página {page} de {total}",
     "filterLabel": "Mostrar",
     "filter": {

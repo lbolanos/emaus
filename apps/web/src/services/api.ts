@@ -3851,12 +3851,15 @@ export interface ScheduledMessageQueueItem {
 export interface SequenceStatsResponse {
   stats: Record<string, Record<string, number>>;
   issues: ScheduledMessageQueueItem[];
+  /** Conteo real de problemas del retiro, sin el cap de paginación. */
+  issuesTotal: number;
 }
 
 export const getSequenceStats = async (
   retreatId: string,
+  opts: { issuesOffset?: number; issuesLimit?: number } = {},
 ): Promise<SequenceStatsResponse> => {
-  const r = await api.get(`/message-sequences/retreat/${retreatId}/stats`);
+  const r = await api.get(`/message-sequences/retreat/${retreatId}/stats`, { params: opts });
   return r.data;
 };
 

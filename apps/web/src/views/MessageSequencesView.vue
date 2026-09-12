@@ -35,7 +35,7 @@ const responsibilityNames = computed(() => {
 	return Array.from(new Set(names)) as string[];
 });
 
-const { sequences, queue, stats, issues, detail, detailLoading } = storeToRefs(sequenceStore);
+const { sequences, queue, stats, issues, issuesTotal, detail, detailLoading } = storeToRefs(sequenceStore);
 const {
 	scheduled, scheduledTotal, scheduledTotalPages, scheduledTimezone, scheduledLoading,
 } = storeToRefs(sequenceStore);
@@ -905,6 +905,19 @@ const filteredIssues = computed(() => {
 	// 'recent' → mantiene el orden del backend (updatedAt desc)
 	return items;
 });
+// #2: "cargar más" — cuando el total real supera lo cargado (cap de página).
+const issuesLoadingMore = ref(false);
+async function loadMoreIssues() {
+	if (issuesLoadingMore.value) return;
+	issuesLoadingMore.value = true;
+	try {
+		await sequenceStore.loadMoreIssues();
+	} catch {
+		toast({ title: t('sequences.loadMoreError'), variant: 'destructive' });
+	} finally {
+		issuesLoadingMore.value = false;
+	}
+}
 // Renueva el texto de los pendientes de la bandeja con la plantilla vigente
 // (tras editar una plantilla, el snapshot encolado queda con el texto anterior).
 async function regenerateQueue() {
@@ -1183,7 +1196,7 @@ async function toggleDoNotContact() {
 				@click="activeTab = 'issues'"
 			>
 				<AlertTriangle class="w-4 h-4" /> {{ t('sequences.tabIssues') }}
-				<span v-if="issues.length" class="text-xs bg-red-100 text-red-700 rounded-full px-1.5">{{ issues.length }}</span>
+				<span v-if="issuesTotal" class="text-xs bg-red-100 text-red-700 rounded-full px-1.5">{{ issuesTotal }}</span>
 			</button>
 		</div>
 
@@ -1753,6 +1766,12 @@ async function toggleDoNotContact() {
 				</div>
 				<div v-else class="text-sm text-gray-500 border rounded-md p-4 text-center">
 					{{ t('sequences.issuesEmpty') }}
+				</div>
+				<!-- #2: quedan problemas sin cargar (cap de página) → siguiente página -->
+				<div v-if="issues.length && issues.length < issuesTotal" class="flex justify-center mt-3">
+					<Button size="sm" variant="outline" :disabled="issuesLoadingMore" @click="loadMoreIssues">
+						{{ t('sequences.loadMore', { remaining: issuesTotal - issues.length }) }}
+					</Button>
 				</div>
 			</div>
 
