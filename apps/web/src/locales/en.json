@@ -3059,7 +3059,9 @@
     "filter": {
       "all": "All",
       "mine": "Mine",
-      "unassigned": "Unassigned"
+      "unassigned": "Unassigned",
+      "participant": "Participant: {name}",
+      "byParticipant": "See all messages of {name}"
     },
     "sortLabel": "Sort by",
     "sort": {

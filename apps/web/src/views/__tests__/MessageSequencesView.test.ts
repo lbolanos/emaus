@@ -245,6 +245,36 @@ describe('MessageSequencesView — pestaña Programados (A2/A3/A5)', () => {
 		const calls2 = apiMod.fetchScheduledMessages.mock.calls;
 		expect(calls2[calls2.length - 1][1].sequenceId).toBeUndefined();
 	});
+
+	it('click en el nombre de una fila filtra el histórico del participante (#9)', async () => {
+		const wrapper = await mountView();
+		const apiMod: any = await import('@/services/api');
+		wrapper.vm.activeTab = 'scheduled';
+		apiMod.fetchScheduledMessages.mockClear();
+
+		// El nombre de la fila es un botón: fija el chip de participante y
+		// refetch-ea con participantId (el histórico completo de esa persona,
+		// combinable con el selector de estado: sent, skipped…).
+		const nameBtn = wrapper.findAll('button').find((b) => b.text().trim() === 'Ana M3');
+		expect(nameBtn).toBeTruthy();
+		await nameBtn!.trigger('click');
+		await flushPromises();
+
+		expect(wrapper.vm.schedParticipantFilter).toEqual({ id: 'p1', name: 'Ana M3' });
+		const calls = apiMod.fetchScheduledMessages.mock.calls;
+		const last = calls[calls.length - 1];
+		expect(last[1].participantId).toBe('p1');
+		// El chip anuncia a quién está filtrado.
+		expect(wrapper.text()).toContain('Participante: Ana M3');
+
+		// Quitar el chip refetch-ea sin el filtro de participante.
+		apiMod.fetchScheduledMessages.mockClear();
+		await wrapper.vm.clearSchedParticipantFilter();
+		await flushPromises();
+		expect(wrapper.vm.schedParticipantFilter).toBeNull();
+		const calls2 = apiMod.fetchScheduledMessages.mock.calls;
+		expect(calls2[calls2.length - 1][1].participantId).toBeUndefined();
+	});
 });
 
 describe('MessageSequencesView — timeline del editor (A4)', () => {

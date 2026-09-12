@@ -684,6 +684,9 @@ const schedSearchDebounced = ref('');
 const schedStatus = ref<string>('pending');
 const schedOrder = ref<'scheduled' | 'recent'>('scheduled');
 const schedSequenceFilter = ref<string | null>(null); // chip de secuencia (badge clickeable)
+// Chip de participante (#9): histórico de un participante. Se fija al hacer click
+// en su nombre de una fila — el nombre llega en la propia fila (no carga el roster).
+const schedParticipantFilter = ref<{ id: string; name: string } | null>(null);
 const schedPage = ref(1);
 let schedSearchTimer: number | undefined;
 
@@ -707,6 +710,7 @@ async function loadScheduled() {
 	await sequenceStore.fetchScheduled(retreatId.value, {
 		statuses: [schedStatus.value],
 		sequenceId: schedSequenceFilter.value ?? undefined,
+		participantId: schedParticipantFilter.value?.id,
 		search: schedSearchDebounced.value.trim() || undefined,
 		page: schedPage.value,
 		order: schedOrder.value,
@@ -714,7 +718,7 @@ async function loadScheduled() {
 }
 
 // Refetch al cambiar cualquier control; los filtros además vuelven a página 1.
-watch([schedSearchDebounced, schedStatus, schedOrder, schedSequenceFilter], () => {
+watch([schedSearchDebounced, schedStatus, schedOrder, schedSequenceFilter, schedParticipantFilter], () => {
 	schedPage.value = 1;
 	loadScheduled();
 });
@@ -732,6 +736,14 @@ function openScheduledForSequence(seq: any) {
 }
 function clearSchedSequenceFilter() {
 	schedSequenceFilter.value = null; // el watch refetch-ea
+}
+// #9: click en el nombre de una fila → todo el histórico del participante
+// (el usuario combina el filtro con el selector de estado: sent, skipped…).
+function openScheduledForParticipant(it: any) {
+	schedParticipantFilter.value = { id: it.participantId, name: it.participantName || '' };
+}
+function clearSchedParticipantFilter() {
+	schedParticipantFilter.value = null; // el watch refetch-ea
 }
 // A5: badge problemas de una secuencia → pestaña Problemas con chip removible.
 const issuesSequenceFilter = ref<string | null>(null);
@@ -1430,15 +1442,27 @@ async function toggleDoNotContact() {
 						</select>
 					</label>
 				</div>
-				<!-- Chip de secuencia (viene del badge clickeable de la lista) -->
-				<div v-if="schedSequenceFilter" class="flex items-center gap-2 mb-2 text-xs">
-					<span class="inline-flex items-center gap-1 bg-blue-100 text-blue-700 rounded-full px-2 py-0.5">
+				<!-- Chips de filtro activo: secuencia (badge clickeable de la lista) y
+				     participante (click en su nombre de una fila, #9). -->
+				<div v-if="schedSequenceFilter || schedParticipantFilter" class="flex items-center gap-2 mb-2 text-xs flex-wrap">
+					<span v-if="schedSequenceFilter" class="inline-flex items-center gap-1 bg-blue-100 text-blue-700 rounded-full px-2 py-0.5">
 						{{ seqName(schedSequenceFilter) }}
 						<button
 							type="button"
 							class="hover:text-blue-900"
 							:aria-label="t('sequences.clearFilter')"
 							@click="clearSchedSequenceFilter"
+						>
+							<X class="w-3 h-3" />
+						</button>
+					</span>
+					<span v-if="schedParticipantFilter" class="inline-flex items-center gap-1 bg-violet-100 text-violet-700 rounded-full px-2 py-0.5">
+						{{ t('sequences.filter.participant', { name: schedParticipantFilter.name }) }}
+						<button
+							type="button"
+							class="hover:text-violet-900"
+							:aria-label="t('sequences.clearFilter')"
+							@click="clearSchedParticipantFilter"
 						>
 							<X class="w-3 h-3" />
 						</button>
@@ -1458,7 +1482,16 @@ async function toggleDoNotContact() {
 						class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 p-3"
 					>
 						<div class="min-w-0">
-							<div class="text-sm font-medium truncate">{{ it.participantName }}</div>
+							<!-- #9: el nombre filtra el histórico del participante (mismo patrón
+							     que el badge de secuencia). -->
+							<button
+								type="button"
+								class="text-sm font-medium truncate hover:underline text-left"
+								:title="t('sequences.filter.byParticipant', { name: it.participantName })"
+								@click="openScheduledForParticipant(it)"
+							>
+								{{ it.participantName }}
+							</button>
 							<div class="text-xs text-gray-500 truncate">
 								{{ templateLabel(it.templateType) }}
 								<span v-if="it.stepOrder != null">· {{ t('sequences.stepN', { n: it.stepOrder + 1 }) }}</span>

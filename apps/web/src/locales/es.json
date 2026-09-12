@@ -3385,7 +3385,9 @@
     "filter": {
       "all": "Todos",
       "mine": "Míos",
-      "unassigned": "Sin asignar"
+      "unassigned": "Sin asignar",
+      "participant": "Participante: {name}",
+      "byParticipant": "Ver todos los mensajes de {name}"
     },
     "sortLabel": "Ordenar por",
     "sort": {
