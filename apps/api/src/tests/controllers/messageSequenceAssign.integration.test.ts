@@ -62,7 +62,8 @@ describe('MessageSequenceController.assign — autorización', () => {
 				channel: 'email',
 				templateType: 'WALKER_WELCOME',
 				scheduledFor: new Date(),
-				status: 'pending',
+				// La bandeja de WhatsApp: asignable (M2 exige status='queued').
+				status: 'queued',
 			}),
 		);
 		smId = sm.id;

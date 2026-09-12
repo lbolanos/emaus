@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { messageSequenceService } from '../services/messageSequenceService';
+import { messageSequenceService, InvalidTransitionError } from '../services/messageSequenceService';
 import { authorizationService } from '../middleware/authorization';
 import {
 	createMessageSequenceSchema,
@@ -12,6 +12,19 @@ async function callerHasRetreatAccess(req: Request, retreatId: string): Promise<
 	const userId = (req.user as any)?.id;
 	if (!userId || !retreatId) return false;
 	return authorizationService.hasRetreatAccess(userId, retreatId);
+}
+
+/**
+ * Traduce un InvalidTransitionError del service a HTTP 409 (conflicto de
+ * estado, p. ej. dos coordinadores despachando el mismo pendiente). Devuelve
+ * true si la respuesta ya se envió — el caller hace `return` en ese caso.
+ */
+function replyConflictIfTransitionError(res: Response, error: unknown): boolean {
+	if (error instanceof InvalidTransitionError) {
+		res.status(409).json({ error: error.message });
+		return true;
+	}
+	return false;
 }
 
 export class MessageSequenceController {
@@ -163,6 +176,7 @@ export class MessageSequenceController {
 			}
 			res.json(updated);
 		} catch (error) {
+			if (replyConflictIfTransitionError(res, error)) return;
 			console.error('Error marking dispatched:', error);
 			res.status(500).json({ error: 'Error al marcar como enviado' });
 		}
@@ -203,6 +217,7 @@ export class MessageSequenceController {
 			const updated = await messageSequenceService.assign(id, userId);
 			res.json(updated);
 		} catch (error) {
+			if (replyConflictIfTransitionError(res, error)) return;
 			console.error('Error assigning scheduled message:', error);
 			res.status(500).json({ error: 'Error al asignar el mensaje' });
 		}
@@ -219,6 +234,7 @@ export class MessageSequenceController {
 			}
 			res.json(updated);
 		} catch (error) {
+			if (replyConflictIfTransitionError(res, error)) return;
 			console.error('Error skipping scheduled message:', error);
 			res.status(500).json({ error: 'Error al omitir el mensaje' });
 		}
@@ -235,6 +251,7 @@ export class MessageSequenceController {
 			}
 			res.json(updated);
 		} catch (error) {
+			if (replyConflictIfTransitionError(res, error)) return;
 			console.error('Error retrying scheduled message:', error);
 			res.status(500).json({ error: 'Error al reintentar el mensaje' });
 		}
@@ -251,6 +268,7 @@ export class MessageSequenceController {
 			}
 			res.json(updated);
 		} catch (error) {
+			if (replyConflictIfTransitionError(res, error)) return;
 			console.error('Error discarding scheduled message:', error);
 			res.status(500).json({ error: 'Error al descartar el mensaje' });
 		}
@@ -276,7 +294,8 @@ export class MessageSequenceController {
 	};
 
 	// POST /message-sequences/retreat/:retreatId/issues/bulk — reenviar/descartar
-	// en masa todos los mensajes con problema (failed/skipped) del retiro.
+	// en masa los mensajes con problema (failed/skipped) del retiro. `ids`
+	// opcional acota el bulk a las filas filtradas/visibles en la UI.
 	bulkIssues = async (req: Request, res: Response) => {
 		try {
 			const { retreatId } = req.params;
@@ -284,7 +303,21 @@ export class MessageSequenceController {
 			if (action !== 'retry' && action !== 'discard') {
 				return res.status(400).json({ error: 'Acción inválida (retry|discard)' });
 			}
-			const affected = await messageSequenceService.bulkResolveIssues(retreatId, action);
+			let ids: string[] | undefined;
+			if (Array.isArray(req.body?.ids)) {
+				// Anotado: la asignación directa desde `any` (req.body) no narrow-éa
+				// `ids` y el .length seguía "possibly undefined" para el tsc.
+				const parsed: string[] = req.body.ids.filter(
+					(v: unknown): v is string => typeof v === 'string',
+				);
+				if (!parsed.length) {
+					return res
+						.status(400)
+						.json({ error: 'ids inválidos: se esperaba al menos un id de mensaje' });
+				}
+				ids = parsed;
+			}
+			const affected = await messageSequenceService.bulkResolveIssues(retreatId, action, ids);
 			res.json({ affected });
 		} catch (error) {
 			console.error('Error in bulk issues:', error);

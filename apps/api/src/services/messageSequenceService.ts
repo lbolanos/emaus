@@ -3,7 +3,7 @@ import { In, LessThanOrEqual } from 'typeorm';
 import { AppDataSource } from '../data-source';
 import { MessageSequence } from '../entities/messageSequence.entity';
 import { SequenceStep } from '../entities/sequenceStep.entity';
-import { ScheduledMessage } from '../entities/scheduledMessage.entity';
+import { ScheduledMessage, type ScheduledMessageStatus } from '../entities/scheduledMessage.entity';
 import { Participant } from '../entities/participant.entity';
 import { RetreatParticipant } from '../entities/retreatParticipant.entity';
 import { TableMesa } from '../entities/tableMesa.entity';
@@ -63,6 +63,22 @@ type StepSyncInput = {
 	recipientResponsibility?: string | null;
 	condition?: Record<string, unknown> | null;
 };
+
+/**
+ * Violación de la máquina de transiciones de un scheduled message. El
+ * controller la traduce a HTTP 409: el conflicto es de estado, no de sintaxis
+ * (400) ni de permisos (403) — el mensaje EXISTE pero ya no está en un estado
+ * desde el que la acción tenga sentido.
+ */
+export class InvalidTransitionError extends Error {
+	constructor(current: ScheduledMessageStatus, action: string, allowed: ScheduledMessageStatus[]) {
+		super(
+			`Transición inválida: no se puede ${action} un mensaje en estado '${current}'` +
+				(allowed.length ? ` (válido desde: ${allowed.join(', ')})` : ''),
+		);
+		this.name = 'InvalidTransitionError';
+	}
+}
 
 /** Componentes calendario UTC de un Date (para fechas almacenadas a medianoche UTC). */
 function ymdUtc(date: Date): { y: number; m0: number; d: number } {
@@ -1473,15 +1489,62 @@ export class MessageSequenceService {
 		};
 	}
 
-	/** Marca un pendiente de WhatsApp como despachado (el coordinador YA lo envió). */
+	/**
+	 * Máquina de estados de las acciones manuales sobre scheduled_messages.
+	 * Una sola fuente de verdad para qué acción es legal desde qué estado:
+	 *  - `sent`/`cancelled` son terminales de auditoría: nada sale de ellos.
+	 *  - `processing` es transient del motor (claim de processDue): ninguna acción
+	 *    manual lo toma como origen — la fila está enviándose justo ahora.
+	 */
+	private static readonly MANUAL_TRANSITIONS: Record<
+		string,
+		{ from: ScheduledMessageStatus[]; label: string }
+	> = {
+		dispatch: { from: ['queued'], label: 'marcar como enviado' },
+		skip: { from: ['queued'], label: 'omitir' },
+		retry: { from: ['failed', 'skipped'], label: 'reintentar' },
+		discard: { from: ['pending', 'queued', 'failed', 'skipped'], label: 'descartar' },
+		assign: { from: ['queued'], label: 'asignar' },
+	};
+
+	/**
+	 * Valida que la acción manual sea legal desde el estado actual de la fila.
+	 * Lanza InvalidTransitionError (→ 409 en el controller) si no lo es.
+	 */
+	private assertTransition(sm: ScheduledMessage, action: string): void {
+		const rule = MessageSequenceService.MANUAL_TRANSITIONS[action];
+		if (!rule) throw new Error(`Acción manual desconocida: ${action}`);
+		if (!rule.from.includes(sm.status)) {
+			throw new InvalidTransitionError(sm.status, rule.label, rule.from);
+		}
+	}
+
+	/**
+	 * Marca un pendiente de WhatsApp como despachado (el coordinador YA lo envió).
+	 *
+	 * Update CONDICIONAL sobre `status='queued'`: si dos coordinadores tienen la
+	 * bandeja abierta a la vez, el segundo recibe `affected=0` → 409, en vez de
+	 * pisar la marca del primero o "despachar" algo que el otro ya omitió.
+	 * `updatedAt` va explícito (repo.update NO pisa @UpdateDateColumn solo).
+	 */
 	async markDispatched(id: string, userId?: string | null): Promise<ScheduledMessage | null> {
 		const repo = AppDataSource.getRepository(ScheduledMessage);
-		const sm = await repo.findOne({ where: { id } });
-		if (!sm) return null;
-		sm.status = 'sent';
-		sm.sentAt = new Date();
-		sm.dispatchedBy = userId ?? null;
-		return repo.save(sm);
+		const res = await repo.update(
+			{ id, status: 'queued' },
+			{
+				status: 'sent',
+				sentAt: new Date(),
+				dispatchedBy: userId ?? null,
+				updatedAt: new Date(),
+			},
+		);
+		if (!res.affected) {
+			// Distinguir 404 (no existe) de 409 (existe pero ya no está queued).
+			const sm = await repo.findOne({ where: { id } });
+			if (!sm) return null;
+			throw new InvalidTransitionError(sm.status, 'marcar como enviado', ['queued']);
+		}
+		return repo.findOne({ where: { id } });
 	}
 
 	/**
@@ -1506,6 +1569,9 @@ export class MessageSequenceService {
 		const repo = AppDataSource.getRepository(ScheduledMessage);
 		const sm = await repo.findOne({ where: { id } });
 		if (!sm) return null;
+		// Sólo pendientes de la bandeja (queued): asignar un enviado/cancelado no
+		// tiene a quién responsabilizar y contamina la auditoría de ownership.
+		this.assertTransition(sm, 'assign');
 		sm.assignedTo = userId;
 		return repo.save(sm);
 	}
@@ -1515,6 +1581,7 @@ export class MessageSequenceService {
 		const repo = AppDataSource.getRepository(ScheduledMessage);
 		const sm = await repo.findOne({ where: { id } });
 		if (!sm) return null;
+		this.assertTransition(sm, 'skip');
 		sm.status = 'skipped';
 		sm.error = 'omitido manualmente';
 		sm.dispatchedBy = userId ?? null;
@@ -1531,6 +1598,7 @@ export class MessageSequenceService {
 		const repo = AppDataSource.getRepository(ScheduledMessage);
 		const sm = await repo.findOne({ where: { id } });
 		if (!sm) return null;
+		this.assertTransition(sm, 'retry');
 		sm.status = 'pending';
 		sm.attempts = 0;
 		sm.error = null;
@@ -1548,6 +1616,7 @@ export class MessageSequenceService {
 		const repo = AppDataSource.getRepository(ScheduledMessage);
 		const sm = await repo.findOne({ where: { id } });
 		if (!sm) return null;
+		this.assertTransition(sm, 'discard');
 		sm.status = 'cancelled';
 		sm.error = 'descartado por el coordinador';
 		sm.dispatchedBy = userId ?? null;
@@ -1558,26 +1627,44 @@ export class MessageSequenceService {
 	 * Acción masiva sobre los mensajes con problema (failed/skipped) de un retiro:
 	 *  - 'retry'   → los re-encola (pending, attempts=0, vencimiento ahora).
 	 *  - 'discard' → los descarta (cancelled): salen de la lista y no reaparecen.
-	 * Un solo UPDATE (eficiente para cientos de filas). Devuelve cuántos afectó.
+	 *
+	 * `ids` opcional acota el UPDATE a las filas visibles/filtradas en la UI (el
+	 * bulk de "Problemas" sobre una búsqueda activa); tope de 500 por IN gigantes.
+	 *
+	 * Un solo UPDATE y `res.affected` como conteo REAL: el count-then-update de
+	 * antes reportaba filas que la carrera ya había movido. OJO SQLite: sin alias
+	 * en el update (columnas sin prefijo) y `new Date()` explícito para las fechas
+	 * — `datetime('now')` escribía UTC crudo sin pasar por el DateTimeTransformer,
+	 * y qb.update() NO pisa @UpdateDateColumn solo (TypeORM 0.3.27).
 	 */
-	async bulkResolveIssues(retreatId: string, action: 'retry' | 'discard'): Promise<number> {
+	async bulkResolveIssues(
+		retreatId: string,
+		action: 'retry' | 'discard',
+		ids?: string[],
+	): Promise<number> {
 		const repo = AppDataSource.getRepository(ScheduledMessage);
-		const affected = await repo
-			.createQueryBuilder('sm')
-			.where('sm.retreatId = :retreatId', { retreatId })
-			.andWhere("sm.status IN ('failed','skipped')")
-			.getCount();
-		if (affected === 0) return 0;
-		const set =
-			action === 'retry'
-				? `status = 'pending', attempts = 0, error = NULL, scheduledFor = datetime('now')`
-				: `status = 'cancelled', error = 'descartado (masivo)'`;
-		await repo.query(
-			`UPDATE scheduled_messages SET ${set}
-			 WHERE retreatId = ? AND status IN ('failed', 'skipped')`,
-			[retreatId],
-		);
-		return affected;
+		const qb = repo
+			.createQueryBuilder()
+			.update(ScheduledMessage)
+			.where('retreatId = :retreatId', { retreatId })
+			.andWhere("status IN ('failed','skipped')");
+		if (ids?.length) {
+			qb.andWhere('id IN (:...ids)', { ids: ids.slice(0, 500) });
+		}
+		const now = new Date();
+		if (action === 'retry') {
+			qb.set({
+				status: 'pending',
+				attempts: 0,
+				error: null,
+				scheduledFor: now,
+				updatedAt: now,
+			});
+		} else {
+			qb.set({ status: 'cancelled', error: 'descartado (masivo)', updatedAt: now });
+		}
+		const res = await qb.execute();
+		return res.affected ?? 0;
 	}
 
 	/**

@@ -3945,12 +3945,19 @@ export const regenerateSequenceQueue = async (
   return r.data;
 };
 
-/** Reenvía o descarta en masa los mensajes con problema (failed/skipped) del retiro. */
+/**
+ * Reenvía o descarta en masa los mensajes con problema (failed/skipped) del
+ * retiro. `ids` opcional acota el bulk a las filas filtradas/visibles en la UI.
+ */
 export const bulkResolveSequenceIssues = async (
   retreatId: string,
   action: 'retry' | 'discard',
+  ids?: string[],
 ): Promise<{ affected: number }> => {
-  const r = await api.post(`/message-sequences/retreat/${retreatId}/issues/bulk`, { action });
+  const r = await api.post(`/message-sequences/retreat/${retreatId}/issues/bulk`, {
+    action,
+    ...(ids?.length ? { ids } : {}),
+  });
   return r.data;
 };
 

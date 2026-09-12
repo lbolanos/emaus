@@ -1002,7 +1002,9 @@ describe('MessageSequenceService', () => {
 		});
 
 		it('markDispatched registra quién lo despachó (dispatchedBy)', async () => {
-			const { sm } = await seedDue({ channel: 'whatsapp' });
+			const { sm, repo } = await seedDue({ channel: 'whatsapp' });
+			// El despacho manual sólo aplica a pendientes YA encolados (M2: queued→sent).
+			await repo.update(sm.id, { status: 'queued' } as any);
 			const updated = await svc.markDispatched(sm.id, 'user-123');
 			expect(updated?.status).toBe('sent');
 			expect(updated?.dispatchedBy).toBe('user-123');
@@ -1319,6 +1321,133 @@ describe('MessageSequenceService', () => {
 			expect(after1?.resolvedContent).not.toContain('$0.00');
 			const after2 = await repo.findOne({ where: { id: sm2.id } });
 			expect(after2?.resolvedContent).toBe('VIEJO comunidad');
+		});
+	});
+
+	describe('M2: transiciones de estado y bulk honesto', () => {
+		async function seedManual(status: string, overrides: Record<string, unknown> = {}) {
+			const retreat = await TestDataFactory.createTestRetreat({
+				timezone: 'America/Mexico_City',
+			} as any);
+			const participant = await TestDataFactory.createTestParticipant(retreat.id, {
+				type: 'walker', email: 'm2@example.com', cellPhone: '5512345678',
+			} as any);
+			const seq = await svc.createSequence({
+				name: 'M2', retreatId: retreat.id, trigger: 'participant_created', audience: 'walker',
+				steps: [{ stepOrder: 0, offsetDays: 0, sendHour: 9, templateType: 'WALKER_WELCOME', channel: 'whatsapp' } as any],
+			});
+			const repo = AppDataSource.getRepository(ScheduledMessage);
+			const sm = await repo.save(repo.create({
+				sequenceId: seq.id, stepId: seq.steps![0].id, participantId: participant.id,
+				retreatId: retreat.id, channel: 'whatsapp', templateType: 'WALKER_WELCOME',
+				recipientTarget: 'participant', scheduledFor: new Date(), status: status as any,
+				...overrides,
+			}));
+			return { retreat, participant, seq, repo, sm };
+		}
+
+		it('dispatch: solo desde queued — desde sent/pending lanza y no toca la fila', async () => {
+			const sent = await seedManual('sent', { dispatchedBy: 'user-a', sentAt: new Date() });
+			await expect(svc.markDispatched(sent.sm.id, 'user-b')).rejects.toThrow('Transición inválida');
+			let row = await sent.repo.findOne({ where: { id: sent.sm.id } });
+			expect(row?.status).toBe('sent');
+			expect(row?.dispatchedBy).toBe('user-a'); // no pisa la marca del primero
+
+			const pending = await seedManual('pending');
+			await expect(svc.markDispatched(pending.sm.id)).rejects.toThrow('Transición inválida');
+			row = await pending.repo.findOne({ where: { id: pending.sm.id } });
+			expect(row?.status).toBe('pending');
+		});
+
+		it('carrera de dispatch: dos llamadas seguidas — la segunda lanza (update condicional)', async () => {
+			const { sm, repo } = await seedManual('queued');
+			const first = await svc.markDispatched(sm.id, 'coord-1');
+			expect(first?.status).toBe('sent');
+			// El segundo coordinador (bandeja desactualizada) ya no puede pisarla.
+			await expect(svc.markDispatched(sm.id, 'coord-2')).rejects.toThrow('Transición inválida');
+			const row = await repo.findOne({ where: { id: sm.id } });
+			expect(row?.dispatchedBy).toBe('coord-1');
+		});
+
+		it('skip: solo desde queued — desde cancelled lanza', async () => {
+			const { sm, repo } = await seedManual('cancelled');
+			await expect(svc.markSkipped(sm.id)).rejects.toThrow('Transición inválida');
+			expect((await repo.findOne({ where: { id: sm.id } }))?.status).toBe('cancelled');
+		});
+
+		it('retry: solo desde failed|skipped — desde queued lanza, desde skipped re-encola', async () => {
+			const queued = await seedManual('queued');
+			await expect(svc.retryScheduled(queued.sm.id)).rejects.toThrow('Transición inválida');
+
+			const skipped = await seedManual('skipped', { attempts: 2, error: 'sin plantilla' });
+			const updated = await svc.retryScheduled(skipped.sm.id, 'user-1');
+			expect(updated?.status).toBe('pending');
+			expect(updated?.attempts).toBe(0);
+			expect(updated?.error).toBeNull();
+		});
+
+		it('discard: nunca desde sent — desde pending SÍ cancela', async () => {
+			const sent = await seedManual('sent');
+			await expect(svc.discardScheduled(sent.sm.id)).rejects.toThrow('Transición inválida');
+
+			const pending = await seedManual('pending');
+			const updated = await svc.discardScheduled(pending.sm.id, 'user-2');
+			expect(updated?.status).toBe('cancelled');
+		});
+
+		it('assign: solo sobre queued — desde sent lanza', async () => {
+			const sent = await seedManual('sent');
+			await expect(svc.assign(sent.sm.id, 'user-x')).rejects.toThrow('Transición inválida');
+			expect((await sent.repo.findOne({ where: { id: sent.sm.id } }))?.assignedTo).toBeFalsy();
+		});
+
+		it('dispatch sobre id inexistente devuelve null (404, no 409)', async () => {
+			expect(await svc.markDispatched('00000000-0000-0000-0000-000000000000')).toBeNull();
+		});
+
+		it('bulk con ids: afecta solo esos ids y affected coincide con lo tocado', async () => {
+			const { retreat, seq, repo } = await seedManual('failed', { attempts: 3 });
+			// Dos problemas más en el MISMO retiro/paso (participantes distintos).
+			const extraIds: string[] = [];
+			for (let i = 0; i < 2; i++) {
+				const p = await TestDataFactory.createTestParticipant(retreat.id, {
+					type: 'walker', email: `extra${i}@example.com`,
+				} as any);
+				const row = await repo.save(repo.create({
+					sequenceId: seq.id, stepId: seq.steps![0].id, participantId: p.id,
+					retreatId: retreat.id, channel: 'whatsapp', templateType: 'WALKER_WELCOME',
+					recipientTarget: 'participant', scheduledFor: new Date(), status: 'failed',
+				}));
+				extraIds.push(row.id);
+			}
+
+			const affected = await svc.bulkResolveIssues(retreat.id, 'discard', extraIds);
+			expect(affected).toBe(2); // sólo los ids, no los 3 problemas del retiro
+			const remaining = await repo.find({
+				where: { retreatId: retreat.id, status: 'failed' as any },
+			});
+			expect(remaining).toHaveLength(1); // el primero sigue failed
+			const cancelled = await repo.find({
+				where: { retreatId: retreat.id, status: 'cancelled' as any },
+			});
+			expect(cancelled).toHaveLength(2);
+		});
+
+		it('bulk sin ids (retry): resetea attempts/error, programa para ahora, y affected es real', async () => {
+			const { retreat, sm, repo } = await seedManual('failed', {
+				attempts: 3, error: 'envío SMTP falló', scheduledFor: new Date(Date.now() - 5 * 86400000),
+			});
+			const affected = await svc.bulkResolveIssues(retreat.id, 'retry');
+			expect(affected).toBe(1);
+			const row = await repo.findOne({ where: { id: sm.id } });
+			expect(row?.status).toBe('pending');
+			expect(row?.attempts).toBe(0);
+			expect(row?.error).toBeNull();
+			// scheduledFor ≈ ahora (datetime('now') crudo dejaba la fecha en UTC sin
+			// transformar; new Date() pasa por el DateTimeTransformer).
+			expect(Math.abs(row!.scheduledFor.getTime() - Date.now())).toBeLessThan(60_000);
+			// Ya no hay problemas en el retiro → affected real (no el count de antes).
+			expect(await svc.bulkResolveIssues(retreat.id, 'discard')).toBe(0);
 		});
 	});
 });

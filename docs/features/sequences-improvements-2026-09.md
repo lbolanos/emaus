@@ -214,7 +214,19 @@ M6 en paralelo con todo, desde el día 1
   {community.*} sin/ con comunidad, {table.*} a no-líder, regenerate con paymentRemaining +
   skipped). Aislamiento: `clearTestData()` no limpia tablas de secuencias → los tests nuevos no
   assert el retorno de `processDue()` y el spy de la excepción es participant-scoped.
-- M2: _pendiente_
+- M2 (cerrado 2026-09-12): implementado como especificado, con tres matices:
+  1. `markDispatched` discrimina 404 de 409 con un re-fetch tras el `affected=0`
+     del update condicional (no alcanza con el update para saber si la fila no
+     existe o si perdió la carrera). El 409 re-fetch-ea el estado REAL de la fila.
+  2. El catch del controller usa un helper `replyConflictIfTransitionError` en
+     vez de repetir `instanceof` en los 5 handlers — misma semántica, menos copia.
+  3. Consecuencia esperada de la máquina de estados: dos tests previos
+     despachaban/asignaban desde `pending` (estado que la nueva máquina rechaza) —
+     se actualizaron para sembrar `queued`, que es el estado real de la bandeja.
+  Tests: 70/70 en `messageSequence.test.ts` (64 = 55 + 9 nuevos de M2: matriz
+  dispatch/skip/retry/discard/assign, carrera de dispatch, ids inexistentes →
+  null, bulk con/sin ids con affected real) + 4/4 en
+  `messageSequenceAssign.integration.test.ts` (seed actualizado a queued).
 - M3: _pendiente_
 - M4: _pendiente_
 - M5: _pendiente_
