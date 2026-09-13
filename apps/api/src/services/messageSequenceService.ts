@@ -1214,6 +1214,47 @@ export class MessageSequenceService {
 		}
 	}
 
+	/**
+	 * Registra en participant_communications el despacho MANUAL de WhatsApp
+	 * (bandeja de Secuencias). Espejo del recordCommunication de email: mismo
+	 * patrón try/catch sin propagar — un fallo de historial no debe deshacer
+	 * la marca de enviado.
+	 *
+	 * La plantilla se resuelve por (retreatId, templateType) como el detalle de
+	 * la bandeja; si ya no existe, la fila se registra igual (el envío ocurrió),
+	 * sólo sin templateId/templateName.
+	 */
+	private async recordWhatsappCommunication(
+		sm: ScheduledMessage,
+		userId?: string | null,
+	): Promise<void> {
+		try {
+			const template = await AppDataSource.getRepository(MessageTemplate).findOne({
+				where: { retreatId: sm.retreatId, type: sm.templateType as any },
+			});
+			const repo = AppDataSource.getRepository(ParticipantCommunication);
+			await repo.save(
+				repo.create({
+					participantId: sm.participantId,
+					scope: 'retreat',
+					retreatId: sm.retreatId,
+					messageType: 'whatsapp',
+					recipientContact: sm.resolvedContact || '',
+					recipientContactKey: `${sm.recipientTarget || 'participant'}:whatsapp`,
+					recipientName: sm.recipientName || null,
+					audience: getMessageTemplateAudience(sm.templateType),
+					messageContent: sm.resolvedContent || '',
+					templateId: template?.id ?? null,
+					templateName: template?.name ?? null,
+					subject: null,
+					sentBy: userId ?? null,
+				} as any),
+			);
+		} catch (err) {
+			console.error('[messageSequenceService] failed to record whatsapp communication:', err);
+		}
+	}
+
 	// ---------------------------------------------------------------------
 	// Gestión (admin) — usada por el controller / UI de secuencias.
 	// ---------------------------------------------------------------------
@@ -1925,11 +1966,16 @@ export class MessageSequenceService {
 		);
 		if (!res.affected) {
 			// Distinguir 404 (no existe) de 409 (existe pero ya no está queued).
-			const sm = await repo.findOne({ where: { id } });
-			if (!sm) return null;
-			throw new InvalidTransitionError(sm.status, 'marcar como enviado', ['queued']);
+			const existing = await repo.findOne({ where: { id } });
+			if (!existing) return null;
+			throw new InvalidTransitionError(existing.status, 'marcar como enviado', ['queued']);
 		}
-		return repo.findOne({ where: { id } });
+		const sm = await repo.findOne({ where: { id } });
+		// El historial del participante ("Mensajes ya enviados" del detalle) se
+		// alimenta de participant_communications: sin esto, el despacho manual
+		// de WhatsApp quedaba sin rastro (incidente 2026-09-12).
+		if (sm) await this.recordWhatsappCommunication(sm, userId);
+		return sm;
 	}
 
 	/**

@@ -21,6 +21,7 @@ import { Retreat } from '@/entities/retreat.entity';
 import { Payment } from '@/entities/payment.entity';
 import { SequenceStep } from '@/entities/sequenceStep.entity';
 import { formatCurrency } from '@repo/utils';
+import { getMessageTemplateAudience } from '@repo/types';
 
 describe('MessageSequenceService', () => {
 	let svc: MessageSequenceService;
@@ -1294,6 +1295,56 @@ describe('MessageSequenceService', () => {
 			expect(updated?.status).toBe('sent');
 			expect(updated?.dispatchedBy).toBe('user-123');
 			expect(updated?.sentAt).toBeTruthy();
+		});
+
+		it('markDispatched registra la comunicación de WhatsApp en el historial del participante', async () => {
+			const { participant, sm, repo } = await seedDue({ channel: 'whatsapp' });
+			// sentBy es FK a user → despachador real (la DB de test enforcea FKs).
+			const dispatcher = await TestDataFactory.createTestUser();
+			// Snapshot del envío, como lo deja processDue al encolar.
+			await repo.update(sm.id, {
+				status: 'queued', resolvedContent: 'Hola Test', resolvedContact: '5512345678',
+				recipientName: 'Test Walker',
+			} as any);
+			await svc.markDispatched(sm.id, dispatcher.id);
+
+			const comms = AppDataSource.getRepository(ParticipantCommunication);
+			const row = await comms.findOne({
+				where: { participantId: participant.id, retreatId: sm.retreatId, messageType: 'whatsapp' },
+			});
+			expect(row).toBeTruthy();
+			expect(row?.sentBy).toBe(dispatcher.id);
+			expect(row?.recipientContact).toBe('5512345678');
+			expect(row?.recipientContactKey).toBe('participant:whatsapp');
+			expect(row?.messageContent).toBe('Hola Test');
+			expect(row?.templateName).toBe('WALKER_WELCOME');
+			expect(row?.audience).toBe(getMessageTemplateAudience('WALKER_WELCOME'));
+		});
+
+		it('markDispatched registra la comunicación aunque la plantilla ya no exista (templateId null)', async () => {
+			const { participant, retreat, sm, repo } = await seedDue({ channel: 'whatsapp' });
+			await repo.update(sm.id, { status: 'queued', resolvedContent: 'x', resolvedContact: '5512345678' } as any);
+			// El envío ocurrió aunque la plantilla del retiro haya desaparecido.
+			await AppDataSource.getRepository(MessageTemplate).delete({ retreatId: retreat.id });
+			await svc.markDispatched(sm.id);
+
+			const row = await AppDataSource.getRepository(ParticipantCommunication).findOne({
+				where: { participantId: participant.id, retreatId: retreat.id, messageType: 'whatsapp' },
+			});
+			expect(row).toBeTruthy();
+			expect(row?.templateId).toBeNull();
+			expect(row?.templateName).toBeNull();
+			expect(row?.sentBy).toBeNull(); // automático/anónimo
+		});
+
+		it('markSkipped NO registra comunicación (omitir no es enviar)', async () => {
+			const { participant, retreat, sm, repo } = await seedDue({ channel: 'whatsapp' });
+			await repo.update(sm.id, { status: 'queued' } as any);
+			await svc.markSkipped(sm.id, 'user-1');
+			const row = await AppDataSource.getRepository(ParticipantCommunication).findOne({
+				where: { participantId: participant.id, retreatId: retreat.id, messageType: 'whatsapp' },
+			});
+			expect(row).toBeNull();
 		});
 
 		it('markOpened registra la apertura sin cambiar el status', async () => {
