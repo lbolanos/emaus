@@ -159,7 +159,8 @@
                 :global-index="getGlobalItemIndex(item)"
                 :route-with-params="getRouteWithParams(item)"
                 :badge="itemBadge(item.name)" :badge-color="itemBadgeColor(item.name)"
-                @mouseenter="setFocusedIndex(item)"
+                @mouseenter="setFocusedIndex(item, 'mouse')"
+                @mouseleave="clearMouseFocus"
                 @focus="setFocusedIndex(item)"
               />
             </template>
@@ -304,7 +305,8 @@
                       :global-index="getGlobalItemIndex(item)"
                       :route-with-params="getRouteWithParams(item)"
                       :badge="itemBadge(item.name)" :badge-color="itemBadgeColor(item.name)"
-                      @mouseenter="setFocusedIndex(item)"
+                      @mouseenter="setFocusedIndex(item, 'mouse')"
+                      @mouseleave="clearMouseFocus"
                       @focus="setFocusedIndex(item)"
                     />
                   </template>
@@ -332,7 +334,8 @@
                 :global-index="getGlobalItemIndex(item)"
                 :route-with-params="getRouteWithParams(item)"
                 :badge="itemBadge(item.name)" :badge-color="itemBadgeColor(item.name)"
-                @mouseenter="setFocusedIndex(item)"
+                @mouseenter="setFocusedIndex(item, 'mouse')"
+                @mouseleave="clearMouseFocus"
                 @focus="setFocusedIndex(item)"
               />
             </template>
@@ -500,6 +503,10 @@ const sidebarRef = ref<HTMLElement>();
 const searchInput = ref<HTMLInputElement>();
 const searchQuery = ref('');
 const focusedIndex = ref(-1);
+// 'mouse' hover only syncs focusedIndex so arrow-key navigation can continue
+// from the hovered item; the focus ring is exclusive to keyboard navigation
+// (hover already has its own hover: styles and must not look like the active item).
+const focusSource = ref<'mouse' | 'keyboard' | null>(null);
 const isSearchFocused = ref(false);
 const isSearchOpen = ref(false);
 const collapsedSections = ref<Record<string, boolean>>({});
@@ -1206,15 +1213,25 @@ const getGlobalItemIndex = (item: MenuItem) => {
   return allMenuItems.value.findIndex(menuItem => menuItem.name === item.name);
 };
 
-const setFocusedIndex = (item: MenuItem) => {
+const setFocusedIndex = (item: MenuItem, source: 'mouse' | 'keyboard' = 'keyboard') => {
   const index = getGlobalItemIndex(item);
   if (index !== -1) {
     focusedIndex.value = index;
+    focusSource.value = source;
+  }
+};
+
+// Leaving an item with the mouse must not leave the focus ring stuck on it
+// (it looked identical to the active item). Keyboard focus survives untouched.
+const clearMouseFocus = () => {
+  if (focusSource.value === 'mouse') {
+    focusedIndex.value = -1;
+    focusSource.value = null;
   }
 };
 
 const isItemFocused = (item: MenuItem) => {
-  return focusedIndex.value === getGlobalItemIndex(item);
+  return focusSource.value === 'keyboard' && focusedIndex.value === getGlobalItemIndex(item);
 };
 
 const focusedMenuItem = computed(() => {
@@ -1242,24 +1259,33 @@ const openSearch = () => {
 const closeSearch = () => {
   searchQuery.value = '';
   focusedIndex.value = -1;
+  focusSource.value = null;
   isSearchOpen.value = false;
 };
 
 const clearSearch = () => {
   searchQuery.value = '';
   focusedIndex.value = -1;
+  focusSource.value = null;
   nextTick(() => {
     searchInput.value?.focus();
   });
 };
 
 const handleSearch = () => {
-  focusedIndex.value = searchQuery.value.trim() ? 0 : -1;
+  if (searchQuery.value.trim()) {
+    focusedIndex.value = 0;
+    focusSource.value = 'keyboard';
+  } else {
+    focusedIndex.value = -1;
+    focusSource.value = null;
+  }
 };
 
 const handleSearchKeydown = () => {
   if (allMenuItems.value.length > 0) {
     focusedIndex.value = 0;
+    focusSource.value = 'keyboard';
     isSearchFocused.value = false;
     sidebarRef.value?.focus();
   }
@@ -1274,6 +1300,7 @@ const navigateUp = () => {
     const section = filteredMenuSections.value.find(s => s.items.some(i => i.name === item.name));
     if (section && !isSectionCollapsed(section.category)) {
       focusedIndex.value = newIndex;
+      focusSource.value = 'keyboard';
       scrollFocusedItemIntoView();
       return;
     }
@@ -1291,6 +1318,7 @@ const navigateDown = () => {
     const section = filteredMenuSections.value.find(s => s.items.some(i => i.name === item.name));
     if (section && !isSectionCollapsed(section.category)) {
       focusedIndex.value = newIndex;
+      focusSource.value = 'keyboard';
       scrollFocusedItemIntoView();
       return;
     }
@@ -1321,6 +1349,7 @@ const activateCurrentItem = () => {
 
 const handleEscape = () => {
   focusedIndex.value = -1;
+  focusSource.value = null;
   searchQuery.value = '';
   isSearchOpen.value = false;
 };

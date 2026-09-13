@@ -43,6 +43,7 @@ Cuando el usuario reporta un problema, primero ubicá el **síntoma** en la tabl
 | "en producción sale la clave de traducción en pantalla", "dice serverRegistration.algo.otro en vez del texto", "el test pasa pero el texto sale mal" | [#30 Una clave de i18n inexistente pasa verde en toda la suite](#30-una-clave-de-i18n-inexistente-pasa-verde-en-toda-la-suite) |
 | "Jest encountered an unexpected token" apuntando a un import nuestro, "Test suite failed to run" antes de correr nada, "este módulo no tiene ni un test" | [#31 Un módulo con `import.meta` es invisible para Jest](#31-un-módulo-con-importmeta-es-invisible-para-jest--y-su-lógica-nunca-se-prueba) |
 | "el contador de arriba no cuadra con la lista", "aquí dice recibidas y allá pendiente", "el total se come registros" | [#32 Un mismo campo con varios criterios](#32-un-mismo-campo-con-varios-criterios-que-se-contradicen) |
+| "en el sidebar el item queda marcado como seleccionado al pasar el mouse", "el hover se ve igual que el activo y no se quita al salir" | [#33 El hover deja el item "seleccionado": focus compartido entre mouse y teclado](#33-el-hover-deja-el-item-seleccionado-focus-compartido-entre-mouse-y-teclado) |
 
 ---
 
@@ -1395,3 +1396,36 @@ Guards: `apps/api/src/tests/services/palancasMilestone.test.ts` (el helper),
 coincidan sobre las mismas fichas),
 `apps/api/src/tests/migrations/addPalancasCountAndThreshold.test.ts` (el backfill no pierde nada).
 
+
+## 33. El hover deja el item "seleccionado": focus compartido entre mouse y teclado
+
+**Síntoma**: al pasar el mouse por un item del sidebar, se ve igual que el item activo, y al sacar
+el mouse el estilo queda pegado — el item parece seleccionado aunque no lo esté (solo Escape lo
+limpiaba).
+
+**Causa**: cada item tenía `@mouseenter="setFocusedIndex(item)"` pero **ningún `@mouseleave`**
+limpiaba el índice. Ese índice alimenta la prop `isFocused`, cuyo estilo (`ring-2 ring-blue-500
+ring-offset-2 …`) es **idéntico al del item activo**. El `focusedIndex` existe para la navegación
+por teclado; el mouseenter solo pretendía que las flechas continuaran desde el item bajo el cursor.
+Ningún test lo vio: `Sidebar.test.ts` mockea `SidebarMenuItem` entero, y el mock de `@repo/ui`
+acepta cualquier prop (ver #4).
+
+**Fix**: separar la fuente del focus (`focusSource: 'mouse' | 'keyboard' | null` en `Sidebar.vue`):
+
+- el anillo se pinta **solo** cuando `focusSource === 'keyboard'` — el hover ya tiene sus propios
+  `hover:` styles y no debe confundirse con el activo;
+- `mouseenter` marca `'mouse'` y `mouseleave` limpia el índice **solo si** la fuente es mouse, de
+  modo que el foco de teclado sobrevive al paso del mouse;
+- `navigateUp`/`navigateDown`/búsqueda marcan `'keyboard'`; Escape/cerrar limpia a `null`.
+
+**Guard**: `apps/web/src/components/__tests__/SidebarFocusState.test.ts` monta el Sidebar con el
+`SidebarMenuItem` **real** (sin el mock) usando un stub de `router-link` que soporta el slot custom
+`{ href, navigate, isActive }` — el stub default de VTU no provee el scope del slot y el `<a>` del
+item no renderiza. Dos trampas del fixture: pasar la **pinia poblada** a `createTestWrapper` (si no,
+monta con stores vacíos y no hay items de retiro) y un user con rol `superadmin` —
+`filteredMenuSections` filtra los items con `permission` leyendo `auth.userProfile.roles` directo,
+no el composable.
+
+**Caso**: 2026-09-12 — «al hacer mouseover un item queda igual que el que está seleccionado y queda
+seleccionado al salir del mouseover». Verificado en navegador: tras el fix, el único item con anillo
+es el activo.

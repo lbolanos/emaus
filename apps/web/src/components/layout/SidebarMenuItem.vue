@@ -13,6 +13,7 @@
             :href="href"
             @click="navigate"
             @mouseenter="$emit('mouseenter')"
+            @mouseleave="$emit('mouseleave')"
             @focus="$emit('focus')"
             :data-menu-item-index="globalIndex"
             class="flex items-center px-2 py-2 text-sm font-medium rounded-md transition-all duration-200 ease-in-out transform hover:scale-105 ml-2 group"
@@ -42,6 +43,7 @@
           :class="{ 'justify-center': isCollapsedView }"
           :title="$t('sidebar.selectRetreatFirst')"
           @mouseenter="$emit('mouseenter')"
+          @mouseleave="$emit('mouseleave')"
           @focus="$emit('focus')"
           @click.prevent
         >
@@ -59,6 +61,7 @@
           :class="{ 'justify-center': isCollapsedView, 'ring-2 ring-blue-500 ring-offset-2 ring-offset-gray-800': isFocused }"
           @click="item.onClick"
           @mouseenter="$emit('mouseenter')"
+          @mouseleave="$emit('mouseleave')"
           @focus="$emit('focus')"
         >
           <component :is="item.icon" class="w-5 h-5 flex-shrink-0 transition-colors duration-200 text-gray-400 group-hover:text-gray-200" :class="{ 'mr-3': !isCollapsedView }" />
@@ -100,6 +103,7 @@ defineProps<{
 
 defineEmits<{
   mouseenter: [];
+  mouseleave: [];
   focus: [];
 }>();
 </script>
