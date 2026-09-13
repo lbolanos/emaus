@@ -1,0 +1,139 @@
+/* ---------------------------------------------------------------------------
+   Membrete de Emaús para documentos PDF sueltos (Chrome headless).
+   La paleta NO está inventada: sale de muestrear logo-emaus.png.
+     madera #381C00 (40% del logo) · rosa #A81C1C · hoja #707038
+   El membrete y el pie se repiten en TODAS las páginas vía <thead>/<tfoot> de
+   la tabla .hoja que envuelve el documento (ver el bloque "La hoja").
+   --------------------------------------------------------------------------- */
+@page { size: A4; margin: 12mm; }
+
+:root{
+  --madera:#3A2317; --madera-media:#6B4A33; --madera-suave:#EDE6DF;
+  --rosa:#A32320;   --rosa-suave:#F7EBEA;
+  --hoja:#5E6B32;   --hoja-suave:#EFF1E7;
+  --papel:#FFFFFF;  --crema:#FBF9F6;
+  --tinta:#241811;  --tinta-media:#544A42; --neutro:#7A7069;
+  --regla:#DED6CE;  --regla-suave:#EDE8E2;
+}
+*{ box-sizing:border-box; -webkit-print-color-adjust:exact; print-color-adjust:exact }
+/* El ancho SI hay que declararlo (A4 210mm - 12mm - 12mm = 186mm): sin el, Chrome
+   maqueta contra un viewport tipo Letter y el borde derecho sale cortado.
+   Lo que NO debe llevar es overflow(-x):hidden. */
+html,body{ margin:0; padding:0; background:var(--papel); width:186mm; max-width:186mm }
+body{ color:var(--tinta); font-family:"IBM Plex Sans",system-ui,sans-serif; font-size:9.6pt; line-height:1.45 }
+
+/* ---- La hoja ----
+   El membrete va en un <thead> y el pie en un <tfoot> de la tabla que envuelve
+   TODO el documento. Chrome los repite en cada pagina Y les reserva el espacio.
+   El camino que NO funciona: position:fixed con offsets negativos contra el
+   margen de @page — Chrome lo imprime en cada pagina pero intercambia arriba y
+   abajo, y el membrete acaba pisando la tabla al pie de la hoja. Con top:0 /
+   bottom:0 si respeta el lado, pero entonces no reserva sitio y tapa el texto. */
+table.hoja{ width:100%; border-collapse:collapse; table-layout:fixed }
+table.hoja > thead > tr > td,
+table.hoja > tfoot > tr > td,
+table.hoja > tbody > tr > td{ padding:0; border:none }   /* gana a `tbody td` de abajo */
+
+.membrete{
+  display:flex; align-items:center; gap:6mm; height:19mm; margin-bottom:7mm;
+  border-bottom:.9pt solid var(--madera); position:relative;
+}
+.membrete::after{ /* filete corto en rosa sobre la linea de madera */
+  content:""; position:absolute; left:0; bottom:-.9pt; width:26mm; height:1.8pt; background:var(--rosa);
+}
+.membrete img{ height:16mm; width:auto; display:block }
+.membrete .ident{ display:flex; flex-direction:column; gap:.6mm }
+.membrete .comunidad{
+  font-family:Newsreader,Georgia,serif; font-size:15pt; font-weight:600;
+  color:var(--madera); line-height:1.05; letter-spacing:-.005em;
+}
+.membrete .parroquia{
+  font-family:"IBM Plex Mono",monospace; font-size:6.9pt; letter-spacing:.11em;
+  text-transform:uppercase; color:var(--neutro);
+}
+.membrete .doc-kicker{ margin-left:auto; text-align:right;
+  font-family:"IBM Plex Mono",monospace; font-size:6.9pt; letter-spacing:.11em;
+  text-transform:uppercase; color:var(--neutro); line-height:1.5;
+}
+
+.pie{
+  margin-top:6mm; padding-top:2mm; border-top:.6pt solid var(--regla);
+  display:flex; justify-content:space-between; align-items:baseline;
+  font-family:"IBM Plex Mono",monospace; font-size:6.8pt; color:var(--neutro);
+}
+
+/* ---- Tipografía del cuerpo ---- */
+h1{ font-family:Newsreader,Georgia,serif; font-weight:600; font-size:22pt; line-height:1.08;
+    letter-spacing:-.01em; margin:0; color:var(--tinta); text-wrap:balance }
+h2{ font-family:Newsreader,Georgia,serif; font-weight:600; font-size:12pt; margin:0 }
+.eyebrow{ font-family:"IBM Plex Mono",monospace; font-size:7.2pt; letter-spacing:.13em;
+    text-transform:uppercase; color:var(--rosa); margin:0 0 5pt }
+.sub{ color:var(--tinta-media); margin:7pt 0 0; max-width:64ch; font-size:9.4pt }
+header.doc{ border-bottom:1.2pt solid var(--tinta); padding-bottom:9pt; margin-bottom:13pt }
+
+/* ---- Piezas reutilizables ---- */
+.cifras{ display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); border:.7pt solid var(--regla);
+    margin-bottom:12pt; break-inside:avoid }
+.cifra{ padding:8pt 10pt; border-right:.7pt solid var(--regla) }
+.cifra:last-child{ border-right:none }
+.cifra-k{ display:block; font-family:"IBM Plex Mono",monospace; font-size:6.9pt;
+    letter-spacing:.11em; text-transform:uppercase; color:var(--neutro); margin-bottom:2pt }
+.cifra-v{ display:block; font-family:"IBM Plex Mono",monospace; font-variant-numeric:tabular-nums;
+    font-size:19pt; font-weight:600; color:var(--madera); line-height:1.05 }
+.cifra-n{ display:block; font-size:8pt; color:var(--neutro); margin-top:2pt }
+
+.panel{ border:.7pt solid var(--regla); margin-bottom:12pt; break-inside:avoid }
+.panel > h2{ padding:7pt 10pt; border-bottom:.7pt solid var(--regla-suave); background:var(--crema) }
+.panel ul{ list-style:none; margin:0; padding:4pt 0 }
+.panel li{ display:flex; align-items:baseline; gap:10pt; padding:3.2pt 10pt; font-size:9.2pt }
+.panel li .lbl{ flex:1; color:var(--tinta-media) }
+.panel li .val{ font-family:"IBM Plex Mono",monospace; font-variant-numeric:tabular-nums;
+    font-weight:600; white-space:nowrap; color:var(--hoja) }
+.panel li.total{ border-top:.7pt solid var(--regla-suave); margin-top:3pt; padding-top:5.5pt; padding-bottom:6pt }
+.panel li.total .lbl{ color:var(--tinta); font-weight:600 }
+
+.bloque{ border:.7pt solid var(--regla); margin-bottom:9pt }
+/* Un .bloque con break-inside:avoid deja media pagina en blanco cuando no cabe.
+   Se parte; lo que se protege es el encabezado y cada fila. */
+.bloque-h{ break-after:avoid; padding:6.5pt 10pt; border-bottom:.7pt solid var(--regla); background:var(--crema);
+    display:grid; grid-template-columns:auto 1fr; gap:2pt 10pt; align-items:baseline }
+.bloque-t{ font-family:Newsreader,Georgia,serif; font-size:12.5pt; font-weight:600; color:var(--tinta) }
+.bloque-span{ font-family:"IBM Plex Mono",monospace; font-size:10pt; font-weight:500;
+    color:var(--madera); font-variant-numeric:tabular-nums }
+.bloque-d{ grid-column:1/-1; margin:1pt 0 0; font-size:8.4pt; color:var(--tinta-media) }
+
+table{ width:100%; max-width:100%; border-collapse:collapse; font-size:8.7pt; table-layout:fixed }
+thead{ display:table-header-group }
+thead th{ font-family:"IBM Plex Mono",monospace; font-size:6.9pt; letter-spacing:.09em;
+    text-transform:uppercase; color:var(--neutro); font-weight:500; text-align:left;
+    padding:4.5pt 7pt; border-bottom:.7pt solid var(--regla-suave); white-space:nowrap }
+tbody tr{ break-inside:avoid }
+tbody td{ padding:3.1pt 7pt; border-bottom:.5pt solid var(--regla-suave); vertical-align:baseline }
+tbody tr:last-child td{ border-bottom:none }
+.c-t{ font-family:"IBM Plex Mono",monospace; font-variant-numeric:tabular-nums;
+    white-space:nowrap; width:24mm }
+.c-t .dash{ color:var(--neutro); padding:0 .5pt }
+td.old{ color:var(--neutro) }
+td.new{ color:var(--tinta); font-weight:600 }
+.c-m{ font-family:"IBM Plex Mono",monospace; font-variant-numeric:tabular-nums; text-align:right;
+    color:var(--tinta-media); white-space:nowrap; width:13mm }
+.c-m s{ color:var(--neutro); text-decoration-thickness:.5pt; margin-right:2pt }
+.c-n{ color:var(--tinta); overflow-wrap:anywhere }
+tr.is-cut td.c-m{ color:var(--rosa); font-weight:600 }
+tr.is-anchor td.new{ color:var(--hoja); font-weight:700 }
+
+.tag{ display:inline-block; font-family:"IBM Plex Mono",monospace; font-size:6.6pt;
+    letter-spacing:.09em; text-transform:uppercase; padding:.5pt 4pt; border-radius:1.5pt;
+    vertical-align:1pt; margin-left:3pt; white-space:nowrap }
+.tag-cut{ background:var(--rosa-suave); color:var(--rosa) }
+.tag-anchor{ background:var(--hoja-suave); color:var(--hoja) }
+
+.notas{ border:.7pt solid var(--regla); border-left:2pt solid var(--rosa); padding:10pt 12pt;
+    margin-top:13pt; break-inside:avoid }
+.notas h2{ margin:0 0 8pt }
+.nota{ margin-bottom:8pt }
+.nota:last-child{ margin-bottom:0 }
+.nota b{ display:block; font-size:9.3pt; font-weight:600; margin-bottom:1.5pt }
+.nota p{ margin:0; font-size:8.9pt; color:var(--tinta-media) }
+.quitados{ border-left:2pt solid var(--rosa) }
+.motivo{ color:var(--neutro); font-size:8.2pt }
