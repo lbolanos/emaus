@@ -8,9 +8,13 @@
  *    con chip de secuencia removible.
  */
 
-import { describe, it, expect, vi } from 'vitest';
-import { mount, flushPromises, VueWrapper } from '@vue/test-utils';
+import { describe, it, expect, vi, afterEach } from 'vitest';
+import { mount, flushPromises, VueWrapper, enableAutoUnmount } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
+
+// Los tests de a11y (#5) siguen el foco real (document.activeElement): la
+// vista se monta atacheada al body y se desmonta tras cada test.
+enableAutoUnmount(afterEach);
 
 vi.mock('vue-router', () => ({
 	useRoute: () => ({ params: {} }),
@@ -174,7 +178,7 @@ async function mountView(): Promise<VueWrapper<any>> {
 
 	const { default: i18n } = await import('@/i18n');
 	const MessageSequencesView = (await import('@/views/MessageSequencesView.vue')).default;
-	const wrapper = mount(MessageSequencesView, { global: { plugins: [i18n] } });
+	const wrapper = mount(MessageSequencesView, { global: { plugins: [i18n] }, attachTo: document.body });
 	await flushPromises();
 	return wrapper;
 }
@@ -240,6 +244,36 @@ describe('MessageSequencesView — pestaña Programados (A2/A3/A5)', () => {
 		expect(wrapper.vm.schedSequenceFilter).toBeNull();
 		const calls2 = apiMod.fetchScheduledMessages.mock.calls;
 		expect(calls2[calls2.length - 1][1].sequenceId).toBeUndefined();
+	});
+
+	it('click en el nombre de una fila filtra el histórico del participante (#9)', async () => {
+		const wrapper = await mountView();
+		const apiMod: any = await import('@/services/api');
+		wrapper.vm.activeTab = 'scheduled';
+		apiMod.fetchScheduledMessages.mockClear();
+
+		// El nombre de la fila es un botón: fija el chip de participante y
+		// refetch-ea con participantId (el histórico completo de esa persona,
+		// combinable con el selector de estado: sent, skipped…).
+		const nameBtn = wrapper.findAll('button').find((b) => b.text().trim() === 'Ana M3');
+		expect(nameBtn).toBeTruthy();
+		await nameBtn!.trigger('click');
+		await flushPromises();
+
+		expect(wrapper.vm.schedParticipantFilter).toEqual({ id: 'p1', name: 'Ana M3' });
+		const calls = apiMod.fetchScheduledMessages.mock.calls;
+		const last = calls[calls.length - 1];
+		expect(last[1].participantId).toBe('p1');
+		// El chip anuncia a quién está filtrado.
+		expect(wrapper.text()).toContain('Participante: Ana M3');
+
+		// Quitar el chip refetch-ea sin el filtro de participante.
+		apiMod.fetchScheduledMessages.mockClear();
+		await wrapper.vm.clearSchedParticipantFilter();
+		await flushPromises();
+		expect(wrapper.vm.schedParticipantFilter).toBeNull();
+		const calls2 = apiMod.fetchScheduledMessages.mock.calls;
+		expect(calls2[calls2.length - 1][1].participantId).toBeUndefined();
 	});
 });
 
@@ -481,5 +515,229 @@ describe('MessageSequencesView — calidad de vida (M6)', () => {
 		// QUEUE_ITEM (bandeja) y sm-1 (programados) usan SHIRT_CONFIRMATION.
 		expect(wrapper.text()).toContain('Confirmar talla (camiseta)');
 		expect(wrapper.text()).not.toContain('SHIRT_CONFIRMATION');
+	});
+});
+
+describe('MessageSequencesView — tab Problemas honesto (#2)', () => {
+	it('el contador del tab muestra el total real (issuesTotal), no el cap de página', async () => {
+		const wrapper = await mountView();
+		const { useMessageSequenceStore } = await import('@/stores/messageSequenceStore');
+		const sequenceStore = useMessageSequenceStore();
+		// 100 filas cargadas (cap de página), 144 problemas reales → el tab
+		// debe decir 144; decir 100 es lo que este fix corrige.
+		sequenceStore.issues = Array.from({ length: 100 }, (_, i) => ({
+			id: `i-${i}`,
+			sequenceId: 'seq-1',
+			participant: { firstName: `P${i}`, lastName: 'X' },
+			templateType: 'T',
+			error: 'sin teléfono',
+			status: 'skipped',
+		})) as any;
+		sequenceStore.issuesTotal = 144;
+		await flushPromises();
+
+		const tab = wrapper.findAll('button').find((b) => b.text().includes('Problemas'));
+		expect(tab).toBeTruthy();
+		expect(tab!.text()).toContain('144');
+	});
+
+	it('"Cargar más" pide la página siguiente con offset, appendea sin duplicar y desaparece al completar', async () => {
+		const wrapper = await mountView();
+		const apiMod: any = await import('@/services/api');
+		const { useMessageSequenceStore } = await import('@/stores/messageSequenceStore');
+		const sequenceStore = useMessageSequenceStore();
+		sequenceStore.issues = [
+			{ id: 'i-1', sequenceId: 'seq-1', participant: { firstName: 'A', lastName: 'A' }, templateType: 'T', error: 'x', status: 'skipped' },
+			{ id: 'i-2', sequenceId: 'seq-1', participant: { firstName: 'B', lastName: 'B' }, templateType: 'T', error: 'x', status: 'skipped' },
+		] as any;
+		sequenceStore.issuesTotal = 3;
+		// La página 2 trae la fila restante — y repite la i-2 (cambió de estado
+		// entre fetches) para afirmar el dedupe por id.
+		apiMod.getSequenceStats.mockResolvedValue({
+			stats: {},
+			issues: [
+				{ id: 'i-3', sequenceId: 'seq-1', participant: { firstName: 'C', lastName: 'C' }, templateType: 'T', error: 'x', status: 'skipped' },
+				{ id: 'i-2', sequenceId: 'seq-1', participant: { firstName: 'B', lastName: 'B' }, templateType: 'T', error: 'x', status: 'skipped' },
+			],
+			issuesTotal: 3,
+		});
+		await flushPromises();
+
+		const btn = wrapper.findAll('button').find((b) => b.text().includes('Cargar más'));
+		expect(btn).toBeTruthy();
+		expect(btn!.text()).toContain('1'); // 1 restante (3 reales - 2 cargadas)
+		await btn!.trigger('click');
+		await flushPromises();
+
+		// El offset es la cantidad de filas ya cargadas.
+		expect(apiMod.getSequenceStats).toHaveBeenCalledWith(RETREAT_ID, { issuesOffset: 2 });
+		expect(sequenceStore.issues).toHaveLength(3); // dedupe: i-2 no se duplica
+		// Ya está todo cargado → el botón desaparece.
+		expect(wrapper.findAll('button').find((b) => b.text().includes('Cargar más'))).toBeFalsy();
+	});
+});
+
+describe('MessageSequencesView — validaciones blandas del editor (#4)', () => {
+	it('al guardar, horas fuera de 0–23 y días negativos se normalizan en el payload', async () => {
+		const wrapper = await mountView();
+		const apiMod: any = await import('@/services/api');
+		apiMod.updateMessageSequence.mockResolvedValue({ ...SEQ });
+
+		wrapper.vm.openEdit({
+			...SEQ,
+			steps: [{
+				id: 'st-1', offsetDays: 2, sendHour: 9,
+				templateType: 'SHIRT_CONFIRMATION', channel: 'email', recipientTarget: 'participant',
+			}],
+		});
+		// El input number deja teclear cualquier cosa; el guard no debe dejarla salir.
+		wrapper.vm.draft.steps[0].offsetDays = -5;
+		wrapper.vm.draft.steps[0].sendHour = 99;
+		apiMod.updateMessageSequence.mockClear();
+		await wrapper.vm.saveDraft();
+		await flushPromises();
+
+		expect(apiMod.updateMessageSequence).toHaveBeenCalled();
+		const payload = apiMod.updateMessageSequence.mock.calls[0][1];
+		expect(payload.steps[0].offsetDays).toBe(0);
+		expect(payload.steps[0].sendHour).toBe(23);
+	});
+});
+
+describe('MessageSequencesView — buscar en Problemas por nombre legible (#3)', () => {
+	it('la búsqueda matchea el nombre de la plantilla, no sólo su tipo crudo', async () => {
+		const wrapper = await mountView();
+		const { useMessageTemplateStore } = await import('@/stores/messageTemplateStore');
+		const { useMessageSequenceStore } = await import('@/stores/messageSequenceStore');
+		const templateStore = useMessageTemplateStore();
+		const sequenceStore = useMessageSequenceStore();
+		// El tipo crudo WALKER_WELCOME se muestra como "Bienvenida a Caminantes":
+		// buscar "bienvenida" debe encontrarlo (antes sólo matcheaba el crudo).
+		templateStore.templates = [
+			{ id: 'tpl-1', type: 'WALKER_WELCOME', name: 'Bienvenida a Caminantes' },
+		] as any;
+		sequenceStore.issues = [
+			{ id: 'i-1', sequenceId: 'seq-1', participant: { firstName: 'Zoe', lastName: 'Z' }, templateType: 'WALKER_WELCOME', error: 'sin teléfono', status: 'skipped' },
+			{ id: 'i-2', sequenceId: 'seq-1', participant: { firstName: 'Otro', lastName: 'X' }, templateType: 'PALANQUERO_NEW_WALKER', error: 'sin email', status: 'failed' },
+		] as any;
+		sequenceStore.issuesTotal = 2;
+		await flushPromises();
+
+		wrapper.vm.issuesSearch = 'bienvenida';
+		expect(wrapper.vm.filteredIssues).toHaveLength(1);
+		expect(wrapper.vm.filteredIssues[0].id).toBe('i-1');
+
+		// El tipo crudo sigue siendo buscable (comportamiento previo intacto).
+		wrapper.vm.issuesSearch = 'WALKER_WELCOME';
+		expect(wrapper.vm.filteredIssues).toHaveLength(1);
+
+		wrapper.vm.issuesSearch = 'no-existe-nada';
+		expect(wrapper.vm.filteredIssues).toHaveLength(0);
+	});
+});
+
+describe('MessageSequencesView — accesibilidad (#5)', () => {
+	it('los tabs exponen role/aria-selected y las flechas mueven el tab activo con el foco', async () => {
+		const wrapper = await mountView();
+		const tablist = wrapper.find('[role="tablist"]');
+		expect(tablist.exists()).toBe(true);
+		const tabs = tablist.findAll('[role="tab"]');
+		expect(tabs).toHaveLength(4);
+		expect(tabs[0].attributes('aria-selected')).toBe('true');
+		expect(tabs[1].attributes('aria-selected')).toBe('false');
+		// Tab ↔ panel enlazados vía aria-controls/aria-labelledby.
+		expect(tabs[0].attributes('aria-controls')).toBe('seq-panel-sequences');
+		expect(wrapper.find('#seq-panel-sequences').attributes('aria-labelledby')).toBe('seq-tab-sequences');
+
+		await tablist.trigger('keydown', { key: 'ArrowRight' });
+		expect(wrapper.vm.activeTab).toBe('scheduled');
+		expect(document.activeElement?.id).toBe('seq-tab-scheduled');
+		expect(wrapper.find('#seq-tab-scheduled').attributes('aria-selected')).toBe('true');
+
+		// Wrap-around con flechas y salto directo con Home/End.
+		await tablist.trigger('keydown', { key: 'End' });
+		expect(wrapper.vm.activeTab).toBe('issues');
+		await tablist.trigger('keydown', { key: 'ArrowRight' });
+		expect(wrapper.vm.activeTab).toBe('sequences');
+		await tablist.trigger('keydown', { key: 'Home' });
+		expect(wrapper.vm.activeTab).toBe('sequences');
+	});
+
+	it('los icon-buttons de la lista tienen nombre accesible', async () => {
+		const wrapper = await mountView();
+		const labels = wrapper.findAll('button').map((b) => b.attributes('aria-label'));
+		expect(labels).toContain('Editar');
+		expect(labels).toContain('Eliminar');
+		expect(labels).toContain('Duplicar');
+		expect(labels).toContain('Activar/desactivar');
+	});
+
+	it('el editor abre como diálogo accesible y Escape lo cierra', async () => {
+		const wrapper = await mountView();
+		wrapper.vm.openCreate();
+		await flushPromises();
+		const dialog = wrapper.find('[role="dialog"][aria-modal="true"]');
+		expect(dialog.exists()).toBe(true);
+		expect(dialog.attributes('aria-label')).toBeTruthy();
+		// El foco entra al contenedor del diálogo (rAF del composable).
+		await new Promise((r) => setTimeout(r, 20));
+		expect(document.activeElement?.getAttribute('role')).toBe('dialog');
+
+		document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+		await flushPromises();
+		expect(wrapper.vm.isEditorOpen).toBe(false);
+	});
+
+	it('la confirmación de borrado se cancela con Escape sin borrar nada', async () => {
+		const wrapper = await mountView();
+		const apiMod: any = await import('@/services/api');
+		wrapper.vm.askDelete(SEQ);
+		await flushPromises();
+		expect(wrapper.vm.seqToDelete).toBeTruthy();
+
+		document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+		await flushPromises();
+		expect(wrapper.vm.seqToDelete).toBeNull();
+		expect(apiMod.deleteMessageSequence).not.toHaveBeenCalled();
+	});
+});
+
+describe('MessageSequencesView — import de plantilla global con preview (#10)', () => {
+	it('"Ver pasos" despliega los pasos con offset legible y aviso de plantilla faltante', async () => {
+		const wrapper = await mountView();
+		const apiMod: any = await import('@/services/api');
+		apiMod.getGlobalSequences.mockResolvedValue([
+			{
+				id: 'g-1',
+				name: 'Camino global',
+				trigger: 'days_before_retreat',
+				audience: 'walker',
+				isActive: true,
+				steps: [
+					{ templateType: 'SHIRT_CONFIRMATION', channel: 'whatsapp', offsetDays: 3, sendHour: 9, recipientTarget: 'participant' },
+					{ templateType: 'WALKER_WELCOME', channel: 'email', offsetDays: 0, sendHour: 10, recipientTarget: 'participant' },
+				],
+			},
+		]);
+
+		await wrapper.vm.openImport();
+		await flushPromises();
+
+		// Acordeón cerrado: nada de los pasos se filtra en la lista.
+		expect(wrapper.text()).not.toContain('antes del inicio del retiro');
+
+		const toggle = wrapper.findAll('button').find((b) => b.text().includes('Ver pasos'));
+		expect(toggle).toBeTruthy();
+		await toggle!.trigger('click');
+		await flushPromises();
+
+		// Re-encontrar el botón tras el re-render (el wrapper previo queda stale).
+		const liveToggle = wrapper.findAll('button').find((b) => b.text().includes('Ver pasos'));
+		expect(liveToggle!.attributes('aria-expanded')).toBe('true');
+		// Offset legible según el trigger (days_before_retreat = ANTES del inicio).
+		expect(wrapper.text()).toContain('3 día(s) antes del inicio del retiro');
+		expect(wrapper.text()).toContain('el día del inicio del retiro');
+		// El retiro (mock) no tiene estas plantillas → aviso accionable.
+		expect(wrapper.text()).toContain('sin plantilla en este retiro');
 	});
 });

@@ -100,15 +100,23 @@ export class MessageSequenceController {
 		}
 	};
 
-	// GET /message-sequences/retreat/:retreatId/stats — métricas + problemas por secuencia
+	// GET /message-sequences/retreat/:retreatId/stats — métricas + problemas por secuencia.
+	// Query: issuesOffset/issuesLimit (cap 500) para el "cargar más" del tab
+	// Problemas; `issuesTotal` trae el conteo real sin cap.
 	getStats = async (req: Request, res: Response) => {
 		try {
 			const { retreatId } = req.params;
+			const q = (req.query ?? {}) as Record<string, unknown>;
+			const issuesOffset = Math.max(0, Number(q.issuesOffset) || 0);
+			const issuesLimit = Math.min(500, Math.max(1, Number(q.issuesLimit) || 100));
 			const [stats, issues] = await Promise.all([
 				messageSequenceService.getStatsByRetreat(retreatId),
-				messageSequenceService.getIssuesByRetreat(retreatId),
+				messageSequenceService.getIssuesByRetreat(retreatId, {
+					limit: issuesLimit,
+					offset: issuesOffset,
+				}),
 			]);
-			res.json({ stats, issues });
+			res.json({ stats, issues: issues.items, issuesTotal: issues.total });
 		} catch (error) {
 			console.error('Error fetching sequence stats:', error);
 			res.status(500).json({ error: 'Error al obtener las métricas de secuencias' });
@@ -386,14 +394,10 @@ export class MessageSequenceController {
 	runNow = async (req: Request, res: Response) => {
 		try {
 			const { retreatId } = req.params;
-			const sequences = await messageSequenceService.findByRetreat(retreatId);
-			let enrolled = 0;
-			for (const seq of sequences) {
-				if (seq.isActive) enrolled += await messageSequenceService.enrollSequence(seq);
-			}
-			// Solo procesar este retiro: el disparo manual no debe enviar mensajes de
-			// otros retiros (la ruta solo valida acceso a :retreatId).
-			const processed = await messageSequenceService.processDue(new Date(), undefined, retreatId);
+			// Misma rutina que el alta de un participante (participantService):
+			// enrola las activas y procesa SÓLO este retiro — el disparo manual
+			// no debe enviar mensajes de otros (la ruta valida acceso a :retreatId).
+			const { enrolled, processed } = await messageSequenceService.runForRetreat(retreatId);
 			res.json({ enrolled, processed });
 		} catch (error) {
 			console.error('Error running sequences:', error);

@@ -3249,6 +3249,20 @@
     "importHint": "Se creará una copia en este retiro. Quedará inactiva para que la revises y la actives.",
     "import": "Importar",
     "noGlobal": "No hay plantillas globales de secuencias activas.",
+    "previewSteps": "Ver pasos",
+    "previewCondition": "con condición",
+    "previewMissingTemplate": "sin plantilla en este retiro",
+    "previewAnchor": {
+      "participant_created": "del alta",
+      "days_before_retreat": "del inicio del retiro",
+      "days_after_retreat": "del fin del retiro",
+      "birthday": "del cumpleaños"
+    },
+    "previewOffset": {
+      "sameDay": "el día {anchor}",
+      "before": "{n} día(s) antes {anchor}",
+      "after": "{n} día(s) después {anchor}"
+    },
     "importedInactive": "«{name}» importada (inactiva). Revísala y actívala cuando quieras.",
     "importError": "No se pudo importar la plantilla global",
     "alreadyImported": "Ya existe una secuencia «{name}» en este retiro.",
@@ -3329,6 +3343,9 @@
     "deleteError": "No se pudo eliminar la secuencia",
     "toggleActive": "Activar/desactivar",
     "toggleError": "No se pudo cambiar el estado de la secuencia",
+    "edit": "Editar",
+    "delete": "Eliminar",
+    "close": "Cerrar",
     "duplicate": "Duplicar",
     "duplicated": "«{name}» duplicada — la copia queda inactiva hasta que la actives",
     "duplicateError": "No se pudo duplicar la secuencia",
@@ -3375,12 +3392,16 @@
     "schedStatusLabel": "Estado",
     "scheduledTotal": "{n} en total",
     "issuesEmpty": "Sin mensajes con problema",
+    "loadMore": "Cargar más ({remaining} restantes)",
+    "loadMoreError": "No se pudieron cargar más mensajes con problema",
     "pageOf": "Página {page} de {total}",
     "filterLabel": "Mostrar",
     "filter": {
       "all": "Todos",
       "mine": "Míos",
-      "unassigned": "Sin asignar"
+      "unassigned": "Sin asignar",
+      "participant": "Participante: {name}",
+      "byParticipant": "Ver todos los mensajes de {name}"
     },
     "sortLabel": "Ordenar por",
     "sort": {
@@ -3471,7 +3492,8 @@
     "previewRecipient": "Le llega a",
     "previewEmptyVars": "Variables sin datos",
     "previewParticipant": "Participante de muestra para las vistas previas",
-    "previewFirstParticipant": "El primero del retiro"
+    "previewFirstParticipant": "El primero del retiro",
+    "stepRangeFixed": "Se ajustaron {n} paso(s) a valores válidos (hora 0–23, días ≥ 0)"
   },
   "globalSequences": {
     "title": "Plantillas globales de secuencias",

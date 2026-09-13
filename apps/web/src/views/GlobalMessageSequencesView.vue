@@ -6,7 +6,28 @@ import { useToast, Button, Input } from '@repo/ui';
 import { Plus, Trash2, X, Pencil, Power } from 'lucide-vue-next';
 import { useGlobalMessageSequenceStore } from '@/stores/globalMessageSequenceStore';
 import { useGlobalMessageTemplateStore } from '@/stores/globalMessageTemplateStore';
+import { clampStepRanges } from '@/utils/sequenceStepInput';
 import { getMessageTemplateAudience } from '@repo/types';
+// #8: catálogos y helpers del editor compartidos con la vista de retiro —
+// antes vivían duplicados en ambas vistas.
+import {
+	TRIGGERS,
+	CHANNELS,
+	GLOBAL_AUDIENCES,
+	CONDITION_TYPES,
+	CONDITION_PAYMENTS,
+	CONDITION_ATTENDANCE,
+	audiencesByTrigger,
+	availableAudiencesFor,
+	recipientAudienceFor,
+	audienceMatches,
+	pickTemplateForAudience,
+	templatesForStepAudience,
+	hasCondition,
+	conditionToFilters,
+	filtersToCondition,
+	type StepDraft,
+} from './sequenceEditorShared';
 
 const { t } = useI18n();
 const { toast } = useToast();
@@ -21,43 +42,26 @@ const usableTemplates = computed(() =>
 	(templateStore.templates || []).filter((tpl) => !String(tpl.type || '').startsWith('SYS_')),
 );
 
-const TRIGGERS = ['participant_created', 'days_before_retreat', 'days_after_retreat', 'birthday'] as const;
-const AUDIENCES = ['all', 'walker', 'server', 'table_leaders', 'responsables'] as const;
-const CHANNELS = ['email', 'whatsapp'] as const;
-
-const AUDIENCES_BY_TRIGGER: Record<string, readonly string[]> = {
-	participant_created: ['walker', 'server'],
-};
-const availableAudiences = computed<string[]>(() => {
-	const base = [...(AUDIENCES_BY_TRIGGER[draft.value.trigger] ?? AUDIENCES)];
-	return base.includes(draft.value.audience) ? base : [draft.value.audience, ...base];
-});
+// Editor GLOBAL (plantillas sin retiro): mismas reglas que el editor de retiro,
+// sin la audiencia community_roster (necesita una comunidad vinculada al retiro).
+// Catálogos y reglas puras en ./sequenceEditorShared.ts (#8).
+const availableAudiences = computed<string[]>(() =>
+	availableAudiencesFor(draft.value.trigger, draft.value.audience, 'global'),
+);
 function onAudienceChange() {
 	for (const step of draft.value.steps) {
-		const aud = recipientAudience(step);
+		const aud = recipientAudienceFor(step.recipientTarget, draft.value.audience);
 		if (!aud) continue;
 		if (audienceMatches(getMessageTemplateAudience(step.templateType), aud)) continue;
-		const both = aud === 'walker' || aud === 'server';
-		const first =
-			usableTemplates.value.find((t: any) => getMessageTemplateAudience(t.type) === aud) ||
-			(both && usableTemplates.value.find((t: any) => getMessageTemplateAudience(t.type) === 'participant')) ||
-			usableTemplates.value.find((t: any) => getMessageTemplateAudience(t.type) === 'general');
+		const first = pickTemplateForAudience(usableTemplates.value, aud);
 		if (first) step.templateType = first.type;
 	}
 }
 function onTriggerChange() {
-	const base = AUDIENCES_BY_TRIGGER[draft.value.trigger] ?? AUDIENCES;
+	const base = audiencesByTrigger('global')[draft.value.trigger] ?? GLOBAL_AUDIENCES;
 	if (!base.includes(draft.value.audience)) draft.value.audience = base[0] as any;
 	onAudienceChange();
 }
-const RECIPIENT_TARGETS = [
-	'participant',
-	'emergencyContact1',
-	'emergencyContact2',
-	'inviter',
-	'tableLeader',
-	'responsibility',
-] as const;
 
 const recipientOptions = computed<string[]>(() => {
 	const aud = draft.value.audience;
@@ -67,81 +71,19 @@ const recipientOptions = computed<string[]>(() => {
 	return ['participant', 'tableLeader', 'responsibility', 'inviter', 'emergencyContact1', 'emergencyContact2'];
 });
 
-function recipientAudience(step: { recipientTarget: string }): string | null {
-	const t = step.recipientTarget;
-	if (t === 'inviter' || t === 'emergencyContact1' || t === 'emergencyContact2') return 'family';
-	if (t === 'tableLeader') return 'table_leader';
-	if (t === 'responsibility') return 'responsible';
-	const byAudience: Record<string, string | null> = {
-		walker: 'walker',
-		server: 'server',
-		table_leaders: 'table_leader',
-		responsables: 'responsible',
-		all: null,
-	};
-	return byAudience[draft.value.audience] ?? null;
-}
-
-function audienceMatches(a: string, aud: string): boolean {
-	return a === aud || a === 'general' || (a === 'participant' && (aud === 'walker' || aud === 'server'));
-}
-
 function templatesForStep(step: { recipientTarget: string; templateType: string }) {
-	const aud = recipientAudience(step);
-	if (!aud) return usableTemplates.value;
-	return usableTemplates.value.filter(
-		(tpl: any) => audienceMatches(getMessageTemplateAudience(tpl.type), aud) || tpl.type === step.templateType,
-	);
-}
-const CONDITION_TYPES = ['walker', 'server', 'waiting', 'partial_server'] as const;
-const CONDITION_PAYMENTS = ['paid', 'partial', 'unpaid', 'overpaid', 'scholarship'] as const;
-const CONDITION_ATTENDANCE = ['pending', 'confirmed', 'declined'] as const;
-
-type RecipientTarget = (typeof RECIPIENT_TARGETS)[number];
-
-interface StepCondition {
-	participantType?: string | null;
-	paymentStatus?: string | null;
-	attendanceFilter?: string;
-}
-interface StepDraft {
-	offsetDays: number;
-	sendHour: number;
-	templateType: string;
-	channel: 'email' | 'whatsapp';
-	recipientTarget: RecipientTarget;
-	recipientResponsibility: string;
-	condition: StepCondition;
-	condOpen?: boolean;
+	return templatesForStepAudience(usableTemplates.value, step, draft.value.audience);
 }
 
-function hasCondition(c: StepCondition): boolean {
-	return !!(c.participantType || c.paymentStatus || (c.attendanceFilter && c.attendanceFilter !== 'all'));
-}
 interface SequenceDraft {
 	id?: string;
 	name: string;
 	description: string;
 	trigger: (typeof TRIGGERS)[number];
-	audience: (typeof AUDIENCES)[number];
+	audience: (typeof GLOBAL_AUDIENCES)[number];
 	isActive: boolean;
 	maxOverdueDays: number | null;
 	steps: StepDraft[];
-}
-
-function conditionToFilters(c: StepCondition): Record<string, unknown> | undefined {
-	const out: Record<string, unknown> = {};
-	if (c.participantType) out.participantType = c.participantType;
-	if (c.paymentStatus) out.paymentStatus = c.paymentStatus;
-	if (c.attendanceFilter && c.attendanceFilter !== 'all') out.attendanceFilter = c.attendanceFilter;
-	return Object.keys(out).length ? out : undefined;
-}
-function filtersToCondition(f: any): StepCondition {
-	return {
-		participantType: f?.participantType ?? null,
-		paymentStatus: f?.paymentStatus ?? null,
-		attendanceFilter: f?.attendanceFilter ?? 'all',
-	};
 }
 
 const isEditorOpen = ref(false);
@@ -213,6 +155,10 @@ function removeStep(i: number) {
 
 async function saveDraft() {
 	if (!draft.value.name.trim()) return;
+	// #4: normalizar horas/días fuera de rango antes de enviar (el input
+	// numérico no enforcement lo tecleado a mano).
+	const fixedSteps = clampStepRanges(draft.value.steps);
+	if (fixedSteps) toast({ title: t('sequences.stepRangeFixed', { n: fixedSteps }) });
 	const payload = {
 		name: draft.value.name.trim(),
 		description: draft.value.description || undefined,
@@ -393,7 +339,7 @@ async function confirmDelete() {
 								<div class="grid grid-cols-2 md:grid-cols-6 gap-3">
 									<div class="md:col-span-1">
 										<label class="text-xs text-gray-500">{{ t('sequences.offsetDays') }}</label>
-										<input type="number" v-model.number="step.offsetDays" class="w-full mt-1 p-2 border rounded-md text-sm" />
+										<input type="number" min="0" v-model.number="step.offsetDays" class="w-full mt-1 p-2 border rounded-md text-sm" />
 									</div>
 									<div class="md:col-span-1">
 										<label class="text-xs text-gray-500">{{ t('sequences.sendHour') }}</label>

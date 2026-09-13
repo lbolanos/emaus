@@ -16,6 +16,7 @@ import { TableMesa } from '@/entities/tableMesa.entity';
 import { RetreatParticipant } from '@/entities/retreatParticipant.entity';
 import { ParticipantFollowUp } from '@/entities/participantFollowUp.entity';
 import { Participant } from '@/entities/participant.entity';
+import { Community } from '@/entities/community.entity';
 import { Retreat } from '@/entities/retreat.entity';
 import { Payment } from '@/entities/payment.entity';
 import { SequenceStep } from '@/entities/sequenceStep.entity';
@@ -193,6 +194,250 @@ describe('MessageSequenceService', () => {
 
 			const created = await svc.enrollSequence(seq);
 			expect(created).toBe(1); // el retiro no ha cerrado → se enrola normal
+		});
+	});
+
+	describe('#1: birthday dispara una vez por año (occurrenceYear)', () => {
+		it('el envío del cumpleaños pasado no bloquea el del año siguiente', async () => {
+			// Sin endDate → isRetreatClosed false: la secuencia de cumpleaños
+			// sigue viva pase lo que pase con las fechas del retiro.
+			const retreat = await TestDataFactory.createTestRetreat({
+				startDate: new Date('2026-12-01T00:00:00.000Z'),
+				timezone: 'America/Mexico_City',
+			});
+			const participant = await TestDataFactory.createTestParticipant(retreat.id, {
+				type: 'walker',
+				email: 'cumple-anual@example.com',
+				// 20 de mayo: el cumpleaños de este año ya pasó → el motor agenda
+				// la próxima ocurrencia (año siguiente) desde hoy.
+				birthDate: new Date('1990-05-20T00:00:00.000Z'),
+			} as any);
+
+			const seq = await svc.createSequence({
+				name: 'Felicitación de cumpleaños',
+				retreatId: retreat.id,
+				trigger: 'birthday',
+				audience: 'walker',
+				steps: [{ stepOrder: 0, offsetDays: 0, sendHour: 9, templateType: 'GENERAL', channel: 'email' } as any],
+			});
+			const step = seq.steps![0];
+
+			// El envío del cumpleaños de ESTE año (2026) ya existe y salió: con la
+			// UQ vieja (stepId, participantId) el motor jamás volvería a enrolar
+			// este paso — era el bug #1.
+			const smRepo = AppDataSource.getRepository(ScheduledMessage);
+			const past = await smRepo.save(
+				smRepo.create({
+					sequenceId: seq.id,
+					stepId: step.id,
+					participantId: participant.id,
+					retreatId: retreat.id,
+					channel: 'email',
+					templateType: 'GENERAL',
+					recipientTarget: 'participant',
+					scheduledFor: new Date('2026-05-20T15:00:00.000Z'),
+					occurrenceYear: 2026,
+					status: 'sent',
+					sentAt: new Date('2026-05-20T15:05:00.000Z'),
+				}),
+			);
+
+			const created = await svc.enrollSequence(seq);
+			expect(created).toBe(1); // el año siguiente SÍ se agenda
+
+			const rows = await smRepo.find({ where: { sequenceId: seq.id } });
+			expect(rows).toHaveLength(2);
+			expect(rows.map((r) => r.occurrenceYear).sort()).toEqual([2026, 2027]);
+
+			const next = rows.find((r) => r.id !== past.id)!;
+			expect(next.status).toBe('pending');
+			expect(next.occurrenceYear).toBe(2027);
+			// 20 may 2027 09:00 CDMX (UTC-6) = 15:00 UTC.
+			expect(new Date(next.scheduledFor).toISOString()).toBe('2027-05-20T15:00:00.000Z');
+
+			// La fila histórica no se toca, y el re-enrol es idempotente dentro
+			// del mismo año.
+			const pastAfter = await smRepo.findOne({ where: { id: past.id } });
+			expect(pastAfter!.status).toBe('sent');
+			expect(pastAfter!.occurrenceYear).toBe(2026);
+			expect(await svc.enrollSequence(seq)).toBe(0);
+		});
+
+		it('los triggers no-birthday siguen siendo una sola vez en la vida (occurrenceYear 0)', async () => {
+			const retreat = await TestDataFactory.createTestRetreat({
+				startDate: new Date('2026-12-01T00:00:00.000Z'),
+				timezone: 'America/Mexico_City',
+			});
+			await TestDataFactory.createTestParticipant(retreat.id, {
+				type: 'walker',
+				email: 'vida-unica@example.com',
+			} as any);
+
+			const seq = await svc.createSequence({
+				name: 'Bienvenida única',
+				retreatId: retreat.id,
+				trigger: 'participant_created',
+				audience: 'walker',
+				steps: [{ stepOrder: 0, offsetDays: 0, sendHour: 9, templateType: 'WALKER_WELCOME', channel: 'email' } as any],
+			});
+
+			expect(await svc.enrollSequence(seq)).toBe(1);
+			const rows = await AppDataSource.getRepository(ScheduledMessage).find({
+				where: { sequenceId: seq.id },
+			});
+			expect(rows).toHaveLength(1);
+			// La parte de año de la clave queda neutralizada para los no-birthday.
+			expect(rows[0].occurrenceYear).toBe(0);
+			expect(await svc.enrollSequence(seq)).toBe(0);
+		});
+	});
+
+	describe('#7: syncSteps con diff real', () => {
+		afterEach(() => {
+			// clearAllMocks (el beforeEach global) NO restaura spies.
+			jest.restoreAllMocks();
+		});
+
+		it('un save con pasos idénticos no escribe ningún UPDATE; el cambio puntual escribe uno', async () => {
+			const retreat = await TestDataFactory.createTestRetreat({
+				startDate: new Date('2026-12-01T00:00:00.000Z'),
+				timezone: 'America/Mexico_City',
+			});
+			const seq = await svc.createSequence({
+				name: 'Diff de pasos',
+				retreatId: retreat.id,
+				trigger: 'days_before_retreat',
+				audience: 'walker',
+				steps: [{ stepOrder: 0, offsetDays: 5, sendHour: 9, templateType: 'WALKER_WELCOME', channel: 'email' } as any],
+			});
+			const step = seq.steps![0];
+
+			const stepRepo = AppDataSource.getRepository(SequenceStep);
+			const updateSpy = jest.spyOn(stepRepo, 'update');
+
+			// El editor reenvía el paso tal como lo leyó → nada que escribir.
+			await svc.updateSequence(seq.id, {
+				steps: [{
+					id: step.id, stepOrder: 0, offsetDays: 5, sendHour: 9,
+					templateType: 'WALKER_WELCOME', channel: 'email', recipientTarget: 'participant',
+				} as any],
+			});
+			expect(updateSpy).not.toHaveBeenCalled();
+
+			// Un campo cambiado → exactamente un UPDATE con el valor nuevo.
+			await svc.updateSequence(seq.id, {
+				steps: [{
+					id: step.id, stepOrder: 0, offsetDays: 6, sendHour: 9,
+					templateType: 'WALKER_WELCOME', channel: 'email', recipientTarget: 'participant',
+				} as any],
+			});
+			expect(updateSpy).toHaveBeenCalledTimes(1);
+			const after = await stepRepo.findOne({ where: { id: step.id } });
+			expect(after!.offsetDays).toBe(6);
+		});
+
+		it('condition con las claves en otro orden cuenta como sin cambios (comparación semántica)', async () => {
+			const retreat = await TestDataFactory.createTestRetreat({
+				startDate: new Date('2026-12-01T00:00:00.000Z'),
+				timezone: 'America/Mexico_City',
+			});
+			const seq = await svc.createSequence({
+				name: 'Diff de condición',
+				retreatId: retreat.id,
+				trigger: 'days_before_retreat',
+				audience: 'walker',
+				steps: [{
+					stepOrder: 0, offsetDays: 5, sendHour: 9,
+					templateType: 'WALKER_WELCOME', channel: 'email',
+					condition: { attendanceFilter: 'pending', minPayments: 1 },
+				} as any],
+			});
+			const step = seq.steps![0];
+
+			const updateSpy = jest.spyOn(AppDataSource.getRepository(SequenceStep), 'update');
+			await svc.updateSequence(seq.id, {
+				steps: [{
+					id: step.id, stepOrder: 0, offsetDays: 5, sendHour: 9,
+					templateType: 'WALKER_WELCOME', channel: 'email',
+					// Mismos pares clave/valor, otro orden de inserción.
+					condition: { minPayments: 1, attendanceFilter: 'pending' },
+				} as any],
+			});
+			expect(updateSpy).not.toHaveBeenCalled();
+		});
+	});
+
+	describe('#6: batching de processDue', () => {
+		afterEach(() => {
+			jest.restoreAllMocks();
+		});
+
+		it('la plantilla no se busca por mensaje: cero findOne tras procesar N vencidos', async () => {
+			const retreat = await TestDataFactory.createTestRetreat({
+				startDate: new Date('2026-12-01T00:00:00.000Z'),
+				timezone: 'America/Mexico_City',
+			});
+			await TestDataFactory.createTestParticipant(retreat.id, {
+				type: 'walker', email: 'batch1@example.com',
+			} as any);
+			await TestDataFactory.createTestParticipant(retreat.id, {
+				type: 'walker', email: 'batch2@example.com',
+			} as any);
+			await createTemplate(retreat.id, 'WALKER_WELCOME', 'Bienvenida');
+
+			const seq = await svc.createSequence({
+				name: 'Bienvenida batch',
+				retreatId: retreat.id,
+				trigger: 'participant_created',
+				audience: 'walker',
+				steps: [{ stepOrder: 0, offsetDays: 0, sendHour: 0, templateType: 'WALKER_WELCOME', channel: 'email' } as any],
+			});
+			expect(await svc.enrollSequence(seq)).toBe(2);
+
+			const templateFindOne = jest.spyOn(AppDataSource.getRepository(MessageTemplate), 'findOne');
+			const processed = await svc.processDue(new Date());
+			expect(processed).toBe(2);
+			// La plantilla vino del batch por corrida: ningún findOne por mensaje.
+			expect(templateFindOne).not.toHaveBeenCalled();
+			const sent = await AppDataSource.getRepository(ScheduledMessage).count({
+				where: { sequenceId: seq.id, status: 'sent' as const },
+			});
+			expect(sent).toBe(2);
+		});
+
+		it('email: {community.*} se consulta UNA vez aunque el mensaje se renderiza dos veces', async () => {
+			const user = await TestDataFactory.createTestUser();
+			const community = await TestDataFactory.createTestCommunity(user.id);
+			const retreat = await TestDataFactory.createTestRetreat({
+				startDate: new Date('2026-12-01T00:00:00.000Z'),
+				timezone: 'America/Mexico_City',
+			});
+			await AppDataSource.getRepository(Retreat).update(retreat.id, { communityId: community.id });
+			await TestDataFactory.createTestParticipant(retreat.id, {
+				type: 'walker', email: 'community-once@example.com',
+			} as any);
+			await createTemplate(retreat.id, 'GENERAL', `Saludos de {community.name}`);
+
+			const seq = await svc.createSequence({
+				name: 'Con comunidad',
+				retreatId: retreat.id,
+				trigger: 'participant_created',
+				audience: 'walker',
+				steps: [{ stepOrder: 0, offsetDays: 0, sendHour: 0, templateType: 'GENERAL', channel: 'email' } as any],
+			});
+			expect(await svc.enrollSequence(seq)).toBe(1);
+
+			const communityFindOne = jest.spyOn(AppDataSource.getRepository(Community), 'findOne');
+			const processed = await svc.processDue(new Date());
+			expect(processed).toBe(1);
+			// Texto y HTML comparten el contexto resuelto: una sola consulta.
+			expect(communityFindOne).toHaveBeenCalledTimes(1);
+
+			const sm = await AppDataSource.getRepository(ScheduledMessage).findOne({
+				where: { sequenceId: seq.id },
+			});
+			expect(sm!.status).toBe('sent');
+			expect(sm!.resolvedContent).toContain(community.name);
 		});
 	});
 
@@ -788,9 +1033,48 @@ describe('MessageSequenceService', () => {
 
 			const stats = await svc.getStatsByRetreat(retreat.id);
 			expect(stats[seq.id]?.skipped).toBe(1);
-			const issues = await svc.getIssuesByRetreat(retreat.id);
-			expect(issues).toHaveLength(1);
-			expect(issues[0].error).toBe('sin plantilla');
+			const { items, total } = await svc.getIssuesByRetreat(retreat.id);
+			expect(items).toHaveLength(1);
+			expect(total).toBe(1);
+			expect(items[0].error).toBe('sin plantilla');
+		});
+
+		it('issues: total real sin cap + paginación offset/limit (cargar más)', async () => {
+			const retreat = await TestDataFactory.createTestRetreat({ timezone: 'America/Mexico_City' });
+			const p1 = await TestDataFactory.createTestParticipant(retreat.id, { type: 'walker', email: 'a@example.com' } as any);
+			const p2 = await TestDataFactory.createTestParticipant(retreat.id, { type: 'walker', email: 'b@example.com' } as any);
+			const p3 = await TestDataFactory.createTestParticipant(retreat.id, { type: 'walker', email: 'c@example.com' } as any);
+			const seq = await svc.createSequence({
+				name: 'S', retreatId: retreat.id, trigger: 'participant_created', audience: 'walker',
+				steps: [{ stepOrder: 0, offsetDays: 0, sendHour: 9, templateType: 'WALKER_WELCOME', channel: 'email' } as any],
+			});
+			const repo = AppDataSource.getRepository(ScheduledMessage);
+			const rows: ScheduledMessage[] = [];
+			for (const p of [p1, p2, p3]) {
+				rows.push(await repo.save(repo.create({
+					sequenceId: seq.id, stepId: seq.steps![0].id, participantId: p.id,
+					retreatId: retreat.id, channel: 'email', templateType: 'WALKER_WELCOME',
+					recipientTarget: 'participant', scheduledFor: new Date(), status: 'skipped',
+				})));
+			}
+			// updatedAt escalonado y EXPLÍCITO: repo.update no pisa @UpdateDateColumn
+			// (TypeORM 0.3.27), así que el orden updatedAt DESC queda determinista.
+			await repo.update(rows[0].id, { updatedAt: new Date('2026-01-01T00:00:01Z') } as any);
+			await repo.update(rows[1].id, { updatedAt: new Date('2026-01-01T00:00:02Z') } as any);
+			await repo.update(rows[2].id, { updatedAt: new Date('2026-01-01T00:00:03Z') } as any);
+
+			// Primera página capada: items recortados pero total = 3 (contador honesto).
+			const page1 = await svc.getIssuesByRetreat(retreat.id, { limit: 2 });
+			expect(page1.total).toBe(3);
+			expect(page1.items).toHaveLength(2);
+			expect(page1.items[0].participantId).toBe(p3.id); // más reciente primero
+			expect(page1.items[1].participantId).toBe(p2.id);
+
+			// "Cargar más": la segunda página trae el resto.
+			const page2 = await svc.getIssuesByRetreat(retreat.id, { limit: 2, offset: 2 });
+			expect(page2.total).toBe(3);
+			expect(page2.items).toHaveLength(1);
+			expect(page2.items[0].participantId).toBe(p1.id);
 		});
 
 		it('bandeja: incluye el estado de seguimiento del participante y omitir lo saca', async () => {
@@ -1046,8 +1330,8 @@ describe('MessageSequenceService', () => {
 			expect(updated?.dispatchedBy).toBe('user-2');
 
 			// getIssuesByRetreat solo trae failed/skipped → ya no aparece.
-			const issues = await svc.getIssuesByRetreat(retreat.id);
-			expect(issues.some((i) => i.id === sm.id)).toBe(false);
+			const { items } = await svc.getIssuesByRetreat(retreat.id);
+			expect(items.some((i) => i.id === sm.id)).toBe(false);
 		});
 
 		it('retry/discard sobre id inexistente devuelven null', async () => {
@@ -1070,8 +1354,9 @@ describe('MessageSequenceService', () => {
 
 			const n = await svc.bulkResolveIssues(retreat.id, 'discard');
 			expect(n).toBe(2);
-			const issues = await svc.getIssuesByRetreat(retreat.id);
-			expect(issues).toHaveLength(0); // ya no quedan failed/skipped
+			const { items, total } = await svc.getIssuesByRetreat(retreat.id);
+			expect(items).toHaveLength(0); // ya no quedan failed/skipped
+			expect(total).toBe(0);
 			expect((await repo.findOne({ where: { id: sm2.id } }))?.status).toBe('cancelled');
 		});
 
@@ -1084,8 +1369,8 @@ describe('MessageSequenceService', () => {
 			expect(after?.status).toBe('cancelled'); // no 'skipped'
 			expect(after?.error).toContain('invitador');
 			// No aparece en "Problemas" (solo failed/skipped).
-			const issues = await svc.getIssuesByRetreat(retreat.id);
-			expect(issues.some((i) => i.id === sm.id)).toBe(false);
+			const { items } = await svc.getIssuesByRetreat(retreat.id);
+			expect(items.some((i) => i.id === sm.id)).toBe(false);
 		});
 
 		it('destinatario con nombre pero sin teléfono → sigue en Problemas (skipped)', async () => {

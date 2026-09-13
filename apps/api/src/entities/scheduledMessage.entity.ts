@@ -35,12 +35,14 @@ export type ScheduledMessageStatus =
 
 /**
  * Instancia de envío programada: un paso de una secuencia aplicado a un
- * participante concreto. La unicidad (stepId, participantId) garantiza
- * idempotencia: el motor nunca programa dos veces el mismo paso para el mismo
- * participante.
+ * participante concreto. La unicidad (stepId, participantId, occurrenceYear)
+ * garantiza idempotencia: el motor nunca programa dos veces el mismo paso
+ * para el mismo participante — y para birthday la clave incluye el año, así
+ * el mismo paso dispara una vez por cumpleaños en vez de una sola vez en la
+ * vida.
  */
 @Entity('scheduled_messages')
-@Unique('UQ_scheduled_step_participant', ['stepId', 'participantId'])
+@Unique('UQ_scheduled_step_participant_year', ['stepId', 'participantId', 'occurrenceYear'])
 export class ScheduledMessage {
 	@PrimaryGeneratedColumn('uuid')
 	id!: string;
@@ -72,6 +74,13 @@ export class ScheduledMessage {
 	@ManyToOne(() => Retreat, { onDelete: 'CASCADE' })
 	@JoinColumn({ name: 'retreatId' })
 	retreat?: Retreat;
+
+	// Año de la ocurrencia que agenda este mensaje. 0 = disparo único de por
+	// vida (todos los triggers salvo birthday); para birthday es el año del
+	// cumpleaños agendado → la UQ permite un envío por año sin duplicar el
+	// mismo año. Se computa en la TZ del retiro (igual que scheduledFor).
+	@Column({ type: 'integer', default: 0 })
+	occurrenceYear!: number;
 
 	@Column({ type: 'varchar', length: 20 })
 	channel!: MessageChannel;

@@ -2923,6 +2923,20 @@
     "importHint": "A copy will be created in this retreat. It will be inactive so you can review and activate it.",
     "import": "Import",
     "noGlobal": "There are no active global sequence templates.",
+    "previewSteps": "View steps",
+    "previewCondition": "with condition",
+    "previewMissingTemplate": "no template in this retreat",
+    "previewAnchor": {
+      "participant_created": "of signup",
+      "days_before_retreat": "of the retreat start",
+      "days_after_retreat": "of the retreat end",
+      "birthday": "of the birthday"
+    },
+    "previewOffset": {
+      "sameDay": "on the day {anchor}",
+      "before": "{n} day(s) before {anchor}",
+      "after": "{n} day(s) after {anchor}"
+    },
     "importedInactive": "\"{name}\" imported (inactive). Review and activate it when ready.",
     "importError": "Could not import the global template",
     "alreadyImported": "A sequence \"{name}\" already exists in this retreat.",
@@ -3003,6 +3017,9 @@
     "deleteError": "Could not delete the sequence",
     "toggleActive": "Toggle active",
     "toggleError": "Could not change the sequence state",
+    "edit": "Edit",
+    "delete": "Delete",
+    "close": "Close",
     "duplicate": "Duplicate",
     "duplicated": "“{name}” duplicated — the copy stays inactive until you enable it",
     "duplicateError": "Could not duplicate the sequence",
@@ -3049,12 +3066,16 @@
     "schedStatusLabel": "Status",
     "scheduledTotal": "{n} total",
     "issuesEmpty": "No messages with issues",
+    "loadMore": "Load more ({remaining} remaining)",
+    "loadMoreError": "Could not load more messages with issues",
     "pageOf": "Page {page} of {total}",
     "filterLabel": "Show",
     "filter": {
       "all": "All",
       "mine": "Mine",
-      "unassigned": "Unassigned"
+      "unassigned": "Unassigned",
+      "participant": "Participant: {name}",
+      "byParticipant": "See all messages of {name}"
     },
     "sortLabel": "Sort by",
     "sort": {
@@ -3145,7 +3166,8 @@
     "previewRecipient": "Goes to",
     "previewEmptyVars": "Variables with no data",
     "previewParticipant": "Sample participant for previews",
-    "previewFirstParticipant": "First one in the retreat"
+    "previewFirstParticipant": "First one in the retreat",
+    "stepRangeFixed": "Se ajustaron {n} paso(s) a valores válidos (hora 0–23, días ≥ 0)"
   },
   "globalSequences": {
     "title": "Global sequence templates",

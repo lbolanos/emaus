@@ -36,6 +36,9 @@ export const useMessageSequenceStore = defineStore('message-sequence', () => {
 	const queue = ref<ScheduledMessageQueueItem[]>([]);
 	const stats = ref<Record<string, Record<string, number>>>({});
 	const issues = ref<ScheduledMessageQueueItem[]>([]);
+	// Conteo real de problemas (sin cap): el contador del tab y el botón
+	// "cargar más" se guían por éste, no por issues.length (que está capado).
+	const issuesTotal = ref(0);
 	const detail = ref<ScheduledMessageDetail | null>(null);
 	const detailLoading = ref(false);
 	const loading = ref(false);
@@ -78,9 +81,25 @@ export const useMessageSequenceStore = defineStore('message-sequence', () => {
 			const res = await getSequenceStats(retreatId);
 			stats.value = res.stats;
 			issues.value = res.issues;
+			issuesTotal.value = res.issuesTotal ?? res.issues.length;
 		} catch (e: any) {
 			error.value = e?.message || 'Failed to fetch stats';
 		}
+	};
+
+	/**
+	 * "Cargar más" del tab Problemas: appendea la página siguiente de issues.
+	 * El fetch inicial trae las primeras 100 + `issuesTotal` (conteo real sin
+	 * cap); dedupe por id por si una fila cambió de estado entre fetches.
+	 */
+	const loadMoreIssues = async () => {
+		if (!currentRetreatId) return;
+		const res = await getSequenceStats(currentRetreatId, {
+			issuesOffset: issues.value.length,
+		});
+		const seen = new Set(issues.value.map((i) => i.id));
+		issues.value.push(...res.issues.filter((i) => !seen.has(i.id)));
+		issuesTotal.value = res.issuesTotal ?? issues.value.length;
 	};
 
 	/**
@@ -202,6 +221,7 @@ export const useMessageSequenceStore = defineStore('message-sequence', () => {
 	const retry = async (id: string) => {
 		await retryScheduledMessage(id);
 		issues.value = issues.value.filter((q) => q.id !== id);
+		issuesTotal.value = Math.max(0, issuesTotal.value - 1);
 		queue.value = queue.value.filter((q) => q.id !== id);
 		refreshStatsInBackground();
 	};
@@ -210,6 +230,7 @@ export const useMessageSequenceStore = defineStore('message-sequence', () => {
 	const discard = async (id: string) => {
 		await discardScheduledMessage(id);
 		issues.value = issues.value.filter((q) => q.id !== id);
+		issuesTotal.value = Math.max(0, issuesTotal.value - 1);
 		queue.value = queue.value.filter((q) => q.id !== id);
 		refreshStatsInBackground();
 	};
@@ -239,6 +260,7 @@ export const useMessageSequenceStore = defineStore('message-sequence', () => {
 		queue,
 		stats,
 		issues,
+		issuesTotal,
 		detail,
 		detailLoading,
 		loading,
@@ -252,6 +274,7 @@ export const useMessageSequenceStore = defineStore('message-sequence', () => {
 		fetchSequences,
 		fetchQueue,
 		fetchStats,
+		loadMoreIssues,
 		fetchScheduled,
 		fetchDetail,
 		clearDetail,

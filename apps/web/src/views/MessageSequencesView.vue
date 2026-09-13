@@ -3,7 +3,7 @@ import { ref, computed, onMounted, watch } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useI18n } from 'vue-i18n';
 import { useToast, Button, Input } from '@repo/ui';
-import { Plus, Trash2, X, Play, Pencil, Send, Clock, AlertTriangle, Globe, RefreshCw, MoreVertical, CalendarDays, MessageCircle, Power, Copy } from 'lucide-vue-next';
+import { Plus, Trash2, X, Play, Pencil, Send, Clock, AlertTriangle, Globe, RefreshCw, MoreVertical, CalendarDays, MessageCircle, Power, Copy, ChevronDown } from 'lucide-vue-next';
 import { useRetreatStore } from '@/stores/retreatStore';
 import { useParticipantStore } from '@/stores/participantStore';
 import { useMessageSequenceStore } from '@/stores/messageSequenceStore';
@@ -14,9 +14,31 @@ import { useAuthStore } from '@/stores/authStore';
 import { convertHtmlToWhatsApp, replaceAllVariables } from '@/utils/message';
 import type { ParticipantData, RetreatData } from '@/utils/message';
 import { sanitizePhoneForWhatsapp } from '@/utils/phone';
+import { clampStepRanges } from '@/utils/sequenceStepInput';
 import { getMessageTemplateAudience } from '@repo/types';
+// #8: catálogos y helpers del editor compartidos con la vista global de
+// plantillas — antes vivían duplicados en ambas vistas.
+import {
+	TRIGGERS,
+	CHANNELS,
+	LOCAL_AUDIENCES,
+	CONDITION_TYPES,
+	CONDITION_PAYMENTS,
+	CONDITION_ATTENDANCE,
+	audiencesByTrigger,
+	availableAudiencesFor,
+	recipientAudienceFor,
+	audienceMatches,
+	pickTemplateForAudience,
+	templatesForStepAudience,
+	hasCondition,
+	conditionToFilters,
+	filtersToCondition,
+	type StepDraft,
+} from './sequenceEditorShared';
 import type { SequenceStepPreview } from '@repo/types';
 import { previewSequenceStep, previewSequenceSchedule } from '@/services/api';
+import { useModalA11y } from '@/composables/useModalA11y';
 
 const { t } = useI18n();
 const { toast } = useToast();
@@ -35,15 +57,11 @@ const responsibilityNames = computed(() => {
 	return Array.from(new Set(names)) as string[];
 });
 
-const { sequences, queue, stats, issues, detail, detailLoading } = storeToRefs(sequenceStore);
+const { sequences, queue, stats, issues, issuesTotal, detail, detailLoading } = storeToRefs(sequenceStore);
 const {
 	scheduled, scheduledTotal, scheduledTotalPages, scheduledTimezone, scheduledLoading,
 } = storeToRefs(sequenceStore);
 
-// Filtros disponibles para la condición de un paso (subconjunto de SegmentFilters).
-const CONDITION_TYPES = ['walker', 'server', 'waiting', 'partial_server'] as const;
-const CONDITION_PAYMENTS = ['paid', 'partial', 'unpaid', 'overpaid', 'scholarship'] as const;
-const CONDITION_ATTENDANCE = ['pending', 'confirmed', 'declined'] as const;
 const { templates } = storeToRefs(templateStore);
 
 // Plantillas relevantes para una secuencia: del retiro, excluyendo system (SYS_).
@@ -99,57 +117,31 @@ function followUpBadgeClass(status: string): string {
 
 const retreatId = computed(() => retreatStore.selectedRetreatId || '');
 
-const TRIGGERS = ['participant_created', 'days_before_retreat', 'days_after_retreat', 'birthday'] as const;
-const AUDIENCES = ['all', 'walker', 'server', 'table_leaders', 'responsables', 'community_roster'] as const;
-const CHANNELS = ['email', 'whatsapp'] as const;
-
-// Audiencias válidas según el disparador. "Al registrarse" solo aplica a quien
-// se registra (caminante/servidor); líderes/responsables se asignan después.
-const AUDIENCES_BY_TRIGGER: Record<string, readonly string[]> = {
-	participant_created: ['walker', 'server'],
-	// El padrón de comunidad queda fuera del cumpleaños: quien nunca dio su fecha
-	// lleva el centinela, y todos caerían el mismo día. El backend además los
-	// salta (`isPlaceholderBirthDate` en `computeScheduledFor`); esto es para no
-	// ofrecer una combinación que no va a hacer lo que el usuario espera.
-	birthday: ['walker', 'server', 'all'],
-};
-const availableAudiences = computed<string[]>(() => {
-	const base = [...(AUDIENCES_BY_TRIGGER[draft.value.trigger] ?? AUDIENCES)];
-	// Incluir el valor actual si no está (no romper secuencias existentes, p.ej. 'all').
-	return base.includes(draft.value.audience) ? base : [draft.value.audience, ...base];
-});
+// Editor LOCAL (con retiro): mismas reglas que el editor global, más la
+// audiencia community_roster y el disparador birthday. Catálogos y reglas
+// puras en ./sequenceEditorShared.ts (#8).
+const availableAudiences = computed<string[]>(() =>
+	availableAudiencesFor(draft.value.trigger, draft.value.audience, 'local'),
+);
 // Al cambiar audiencia: si la plantilla de un paso ya no corresponde a la
 // categoría del destinatario, reasignarla a la primera válida (evita que quede
 // "Bienvenida Caminante" al pasar a Servidores).
 function onAudienceChange() {
 	for (const step of draft.value.steps) {
-		const aud = recipientAudience(step);
+		const aud = recipientAudienceFor(step.recipientTarget, draft.value.audience);
 		if (!aud) continue;
 		if (audienceMatches(getMessageTemplateAudience(step.templateType), aud)) continue;
-		// Preferir misma categoría → luego 'participant' (si aplica) → luego general.
-		const both = aud === 'walker' || aud === 'server';
-		const first =
-			usableTemplates.value.find((t: any) => getMessageTemplateAudience(t.type) === aud) ||
-			(both && usableTemplates.value.find((t: any) => getMessageTemplateAudience(t.type) === 'participant')) ||
-			usableTemplates.value.find((t: any) => getMessageTemplateAudience(t.type) === 'general');
+		const first = pickTemplateForAudience(usableTemplates.value, aud);
 		if (first) step.templateType = first.type;
 	}
 }
 // Al cambiar el disparador (acción del usuario), corrige la audiencia si quedó
 // inválida y revalida las plantillas.
 function onTriggerChange() {
-	const base = AUDIENCES_BY_TRIGGER[draft.value.trigger] ?? AUDIENCES;
+	const base = audiencesByTrigger('local')[draft.value.trigger] ?? LOCAL_AUDIENCES;
 	if (!base.includes(draft.value.audience)) draft.value.audience = base[0] as any;
 	onAudienceChange();
 }
-const RECIPIENT_TARGETS = [
-	'participant',
-	'emergencyContact1',
-	'emergencyContact2',
-	'inviter',
-	'tableLeader',
-	'responsibility',
-] as const;
 
 // "Enviar a" ordenado por relevancia según el enrolamiento (más usados primero),
 // pero la lista es completa (flexible): cualquier destinatario sigue disponible.
@@ -166,95 +158,26 @@ const recipientOptions = computed<string[]>(() => {
 	return ['participant', 'tableLeader', 'responsibility', 'inviter', 'emergencyContact1', 'emergencyContact2'];
 });
 
-// Audiencia de plantilla que corresponde al DESTINATARIO de un paso (para filtrar
-// las plantillas mostradas). Regla: el filtro sigue al "enviar a", no al enrolamiento.
-function recipientAudience(step: { recipientTarget: string }): string | null {
-	const t = step.recipientTarget;
-	if (t === 'inviter' || t === 'emergencyContact1' || t === 'emergencyContact2') return 'family';
-	if (t === 'tableLeader') return 'table_leader';
-	if (t === 'responsibility') return 'responsible';
-	// participant → audiencia derivada del enrolamiento
-	const byAudience: Record<string, string | null> = {
-		walker: 'walker',
-		server: 'server',
-		table_leaders: 'table_leader',
-		responsables: 'responsible',
-		// El padrón se convoca a SERVIR: las plantillas que aplican son las de
-		// servidor (SERVER_CONVOCATION, SERVER_WELCOME…).
-		community_roster: 'server',
-		all: null,
-	};
-	return byAudience[draft.value.audience] ?? null;
-}
-
 // Plantillas mostradas para un paso: las de la audiencia del destinatario + general
 // + la actualmente seleccionada (para no perderla al editar). 'all' (null) = todas.
-// ¿La audiencia de una plantilla aplica a la audiencia del destinatario? Las
-// plantillas 'participant' (ambos tipos) valen para caminantes y servidores.
-function audienceMatches(a: string, aud: string): boolean {
-	return a === aud || a === 'general' || (a === 'participant' && (aud === 'walker' || aud === 'server'));
-}
-
 function templatesForStep(step: { recipientTarget: string; templateType: string }) {
-	const aud = recipientAudience(step);
-	if (!aud) return usableTemplates.value;
-	return usableTemplates.value.filter(
-		(tpl: any) => audienceMatches(getMessageTemplateAudience(tpl.type), aud) || tpl.type === step.templateType,
-	);
+	return templatesForStepAudience(usableTemplates.value, step, draft.value.audience);
 }
 
-type RecipientTarget = (typeof RECIPIENT_TARGETS)[number];
-
-interface StepCondition {
-	participantType?: string | null;
-	paymentStatus?: string | null;
-	attendanceFilter?: string;
-}
-interface StepDraft {
-	id?: string; // presente al editar un paso existente → conserva identidad (no re-envía)
-	offsetDays: number;
-	sendHour: number;
-	templateType: string;
-	channel: 'email' | 'whatsapp';
-	recipientTarget: RecipientTarget;
-	recipientResponsibility: string;
-	condition: StepCondition;
-	condOpen?: boolean; // solo UI: muestra/oculta el bloque de condición
-}
-
-// ¿El paso tiene alguna condición configurada?
-function hasCondition(c: StepCondition): boolean {
-	return !!(c.participantType || c.paymentStatus || (c.attendanceFilter && c.attendanceFilter !== 'all'));
-}
 interface SequenceDraft {
 	id?: string;
 	name: string;
 	description: string;
 	trigger: (typeof TRIGGERS)[number];
-	audience: (typeof AUDIENCES)[number];
+	audience: (typeof LOCAL_AUDIENCES)[number];
 	isActive: boolean;
 	maxOverdueDays: number | null;
 	steps: StepDraft[];
 }
 
-// Convierte el objeto condición del editor en SegmentFilters (omitiendo vacíos),
-// o undefined si no hay ninguna condición.
-function conditionToFilters(c: StepCondition): Record<string, unknown> | undefined {
-	const out: Record<string, unknown> = {};
-	if (c.participantType) out.participantType = c.participantType;
-	if (c.paymentStatus) out.paymentStatus = c.paymentStatus;
-	if (c.attendanceFilter && c.attendanceFilter !== 'all') out.attendanceFilter = c.attendanceFilter;
-	return Object.keys(out).length ? out : undefined;
-}
-function filtersToCondition(f: any): StepCondition {
-	return {
-		participantType: f?.participantType ?? null,
-		paymentStatus: f?.paymentStatus ?? null,
-		attendanceFilter: f?.attendanceFilter ?? 'all',
-	};
-}
-
 const isEditorOpen = ref(false);
+const editorModalRef = ref<HTMLElement | null>(null);
+useModalA11y(isEditorOpen, () => { isEditorOpen.value = false; }, editorModalRef);
 const draft = ref<SequenceDraft>(emptyDraft());
 
 function emptyDraft(): SequenceDraft {
@@ -450,6 +373,10 @@ function removeStep(i: number) {
 
 async function saveDraft() {
 	if (!draft.value.name.trim() || !retreatId.value) return;
+	// #4: normalizar horas/días fuera de rango antes de enviar (el input
+	// numérico no enforcement lo tecleado a mano).
+	const fixedSteps = clampStepRanges(draft.value.steps);
+	if (fixedSteps) toast({ title: t('sequences.stepRangeFixed', { n: fixedSteps }) });
 	const payload = {
 		name: draft.value.name.trim(),
 		description: draft.value.description || undefined,
@@ -502,6 +429,9 @@ async function saveDraft() {
 
 // Confirmación antes de eliminar (un clic ya no borra directo).
 const seqToDelete = ref<any>(null);
+const deleteModalOpen = computed(() => !!seqToDelete.value);
+const deleteModalRef = ref<HTMLElement | null>(null);
+useModalA11y(deleteModalOpen, () => { seqToDelete.value = null; }, deleteModalRef);
 function askDelete(seq: any) {
 	seqToDelete.value = seq;
 }
@@ -590,6 +520,25 @@ const regenerating = ref(false);
 
 // Tabs de la página (secuencias / programados / pendientes / problemas).
 const activeTab = ref<'sequences' | 'scheduled' | 'pending' | 'issues'>('sequences');
+// Teclado del tablist (patrón WAI-ARIA): flechas/Home/End mueven el tab
+// activo y llevan el foco con él. Sin roving tabindex — los 4 tabs siguen
+// alcanzables por Tab para no dejar ninguno fuera del orden del documento.
+const TAB_KEYS = ['sequences', 'scheduled', 'pending', 'issues'] as const;
+function switchTab(key: (typeof TAB_KEYS)[number]) {
+	activeTab.value = key;
+	document.getElementById(`seq-tab-${key}`)?.focus();
+}
+function onTablistKeydown(e: KeyboardEvent) {
+	const idx = TAB_KEYS.indexOf(activeTab.value);
+	let next: number | null = null;
+	if (e.key === 'ArrowRight') next = (idx + 1) % TAB_KEYS.length;
+	else if (e.key === 'ArrowLeft') next = (idx - 1 + TAB_KEYS.length) % TAB_KEYS.length;
+	else if (e.key === 'Home') next = 0;
+	else if (e.key === 'End') next = TAB_KEYS.length - 1;
+	if (next === null) return;
+	e.preventDefault();
+	switchTab(TAB_KEYS[next]);
+}
 const QUEUE_PAGE_SIZE = 10;
 const queuePage = ref(1);
 const queueSort = ref<'scheduled' | 'name' | 'template' | 'recent'>('scheduled');
@@ -654,6 +603,9 @@ const schedSearchDebounced = ref('');
 const schedStatus = ref<string>('pending');
 const schedOrder = ref<'scheduled' | 'recent'>('scheduled');
 const schedSequenceFilter = ref<string | null>(null); // chip de secuencia (badge clickeable)
+// Chip de participante (#9): histórico de un participante. Se fija al hacer click
+// en su nombre de una fila — el nombre llega en la propia fila (no carga el roster).
+const schedParticipantFilter = ref<{ id: string; name: string } | null>(null);
 const schedPage = ref(1);
 let schedSearchTimer: number | undefined;
 
@@ -677,6 +629,7 @@ async function loadScheduled() {
 	await sequenceStore.fetchScheduled(retreatId.value, {
 		statuses: [schedStatus.value],
 		sequenceId: schedSequenceFilter.value ?? undefined,
+		participantId: schedParticipantFilter.value?.id,
 		search: schedSearchDebounced.value.trim() || undefined,
 		page: schedPage.value,
 		order: schedOrder.value,
@@ -684,7 +637,7 @@ async function loadScheduled() {
 }
 
 // Refetch al cambiar cualquier control; los filtros además vuelven a página 1.
-watch([schedSearchDebounced, schedStatus, schedOrder, schedSequenceFilter], () => {
+watch([schedSearchDebounced, schedStatus, schedOrder, schedSequenceFilter, schedParticipantFilter], () => {
 	schedPage.value = 1;
 	loadScheduled();
 });
@@ -702,6 +655,14 @@ function openScheduledForSequence(seq: any) {
 }
 function clearSchedSequenceFilter() {
 	schedSequenceFilter.value = null; // el watch refetch-ea
+}
+// #9: click en el nombre de una fila → todo el histórico del participante
+// (el usuario combina el filtro con el selector de estado: sent, skipped…).
+function openScheduledForParticipant(it: any) {
+	schedParticipantFilter.value = { id: it.participantId, name: it.participantName || '' };
+}
+function clearSchedParticipantFilter() {
+	schedParticipantFilter.value = null; // el watch refetch-ea
 }
 // A5: badge problemas de una secuencia → pestaña Problemas con chip removible.
 const issuesSequenceFilter = ref<string | null>(null);
@@ -783,6 +744,8 @@ const reschedStep = ref<{ id: string; label: string } | null>(null);
 const reschedDate = ref('');
 const reschedHour = ref<number>(9);
 const reschedSaving = ref(false);
+const reschedModalRef = ref<HTMLElement | null>(null);
+useModalA11y(reschedDialog, () => { reschedDialog.value = false; }, reschedModalRef);
 
 // Partes de pared (Y/M/D + hora) de una fecha absoluta en una TZ dada — para
 // precargar el diálogo con la fecha vigente del propio paso.
@@ -888,8 +851,18 @@ const filteredIssues = computed(() => {
 		items = items.filter((it: any) => it.sequenceId === issuesSequenceFilter.value);
 	}
 	if (q) {
+		// Se busca sobre el nombre del participante, el tipo CRUDO y el nombre
+		// LEGIBLE de la plantilla ("Bienvenida" debe matchear WALKER_WELCOME,
+		// que es como se muestra en la lista), el motivo y el destinatario.
 		items = items.filter((it: any) =>
-			[it.participant?.firstName, it.participant?.lastName, it.templateType, it.error]
+			[
+				it.participant?.firstName,
+				it.participant?.lastName,
+				it.templateType,
+				templateLabel(it.templateType),
+				it.error,
+				it.recipientName,
+			]
 				.filter(Boolean)
 				.join(' ')
 				.toLowerCase()
@@ -905,6 +878,19 @@ const filteredIssues = computed(() => {
 	// 'recent' → mantiene el orden del backend (updatedAt desc)
 	return items;
 });
+// #2: "cargar más" — cuando el total real supera lo cargado (cap de página).
+const issuesLoadingMore = ref(false);
+async function loadMoreIssues() {
+	if (issuesLoadingMore.value) return;
+	issuesLoadingMore.value = true;
+	try {
+		await sequenceStore.loadMoreIssues();
+	} catch {
+		toast({ title: t('sequences.loadMoreError'), variant: 'destructive' });
+	} finally {
+		issuesLoadingMore.value = false;
+	}
+}
 // Renueva el texto de los pendientes de la bandeja con la plantilla vigente
 // (tras editar una plantilla, el snapshot encolado queda con el texto anterior).
 async function regenerateQueue() {
@@ -922,6 +908,8 @@ async function regenerateQueue() {
 
 // Importar una plantilla global de secuencia a este retiro (queda inactiva).
 const isImportOpen = ref(false);
+const importModalRef = ref<HTMLElement | null>(null);
+useModalA11y(isImportOpen, () => { isImportOpen.value = false; }, importModalRef);
 const importLoading = ref(false);
 const globalSequences = computed(() =>
 	(globalSequenceStore.sequences || []).filter((s: any) => s.isActive),
@@ -950,11 +938,37 @@ async function importGlobal(globalSeq: any) {
 	}
 }
 
+// #10: preview de los pasos ANTES de importar una plantilla global — el botón
+// deja de ser a ciegas. Acordeón por fila en el modal de import.
+const expandedImportId = ref<string | null>(null);
+function toggleImportPreview(id: string) {
+	expandedImportId.value = expandedImportId.value === id ? null : id;
+}
+// Offset legible según el ancla del trigger (misma semántica que
+// computeScheduledFor del servidor): days_before_retreat es ANTES del inicio;
+// el resto, DESPUÉS de su ancla.
+function importOffsetText(trigger: string, offsetDays: number): string {
+	const anchor = t('sequences.previewAnchor.' + trigger);
+	const n = Math.abs(offsetDays);
+	if (!n) return t('sequences.previewOffset.sameDay', { anchor });
+	const isBefore = trigger === 'days_before_retreat' ? offsetDays > 0 : offsetDays < 0;
+	return isBefore
+		? t('sequences.previewOffset.before', { n, anchor })
+		: t('sequences.previewOffset.after', { n, anchor });
+}
+// La plantilla LOCAL que resolverá el paso tras importar; null = el retiro no
+// la tiene y el paso quedaría skipped al procesarse ("sin plantilla X").
+function importTemplateFor(type: string): any | null {
+	return templates.value.find((tpl: any) => tpl.type === type) || null;
+}
+
 // Panel de detalle del participante (al hacer clic en su nombre en la bandeja):
 // notas, cartas/palancas, estado de seguimiento e historial de mensajes, para
 // decidir con contexto si enviar u omitir.
 const detailItem = ref<any>(null);
 const isDetailOpen = computed(() => !!detailItem.value);
+const detailModalRef = ref<HTMLElement | null>(null);
+useModalA11y(isDetailOpen, closeDetail, detailModalRef);
 
 function openDetail(item: any) {
 	detailItem.value = item;
@@ -1148,47 +1162,68 @@ async function toggleDoNotContact() {
 		</div>
 
 		<!-- Tabs: Secuencias / Programados / Bandeja WhatsApp / Problemas -->
-		<div class="flex items-stretch border-b">
+		<div
+			class="flex items-stretch border-b"
+			role="tablist"
+			:aria-label="t('sequences.title')"
+			@keydown="onTablistKeydown"
+		>
 			<button
 				type="button"
+				role="tab"
+				id="seq-tab-sequences"
+				:aria-selected="activeTab === 'sequences'"
+				aria-controls="seq-panel-sequences"
 				class="flex-1 sm:flex-none justify-center sm:justify-start min-w-0 px-2 sm:px-3 py-2 text-sm font-medium border-b-2 -mb-px flex items-center gap-1.5 whitespace-nowrap"
 				:class="activeTab === 'sequences' ? 'border-purple-500 text-purple-700' : 'border-transparent text-gray-500 hover:text-gray-700'"
-				@click="activeTab = 'sequences'"
+				@click="switchTab('sequences')"
 			>
 				<Send class="w-4 h-4" /> {{ t('sequences.tabSequences') }}
 				<span class="text-xs bg-purple-100 text-purple-700 rounded-full px-1.5">{{ sequences.length }}</span>
 			</button>
 			<button
 				type="button"
+				role="tab"
+				id="seq-tab-scheduled"
+				:aria-selected="activeTab === 'scheduled'"
+				aria-controls="seq-panel-scheduled"
 				class="flex-1 sm:flex-none justify-center sm:justify-start min-w-0 px-2 sm:px-3 py-2 text-sm font-medium border-b-2 -mb-px flex items-center gap-1.5 whitespace-nowrap"
 				:class="activeTab === 'scheduled' ? 'border-blue-500 text-blue-700' : 'border-transparent text-gray-500 hover:text-gray-700'"
-				@click="activeTab = 'scheduled'"
+				@click="switchTab('scheduled')"
 			>
 				<CalendarDays class="w-4 h-4" /> {{ t('sequences.tabScheduled') }}
 				<span class="text-xs bg-blue-100 text-blue-700 rounded-full px-1.5">{{ scheduledTabCount }}</span>
 			</button>
 			<button
 				type="button"
+				role="tab"
+				id="seq-tab-pending"
+				:aria-selected="activeTab === 'pending'"
+				aria-controls="seq-panel-pending"
 				class="flex-1 sm:flex-none justify-center sm:justify-start min-w-0 px-2 sm:px-3 py-2 text-sm font-medium border-b-2 -mb-px flex items-center gap-1.5 whitespace-nowrap"
 				:class="activeTab === 'pending' ? 'border-amber-500 text-amber-700' : 'border-transparent text-gray-500 hover:text-gray-700'"
-				@click="activeTab = 'pending'"
+				@click="switchTab('pending')"
 			>
 				<MessageCircle class="w-4 h-4" /> {{ t('sequences.tabPending') }}
 				<span class="text-xs bg-amber-100 text-amber-700 rounded-full px-1.5">{{ queue.length }}</span>
 			</button>
 			<button
 				type="button"
+				role="tab"
+				id="seq-tab-issues"
+				:aria-selected="activeTab === 'issues'"
+				aria-controls="seq-panel-issues"
 				class="flex-1 sm:flex-none justify-center sm:justify-start min-w-0 px-2 sm:px-3 py-2 text-sm font-medium border-b-2 -mb-px flex items-center gap-1.5 whitespace-nowrap"
 				:class="activeTab === 'issues' ? 'border-red-500 text-red-700' : 'border-transparent text-gray-500 hover:text-gray-700'"
-				@click="activeTab = 'issues'"
+				@click="switchTab('issues')"
 			>
 				<AlertTriangle class="w-4 h-4" /> {{ t('sequences.tabIssues') }}
-				<span v-if="issues.length" class="text-xs bg-red-100 text-red-700 rounded-full px-1.5">{{ issues.length }}</span>
+				<span v-if="issuesTotal" class="text-xs bg-red-100 text-red-700 rounded-full px-1.5">{{ issuesTotal }}</span>
 			</button>
 		</div>
 
 		<!-- Tab: Secuencias -->
-		<div v-show="activeTab === 'sequences'">
+		<div v-show="activeTab === 'sequences'" role="tabpanel" id="seq-panel-sequences" aria-labelledby="seq-tab-sequences">
 			<!-- Barra de acciones -->
 			<div class="flex items-center justify-between gap-2 mb-3">
 				<p class="text-xs text-gray-500 whitespace-nowrap">
@@ -1279,15 +1314,37 @@ async function toggleDoNotContact() {
 						variant="ghost"
 						size="icon"
 						:title="t('sequences.toggleActive')"
+						:aria-label="t('sequences.toggleActive')"
 						@click="toggleActive(seq)"
 					>
 						<Power class="w-4 h-4" :class="seq.isActive ? 'text-green-600' : 'text-gray-400'" />
 					</Button>
-					<Button variant="ghost" size="icon" :title="t('sequences.duplicate')" @click="duplicateSequence(seq)">
+					<Button
+						variant="ghost"
+						size="icon"
+						:title="t('sequences.duplicate')"
+						:aria-label="t('sequences.duplicate')"
+						@click="duplicateSequence(seq)"
+					>
 						<Copy class="w-4 h-4" />
 					</Button>
-					<Button variant="ghost" size="icon" @click="openEdit(seq)"><Pencil class="w-4 h-4" /></Button>
-					<Button variant="ghost" size="icon" class="text-red-500" @click="askDelete(seq)">
+					<Button
+						variant="ghost"
+						size="icon"
+						:title="t('sequences.edit')"
+						:aria-label="t('sequences.edit')"
+						@click="openEdit(seq)"
+					>
+						<Pencil class="w-4 h-4" />
+					</Button>
+					<Button
+						variant="ghost"
+						size="icon"
+						class="text-red-500"
+						:title="t('sequences.delete')"
+						:aria-label="t('sequences.delete')"
+						@click="askDelete(seq)"
+					>
 						<Trash2 class="w-4 h-4" />
 					</Button>
 				</div>
@@ -1303,7 +1360,7 @@ async function toggleDoNotContact() {
 		</div>
 
 			<!-- Tab: Programados (mensajes materializados, con la fecha en que saldrán/salieron) -->
-			<div v-show="activeTab === 'scheduled'">
+			<div v-show="activeTab === 'scheduled'" role="tabpanel" id="seq-panel-scheduled" aria-labelledby="seq-tab-scheduled">
 				<!-- Filtros server-side: búsqueda con debounce + estado + orden -->
 				<div class="flex items-center gap-2 mb-2 flex-wrap">
 					<input
@@ -1328,15 +1385,27 @@ async function toggleDoNotContact() {
 						</select>
 					</label>
 				</div>
-				<!-- Chip de secuencia (viene del badge clickeable de la lista) -->
-				<div v-if="schedSequenceFilter" class="flex items-center gap-2 mb-2 text-xs">
-					<span class="inline-flex items-center gap-1 bg-blue-100 text-blue-700 rounded-full px-2 py-0.5">
+				<!-- Chips de filtro activo: secuencia (badge clickeable de la lista) y
+				     participante (click en su nombre de una fila, #9). -->
+				<div v-if="schedSequenceFilter || schedParticipantFilter" class="flex items-center gap-2 mb-2 text-xs flex-wrap">
+					<span v-if="schedSequenceFilter" class="inline-flex items-center gap-1 bg-blue-100 text-blue-700 rounded-full px-2 py-0.5">
 						{{ seqName(schedSequenceFilter) }}
 						<button
 							type="button"
 							class="hover:text-blue-900"
 							:aria-label="t('sequences.clearFilter')"
 							@click="clearSchedSequenceFilter"
+						>
+							<X class="w-3 h-3" />
+						</button>
+					</span>
+					<span v-if="schedParticipantFilter" class="inline-flex items-center gap-1 bg-violet-100 text-violet-700 rounded-full px-2 py-0.5">
+						{{ t('sequences.filter.participant', { name: schedParticipantFilter.name }) }}
+						<button
+							type="button"
+							class="hover:text-violet-900"
+							:aria-label="t('sequences.clearFilter')"
+							@click="clearSchedParticipantFilter"
 						>
 							<X class="w-3 h-3" />
 						</button>
@@ -1356,7 +1425,16 @@ async function toggleDoNotContact() {
 						class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 p-3"
 					>
 						<div class="min-w-0">
-							<div class="text-sm font-medium truncate">{{ it.participantName }}</div>
+							<!-- #9: el nombre filtra el histórico del participante (mismo patrón
+							     que el badge de secuencia). -->
+							<button
+								type="button"
+								class="text-sm font-medium truncate hover:underline text-left"
+								:title="t('sequences.filter.byParticipant', { name: it.participantName })"
+								@click="openScheduledForParticipant(it)"
+							>
+								{{ it.participantName }}
+							</button>
 							<div class="text-xs text-gray-500 truncate">
 								{{ templateLabel(it.templateType) }}
 								<span v-if="it.stepOrder != null">· {{ t('sequences.stepN', { n: it.stepOrder + 1 }) }}</span>
@@ -1430,7 +1508,7 @@ async function toggleDoNotContact() {
 			</div>
 
 			<!-- Tab: Pendientes de WhatsApp -->
-			<div v-show="activeTab === 'pending'">
+			<div v-show="activeTab === 'pending'" role="tabpanel" id="seq-panel-pending" aria-labelledby="seq-tab-pending">
 				<!-- Buscador + (móvil) menú de acciones -->
 				<div v-if="queue.length" class="flex items-center gap-2 mb-2">
 					<input
@@ -1616,7 +1694,7 @@ async function toggleDoNotContact() {
 			</div>
 
 			<!-- Tab: Problemas (omitidos o fallidos, con su motivo) -->
-			<div v-show="activeTab === 'issues'">
+			<div v-show="activeTab === 'issues'" role="tabpanel" id="seq-panel-issues" aria-labelledby="seq-tab-issues">
 				<!-- Chip de secuencia (viene del badge clickeable de la lista) -->
 				<div v-if="issuesSequenceFilter" class="flex items-center gap-2 mb-2 text-xs">
 					<span class="inline-flex items-center gap-1 bg-red-100 text-red-700 rounded-full px-2 py-0.5">
@@ -1754,6 +1832,12 @@ async function toggleDoNotContact() {
 				<div v-else class="text-sm text-gray-500 border rounded-md p-4 text-center">
 					{{ t('sequences.issuesEmpty') }}
 				</div>
+				<!-- #2: quedan problemas sin cargar (cap de página) → siguiente página -->
+				<div v-if="issues.length && issues.length < issuesTotal" class="flex justify-center mt-3">
+					<Button size="sm" variant="outline" :disabled="issuesLoadingMore" @click="loadMoreIssues">
+						{{ t('sequences.loadMore', { remaining: issuesTotal - issues.length }) }}
+					</Button>
+				</div>
 			</div>
 
 		<!-- Editor de secuencia -->
@@ -1762,12 +1846,26 @@ async function toggleDoNotContact() {
 			class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
 			@click.self="isEditorOpen = false"
 		>
-			<div class="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+			<div
+				ref="editorModalRef"
+				role="dialog"
+				aria-modal="true"
+				tabindex="-1"
+				:aria-label="draft.id ? t('sequences.editTitle') : t('sequences.newTitle')"
+				class="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col focus:outline-none"
+			>
 				<div class="flex items-center justify-between p-6 border-b">
 					<h2 class="text-xl font-semibold">
 						{{ draft.id ? t('sequences.editTitle') : t('sequences.newTitle') }}
 					</h2>
-					<Button variant="ghost" size="icon" @click="isEditorOpen = false"><X class="w-5 h-5" /></Button>
+					<Button
+						variant="ghost"
+						size="icon"
+						:aria-label="t('sequences.close')"
+						@click="isEditorOpen = false"
+					>
+						<X class="w-5 h-5" />
+					</Button>
 				</div>
 				<div class="p-6 space-y-4 overflow-y-auto">
 					<div>
@@ -1866,7 +1964,7 @@ async function toggleDoNotContact() {
 								<div class="grid grid-cols-2 md:grid-cols-6 gap-3">
 									<div class="md:col-span-1">
 										<label class="text-xs text-gray-500">{{ t('sequences.offsetDays') }}</label>
-										<input type="number" v-model.number="step.offsetDays" class="w-full mt-1 p-2 border rounded-md text-sm" />
+										<input type="number" min="0" v-model.number="step.offsetDays" class="w-full mt-1 p-2 border rounded-md text-sm" />
 									</div>
 									<div class="md:col-span-1">
 										<label class="text-xs text-gray-500">{{ t('sequences.sendHour') }}</label>
@@ -2015,27 +2113,87 @@ async function toggleDoNotContact() {
 			class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
 			@click.self="isImportOpen = false"
 		>
-			<div class="bg-white rounded-lg shadow-xl max-w-lg w-full max-h-[90vh] overflow-hidden flex flex-col">
+			<div
+				ref="importModalRef"
+				role="dialog"
+				aria-modal="true"
+				tabindex="-1"
+				:aria-label="t('sequences.importTitle')"
+				class="bg-white rounded-lg shadow-xl max-w-lg w-full max-h-[90vh] overflow-hidden flex flex-col focus:outline-none"
+			>
 				<div class="flex items-center justify-between p-5 border-b">
 					<div>
 						<h2 class="text-lg font-semibold">{{ t('sequences.importTitle') }}</h2>
 						<p class="text-xs text-gray-500">{{ t('sequences.importHint') }}</p>
 					</div>
-					<Button variant="ghost" size="icon" @click="isImportOpen = false"><X class="w-5 h-5" /></Button>
+					<Button
+						variant="ghost"
+						size="icon"
+						:aria-label="t('sequences.close')"
+						@click="isImportOpen = false"
+					>
+						<X class="w-5 h-5" />
+					</Button>
 				</div>
 				<div class="p-5 overflow-y-auto">
 					<div v-if="globalSequences.length" class="border rounded-md divide-y">
-						<div v-for="g in globalSequences" :key="g.id" class="flex items-center justify-between gap-3 p-3">
-							<div class="min-w-0">
-								<div class="font-medium text-sm truncate">{{ g.name }}</div>
-								<div class="text-xs text-gray-500">
-									{{ t('sequences.triggers.' + g.trigger) }} · {{ t('sequences.audiences.' + g.audience) }}
-									· {{ t('sequences.stepCount', { count: g.steps?.length || 0 }) }}
+						<div v-for="g in globalSequences" :key="g.id" class="p-3">
+							<div class="flex items-center justify-between gap-3">
+								<div class="min-w-0">
+									<div class="font-medium text-sm truncate">{{ g.name }}</div>
+									<div class="text-xs text-gray-500">
+										{{ t('sequences.triggers.' + g.trigger) }} · {{ t('sequences.audiences.' + g.audience) }}
+										· {{ t('sequences.stepCount', { count: g.steps?.length || 0 }) }}
+									</div>
+								</div>
+								<div class="flex items-center gap-1 shrink-0">
+									<Button
+										size="sm"
+										variant="outline"
+										:aria-expanded="expandedImportId === g.id"
+										@click="toggleImportPreview(g.id)"
+									>
+										<ChevronDown
+											class="w-3.5 h-3.5 transition-transform"
+											:class="expandedImportId === g.id ? 'rotate-180' : ''"
+										/>
+										{{ t('sequences.previewSteps') }}
+									</Button>
+									<Button size="sm" :disabled="importLoading" @click="importGlobal(g)">
+										{{ t('sequences.import') }}
+									</Button>
 								</div>
 							</div>
-							<Button size="sm" :disabled="importLoading" @click="importGlobal(g)">
-								{{ t('sequences.import') }}
-							</Button>
+							<!-- #10: los pasos que traerá la importación. El tipo de plantilla se
+							     resuelve al nombre local; en ámbar si el retiro NO la tiene (ese paso
+							     quedaría skipped al procesarse). -->
+							<div v-if="expandedImportId === g.id" class="mt-2 border-t pt-2 space-y-1">
+								<div
+									v-for="(st, i) in g.steps || []"
+									:key="i"
+									class="text-xs text-gray-600 flex flex-wrap items-baseline gap-x-2"
+								>
+									<span class="text-gray-400">{{ i + 1 }}.</span>
+									<span :class="importTemplateFor(st.templateType) ? '' : 'text-amber-600 font-medium'">
+										{{ templateLabel(st.templateType) }}
+									</span>
+									<span>· {{ importOffsetText(g.trigger, st.offsetDays) }}</span>
+									<span>· {{ st.sendHour }}:00</span>
+									<span>· {{ t('sequences.channels.' + st.channel) }}</span>
+									<span
+										v-if="st.recipientTarget && st.recipientTarget !== 'participant'"
+										class="text-amber-600"
+									>
+										· → {{ t('sequences.recipients.' + st.recipientTarget) }}
+									</span>
+									<span v-if="st.condition && Object.keys(st.condition).length" class="text-gray-400">
+										· {{ t('sequences.previewCondition') }}
+									</span>
+									<span v-if="!importTemplateFor(st.templateType)" class="text-amber-600">
+										· {{ t('sequences.previewMissingTemplate') }}
+									</span>
+								</div>
+							</div>
 						</div>
 					</div>
 					<div v-else class="text-sm text-gray-500 text-center py-6">
@@ -2051,7 +2209,14 @@ async function toggleDoNotContact() {
 			class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
 			@click.self="closeDetail"
 		>
-			<div class="bg-white rounded-lg shadow-xl max-w-lg w-full max-h-[90vh] overflow-hidden flex flex-col">
+			<div
+				ref="detailModalRef"
+				role="dialog"
+				aria-modal="true"
+				tabindex="-1"
+				:aria-label="t('sequences.detailTitle')"
+				class="bg-white rounded-lg shadow-xl max-w-lg w-full max-h-[90vh] overflow-hidden flex flex-col focus:outline-none"
+			>
 				<div class="flex items-center justify-between p-5 border-b">
 					<div class="min-w-0">
 						<h2 class="text-lg font-semibold truncate">
@@ -2059,7 +2224,9 @@ async function toggleDoNotContact() {
 						</h2>
 						<p class="text-xs text-gray-500">{{ t('sequences.detailTitle') }}</p>
 					</div>
-					<Button variant="ghost" size="icon" @click="closeDetail"><X class="w-5 h-5" /></Button>
+					<Button variant="ghost" size="icon" :aria-label="t('sequences.close')" @click="closeDetail">
+						<X class="w-5 h-5" />
+					</Button>
 				</div>
 
 				<div class="p-5 space-y-4 overflow-y-auto text-sm">
@@ -2177,7 +2344,14 @@ async function toggleDoNotContact() {
 			class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
 			@click.self="seqToDelete = null"
 		>
-			<div class="bg-white rounded-lg shadow-xl max-w-sm w-full p-6">
+			<div
+				ref="deleteModalRef"
+				role="dialog"
+				aria-modal="true"
+				tabindex="-1"
+				:aria-label="t('sequences.deleteTitle')"
+				class="bg-white rounded-lg shadow-xl max-w-sm w-full p-6 focus:outline-none"
+			>
 				<h2 class="text-lg font-semibold">{{ t('sequences.deleteTitle') }}</h2>
 				<p class="text-sm text-gray-600 mt-1">
 					{{ t('sequences.deleteConfirm', { name: seqToDelete.name }) }}
@@ -2195,7 +2369,14 @@ async function toggleDoNotContact() {
 			class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
 			@click.self="reschedDialog = false"
 		>
-			<div class="bg-white rounded-lg shadow-xl max-w-sm w-full p-6">
+			<div
+				ref="reschedModalRef"
+				role="dialog"
+				aria-modal="true"
+				tabindex="-1"
+				:aria-label="t('sequences.reschedTitle')"
+				class="bg-white rounded-lg shadow-xl max-w-sm w-full p-6 focus:outline-none"
+			>
 				<h2 class="text-lg font-semibold">{{ t('sequences.reschedTitle') }}</h2>
 				<p class="text-sm text-gray-600 mt-1">
 					{{ t('sequences.reschedHint', { name: reschedStep?.label }) }}

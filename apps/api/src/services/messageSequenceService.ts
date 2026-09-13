@@ -64,6 +64,46 @@ type StepSyncInput = {
 	condition?: Record<string, unknown> | null;
 };
 
+/** Payload normalizado que syncSteps escribe en cada paso. */
+type StepWriteData = {
+	stepOrder: number;
+	offsetDays: number;
+	sendHour: number;
+	templateType: string;
+	channel: MessageChannel;
+	recipientTarget: MessageRecipientTarget;
+	recipientResponsibility: string | null;
+	condition: Record<string, unknown> | null;
+};
+
+/**
+ * JSON con claves ordenadas recursivamente: comparación semántica de objetos
+ * (la `condition` del paso) sin depender del orden de inserción de claves.
+ */
+function stableJson(value: unknown): string {
+	if (value === null || typeof value !== 'object') return JSON.stringify(value) ?? 'null';
+	if (Array.isArray(value)) return `[${value.map(stableJson).join(',')}]`;
+	const entries = Object.entries(value as Record<string, unknown>)
+		.filter(([, v]) => v !== undefined)
+		.sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+		.map(([k, v]) => `${JSON.stringify(k)}:${stableJson(v)}`);
+	return `{${entries.join(',')}}`;
+}
+
+/** ¿El payload del editor cambia algo respecto a la fila existente? (#7) */
+function stepPayloadChanged(current: SequenceStep, data: StepWriteData): boolean {
+	return (
+		current.stepOrder !== data.stepOrder ||
+		current.offsetDays !== data.offsetDays ||
+		current.sendHour !== data.sendHour ||
+		current.templateType !== data.templateType ||
+		current.channel !== data.channel ||
+		(current.recipientTarget ?? 'participant') !== data.recipientTarget ||
+		(current.recipientResponsibility ?? null) !== data.recipientResponsibility ||
+		stableJson(current.condition ?? null) !== stableJson(data.condition)
+	);
+}
+
 /**
  * Violación de la máquina de transiciones de un scheduled message. El
  * controller la traduce a HTTP 409: el conflicto es de estado, no de sintaxis
@@ -108,7 +148,8 @@ function addDays(y: number, m0: number, d: number, delta: number): { y: number; 
  * Motor de secuencias de mensajes (drip CRM).
  *
  * - Enrola participantes elegibles de cada secuencia activa y programa cada paso
- *   (idempotente vía unique (stepId, participantId)).
+ *   (idempotente vía unique (stepId, participantId, occurrenceYear): birthday
+ *   dispara una vez por año, el resto una sola vez en la vida).
  * - Procesa los mensajes vencidos: EMAIL se envía solo (desatendido) y se
  *   registra; WHATSAPP pasa a `queued` (bandeja de pendientes) para que el
  *   coordinador lo despache desde su propia cuenta.
@@ -313,21 +354,38 @@ export class MessageSequenceService {
 		participants = participants.filter((p) => !p.doNotContact);
 		if (!participants.length) return 0;
 
-		// Set de (stepId:participantId) ya programados → idempotencia.
+		// Set de claves ya programadas → idempotencia. Para birthday la clave
+		// incluye el año agendado (#1): el mismo paso puede volver a disparar
+		// el año siguiente; para el resto de triggers (occurrenceYear = 0)
+		// sigue siendo una sola vez en la vida.
+		const tz = this.resolveTz(retreat);
+		const isBirthday = seq.trigger === 'birthday';
 		const existing = await AppDataSource.getRepository(ScheduledMessage).find({
 			where: { sequenceId: seq.id },
-			select: ['stepId', 'participantId'],
+			select: ['stepId', 'participantId', 'occurrenceYear'],
 		});
-		const seen = new Set(existing.map((e) => `${e.stepId}:${e.participantId}`));
+		const seen = new Set(
+			existing.map((e) =>
+				e.occurrenceYear
+					? `${e.stepId}:${e.participantId}:${e.occurrenceYear}`
+					: `${e.stepId}:${e.participantId}`,
+			),
+		);
 
 		const repo = AppDataSource.getRepository(ScheduledMessage);
 		const toCreate: ScheduledMessage[] = [];
 		for (const participant of participants) {
 			for (const step of steps) {
-				const key = `${step.id}:${participant.id}`;
-				if (seen.has(key)) continue;
 				const scheduledFor = this.computeScheduledFor(seq.trigger, step, participant, retreat);
 				if (!scheduledFor) continue;
+				// Año de la ocurrencia EN LA TZ DEL RETIRO (la misma en la que
+				// computeScheduledFor construyó la fecha): es la parte de la
+				// clave que habilita un envío por cumpleaños.
+				const occurrenceYear = isBirthday ? ymdInTz(scheduledFor, tz).y : 0;
+				const key = occurrenceYear
+					? `${step.id}:${participant.id}:${occurrenceYear}`
+					: `${step.id}:${participant.id}`;
+				if (seen.has(key)) continue;
 				toCreate.push(
 					repo.create({
 						sequenceId: seq.id,
@@ -338,6 +396,7 @@ export class MessageSequenceService {
 						templateType: step.templateType,
 						recipientTarget: step.recipientTarget ?? "participant",
 						scheduledFor,
+						occurrenceYear,
 						status: 'pending',
 					}),
 				);
@@ -539,6 +598,9 @@ export class MessageSequenceService {
 		// y sin esto lo armaba dos veces por vista previa de un briefing.
 		precomputedTableData?: TableData | null,
 		precomputedShirtOrder?: ShirtOrderContext | null,
+		// Ídem {community.*} para el email, que renderiza DOS veces (texto y
+		// HTML): sin esto `loadCommunityData` corría una vez por render (#6).
+		precomputedCommunityData?: CommunityData,
 	): Promise<string> {
 		const tableData =
 			precomputedTableData !== undefined
@@ -585,9 +647,11 @@ export class MessageSequenceService {
 		// reales. Sin comunidad vinculada queda undefined y el placeholder se
 		// reporta como literal (la guarda de processDue lo skippea antes del envío).
 		const communityData =
-			message.includes('{community.') && retreat.communityId
-				? await this.loadCommunityData(retreat.communityId)
-				: undefined;
+			precomputedCommunityData !== undefined
+				? precomputedCommunityData
+				: message.includes('{community.') && retreat.communityId
+					? await this.loadCommunityData(retreat.communityId)
+					: undefined;
 		return replaceAllVariables(
 			message,
 			participantWithShirtOrder as any,
@@ -773,6 +837,40 @@ export class MessageSequenceService {
 		// Cache de evaluación de condiciones por (retiro + filtros) dentro de la corrida.
 		const conditionCache = new Map<string, Set<string>>();
 
+		// #6 batching: las tres cargas que el loop hacía UNA VEZ POR MENSAJE
+		// (plantilla del retiro, retreat_participant del participante,
+		// follow-up del participante) se precargan en una query por lote. Con
+		// el tope de `limit` mensajes, eso son 3 queries fijas en vez de 3·N.
+		const batchRetreatIds = [...new Set(due.map((sm) => sm.retreatId))];
+		const templates = new Map<string, MessageTemplate>();
+		if (batchRetreatIds.length) {
+			const rows = await AppDataSource.getRepository(MessageTemplate).find({
+				where: { retreatId: In(batchRetreatIds) },
+			});
+			for (const t of rows) {
+				const key = `${t.retreatId}:${t.type}`;
+				if (!templates.has(key)) templates.set(key, t);
+			}
+		}
+		const cancelledRp = new Set<string>();
+		const declinedFollowUp = new Set<string>();
+		if (batchRetreatIds.length) {
+			const rps = await AppDataSource.getRepository(RetreatParticipant).find({
+				where: { retreatId: In(batchRetreatIds) },
+				select: ['participantId', 'retreatId', 'isCancelled'],
+			});
+			for (const rp of rps) {
+				if (rp.isCancelled) cancelledRp.add(`${rp.participantId}:${rp.retreatId}`);
+			}
+			const fus = await AppDataSource.getRepository(ParticipantFollowUp).find({
+				where: { retreatId: In(batchRetreatIds) },
+				select: ['participantId', 'retreatId', 'status'],
+			});
+			for (const fu of fus) {
+				if (fu.status === 'declined') declinedFollowUp.add(`${fu.participantId}:${fu.retreatId}`);
+			}
+		}
+
 		let processed = 0;
 		for (const sm of due) {
 			// Claim atómico: marca la fila como 'processing' solo si sigue en el estado
@@ -807,11 +905,8 @@ export class MessageSequenceService {
 					continue;
 				}
 
-				// No enviar a participantes cancelados del retiro.
-				const rp = await AppDataSource.getRepository(RetreatParticipant).findOne({
-					where: { participantId: participant.id, retreatId: sm.retreatId },
-				});
-				if (rp?.isCancelled) {
+				// No enviar a participantes cancelados del retiro (precargado #6).
+				if (cancelledRp.has(`${participant.id}:${sm.retreatId}`)) {
 					sm.status = 'cancelled';
 					sm.error = 'participante cancelado';
 					await repo.save(sm);
@@ -845,10 +940,8 @@ export class MessageSequenceService {
 				// se le envía nada. (Parar al CONFIRMAR no es un freno global: se modela
 				// como condición de paso `attendanceFilter='pending'` sobre la
 				// confirmación de asistencia real — ver resolveRecipient/condición.)
-				const followUp = await AppDataSource.getRepository(ParticipantFollowUp).findOne({
-					where: { participantId: participant.id, retreatId: sm.retreatId },
-				});
-				if (followUp?.status === 'declined') {
+				// Follow-up precargado por corrida (#6).
+				if (declinedFollowUp.has(`${participant.id}:${sm.retreatId}`)) {
 					sm.status = 'skipped';
 					sm.error = 'participante declinó (seguimiento)';
 					await repo.save(sm);
@@ -886,9 +979,9 @@ export class MessageSequenceService {
 					continue;
 				}
 
-				const template = await AppDataSource.getRepository(MessageTemplate).findOne({
-					where: { retreatId: sm.retreatId, type: sm.templateType as any },
-				});
+				// Plantilla precargada por corrida (#6): una query por lote en vez
+				// de una por mensaje.
+				const template = templates.get(`${sm.retreatId}:${sm.templateType}`);
 				if (!template) {
 					sm.status = 'skipped';
 					sm.error = `sin plantilla ${sm.templateType} en el retiro`;
@@ -949,6 +1042,16 @@ export class MessageSequenceService {
 					await repo.save(sm);
 					continue;
 				}
+				// Contextos lazy compartidos por los DOS renders del email (texto
+				// y HTML): {participant.shirt*} y {community.*} se resuelven una
+				// sola vez por mensaje (#6) — antes cada render los consultaba solo.
+				const shirtOrder = template.message.includes('{participant.shirt')
+					? await getParticipantShirtOrderSummary(participant.id, sm.retreatId)
+					: null;
+				const communityData =
+					template.message.includes('{community.') && retreat.communityId
+						? await this.loadCommunityData(retreat.communityId)
+						: undefined;
 				const content = await this.resolveContent(
 					template.message,
 					participantForTemplate,
@@ -957,6 +1060,8 @@ export class MessageSequenceService {
 					sm.retreatId,
 					false,
 					precomputedTableData,
+					shirtOrder,
+					communityData,
 				);
 
 				if (sm.channel === 'whatsapp') {
@@ -996,6 +1101,8 @@ export class MessageSequenceService {
 					sm.retreatId,
 					true,
 					precomputedTableData,
+					shirtOrder,
+					communityData,
 				);
 				const html = convertHtmlToEmail(htmlContent, { format: 'enhanced' });
 				const text = content.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
@@ -1212,9 +1319,10 @@ export class MessageSequenceService {
 		}
 		let cancelledPendingCount = 0;
 		if (semanticsChanged) {
-			// DELETE (no cancel): la UQ (stepId, participantId) aplica a TODAS las
-			// filas, así que una cancelled bloquearía el re-enrolamiento. Las
-			// sent/queued se conservan — la idempotencia las respeta al re-crear.
+			// DELETE (no cancel): la UQ (stepId, participantId, occurrenceYear)
+			// aplica a TODAS las filas, así que una cancelled bloquearía el
+			// re-enrolamiento. Las sent/queued se conservan — la idempotencia las
+			// respeta al re-crear.
 			const del = await AppDataSource.getRepository(ScheduledMessage)
 				.createQueryBuilder()
 				.delete()
@@ -1240,9 +1348,13 @@ export class MessageSequenceService {
 	/**
 	 * Sincroniza los pasos de una secuencia preservando la identidad de los
 	 * existentes (los que llegan con `id`): así NO cambia el `stepId` y la
-	 * idempotencia (stepId, participantId) se mantiene — editar no re-envía a
+	 * idempotencia (stepId, participantId, occurrenceYear) se mantiene — editar no re-envía a
 	 * quien ya recibió. Los pasos quitados se ARCHIVAN (borrarlos cascadería
 	 * hasta sus scheduled_messages sent) y sus `pending` se CANCELAN.
+	 *
+	 * Diff real (#7): el editor reenvía TODOS los pasos en cada save; un paso
+	 * cuyo payload no cambió no se escribe — sin esto cada guardado disparaba
+	 * un UPDATE por paso (puntual, pero pisaba `updatedAt` de pasos intactos).
 	 */
 	private async syncSteps(
 		sequenceId: string,
@@ -1253,7 +1365,7 @@ export class MessageSequenceService {
 		const keep = new Set<string>();
 		for (let i = 0; i < steps.length; i++) {
 			const s = steps[i];
-			const data = {
+			const data: StepWriteData = {
 				stepOrder: s.stepOrder ?? i,
 				offsetDays: s.offsetDays ?? 0,
 				sendHour: s.sendHour ?? 9,
@@ -1261,14 +1373,16 @@ export class MessageSequenceService {
 				channel: s.channel,
 				recipientTarget: s.recipientTarget ?? 'participant',
 				recipientResponsibility: s.recipientResponsibility ?? null,
-				condition: (s.condition ?? null) as any,
+				condition: s.condition ?? null,
 			};
 			const current = s.id ? existing.find((e) => e.id === s.id) : undefined;
 			if (current) {
 				keep.add(current.id);
-				await stepRepo.update(current.id, data);
+				if (stepPayloadChanged(current, data)) {
+					await stepRepo.update(current.id, data as any);
+				}
 			} else {
-				const created = await stepRepo.save(stepRepo.create({ sequenceId, ...data }));
+				const created = await stepRepo.save(stepRepo.create({ sequenceId, ...data }) as any);
 				keep.add(created.id);
 			}
 		}
@@ -1482,6 +1596,10 @@ export class MessageSequenceService {
 	 * conserva el `sendHour` del paso. Sólo toca `pending`: lo `queued` ya está
 	 * en la bandeja y lo `sent` es historial. B2 ("encolar ya") es este mismo
 	 * método con fecha=ahora; el run encadenado lo dispara el controller.
+	 *
+	 * Nota birthday: el `occurrenceYear` de las filas NO se recalcula — es el
+	 * año que el motor agendó y sigue siendo la clave de idempotencia; el
+	 * siguiente ciclo anual lo computa fresh en el re-enrolamiento.
 	 */
 	async rescheduleStep(
 		step: SequenceStep,
@@ -2052,24 +2170,41 @@ export class MessageSequenceService {
 	/**
 	 * Mensajes con problema (omitidos o fallidos) del retiro, con el participante
 	 * y el motivo (`error`), para que el coordinador sepa qué no salió y por qué.
+	 *
+	 * Devuelve `{ items, total }`: `total` es el conteo REAL de problemas (sin
+	 * cap) para que el contador del tab no mienta cuando hay más de `limit` —
+	 * la UI pagina con "cargar más" (offset) en vez de recortar en silencio.
 	 */
-	async getIssuesByRetreat(retreatId: string, limit = 100): Promise<ScheduledMessage[]> {
-		return AppDataSource.getRepository(ScheduledMessage).find({
-			where: [
-				{ retreatId, status: 'skipped' },
-				{ retreatId, status: 'failed' },
-			],
-			relations: ['participant'],
-			order: { updatedAt: 'DESC' },
-			take: limit,
-		});
+	async getIssuesByRetreat(
+		retreatId: string,
+		opts: { limit?: number; offset?: number } = {},
+	): Promise<{ items: ScheduledMessage[]; total: number }> {
+		const repo = AppDataSource.getRepository(ScheduledMessage);
+		const where = [
+			{ retreatId, status: 'skipped' as const },
+			{ retreatId, status: 'failed' as const },
+		];
+		// Orden sobre columna de la tabla raíz → skip/take es seguro aquí (el
+		// problema del DISTINCT subquery solo aparece ordenando por el join).
+		const [items, total] = await Promise.all([
+			repo.find({
+				where,
+				relations: ['participant'],
+				order: { updatedAt: 'DESC' },
+				take: opts.limit ?? 100,
+				skip: opts.offset ?? 0,
+			}),
+			repo.count({ where }),
+		]);
+		return { items, total };
 	}
 
 	/**
-	 * Enrola + procesa AHORA las secuencias activas de un retiro. Se usa tras dar
-	 * de alta a un participante para que los pasos `participant_created` offset-0
-	 * (bienvenida, privacidad, aviso al palanquero) salgan al momento, sin esperar
-	 * al cron horario.
+	 * Enrola + procesa AHORA las secuencias activas de un retiro. Lo usan el alta
+	 * de un participante (para que los pasos `participant_created` offset-0 —
+	 * bienvenida, privacidad, aviso al palanquero — salgan al momento, sin esperar
+	 * al cron horario) y el endpoint manual "Procesar ahora" del controller (#11:
+	 * una sola implementación, sin duplicar la rutina en el controller).
 	 */
 	async runForRetreat(retreatId: string): Promise<{ enrolled: number; processed: number }> {
 		const sequences = await this.findByRetreat(retreatId);
