@@ -459,8 +459,21 @@ async function confirmDelete() {
 
 // M6-D2: activar/desactivar sin abrir el editor (mismo patrón que la vista global).
 async function toggleActive(seq: any) {
+	const wasActive = !!seq.isActive; // el update puede mutar la fila local
 	try {
-		await sequenceStore.update(seq.id, { isActive: !seq.isActive });
+		await sequenceStore.update(seq.id, { isActive: !wasActive });
+		// Desactivar congela (no cancela) lo pendiente y deja la bandeja como
+		// está — avisar el alcance para que no sea una sorpresa silenciosa.
+		if (wasActive) {
+			const pending = statusCount(seq.id, 'pending');
+			const queued = statusCount(seq.id, 'queued');
+			const parts: string[] = [];
+			if (pending) parts.push(t('sequences.pausedPendingCount', { n: pending }));
+			if (queued) parts.push(t('sequences.pausedQueuedCount', { n: queued }));
+			if (parts.length) {
+				toast({ title: t('sequences.deactivatedTitle'), description: parts.join(' · ') });
+			}
+		}
 	} catch {
 		toast({ title: t('sequences.toggleError'), variant: 'destructive' });
 	}
@@ -691,6 +704,13 @@ function openIssuesForSequence(seq: any) {
 function seqName(sequenceId: string | null | undefined): string {
 	if (!sequenceId) return '';
 	return sequences.value.find((s: any) => s.id === sequenceId)?.name || '';
+}
+// Mensaje de Programados congelado: su secuencia está desactivada, así que el
+// cron jamás lo encolará (no está cancelado — reactivar la secuencia lo reanuda).
+function isPausedPending(it: { sequenceId?: string | null; status: string }): boolean {
+	if (it.status !== 'pending') return false;
+	const seq = sequences.value.find((s: any) => s.id === it.sequenceId);
+	return !!seq && !seq.isActive;
 }
 // Nombre legible del tipo de plantilla (fallback al tipo crudo).
 function templateLabel(type: string | null | undefined): string {
@@ -1499,6 +1519,14 @@ async function toggleDoNotContact() {
 								:class="schedStatusClass(it.status)"
 							>
 								{{ t('sequences.statuses.' + it.status) }}
+							</span>
+							<!-- Secuencia desactivada: el pending está congelado, no saldrá. -->
+							<span
+								v-if="isPausedPending(it)"
+								class="text-xs rounded px-1.5 py-0.5 shrink-0 bg-gray-100 text-gray-500"
+								:title="t('sequences.pausedHint')"
+							>
+								{{ t('sequences.paused') }}
 							</span>
 							<span class="text-[10px] uppercase text-gray-400 shrink-0">
 								{{ t('sequences.channels.' + it.channel) }}
