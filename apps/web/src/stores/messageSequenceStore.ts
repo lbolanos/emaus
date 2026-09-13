@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
+import { getSocket } from '@/services/realtime';
 import type { MessageSequence } from '@repo/types';
 import {
 	getRetreatSequences,
@@ -54,6 +55,10 @@ export const useMessageSequenceStore = defineStore('message-sequence', () => {
 	// Retiro del último fetch: alimenta el fallback de TZ y los refresh de stats
 	// fire-and-forget (sin andar pasando el retreatId por todos lados).
 	let currentRetreatId: string | null = null;
+
+	// Realtime (bandeja en vivo, patrón receptionStore).
+	const realtimeConnected = ref(false);
+	let subscribedRetreatId: string | null = null;
 
 	const fetchSequences = async (retreatId: string) => {
 		loading.value = true;
@@ -255,6 +260,44 @@ export const useMessageSequenceStore = defineStore('message-sequence', () => {
 		}
 	};
 
+	/**
+	 * Sync en vivo de la bandeja (patrón receptionStore): join con ack, re-join
+	 * al reconectar y, ante cualquier `sequences:queue-changed` del retiro
+	 * activo, refresco de cola+stats en el fondo. El eco propio (yo despaché →
+	 * me llega mi evento) es inofensivo: la acción ya actualizó el estado local
+	 * y el refetch trae lo mismo. Devuelve un unsubscribe idempotente.
+	 */
+	function subscribeRealtime(retreatId: string) {
+		const socket = getSocket();
+		subscribedRetreatId = retreatId;
+
+		const join = () => {
+			socket.emit('sequences:subscribe', retreatId, (ok: boolean) => {
+				realtimeConnected.value = !!ok;
+			});
+		};
+
+		if (socket.connected) join();
+		socket.on('connect', join);
+
+		const listener = (e: { retreatId: string }) => {
+			const active = subscribedRetreatId;
+			if (!active || e.retreatId !== active) return;
+			fetchQueue(active).catch(() => {});
+			fetchStats(active).catch(() => {});
+		};
+
+		socket.on('sequences:queue-changed', listener);
+
+		return function unsubscribe() {
+			socket.emit('sequences:unsubscribe', retreatId);
+			socket.off('connect', join);
+			socket.off('sequences:queue-changed', listener);
+			realtimeConnected.value = false;
+			subscribedRetreatId = null;
+		};
+	}
+
 	return {
 		sequences,
 		queue,
@@ -271,6 +314,7 @@ export const useMessageSequenceStore = defineStore('message-sequence', () => {
 		scheduledTotalPages,
 		scheduledTimezone,
 		scheduledLoading,
+		realtimeConnected,
 		fetchSequences,
 		fetchQueue,
 		fetchStats,
@@ -292,5 +336,6 @@ export const useMessageSequenceStore = defineStore('message-sequence', () => {
 		open,
 		assign,
 		setDoNotContact,
+		subscribeRealtime,
 	};
 });

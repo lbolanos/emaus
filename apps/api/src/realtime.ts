@@ -70,6 +70,31 @@ export function initRealtime(httpServer: HttpServer, sessionMiddleware: RequestH
 			}
 		});
 
+		socket.on('sequences:subscribe', async (retreatId: unknown, ack?: (ok: boolean) => void) => {
+			const user = reqUser();
+			if (!user?.id || typeof retreatId !== 'string' || !retreatId) {
+				ack?.(false);
+				return;
+			}
+			try {
+				const ok = await authorizationService.hasRetreatAccess(user.id, retreatId);
+				if (!ok) {
+					ack?.(false);
+					return;
+				}
+				await socket.join(sequencesRoom(retreatId));
+				ack?.(true);
+			} catch {
+				ack?.(false);
+			}
+		});
+
+		socket.on('sequences:unsubscribe', (retreatId: unknown) => {
+			if (typeof retreatId === 'string' && retreatId) {
+				void socket.leave(sequencesRoom(retreatId));
+			}
+		});
+
 		socket.on('schedule:subscribe', async (retreatId: unknown, ack?: (ok: boolean) => void) => {
 			const user = reqUser();
 			if (!user?.id || typeof retreatId !== 'string' || !retreatId) {
@@ -167,6 +192,38 @@ export function emitReceptionCheckin(payload: ReceptionCheckinPayload): void {
 
 export function emitReceptionBagMade(payload: ReceptionBagMadePayload): void {
 	io?.to(receptionRoom(payload.retreatId)).emit('reception:bag-made', payload);
+}
+
+// --- Sequences inbox (bandeja de WhatsApp de Secuencias) ---
+
+export function sequencesRoom(retreatId: string): string {
+	return `retreat:${retreatId}:sequences`;
+}
+
+/** Acciones (manuales o del motor) que cambian la bandeja de un retiro. */
+export type SequenceQueueAction =
+	| 'dispatched'
+	| 'skipped'
+	| 'opened'
+	| 'retried'
+	| 'discarded'
+	| 'assigned'
+	| 'enqueued';
+
+export type SequenceQueueChangedPayload = {
+	retreatId: string;
+	action: SequenceQueueAction;
+	scheduledMessageIds: string[];
+};
+
+/**
+ * Notifica a las vistas con la bandeja de Secuencias abierta que la cola
+ * cambió: despacho, omisión, asignación, reintento/descarte, o pendientes
+ * nuevos encolados por el motor. Un solo evento — la reacción del cliente
+ * siempre es refetch (bandeja + stats).
+ */
+export function emitSequenceQueueChanged(payload: SequenceQueueChangedPayload): void {
+	io?.to(sequencesRoom(payload.retreatId)).emit('sequences:queue-changed', payload);
 }
 
 // --- Schedule (Minuto a Minuto) ---

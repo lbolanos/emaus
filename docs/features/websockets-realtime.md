@@ -11,7 +11,7 @@ Capa de `socket.io` que empuja actualizaciones desde la API a los clientes conec
 | **Transporte** | `socket.io` v4 (fallback automático a long-polling) |
 | **Path** | `/api/socket.io` (bajo el location `/api` de nginx) |
 | **Auth** | Cookie de sesión (`emaus.sid`) reutilizando el middleware de Express + Passport |
-| **Modelo de broadcast** | Rooms por retiro: `retreat:{retreatId}:reception` |
+| **Modelo de broadcast** | Rooms por retiro: `retreat:{retreatId}:reception`, `…:schedule`, `…:sequences` |
 | **Acceso** | `authorizationService.hasRetreatAccess(userId, retreatId)` antes de unir a un room |
 | **Archivos clave** | `apps/api/src/realtime.ts`, `apps/web/src/services/realtime.ts`, `apps/web/src/stores/receptionStore.ts` |
 
@@ -132,6 +132,31 @@ Los helpers son **no-op silenciosos** si `initRealtime` no fue llamado aún (imp
 
 ---
 
+## Bandeja de Secuencias (`sequences:`)
+
+Sync en vivo de la bandeja de WhatsApp de **Secuencias automáticas** (`MessageSequencesView`): dos coordinadores con la vista abierta ven la misma cola sin recargar.
+
+Room `retreat:{retreatId}:sequences`; handlers `sequences:subscribe`/`sequences:unsubscribe` con `hasRetreatAccess` (idénticos a `reception:*`).
+
+**Un solo evento** — la reacción del cliente siempre es refetch (bandeja + stats):
+
+| Evento | Payload | Origen |
+|--------|---------|--------|
+| `sequences:queue-changed` | `{ retreatId, action, scheduledMessageIds: string[] }` | `messageSequenceService` |
+
+`action` ∈ `dispatched | skipped | opened | retried | discarded | assigned | enqueued`:
+
+- Los mutadores manuales (`markDispatched`, `markSkipped`, `markOpened`, `retryScheduled`, `discardScheduled`, `assign`) emiten su acción con `[sm.id]` tras persistir.
+- `processDue` acumula los whatsapp encolados en un `Map<retreatId, ids>` durante la corrida y emite un único `enqueued` por retiro al final (el cron es multi-retiro).
+
+Fuera de alcance declarado: `bulkResolveIssues` (UPDATE masivo sin ids estables) y la pestaña Programados.
+
+**Cliente**: `messageSequenceStore.subscribeRealtime(retreatId)` — mismo patrón que recepción (join con ack, re-join on `connect`, listener filtrado por `retreatId`, unsubscribe idempotente). La vista lo llama en `load()` (que ya corre en `onMounted` y `watch(retreatId)`) y desuscribe en `onUnmounted`.
+
+**Eco propio**: yo despacho → mi propia pestaña refetchea de más. Inofensivo (la acción ya actualizó el estado local); no se optimiza.
+
+---
+
 ## Infraestructura
 
 ### Nginx
@@ -185,8 +210,8 @@ Cuando se extienda al "minuto a minuto" del retiro:
 
 ## Tests
 
-- **Backend** (`apps/api/src/tests/services/realtime.simple.test.ts`, 7): naming de rooms, no-op cuando no hay init, routing a rooms correctos (socket.io mockeado).
-- **Frontend** (`apps/web/src/stores/__tests__/receptionStore.test.ts`, 9): subscribe/unsubscribe, filtrado por `retreatId`, cambio de retiro sin contaminar handlers del anterior.
+- **Backend** (`apps/api/src/tests/services/realtime.simple.test.ts`, 12): naming de rooms, no-op cuando no hay init, routing a rooms correctos (socket.io mockeado) — reception y sequences.
+- **Frontend** (`apps/web/src/stores/__tests__/receptionStore.test.ts`, 9): subscribe/unsubscribe, filtrado por `retreatId`, cambio de retiro sin contaminar handlers del anterior. `apps/web/src/stores/__tests__/messageSequenceStore.realtime.test.ts` (8): mismo modelo para la bandeja de secuencias (ack, refetch de queue+stats, cambio de retiro).
 - **Integración manual**:
   1. `pnpm dev`
   2. Login en dos navegadores distintos en el mismo retiro.

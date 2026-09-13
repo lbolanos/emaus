@@ -31,6 +31,7 @@ import { CommunityMember } from '../entities/communityMember.entity';
 import { Community } from '../entities/community.entity';
 import { EMAIL_SILENT_STATES } from './communityService';
 import { getParticipantShirtOrderSummary } from './shirtReportService';
+import { emitSequenceQueueChanged } from '../realtime';
 
 const DEFAULT_TZ = process.env.APP_TIMEZONE || 'America/Mexico_City';
 /** Máximo de reintentos de envío de email ante fallo (SMTP transitorio). */
@@ -836,6 +837,9 @@ export class MessageSequenceService {
 		}
 		// Cache de evaluación de condiciones por (retiro + filtros) dentro de la corrida.
 		const conditionCache = new Map<string, Set<string>>();
+		// Realtime: ids encolados por retiro en esta corrida, para emitir un solo
+		// evento 'enqueued' por retiro al final (el cron es multi-retiro).
+		const enqueuedByRetreat = new Map<string, string[]>();
 
 		// #6 batching: las tres cargas que el loop hacía UNA VEZ POR MENSAJE
 		// (plantilla del retiro, retreat_participant del participante,
@@ -1077,6 +1081,9 @@ export class MessageSequenceService {
 					sm.resolvedContact = recipient.phone;
 					sm.recipientName = recipient.name;
 					await repo.save(sm);
+					const enqueuedIds = enqueuedByRetreat.get(sm.retreatId) ?? [];
+					enqueuedIds.push(sm.id);
+					enqueuedByRetreat.set(sm.retreatId, enqueuedIds);
 					sentToday.set(participant.id, (sentToday.get(participant.id) ?? 0) + 1);
 					processed++;
 					continue;
@@ -1144,6 +1151,10 @@ export class MessageSequenceService {
 					console.error(`❌ Sequences: no se pudo registrar el fallo del mensaje ${sm.id}:`, saveErr);
 				}
 			}
+		}
+		// Realtime: un aviso por retiro con nuevos pendientes en la bandeja.
+		for (const [retreatId, ids] of enqueuedByRetreat) {
+			emitSequenceQueueChanged({ retreatId, action: 'enqueued', scheduledMessageIds: ids });
 		}
 		return processed;
 	}
@@ -1974,7 +1985,14 @@ export class MessageSequenceService {
 		// El historial del participante ("Mensajes ya enviados" del detalle) se
 		// alimenta de participant_communications: sin esto, el despacho manual
 		// de WhatsApp quedaba sin rastro (incidente 2026-09-12).
-		if (sm) await this.recordWhatsappCommunication(sm, userId);
+		if (sm) {
+			await this.recordWhatsappCommunication(sm, userId);
+			emitSequenceQueueChanged({
+				retreatId: sm.retreatId,
+				action: 'dispatched',
+				scheduledMessageIds: [sm.id],
+			});
+		}
 		return sm;
 	}
 
@@ -1987,7 +2005,9 @@ export class MessageSequenceService {
 		const sm = await repo.findOne({ where: { id } });
 		if (!sm) return null;
 		sm.openedAt = new Date();
-		return repo.save(sm);
+		const saved = await repo.save(sm);
+		emitSequenceQueueChanged({ retreatId: saved.retreatId, action: 'opened', scheduledMessageIds: [saved.id] });
+		return saved;
 	}
 
 	/** Asigna (o reasigna) el pendiente a un coordinador responsable de enviarlo. */
@@ -2004,7 +2024,9 @@ export class MessageSequenceService {
 		// tiene a quién responsabilizar y contamina la auditoría de ownership.
 		this.assertTransition(sm, 'assign');
 		sm.assignedTo = userId;
-		return repo.save(sm);
+		const saved = await repo.save(sm);
+		emitSequenceQueueChanged({ retreatId: saved.retreatId, action: 'assigned', scheduledMessageIds: [saved.id] });
+		return saved;
 	}
 
 	/** Omite un pendiente (no se enviará): el coordinador decidió saltarlo. */
@@ -2016,7 +2038,9 @@ export class MessageSequenceService {
 		sm.status = 'skipped';
 		sm.error = 'omitido manualmente';
 		sm.dispatchedBy = userId ?? null;
-		return repo.save(sm);
+		const saved = await repo.save(sm);
+		emitSequenceQueueChanged({ retreatId: saved.retreatId, action: 'skipped', scheduledMessageIds: [saved.id] });
+		return saved;
 	}
 
 	/**
@@ -2035,7 +2059,9 @@ export class MessageSequenceService {
 		sm.error = null;
 		sm.scheduledFor = new Date();
 		sm.dispatchedBy = userId ?? null;
-		return repo.save(sm);
+		const saved = await repo.save(sm);
+		emitSequenceQueueChanged({ retreatId: saved.retreatId, action: 'retried', scheduledMessageIds: [saved.id] });
+		return saved;
 	}
 
 	/**
@@ -2051,7 +2077,9 @@ export class MessageSequenceService {
 		sm.status = 'cancelled';
 		sm.error = 'descartado por el coordinador';
 		sm.dispatchedBy = userId ?? null;
-		return repo.save(sm);
+		const saved = await repo.save(sm);
+		emitSequenceQueueChanged({ retreatId: saved.retreatId, action: 'discarded', scheduledMessageIds: [saved.id] });
+		return saved;
 	}
 
 	/**

@@ -1,8 +1,9 @@
 // Tests for the realtime (socket.io) helpers in apps/api/src/realtime.ts
 //
 // Pure unit tests with a mocked socket.io server. These verify:
-//   - receptionRoom() naming convention
+//   - receptionRoom() / sequencesRoom() naming conventions
 //   - emitReceptionCheckin / emitReceptionBagMade route events to the correct room
+//   - emitSequenceQueueChanged routes the sequences inbox event to the correct room
 //   - emit helpers no-op silently when realtime has not been initialized
 
 jest.mock('../../services/authService', () => ({
@@ -33,7 +34,14 @@ jest.mock('socket.io', () => ({
 	})),
 }));
 
-import { receptionRoom, emitReceptionCheckin, emitReceptionBagMade, initRealtime } from '../../realtime';
+import {
+	receptionRoom,
+	emitReceptionCheckin,
+	emitReceptionBagMade,
+	sequencesRoom,
+	emitSequenceQueueChanged,
+	initRealtime,
+} from '../../realtime';
 
 describe('receptionRoom', () => {
 	it('builds the expected room name from a retreat id', () => {
@@ -42,6 +50,16 @@ describe('receptionRoom', () => {
 
 	it('returns different rooms for different retreats (isolation)', () => {
 		expect(receptionRoom('r1')).not.toBe(receptionRoom('r2'));
+	});
+});
+
+describe('sequencesRoom', () => {
+	it('builds the expected room name from a retreat id', () => {
+		expect(sequencesRoom('abc-123')).toBe('retreat:abc-123:sequences');
+	});
+
+	it('returns different rooms for different retreats (isolation)', () => {
+		expect(sequencesRoom('r1')).not.toBe(sequencesRoom('r2'));
 	});
 });
 
@@ -68,6 +86,17 @@ describe('emit helpers (uninitialized)', () => {
 	it('emitReceptionBagMade is a no-op when realtime has not been initialized', () => {
 		expect(() =>
 			emitReceptionBagMade({ retreatId: 'r1', participantId: 'p1', bagMade: true }),
+		).not.toThrow();
+		expect(toMock).not.toHaveBeenCalled();
+	});
+
+	it('emitSequenceQueueChanged is a no-op when realtime has not been initialized', () => {
+		expect(() =>
+			emitSequenceQueueChanged({
+				retreatId: 'r1',
+				action: 'dispatched',
+				scheduledMessageIds: ['sm-1'],
+			}),
 		).not.toThrow();
 		expect(toMock).not.toHaveBeenCalled();
 	});
@@ -121,5 +150,32 @@ describe('emit helpers (after initRealtime)', () => {
 		});
 		expect(toMock).toHaveBeenNthCalledWith(1, 'retreat:r-alpha:reception');
 		expect(toMock).toHaveBeenNthCalledWith(2, 'retreat:r-beta:reception');
+	});
+
+	it('emitSequenceQueueChanged targets the sequences room with the full payload', () => {
+		const payload = {
+			retreatId: 'r42',
+			action: 'dispatched' as const,
+			scheduledMessageIds: ['sm-1', 'sm-2'],
+		};
+		emitSequenceQueueChanged(payload);
+
+		expect(toMock).toHaveBeenCalledWith('retreat:r42:sequences');
+		expect(emitMock).toHaveBeenCalledWith('sequences:queue-changed', payload);
+	});
+
+	it('emitSequenceQueueChanged isolates retreats (enqueued batches go to their own room)', () => {
+		emitSequenceQueueChanged({
+			retreatId: 'r-alpha',
+			action: 'enqueued',
+			scheduledMessageIds: ['sm-a1', 'sm-a2'],
+		});
+		emitSequenceQueueChanged({
+			retreatId: 'r-beta',
+			action: 'enqueued',
+			scheduledMessageIds: ['sm-b1'],
+		});
+		expect(toMock).toHaveBeenNthCalledWith(1, 'retreat:r-alpha:sequences');
+		expect(toMock).toHaveBeenNthCalledWith(2, 'retreat:r-beta:sequences');
 	});
 });

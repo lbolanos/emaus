@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useI18n } from 'vue-i18n';
 import { useToast, Button, Input } from '@repo/ui';
@@ -192,9 +192,15 @@ function emptyDraft(): SequenceDraft {
 	};
 }
 
+// Bandeja en vivo (websocket): la suscripción vive mientras la vista está
+// montada y se renueva al cambiar de retiro.
+let unsubRealtime: (() => void) | null = null;
+
 async function load() {
 	if (!retreatId.value) return;
 	participantStore.filters.retreatId = retreatId.value;
+	unsubRealtime?.();
+	unsubRealtime = sequenceStore.subscribeRealtime(retreatId.value);
 	await Promise.all([
 		sequenceStore.fetchSequences(retreatId.value),
 		sequenceStore.fetchQueue(retreatId.value),
@@ -210,6 +216,10 @@ async function load() {
 
 onMounted(load);
 watch(retreatId, load);
+onUnmounted(() => {
+	unsubRealtime?.();
+	unsubRealtime = null;
+});
 
 function openCreate() {
 	draft.value = emptyDraft();
