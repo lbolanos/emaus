@@ -579,7 +579,10 @@ const QUEUE_PAGE_SIZE = 10;
 const queuePage = ref(1);
 const queueSort = ref<'scheduled' | 'name' | 'template' | 'recent' | 'sequence'>('scheduled');
 const queueSearch = ref('');
-const queueAssignFilter = ref<'all' | 'mine' | 'unassigned'>('all');
+// 'active' (default): la bandeja es la lista de trabajo y los pausados (secuencia
+// desactivada) no se van a enviar — se ocultan. 'paused' los aísla para revisarlos;
+// 'all' es todo lo que hay.
+const queueAssignFilter = ref<'active' | 'mine' | 'unassigned' | 'paused' | 'all'>('active');
 const queueMenuOpen = ref(false); // menú de acciones (solo móvil) en Pendientes
 const issuesMenuOpen = ref(false); // menú de acciones masivas (solo móvil) en Problemas
 
@@ -602,7 +605,13 @@ const sortedQueue = computed(() => {
 // Filtro por texto: nombre del participante, plantilla o destinatario.
 const filteredQueue = computed(() => {
 	let items = sortedQueue.value;
-	// Filtro por asignación: todos / míos / sin asignar.
+	// Filtro "Mostrar": los pausados se ocultan salvo en 'paused'/'all'.
+	if (queueAssignFilter.value === 'paused') {
+		items = items.filter((it: any) => pausedSequence(it));
+	} else if (queueAssignFilter.value !== 'all') {
+		items = items.filter((it: any) => !pausedSequence(it));
+	}
+	// Filtro por asignación: míos / sin asignar (sobre los no pausados).
 	if (queueAssignFilter.value === 'mine') {
 		items = items.filter((it: any) => it.assignedTo === myUserId.value);
 	} else if (queueAssignFilter.value === 'unassigned') {
@@ -622,6 +631,11 @@ const filteredQueue = computed(() => {
 	return items;
 });
 const queueTotalPages = computed(() => Math.max(1, Math.ceil(filteredQueue.value.length / QUEUE_PAGE_SIZE)));
+// Contador del TAB: trabajo real en la bandeja — los pausados no se envían,
+// no cuentan (se ven dentro con el filtro "Pausados").
+const activeQueueCount = computed(
+	() => queue.value.filter((q: any) => !pausedSequence(q)).length,
+);
 const pagedQueue = computed(() =>
 	filteredQueue.value.slice((queuePage.value - 1) * QUEUE_PAGE_SIZE, queuePage.value * QUEUE_PAGE_SIZE),
 );
@@ -1283,7 +1297,7 @@ async function toggleDoNotContact() {
 			>
 				<MessageCircle class="w-4 h-4" />
 				<span class="hidden sm:inline">{{ t('sequences.tabPending') }}</span>
-				<span class="text-xs bg-amber-100 text-amber-700 rounded-full px-1.5">{{ queue.length }}</span>
+				<span class="text-xs bg-amber-100 text-amber-700 rounded-full px-1.5">{{ activeQueueCount }}</span>
 			</button>
 			<button
 				type="button"
@@ -1637,9 +1651,11 @@ async function toggleDoNotContact() {
 							<label class="block text-sm text-gray-700">
 								{{ t('sequences.filterLabel') }}
 								<select v-model="queueAssignFilter" class="w-full mt-1 p-2 border rounded-md text-sm bg-white">
-									<option value="all">{{ t('sequences.filter.all') }}</option>
+									<option value="active">{{ t('sequences.filter.active') }}</option>
 									<option value="mine">{{ t('sequences.filter.mine') }}</option>
 									<option value="unassigned">{{ t('sequences.filter.unassigned') }}</option>
+									<option value="paused">{{ t('sequences.filter.paused') }}</option>
+									<option value="all">{{ t('sequences.filter.all') }}</option>
 								</select>
 							</label>
 							<Button
@@ -1682,9 +1698,11 @@ async function toggleDoNotContact() {
 					<label class="flex items-center gap-1.5 text-xs text-gray-600">
 						{{ t('sequences.filterLabel') }}
 						<select v-model="queueAssignFilter" class="p-1 border rounded-md text-xs bg-white">
-							<option value="all">{{ t('sequences.filter.all') }}</option>
+							<option value="active">{{ t('sequences.filter.active') }}</option>
 							<option value="mine">{{ t('sequences.filter.mine') }}</option>
 							<option value="unassigned">{{ t('sequences.filter.unassigned') }}</option>
+							<option value="paused">{{ t('sequences.filter.paused') }}</option>
+							<option value="all">{{ t('sequences.filter.all') }}</option>
 						</select>
 					</label>
 					<Button size="sm" variant="ghost" :disabled="regenerating" @click="regenerateQueue">

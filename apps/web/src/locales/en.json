@@ -3078,9 +3078,11 @@
     "pageOf": "Page {page} of {total}",
     "filterLabel": "Show",
     "filter": {
+      "active": "Active",
       "all": "All",
       "mine": "Mine",
       "unassigned": "Unassigned",
+      "paused": "Paused",
       "participant": "Participant: {name}",
       "byParticipant": "See all messages of {name}"
     },

@@ -3404,9 +3404,11 @@
     "pageOf": "Página {page} de {total}",
     "filterLabel": "Mostrar",
     "filter": {
+      "active": "Activos",
       "all": "Todos",
       "mine": "Míos",
       "unassigned": "Sin asignar",
+      "paused": "Pausados",
       "participant": "Participante: {name}",
       "byParticipant": "Ver todos los mensajes de {name}"
     },
