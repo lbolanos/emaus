@@ -3022,6 +3022,7 @@
     "deactivatedTitle": "Sequence deactivated",
     "pausedPendingCount": "{n} pending message(s) paused — they won't send until reactivated",
     "pausedQueuedCount": "{n} waiting in the WhatsApp inbox",
+    "pausedQueuedHint": "The sequence is deactivated: it won't schedule new messages. This one stays in the inbox to be sent by hand.",
     "edit": "Edit",
     "delete": "Delete",
     "close": "Close",

@@ -3348,6 +3348,7 @@
     "deactivatedTitle": "Secuencia desactivada",
     "pausedPendingCount": "{n} pendiente(s) en pausa — no saldrán hasta reactivar",
     "pausedQueuedCount": "{n} esperando en la bandeja de WhatsApp",
+    "pausedQueuedHint": "La secuencia está desactivada: ya no programa mensajes nuevos. Este quedó en la bandeja para enviarlo a mano.",
     "edit": "Editar",
     "delete": "Eliminar",
     "close": "Cerrar",

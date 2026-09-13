@@ -387,6 +387,12 @@ async function saveDraft() {
 	// numérico no enforcement lo tecleado a mano).
 	const fixedSteps = clampStepRanges(draft.value.steps);
 	if (fixedSteps) toast({ title: t('sequences.stepRangeFixed', { n: fixedSteps }) });
+	// Desactivar desde el editor tiene el mismo alcance que desde el listado
+	// (congelar pendings, dejar la bandeja como está) — capturar el estado
+	// previo para avisar igual al guardar.
+	const wasActiveBefore = draft.value.id
+		? !!(sequences.value.find((s: any) => s.id === draft.value.id)?.isActive)
+		: false;
 	const payload = {
 		name: draft.value.name.trim(),
 		description: draft.value.description || undefined,
@@ -431,6 +437,10 @@ async function saveDraft() {
 			await sequenceStore.fetchStats(retreatId.value);
 			await loadScheduled();
 		}
+		// Tras el fetchStats (si corrió): los counts del aviso están frescos.
+		if (wasActiveBefore && !draft.value.isActive && draft.value.id) {
+			notifyPausedScope(draft.value.id);
+		}
 		isEditorOpen.value = false;
 	} catch {
 		toast({ title: t('sequences.saveError'), variant: 'destructive' });
@@ -457,23 +467,26 @@ async function confirmDelete() {
 	}
 }
 
+// Aviso de alcance al desactivar una secuencia: los pending quedan congelados
+// (el cron no los encola) y los queued siguen esperando en la bandeja.
+// Compartido por el power del listado y el editor.
+function notifyPausedScope(seqId: string) {
+	const pending = statusCount(seqId, 'pending');
+	const queued = statusCount(seqId, 'queued');
+	const parts: string[] = [];
+	if (pending) parts.push(t('sequences.pausedPendingCount', { n: pending }));
+	if (queued) parts.push(t('sequences.pausedQueuedCount', { n: queued }));
+	if (parts.length) {
+		toast({ title: t('sequences.deactivatedTitle'), description: parts.join(' · ') });
+	}
+}
+
 // M6-D2: activar/desactivar sin abrir el editor (mismo patrón que la vista global).
 async function toggleActive(seq: any) {
 	const wasActive = !!seq.isActive; // el update puede mutar la fila local
 	try {
 		await sequenceStore.update(seq.id, { isActive: !wasActive });
-		// Desactivar congela (no cancela) lo pendiente y deja la bandeja como
-		// está — avisar el alcance para que no sea una sorpresa silenciosa.
-		if (wasActive) {
-			const pending = statusCount(seq.id, 'pending');
-			const queued = statusCount(seq.id, 'queued');
-			const parts: string[] = [];
-			if (pending) parts.push(t('sequences.pausedPendingCount', { n: pending }));
-			if (queued) parts.push(t('sequences.pausedQueuedCount', { n: queued }));
-			if (parts.length) {
-				toast({ title: t('sequences.deactivatedTitle'), description: parts.join(' · ') });
-			}
-		}
+		if (wasActive) notifyPausedScope(seq.id);
 	} catch {
 		toast({ title: t('sequences.toggleError'), variant: 'destructive' });
 	}
@@ -705,12 +718,16 @@ function seqName(sequenceId: string | null | undefined): string {
 	if (!sequenceId) return '';
 	return sequences.value.find((s: any) => s.id === sequenceId)?.name || '';
 }
+// Ítem cuya secuencia está desactivada: el motor ya no lo toca (no encola
+// pendings ni materializa mensajes nuevos), pero las filas ya creadas se quedan.
+function pausedSequence(it: { sequenceId?: string | null }): boolean {
+	const seq = sequences.value.find((s: any) => s.id === it.sequenceId);
+	return !!seq && !seq.isActive;
+}
 // Mensaje de Programados congelado: su secuencia está desactivada, así que el
 // cron jamás lo encolará (no está cancelado — reactivar la secuencia lo reanuda).
 function isPausedPending(it: { sequenceId?: string | null; status: string }): boolean {
-	if (it.status !== 'pending') return false;
-	const seq = sequences.value.find((s: any) => s.id === it.sequenceId);
-	return !!seq && !seq.isActive;
+	return it.status === 'pending' && pausedSequence(it);
 }
 // Nombre legible del tipo de plantilla (fallback al tipo crudo).
 function templateLabel(type: string | null | undefined): string {
@@ -1699,6 +1716,15 @@ async function toggleDoNotContact() {
 							</span>
 							<span v-if="item.openedAt" class="text-[10px] rounded px-1.5 py-0.5 bg-blue-100 text-blue-700 shrink-0">
 								{{ t('sequences.opened') }}
+							</span>
+							<!-- Secuencia desactivada: desactivar no toca la bandeja (estos
+							     siguen esperando envío manual), pero tiene que verse que pausó. -->
+							<span
+								v-if="pausedSequence(item)"
+								class="text-[10px] rounded px-1.5 py-0.5 bg-gray-100 text-gray-500 shrink-0"
+								:title="t('sequences.pausedQueuedHint')"
+							>
+								{{ t('sequences.paused') }}
 							</span>
 						</div>
 						<div class="text-xs text-gray-500">
