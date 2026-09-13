@@ -551,7 +551,7 @@ function onTablistKeydown(e: KeyboardEvent) {
 }
 const QUEUE_PAGE_SIZE = 10;
 const queuePage = ref(1);
-const queueSort = ref<'scheduled' | 'name' | 'template' | 'recent'>('scheduled');
+const queueSort = ref<'scheduled' | 'name' | 'template' | 'recent' | 'sequence'>('scheduled');
 const queueSearch = ref('');
 const queueAssignFilter = ref<'all' | 'mine' | 'unassigned'>('all');
 const queueMenuOpen = ref(false); // menú de acciones (solo móvil) en Pendientes
@@ -564,6 +564,12 @@ const sortedQueue = computed(() => {
 	if (queueSort.value === 'name') return items.sort((a, b) => name(a).localeCompare(name(b), 'es'));
 	if (queueSort.value === 'template')
 		return items.sort((a, b) => (a.templateType || '').localeCompare(b.templateType || ''));
+	// 'sequence': agrupa por secuencia (nombre) y, dentro de cada una, orden
+	// cronológico — procesar la bandeja secuencia por secuencia.
+	if (queueSort.value === 'sequence')
+		return items.sort(
+			(a, b) => seqName(a.sequenceId).localeCompare(seqName(b.sequenceId), 'es') || time(a) - time(b),
+		);
 	if (queueSort.value === 'recent') return items.sort((a, b) => time(b) - time(a));
 	return items.sort((a, b) => time(a) - time(b)); // 'scheduled': por fecha programada
 });
@@ -1568,6 +1574,7 @@ async function toggleDoNotContact() {
 									<option value="recent">{{ t('sequences.sort.recent') }}</option>
 									<option value="name">{{ t('sequences.sort.name') }}</option>
 									<option value="template">{{ t('sequences.sort.template') }}</option>
+									<option value="sequence">{{ t('sequences.sort.sequence') }}</option>
 								</select>
 							</label>
 							<label class="block text-sm text-gray-700">
@@ -1612,6 +1619,7 @@ async function toggleDoNotContact() {
 							<option value="recent">{{ t('sequences.sort.recent') }}</option>
 							<option value="name">{{ t('sequences.sort.name') }}</option>
 							<option value="template">{{ t('sequences.sort.template') }}</option>
+							<option value="sequence">{{ t('sequences.sort.sequence') }}</option>
 						</select>
 					</label>
 					<label class="flex items-center gap-1.5 text-xs text-gray-600">
@@ -1662,6 +1670,7 @@ async function toggleDoNotContact() {
 							>
 								· → {{ item.recipientName || t('sequences.recipients.' + item.recipientTarget) }}
 							</span>
+							<span v-if="seqName(item.sequenceId)">· {{ seqName(item.sequenceId) }}</span>
 							<span v-if="item.assignedTo === myUserId" class="text-green-600">· {{ t('sequences.mine') }}</span>
 							<span v-else-if="item.assignedTo" class="text-gray-400">· {{ t('sequences.assigned') }}</span>
 						</div>

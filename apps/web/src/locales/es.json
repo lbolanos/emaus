@@ -3410,6 +3410,7 @@
       "recent": "Más recientes",
       "name": "Nombre",
       "template": "Tipo de mensaje",
+      "sequence": "Secuencia",
       "status": "Estado"
     },
     "searchPlaceholder": "Buscar por nombre, plantilla o destinatario…",
