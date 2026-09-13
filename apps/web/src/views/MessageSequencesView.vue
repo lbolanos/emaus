@@ -1037,8 +1037,11 @@ function buildWhatsappLink(item: any): { phone: string; text: string } | null {
 	return { phone: sanitizePhoneForWhatsapp(rawPhone), text };
 }
 
-// Abre WhatsApp (deep-link) y registra la APERTURA (≠ enviado). El ítem sigue en
-// la bandeja hasta que el coordinador confirme el envío con "Ya lo envié".
+// Abre WhatsApp (deep-link) tras MARCAR el envío/apertura. El orden importa:
+// window.open primero puede matar el request que marca (al saltar a la app el
+// navegador cancela lo pendiente) y el ítem quedaba enviado-sin-marcar — el
+// incidente de los 20 recordatorios del 2026-09-12. Se marca primero, y solo
+// entonces se abre el enlace.
 async function openWhatsapp(item: any) {
 	const link = buildWhatsappLink(item);
 	if (!link) {
@@ -1050,21 +1053,34 @@ async function openWhatsapp(item: any) {
 	} catch {
 		/* no bloqueante */
 	}
-	window.open(
+	// Con "envío automático" activado, marcar YA lo saca de la bandeja; si el
+	// dispatch falla, NO abrimos WhatsApp (recrearíamos el incidente). Sin
+	// auto-confirm solo registra la apertura y se confirma a mano con
+	// "Ya lo envié".
+	if (autoConfirmSend.value) {
+		try {
+			await sequenceStore.dispatch(item.id);
+		} catch {
+			toast({ title: t('sequences.dispatchError'), variant: 'destructive' });
+			return;
+		}
+	} else {
+		try {
+			await sequenceStore.open(item.id);
+		} catch {
+			/* no bloqueante */
+		}
+	}
+	const opened = window.open(
 		`https://api.whatsapp.com/send?phone=${link.phone}&text=${encodeURIComponent(link.text)}`,
 		'_blank',
 		'noopener,noreferrer',
 	);
-	try {
-		// Con "envío automático" activado, abrir WhatsApp ya lo marca como enviado
-		// (sale de la bandeja); si no, solo registra la apertura y se confirma a mano.
-		if (autoConfirmSend.value) {
-			await sequenceStore.dispatch(item.id);
-		} else {
-			await sequenceStore.open(item.id);
-		}
-	} catch {
-		/* no bloqueante */
+	// Tras el await del dispatch Safari puede bloquear el popup (ya no es un
+	// gesto de usuario directo): el texto quedó en el portapapeles y el ítem ya
+	// está marcado — avisar cómo completar el envío a mano.
+	if (!opened) {
+		toast({ title: t('sequences.popupBlocked') });
 	}
 }
 

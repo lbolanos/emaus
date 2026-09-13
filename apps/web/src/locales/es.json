@@ -3356,6 +3356,7 @@
     "runError": "No se pudo ejecutar la secuencia",
     "noPhone": "El participante no tiene teléfono válido",
     "dispatchError": "No se pudo marcar como enviado",
+    "popupBlocked": "No se pudo abrir WhatsApp (ventana emergente bloqueada). El mensaje quedó en tu portapapeles: pégalo en el chat del destinatario.",
     "retry": "Reenviar",
     "discard": "Descartar",
     "retryOk": "Mensaje re-encolado; se intentará en el próximo ciclo o con «Procesar ahora»",

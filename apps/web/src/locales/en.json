@@ -3030,6 +3030,7 @@
     "runError": "Could not run the sequence",
     "noPhone": "The participant has no valid phone",
     "dispatchError": "Could not mark as sent",
+    "popupBlocked": "Could not open WhatsApp (popup blocked). The message was copied to your clipboard: paste it into the recipient's chat.",
     "retry": "Resend",
     "discard": "Discard",
     "retryOk": "Message re-enqueued; it will be retried next cycle or with “Run now”",
