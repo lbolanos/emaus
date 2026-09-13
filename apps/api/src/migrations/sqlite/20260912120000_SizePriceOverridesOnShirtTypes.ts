@@ -15,6 +15,12 @@ export class SizePriceOverridesOnShirtTypes20260912120000 implements MigrationIn
 	name = 'SizePriceOverridesOnShirtTypes20260912120000';
 	timestamp = '20260912120000';
 
+	// El down() hace DROP TABLE (tabla hoja, sin FKs entrantes que cascadear)
+	// y el guard sqliteSafePattern exige la declaración también ahí. Seguro:
+	// up() y down() son idempotentes (IF NOT EXISTS / IF EXISTS), toleran una
+	// re-corrida sin transacción envolvente.
+	transaction = false as const;
+
 	public async up(queryRunner: QueryRunner): Promise<void> {
 		// Pure additive CREATE (no recreate, no DROP) → safe inside the runner's
 		// transaction. IF NOT EXISTS everywhere so a half-applied retry works.
