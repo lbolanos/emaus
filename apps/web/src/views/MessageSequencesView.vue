@@ -1206,11 +1206,14 @@ async function toggleDoNotContact() {
 				id="seq-tab-sequences"
 				:aria-selected="activeTab === 'sequences'"
 				aria-controls="seq-panel-sequences"
+				:aria-label="t('sequences.tabSequences')"
+				:title="t('sequences.tabSequences')"
 				class="shrink-0 justify-start px-3 py-2 text-sm font-medium border-b-2 -mb-px flex items-center gap-1.5 whitespace-nowrap"
 				:class="activeTab === 'sequences' ? 'border-purple-500 text-purple-700' : 'border-transparent text-gray-500 hover:text-gray-700'"
 				@click="switchTab('sequences')"
 			>
-				<Send class="w-4 h-4" /> {{ t('sequences.tabSequences') }}
+				<Send class="w-4 h-4" />
+				<span class="hidden sm:inline">{{ t('sequences.tabSequences') }}</span>
 				<span class="text-xs bg-purple-100 text-purple-700 rounded-full px-1.5">{{ sequences.length }}</span>
 			</button>
 			<button
@@ -1219,11 +1222,14 @@ async function toggleDoNotContact() {
 				id="seq-tab-scheduled"
 				:aria-selected="activeTab === 'scheduled'"
 				aria-controls="seq-panel-scheduled"
+				:aria-label="t('sequences.tabScheduled')"
+				:title="t('sequences.tabScheduled')"
 				class="shrink-0 justify-start px-3 py-2 text-sm font-medium border-b-2 -mb-px flex items-center gap-1.5 whitespace-nowrap"
 				:class="activeTab === 'scheduled' ? 'border-blue-500 text-blue-700' : 'border-transparent text-gray-500 hover:text-gray-700'"
 				@click="switchTab('scheduled')"
 			>
-				<CalendarDays class="w-4 h-4" /> {{ t('sequences.tabScheduled') }}
+				<CalendarDays class="w-4 h-4" />
+				<span class="hidden sm:inline">{{ t('sequences.tabScheduled') }}</span>
 				<span class="text-xs bg-blue-100 text-blue-700 rounded-full px-1.5">{{ scheduledTabCount }}</span>
 			</button>
 			<button
@@ -1232,11 +1238,14 @@ async function toggleDoNotContact() {
 				id="seq-tab-pending"
 				:aria-selected="activeTab === 'pending'"
 				aria-controls="seq-panel-pending"
+				:aria-label="t('sequences.tabPending')"
+				:title="t('sequences.tabPending')"
 				class="shrink-0 justify-start px-3 py-2 text-sm font-medium border-b-2 -mb-px flex items-center gap-1.5 whitespace-nowrap"
 				:class="activeTab === 'pending' ? 'border-amber-500 text-amber-700' : 'border-transparent text-gray-500 hover:text-gray-700'"
 				@click="switchTab('pending')"
 			>
-				<MessageCircle class="w-4 h-4" /> {{ t('sequences.tabPending') }}
+				<MessageCircle class="w-4 h-4" />
+				<span class="hidden sm:inline">{{ t('sequences.tabPending') }}</span>
 				<span class="text-xs bg-amber-100 text-amber-700 rounded-full px-1.5">{{ queue.length }}</span>
 			</button>
 			<button
@@ -1245,11 +1254,14 @@ async function toggleDoNotContact() {
 				id="seq-tab-issues"
 				:aria-selected="activeTab === 'issues'"
 				aria-controls="seq-panel-issues"
+				:aria-label="t('sequences.tabIssues')"
+				:title="t('sequences.tabIssues')"
 				class="shrink-0 justify-start px-3 py-2 text-sm font-medium border-b-2 -mb-px flex items-center gap-1.5 whitespace-nowrap"
 				:class="activeTab === 'issues' ? 'border-red-500 text-red-700' : 'border-transparent text-gray-500 hover:text-gray-700'"
 				@click="switchTab('issues')"
 			>
-				<AlertTriangle class="w-4 h-4" /> {{ t('sequences.tabIssues') }}
+				<AlertTriangle class="w-4 h-4" />
+				<span class="hidden sm:inline">{{ t('sequences.tabIssues') }}</span>
 				<span v-if="issuesTotal" class="text-xs bg-red-100 text-red-700 rounded-full px-1.5">{{ issuesTotal }}</span>
 			</button>
 		</div>
