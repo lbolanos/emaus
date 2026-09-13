@@ -1163,7 +1163,7 @@ async function toggleDoNotContact() {
 
 		<!-- Tabs: Secuencias / Programados / Bandeja WhatsApp / Problemas -->
 		<div
-			class="flex items-stretch border-b"
+			class="flex items-stretch border-b overflow-x-auto"
 			role="tablist"
 			:aria-label="t('sequences.title')"
 			@keydown="onTablistKeydown"
@@ -1174,7 +1174,7 @@ async function toggleDoNotContact() {
 				id="seq-tab-sequences"
 				:aria-selected="activeTab === 'sequences'"
 				aria-controls="seq-panel-sequences"
-				class="flex-1 sm:flex-none justify-center sm:justify-start min-w-0 px-2 sm:px-3 py-2 text-sm font-medium border-b-2 -mb-px flex items-center gap-1.5 whitespace-nowrap"
+				class="shrink-0 justify-start px-3 py-2 text-sm font-medium border-b-2 -mb-px flex items-center gap-1.5 whitespace-nowrap"
 				:class="activeTab === 'sequences' ? 'border-purple-500 text-purple-700' : 'border-transparent text-gray-500 hover:text-gray-700'"
 				@click="switchTab('sequences')"
 			>
@@ -1187,7 +1187,7 @@ async function toggleDoNotContact() {
 				id="seq-tab-scheduled"
 				:aria-selected="activeTab === 'scheduled'"
 				aria-controls="seq-panel-scheduled"
-				class="flex-1 sm:flex-none justify-center sm:justify-start min-w-0 px-2 sm:px-3 py-2 text-sm font-medium border-b-2 -mb-px flex items-center gap-1.5 whitespace-nowrap"
+				class="shrink-0 justify-start px-3 py-2 text-sm font-medium border-b-2 -mb-px flex items-center gap-1.5 whitespace-nowrap"
 				:class="activeTab === 'scheduled' ? 'border-blue-500 text-blue-700' : 'border-transparent text-gray-500 hover:text-gray-700'"
 				@click="switchTab('scheduled')"
 			>
@@ -1200,7 +1200,7 @@ async function toggleDoNotContact() {
 				id="seq-tab-pending"
 				:aria-selected="activeTab === 'pending'"
 				aria-controls="seq-panel-pending"
-				class="flex-1 sm:flex-none justify-center sm:justify-start min-w-0 px-2 sm:px-3 py-2 text-sm font-medium border-b-2 -mb-px flex items-center gap-1.5 whitespace-nowrap"
+				class="shrink-0 justify-start px-3 py-2 text-sm font-medium border-b-2 -mb-px flex items-center gap-1.5 whitespace-nowrap"
 				:class="activeTab === 'pending' ? 'border-amber-500 text-amber-700' : 'border-transparent text-gray-500 hover:text-gray-700'"
 				@click="switchTab('pending')"
 			>
@@ -1213,7 +1213,7 @@ async function toggleDoNotContact() {
 				id="seq-tab-issues"
 				:aria-selected="activeTab === 'issues'"
 				aria-controls="seq-panel-issues"
-				class="flex-1 sm:flex-none justify-center sm:justify-start min-w-0 px-2 sm:px-3 py-2 text-sm font-medium border-b-2 -mb-px flex items-center gap-1.5 whitespace-nowrap"
+				class="shrink-0 justify-start px-3 py-2 text-sm font-medium border-b-2 -mb-px flex items-center gap-1.5 whitespace-nowrap"
 				:class="activeTab === 'issues' ? 'border-red-500 text-red-700' : 'border-transparent text-gray-500 hover:text-gray-700'"
 				@click="switchTab('issues')"
 			>
@@ -1248,7 +1248,7 @@ async function toggleDoNotContact() {
 				</div>
 			</div>
 		<div v-if="sequences.length" class="border rounded-md divide-y overflow-hidden">
-			<div v-for="seq in sequences" :key="seq.id" class="flex items-center justify-between gap-3 p-3 hover:bg-gray-50 transition-colors">
+			<div v-for="seq in sequences" :key="seq.id" class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-3 p-3 hover:bg-gray-50 transition-colors">
 				<div class="min-w-0">
 					<div class="font-medium flex items-center gap-2">
 						<span
@@ -1309,7 +1309,7 @@ async function toggleDoNotContact() {
 						</button>
 					</div>
 				</div>
-				<div class="flex items-center gap-1 shrink-0">
+				<div class="flex items-center gap-1 shrink-0 self-end sm:self-auto">
 					<Button
 						variant="ghost"
 						size="icon"
@@ -1448,7 +1448,7 @@ async function toggleDoNotContact() {
 							</div>
 							<div v-if="it.error" class="text-xs text-red-600 break-words">{{ it.error }}</div>
 						</div>
-						<div class="flex items-center flex-nowrap gap-1.5 shrink-0">
+						<div class="flex items-center flex-wrap sm:flex-nowrap gap-1.5 shrink-0">
 							<span class="text-xs text-gray-700 whitespace-nowrap">{{ fmtScheduled(it.scheduledFor) }}</span>
 							<span
 								class="text-xs rounded px-1.5 py-0.5 shrink-0"
