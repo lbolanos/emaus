@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { sanitizePhoneForWhatsapp, buildWhatsAppChatLink } from '../phone';
+import { sanitizePhoneForWhatsapp, buildWhatsAppChatLink, buildWhatsAppSendLink } from '../phone';
 
 describe('sanitizePhoneForWhatsapp', () => {
 	it('quita el signo + del prefijo internacional', () => {
@@ -69,10 +69,10 @@ describe('buildWhatsAppChatLink', () => {
 
 	it('normaliza el número a solo dígitos', () => {
 		expect(buildWhatsAppChatLink('(55) 5999 9999')).toBe(
-			'https://api.whatsapp.com/send?phone=5559999999',
+			'https://api.whatsapp.com/send?phone=525559999999',
 		);
 		expect(buildWhatsAppChatLink('555.999.9999')).toBe(
-			'https://api.whatsapp.com/send?phone=5559999999',
+			'https://api.whatsapp.com/send?phone=525559999999',
 		);
 	});
 
@@ -82,5 +82,115 @@ describe('buildWhatsAppChatLink', () => {
 		expect(buildWhatsAppChatLink(null)).toBeNull();
 		expect(buildWhatsAppChatLink(undefined)).toBeNull();
 		expect(buildWhatsAppChatLink('sin dígitos')).toBeNull();
+	});
+});
+
+describe('buildWhatsAppChatLink con lada (código de país)', () => {
+	/**
+	 * La base guarda el número NACIONAL (sin lada) pero el deep link exige
+	 * formato internacional: sin la lada, `phone=5549…` se lee como país "55"
+	 * (Brasil). El helper antepone la lada del país del participante.
+	 */
+	it('antepone la lada a un número nacional de 10 dígitos (caso dominante en la DB)', () => {
+		expect(buildWhatsAppChatLink('5549442834', 'México')).toBe(
+			'https://api.whatsapp.com/send?phone=525549442834',
+		);
+	});
+
+	it('sin país asume México (casa default America/Mexico_City)', () => {
+		expect(buildWhatsAppChatLink('5549442834')).toBe(
+			'https://api.whatsapp.com/send?phone=525549442834',
+		);
+		expect(buildWhatsAppChatLink('5549442834', 'N/A')).toBe(
+			'https://api.whatsapp.com/send?phone=525549442834',
+		);
+	});
+
+	it('no duplica la lada cuando el número ya la trae (filas legacy)', () => {
+		expect(buildWhatsAppChatLink('525549442834', 'MX')).toBe(
+			'https://api.whatsapp.com/send?phone=525549442834',
+		);
+		expect(buildWhatsAppChatLink('+52 55 4944 2834', 'México')).toBe(
+			'https://api.whatsapp.com/send?phone=525549442834',
+		);
+	});
+
+	it('un nacional que empieza con 52 recibe la lada igual (decisión por longitud, no prefijo)', () => {
+		expect(buildWhatsAppChatLink('5244123456', 'MX')).toBe(
+			'https://api.whatsapp.com/send?phone=525244123456',
+		);
+	});
+
+	it('normaliza el móvil MX legado 521 + 10 dígitos a 52 + 10', () => {
+		expect(buildWhatsAppChatLink('5215549442834', 'MX')).toBe(
+			'https://api.whatsapp.com/send?phone=525549442834',
+		);
+	});
+
+	it('usa la lada de otros países cuando el registro los declara', () => {
+		expect(buildWhatsAppChatLink('3001234567', 'Colombia')).toBe(
+			'https://api.whatsapp.com/send?phone=573001234567',
+		);
+		expect(buildWhatsAppChatLink('(415) 555-2671', 'US')).toBe(
+			'https://api.whatsapp.com/send?phone=14155552671',
+		);
+	});
+
+	it('anteponer la lada también limpia los caracteres invisibles bidi de iOS', () => {
+		expect(buildWhatsAppChatLink('‭5549442834‬', 'MX')).toBe(
+			'https://api.whatsapp.com/send?phone=525549442834',
+		);
+	});
+
+	it('devuelve los dígitos tal cual cuando el largo no casa con ninguna regla del país', () => {
+		// 8 dígitos con país MX: no es nacional válido ni trae lada reconocible.
+		// No se inventa nada — WhatsApp dirá lo que tenga que decir.
+		expect(buildWhatsAppChatLink('55494428', 'MX')).toBe(
+			'https://api.whatsapp.com/send?phone=55494428',
+		);
+	});
+});
+
+describe('buildWhatsAppSendLink — envío con texto precargado', () => {
+	/**
+	 * Los envíos asistidos (cola, recordatorio de saldo, secuencias, envío
+	 * manual) comparten el requisito de lada del chat link, más el `text` con
+	 * el mensaje URL-encoded.
+	 */
+	it('antepone la lada y codifica el texto', () => {
+		expect(buildWhatsAppSendLink('5549442834', 'Hola Juan', 'México')).toBe(
+			'https://api.whatsapp.com/send?phone=525549442834&text=Hola%20Juan',
+		);
+	});
+
+	it('codifica acentos y signos de apertura del español', () => {
+		const text = '¿Cómo estás? ¡Nos vemos!';
+		expect(buildWhatsAppSendLink('5549442834', text, 'MX')).toBe(
+			`https://api.whatsapp.com/send?phone=525549442834&text=${encodeURIComponent(text)}`,
+		);
+	});
+
+	it('no duplica la lada cuando el número ya la trae', () => {
+		expect(buildWhatsAppSendLink('+52 55 4944 2834', 'msg', 'MX')).toBe(
+			'https://api.whatsapp.com/send?phone=525549442834&text=msg',
+		);
+	});
+
+	it('sin país asume México, como el chat link', () => {
+		expect(buildWhatsAppSendLink('5549442834', 'msg', null)).toBe(
+			'https://api.whatsapp.com/send?phone=525549442834&text=msg',
+		);
+	});
+
+	it('usa la lada de otros países cuando el registro los declara', () => {
+		expect(buildWhatsAppSendLink('3001234567', 'msg', 'Colombia')).toBe(
+			'https://api.whatsapp.com/send?phone=573001234567&text=msg',
+		);
+	});
+
+	it('sin dígitos devuelve null (el llamador no abre un link muerto)', () => {
+		expect(buildWhatsAppSendLink('sin número', 'msg', 'MX')).toBeNull();
+		expect(buildWhatsAppSendLink(null, 'msg')).toBeNull();
+		expect(buildWhatsAppSendLink('', 'msg', 'México')).toBeNull();
 	});
 });

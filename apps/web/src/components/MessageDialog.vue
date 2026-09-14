@@ -311,6 +311,8 @@
             :retreat-id="contextId"
             :visible="showHistory"
             :auto-load="true"
+            :phone="historyPhone"
+            :country="historyCountry"
             @message-click="handleMessageClick"
             @copy-message="handleCopyMessage"
             @loading-changed="handleHistoryLoadingChanged"
@@ -322,6 +324,8 @@
             :community-id="contextId"
             :visible="showHistory"
             :auto-load="true"
+            :phone="historyPhone"
+            :country="historyCountry"
             @message-click="handleMessageClick"
             @copy-message="handleCopyMessage"
             @loading-changed="handleHistoryLoadingChanged"
@@ -336,6 +340,8 @@
           :retreat-id="contextId"
           :visible="false"
           :auto-load="true"
+          :phone="historyPhone"
+          :country="historyCountry"
           @count-changed="handleHistoryCountChanged"
           style="display: none;"
         />
@@ -345,6 +351,8 @@
           :community-id="contextId"
           :visible="false"
           :auto-load="true"
+          :phone="historyPhone"
+          :country="historyCountry"
           @count-changed="handleHistoryCountChanged"
           style="display: none;"
         />
@@ -458,7 +466,7 @@ import {
 import { convertHtmlToWhatsApp, convertHtmlToEmail, replaceAllVariables, findEmptyVariables, ParticipantData, RetreatData, CommunityData, TableData, SpouseData } from '@/utils/message';
 import { buildServerRegistrationLink, resolveMemberProfile } from '@repo/utils';
 import { sanitizeEmailHtml } from '@/utils/sanitize';
-import { sanitizePhoneForWhatsapp } from '@/utils/phone';
+import { buildWhatsAppSendLink, sanitizePhoneForWhatsapp } from '@/utils/phone';
 import { useParticipantCommunicationStore, type ParticipantCommunication } from '@/stores/participantCommunicationStore';
 import { useCommunityCommunicationStore, type CommunityCommunication } from '@/stores/communityCommunicationStore';
 import {
@@ -760,6 +768,18 @@ const enrichedParticipantData = computed(() => {
 		},
 	};
 });
+
+// Teléfono y país para el botón de WhatsApp del historial. Mismo orden de
+// resolución que el motor de secuencias (cellPhone || homePhone || workPhone):
+// si la UI ofreciera otro número que el del envío, abriría un chat distinto del
+// que recibió el mensaje.
+const historyPhone = computed(() => {
+	const p = enrichedParticipantData.value as any;
+	return p?.cellPhone || p?.homePhone || p?.workPhone || null;
+});
+const historyCountry = computed(
+	() => (enrichedParticipantData.value as any)?.country ?? null,
+);
 
 // Plantillas que solo deben usarse vía un flujo dedicado (no en el selector
 // manual): TABLE_LEADER_BRIEFING únicamente se envía con el botón "Enviar info a
@@ -1257,11 +1277,16 @@ const sendMessage = async () => {
 				description: 'El mensaje ha sido convertido y copiado. Pégalo en WhatsApp.',
 			});
 
-			const encodedMessage = encodeURIComponent(messageToSend);
-			// WhatsApp acepta SOLO dígitos en el query `phone=`; cualquier "+",
-			// espacio, guión o paréntesis rompe el deep link. Strip via helper.
-			const phoneOnly = sanitizePhoneForWhatsapp(selectedContact.value);
-			const whatsappUrl = `https://api.whatsapp.com/send?phone=${phoneOnly}&text=${encodedMessage}`;
+			// WhatsApp exige SOLO dígitos y con lada en el query `phone=`: se
+			// resuelve con el país de la ficha (los contactos de emergencia y el
+			// invitador comparten el país del participante). Sin lada, el número
+			// nacional de 10 dígitos abre un chat en Brasil.
+			const whatsappUrl = buildWhatsAppSendLink(
+				selectedContact.value,
+				messageToSend,
+				historyCountry.value,
+			);
+			if (!whatsappUrl) return; // defensivo: la validación ya exigió dígitos
 
 			const tryOpenUrl = (url: string, fallback?: () => void) => {
 				try {

@@ -13,7 +13,7 @@ import { useResponsabilityStore } from '@/stores/responsabilityStore';
 import { useAuthStore } from '@/stores/authStore';
 import { convertHtmlToWhatsApp, replaceAllVariables } from '@/utils/message';
 import type { ParticipantData, RetreatData } from '@/utils/message';
-import { sanitizePhoneForWhatsapp } from '@/utils/phone';
+import { buildWhatsAppSendLink } from '@/utils/phone';
 import { clampStepRanges } from '@/utils/sequenceStepInput';
 import { getMessageTemplateAudience } from '@repo/types';
 // #8: catálogos y helpers del editor compartidos con la vista global de
@@ -1074,8 +1074,9 @@ async function skipFromDetail() {
 	await sequenceStore.skip(item.id);
 }
 
-// Resuelve teléfono + texto del pendiente (snapshot, con fallback de recálculo).
-function buildWhatsappLink(item: any): { phone: string; text: string } | null {
+// Resuelve teléfono + país + texto del pendiente (snapshot, con fallback de
+// recálculo). El teléfono va en crudo: la lada la resuelve el builder del link.
+function buildWhatsappLink(item: any): { phone: string; country: string | null; text: string } | null {
 	let rawPhone: string | undefined = item.resolvedContact || undefined;
 	let text = item.resolvedContent ? convertHtmlToWhatsApp(item.resolvedContent) : '';
 	if (!rawPhone || !text) {
@@ -1101,7 +1102,7 @@ function buildWhatsappLink(item: any): { phone: string; text: string } | null {
 		}
 	}
 	if (!rawPhone) return null;
-	return { phone: sanitizePhoneForWhatsapp(rawPhone), text };
+	return { phone: rawPhone, country: item.participant?.country ?? null, text };
 }
 
 // Abre WhatsApp (deep-link) tras MARCAR el envío/apertura. El orden importa:
@@ -1112,6 +1113,15 @@ function buildWhatsappLink(item: any): { phone: string; text: string } | null {
 async function openWhatsapp(item: any) {
 	const link = buildWhatsappLink(item);
 	if (!link) {
+		toast({ title: t('sequences.noPhone'), variant: 'destructive' });
+		return;
+	}
+	// La lada se resuelve con el país de la ficha (default MX): sin ella el
+	// número nacional de 10 dígitos abre un chat en Brasil. Se valida ANTES de
+	// marcar el envío — un link muerto después del dispatch dejaría el ítem
+	// marcado-sin-abrir (el incidente de los 20 recordatorios).
+	const url = buildWhatsAppSendLink(link.phone, link.text, link.country);
+	if (!url) {
 		toast({ title: t('sequences.noPhone'), variant: 'destructive' });
 		return;
 	}
@@ -1138,11 +1148,7 @@ async function openWhatsapp(item: any) {
 			/* no bloqueante */
 		}
 	}
-	const opened = window.open(
-		`https://api.whatsapp.com/send?phone=${link.phone}&text=${encodeURIComponent(link.text)}`,
-		'_blank',
-		'noopener,noreferrer',
-	);
+	const opened = window.open(url, '_blank', 'noopener,noreferrer');
 	// Tras el await del dispatch Safari puede bloquear el popup (ya no es un
 	// gesto de usuario directo): el texto quedó en el portapapeles y el ítem ya
 	// está marcado — avisar cómo completar el envío a mano.

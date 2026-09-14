@@ -38,6 +38,7 @@ import { useParticipantStore } from '@/stores/participantStore';
 import { useRetreatStore } from '@/stores/retreatStore';
 import { useAuthPermissions } from '@/composables/useAuthPermissions';
 import { getPaymentsByParticipant } from '@/services/api';
+import { buildWhatsAppSendLink } from '@/utils/phone';
 import ParticipantDebtManager from '@/components/ParticipantDebtManager.vue';
 
 const participantStore = useParticipantStore();
@@ -311,17 +312,16 @@ const toggleScholarship = async (p: any) => {
 const canWhatsapp = (p: any): boolean => !isPazYSalvo(p) && !!p.cellPhone;
 
 const sendWhatsappReminder = (p: any) => {
-  const phone = String(p.cellPhone || '').replace(/\D/g, '');
-  if (!phone) return;
   const message = t('paymentManagement.balances.reminderMessage', {
     name: p.firstName,
     amount: formatCurrency(balanceOf(p)),
     retreat: selectedRetreatLabel.value,
   });
-  window.open(
-    `https://api.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(message)}`,
-    '_blank',
-  );
+  // La lada se resuelve con el país de la ficha (default MX): sin ella el
+  // número nacional de 10 dígitos abre un chat en Brasil.
+  const url = buildWhatsAppSendLink(p.cellPhone, message, p.country);
+  if (!url) return;
+  window.open(url, '_blank');
 };
 
 // ---- Export a Excel (columnas visibles + filtros aplicados) ----
