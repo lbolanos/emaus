@@ -57,9 +57,9 @@
                 <div class="flex items-center gap-2">
                   <!-- Export Buttons -->
                   <div class="flex items-center gap-1">
-                    <!-- Format Button - only visible in HTML tab -->
+                    <!-- Format Button - only visible in HTML tab, HTML templates -->
                     <Button
-                      v-if="activeTab === 'html'"
+                      v-if="activeTab === 'html' && !isPlainTextMessage"
                       type="button"
                       variant="outline"
                       size="sm"
@@ -160,8 +160,17 @@
                 </TabsList>
 
                 <TabsContent value="edit" class="space-y-2">
-                  <!-- Rich Text Editor (always HTML) -->
-                  <div>
+                  <!-- WhatsApp-format (plain text) template: a native textarea
+                       keeps the \n paragraph structure intact. -->
+                  <textarea
+                    v-if="isPlainTextMessage"
+                    ref="plainTextEditorRef"
+                    v-model="formData.message"
+                    :placeholder="t ? t('messageTemplates.dialog.messageLabel') : 'Escribe el mensaje aquí. Puedes usar variables como {participant.nickname}, {retreat.startDate}, etc.'"
+                    class="w-full resize-y rounded-md border border-input bg-muted/50 px-3 py-2 text-sm overflow-y-auto min-h-[300px] max-h-[600px]"
+                  ></textarea>
+                  <!-- Rich Text Editor (HTML templates) -->
+                  <div v-else>
                     <RichTextEditor
                       ref="richTextEditorRef"
                       v-model="formData.message"
@@ -218,7 +227,13 @@
                   </div>
 
                   <div class="w-full resize-y rounded-md border border-input bg-muted/50 px-3 py-2 text-sm overflow-y-auto min-h-[300px] max-h-[600px]" style="height: 160px;">
-                    <div v-if="previewMessage" class="preview-content" v-html="previewMessage">
+                    <!-- Plain-text (WhatsApp) templates render as interpolated
+                         text with pre-line so their \n show as real lines;
+                         v-html would collapse them. -->
+                    <div v-if="previewMessage && isPlainTextMessage" class="preview-content whitespace-pre-line">
+                      {{ previewMessage }}
+                    </div>
+                    <div v-else-if="previewMessage" class="preview-content" v-html="previewMessage">
                     </div>
                     <div v-else-if="!isGlobal && !selectedParticipant" class="text-muted-foreground italic text-center py-8">
                       {{ t ? t('messageTemplates.dialog.selectParticipant') : 'Selecciona un participante para ver la vista previa' }}
@@ -500,6 +515,37 @@ const formData = ref({
   message: '',
   isActive: true, // This will be conditionally included/excluded based on template type
 });
+
+// WhatsApp-format templates are PLAIN TEXT (\n paragraphs, *bold*). Feeding
+// one to the HTML rich editor parses it as HTML: every newline collapses
+// into a single running paragraph on load, and the first keystroke
+// re-serializes the message as one flat <p> — saving that destroys the
+// WhatsApp structure. Templates that carry real HTML (email legacy) keep the
+// rich editor; plain text edits in a textarea that round-trips untouched.
+const HTML_TAG_RE =
+  /<\/?(p|div|br|ul|ol|li|dl|dt|dd|strong|b|em|i|u|s|strike|del|ins|h[1-6]|blockquote|pre|code|a|img|span|table|thead|tbody|tr|td|th|hr|html|head|body|style|font|center)\b/i;
+const isPlainTextMessage = computed(() => !HTML_TAG_RE.test(formData.value.message || ''));
+
+const plainTextEditorRef = ref<HTMLTextAreaElement | null>(null);
+
+// Insert a variable at the caret of the plain-text editor. execCommand fires
+// the input event v-model listens to; the manual splice is the fallback for
+// engines where it refuses to run.
+const insertVariableIntoPlainTextEditor = (variable: string) => {
+  const el = plainTextEditorRef.value;
+  if (!el) {
+    formData.value.message += variable;
+    return;
+  }
+  const before = el.value;
+  el.focus();
+  document.execCommand('insertText', false, variable);
+  if (el.value === before) {
+    const start = el.selectionStart ?? before.length;
+    const end = el.selectionEnd ?? start;
+    formData.value.message = before.slice(0, start) + variable + before.slice(end);
+  }
+};
 
 // Types renderTemplate consumes for community-scoped flows (communityService).
 // Other enum values like WALKER_WELCOME don't apply to a community.
@@ -1008,11 +1054,12 @@ watch(
   { immediate: true }
 );
 
-// Beautify HTML when switching to HTML tab
+// Beautify HTML when switching to HTML tab. Plain-text templates skip it:
+// beautify strips their blank separator lines (\n\n → \n).
 watch(
   activeTab,
   (newTab, oldTab) => {
-    if (newTab === 'html' && oldTab !== 'html' && formData.value.message) {
+    if (newTab === 'html' && oldTab !== 'html' && formData.value.message && !isPlainTextMessage.value) {
       // Beautify HTML when switching to HTML tab from another tab
       formData.value.message = beautifyHtml(formData.value.message);
     }
@@ -1038,6 +1085,10 @@ watch(
 );
 
 const insertVariable = (variable: string) => {
+  if (isPlainTextMessage.value) {
+    insertVariableIntoPlainTextEditor(variable);
+    return;
+  }
   if (richTextEditorRef.value) {
     // Use rich text editor's insertVariable method
     richTextEditorRef.value.insertVariable(variable);

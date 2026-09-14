@@ -171,6 +171,62 @@ test.describe('Template previews keep WhatsApp line breaks', () => {
 		await expect(page.locator(RETREAT_PREVIEW).first()).toBeVisible();
 	});
 
+	test('retreat editor loads a multi-line WhatsApp template without flattening it', async ({
+		page,
+	}) => {
+		await login(page);
+		const listUrlPromise = page.waitForRequest(
+			(r) => /\/api\/message-templates\?retreatId=/.test(r.url()),
+			{ timeout: 20000 },
+		);
+		await page.goto('/app/settings/message-templates');
+
+		const anchor = await firstMultilinePreview(page, RETREAT_PREVIEW);
+		const apiUrl = (await listUrlPromise).url();
+		const migrated = await apiHasMultilineTemplate(page, apiUrl);
+		test.skip(
+			!migrated,
+			'no multi-line template in the active retreat (WhatsApp format migration not applied?)',
+		);
+		expect(
+			anchor,
+			'API serves multi-line messages but the list preview flattened the newlines',
+		).toBeTruthy();
+
+		// Open the edit modal of the anchored row. Read-only: it reads the
+		// editor and closes with Escape — it never saves.
+		const row = page.locator(RETREAT_PREVIEW).nth(anchor!.index).locator('xpath=ancestor::tr');
+		await row.locator('button[title="Editar"]').click();
+		const dialog = page.locator('[role="dialog"]');
+		await expect(dialog).toBeVisible({ timeout: 10000 });
+
+		// The edit surface keeps the newlines. The rich HTML editor parsed the
+		// plain-text message as HTML and collapsed every \n into one running
+		// paragraph (and re-serialized it flat on the first keystroke, which
+		// destroyed the format on save); plain-text templates must edit in a
+		// surface that round-trips the content untouched.
+		const editor = dialog.locator('textarea').first();
+		await expect(editor).toBeVisible({ timeout: 10000 });
+		const value = await editor.inputValue();
+		expect(
+			(value.match(/\n/g) ?? []).length,
+			'edit surface flattened the newlines of a WhatsApp-format template',
+		).toBeGreaterThanOrEqual(3);
+
+		// The preview tab renders the paragraph structure too (pre-line, not
+		// v-html collapsing).
+		await dialog.getByRole('tab', { name: 'Vista Previa' }).click();
+		const preview = dialog.locator('.preview-content.whitespace-pre-line');
+		await expect(preview).toBeVisible({ timeout: 10000 });
+		const previewText = (await preview.textContent()) ?? '';
+		expect(
+			(previewText.match(/\n/g) ?? []).length,
+			'preview tab flattened the newlines of a WhatsApp-format template',
+		).toBeGreaterThanOrEqual(3);
+
+		await page.keyboard.press('Escape');
+	});
+
 	test('global template cards render multi-line previews', async ({ page }) => {
 		await login(page);
 		await page.goto('/app/settings/global-message-templates');
