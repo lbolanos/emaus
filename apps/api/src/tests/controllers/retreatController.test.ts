@@ -292,6 +292,118 @@ describe("Retreat Controller", () => {
       const result = res.json.mock.calls[0][0];
       expect(result).toHaveProperty("isRegistrationClosed", false);
     });
+
+    // El detalle de UN retiro sí trae lo que PublicRetreatFlyerModal.vue
+    // necesita — a diferencia del listado (ver describe de abajo). Antes de
+    // este fix ninguno de los dos endpoints públicos traía estos campos: el
+    // volante solo "funcionaba" porque el listado filtraba la entidad
+    // completa (el bug real).
+    test("incluye costo, forma de pago, teléfonos y dirección — lo que pinta el volante", async () => {
+      const env = await TestDataFactory.createCompleteTestEnvironment(
+        {},
+        {
+          cost: "3100",
+          paymentInfo: "Depósito en sucursal",
+          paymentMethods: "Transferencia o efectivo",
+          contactPhones: "Marco 55-6525-0861",
+          openingNotes: "Nota de apertura",
+          closingNotes: "Nota de cierre",
+          thingsToBringNotes: "Termo, chamarra",
+          retreat_number_version: "Del Valle II",
+        },
+      );
+
+      // `createCompleteTestEnvironment` no adjunta la relación `house` al
+      // objeto devuelto (solo `houseId`) — recargarlo con la relación, tal
+      // como lo hace `findById` de verdad en producción.
+      const retreatWithHouse = await getTestDataSource()
+        .getRepository(Retreat)
+        .findOne({ where: { id: env.retreat.id }, relations: ["house"] });
+
+      const req = createMockRequest({ params: { id: env.retreat.id } });
+      const res = createMockResponse();
+      const next = mockNext;
+
+      jest.spyOn(retreatService, "findById").mockResolvedValue(retreatWithHouse as any);
+
+      await retreatController.getRetreatByIdPublic(req, res, next);
+
+      const result = res.json.mock.calls[0][0];
+      expect(result.cost).toBe("3100");
+      expect(result.paymentInfo).toBe("Depósito en sucursal");
+      expect(result.paymentMethods).toBe("Transferencia o efectivo");
+      expect(result.contactPhones).toBe("Marco 55-6525-0861");
+      expect(result.openingNotes).toBe("Nota de apertura");
+      expect(result.closingNotes).toBe("Nota de cierre");
+      expect(result.thingsToBringNotes).toBe("Termo, chamarra");
+      expect(result.retreat_number_version).toBe("Del Valle II");
+      expect(result.house).toEqual(
+        expect.objectContaining({
+          address1: expect.any(String),
+          city: expect.any(String),
+        }),
+      );
+    });
+  });
+
+  describe("getPublicRetreats (listado)", () => {
+    // El listado alimenta la tarjeta del landing y antes devolvía la
+    // entidad Retreat completa: cualquiera con un curl podía juntar de un
+    // jalón costo/forma de pago/teléfonos de TODOS los retiros públicos sin
+    // haber abierto el volante de ninguno. Ver buildPublicRetreatDetail.
+    test("nunca incluye costo, forma de pago, teléfonos ni notas — solo lo que pinta la tarjeta", async () => {
+      const env = await TestDataFactory.createCompleteTestEnvironment(
+        {},
+        {
+          isPublic: true,
+          startDate: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000),
+          cost: "3100",
+          paymentInfo: "Banco X, CLABE 012345678901234567",
+          paymentMethods: "Depósito o transferencia",
+          contactPhones: "Marco 55-6525-0861",
+          openingNotes: "Nota interna de apertura",
+          closingNotes: "Nota interna de cierre",
+          thingsToBringNotes: "Termo, chamarra",
+        },
+      );
+
+      const req = createMockRequest({});
+      const res = createMockResponse();
+      const next = mockNext;
+
+      jest.spyOn(retreatService, "findPublicRetreats").mockResolvedValue([env.retreat]);
+
+      await retreatController.getPublicRetreats(req, res, next);
+
+      const result = res.json.mock.calls[0][0];
+      expect(result).toHaveLength(1);
+      const item = result[0];
+      expect(item).toEqual({
+        id: env.retreat.id,
+        parish: env.retreat.parish,
+        startDate: env.retreat.startDate,
+        endDate: env.retreat.endDate,
+        slug: env.retreat.slug ?? null,
+        retreat_type: env.retreat.retreat_type ?? null,
+        house: item.house, // shape-checked below, valor exacto no importa aquí
+      });
+      for (const forbidden of [
+        "cost",
+        "paymentInfo",
+        "paymentMethods",
+        "contactPhones",
+        "openingNotes",
+        "closingNotes",
+        "thingsToBringNotes",
+        "createdBy",
+      ]) {
+        expect(item).not.toHaveProperty(forbidden);
+      }
+      // El house del listado también es un whitelist mínimo (solo ciudad/estado).
+      if (item.house) {
+        expect(Object.keys(item.house).sort()).toEqual(["city", "state"]);
+      }
+    });
   });
 
   describe("getRetreatBySlugPublic", () => {

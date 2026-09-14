@@ -6,6 +6,7 @@ import {
   getRetreatDeletionImpact as getRetreatDeletionImpactService,
   findById,
   findBySlug,
+  findPublicRetreats,
   isSlugAvailable,
   update,
   refreshRetreatBedsFromHouse,
@@ -71,9 +72,22 @@ export const getPublicRetreats = async (
 ) => {
   try {
     // Find all public retreats starting in the future
-    const { findPublicRetreats } = await import("../services/retreatService");
     const retreats = await findPublicRetreats();
-    res.json(retreats);
+    // Whitelist mínimo para la tarjeta del listado en el landing (nombre,
+    // ciudad, fechas). Costo/forma de pago/teléfonos/notas de apertura y
+    // cierre viajan solo en el detalle de un retiro concreto
+    // (getRetreatByIdPublic) — ver docstring de buildPublicRetreatDetail.
+    res.json(
+      retreats.map((r) => ({
+        id: r.id,
+        parish: r.parish,
+        startDate: r.startDate,
+        endDate: r.endDate,
+        slug: r.slug ?? null,
+        retreat_type: r.retreat_type ?? null,
+        house: r.house ? { city: r.house.city ?? null, state: r.house.state ?? null } : null,
+      })),
+    );
   } catch (error) {
     next(error);
   }
@@ -93,6 +107,67 @@ export const getActiveRetreats = async (
   }
 };
 
+/**
+ * DTO de un retiro público, compartido por `getRetreatByIdPublic` y
+ * `getRetreatBySlugPublic` — el detalle de UN retiro concreto.
+ *
+ * Incluye costo/forma de pago/teléfonos de contacto/notas de apertura y
+ * cierre a propósito: `PublicRetreatFlyerModal.vue` los muestra igual que
+ * un volante físico de retiro los mostraría. La diferencia con un volante de
+ * papel es que aquí SOLO se sirven al pedir el detalle de un retiro
+ * específico (por id o slug) — nunca en el listado (`getPublicRetreats`),
+ * que antes devolvía la entidad completa y permitía juntar de un jalón el
+ * costo/pago/teléfonos de TODOS los retiros públicos sin que nadie hubiera
+ * abierto el volante de ninguno (material listo para suplantar a la
+ * organización pidiendo depósitos). Ver skill security-best-practices,
+ * sección "Endpoints públicos: whitelist de campos".
+ */
+function buildPublicRetreatDetail(
+  retreat: Retreat,
+  shirtTypes: Awaited<ReturnType<typeof listShirtTypes>>,
+) {
+  return {
+    id: retreat.id,
+    parish: retreat.parish,
+    isPublic: retreat.isPublic,
+    startDate: retreat.startDate,
+    endDate: retreat.endDate,
+    isRegistrationClosed: isRetreatPast(retreat.endDate),
+    flyer_options: retreat.flyer_options || {},
+    slug: retreat.slug,
+    // Drives the redirect away from the built-in walker form when the parish
+    // runs its own registration.
+    externalRegistrationUrl: retreat.externalRegistrationUrl ?? null,
+    country: retreat.house?.country ?? null,
+    // El registro público de parejas se activa con retreat_type='couples'.
+    retreat_type: retreat.retreat_type ?? null,
+    // Valor por comida: el registro solo pregunta comidas si es > 0.
+    mealCost: retreat.mealCost ?? null,
+    shirtTypes,
+    // --- Datos del volante público (ver docstring de la función) ---
+    retreat_number_version: retreat.retreat_number_version ?? null,
+    walkerArrivalTime: retreat.walkerArrivalTime ?? null,
+    cost: retreat.cost ?? null,
+    paymentInfo: retreat.paymentInfo ?? null,
+    paymentMethods: retreat.paymentMethods ?? null,
+    openingNotes: retreat.openingNotes ?? null,
+    closingNotes: retreat.closingNotes ?? null,
+    thingsToBringNotes: retreat.thingsToBringNotes ?? null,
+    contactPhones: retreat.contactPhones ?? null,
+    house: retreat.house
+      ? {
+          address1: retreat.house.address1 ?? null,
+          address2: retreat.house.address2 ?? null,
+          city: retreat.house.city ?? null,
+          state: retreat.house.state ?? null,
+          zipCode: retreat.house.zipCode ?? null,
+          country: retreat.house.country ?? null,
+          googleMapsUrl: retreat.house.googleMapsUrl ?? null,
+        }
+      : null,
+  };
+}
+
 export const getRetreatByIdPublic = async (
   req: Request,
   res: Response,
@@ -105,25 +180,7 @@ export const getRetreatByIdPublic = async (
     }
     const shirtTypes = await listShirtTypes(retreat.id);
     // Return all flyer data needed for registration form
-    res.json({
-      id: retreat.id,
-      parish: retreat.parish,
-      isPublic: retreat.isPublic,
-      startDate: retreat.startDate,
-      endDate: retreat.endDate,
-      isRegistrationClosed: isRetreatPast(retreat.endDate),
-      flyer_options: retreat.flyer_options || {},
-      slug: retreat.slug,
-      // Drives the redirect away from the built-in walker form when the parish
-      // runs its own registration.
-      externalRegistrationUrl: retreat.externalRegistrationUrl ?? null,
-      country: retreat.house?.country ?? null,
-      // El registro público de parejas se activa con retreat_type='couples'.
-      retreat_type: retreat.retreat_type ?? null,
-      // Valor por comida: el registro solo pregunta comidas si es > 0.
-      mealCost: retreat.mealCost ?? null,
-      shirtTypes,
-    });
+    res.json(buildPublicRetreatDetail(retreat, shirtTypes));
   } catch (error) {
     next(error);
   }
@@ -140,25 +197,7 @@ export const getRetreatBySlugPublic = async (
       return res.status(404).json({ message: "Retreat not found" });
     }
     const shirtTypes = await listShirtTypes(retreat.id);
-    res.json({
-      id: retreat.id,
-      parish: retreat.parish,
-      isPublic: retreat.isPublic,
-      startDate: retreat.startDate,
-      endDate: retreat.endDate,
-      isRegistrationClosed: isRetreatPast(retreat.endDate),
-      flyer_options: retreat.flyer_options || {},
-      slug: retreat.slug,
-      // Drives the redirect away from the built-in walker form when the parish
-      // runs its own registration.
-      externalRegistrationUrl: retreat.externalRegistrationUrl ?? null,
-      country: retreat.house?.country ?? null,
-      // El registro público de parejas se activa con retreat_type='couples'.
-      retreat_type: retreat.retreat_type ?? null,
-      // Valor por comida: el registro solo pregunta comidas si es > 0.
-      mealCost: retreat.mealCost ?? null,
-      shirtTypes,
-    });
+    res.json(buildPublicRetreatDetail(retreat, shirtTypes));
   } catch (error) {
     next(error);
   }

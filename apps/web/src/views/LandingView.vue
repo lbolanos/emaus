@@ -626,7 +626,7 @@ import {
   Mail,
   Loader2
 } from 'lucide-vue-next';
-import { getPublicRetreats, getPublicCommunities, getPublicCommunityMeetings, subscribeToNewsletter, getLandingTestimonials } from '@/services/api';
+import { getPublicRetreats, getPublicRetreatDetail, getPublicCommunities, getPublicCommunityMeetings, subscribeToNewsletter, getLandingTestimonials } from '@/services/api';
 import { formatDate as formatDateUtil } from '@repo/utils';
 import { useToast } from '@repo/ui';
 import { useAuthStore } from '@/stores/authStore';
@@ -1018,11 +1018,25 @@ const openJoinModal = (communityId: string, communityName: string) => {
 };
 
 // Open retreat flyer modal
-const openRetreatFlyer = (retreat: any, event: Event) => {
+const openRetreatFlyer = async (retreat: any, event: Event) => {
   event.preventDefault();
   event.stopPropagation();
+  // El listado (getPublicRetreats) solo trae id/parish/fechas/ciudad a
+  // propósito — costo, forma de pago, teléfonos y notas del volante viven
+  // solo en el detalle de este retiro puntual (evita que cualquiera junte
+  // de un jalón esos datos de TODOS los retiros públicos vía el listado).
+  // Se abre el modal de inmediato con lo que ya hay, y se completa cuando
+  // llega el detalle.
   selectedRetreat.value = retreat;
   isRetreatFlyerOpen.value = true;
+  try {
+    const detail = await getPublicRetreatDetail(retreat.id);
+    if (selectedRetreat.value?.id === retreat.id) {
+      selectedRetreat.value = detail;
+    }
+  } catch (error) {
+    console.error('Failed to load public retreat detail:', error);
+  }
 };
 
 // Detección silenciosa de ubicación al cargar (sin error si se deniega)

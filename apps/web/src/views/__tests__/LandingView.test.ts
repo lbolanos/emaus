@@ -76,6 +76,7 @@ vi.mock('@/services/api', () => ({
 		delete: vi.fn(),
 	},
 	getPublicRetreats: vi.fn(() => Promise.resolve([])),
+	getPublicRetreatDetail: vi.fn(() => Promise.resolve({})),
 	getPublicCommunities: vi.fn(() => Promise.resolve([])),
 	getPublicCommunityMeetings: vi.fn(() => Promise.resolve([])),
 	getLandingTestimonials: vi.fn(() => Promise.resolve([])),

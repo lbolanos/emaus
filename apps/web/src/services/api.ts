@@ -1718,6 +1718,17 @@ export async function getPublicRetreats(): Promise<Retreat[]> {
   return response.data;
 }
 
+/**
+ * Detalle completo de UN retiro público (costo, forma de pago, teléfonos de
+ * contacto, dirección, notas de apertura/cierre) — lo que necesita
+ * `PublicRetreatFlyerModal`. A propósito NO viene en `getPublicRetreats`
+ * (el listado): ver el comentario en `buildPublicRetreatDetail` del backend.
+ */
+export async function getPublicRetreatDetail(retreatId: string): Promise<Retreat> {
+  const response = await api.get(`/retreats/public/${retreatId}`);
+  return response.data;
+}
+
 export async function getPublicCommunities(): Promise<Community[]> {
   const response = await api.get("/communities/public");
   return response.data;
