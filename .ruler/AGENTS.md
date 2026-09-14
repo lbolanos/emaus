@@ -180,9 +180,9 @@ Saltar hooks: `SKIP_PRE_COMMIT=1 git commit` / `SKIP_PRE_PUSH=1 git push` (o `--
 
 ## Infraestructura y acceso remoto
 
-SSH al servidor Lightsail (`emaus.cc` está tras Cloudflare: el puerto 22 **no** responde por el
-dominio, hay que usar la IP directa), perfil de AWS CLI, bucket `emaus-media` y el backup diario
-de la base → skill **`infra-remota`**.
+SSH al servidor Lightsail (`emaus.cc` en DNS-only desde 2026-09-14: el 22 ya responde por
+dominio, pero se usa la IP directa por robustez), perfil de AWS CLI, bucket `emaus-media` y el
+backup diario de la base → skill **`infra-remota`**.
 
 > ⚠️ Para descargar la DB de prod usa **`make db-pull`**, nunca `scp`/`cp` del `.sqlite` vivo.
 > Operarla (backups, DB corrupta, `database is locked`, watchdog) → skill
