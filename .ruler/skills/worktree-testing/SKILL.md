@@ -148,6 +148,61 @@ sqlite3 /Users/lbolanos/Developer/personal/emaus/apps/api/database.sqlite \
 
 Después la API se levanta apuntando a esa copia con `DB_DATABASE=database.worktree.sqlite`.
 
+## El script re-copia la DB en CADA arranque: las siembras no sobreviven
+
+`start-worktree-dev.sh` copia la DB del main **cada vez que arranca** ("snapshot al momento del
+start"), no solo la primera vez. Todo lo que hayas sembrado en `database.worktree.sqlite` —
+usuarios fixture de e2e, datos de prueba — **se pierde en el próximo arranque, sin error en el
+log**. Pasó el 2026-09-13: sembrar los usuarios `@test.local` con el API detenida, re-arrancar
+con el script, y la corrida de e2e falló con `401 Incorrect email or password` aunque la siembra
+hubiera verificado verde dos minutos antes.
+
+Encadenado con eso, los fixtures de e2e **ya no existen en la dev DB del main** (0 filas
+`@test.local`): las migraciones `SeedE2ETestUsers`/`SeedE2eSuperadminAndHouse` están registradas
+en la tabla `migrations`, así que el runner no las vuelve a aplicar. Y borrar esas filas no
+sirve: el próximo arranque del script **re-copia la DB completa del main** y las filas vuelven
+(sin usuarios). Consecuencia: un spec que loguee como `E2E_USERS.other`/`superadmin` falla 401
+contra dev. `sequences-inbox.spec.ts` tiene fallback a credenciales locales y sí corre:
+
+```bash
+E2E_BASE_URL=http://localhost:5174 \
+E2E_LOCAL_EMAIL=leonardo.bolanos@gmail.com E2E_LOCAL_PASSWORD=123456 \
+  npx playwright test tests/e2e/sequences-inbox.spec.ts --project=chromium
+```
+
+Para los specs sin fallback (`crm-notes-timeline.spec.ts`), la secuencia que funciona es
+**sembrar con el API detenida y arrancar MANUALMENTE** (los comandos de la sección siguiente,
+sin el script — que volvería a copiar la DB y pisar la siembra):
+
+```bash
+# 1. Parar el dev (script) — DB fría, sin manejador abierto
+bash .ruler/skills/worktree-testing/scripts/stop-worktree-dev.sh
+
+# 2. Sembrar los dos usuarios que los specs de auth necesitan. Hash con el
+#    bcrypt del propio API; la fuente de verdad de los fixtures completos
+#    (comunidades, casa) son las migraciones 20260516200000 / 20260721130000.
+cd apps/api
+HASH=$(node -e "const b=require('bcrypt');process.stdout.write(b.hashSync('Test1234!',10))")
+sqlite3 database.worktree.sqlite "
+INSERT OR IGNORE INTO users (id, email, displayName, password, createdAt, updatedAt)
+  VALUES (lower(hex(randomblob(4))||'-'||hex(randomblob(2))||'-4'||substr(hex(randomblob(2)),2)||'-a'||substr(hex(randomblob(2)),2)||'-'||hex(randomblob(6))),
+          'e2e-other@test.local', 'E2E Other Owner', '$HASH', datetime('now'), datetime('now'));
+INSERT OR IGNORE INTO users (id, email, displayName, password, createdAt, updatedAt)
+  VALUES (lower(hex(randomblob(4))||'-'||hex(randomblob(2))||'-4'||substr(hex(randomblob(2)),2)||'-a'||substr(hex(randomblob(2)),2)||'-'||hex(randomblob(6))),
+          'e2e-superadmin@test.local', 'E2E Superadmin', '$HASH', datetime('now'), datetime('now'));
+INSERT INTO user_roles (userId, roleId, createdAt)
+  SELECT u.id, r.id, datetime('now') FROM users u, roles r
+  WHERE u.email='e2e-superadmin@test.local' AND r.name='superadmin'
+  AND NOT EXISTS (SELECT 1 FROM user_roles ur WHERE ur.userId=u.id AND ur.roleId=r.id);"
+
+# 3. Arrancar API y web con los comandos manuales (sección siguiente), NO con
+#    el script. Parar sigue pudiendo usar el script (mata por puertos).
+```
+
+> Ojo con el rate limit de `/auth/login` (10 intentos / 15 min): una corrida completa de
+> `crm-notes-timeline` gasta 5 logins. Si choca con 429, esperá la ventana — el spec de bandeja
+> **lanza** el 429 a propósito en vez de saltarse en verde.
+
 ---
 
 ## Comandos manuales (si no querés usar los scripts)
