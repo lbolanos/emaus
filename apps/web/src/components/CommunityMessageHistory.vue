@@ -3,18 +3,32 @@
     <!-- Header -->
     <div class="flex items-center justify-between">
       <h3 class="text-lg font-semibold">Historial de Mensajes</h3>
-      <Button
-        variant="ghost"
-        size="sm"
-        @click="loadHistory"
-        :disabled="loading"
-        v-if="memberId && communityId"
-        title="Recargar historial"
-      >
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
-        </svg>
-      </Button>
+      <div class="flex items-center gap-1">
+        <!-- El historial registra lo que enviamos; las respuestas viven en el
+             teléfono. Sin `text` el link abre la conversación real. -->
+        <a
+          v-if="whatsappLink"
+          :href="whatsappLink"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="inline-flex items-center justify-center h-8 w-8 rounded-md border border-green-300 text-green-700 hover:bg-green-50"
+          title="Abrir WhatsApp y ver la conversación real"
+        >
+          <MessageSquare class="w-4 h-4" />
+        </a>
+        <Button
+          variant="ghost"
+          size="sm"
+          @click="loadHistory"
+          :disabled="loading"
+          v-if="memberId && communityId"
+          title="Recargar historial"
+        >
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+          </svg>
+        </Button>
+      </div>
     </div>
 
     <!-- Loading State -->
@@ -123,9 +137,11 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue';
 import { storeToRefs } from 'pinia';
+import { MessageSquare } from 'lucide-vue-next';
 import { Button } from '@repo/ui';
 import { Badge } from '@repo/ui';
 import { useCommunityCommunicationStore } from '@/stores/communityCommunicationStore';
+import { buildWhatsAppChatLink } from '@/utils/phone';
 
 interface CommunityCommunication {
   id: string;
@@ -167,6 +183,10 @@ interface Props {
   communityId: string | undefined;
   visible?: boolean;
   autoLoad?: boolean;
+  /** Teléfono del miembro (nacional o con lada) para el link de WhatsApp. */
+  phone?: string | null;
+  /** País del miembro (ISO-2 o texto libre) para resolver la lada. */
+  country?: string | null;
 }
 
 interface Emits {
@@ -209,6 +229,9 @@ const localLoading = ref(false);
 const hasMore = computed(() => {
   return communications.value.length < total.value;
 });
+
+// Link al chat real de WhatsApp con el miembro (null → botón oculto).
+const whatsappLink = computed(() => buildWhatsAppChatLink(props.phone, props.country));
 
 // Load history function
 const loadHistory = async (loadMore = false) => {

@@ -220,6 +220,7 @@ const typeLabels: Record<string, string> = {
 	EMERGENCY_CONTACT_VALIDATION: 'Validación Contacto de Emergencia',
 	PALANCA_REQUEST: 'Solicitud de Palanca',
 	PALANCA_REMINDER: 'Recordatorio de Palanca',
+	PALANCA_DEFINITION: 'Definición de Palanca',
 	GENERAL: 'Mensaje General',
 	PRE_RETREAT_REMINDER: 'Recordatorio Pre-Retiro',
 	PAYMENT_REMINDER: 'Recordatorio de Pago',

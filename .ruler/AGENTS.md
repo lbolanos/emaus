@@ -148,6 +148,7 @@ Sistema TypeORM contra SQLite. Comandos: `migration:generate`, `migration:run`, 
 | Subir videos al canal de YouTube "Emaús Retiros", generar arte del canal/miniaturas con IA (nano banana/Gemini), OAuth de YouTube, o el botón de ayuda `HelpVideoButton` in-app | `youtube-publishing` |
 | Levantar `pnpm dev` en un git worktree (`.claude/worktrees/<branch>/`) sin chocar con los puertos del main | `worktree-testing` |
 | Entrar por SSH al servidor de prod, AWS CLI, bucket `emaus-media`, backup manual de la DB | `infra-remota` |
+| Prod "está lento"/"se siente pesada": triage de latencia por capas (servidor, API local, origen directo vs Cloudflare), swap/zombies, workers de Cloudflare | `prod-performance-triage` |
 | Features puntuales del dominio | `closing-mass-church`, `santisimo`, `whatsapp-admin`, `arquitectura` |
 
 ## Testing — solo el qué y el cómo correr
@@ -179,9 +180,9 @@ Saltar hooks: `SKIP_PRE_COMMIT=1 git commit` / `SKIP_PRE_PUSH=1 git push` (o `--
 
 ## Infraestructura y acceso remoto
 
-SSH al servidor Lightsail (`emaus.cc` está tras Cloudflare: el puerto 22 **no** responde por el
-dominio, hay que usar la IP directa), perfil de AWS CLI, bucket `emaus-media` y el backup diario
-de la base → skill **`infra-remota`**.
+SSH al servidor Lightsail (`emaus.cc` en DNS-only desde 2026-09-14: el 22 ya responde por
+dominio, pero se usa la IP directa por robustez), perfil de AWS CLI, bucket `emaus-media` y el
+backup diario de la base → skill **`infra-remota`**.
 
 > ⚠️ Para descargar la DB de prod usa **`make db-pull`**, nunca `scp`/`cp` del `.sqlite` vivo.
 > Operarla (backups, DB corrupta, `database is locked`, watchdog) → skill

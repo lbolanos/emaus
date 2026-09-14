@@ -43,6 +43,7 @@ describe('getMessageTemplateAudience', () => {
 		for (const t of [
 			'PALANCA_REQUEST',
 			'PALANCA_REMINDER',
+			'PALANCA_DEFINITION',
 			'FAMILY_CLOSING_INVITATION_WHATSAPP',
 			'FAMILY_CLOSING_INVITATION_EMAIL',
 		]) {

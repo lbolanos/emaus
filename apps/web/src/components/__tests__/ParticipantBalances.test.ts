@@ -189,7 +189,10 @@ describe('ParticipantBalances', () => {
 		await btn!.trigger('click');
 		expect(openSpy).toHaveBeenCalledTimes(1);
 		const url = String(openSpy.mock.calls[0][0]);
-		expect(url).toContain('api.whatsapp.com/send?phone=5551234567');
+		// El fixture no declara país → default MX: la lada 52 se antepone al
+		// nacional de 10 dígitos.
+		expect(url).toContain('api.whatsapp.com/send?phone=525551234567');
+		expect(url).toContain('&text=');
 		openSpy.mockRestore();
 	});
 

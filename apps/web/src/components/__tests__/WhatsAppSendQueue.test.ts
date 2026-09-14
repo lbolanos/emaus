@@ -44,7 +44,14 @@ vi.mock('lucide-vue-next', () => ({
 import WhatsAppSendQueue from '../WhatsAppSendQueue.vue';
 
 const participants = [
-	{ id: '1', firstName: 'Juan', lastName: 'Pérez', cellPhone: '+52 55 1234 5678' },
+	{
+		id: '1',
+		firstName: 'Juan',
+		lastName: 'Pérez',
+		cellPhone: '+52 55 1234 5678',
+		country: 'México',
+	},
+	// Nacional a 10 dígitos sin país: el caso dominante en la DB (468 de 513).
 	{ id: '2', firstName: 'María', lastName: 'García', cellPhone: '5544332211' },
 	{ id: '3', firstName: 'Sin', lastName: 'Teléfono', cellPhone: '' },
 ];
@@ -105,6 +112,23 @@ describe('WhatsAppSendQueue.vue', () => {
 			templateId: 't1',
 			templateName: 'Bienvenida',
 		});
+	});
+
+	it('antepone la lada al número nacional sin país (default MX)', async () => {
+		const wrapper = mountQueue();
+		await nextTick();
+
+		await wrapper.find('select').setValue('t1');
+		await nextTick();
+
+		// María: 5544332211 nacional, sin país en la ficha → 52 + 10 dígitos.
+		await sendButtons(wrapper)[1].trigger('click');
+		await flushPromises();
+
+		expect(window.open).toHaveBeenCalledTimes(1);
+		const url = (window.open as any).mock.calls[0][0] as string;
+		expect(url).toContain('https://api.whatsapp.com/send?phone=525544332211');
+		expect(decodeURIComponent(url)).toContain('Hola María');
 	});
 
 	it('no envía si no hay mensaje (botón deshabilitado)', async () => {

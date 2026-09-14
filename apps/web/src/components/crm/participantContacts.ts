@@ -71,7 +71,9 @@ export function buildParticipantContacts(p: any): ParticipantContact[] {
 			relation,
 			phone,
 			email,
-			whatsappLink: buildWhatsAppChatLink(phone),
+			// La lada se resuelve con el país de la ficha (los contactos de
+			// emergencia/invitador comparten el país del participante).
+			whatsappLink: buildWhatsAppChatLink(phone, p?.country ?? null),
 		});
 	};
 

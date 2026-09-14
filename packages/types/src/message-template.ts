@@ -8,6 +8,9 @@ export const messageTemplateTypes = z.enum([
 	'EMERGENCY_CONTACT_VALIDATION',
 	'PALANCA_REQUEST',
 	'PALANCA_REMINDER',
+	// Explicación de qué es una palanca, previa a la solicitud (paso intermedio
+	// de la secuencia de palancas; misma audiencia que la solicitud).
+	'PALANCA_DEFINITION',
 	'GENERAL',
 	'PRE_RETREAT_REMINDER',
 	'PAYMENT_REMINDER',
@@ -112,6 +115,7 @@ const MESSAGE_TEMPLATE_AUDIENCE_BY_TYPE: Record<string, MessageTemplateAudience>
 	// un familiar o amigo del caminante; la invitación de clausura va a la familia.
 	PALANCA_REQUEST: 'family',
 	PALANCA_REMINDER: 'family',
+	PALANCA_DEFINITION: 'family',
 	FAMILY_CLOSING_INVITATION_WHATSAPP: 'family',
 	FAMILY_CLOSING_INVITATION_EMAIL: 'family',
 	// El resto (GENERAL, PRIVACY_DATA_DELETE, COMMUNITY_*, SYS_*, etc.) → general.

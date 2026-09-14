@@ -1,6 +1,6 @@
 ---
 name: infra-remota
-description: "Acceso a la infraestructura de producción de Emaús: SSH al servidor Lightsail (emaus.cc está tras Cloudflare, el puerto 22 no responde por dominio — hay que usar la IP directa), perfil de AWS CLI y bucket emaus-media, y el script de backup diario de la base. Usar cuando haya que entrar al servidor, listar o descargar backups de S3, revisar rutas de deploy, o ejecutar un backup manual."
+description: "Acceso a la infraestructura de producción de Emaús: SSH al servidor Lightsail (desde 2026-09-14 la zona DNS está en modo DNS-only/nube gris: el dominio resuelve directo al origen y el 22 responde por dominio; usar la IP directa igualmente por robustez), perfil de AWS CLI y bucket emaus-media, y el script de backup diario de la base. Usar cuando haya que entrar al servidor, listar o descargar backups de S3, revisar rutas de deploy, o ejecutar un backup manual."
 globs: "scripts/db-watchdog.sh,backup-db.sh,Makefile"
 ---
 
@@ -8,8 +8,11 @@ globs: "scripts/db-watchdog.sh,backup-db.sh,Makefile"
 
 ## SSH al servidor de producción
 
-`emaus.cc` está detrás de Cloudflare (proxy), así que **el puerto 22 no es accesible por el
-dominio**. Siempre por la IP directa de Lightsail:
+`emaus.cc` está en **DNS-only (nube gris) desde 2026-09-14** — el dominio resuelve directo al
+origen y el puerto 22 responde por dominio. **Usar la IP directa igualmente**: si algún día se
+reactiva el proxy de Cloudflare (nube naranja), el 22 vuelve a no responder por dominio y todo
+script/ comando histórico con la IP sigue funcionando. El contexto completo del cambio (origin
+pull errático de CF) → skill **`prod-performance-triage`**.
 
 ```bash
 ssh -i ~/.ssh/lightsail-emaus.pem ubuntu@18.116.102.104
