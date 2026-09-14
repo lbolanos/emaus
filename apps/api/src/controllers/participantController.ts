@@ -53,6 +53,34 @@ function stripScholarshipAmount<T>(data: T): T {
 	return data;
 }
 
+/**
+ * DTO mínimo para la respuesta de un alta pública de participante.
+ *
+ * `createParticipant` identifica a la persona por correo y, si ya existía una
+ * ficha con ese correo, reutiliza —y actualiza— esa fila (ver comentario junto
+ * a `claimExisting` más abajo). Devolver la entidad completa ahí filtraba
+ * medicación, dieta, discapacidad, notas y ambos contactos de emergencia a
+ * cualquiera que conociera el correo de un participante ya registrado: el
+ * cuerpo de la petición no necesita incluir esos campos para que vinieran de
+ * vuelta en la respuesta. El registro público nunca necesitó leer esos datos
+ * — solo confirma que el alta ocurrió.
+ */
+function toPublicRegistrationResult(participant: {
+	id: string;
+	firstName: string;
+	lastName: string;
+	type: string;
+	retreatId: string | null;
+}) {
+	return {
+		id: participant.id,
+		firstName: participant.firstName,
+		lastName: participant.lastName,
+		type: participant.type,
+		retreatId: participant.retreatId,
+	};
+}
+
 export const getAllParticipants = async (
   req: Request,
   res: Response,
@@ -360,7 +388,7 @@ export const createParticipant = async (
       }
     }
 
-    res.status(201).json(newParticipant);
+    res.status(201).json(toPublicRegistrationResult(newParticipant));
   } catch (error) {
     if (error instanceof Error) {
       const code = (error as Error & { code?: string }).code;
@@ -443,7 +471,10 @@ export const createCoupleParticipant = async (
 
     const couple =
       await participantService.createCoupleParticipants(validatedData);
-    res.status(201).json(couple);
+    res.status(201).json({
+      husband: toPublicRegistrationResult(couple.husband),
+      wife: toPublicRegistrationResult(couple.wife),
+    });
   } catch (error) {
     if (error instanceof Error) {
       const code = (error as Error & { code?: string }).code;
