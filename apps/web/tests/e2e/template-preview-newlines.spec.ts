@@ -231,6 +231,61 @@ test.describe('Template previews keep WhatsApp line breaks', () => {
 		await page.keyboard.press('Escape');
 	});
 
+	test('editor session keeps the textarea when the edited content gains an HTML tag', async ({
+		page,
+	}) => {
+		await login(page);
+		const listUrlPromise = page.waitForRequest(
+			(r) => /\/api\/message-templates\?retreatId=/.test(r.url()),
+			{ timeout: 20000 },
+		);
+		await page.goto('/app/settings/message-templates');
+
+		const anchor = await firstMultilinePreview(page, RETREAT_PREVIEW);
+		const apiUrl = (await listUrlPromise).url();
+		const migrated = await apiHasMultilineTemplate(page, apiUrl);
+		test.skip(
+			!migrated,
+			'no multi-line template in the active retreat (WhatsApp format migration not applied?)',
+		);
+		expect(
+			anchor,
+			'API serves multi-line messages but the list preview flattened the newlines',
+		).toBeTruthy();
+
+		// Open the edit modal of the anchored row. Read-only: it edits the local
+		// textarea and closes with Escape — it never saves.
+		const row = page.locator(RETREAT_PREVIEW).nth(anchor!.index).locator('xpath=ancestor::tr');
+		await row.locator('button[title="Editar"]').click();
+		const dialog = page.locator('[role="dialog"]');
+		await expect(dialog).toBeVisible({ timeout: 10000 });
+
+		// HIGH #2 regression: the format detector used to be a live computed
+		// over the message, so the instant the content gained a tag (typing
+		// "<div>" or pasting a formatted fragment) the textarea was swapped for
+		// the TipTap editor mid-edit — which flattened every \n, swallowed the
+		// keystrokes typed after the swap, and re-serialized the structure away
+		// on the first edit. The mode is now frozen for the editing session:
+		// the surface must not change under the user's hands.
+		const editor = dialog.locator('textarea').first();
+		await expect(editor).toBeVisible({ timeout: 10000 });
+		const before = await editor.inputValue();
+		const newlinesBefore = (before.match(/\n/g) ?? []).length;
+
+		await editor.fill(`${before}\n<div>prueba</div>`);
+
+		// Settle before the negative assertion: an immediate check could pass
+		// before a (removed) live detector had time to swap the surface.
+		await page.waitForTimeout(500);
+		await expect(editor).toBeVisible();
+		await expect(dialog.locator('.ProseMirror')).toHaveCount(0);
+		const after = await editor.inputValue();
+		expect((after.match(/\n/g) ?? []).length).toBe(newlinesBefore + 1);
+		expect(after).toContain('<div>prueba</div>');
+
+		await page.keyboard.press('Escape');
+	});
+
 	test('global template cards render multi-line previews', async ({ page }) => {
 		await login(page);
 		await page.goto('/app/settings/global-message-templates');
