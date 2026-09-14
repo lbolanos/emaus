@@ -14,12 +14,12 @@ se dispara es el culpable. Nunca concluir desde una sola medición puntual: usar
 
 Referencia del caso 2026-09-14 (números sanos vs. rotos):
 
-| Capa | Sano | Roto (caso real) |
+| Capa | Sano | Roto (caso real 2026-09-14) |
 |---|---|---|
-| API local (`localhost:3001`) | 5–8 ms | — |
-| Origen directo desde fuera (`--resolve`) | p50 0.07 s | — |
+| API local (`localhost:3001`) | 5–8 ms | 5 ms (sano) |
+| Origen directo desde fuera (`--resolve`) | p50 0.07 s | p50 0.07 s (sano) |
 | Vía Cloudflare | p50 ≈ origen + <50 ms | p50 0.54 s, p90 1.2 s, max 1.8 s |
-| Diagnóstico | — | Worker enrutado a `emaus.cc/*` |
+| Diagnóstico | — | origin pull CF→origen errático (~0.4 s p50, p90 1.7 s), no el Worker |
 
 ## Capa 1 — Servidor (SSH)
 
@@ -87,6 +87,12 @@ curl -s -A "$UA" $OARGS -w 'ttfb=%{time_starttransfer}\n' $URLS | stats
 curl -sk --resolve emaus.cc:443:18.116.102.104 $OARGS -w 'ttfb=%{time_starttransfer}\n' $URLS | stats
 ```
 
+> ⚠️ **zsh**: el Bash tool de Claude Code corre zsh, que **no hace word-splitting** de
+> `$URLS`/`$OARGS` sin comillas → curl recibe las 15 URLs como un solo argumento y muere con
+> `curl: (3) URL rejected: Malformed input to a URL function` (n=1, todo 0.000). Usar
+> `${=URLS}` / `${=OARGS}`, o guardar el script y correrlo con `bash script.sh`. Diagnosticar
+> con `-sS` y `err=[%{errormsg}]` en el `-w` antes de asumir que la ruta está caída.
+
 Lectura: si CF añade <100 ms sobre el origen directo → CF normal, mirar la app. Si añade
 cientos de ms erráticos → algo de la zona procesa cada request (ver barrido API). Repetir
 con UA de navegador antes de concluir: **Bot Fight Mode trata distinto a `curl`** (devuelve
@@ -95,6 +101,22 @@ con UA de navegador antes de concluir: **Bot Fight Mode trata distinto a `curl`*
 Costo por clic del SPA: ~4–6 requests (chunk lazy + endpoints + csrf + telemetría); manda el
 más lento. Además, cada deploy regenera los hashes de assets → MISS de caché al día
 siguiente.
+
+### Aislar el origin pull: HIT vs DYNAMIC
+
+Si CF añade cientos de ms erráticos y el barrido de zona no encuentra nada, separar el tramo
+edge→origen: un **asset cacheado** (HIT, no toca origen) contra un endpoint **DYNAMIC**
+(`/api/*`, siempre va al origen), ambos por IPv4 y con la caché calentada antes:
+
+```bash
+JS=$(curl -s https://emaus.cc/ | grep -oE '/assets/[^"]+\.js' | head -1)
+for i in 1 2 3; do curl -4 -s -o /dev/null "https://emaus.cc$JS"; done   # calentar
+curl -4 -s -D - -o /dev/null "https://emaus.cc$JS" | grep -i cf-cache-status  # confirmar HIT
+# luego el mismo multi-URL de 15 requests sobre $JS y sobre /api/health y comparar
+```
+
+Lectura: HIT rápido + DYNAMIC lento = el origen y su ruta (origin pull) son el problema —
+no la zona, no el Worker. En plan Free eso no tiene fix dentro de CF → nube gris (DNS-only).
 
 ## Barrido de la zona Cloudflare por API
 
@@ -123,22 +145,56 @@ curl -s "https://api.cloudflare.com/client/v4/zones/$Z/settings" -H "Authorizati
 #    httpRequestsAdaptiveGroups agrupado por dimensions { coloCode }
 ```
 
-Orden de sospechosos confirmado por el caso: **worker route en `zona/*`** ≫ settings raros
-(rocket_loader, always_online) ≫ reglas WAF/rate-limit ≫ colo lejano (plan free no tiene
- México; el tráfico va a DFW/EWR normalmente).
+Orden de sospechosos **para investigar**: **worker route en `zona/*`** (envuelve cada
+request; es el #1 por diseño) ≫ settings raros (rocket_loader, always_online) ≫ reglas
+WAF/rate-limit ≫ colo lejano (plan free no tiene México; el tráfico va a DFW/EWR). Pero el
+caso 2026-09-14 demostró que el sospechoso #1 puede ser inocente: **exonerar con experimento
+controlado** (desactivar la ruta, re-medir capa 4, restaurar) antes de concluir. Si nada de
+la zona explica la latencia, el culpable es el **origin pull** edge→origen — medirlo con el
+test HIT vs DYNAMIC (asset cacheado no toca origen; `/api/*` siempre sí).
 
-## Hallazgos del caso 2026-09-14 (estado abierto)
+## Hallazgos del caso 2026-09-14 (CERRADO — resolución: nube gris DNS-only)
 
-- **Worker `emaus-failover`** enrutado a `emaus.cc/*` y `www.emaus.cc/*`: proxy que
-  re-envía cada request al origen con timeout de 10 s y convierte 5xx en página HTML de
-  mantenimiento (rompe además el parseo JSON del frontend en errores reales del API).
-  Medido: **+470 ms p50, +1.1 s p90 por request** frente al origen directo.
-- **Pendiente**: desactivar las dos rutas en el dashboard (Workers & Pages → emaus-failover
-  → Settings → Domains & Routes) y repetir el test de capa 4 para confirmar la atribución.
-- **Fix propuesto** (si se confirma): página de mantenimiento en **nginx**
-  (`error_page 502 503 504 /maintenance.html;`) — mismo efecto, cero latencia añadida — y el
-  Worker fuera de la ruta. La decisión "arreglar CF vs. nube gris (DNS-only)" queda a
-  criterio del usuario: DNS-only gana ~0.5 s/request a cambio de exponer la IP y perder el
-  escudo DDoS (el usuario es sensible a seguridad).
-- Se limpiaron 16 procesos `vite-node` colgados de Veracruz (6-Sep): swap 658→126 MB.
-- Al cerrar el caso: borrar `~/.cf-emaus-token` y revocar el token en el dashboard.
+### Qué era y qué no era
+
+- **Servidor y API: sanos.** Backend local 5 ms; `--resolve` directo p50 0.07 s. Se limpiaron
+  además 16 procesos `vite-node` colgados de Veracruz (swap 658→126 MB, available 356→430 MB)
+  — necesario pero no la causa.
+- **Worker `emaus-failover`: EXONERADO.** Sospechoso #1 (proxy enrutado a `emaus.cc/*` y
+  `www.emaus.cc/*`, re-envía cada request con timeout 10 s y convierte 5xx en HTML de
+  mantenimiento). Experimento controlado: borrar las dos rutas y re-medir → **no mejoró**
+  (p50 0.371→0.529). Rutas restauradas. Lección: correlación ≠ causalidad; exigir el
+  experimento on/off antes de culpar.
+- **Hipótesis AAAA (IPv6 sintetizado por CF): DESCARTADA.** La zona **no tiene registro
+  AAAA**. Lección dura del caso: se "leyó" un AAAA en un screenshot del dashboard que no
+  estaba ahí. **Verificar el dato real** (API: `GET /zones/<id>/dns_records`) o la lista de
+  records del usuario — nunca inferir de capturas de pantalla.
+- **Causa real: origin pull CF→origen errático.** Test HIT vs DYNAMIC: asset en caché (HIT,
+  no toca origen) rápido y estable; `/api/health` (DYNAMIC, siempre va al origen) con el
+  exceso completo de latencia (~0.4 s p50, p90 1.7 s). El edge que servía al usuario (DFW)
+  hace peer hacia AWS us-east-2 por una ruta mala, y el plan Free no ofrece control del
+  origin pull. Componente adicional: el ISP mandaba `emaus.cc` a DFW mientras
+  `cloudflare.com` iba a QRO (20 ms).
+- **Resolución aplicada**: nube gris (DNS-only) en el A raíz y el CNAME www. El cert Let's
+  Encrypt del origen cubre ambos dominios (válido hasta 17-Nov-2026, validado sin `-k`).
+  Números finales: **vía CF p50 0.54 / p90 1.23 / max 1.82 → directo p50 0.069 / p90 0.071 /
+  max 0.21** — y p50 ≈ p90: la variabilidad errática ("lentitud en cada clic") desapareció.
+
+### Estado tras el cambio (decisiones, no pendientes)
+
+- El Worker `emaus-failover` sigue existiendo con sus rutas activas, pero **no corre** en
+  DNS-only (el tráfico ya no pasa por CF). Si algún día se quiere página de mantenimiento,
+  hacerla en **nginx** (`error_page 502 503 504 /maintenance.html;`) — cero latencia añadida
+  y no rompe el parseo JSON del frontend como sí lo hacía el Worker con errores reales.
+- Trade-off asumido: la IP del origen queda expuesta y sin escudo DDoS de CF. Si aparece
+  abuso, endurecer nginx (rate limit por IP, fail2ban) o reactivar la nube naranja
+  aceptando el costo de latencia.
+- Tras un cambio nube naranja→gris: verificar propagación con `dig @1.1.1.1 emaus.cc A
+  +short` (no el resolver local — la caché de la Mac vive el TTL, ~5 min, y mientras tanto
+  sigue yendo al edge).
+
+### Higiene de cierre
+
+- Borrar `~/.cf-emaus-token` (y cualquier token de edición creado para el experimento,
+  p. ej. `~/.cf-routes-edit-token`) y que el usuario revoque ambos en
+  dash.cloudflare.com/profile/api-tokens.
