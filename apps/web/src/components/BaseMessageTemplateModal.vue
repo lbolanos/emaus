@@ -527,7 +527,20 @@ const formData = ref({
 // WhatsApp structure. Templates that carry real HTML (email legacy) keep the
 // rich editor; plain text edits in a textarea that round-trips untouched.
 // The tag detector lives in @/utils/message (shared with the clipboard).
-const isPlainTextMessage = computed(() => !HTML_TAG_RE.test(formData.value.message || ''));
+//
+// The mode is frozen for the whole editing session: set when the template
+// loads (or the dialog opens), it does NOT react to the message being
+// edited. A live computed flipped the editor underneath the user the instant
+// the content gained a tag (typing "<div>" or pasting a formatted
+// fragment): tiptap parsed the plain text as HTML, flattened every \n,
+// swallowed the keystrokes typed after the swap, and the first edit in the
+// rich editor serialized the structure away. Reopening the modal
+// re-evaluates the format.
+const isPlainTextMessage = ref(true);
+
+const syncEditorModeToMessage = () => {
+  isPlainTextMessage.value = !HTML_TAG_RE.test(formData.value.message || '');
+};
 
 const plainTextEditorRef = ref<HTMLTextAreaElement | null>(null);
 
@@ -1059,6 +1072,8 @@ watch(
         isActive: true,
       };
     }
+    // Freeze the editor mode for this session based on the loaded content.
+    syncEditorModeToMessage();
   },
   { immediate: true }
 );
@@ -1084,6 +1099,10 @@ watch(
       searchQuery.value = '';
       selectedCategory.value = 'all';
       activeTab.value = 'edit';
+      // Re-freeze the editor mode for this session: the template prop can
+      // arrive after open, and reopening the same (stale-reference) template
+      // object would otherwise keep the previous session's mode.
+      syncEditorModeToMessage();
       // Auto-select first walker for retreat-specific templates
       if (!props.isGlobal && props.participants && props.participants.length > 0) {
         const firstWalker = walkers.value[0];
