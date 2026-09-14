@@ -80,6 +80,10 @@ export const config = {
 		// Retención y tamaño de rotación (winston-daily-rotate-file).
 		retentionDays: process.env.AUDIT_LOG_RETENTION_DAYS || '90d',
 		maxSize: process.env.AUDIT_LOG_MAX_SIZE || '20m',
+		// Retención numérica (días) de las tablas de auditoría en la DB
+		// (audit_logs, domain_audit_log, community_audit_log) — antes crecían
+		// sin límite. Mismo default que el NDJSON de arriba, mismo env var.
+		dbRetentionDays: parseInt(process.env.AUDIT_LOG_RETENTION_DAYS || '90', 10) || 90,
 	},
 	migrations: {
 		autoRun: process.env.MIGRATIONS_AUTO_RUN === 'true',

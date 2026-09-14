@@ -491,7 +491,7 @@ export async function createChatStream(
 				},
 			},
 			getParticipantDetails: {
-				description: 'Obtiene detalles completos de un participante: datos personales, teléfonos, dirección, contactos de emergencia, pagos, etc.',
+				description: 'Obtiene detalles de un participante: datos personales, teléfonos, dirección, pagos, etc. No incluye salud ni contactos de emergencia — son datos sensibles que no se envían a este asistente.',
 				inputSchema: jsonSchema<{ participantId: string }>({
 					type: 'object',
 					properties: {
@@ -506,6 +506,13 @@ export async function createChatStream(
 						return { error: 'Participante sin retiro asignado, no accesible.' };
 					}
 					await verifyRetreatAccess(userId, p.retreatId);
+					// SECURITY: no se incluyen datos sensibles de salud (snores,
+					// hasMedication/medicationDetails, hasDietaryRestrictions/
+					// dietaryRestrictionsDetails, disabilitySupport), contactos de
+					// emergencia ni `notes` (campo libre donde de facto caben datos
+					// médicos) — un proveedor de IA externo no debe recibirlos, y
+					// quedarían persistidos en chat_conversations. Ver plan de
+					// protección de datos de salud, Fase 4.
 					return {
 						id: p.id,
 						name: `${p.firstName} ${p.lastName}`,
@@ -528,33 +535,10 @@ export async function createChatStream(
 							country: p.country,
 						},
 						parish: p.parish || null,
-						emergencyContact1: {
-							name: p.emergencyContact1Name,
-							relation: p.emergencyContact1Relation,
-							cellPhone: p.emergencyContact1CellPhone,
-							homePhone: p.emergencyContact1HomePhone || null,
-							workPhone: p.emergencyContact1WorkPhone || null,
-							email: p.emergencyContact1Email || null,
-						},
-						emergencyContact2: p.emergencyContact2Name ? {
-							name: p.emergencyContact2Name,
-							relation: p.emergencyContact2Relation || null,
-							cellPhone: p.emergencyContact2CellPhone || null,
-							homePhone: p.emergencyContact2HomePhone || null,
-							workPhone: p.emergencyContact2WorkPhone || null,
-							email: p.emergencyContact2Email || null,
-						} : null,
-						snores: p.snores,
-						hasMedication: p.hasMedication,
-						medicationDetails: p.medicationDetails || null,
-						hasDietaryRestrictions: p.hasDietaryRestrictions,
-						dietaryRestrictionsDetails: p.dietaryRestrictionsDetails || null,
-						disabilitySupport: p.disabilitySupport || null,
 						tshirtSize: p.tshirtSize || null,
 						invitedBy: p.invitedBy || null,
 						isScholarship: p.isScholarship,
 						isCancelled: p.isCancelled,
-						notes: p.notes || null,
 						totalPaid: p.totalPaid,
 						paymentStatus: p.paymentStatus,
 						paymentRemaining: p.paymentRemaining,

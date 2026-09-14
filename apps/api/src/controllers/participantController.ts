@@ -12,6 +12,7 @@ import { authorizationService, ensureRetreatAccess } from "../middleware/authori
 import { Participant } from "../entities/participant.entity";
 import { participantAvailabilityService } from "../services/participantAvailabilityService";
 import { getParticipantShirtOrderSummary } from "../services/shirtReportService";
+import { domainAuditService, DomainAuditAction } from "../services/domainAuditService";
 
 const recaptchaService = new RecaptchaService();
 
@@ -181,6 +182,17 @@ export const getAllParticipants = async (
     let result: unknown = participants;
     if (!canSeeScholarship) result = stripScholarshipAmount(result);
     if (!canSeeHealth) result = stripSensitiveHealthFields(result);
+    // Un evento por llamada (no uno por participante): la lista puede traer
+    // decenas de fichas y el punto de auditoría es "quién pidió un listado
+    // que incluye salud", no repetir el mismo hecho N veces.
+    if (canSeeHealth && Array.isArray(participants) && participants.length > 0) {
+      void domainAuditService.log({
+        action: DomainAuditAction.PARTICIPANT_HEALTH_VIEW,
+        resourceType: "participant",
+        retreatId: typeof retreatId === "string" ? retreatId : null,
+        metadata: { endpoint: "list", count: participants.length },
+      });
+    }
     res.json(result);
   } catch (error) {
     next(error);
@@ -205,6 +217,15 @@ export const getParticipantById = async (
       let result: unknown = participant;
       if (!canSeeScholarship) result = stripScholarshipAmount(result);
       if (!canSeeHealth) result = stripSensitiveHealthFields(result);
+      if (canSeeHealth) {
+        void domainAuditService.log({
+          action: DomainAuditAction.PARTICIPANT_HEALTH_VIEW,
+          resourceType: "participant",
+          resourceId: participant.id,
+          retreatId: participant.retreatId ?? null,
+          metadata: { endpoint: "detail" },
+        });
+      }
       res.json(result);
     } else {
       res.status(404).json({ message: "Participant not found" });
@@ -953,6 +974,40 @@ export const deleteParticipantByDeleteToken = async (
     }
     const ok = await participantService.anonymizeParticipantByToken(token);
     if (!ok) return res.status(404).json({ message: "Token no válido" });
+    res.json({ success: true });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Deja constancia en la auditoría de que el usuario exportó a archivo (CSV/XLSX)
+ * columnas de salud/contacto de emergencia. La exportación en sí ocurre en el
+ * cliente sobre datos que el servidor ya entregó (gateado por
+ * `participant:health` en getAllParticipants); este endpoint no mueve datos,
+ * solo registra el hecho. Protegido con el mismo permiso: solo quien pudo ver
+ * la ficha completa pudo exportarla.
+ */
+export const logHealthDataExport = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const { retreatId, count, format } = req.body as {
+      retreatId?: string;
+      count?: number;
+      format?: string;
+    };
+    void domainAuditService.log({
+      action: DomainAuditAction.PARTICIPANT_HEALTH_EXPORT,
+      resourceType: "participant",
+      retreatId: typeof retreatId === "string" ? retreatId : null,
+      metadata: {
+        count: typeof count === "number" ? count : null,
+        format: typeof format === "string" ? format : null,
+      },
+    });
     res.json({ success: true });
   } catch (error) {
     next(error);

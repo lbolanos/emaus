@@ -1652,6 +1652,25 @@ export async function previewParticipantMerge(
   return response.data;
 }
 
+/**
+ * Registra en la auditoría de dominio que se exportó un archivo con columnas
+ * de salud/contacto de emergencia. El servidor ya validó `participant:health`
+ * al momento de entregar esos datos al listado (Fase 1); esta llamada solo
+ * deja constancia de CUÁNDO se exportaron a un archivo. Best-effort — un
+ * fallo aquí no debe bloquear la descarga, que ya ocurrió en el cliente.
+ */
+export async function auditHealthDataExport(
+  retreatId: string | undefined,
+  count: number,
+  format: string,
+): Promise<void> {
+  try {
+    await api.post('/participants/health-export-audit', { retreatId, count, format });
+  } catch {
+    // Fire-and-forget: no interrumpir la descarga ya generada.
+  }
+}
+
 /** Fusiona dos fichas. Se niega si el preview trae bloqueos. */
 export async function mergeParticipantDuplicates(
   communityId: string,

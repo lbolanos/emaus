@@ -78,6 +78,19 @@
 						</div>
 					</section>
 
+					<!-- Data retention -->
+					<section>
+						<h2 class="text-2xl font-medium text-stone-900 mb-4">
+							{{ $t('privacy.retention.title') }}
+						</h2>
+						<div class="text-stone-600 leading-relaxed space-y-4">
+							<p>{{ $t('privacy.retention.content') }}</p>
+							<ul class="list-disc pl-6 space-y-2">
+								<li v-for="item in retentionItems" :key="item">{{ item }}</li>
+							</ul>
+						</div>
+					</section>
+
 					<!-- Use of Information -->
 					<section>
 						<h2 class="text-2xl font-medium text-stone-900 mb-4">
@@ -213,6 +226,13 @@ const sensitiveItems = ref([
 	t('privacy.sensitive.items.purpose'),
 	t('privacy.sensitive.items.access'),
 	t('privacy.sensitive.items.deletion'),
+]);
+
+// Data retention items
+const retentionItems = ref([
+	t('privacy.retention.items.health'),
+	t('privacy.retention.items.backups'),
+	t('privacy.retention.items.logs'),
 ]);
 
 // User rights items

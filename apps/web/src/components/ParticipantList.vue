@@ -7,7 +7,7 @@ import { useParticipantStore } from '@/stores/participantStore';
 import { useRetreatStore } from '@/stores/retreatStore';
 import { useMyParticipantId } from '@/composables/useMyParticipantId';
 import { useTableMesaStore } from '@/stores/tableMesaStore';
-import { getPalanqueroOptions, sendEmailViaBackend, getSmtpConfig, listShirtTypes, getParticipantById } from '@/services/api';
+import { getPalanqueroOptions, sendEmailViaBackend, getSmtpConfig, listShirtTypes, getParticipantById, auditHealthDataExport } from '@/services/api';
 import { useMessageTemplateStore } from '@/stores/messageTemplateStore';
 import { useAuthPermissions } from '@/composables/useAuthPermissions';
 import { convertHtmlToEmail, replaceAllVariables } from '@/utils/message';
@@ -1017,6 +1017,15 @@ const toggleFilterStatus = () => {
 
 // --- IMPORTACIÓN / EXPORTACIÓN ---
 
+// Deja constancia (best-effort, sin bloquear la descarga) cuando el archivo
+// exportado incluye columnas de salud/contacto de emergencia — ver
+// SENSITIVE_HEALTH_FIELDS en participantController.ts.
+const auditExportIfIncludesHealth = (columnKeys: string[], count: number, format: string) => {
+    if (columnKeys.some((key) => HEALTH_COLUMN_KEYS.has(key))) {
+        void auditHealthDataExport(selectedRetreatId.value ?? undefined, count, format);
+    }
+};
+
 const exportData = async (format: 'csv' | 'xlsx') => {
     const dataToExport = filteredAndSortedParticipants.value.map(p => {
         const record: { [key: string]: any } = {};
@@ -1028,6 +1037,7 @@ const exportData = async (format: 'csv' | 'xlsx') => {
         });
         return record;
     });
+    auditExportIfIncludesHealth(visibleColumns.value, dataToExport.length, format);
 
     if (format === 'xlsx') {
         const workbook = new ExcelJS.Workbook();
@@ -1276,6 +1286,7 @@ const exportSelectedParticipants = async (format: 'csv' | 'xlsx') => {
         });
         return record;
     });
+    auditExportIfIncludesHealth(visibleColumns.value, dataToExport.length, format);
 
     // Export logic similar to exportData function...
     exportAsFile(dataToExport, format, `selected_participants_${new Date().toISOString().slice(0, 10)}`);
@@ -1320,6 +1331,7 @@ const exportAsFile = async (data: any[], format: 'csv' | 'xlsx', filename: strin
 };
 
 const handleExport = async (data: any[], format: string, filename: string) => {
+    auditExportIfIncludesHealth(exportSelectedColumns.value, data.length, format);
     // Use the existing exportAsFile function
     await exportAsFile(data, format as 'csv' | 'xlsx', filename);
 };
