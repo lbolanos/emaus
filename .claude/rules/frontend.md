@@ -33,6 +33,15 @@ funciones nuevas van en `apps/web/src/services/api.ts`.
 - Patrones de Vue 3 Composition API (`<script setup>` + TypeScript). Para trabajo de Vue en
   profundidad, cargar el skill **`vue-best-practices`**.
 
+## i18n: una key ausente pinta la key cruda, no el fallback del ternario
+
+El patrón `t ? t('x') : 'Fallback'` solo cubre que `t` venga undefined. En un componente con
+`useI18n()` montado, una key que falta hace que `t()` **devuelva la propia key** y lance un
+warning por consola — el fallback nunca corre, y la UI muestra `messageTemplates.dialog.htmlPlaceholder`
+en lugar del texto (pasó el 2026-09-13: 4 keys del modal de plantillas caídas, una —`htmlPlaceholder`—
+pintada cruda por cada keystroke del tab HTML). Al añadir una key, verificar que exista en `es.json`
+Y en `en.json`: el hueco de un idioma no se ve hasta que alguien cambia el locale.
+
 ## Prop booleana nueva en un componente ya usado: `withDefaults` obligatorio
 
 Vue castea una prop declarada como booleana **que el padre no pasa** a `false`, no a
