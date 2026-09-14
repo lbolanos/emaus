@@ -82,6 +82,7 @@ describe('i18n required keys for messageTemplates.types', () => {
 		'EMERGENCY_CONTACT_VALIDATION',
 		'PALANCA_REQUEST',
 		'PALANCA_REMINDER',
+		'PALANCA_DEFINITION',
 		'GENERAL',
 		'PRE_RETREAT_REMINDER',
 		'PAYMENT_REMINDER',
