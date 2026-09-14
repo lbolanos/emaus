@@ -1,4 +1,5 @@
 import { test, expect, Page, Locator } from '@playwright/test';
+import { mkdirSync } from 'node:fs';
 
 /**
  * Browser e2e for the WhatsApp-format template previews.
@@ -24,6 +25,9 @@ const PASSWORD = process.env.E2E_LOCAL_PASSWORD;
 /** Retreat table cell / global card preview, both fixed by the same change. */
 const RETREAT_PREVIEW = 'div.line-clamp-3.whitespace-pre-line';
 const GLOBAL_PREVIEW = 'p.line-clamp-3.whitespace-pre-line';
+
+/** Element screenshots of the walkthrough, outside the repo on purpose. */
+const SHOT_DIR = '/tmp/emaus-e2e-visual';
 
 test.use({ locale: 'es-MX' });
 
@@ -242,5 +246,84 @@ test.describe('Template previews keep WhatsApp line breaks', () => {
 		const collapsed = await renderedLines(page.locator(GLOBAL_PREVIEW).nth(anchor!.index));
 		expect(collapsed.whiteSpace).toContain('pre-line');
 		expect(collapsed.lines).toBeGreaterThan(1);
+	});
+
+	// Walks every surface the coordinator looks at, asserts the paragraph
+	// structure on each, and drops element screenshots in /tmp/emaus-e2e-visual
+	// as human-checkable evidence. Read-only: it never saves a template.
+	test('visual walkthrough: every surface keeps the paragraph structure', async ({
+		page,
+	}) => {
+		mkdirSync(SHOT_DIR, { recursive: true });
+		const shot = (name: string) => `${SHOT_DIR}/${name}.png`;
+
+		await login(page);
+		const listUrlPromise = page.waitForRequest(
+			(r) => /\/api\/message-templates\?retreatId=/.test(r.url()),
+			{ timeout: 20000 },
+		);
+		await page.goto('/app/settings/message-templates');
+
+		const anchor = await firstMultilinePreview(page, RETREAT_PREVIEW);
+		const apiUrl = (await listUrlPromise).url();
+		const migrated = await apiHasMultilineTemplate(page, apiUrl);
+		test.skip(
+			!migrated,
+			'no multi-line template in the active retreat (WhatsApp format migration not applied?)',
+		);
+		expect(anchor, 'list preview flattened the newlines').toBeTruthy();
+
+		// 1. Retreat list: collapsed cell renders >1 real line.
+		const cell = page.locator(RETREAT_PREVIEW).nth(anchor!.index);
+		const collapsedCell = await renderedLines(cell);
+		expect(collapsedCell.whiteSpace).toContain('pre-line');
+		expect(collapsedCell.lines).toBeGreaterThan(1);
+		await cell.locator('xpath=ancestor::tr').screenshot({ path: shot('1-retiro-lista-colapsada') });
+
+		// 2. Same row expanded via "Ver más": full structure with its newlines.
+		const row = cell.locator('xpath=ancestor::tr');
+		await row.getByText('Ver más').click();
+		const expanded = page.locator('div.whitespace-pre-wrap.font-mono').first();
+		await expect(expanded).toBeVisible();
+		const fullText = (await expanded.textContent()) ?? '';
+		expect((fullText.match(/\n/g) ?? []).length).toBeGreaterThanOrEqual(3);
+		await expanded.screenshot({ path: shot('2-retiro-fila-expandida') });
+
+		// 3. Editor: the anchored template opens with its newlines intact.
+		await row.getByText('Ver menos').click();
+		const editRow = page.locator(RETREAT_PREVIEW).nth(anchor!.index).locator('xpath=ancestor::tr');
+		await editRow.locator('button[title="Editar"]').click();
+		const dialog = page.locator('[role="dialog"]');
+		await expect(dialog).toBeVisible({ timeout: 10000 });
+		const editor = dialog.locator('textarea').first();
+		await expect(editor).toBeVisible({ timeout: 10000 });
+		const value = await editor.inputValue();
+		expect((value.match(/\n/g) ?? []).length).toBeGreaterThanOrEqual(3);
+		await editor.screenshot({ path: shot('3-editor-textarea') });
+
+		// 4. Preview tab: renders the resolved message as real lines.
+		await dialog.getByRole('tab', { name: 'Vista Previa' }).click();
+		const preview = dialog.locator('.preview-content.whitespace-pre-line');
+		await expect(preview).toBeVisible({ timeout: 10000 });
+		const previewText = (await preview.textContent()) ?? '';
+		expect((previewText.match(/\n/g) ?? []).length).toBeGreaterThanOrEqual(3);
+		const previewBox = await preview.boundingBox();
+		await page.screenshot({
+			path: shot('4-editor-vista-previa'),
+			clip: previewBox ?? undefined,
+		});
+		await page.keyboard.press('Escape');
+
+		// 5. Global cards: same paragraph structure in the grid preview.
+		await page.goto('/app/settings/global-message-templates');
+		const globalAnchor = await firstMultilinePreview(page, GLOBAL_PREVIEW);
+		const globalMigrated = await apiHasMultilineTemplate(page, '/api/global-message-templates');
+		test.skip(!globalMigrated, 'no multi-line global template (format migration not applied?)');
+		expect(globalAnchor, 'global card preview flattened the newlines').toBeTruthy();
+		const cardEl = page
+			.locator(GLOBAL_PREVIEW)
+			.nth(globalAnchor!.index)
+			.locator('xpath=ancestor::div[contains(@class,"shadow-md")][1]');
+		await cardEl.screenshot({ path: shot('5-globales-card') });
 	});
 });
