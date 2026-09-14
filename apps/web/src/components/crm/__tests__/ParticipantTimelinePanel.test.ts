@@ -132,7 +132,8 @@ describe('ParticipantTimelinePanel', () => {
 		const w = await mountPanel();
 		const links = w.findAll('a[href^="https://api.whatsapp.com"]');
 		const hrefs = links.map((l) => l.attributes('href'));
-		expect(hrefs).toContain('https://api.whatsapp.com/send?phone=5215579797705');
+		// '5215579797705' es el formato móvil MX legado: el link lo normaliza a `52` + 10.
+		expect(hrefs).toContain('https://api.whatsapp.com/send?phone=525579797705');
 		for (const h of hrefs) expect(h).not.toContain('text=');
 		// Julio Cesar no tiene teléfono → un enlace menos que interlocutores.
 		expect(links).toHaveLength(2);

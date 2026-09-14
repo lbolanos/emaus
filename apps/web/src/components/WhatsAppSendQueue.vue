@@ -6,7 +6,7 @@ import { Button } from '@repo/ui';
 import { X, MessageSquare, Check, ExternalLink } from 'lucide-vue-next';
 import { convertHtmlToWhatsApp, replaceAllVariables } from '@/utils/message';
 import type { ParticipantData, RetreatData } from '@/utils/message';
-import { sanitizePhoneForWhatsapp } from '@/utils/phone';
+import { buildWhatsAppSendLink, sanitizePhoneForWhatsapp } from '@/utils/phone';
 import { useRetreatStore } from '@/stores/retreatStore';
 import { useParticipantCommunicationStore } from '@/stores/participantCommunicationStore';
 import { getMessageTemplateAudience } from '@repo/types';
@@ -104,7 +104,10 @@ async function sendOne(item: QueueItem) {
 		/* clipboard puede fallar sin https; no es bloqueante */
 	}
 
-	const url = `https://api.whatsapp.com/send?phone=${item.phone}&text=${encodeURIComponent(message)}`;
+	// La lada se resuelve con el país de la ficha (default MX): sin ella el
+	// número nacional de 10 dígitos abre un chat en Brasil.
+	const url = buildWhatsAppSendLink(item.phone, message, item.participant.country);
+	if (!url) return; // defensivo: el botón sólo aparece con teléfono
 	tryOpenUrl(url, () => {
 		toast({
 			title: t('whatsappQueue.openFallbackTitle'),

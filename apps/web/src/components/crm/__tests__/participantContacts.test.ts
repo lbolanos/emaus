@@ -8,6 +8,7 @@ import {
 const walker = {
 	firstName: 'Andrei',
 	lastName: 'Ibarra',
+	country: 'México',
 	cellPhone: '+52 55 1234-5678',
 	email: 'andrei@example.com',
 	emergencyContact1Name: 'Luz Ma Ibarra',
@@ -49,8 +50,15 @@ describe('buildParticipantContacts', () => {
 	it('el enlace de WhatsApp abre el chat, sin texto precargado', () => {
 		const rows = buildParticipantContacts(walker);
 		const mama = rows.find((r) => r.key === 'emergencyContact1')!;
-		expect(mama.whatsappLink).toBe('https://api.whatsapp.com/send?phone=5215579797705');
+		// '5215579797705' es el formato móvil MX legado: se normaliza a `52` + 10.
+		expect(mama.whatsappLink).toBe('https://api.whatsapp.com/send?phone=525579797705');
 		expect(mama.whatsappLink).not.toContain('text=');
+	});
+
+	it('antepone la lada del país de la ficha a los números nacionales', () => {
+		const rows = buildParticipantContacts(walker);
+		const inviter = rows.find((r) => r.key === 'inviter')!;
+		expect(inviter.whatsappLink).toBe('https://api.whatsapp.com/send?phone=525551112222');
 	});
 
 	/**
