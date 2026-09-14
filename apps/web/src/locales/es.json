@@ -735,6 +735,7 @@
       "typeLabel": "Tipo",
       "typePlaceholder": "Selecciona un tipo",
       "messageLabel": "Mensaje",
+      "htmlPlaceholder": "Escribe el código HTML aquí...",
       "placeholdersHelp": "Usa placeholders como {participant.firstName}, {retreat.name}",
       "searchPlaceholder": "Buscar variables...",
       "categoryAll": "Todas las Categorías",
@@ -749,6 +750,7 @@
       "usedVariables": "Variables Usadas",
       "click": "Clic",
       "save": "Guardar",
+      "selectRetreatFirst": "Por favor selecciona un retiro primero",
       "variablesTitle": "Variables Disponibles",
       "categories": {
         "participant": "Variables del Participante",

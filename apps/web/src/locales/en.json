@@ -687,10 +687,13 @@
     "dialog": {
       "editTitle": "Edit Template",
       "newTitle": "New Template",
+      "editDescription": "Edit an existing message template",
+      "createDescription": "Create a new message template",
       "nameLabel": "Name",
       "typeLabel": "Type",
       "typePlaceholder": "Select a type",
       "messageLabel": "Message",
+      "htmlPlaceholder": "Write the HTML code here...",
       "placeholdersHelp": "Use placeholders like {participant.firstName}, {retreat.name}",
       "searchPlaceholder": "Search variables...",
       "categoryAll": "All Categories",
@@ -704,6 +707,7 @@
       "participantPlaceholder": "Choose a participant...",
       "usedVariables": "Used Variables",
       "save": "Save",
+      "selectRetreatFirst": "Please select a retreat first",
       "variablesTitle": "Available Variables",
       "categories": {
         "participant": "Participant Variables",
