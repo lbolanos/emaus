@@ -70,7 +70,7 @@
 					</div>
 
 					<div class="mb-4">
-						<p class="text-sm text-gray-600 line-clamp-3">
+						<p class="text-sm text-gray-600 line-clamp-3 whitespace-pre-line">
 							{{ formatMessagePreview(template.message) }}
 						</p>
 					</div>
@@ -260,12 +260,14 @@ const audienceLabels: Record<string, string> = {
 const getAudienceLabel = (type: string) => audienceLabels[getMessageTemplateAudience(type)];
 
 const formatMessagePreview = (message: string) => {
-	// Extract text from HTML by removing all HTML tags
-	const plainText = message.replace(/<[^>]*>/g, ' ')
-		.replace(/\s+/g, ' ') // Replace multiple spaces with single space
-		.trim(); // Remove leading/trailing whitespace
-
-	return plainText.length > 150 ? plainText.substring(0, 150) + '...' : plainText;
+	// Extract text from HTML by removing all HTML tags. Newlines are kept so
+	// WhatsApp-format templates preview with their real paragraph structure
+	// (the card clamps to 3 lines via CSS); only spaces/tabs are collapsed.
+	return message
+		.replace(/<[^>]*>/g, ' ') // Remove HTML tags
+		.replace(/[^\S\n]+/g, ' ') // Collapse spaces/tabs, keep newlines
+		.replace(/\n{3,}/g, '\n\n') // Collapse 3+ consecutive newlines
+		.trim();
 };
 
 const formatDate = (dateString: string) => {

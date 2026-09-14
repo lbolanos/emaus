@@ -138,6 +138,17 @@ const convertHtmlToText = (html: string): string => {
     .trim(); // Remove leading/trailing whitespace
 };
 
+// Same as convertHtmlToText but keeps newlines, so WhatsApp-format templates
+// render with their real paragraph structure. Used for display only — the
+// search filter and the length thresholds keep the flattened version.
+const convertHtmlToMultilineText = (html: string): string => {
+  return html
+    .replace(/<[^>]*>/g, ' ') // Remove HTML tags
+    .replace(/[^\S\n]+/g, ' ') // Collapse spaces/tabs, keep newlines
+    .replace(/\n{3,}/g, '\n\n') // Collapse 3+ consecutive newlines
+    .trim();
+};
+
 const handleSort = (field: 'name' | 'type') => {
   if (sortField.value === field) {
     sortDirection.value = sortDirection.value === 'asc' ? 'desc' : 'asc';
@@ -325,8 +336,8 @@ const handleTemplateSaved = () => {
                 <TableCell class="max-w-xs">
                   <div class="flex items-start gap-2">
                     <div class="flex-1 min-w-0">
-                      <div class="text-sm truncate">
-                        {{ convertHtmlToText(template.message) }}
+                      <div class="text-sm line-clamp-3 whitespace-pre-line">
+                        {{ convertHtmlToMultilineText(template.message) }}
                       </div>
                       <div
                         v-if="convertHtmlToText(template.message).length > 100"
@@ -391,7 +402,7 @@ const handleTemplateSaved = () => {
                   <div class="space-y-2">
                     <div class="text-sm font-medium text-muted-foreground">Mensaje completo:</div>
                     <div class="bg-background border rounded-md p-3 text-sm font-mono whitespace-pre-wrap max-h-40 overflow-y-auto">
-                      {{ convertHtmlToText(template.message) }}
+                      {{ convertHtmlToMultilineText(template.message) }}
                     </div>
                     <div class="flex items-center justify-between text-xs text-muted-foreground">
                       <span>{{ convertHtmlToText(template.message).length }} caracteres</span>
