@@ -148,6 +148,7 @@ Sistema TypeORM contra SQLite. Comandos: `migration:generate`, `migration:run`, 
 | Subir videos al canal de YouTube "Emaús Retiros", generar arte del canal/miniaturas con IA (nano banana/Gemini), OAuth de YouTube, o el botón de ayuda `HelpVideoButton` in-app | `youtube-publishing` |
 | Levantar `pnpm dev` en un git worktree (`.claude/worktrees/<branch>/`) sin chocar con los puertos del main | `worktree-testing` |
 | Entrar por SSH al servidor de prod, AWS CLI, bucket `emaus-media`, backup manual de la DB | `infra-remota` |
+| Prod "está lento"/"se siente pesada": triage de latencia por capas (servidor, API local, origen directo vs Cloudflare), swap/zombies, workers de Cloudflare | `prod-performance-triage` |
 | Features puntuales del dominio | `closing-mass-church`, `santisimo`, `whatsapp-admin`, `arquitectura` |
 
 ## Testing — solo el qué y el cómo correr
