@@ -1563,6 +1563,12 @@ export const replaceAllVariables = (
 		processedMessage = replaceSpouseVariables(processedMessage, spouse, escapeHtmlValues);
 	}
 
+	// A nullable variable wrapped in emphasis marks (`*{retreat.cost}*`)
+	// resolves to a literal `**` when the value is missing — WhatsApp then
+	// shows the raw markers to the recipient. Collapse the empty pairs.
+	// Double backticks are NOT collapsed: they carry their own meaning there.
+	processedMessage = processedMessage.replace(/(\*\*|__|~~)/g, '');
+
 	return processedMessage;
 };
 

@@ -149,6 +149,15 @@ const convertHtmlToMultilineText = (html: string): string => {
     .trim();
 };
 
+// "Ver más" gate. The cell clamps at 3 rendered lines, but the old threshold
+// only measured flattened characters: a WhatsApp-format template with many
+// short lines stayed visually truncated with no way to expand. Gate on
+// either signal.
+const shouldShowExpand = (message: string): boolean => {
+  if (convertHtmlToText(message).length > 100) return true;
+  return convertHtmlToMultilineText(message).split('\n').length > 3;
+};
+
 const handleSort = (field: 'name' | 'type') => {
   if (sortField.value === field) {
     sortDirection.value = sortDirection.value === 'asc' ? 'desc' : 'asc';
@@ -340,7 +349,7 @@ const handleTemplateSaved = () => {
                         {{ convertHtmlToMultilineText(template.message) }}
                       </div>
                       <div
-                        v-if="convertHtmlToText(template.message).length > 100"
+                        v-if="shouldShowExpand(template.message)"
                         class="text-xs text-muted-foreground cursor-pointer hover:text-primary mt-1"
                         @click="toggleRowExpansion(template.id)"
                       >
@@ -348,7 +357,7 @@ const handleTemplateSaved = () => {
                       </div>
                     </div>
                     <Button
-                      v-if="convertHtmlToText(template.message).length > 100"
+                      v-if="shouldShowExpand(template.message)"
                       variant="ghost"
                       size="sm"
                       @click="toggleRowExpansion(template.id)"

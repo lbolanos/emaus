@@ -229,11 +229,15 @@
                   <div class="w-full resize-y rounded-md border border-input bg-muted/50 px-3 py-2 text-sm overflow-y-auto min-h-[300px] max-h-[600px]" style="height: 160px;">
                     <!-- Plain-text (WhatsApp) templates render as interpolated
                          text with pre-line so their \n show as real lines;
-                         v-html would collapse them. -->
+                         v-html would collapse them. The computed returns the
+                         RAW resolved message: interpolation escapes the plain
+                         branch, and the HTML branch sanitizes here—running
+                         sanitizeHtml in the computed double-escaped entities
+                         (&amp;amp;) in the interpolated branch. -->
                     <div v-if="previewMessage && isPlainTextMessage" class="preview-content whitespace-pre-line">
                       {{ previewMessage }}
                     </div>
-                    <div v-else-if="previewMessage" class="preview-content" v-html="previewMessage">
+                    <div v-else-if="previewMessage" class="preview-content" v-html="sanitizeHtml(previewMessage)">
                     </div>
                     <div v-else-if="!isGlobal && !selectedParticipant" class="text-muted-foreground italic text-center py-8">
                       {{ t ? t('messageTemplates.dialog.selectParticipant') : 'Selecciona un participante para ver la vista previa' }}
@@ -436,7 +440,7 @@ import { useMessageTemplateStore } from '@/stores/messageTemplateStore';
 import { useRetreatStore } from '@/stores/retreatStore';
 import RichTextEditor from './RichTextEditor.vue';
 import { messageTemplateTypes, getMessageTemplateAudience } from '@repo/types';
-import { convertHtmlToWhatsApp, convertHtmlToEmail, detectEmailClient, copyRichTextToClipboard, testEmojiConversion, beautifyHtml, replaceAllVariables, buildServerRegistrationLink, ParticipantData, RetreatData } from '@/utils/message';
+import { convertHtmlToWhatsApp, convertHtmlToEmail, detectEmailClient, copyRichTextToClipboard, testEmojiConversion, beautifyHtml, replaceAllVariables, buildServerRegistrationLink, HTML_TAG_RE, ParticipantData, RetreatData } from '@/utils/message';
 import { getParticipantNextMeeting, getParticipantShirtOrder } from '@/services/api';
 import { sanitizeHtml, sanitizeEmailHtml } from '@/utils/sanitize';
 
@@ -522,8 +526,7 @@ const formData = ref({
 // re-serializes the message as one flat <p> — saving that destroys the
 // WhatsApp structure. Templates that carry real HTML (email legacy) keep the
 // rich editor; plain text edits in a textarea that round-trips untouched.
-const HTML_TAG_RE =
-  /<\/?(p|div|br|ul|ol|li|dl|dt|dd|strong|b|em|i|u|s|strike|del|ins|h[1-6]|blockquote|pre|code|a|img|span|table|thead|tbody|tr|td|th|hr|html|head|body|style|font|center)\b/i;
+// The tag detector lives in @/utils/message (shared with the clipboard).
 const isPlainTextMessage = computed(() => !HTML_TAG_RE.test(formData.value.message || ''));
 
 const plainTextEditorRef = ref<HTMLTextAreaElement | null>(null);
@@ -970,7 +973,11 @@ const previewMessage = computed(() => {
     message = message.replace(new RegExp(key.replace(/[{}.]/g, '\\$&'), 'g'), value);
   });
 
-  return sanitizeHtml(message);
+  // Raw resolved message. Sanitizing here (DOMPurify) plus mustache
+  // interpolation in the plain-text branch double-escaped entities. The
+  // template owns the safety now: interpolation escapes the plain branch,
+  // the HTML branch runs sanitizeHtml inside v-html.
+  return message;
 });
 
 // Fetch the participant's next community meeting whenever the previewed

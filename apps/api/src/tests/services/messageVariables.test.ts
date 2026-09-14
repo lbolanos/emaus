@@ -371,4 +371,43 @@ describe('Message variable replacement', () => {
 			]);
 		});
 	});
+
+	describe('Empty emphasis pairs after variable resolution', () => {
+		it('collapses the ** left by an empty variable wrapped in bold', () => {
+			const result = replaceAllVariables(
+				'Tu aporte de *{participant.firstName}* quedó registrado.',
+				buildParticipant({ firstName: '' }),
+				null,
+			);
+			expect(result).toBe('Tu aporte de  quedó registrado.');
+		});
+
+		it('collapses empty __ and ~~ pairs too', () => {
+			const result = replaceAllVariables(
+				'_{participant.firstName}_ ~{participant.lastName}~',
+				buildParticipant({ firstName: '', lastName: '' }),
+				null,
+			);
+			expect(result).not.toContain('__');
+			expect(result).not.toContain('~~');
+		});
+
+		it('keeps double backticks (WhatsApp monospace block marker)', () => {
+			const result = replaceAllVariables(
+				'Código: ``{participant.firstName}``',
+				buildParticipant({ firstName: '' }),
+				null,
+			);
+			expect(result).toContain('``');
+		});
+
+		it('keeps single-asterisk bold when the variable has content', () => {
+			const result = replaceAllVariables(
+				'*{participant.firstName}*',
+				buildParticipant({ firstName: 'Juan' }),
+				null,
+			);
+			expect(result).toBe('*Juan*');
+		});
+	});
 });

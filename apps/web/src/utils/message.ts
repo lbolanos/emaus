@@ -418,6 +418,13 @@ export const createFallbackCopyMethod = (
 	});
 };
 
+// Discriminates the two stored formats of `message`: real HTML (email legacy)
+// vs plain text (WhatsApp). `(?![\p{L}\p{N}])` instead of `\b`: \b is
+// ASCII-only, so plain text like `<sí>` or `<día>` has a word boundary right
+// after the tag name (Í is not \w) and would be misdetected as HTML.
+export const HTML_TAG_RE =
+	/<\/?(p|div|br|ul|ol|li|dl|dt|dd|strong|b|em|i|u|s|strike|del|ins|h[1-6]|blockquote|pre|code|a|img|span|table|thead|tbody|tr|td|th|hr|html|head|body|style|font|center)(?![\p{L}\p{N}])/iu;
+
 /**
  * Copies rich text formatted content to clipboard
  * This creates a temporary div with the HTML content, selects it, and copies it with formatting
@@ -434,6 +441,21 @@ export const copyRichTextToClipboard = async (
 		// Detect clipboard capabilities first
 		const capabilities = detectClipboardCapabilities();
 		console.log('Clipboard capabilities:', capabilities);
+
+		// WhatsApp-format (plain-text) content carries its whole structure in
+		// \n characters. Both clipboard paths destroy them: the offscreen div
+		// renders with white-space:normal (newlines collapse), and the
+		// text/plain fallbacks flatten all whitespace. Convert the structure
+		// to <br> up front; real HTML already encodes its own breaks and
+		// passes through untouched.
+		const looksLikeHtml = HTML_TAG_RE.test(html);
+		const richHtml = looksLikeHtml ? html : html.replace(/\n/g, '<br>');
+		const plainTextVersion = looksLikeHtml
+			? String(html)
+					.replace(/<[^>]*>/g, ' ')
+					.replace(/\s+/g, ' ')
+					.trim()
+			: html;
 
 		// Enhanced error handling with detailed feedback
 		const handleError = (error: Error, method: string, fallbackTo?: 'html' | 'text') => {
@@ -452,7 +474,7 @@ export const copyRichTextToClipboard = async (
 			try {
 				// Create a temporary div to hold the HTML content
 				tempDiv = document.createElement('div');
-				tempDiv.innerHTML = html;
+				tempDiv.innerHTML = richHtml;
 				tempDiv.style.position = 'absolute';
 				tempDiv.style.left = '-9999px';
 				tempDiv.style.top = '-9999px';
@@ -506,11 +528,8 @@ export const copyRichTextToClipboard = async (
 					throw new Error('Document not focused');
 				}
 
-				const htmlBlob = new Blob([html], { type: 'text/html' });
-				const plainText = String(html)
-					.replace(/<[^>]*>/g, ' ')
-					.replace(/\s+/g, ' ')
-					.trim();
+				const htmlBlob = new Blob([richHtml], { type: 'text/html' });
+				const plainText = plainTextVersion;
 				const textBlob = new Blob([plainText], { type: 'text/plain' });
 
 				const htmlItem = new ClipboardItem({
@@ -532,10 +551,7 @@ export const copyRichTextToClipboard = async (
 		}
 
 		// Fallback 2: Copy as plain text using modern API
-		const plainText = String(html)
-			.replace(/<[^>]*>/g, ' ')
-			.replace(/\s+/g, ' ')
-			.trim();
+		const plainText = plainTextVersion;
 
 		if (capabilities.supportsPlainText && capabilities.isSecureContext) {
 			try {
