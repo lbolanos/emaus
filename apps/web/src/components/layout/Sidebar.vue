@@ -418,6 +418,10 @@ export interface MenuItem {
   routeName: string;
   icon: any;
   permission?: PermissionType;
+  // Operación a exigir sobre `permission` (default 'read'). Usado por
+  // Medicinas/Alimentos para pedir 'health' en vez del 'read' general, que
+  // hoy tiene hasta regular_server.
+  permissionOperation?: 'read' | 'health';
   requiresRetreat?: boolean;
   label: string;
   category?: string;
@@ -444,7 +448,8 @@ const receptionStore = useReceptionStore();
 const participantStore = useParticipantStore();
 const { participants } = storeToRefs(participantStore);
 const { isSidebarCollapsed, isMobile } = storeToRefs(uiStore);
-const { can, isSuperadmin, currentRetreatRole, retreatOnlyPermissions } = useAuthPermissions();
+const { can, isSuperadmin, currentRetreatRole, retreatOnlyPermissions, canAccessResource } =
+  useAuthPermissions();
 const route = useRoute();
 const { isRetreatSection, currentSectionTitle } = useRouteContext();
 const { locale, t } = useI18n();
@@ -974,6 +979,8 @@ const menuSections: MenuSection[] = [
         name: 'medicines-report',
         routeName: 'medicines-report',
         icon: Pill,
+        permission: 'participant',
+        permissionOperation: 'health',
         requiresRetreat: true,
         label: 'sidebar.medicinesReport'
       },
@@ -989,6 +996,8 @@ const menuSections: MenuSection[] = [
         name: 'food',
         routeName: 'food',
         icon: Salad,
+        permission: 'participant',
+        permissionOperation: 'health',
         requiresRetreat: true,
         label: 'sidebar.food'
       },
@@ -1111,14 +1120,18 @@ const filteredMenuSections = computed(() => {
       }
 
       if (item.permission && item.permission !== 'superadmin' && item.name !== 'role-management' && item.name !== 'communities') {
+        const operation = item.permissionOperation ?? 'read';
         if (isSuperadmin) {
           // superadmin siempre ve todos los menús
         } else if (item.requiresRetreat && retreatStore.selectedRetreatId) {
           // For retreat items, check only retreat role permissions (not global)
-          const hasPermission = retreatOnlyPermissions.value.includes(`${item.permission}:read`);
+          const hasPermission = retreatOnlyPermissions.value.includes(`${item.permission}:${operation}`);
           if (!hasPermission) return false;
         } else {
-          const hasPermission = can.read(item.permission);
+          const hasPermission =
+            operation === 'read'
+              ? can.read(item.permission)
+              : canAccessResource(item.permission, operation);
           if (!hasPermission) return false;
         }
       }

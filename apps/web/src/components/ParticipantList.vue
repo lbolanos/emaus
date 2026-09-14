@@ -378,6 +378,20 @@ const { hasPermission } = useAuthPermissions();
 const canViewScholarshipAmount = computed(() =>
     hasPermission('participant:viewScholarshipAmount' as any),
 );
+const canViewHealthData = computed(() => hasPermission('participant:health'));
+
+// Columnas de salud/contacto de emergencia — solo visibles/seleccionables con
+// participant:health (admin/treasurer/logistics/superadmin), no con el
+// participant:read general (hasta regular_server lo tiene). Mismo listado que
+// SENSITIVE_HEALTH_FIELDS en apps/api/src/controllers/participantController.ts.
+const HEALTH_COLUMN_KEYS = new Set([
+    'medicationDetails', 'medicationSchedule', 'dietaryRestrictionsDetails',
+    'disabilitySupport', 'notes',
+    'emergencyContact1Name', 'emergencyContact1Relation', 'emergencyContact1HomePhone',
+    'emergencyContact1WorkPhone', 'emergencyContact1CellPhone', 'emergencyContact1Email',
+    'emergencyContact2Name', 'emergencyContact2Relation', 'emergencyContact2HomePhone',
+    'emergencyContact2WorkPhone', 'emergencyContact2CellPhone', 'emergencyContact2Email',
+]);
 
 const baseColumns = ref([
     { key: 'id_on_retreat', label: 'participants.fields.id' },
@@ -461,6 +475,7 @@ const baseColumns = ref([
 const allColumns = computed(() => {
     return baseColumns.value.filter((c) => {
         if (c.key === 'scholarshipAmount') return canViewScholarshipAmount.value;
+        if (HEALTH_COLUMN_KEYS.has(c.key)) return canViewHealthData.value;
         return true;
     });
 });

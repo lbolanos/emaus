@@ -9,6 +9,7 @@ import {
 } from "@repo/types";
 import { z } from "zod";
 import { authorizationService, ensureRetreatAccess } from "../middleware/authorization";
+import { Participant } from "../entities/participant.entity";
 import { participantAvailabilityService } from "../services/participantAvailabilityService";
 import { getParticipantShirtOrderSummary } from "../services/shirtReportService";
 
@@ -54,6 +55,72 @@ function stripScholarshipAmount<T>(data: T): T {
 }
 
 /**
+ * Campos de salud/contacto de emergencia que solo debe ver quien tiene
+ * `participant:health` (admin, treasurer, logistics, superadmin). Deja fuera
+ * a propósito `snores`/`hasMedication`/`hasDietaryRestrictions` (booleanos
+ * usados por la asignación de camas, sin ruta protegida hoy) y `sacraments`
+ * (dato religioso, no de salud) — solo el detalle libre y los contactos.
+ */
+const SENSITIVE_HEALTH_FIELDS = [
+	"medicationDetails",
+	"medicationSchedule",
+	"dietaryRestrictionsDetails",
+	"disabilitySupport",
+	"notes",
+	"emergencyContact1Name",
+	"emergencyContact1Relation",
+	"emergencyContact1HomePhone",
+	"emergencyContact1WorkPhone",
+	"emergencyContact1CellPhone",
+	"emergencyContact1Email",
+	"emergencyContact2Name",
+	"emergencyContact2Relation",
+	"emergencyContact2HomePhone",
+	"emergencyContact2WorkPhone",
+	"emergencyContact2CellPhone",
+	"emergencyContact2Email",
+] as const;
+
+/**
+ * Returns true when the request user can read the health/emergency-contact
+ * fields of a participant. Permission: participant:health (admin, treasurer,
+ * logistics, superadmin). If the request has no authenticated user, access
+ * is denied.
+ */
+async function canViewHealthData(req: Request): Promise<boolean> {
+	const userId = (req as any).user?.id;
+	if (!userId) return false;
+	try {
+		return await authorizationService.hasPermission(userId, "participant:health");
+	} catch {
+		return false;
+	}
+}
+
+/**
+ * Strip the sensitive health/emergency-contact fields from a participant
+ * payload (or array) before sending it to a client that lacks
+ * participant:health. Same shape as stripScholarshipAmount.
+ */
+function stripSensitiveHealthFields<T>(data: T): T {
+	if (data == null) return data;
+	if (Array.isArray(data)) {
+		return data.map((item) => stripSensitiveHealthFields(item)) as any;
+	}
+	if (typeof data === "object") {
+		const obj: any =
+			typeof (data as any).toJSON === "function" ? (data as any).toJSON() : { ...data };
+		for (const field of SENSITIVE_HEALTH_FIELDS) {
+			if (field in obj) {
+				delete obj[field];
+			}
+		}
+		return obj;
+	}
+	return data;
+}
+
+/**
  * DTO mínimo para la respuesta de un alta pública de participante.
  *
  * `createParticipant` identifica a la persona por correo y, si ya existía una
@@ -65,13 +132,9 @@ function stripScholarshipAmount<T>(data: T): T {
  * vuelta en la respuesta. El registro público nunca necesitó leer esos datos
  * — solo confirma que el alta ocurrió.
  */
-function toPublicRegistrationResult(participant: {
-	id: string;
-	firstName: string;
-	lastName: string;
-	type: string;
-	retreatId: string | null;
-}) {
+function toPublicRegistrationResult(
+	participant: Pick<Participant, "id" | "firstName" | "lastName" | "type" | "retreatId">,
+) {
 	return {
 		id: participant.id,
 		firstName: participant.firstName,
@@ -113,8 +176,12 @@ export const getAllParticipants = async (
       includePayments === "true", // Include payment details when requested
       parsedTagIds,
     );
-    const canSee = await canViewScholarshipAmount(req);
-    res.json(canSee ? participants : stripScholarshipAmount(participants));
+    const canSeeScholarship = await canViewScholarshipAmount(req);
+    const canSeeHealth = await canViewHealthData(req);
+    let result: unknown = participants;
+    if (!canSeeScholarship) result = stripScholarshipAmount(result);
+    if (!canSeeHealth) result = stripSensitiveHealthFields(result);
+    res.json(result);
   } catch (error) {
     next(error);
   }
@@ -133,8 +200,12 @@ export const getParticipantById = async (
       typeof retreatId === "string" ? retreatId : undefined,
     );
     if (participant) {
-      const canSee = await canViewScholarshipAmount(req);
-      res.json(canSee ? participant : stripScholarshipAmount(participant));
+      const canSeeScholarship = await canViewScholarshipAmount(req);
+      const canSeeHealth = await canViewHealthData(req);
+      let result: unknown = participant;
+      if (!canSeeScholarship) result = stripScholarshipAmount(result);
+      if (!canSeeHealth) result = stripSensitiveHealthFields(result);
+      res.json(result);
     } else {
       res.status(404).json({ message: "Participant not found" });
     }
@@ -585,7 +656,11 @@ export const updateParticipant = async (
       body,
     );
     if (updatedParticipant) {
-      res.json(canSee ? updatedParticipant : stripScholarshipAmount(updatedParticipant));
+      const canSeeHealth = await canViewHealthData(req);
+      let result: unknown = updatedParticipant;
+      if (!canSee) result = stripScholarshipAmount(result);
+      if (!canSeeHealth) result = stripSensitiveHealthFields(result);
+      res.json(result);
     } else {
       res.status(404).json({ message: "Participant not found" });
     }
