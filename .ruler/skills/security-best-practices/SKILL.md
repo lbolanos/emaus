@@ -256,12 +256,15 @@ app.post('/api/auth/refresh', async (req, res) => {
 ## Endpoints públicos: whitelist de campos, nunca la entidad
 
 Un endpoint sin autenticación que devuelve la entidad de TypeORM tal cual filtra todo lo que
-alguien agregue a esa tabla después, sin que nadie lo revise. No es hipotético en este repo:
-`GET /api/retreats/public` devuelve el `Retreat` completo, así que hoy expone sin login
-`paymentInfo` (banco, titular, número de cuenta y CLABE) y `contactPhones` (nombre + celular de
-varias personas). El volante público los muestra a propósito, pero el **listado** los entrega en
-JSON a cualquiera con un `curl`, incluidos retiros cuyo volante nadie abrió — material listo para
-pedir depósitos suplantando a la organización.
+alguien agregue a esa tabla después, sin que nadie lo revise. No fue hipotético en este repo:
+hasta 2026-09-14, `GET /api/retreats/public` (el **listado**, no el detalle) devolvía el
+`Retreat` completo, exponiendo sin login `paymentInfo` (banco, titular, número de cuenta y CLABE),
+`contactPhones` (nombre + celular de varias personas), `cost`, `openingNotes`/`closingNotes` y
+`createdBy` de TODOS los retiros públicos de un jalón — material listo para pedir depósitos
+suplantando a la organización, sin que nadie hubiera abierto el volante de ninguno. **Corregido**:
+`getPublicRetreats` ahora arma un whitelist mínimo (id/parish/fechas/slug/tipo/ciudad-estado); el
+volante público (`PublicRetreatFlyerModal`) SÍ necesita esos campos, pero solo los pide vía
+`getRetreatByIdPublic`/`getRetreatBySlugPublic` al abrir un retiro específico, nunca en bloque.
 
 Reglas:
 

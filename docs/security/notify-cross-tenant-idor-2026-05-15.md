@@ -182,14 +182,36 @@ Resultado actual de la auditoría:
 
 ---
 
-## TODO de seguimiento (no implementado en este fix)
+## TODO de seguimiento — ✅ Cerrado 2026-09-14
 
-Los endpoints listados arriba (`/members/:memberId` etc.) pueden tener el mismo patrón IDOR. Verificar en próxima auditoría:
+Los 4 endpoints listados arriba SÍ tenían el mismo patrón IDOR, confirmado por auditoría directa
+del código (no solo grep):
 
-1. ¿Service valida que `member.communityId === :id` antes de operar?
-2. ¿O usa `requireCommunityAccess` solo con el `:id` del URL sin re-check?
+- `PUT /:id/members/:memberId` → `updateMemberState(memberId, ...)` — **sin communityId, vulnerable**.
+- `DELETE /:id/members/:memberId` → `removeMember(memberId)` — **sin communityId, vulnerable**.
+- `PATCH /:id/members/:memberId/notes` → `updateMemberNotes(memberId, ...)` — **sin communityId, vulnerable**.
+- `GET /:id/members/:memberId/timeline` → `getMemberTimeline(memberId)` — **sin communityId, vulnerable**.
 
-Si tienen el mismo problema: aplicar el mismo patrón de fix (middleware específico o `expectedCommunityId` en el service).
+Cualquier admin de la comunidad A podía cambiar el estado, borrar, editar las notas privadas o leer
+el timeline completo (asistencia + historial) de un miembro de la comunidad B con solo conocer su
+`memberId` (UUID) — sin necesitar acceso a B en absoluto.
+
+Otros 5 endpoints hermanos (`updateMemberProfile`, `setMemberPhoto`/`deleteMemberPhoto`,
+`getMemberAttendance`, `bulkRecordMemberAttendance`) YA pasaban `communityId` al service y
+validaban correctamente — el patrón de fix ya existía en el propio repo, solo faltaba aplicarlo a
+los 4 restantes.
+
+**Fix**: `communityId` pasa a ser parámetro obligatorio de las 4 funciones; cada una hace
+`memberRepo.findOne({ where: { id: memberId, communityId } })` antes de operar y lanza
+`'Member not found in this community'` (o `'Member not found'` en el caso de lectura) si no
+coincide — mismo patrón que `updateMemberProfile`/`getMemberAttendance`. El controller de
+`removeMember`/`updateMemberNotes` ahora atrapa ese error y responde 404 (antes hubiera caído al
+manejador de errores genérico con 500).
+
+Tests nuevos (`communityService.test.ts`, describe "SECURITY — cross-tenant IDOR en member ops"):
+uno por cada una de las 4 funciones confirmando que rechazan/no tocan un miembro de otra
+comunidad, más uno confirmando que las 4 siguen funcionando con el miembro correcto. 158 tests
+del archivo en verde.
 
 ---
 
