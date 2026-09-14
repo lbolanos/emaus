@@ -384,12 +384,32 @@ describe('Message variable replacement', () => {
 
 		it('collapses empty __ and ~~ pairs too', () => {
 			const result = replaceAllVariables(
-				'_{participant.firstName}_ ~{participant.lastName}~',
+				'_{participant.firstName}_ ~~{participant.lastName}~~',
 				buildParticipant({ firstName: '', lastName: '' }),
 				null,
 			);
 			expect(result).not.toContain('__');
 			expect(result).not.toContain('~~');
+		});
+
+		it('keeps struck-through text with real content (~~ is WhatsApp markup)', () => {
+			// The first cut collapsed every ~~ pair, which also destroyed
+			// legitimate strikethrough. Only the EMPTY pairs may collapse.
+			const result = replaceAllVariables(
+				'~~{participant.firstName}~~ llegó',
+				buildParticipant({ firstName: 'Juan' }),
+				null,
+			);
+			expect(result).toBe('~~Juan~~ llegó');
+		});
+
+		it('collapses an empty pair even when the markers have spaces between them', () => {
+			const result = replaceAllVariables(
+				'* {participant.firstName} *',
+				buildParticipant({ firstName: '' }),
+				null,
+			);
+			expect(result).not.toMatch(/\*\s*\*/);
 		});
 
 		it('keeps double backticks (WhatsApp monospace block marker)', () => {

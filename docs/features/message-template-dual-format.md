@@ -72,10 +72,11 @@ e `insertVariable` (inserta en el caret del textarea o del editor rico según el
   texto aplanado (una frase que cruza un salto de línea debe seguir matcheando).
 - **Portapapeles** (`copyRichTextToClipboard` en `@/utils/message`): el texto plano se
   convierte a `<br>` ANTES de copiar; ambas rutas del clipboard destruyen `\n` por sí solas.
-- **Resolución de variables** (`replaceAllVariables` en `@repo/utils`): colapsa los pares
-  de énfasis (`**`, `__`, `~~`) que deja una variable vacía, para que WhatsApp no muestre
-  los marcadores crudos. Los dobles backticks NO se colapsan (son el marcador de
-  monospace).
+- **Resolución de variables** (`replaceAllVariables` en `@repo/utils`): colapsa solo los
+  pares de énfasis **vacíos** (`**`, `__`, `~~ ~~` — marcadores con nada más que espacios
+  entre ellos) que deja una variable vacía, para que WhatsApp no muestre los marcadores
+  crudos. Los pares con contenido real son formato legítimo y sobreviven (`~~tachado~~`
+  llega tachado). Los dobles backticks NO se tocan (son el marcador de monospace).
 
 ## Dónde está pineado
 
