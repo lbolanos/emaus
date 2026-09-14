@@ -556,6 +556,7 @@
         <div class="flex gap-8 text-sm text-stone-400">
           <a href="#the-path" class="hover:text-stone-900 transition-colors">{{ $t('landing.footer.about') }}</a>
           <router-link to="/privacy" class="hover:text-stone-900 transition-colors">{{ $t('landing.footer.privacy') }}</router-link>
+          <a href="/docs/seguridad-y-privacidad-de-datos.pdf" target="_blank" rel="noopener noreferrer" class="hover:text-stone-900 transition-colors">{{ $t('landing.footer.security') }}</a>
           <router-link to="/terms" class="hover:text-stone-900 transition-colors">{{ $t('landing.footer.terms') }}</router-link>
           <a :href="`mailto:${CONTACT_EMAIL}`" class="hover:text-stone-900 transition-colors">{{ $t('landing.footer.contactUs') }}</a>
         </div>
