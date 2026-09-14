@@ -5255,6 +5255,48 @@ export const findParticipantByDeleteToken = async (
   };
 };
 
+/**
+ * Anula los campos ESTRUCTURADOS de salud (medicación, dieta, discapacidad,
+ * ronquidos, sacramentos, consentimiento). Compartido por el borrado ARCO
+ * (`anonymizeParticipantByToken`, wipe completo pedido por la persona) y la
+ * purga automática a 30 días del fin del retiro (`healthDataRetentionService`,
+ * Fase 3 del plan de protección de datos de salud) — la purga automática NO
+ * toca `notes` (ahí caben apuntes operativos sin relación con salud, y purgar
+ * de más sin que nadie lo pidió sería peor que no purgar).
+ *
+ * Antes de existir este helper, la anonimización ARCO no anulaba
+ * snores/hasMedication/hasDietaryRestrictions/sacraments — quedaban en la
+ * ficha "(eliminada)". Con el helper compartido ambos flujos quedan
+ * consistentes.
+ */
+export const clearHealthFields = (p: Participant): void => {
+  p.medicationDetails = null as any;
+  p.medicationSchedule = null as any;
+  p.hasMedication = false;
+  p.dietaryRestrictionsDetails = null as any;
+  p.hasDietaryRestrictions = false;
+  p.disabilitySupport = null;
+  p.snores = false;
+  p.sacraments = [];
+  p.sensitiveDataConsentAt = null;
+};
+
+/** Anula los 12 campos de contactos de emergencia. Ver `clearHealthFields`. */
+export const clearEmergencyContactFields = (p: Participant): void => {
+  p.emergencyContact1Name = "";
+  p.emergencyContact1Relation = "";
+  p.emergencyContact1HomePhone = null as any;
+  p.emergencyContact1WorkPhone = null as any;
+  p.emergencyContact1CellPhone = "";
+  p.emergencyContact1Email = null as any;
+  p.emergencyContact2Name = null as any;
+  p.emergencyContact2Relation = null as any;
+  p.emergencyContact2HomePhone = null as any;
+  p.emergencyContact2WorkPhone = null as any;
+  p.emergencyContact2CellPhone = null as any;
+  p.emergencyContact2Email = null as any;
+};
+
 export const anonymizeParticipantByToken = async (
   token: string,
 ): Promise<boolean> => {
@@ -5283,22 +5325,8 @@ export const anonymizeParticipantByToken = async (
     p.state = "";
     p.parish = null as any;
     p.occupation = "";
-    p.medicationDetails = null as any;
-    p.medicationSchedule = null as any;
-    p.dietaryRestrictionsDetails = null as any;
-    p.disabilitySupport = null;
-    p.emergencyContact1Name = "";
-    p.emergencyContact1Relation = "";
-    p.emergencyContact1HomePhone = null as any;
-    p.emergencyContact1WorkPhone = null as any;
-    p.emergencyContact1CellPhone = "";
-    p.emergencyContact1Email = null as any;
-    p.emergencyContact2Name = null as any;
-    p.emergencyContact2Relation = null as any;
-    p.emergencyContact2HomePhone = null as any;
-    p.emergencyContact2WorkPhone = null as any;
-    p.emergencyContact2CellPhone = null as any;
-    p.emergencyContact2Email = null as any;
+    clearHealthFields(p);
+    clearEmergencyContactFields(p);
     p.invitedBy = null as any;
     p.inviterHomePhone = null as any;
     p.inviterWorkPhone = null as any;
@@ -5307,7 +5335,6 @@ export const anonymizeParticipantByToken = async (
     p.notes = null as any;
     p.palancasNotes = null as any;
     p.palancasReceived = null as any;
-    p.sensitiveDataConsentAt = null;
     p.dataDeleteToken = null;
     p.dataDeletedAt = new Date();
     p.lastUpdatedDate = new Date();

@@ -65,8 +65,13 @@ const makeParticipant = (overrides: Partial<any> = {}) => ({
 	occupation: 'Ingeniero',
 	medicationDetails: 'Aspirina',
 	medicationSchedule: 'diario',
+	hasMedication: true,
 	dietaryRestrictionsDetails: null,
+	hasDietaryRestrictions: false,
 	disabilitySupport: null,
+	snores: true,
+	sacraments: ['baptism', 'communion'],
+	sensitiveDataConsentAt: new Date('2026-01-01'),
 	emergencyContact1Name: 'María',
 	emergencyContact1Relation: 'Esposa',
 	emergencyContact1HomePhone: null,
@@ -157,6 +162,24 @@ describe('anonymizeParticipantByToken', () => {
 		expect(saved.dataDeleteToken).toBeNull();
 		expect(saved.dataDeletedAt).toBeInstanceOf(Date);
 		expect(saved.lastUpdatedDate).toBeInstanceOf(Date);
+	});
+
+	// Regresión: la anonimización ARCO dejaba estos campos intactos en la
+	// ficha "(eliminada)" — corregido al extraer clearHealthFields, que ahora
+	// comparte con la purga automática de Fase 3.
+	it('anula también snores/hasMedication/hasDietaryRestrictions/sacraments/sensitiveDataConsentAt', async () => {
+		const participant = makeParticipant();
+		mockFindOne.mockResolvedValue(participant);
+		mockSave.mockImplementation(async (p: any) => p);
+
+		await anonymizeParticipantByToken('a'.repeat(48));
+
+		const saved = mockSave.mock.calls[0][0];
+		expect(saved.snores).toBe(false);
+		expect(saved.hasMedication).toBe(false);
+		expect(saved.hasDietaryRestrictions).toBe(false);
+		expect(saved.sacraments).toEqual([]);
+		expect(saved.sensitiveDataConsentAt).toBeNull();
 	});
 
 	it('desvincula al cónyuge: ninguna fila queda apuntando al anonimizado', async () => {

@@ -274,6 +274,11 @@ export class Participant {
 	@Column({ type: 'datetime', nullable: true })
 	dataDeletedAt?: Date | null;
 
+	// Sellado por `healthDataRetentionService` cuando purga salud/contactos de
+	// emergencia 30 días después del fin del retiro. NULL = nunca purgado.
+	@Column({ type: 'datetime', nullable: true })
+	healthDataPurgedAt?: Date | null;
+
 	/**
 	 * Si esta fila fue absorbida por otra en una fusión de duplicados, apunta al
 	 * `Participant` que sobrevivió. NULL en el caso normal.

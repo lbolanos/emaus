@@ -25,6 +25,7 @@ import { MigrationVerifier } from './database/migration-verifier';
 import { roleCleanupService } from './services/roleCleanupService';
 import { attachmentHistoryCleanupService } from './services/attachmentHistoryCleanupService';
 import { auditRetentionService } from './services/auditRetentionService';
+import { healthDataRetentionService } from './services/healthDataRetentionService';
 import { santisimoReminderService } from './services/santisimoReminderService';
 import { meetingInstanceGeneratorService } from './services/meetingInstanceGeneratorService';
 import { passwordResetCleanupService } from './services/passwordResetCleanupService';
@@ -232,6 +233,7 @@ async function main() {
 	passwordResetCleanupService.startScheduledTasks();
 	attachmentHistoryCleanupService.startScheduledTasks();
 	auditRetentionService.startScheduledTasks();
+	healthDataRetentionService.startScheduledTasks();
 	santisimoReminderService.startScheduledTasks();
 	meetingInstanceGeneratorService.startScheduledTasks();
 	messageSequenceService.startScheduledTasks();
