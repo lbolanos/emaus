@@ -26,6 +26,34 @@ import { domainAuditService, DomainAuditAction } from './domainAuditService';
  */
 const DEFAULT_RETENTION_DAYS = 30;
 
+/**
+ * Corte de fecha "hoy - retentionDays" como YYYY-MM-DD, calculado con
+ * aritmética civil pura anclada a `APP_TIMEZONE` (skill timezone-handling,
+ * Regla N°5) — NUNCA `new Date().toISOString().slice(0,10)` directo, que usa
+ * el día calendario en UTC del proceso: pasadas las 18:00 en CDMX (UTC-6) el
+ * reloj UTC ya cruzó a mañana, y el corte queda un día adelantado respecto al
+ * `retreat.endDate` que se compara (una fecha civil, sin hora). El síntoma es
+ * justo el que payó caro esto: un retiro de hace 29 días se trataba como
+ * elegible para el corte de 30, dependiendo de la hora del día en que corriera
+ * el cron — verificado con un test de integración que falla de noche y pasa
+ * de tarde si se vuelve a la versión ingenua.
+ */
+function cutoffYmd(
+	retentionDays: number,
+	tz: string = process.env.APP_TIMEZONE || 'America/Mexico_City',
+): string {
+	const parts = new Intl.DateTimeFormat('en-CA', {
+		timeZone: tz,
+		year: 'numeric',
+		month: '2-digit',
+		day: '2-digit',
+	}).formatToParts(new Date());
+	const get = (type: string) => Number(parts.find((p) => p.type === type)?.value);
+	const todayUtcAnchored = new Date(Date.UTC(get('year'), get('month') - 1, get('day')));
+	todayUtcAnchored.setUTCDate(todayUtcAnchored.getUTCDate() - retentionDays);
+	return todayUtcAnchored.toISOString().slice(0, 10);
+}
+
 export interface HealthRetentionResult {
 	scanned: number;
 	purged: number;
@@ -82,15 +110,13 @@ export class HealthDataRetentionService {
 		const retentionDays = options.retentionDays ?? DEFAULT_RETENTION_DAYS;
 		const dryRun = options.dryRun ?? this.isDryRunByDefault();
 
-		const cutoff = new Date();
-		cutoff.setDate(cutoff.getDate() - retentionDays);
-		const cutoffYmd = cutoff.toISOString().slice(0, 10);
+		const cutoff = cutoffYmd(retentionDays);
 
 		const repo = AppDataSource.getRepository(Participant);
 		const candidates = await repo
 			.createQueryBuilder('p')
 			.innerJoin('p.retreat', 'r')
-			.where('r.endDate <= :cutoff', { cutoff: cutoffYmd })
+			.where('r.endDate <= :cutoff', { cutoff })
 			.andWhere('p.healthDataPurgedAt IS NULL')
 			.andWhere('p.dataDeletedAt IS NULL')
 			.getMany();

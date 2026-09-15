@@ -164,8 +164,24 @@ describe('HealthDataRetentionService.performCleanup', () => {
 		const service = new (HealthDataRetentionService as any)();
 		await service.performCleanup({ retentionDays: 30 });
 
-		const expectedCutoff = new Date();
-		expectedCutoff.setDate(expectedCutoff.getDate() - 30);
+		// Aritmética civil anclada a APP_TIMEZONE (skill timezone-handling, Regla
+		// N°5) — NO `new Date().toISOString().slice(0,10)` directo: ese usa el día
+		// calendario en UTC del proceso, que pasadas las ~18:00 en CDMX (UTC-6) ya
+		// cruzó a "mañana" y desalinea el corte respecto a `retreat.endDate`
+		// (columna date-only, sin hora). Mismo algoritmo que el servicio — el test
+		// que de verdad detecta un regreso a la versión ingenua es el de
+		// integración (healthDataRetention.integration.test.ts), que compara
+		// contra un `endDate` guardado de verdad en SQLite.
+		const tz = process.env.APP_TIMEZONE || 'America/Mexico_City';
+		const parts = new Intl.DateTimeFormat('en-CA', {
+			timeZone: tz,
+			year: 'numeric',
+			month: '2-digit',
+			day: '2-digit',
+		}).formatToParts(new Date());
+		const get = (type: string) => Number(parts.find((p) => p.type === type)?.value);
+		const expectedCutoff = new Date(Date.UTC(get('year'), get('month') - 1, get('day')));
+		expectedCutoff.setUTCDate(expectedCutoff.getUTCDate() - 30);
 		const expectedYmd = expectedCutoff.toISOString().slice(0, 10);
 
 		expect(mockWhere).toHaveBeenCalledWith('r.endDate <= :cutoff', { cutoff: expectedYmd });

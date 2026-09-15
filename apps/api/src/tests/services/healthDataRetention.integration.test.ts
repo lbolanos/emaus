@@ -18,6 +18,41 @@ const daysAgo = (n: number): Date => {
 	return d;
 };
 
+/**
+ * "Hoy - n días" como YYYY-MM-DD, con la MISMA aritmética civil anclada a
+ * APP_TIMEZONE que usa el servicio (skill timezone-handling, Regla N°5 +
+ * "Setup en SQLite + TypeORM"). `retreat.endDate` es una columna `'date'`:
+ * pasarle un objeto `Date` a través de `createTestRetreat` lo hace pasar por
+ * el truncamiento a día calendario LOCAL del proceso de TypeORM, que puede
+ * quedar un día desalineado del corte del servicio según la hora del día en
+ * que corra el test (bug real, no hipotético: reventó a las 21:15 CST con
+ * "29 días" tratado como si fueran 30). El fix es escribir el string plano
+ * directo, como recomienda el skill.
+ */
+const ymdDaysAgo = (n: number, tz: string = process.env.APP_TIMEZONE || 'America/Mexico_City') => {
+	const parts = new Intl.DateTimeFormat('en-CA', {
+		timeZone: tz,
+		year: 'numeric',
+		month: '2-digit',
+		day: '2-digit',
+	}).formatToParts(new Date());
+	const get = (type: string) => Number(parts.find((p) => p.type === type)?.value);
+	const d = new Date(Date.UTC(get('year'), get('month') - 1, get('day')));
+	d.setUTCDate(d.getUTCDate() - n);
+	return d.toISOString().slice(0, 10);
+};
+
+/** Crea un retiro y le fuerza `endDate` al string plano exacto vía SQL directo. */
+async function createTestRetreatEndingDaysAgo(n: number) {
+	const retreat = await TestDataFactory.createTestRetreat();
+	await AppDataSource.query('UPDATE retreat SET endDate = ? WHERE id = ?', [
+		ymdDaysAgo(n),
+		retreat.id,
+	]);
+	retreat.endDate = ymdDaysAgo(n) as unknown as Date;
+	return retreat;
+}
+
 const healthOverrides = {
 	hasMedication: true,
 	medicationDetails: 'Losartán para la presión',
@@ -51,9 +86,7 @@ describe('HealthDataRetentionService — integración contra DB real de test', (
 	});
 
 	it('purga salud/contactos y sella healthDataPurgedAt para un retiro terminado hace 31 días', async () => {
-		const retreat = await TestDataFactory.createTestRetreat({
-			endDate: daysAgo(31),
-		});
+		const retreat = await createTestRetreatEndingDaysAgo(31);
 		const participant = await TestDataFactory.createTestParticipant(retreat.id, healthOverrides);
 
 		const result = await service.performCleanup({ retentionDays: 30, dryRun: false });
@@ -90,7 +123,7 @@ describe('HealthDataRetentionService — integración contra DB real de test', (
 	});
 
 	it('NO toca un retiro terminado hace solo 29 días', async () => {
-		const retreat = await TestDataFactory.createTestRetreat({ endDate: daysAgo(29) });
+		const retreat = await createTestRetreatEndingDaysAgo(29);
 		const participant = await TestDataFactory.createTestParticipant(retreat.id, healthOverrides);
 
 		const result = await service.performCleanup({ retentionDays: 30, dryRun: false });
@@ -104,7 +137,7 @@ describe('HealthDataRetentionService — integración contra DB real de test', (
 	});
 
 	it('no reprocesa un participante ya purgado', async () => {
-		const retreat = await TestDataFactory.createTestRetreat({ endDate: daysAgo(60) });
+		const retreat = await createTestRetreatEndingDaysAgo(60);
 		const participant = await TestDataFactory.createTestParticipant(retreat.id, {
 			...healthOverrides,
 			healthDataPurgedAt: daysAgo(10),
@@ -122,7 +155,7 @@ describe('HealthDataRetentionService — integración contra DB real de test', (
 	});
 
 	it('no reprocesa un participante ya anonimizado por ARCO (dataDeletedAt)', async () => {
-		const retreat = await TestDataFactory.createTestRetreat({ endDate: daysAgo(45) });
+		const retreat = await createTestRetreatEndingDaysAgo(45);
 		const participant = await TestDataFactory.createTestParticipant(retreat.id, {
 			...healthOverrides,
 			dataDeletedAt: daysAgo(5),
@@ -134,7 +167,7 @@ describe('HealthDataRetentionService — integración contra DB real de test', (
 	});
 
 	it('modo dry-run: cuenta el candidato pero no escribe nada en la DB', async () => {
-		const retreat = await TestDataFactory.createTestRetreat({ endDate: daysAgo(31) });
+		const retreat = await createTestRetreatEndingDaysAgo(31);
 		const participant = await TestDataFactory.createTestParticipant(retreat.id, healthOverrides);
 
 		const result = await service.performCleanup({ retentionDays: 30, dryRun: true });
