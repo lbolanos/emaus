@@ -1356,6 +1356,14 @@ export async function addCommunityMember(
   return response.data;
 }
 
+/** Candidato a vínculo que devuelve el 409 EXISTING_PARTICIPANT_FOUND (identidad mínima, sin contacto). */
+export interface MemberCandidate {
+  participantId: string;
+  firstName: string;
+  lastName: string;
+  matchedBy: 'email' | 'phone';
+}
+
 export async function createCommunityMember(
   communityId: string,
   participantData: {
@@ -1366,8 +1374,12 @@ export async function createCommunityMember(
     /** 'YYYY-MM-DD' o 'MM-DD' (año desconocido). */
     birthDate?: string;
     joinedAt?: string;
+    /** Fase 2a: el admin confirmó vincular a este Participant existente. */
+    linkParticipantId?: string;
+    /** Fase 2b: el admin confirmó "es otra persona" — saltar el lookup. */
+    forceNewParticipant?: boolean;
   },
-): Promise<CommunityMember> {
+): Promise<CommunityMember & { linked?: true; matchedBy?: 'email' | 'phone'; changedFields?: string[] }> {
   const response = await api.post(
     `/communities/${communityId}/members/create`,
     participantData,

@@ -172,6 +172,8 @@ export const useCommunityStore = defineStore('community', () => {
 			cellPhone: string;
 			birthDate?: string;
 			joinedAt?: string;
+			linkParticipantId?: string;
+			forceNewParticipant?: boolean;
 		},
 	) => {
 		loading.value = true;

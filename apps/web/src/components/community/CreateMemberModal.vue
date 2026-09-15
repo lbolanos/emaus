@@ -12,9 +12,11 @@ import {
 	Button,
 	Input,
 	Label,
+	Badge,
 } from '@repo/ui';
-import { UserPlus, Loader2 } from 'lucide-vue-next';
+import { UserPlus, UserCheck, Loader2, AlertTriangle, Info } from 'lucide-vue-next';
 import BirthdayFields from '@/components/community/BirthdayFields.vue';
+import type { MemberCandidate } from '@/services/api';
 
 const props = defineProps<{
 	open: boolean;
@@ -25,6 +27,26 @@ const emit = defineEmits(['update:open', 'created']);
 
 const communityStore = useCommunityStore();
 const { toast } = useToast();
+
+// Flujo en dos fases: el backend responde 409 con el código del conflicto y el
+// modal transiciona entre pasos dentro del mismo Dialog.
+type Step = 'form' | 'confirm-candidates' | 'already-member';
+const step = ref<Step>('form');
+const candidates = ref<MemberCandidate[]>([]);
+const selectedParticipantId = ref('');
+const alreadyMember = ref<{ memberId: string; firstName: string; lastName: string } | null>(null);
+
+// Payload validado de la fase 1; los reenvíos (link / forceNew) lo reutilizan
+// añadiendo el flag correspondiente.
+interface MemberPayload {
+	firstName: string;
+	lastName: string;
+	email: string;
+	cellPhone: string;
+	joinedAt?: string;
+	birthDate?: string;
+}
+let basePayload: MemberPayload | null = null;
 
 const formData = ref({
 	firstName: '',
@@ -57,6 +79,10 @@ const resetForm = () => {
 		joinedAt: '',
 	};
 	formErrors.value = {};
+	step.value = 'form';
+	candidates.value = [];
+	selectedParticipantId.value = '';
+	alreadyMember.value = null;
 };
 
 const validateForm = (): boolean => {
@@ -80,6 +106,61 @@ const validateForm = (): boolean => {
 	return Object.keys(formErrors.value).length === 0;
 };
 
+// Éxito compartido por los tres envíos (nuevo, vincular, forzar nuevo).
+const sendCreate = async (payload: Record<string, unknown>) => {
+	const result = await communityStore.createMember(props.communityId, payload as any);
+	if (result?.linked) {
+		toast({
+			title: 'Miembro agregado',
+			description: `${formData.value.firstName} ${formData.value.lastName} se vinculó a su ficha existente`,
+		});
+	} else {
+		toast({
+			title: 'Miembro creado',
+			description: `${formData.value.firstName} ${formData.value.lastName} ha sido agregado a la comunidad`,
+		});
+	}
+	emit('created');
+	emit('update:open', false);
+	resetForm();
+};
+
+// Traduce los 409 del backend a transiciones de paso. Devuelve true cuando el
+// error se consumió como transición (sin toast); el resto va al toast genérico.
+const handleConflict = (error: any): boolean => {
+	if (error?.response?.status !== 409) return false;
+	const data = error.response.data ?? {};
+	if (data.code === 'EXISTING_PARTICIPANT_FOUND') {
+		candidates.value = Array.isArray(data.candidates) ? data.candidates : [];
+		selectedParticipantId.value = candidates.value[0]?.participantId ?? '';
+		step.value = 'confirm-candidates';
+		return true;
+	}
+	if (data.code === 'ALREADY_MEMBER') {
+		alreadyMember.value = data.member ?? null;
+		step.value = 'already-member';
+		return true;
+	}
+	if (data.code === 'LINK_TARGET_MISMATCH') {
+		toast({
+			title: 'La coincidencia cambió',
+			description: 'La persona que seleccionaste ya no aparece como coincidencia. Revisa los datos e intenta de nuevo.',
+			variant: 'destructive',
+		});
+		step.value = 'form';
+		return true;
+	}
+	return false;
+};
+
+const errorToast = (error: any) => {
+	toast({
+		title: 'Error',
+		description: error.response?.data?.message || error.message || 'No se pudo crear el miembro',
+		variant: 'destructive',
+	});
+};
+
 const handleSubmit = async () => {
 	if (!validateForm()) {
 		toast({
@@ -92,14 +173,7 @@ const handleSubmit = async () => {
 
 	isSubmitting.value = true;
 	try {
-		const payload: {
-			firstName: string;
-			lastName: string;
-			email: string;
-			cellPhone: string;
-			joinedAt?: string;
-			birthDate?: string;
-		} = {
+		const payload: MemberPayload = {
 			firstName: formData.value.firstName,
 			lastName: formData.value.lastName,
 			email: formData.value.email,
@@ -109,21 +183,45 @@ const handleSubmit = async () => {
 		// usa el default (ahora).
 		if (formData.value.joinedAt) payload.joinedAt = formData.value.joinedAt;
 		if (formData.value.birthDate) payload.birthDate = formData.value.birthDate;
-		await communityStore.createMember(props.communityId, payload);
-		toast({
-			title: 'Miembro creado',
-			description: `${formData.value.firstName} ${formData.value.lastName} ha sido agregado a la comunidad`,
-		});
-		emit('created');
-		emit('update:open', false);
-		resetForm();
+		basePayload = { ...payload };
+		await sendCreate(payload);
 	} catch (error: any) {
 		console.error('Error creating member:', error);
-		toast({
-			title: 'Error',
-			description: error.response?.data?.message || error.message || 'No se pudo crear el miembro',
-			variant: 'destructive',
-		});
+		if (!handleConflict(error)) {
+			errorToast(error);
+		}
+	} finally {
+		isSubmitting.value = false;
+	}
+};
+
+// Fase 2a: vincular al Participant seleccionado.
+const submitLink = async () => {
+	if (!selectedParticipantId.value || !basePayload) return;
+	isSubmitting.value = true;
+	try {
+		await sendCreate({ ...basePayload, linkParticipantId: selectedParticipantId.value });
+	} catch (error: any) {
+		console.error('Error linking member:', error);
+		if (!handleConflict(error)) {
+			errorToast(error);
+		}
+	} finally {
+		isSubmitting.value = false;
+	}
+};
+
+// Fase 2b: el admin confirmó que es otra persona — saltar el lookup.
+const submitForceNew = async () => {
+	if (!basePayload) return;
+	isSubmitting.value = true;
+	try {
+		await sendCreate({ ...basePayload, forceNewParticipant: true });
+	} catch (error: any) {
+		console.error('Error creating new member:', error);
+		if (!handleConflict(error)) {
+			errorToast(error);
+		}
 	} finally {
 		isSubmitting.value = false;
 	}
@@ -141,16 +239,37 @@ const handleClose = () => {
 	<Dialog :open="open" @update:open="handleClose">
 		<DialogContent class="sm:max-w-[500px]">
 			<DialogHeader>
-				<DialogTitle class="flex items-center gap-2">
-					<UserPlus class="w-5 h-5" />
-					Crear nuevo miembro
-				</DialogTitle>
-				<DialogDescription>
-					Agrega un nuevo miembro a la comunidad sin necesidad de un retiro asociado
-				</DialogDescription>
+				<template v-if="step === 'form'">
+					<DialogTitle class="flex items-center gap-2">
+						<UserPlus class="w-5 h-5" />
+						Crear nuevo miembro
+					</DialogTitle>
+					<DialogDescription>
+						Agrega un nuevo miembro a la comunidad sin necesidad de un retiro asociado
+					</DialogDescription>
+				</template>
+				<template v-else-if="step === 'confirm-candidates'">
+					<DialogTitle class="flex items-center gap-2">
+						<AlertTriangle class="w-5 h-5 text-amber-600" />
+						¿Ya conocemos a esta persona?
+					</DialogTitle>
+					<DialogDescription>
+						Alguien con ese correo o teléfono ya está registrada. Confirma si es la misma persona.
+					</DialogDescription>
+				</template>
+				<template v-else>
+					<DialogTitle class="flex items-center gap-2">
+						<Info class="w-5 h-5" />
+						Ya es miembro de esta comunidad
+					</DialogTitle>
+					<DialogDescription>
+						El correo o teléfono que capturaste ya pertenece a un miembro.
+					</DialogDescription>
+				</template>
 			</DialogHeader>
 
-			<div class="space-y-4 py-4">
+			<!-- Paso 1: formulario de alta -->
+			<div v-if="step === 'form'" class="space-y-4 py-4">
 				<!-- First Name -->
 				<div class="space-y-2">
 					<Label for="firstName">Nombre *</Label>
@@ -228,22 +347,110 @@ const handleClose = () => {
 				</div>
 			</div>
 
+			<!-- Paso 2: candidatos a vincular -->
+			<div v-else-if="step === 'confirm-candidates'" class="space-y-4 py-4">
+				<p class="text-sm text-muted-foreground">
+					Encontramos {{ candidates.length }}
+					{{ candidates.length === 1 ? 'persona que coincide' : 'personas que coinciden' }}
+					con ese correo o teléfono. Si es la misma persona, selecciónala para no duplicar su ficha.
+				</p>
+				<div class="space-y-2">
+					<button
+						v-for="c in candidates"
+						:key="c.participantId"
+						type="button"
+						class="w-full text-left border rounded-md p-3 transition-colors"
+						:class="selectedParticipantId === c.participantId ? 'border-primary bg-primary/5' : 'hover:bg-muted/50'"
+						:disabled="isSubmitting"
+						:data-participant-id="c.participantId"
+						@click="selectedParticipantId = c.participantId"
+					>
+						<div class="flex items-center justify-between gap-2">
+							<p class="font-medium text-sm">{{ c.firstName }} {{ c.lastName }}</p>
+							<Badge variant="outline">
+								{{ c.matchedBy === 'email' ? 'coincide por correo' : 'coincide por teléfono' }}
+							</Badge>
+						</div>
+					</button>
+				</div>
+				<p v-if="candidates.length >= 5" class="text-xs text-muted-foreground">
+					Se muestran hasta 5 coincidencias.
+				</p>
+			</div>
+
+			<!-- Paso alternativo: ya es miembro -->
+			<div v-else class="space-y-3 py-4">
+				<p class="text-sm">
+					<span class="font-medium">{{ alreadyMember?.firstName }} {{ alreadyMember?.lastName }}</span>
+					ya es miembro de esta comunidad con ese correo o teléfono.
+				</p>
+				<p class="text-xs text-muted-foreground">
+					Si es otra persona distinta, puedes crear una ficha nueva; ten en cuenta que el alta puede
+					rechazarse si el teléfono ya está registrado en esta comunidad.
+				</p>
+			</div>
+
 			<DialogFooter>
-				<Button
-					variant="outline"
-					@click="handleClose"
-					:disabled="isSubmitting"
-				>
-					Cancelar
-				</Button>
-				<Button
-					@click="handleSubmit"
-					:disabled="isSubmitting || birthdayInvalid"
-				>
-					<Loader2 v-if="isSubmitting" class="w-4 h-4 mr-2 animate-spin" />
-					<UserPlus v-else class="w-4 h-4 mr-2" />
-					{{ isSubmitting ? 'Creando...' : 'Crear miembro' }}
-				</Button>
+				<template v-if="step === 'form'">
+					<Button
+						variant="outline"
+						@click="handleClose"
+						:disabled="isSubmitting"
+					>
+						Cancelar
+					</Button>
+					<Button
+						@click="handleSubmit"
+						:disabled="isSubmitting || birthdayInvalid"
+					>
+						<Loader2 v-if="isSubmitting" class="w-4 h-4 mr-2 animate-spin" />
+						<UserPlus v-else class="w-4 h-4 mr-2" />
+						{{ isSubmitting ? 'Creando...' : 'Crear miembro' }}
+					</Button>
+				</template>
+				<template v-else-if="step === 'confirm-candidates'">
+					<Button
+						variant="outline"
+						@click="handleClose"
+						:disabled="isSubmitting"
+					>
+						Cancelar
+					</Button>
+					<Button
+						variant="outline"
+						@click="submitForceNew"
+						:disabled="isSubmitting"
+					>
+						<Loader2 v-if="isSubmitting" class="w-4 h-4 mr-2 animate-spin" />
+						<UserPlus v-else class="w-4 h-4 mr-2" />
+						Es otra persona, crear nueva
+					</Button>
+					<Button
+						@click="submitLink"
+						:disabled="isSubmitting || !selectedParticipantId"
+					>
+						<Loader2 v-if="isSubmitting" class="w-4 h-4 mr-2 animate-spin" />
+						<UserCheck v-else class="w-4 h-4 mr-2" />
+						Agregar existente
+					</Button>
+				</template>
+				<template v-else>
+					<Button
+						variant="outline"
+						@click="handleClose"
+						:disabled="isSubmitting"
+					>
+						Cerrar
+					</Button>
+					<Button
+						@click="submitForceNew"
+						:disabled="isSubmitting"
+					>
+						<Loader2 v-if="isSubmitting" class="w-4 h-4 mr-2 animate-spin" />
+						<UserPlus v-else class="w-4 h-4 mr-2" />
+						Es otra persona, crear nueva
+					</Button>
+				</template>
 			</DialogFooter>
 		</DialogContent>
 	</Dialog>
