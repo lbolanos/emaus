@@ -110,9 +110,17 @@ const validateForm = (): boolean => {
 const sendCreate = async (payload: Record<string, unknown>) => {
 	const result = await communityStore.createMember(props.communityId, payload as any);
 	if (result?.linked) {
+		// Al vincular, la ficha existente manda: mostrar su nombre real, no lo
+		// que se tecleó en el form (que solo sirvió para buscar a la persona).
+		const linked = candidates.value.find(
+			(c) => c.participantId === selectedParticipantId.value,
+		);
+		const displayName = linked
+			? `${linked.firstName} ${linked.lastName}`
+			: `${formData.value.firstName} ${formData.value.lastName}`;
 		toast({
 			title: 'Miembro agregado',
-			description: `${formData.value.firstName} ${formData.value.lastName} se vinculó a su ficha existente`,
+			description: `${displayName} se vinculó a su ficha existente`,
 		});
 	} else {
 		toast({
@@ -390,68 +398,74 @@ const handleClose = () => {
 				</p>
 			</div>
 
-			<DialogFooter>
-				<template v-if="step === 'form'">
-					<Button
-						variant="outline"
-						@click="handleClose"
-						:disabled="isSubmitting"
-					>
-						Cancelar
-					</Button>
-					<Button
-						@click="handleSubmit"
-						:disabled="isSubmitting || birthdayInvalid"
-					>
-						<Loader2 v-if="isSubmitting" class="w-4 h-4 mr-2 animate-spin" />
-						<UserPlus v-else class="w-4 h-4 mr-2" />
-						{{ isSubmitting ? 'Creando...' : 'Crear miembro' }}
-					</Button>
-				</template>
-				<template v-else-if="step === 'confirm-candidates'">
-					<Button
-						variant="outline"
-						@click="handleClose"
-						:disabled="isSubmitting"
-					>
-						Cancelar
-					</Button>
-					<Button
-						variant="outline"
-						@click="submitForceNew"
-						:disabled="isSubmitting"
-					>
-						<Loader2 v-if="isSubmitting" class="w-4 h-4 mr-2 animate-spin" />
-						<UserPlus v-else class="w-4 h-4 mr-2" />
-						Es otra persona, crear nueva
-					</Button>
-					<Button
-						@click="submitLink"
-						:disabled="isSubmitting || !selectedParticipantId"
-					>
-						<Loader2 v-if="isSubmitting" class="w-4 h-4 mr-2 animate-spin" />
-						<UserCheck v-else class="w-4 h-4 mr-2" />
-						Agregar existente
-					</Button>
-				</template>
-				<template v-else>
-					<Button
-						variant="outline"
-						@click="handleClose"
-						:disabled="isSubmitting"
-					>
-						Cerrar
-					</Button>
-					<Button
-						@click="submitForceNew"
-						:disabled="isSubmitting"
-					>
-						<Loader2 v-if="isSubmitting" class="w-4 h-4 mr-2 animate-spin" />
-						<UserPlus v-else class="w-4 h-4 mr-2" />
-						Es otra persona, crear nueva
-					</Button>
-				</template>
+			<DialogFooter v-if="step === 'form'">
+				<Button
+					variant="outline"
+					@click="handleClose"
+					:disabled="isSubmitting"
+				>
+					Cancelar
+				</Button>
+				<Button
+					@click="handleSubmit"
+					:disabled="isSubmitting || birthdayInvalid"
+				>
+					<Loader2 v-if="isSubmitting" class="w-4 h-4 mr-2 animate-spin" />
+					<UserPlus v-else class="w-4 h-4 mr-2" />
+					{{ isSubmitting ? 'Creando...' : 'Crear miembro' }}
+				</Button>
 			</DialogFooter>
+
+			<!-- Stacked actions: three long-label buttons don't fit a 500px footer row. -->
+			<div v-else-if="step === 'confirm-candidates'" class="flex flex-col gap-2">
+				<Button
+					@click="submitLink"
+					:disabled="isSubmitting || !selectedParticipantId"
+					class="w-full"
+				>
+					<Loader2 v-if="isSubmitting" class="w-4 h-4 mr-2 animate-spin" />
+					<UserCheck v-else class="w-4 h-4 mr-2" />
+					Agregar existente
+				</Button>
+				<Button
+					variant="outline"
+					@click="submitForceNew"
+					:disabled="isSubmitting"
+					class="w-full"
+				>
+					<Loader2 v-if="isSubmitting" class="w-4 h-4 mr-2 animate-spin" />
+					<UserPlus v-else class="w-4 h-4 mr-2" />
+					Es otra persona, crear nueva
+				</Button>
+				<Button
+					variant="ghost"
+					@click="handleClose"
+					:disabled="isSubmitting"
+					class="w-full"
+				>
+					Cancelar
+				</Button>
+			</div>
+
+			<div v-else class="flex flex-col gap-2">
+				<Button
+					@click="submitForceNew"
+					:disabled="isSubmitting"
+					class="w-full"
+				>
+					<Loader2 v-if="isSubmitting" class="w-4 h-4 mr-2 animate-spin" />
+					<UserPlus v-else class="w-4 h-4 mr-2" />
+					Es otra persona, crear nueva
+				</Button>
+				<Button
+					variant="ghost"
+					@click="handleClose"
+					:disabled="isSubmitting"
+					class="w-full"
+				>
+					Cerrar
+				</Button>
+			</div>
 		</DialogContent>
 	</Dialog>
 </template>

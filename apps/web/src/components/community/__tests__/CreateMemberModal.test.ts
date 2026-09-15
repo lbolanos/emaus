@@ -136,8 +136,13 @@ describe('CreateMemberModal — two-phase flow', () => {
 		});
 		expect(linkPayload.forceNewParticipant).toBeUndefined();
 		expect(wrapper.emitted('created')).toBeTruthy();
+		// Al vincular manda la ficha existente: el toast muestra el nombre del
+		// candidato confirmado (Ana López), no lo tecleado en el form (Juan Pérez).
 		expect(toastMock).toHaveBeenCalledWith(
-			expect.objectContaining({ title: 'Miembro agregado' }),
+			expect.objectContaining({
+				title: 'Miembro agregado',
+				description: 'Ana López se vinculó a su ficha existente',
+			}),
 		);
 	});
 
