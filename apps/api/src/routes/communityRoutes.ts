@@ -9,7 +9,11 @@ import {
 	requireCommunityOwner,
 	requireCommunityMeetingAccess,
 } from '../middleware/authorization';
-import { publicCommunityRegisterLimiter, meetingNotifyLimiter } from '../middleware/rateLimiting';
+import {
+	publicCommunityRegisterLimiter,
+	meetingNotifyLimiter,
+	memberCreateLimiter,
+} from '../middleware/rateLimiting';
 import {
 	createCommunitySchema,
 	updateCommunitySchema,
@@ -17,6 +21,7 @@ import {
 	updateCommunityMeetingSchema,
 	setCommunityMeetingPhotoSchema,
 	importMembersSchema,
+	createCommunityMemberSchema,
 	updateMemberStateSchema,
 	updateMemberProfileSchema,
 	updateMemberBirthdaySchema,
@@ -119,8 +124,16 @@ router.get('/:id/birthdays', requireCommunityAccess(), (req, res) =>
 router.post('/:id/members', requireCommunityAccess(), (req, res) =>
 	CommunityController.addMember(req, res),
 );
-router.post('/:id/members/create', requireCommunityAccess(), (req, res) =>
-	CommunityController.createCommunityMember(req, res),
+// SECURITY: rate limit antes del handler — este endpoint responde 409 con
+// nombres de personas globales al matchear teléfono/email; sin limiter un
+// admin puede scriptear probes de enumeración. validateRequest: antes este
+// alta tomaba req.body crudo (único alta de miembros sin Zod).
+router.post(
+	'/:id/members/create',
+	memberCreateLimiter,
+	requireCommunityAccess(),
+	validateRequest(createCommunityMemberSchema),
+	(req, res) => CommunityController.createCommunityMember(req, res),
 );
 router.post(
 	'/:id/members/import',

@@ -228,6 +228,38 @@ export const meetingNotifyLimiter = rateLimit({
 });
 
 /**
+ * Limiter para el alta manual de miembro (POST /communities/:id/members/create).
+ * El endpoint responde 409 con NOMBRES de personas globales cuando el
+ * teléfono/email matchea — sin esto, un admin puede scriptear probetas de
+ * teléfonos y cosechar identidades. 30/min sobra para el uso manual real
+ * (una persona por submit, fases de confirmación incluidas). Key por userId,
+ * no por IP: varios admins del mismo equipo pueden salir tras el mismo CGNAT.
+ */
+export const memberCreateLimiter = rateLimit({
+	windowMs: 60 * 1000,
+	max: 30,
+	keyGenerator: (req: Request) => {
+		return `member-create:${(req as any).user?.id || req.ip || 'unknown'}`;
+	},
+	message: {
+		message: 'Demasiados intentos de alta. Espera un minuto.',
+		error: 'MEMBER_CREATE_RATE_LIMIT_EXCEEDED',
+	},
+	handler: (req: Request, res: Response) => {
+		console.warn(
+			`⚠️  Rate limit - MemberCreate: user=${(req as any).user?.id} community=${req.params.id}`,
+		);
+		res.status(429).json({
+			message: 'Demasiados intentos de alta. Espera un minuto.',
+			error: 'MEMBER_CREATE_RATE_LIMIT_EXCEEDED',
+		});
+	},
+	skip: (req: Request) => {
+		return process.env.NODE_ENV === 'development' && process.env.SKIP_RATE_LIMIT === 'true';
+	},
+});
+
+/**
  * Newsletter subscribe/unsubscribe rate limiter (prevent email bombing)
  */
 export const newsletterLimiter = rateLimit({

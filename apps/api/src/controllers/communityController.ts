@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { CommunityService } from '../services/communityService';
+import { CommunityService, MemberCreateConflictError } from '../services/communityService';
 import { RecaptchaService } from '../services/recaptchaService';
 import { authorizationService } from '../middleware/authorization';
 import { communityAuditService, CommunityAuditAction } from '../services/communityAuditService';
@@ -163,17 +163,62 @@ export class CommunityController {
 		res.status(201).json(member);
 	}
 
+	/**
+	 * Alta manual de miembro con reconocimiento de persona existente (dos
+	 * fases — ver communityService.createCommunityMember). El 409 de fase 1
+	 * lleva `candidates`/`member` SIN datos de contacto (solo nombres), para
+	 * que el modal pida confirmación sin exponer un oracle de enumeración.
+	 */
 	static async createCommunityMember(req: Request, res: Response) {
-		const { id } = req.params;
+		const { id: communityId } = req.params;
 		const participantData = req.body;
 		try {
-			const member = await communityService.createCommunityMember(id, participantData);
+			const member = await communityService.createCommunityMember(communityId, participantData);
+
+			// Audit: el vínculo (fase 2a) es la operación sensible — fusionar la
+			// identidad de la comunidad con un Participant global. El alta nueva
+			// se audita simétricamente para tener el par create/linked completo.
+			if (member) {
+				const linked = Boolean((member as any).linked);
+				void communityAuditService.log({
+					action: linked
+						? CommunityAuditAction.MEMBER_LINKED
+						: CommunityAuditAction.MEMBER_CREATE,
+					resourceType: 'community_member',
+					resourceId: member.id,
+					communityId,
+					actorUserId: (req.user as any)?.id,
+					metadata: linked
+						? {
+								participantId: member.participantId,
+								matchedBy: (member as any).matchedBy,
+								changedFields: (member as any).changedFields ?? [],
+							}
+						: { forceNewParticipant: Boolean(participantData?.forceNewParticipant) },
+					ipAddress: req.ip,
+					userAgent: req.get('user-agent'),
+				});
+			}
 			res.status(201).json(member);
 		} catch (err: any) {
+			if (err instanceof MemberCreateConflictError) {
+				return res.status(409).json({
+					code: err.code,
+					message: err.message,
+					...err.payload,
+				});
+			}
 			if (err?.message === 'PHONE_DUPLICATE_IN_COMMUNITY') {
 				return res.status(409).json({
 					code: 'PHONE_DUPLICATE_IN_COMMUNITY',
 					message: 'Ya existe otro miembro de esta comunidad con ese teléfono.',
+				});
+			}
+			if (err?.message === 'EMAIL_DUPLICATE_IN_PARTICIPANTS') {
+				return res.status(409).json({
+					code: 'EMAIL_DUPLICATE_IN_PARTICIPANTS',
+					message:
+						'Ese correo ya pertenece a otra persona registrada y no puede repetirse. Si es la misma persona, agrégala desde la coincidencia que aparece al intentar el alta.',
 				});
 			}
 			throw err;

@@ -8,7 +8,7 @@ import { User } from '../entities/user.entity';
 import { UserRole } from '../entities/userRole.entity';
 import { Participant } from '../entities/participant.entity';
 import { Retreat } from '../entities/retreat.entity';
-import { MemberState } from '@repo/types';
+import { MemberState, type MemberCandidate } from '@repo/types';
 import { In, MoreThanOrEqual, Not } from 'typeorm';
 import { calculateNextOccurrence, nextWeekdayOccurrence } from '../utils/recurrenceUtils';
 import { EmailService } from './emailService';
@@ -73,6 +73,37 @@ const parseSqliteDate = (raw: string | null | undefined): Date | null => {
  * futuro recibe email por default (inclusivo), salvo que se agregue aquí.
  */
 export const EMAIL_SILENT_STATES = ['wrong_contact_info', 'paused', 'do_not_contact'] as const;
+
+/**
+ * Conflicto del alta manual de miembro (`POST /communities/:id/members/create`)
+ * cuando la persona ya existe en el sistema. Lleva el código discriminante y
+ * un payload mínimo (nombres; SIN email/teléfono de los candidatos) que el
+ * controller expone en el 409 para que el admin confirme el vínculo.
+ *
+ *   - ALREADY_MEMBER: la persona encontrada ya pertenece a esta comunidad.
+ *   - EXISTING_PARTICIPANT_FOUND: hay 1..N candidatos a vincular (fase 1 del
+ *     flujo de confirmación; el admin reenvía con linkParticipantId).
+ *   - LINK_TARGET_MISMATCH: el linkParticipantId reenviado ya no está en la
+ *     lista de candidatos recomputada (datos cambiaron entre fases).
+ */
+export type MemberCreateConflictCode =
+	| 'ALREADY_MEMBER'
+	| 'EXISTING_PARTICIPANT_FOUND'
+	| 'LINK_TARGET_MISMATCH';
+
+export class MemberCreateConflictError extends Error {
+	constructor(
+		public readonly code: MemberCreateConflictCode,
+		public readonly payload: {
+			member?: { memberId: string; firstName: string; lastName: string };
+			candidates?: MemberCandidate[];
+		},
+		message: string,
+	) {
+		super(message);
+		this.name = 'MemberCreateConflictError';
+	}
+}
 
 /**
  * Feature flag temporal — el envío automático de invitaciones de reunión está
@@ -697,6 +728,139 @@ export class CommunityService {
 		return null;
 	}
 
+	/**
+	 * Diferencia el input del alta contra el Participant existente y devuelve
+	 * el overlay per-community a persistir: solo los campos que difieren
+	 * (regla del modelo overlay — el Participant global nunca se toca).
+	 * Resuelve el bug donde "Juan" capturado por el bot quedaba sobrescrito
+	 * por "Joseph" del Participant existente. Email se compara
+	 * case-insensitive; teléfono crudo (la dedupe de candidatos ya matchea
+	 * por sufijo — aquí solo se decide si preservar el formato tipeado).
+	 */
+	private buildMemberOverlay(
+		input: { firstName: string; lastName: string; email: string; cellPhone: string },
+		participant: Participant,
+	): Partial<CommunityMember> {
+		const overlay: Partial<CommunityMember> = {};
+		if (input.firstName && input.firstName !== (participant.firstName || '')) {
+			overlay.firstName = input.firstName;
+		}
+		if (input.lastName && input.lastName !== (participant.lastName || '')) {
+			overlay.lastName = input.lastName;
+		}
+		if (
+			input.email &&
+			input.email.toLowerCase() !== (participant.email || '').toLowerCase()
+		) {
+			overlay.email = input.email;
+		}
+		if (input.cellPhone && input.cellPhone !== (participant.cellPhone || '')) {
+			overlay.cellPhone = input.cellPhone;
+		}
+		return overlay;
+	}
+
+	/**
+	 * Busca hasta `limit` (default 5) participants globales que matcheen por
+	 * email (case-insensitive, gana) o por teléfono (sufijo últimos 10 dígitos,
+	 * mismo criterio que findPhoneCollision). Para el flujo de confirmación del
+	 * alta manual — a diferencia de `findParticipantByEmailOrPhone` (bulk):
+	 *
+	 *   - Usa `getMany()` + `take()`: con teléfonos compartidos en familias hay
+	 *     VARIAS personas y el admin debe elegir; `getOne()` haría un LIMIT 1
+	 *     silencioso con fila arbitraria.
+	 *   - Excluye `dataDeletedAt IS NOT NULL`: quien ejerció su derecho de
+	 *     borrado no se ofrece como candidato (su nombre quedó "(eliminado)").
+	 *   - En la rama de email, excluye los placeholders `@placeholder.local`
+	 *     que genera bulk (no son correños reales; el match real por teléfono
+	 *     sí los encuentra — es el dedupe del bulk).
+	 *   - `orderBy registrationDate ASC` (el @CreateDateColumn de Participant
+	 *     se mapea a esa columna física, no a `createdAt`) para que la lista
+	 *     sea determinista.
+	 */
+	private async findLinkCandidates(
+		email?: string | null,
+		phone?: string | null,
+		limit = 5,
+	): Promise<Array<{ participant: Participant; matchedBy: 'email' | 'phone' }>> {
+		const results: Array<{ participant: Participant; matchedBy: 'email' | 'phone' }> = [];
+		const seen = new Set<string>();
+
+		const normalizedEmail = email?.toLowerCase().trim() || null;
+		if (normalizedEmail) {
+			const byEmail = await this.participantRepo
+				.createQueryBuilder('participant')
+				.where('LOWER(participant.email) = :email', { email: normalizedEmail })
+				.andWhere('participant.dataDeletedAt IS NULL')
+				.andWhere("participant.email NOT LIKE '%@placeholder.local'")
+				.orderBy('participant.registrationDate', 'ASC')
+				.take(limit)
+				.getMany();
+			for (const p of byEmail) {
+				results.push({ participant: p, matchedBy: 'email' });
+				seen.add(p.id);
+			}
+		}
+
+		const normalizedPhone = phone?.replace(/[\s()\-+]/g, '') || null;
+		if (normalizedPhone && normalizedPhone.length >= 7) {
+			const suffix = normalizedPhone.slice(-10);
+			const byPhone = await this.participantRepo
+				.createQueryBuilder('participant')
+				.where(
+					"REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(participant.cellPhone, ' ', ''), '(', ''), ')', ''), '-', ''), '+', '') LIKE :phone",
+					{ phone: `%${suffix}` },
+				)
+				.andWhere('participant.dataDeletedAt IS NULL')
+				.orderBy('participant.registrationDate', 'ASC')
+				.take(limit)
+				.getMany();
+			for (const p of byPhone) {
+				if (!seen.has(p.id)) {
+					results.push({ participant: p, matchedBy: 'phone' });
+					seen.add(p.id);
+				}
+			}
+		}
+
+		return results.slice(0, limit);
+	}
+
+	/**
+	 * Contexto de matching de una comunidad, cargado UNA vez para evaluar el
+	 * decision tree del alta manual sin repetir el scan O(n) de
+	 * findPhoneCollision por candidato.
+	 */
+	private async loadMemberMatchContext(communityId: string): Promise<{
+		/** ParticipantIds que ya son miembros de esta comunidad. */
+		memberParticipantIds: Set<string>;
+		/** Miembros por participantId (para resolver nombres con overlay). */
+		membersByParticipantId: Map<string, CommunityMember>;
+		/** True si el teléfono dado colisiona (últimos 10 dígitos) con el teléfono efectivo de cualquier miembro. */
+		collides: (phone: string | null | undefined) => boolean;
+	}> {
+		const members = await this.memberRepo
+			.createQueryBuilder('cm')
+			.leftJoinAndSelect('cm.participant', 'p')
+			.where('cm.communityId = :cid', { cid: communityId })
+			.getMany();
+
+		const memberParticipantIds = new Set(members.map((m) => m.participantId));
+		const membersByParticipantId = new Map(members.map((m) => [m.participantId, m]));
+
+		const effectiveLast10 = members
+			.map((m) => (m.cellPhone ?? m.participant?.cellPhone ?? '').replace(/\D/g, '').slice(-10))
+			.filter((digits) => digits.length >= 7);
+
+		const collides = (phone: string | null | undefined): boolean => {
+			const last10 = (phone || '').replace(/\D/g, '').slice(-10);
+			if (last10.length < 7) return false;
+			return effectiveLast10.some((digits) => digits === last10);
+		};
+
+		return { memberParticipantIds, membersByParticipantId, collides };
+	}
+
 	async addMember(
 		communityId: string,
 		participantId: string,
@@ -744,6 +908,19 @@ export class CommunityService {
 		await this.participantRepo.update(participant.id, { userId: user.id });
 	}
 
+	/**
+	 * Alta manual de miembro con reconocimiento de persona existente (dos fases):
+	 *
+	 *  - Fase 1 (sin flags): busca candidatos por email/teléfono. Si la persona
+	 *    ya es miembro → MemberCreateConflictError ALREADY_MEMBER; si hay
+	 *    candidatos linkeables → EXISTING_PARTICIPANT_FOUND (el admin confirma
+	 *    en el modal). Si no hay match, crea Participant nuevo (flujo histórico).
+	 *  - Fase 2a (`linkParticipantId`): vincula ese Participant (revalidado
+	 *    server-side) sin duplicar identidad; los datos que difieren quedan
+	 *    como overlay per-community.
+	 *  - Fase 2b (`forceNewParticipant`): el admin confirmó "es otra persona" —
+	 *    salta el lookup y crea Participant nuevo.
+	 */
 	async createCommunityMember(
 		communityId: string,
 		participantData: {
@@ -759,10 +936,40 @@ export class CommunityService {
 			// Cumpleaños ('YYYY-MM-DD' o 'MM-DD'). Se guarda en el miembro, no en
 			// el Participant: en contexto comunidad la identidad global no se toca.
 			birthDate?: string;
+			// Fase 2a: vincular este Participant existente (participantId tal
+			// como llegó en el 409 EXISTING_PARTICIPANT_FOUND).
+			linkParticipantId?: string;
+			// Fase 2b: crear Participant nuevo aunque haya candidatos.
+			forceNewParticipant?: boolean;
 		},
 		state: MemberState = 'active_member',
-	) {
-		const { joinedAt, birthDate, ...participantFields } = participantData;
+	): Promise<
+		| (CommunityMember & {
+				linked?: true;
+				matchedBy?: 'email' | 'phone';
+				changedFields?: string[];
+		  })
+		| null
+	> {
+		const { joinedAt, birthDate, linkParticipantId, forceNewParticipant, ...participantFields } =
+			participantData;
+
+		// Fase 2a: el admin confirmó el vínculo.
+		if (linkParticipantId) {
+			return this.linkExistingParticipantAsMember(
+				communityId,
+				participantFields,
+				linkParticipantId,
+				{ joinedAt, birthDate },
+				state,
+			);
+		}
+
+		// Fase 1: reconocimiento de persona existente (salteable con
+		// forceNewParticipant cuando el admin dijo "es otra persona").
+		if (!forceNewParticipant) {
+			await this.checkExistingParticipantsForLink(communityId, participantFields);
+		}
 
 		// Bloquea tel duplicado en la misma comunidad. Si llaman desde bulkAddMembers,
 		// ahí también verifico para devolver mejor mensaje, pero aquí es safety net
@@ -771,6 +978,26 @@ export class CommunityService {
 			const collision = await this.findPhoneCollision(communityId, participantFields.cellPhone);
 			if (collision) {
 				throw new Error('PHONE_DUPLICATE_IN_COMMUNITY');
+			}
+		}
+
+		// forceNewParticipant salta el lookup de candidatos, pero el email global
+		// con retreatId NULL sigue siendo único por diseño. El índice parcial
+		// UQ_participants_email_retreat NO protege este caso: en SQLite los NULL
+		// son únicos entre sí, así que dos participants con el mismo email y
+		// retreatId NULL no violan el índice — sin este check el "es otra persona"
+		// crearía un duplicado silencioso de identidad global.
+		if (forceNewParticipant && participantFields.email) {
+			const dup = await this.participantRepo
+				.createQueryBuilder('participant')
+				.where('LOWER(participant.email) = LOWER(:email)', {
+					email: participantFields.email,
+				})
+				.andWhere('participant.retreatId IS NULL')
+				.andWhere('participant.dataDeletedAt IS NULL')
+				.getOne();
+			if (dup) {
+				throw new Error('EMAIL_DUPLICATE_IN_PARTICIPANTS');
 			}
 		}
 
@@ -803,7 +1030,24 @@ export class CommunityService {
 			emergencyContact1CellPhone: participantFields.cellPhone,
 		});
 
-		const savedParticipant = await this.participantRepo.save(participant);
+		let savedParticipant: Participant;
+		try {
+			savedParticipant = await this.participantRepo.save(participant);
+		} catch (err: any) {
+			// Defense in depth para races: si OTRO insert mete el mismo
+			// (LOWER(email), retreatId) NO-NULL entre el lookup y este save, el
+			// índice parcial único dispara. El caso retreatId NULL (miembro de
+			// otra comunidad creado por modal) no llega aquí: los NULL no
+			// chocan en índices únicos de SQLite — lo bloquea el check de
+			// aplicación de forceNewParticipant, más arriba.
+			if (
+				typeof err?.message === 'string' &&
+				err.message.toUpperCase().includes('UNIQUE')
+			) {
+				throw new Error('EMAIL_DUPLICATE_IN_PARTICIPANTS');
+			}
+			throw err;
+		}
 
 		// G1: vincular a User existente si comparte email
 		await this.linkParticipantToExistingUser(savedParticipant.id).catch((err) => {
@@ -819,30 +1063,200 @@ export class CommunityService {
 
 		const savedMember = await this.memberRepo.save(member);
 
-		// joinedAt es @CreateDateColumn (se autofija al insertar). Para respetar
-		// una fecha de ingreso custom hay que sobreescribirla con un UPDATE.
-		if (joinedAt) {
-			const parsed = new Date(joinedAt);
-			if (!Number.isNaN(parsed.getTime())) {
-				await this.memberRepo.update(savedMember.id, { joinedAt: parsed });
-			}
-		}
-
-		// Cumpleaños: se ignora en silencio si no es una fecha real. Es un campo
-		// opcional de un alta que ya se completó — tumbar la creación entera por
-		// una fecha mal tecleada sería peor que dejarla sin capturar.
-		if (birthDate) {
-			const normalized = normalizeBirthdayValue(birthDate);
-			if (normalized) {
-				await this.memberRepo.update(savedMember.id, { birthDate: normalized });
-			}
-		}
+		// joinedAt/birthDate post-creación (mismo criterio en el flujo de link).
+		await this.applyMemberDates(savedMember.id, { joinedAt, birthDate });
 
 		// 3. Return member with participant data
 		return this.memberRepo.findOne({
 			where: { id: savedMember.id },
 			relations: ['participant'],
 		});
+	}
+
+	/**
+	 * joinedAt/birthDate post-creación de un member. joinedAt es
+	 * @CreateDateColumn (se autofija al insertar): para respetar una fecha
+	 * custom hay que sobreescribirla con un UPDATE. El cumpleaños se ignora en
+	 * silencio si no es una fecha real — es un campo opcional de un alta que ya
+	 * se completó; tumbarla entera por una fecha mal tecleada sería peor.
+	 */
+	private async applyMemberDates(
+		memberId: string,
+		dates: { joinedAt?: string | Date; birthDate?: string },
+	): Promise<void> {
+		if (dates.joinedAt) {
+			const parsed = new Date(dates.joinedAt);
+			if (!Number.isNaN(parsed.getTime())) {
+				await this.memberRepo.update(memberId, { joinedAt: parsed });
+			}
+		}
+		if (dates.birthDate) {
+			const normalized = normalizeBirthdayValue(dates.birthDate);
+			if (normalized) {
+				await this.memberRepo.update(memberId, { birthDate: normalized });
+			}
+		}
+	}
+
+	/**
+	 * Fase 1 del reconocimiento: si la persona ya existe en el sistema, detiene
+	 * el alta con un conflicto para que el admin confirme en el modal. Orden de
+	 * checks intencional:
+	 *   1. "ya es miembro" — el pariente miembro también es candidato por
+	 *      teléfono y debe ganar el mensaje informativo;
+	 *   2. colisión del teléfono del input con un miembro NO candidato
+	 *      (p.ej. colisión vía overlay);
+	 *   3. recién ahí, la lista de linkeables.
+	 * Los candidatos cuyo teléfono propio colisiona con otro miembro se
+	 * excluyen: el trigger trg_cm_phone_uniq_insert abortaría el INSERT del
+	 * vínculo con ese teléfono efectivo.
+	 */
+	private async checkExistingParticipantsForLink(
+		communityId: string,
+		input: { firstName: string; lastName: string; email: string; cellPhone: string },
+	): Promise<void> {
+		const email = input.email?.trim() || null;
+		const candidates = await this.findLinkCandidates(email, input.cellPhone);
+		if (candidates.length === 0) return;
+
+		const ctx = await this.loadMemberMatchContext(communityId);
+
+		const memberCandidate = candidates.find((c) =>
+			ctx.memberParticipantIds.has(c.participant.id),
+		);
+		if (memberCandidate) {
+			const member = ctx.membersByParticipantId.get(memberCandidate.participant.id)!;
+			const profile = resolveMemberProfile(member);
+			throw new MemberCreateConflictError(
+				'ALREADY_MEMBER',
+				{
+					member: {
+						memberId: member.id,
+						firstName: profile.firstName,
+						lastName: profile.lastName,
+					},
+				},
+				'Esa persona ya es miembro de esta comunidad.',
+			);
+		}
+
+		if (ctx.collides(input.cellPhone)) {
+			throw new Error('PHONE_DUPLICATE_IN_COMMUNITY');
+		}
+
+		const linkable = candidates.filter((c) => !ctx.collides(c.participant.cellPhone));
+		if (linkable.length > 0) {
+			throw new MemberCreateConflictError(
+				'EXISTING_PARTICIPANT_FOUND',
+				{
+					candidates: linkable.map((c) => ({
+						participantId: c.participant.id,
+						firstName: c.participant.firstName,
+						lastName: c.participant.lastName,
+						matchedBy: c.matchedBy,
+					})),
+				},
+				'Ya existe una persona registrada con ese correo o teléfono.',
+			);
+		}
+
+		// Quedaron solo candidatos con teléfono colisionante: el conflicto
+		// real es el teléfono, no la identidad.
+		if (candidates.some((c) => ctx.collides(c.participant.cellPhone))) {
+			throw new Error('PHONE_DUPLICATE_IN_COMMUNITY');
+		}
+	}
+
+	/**
+	 * Fase 2a: el admin confirmó vincular un Participant existente. Revalida
+	 * server-side que el id siga en la lista de candidatos (los datos pueden
+	 * haber cambiado entre fases), re-chequea colisiones y ejecuta el vínculo:
+	 * addMember + overlay diff + joinedAt/birthDate. NUNCA escribe en
+	 * participants.* (regla de oro del modelo overlay).
+	 */
+	private async linkExistingParticipantAsMember(
+		communityId: string,
+		input: { firstName: string; lastName: string; email: string; cellPhone: string },
+		linkParticipantId: string,
+		extras: { joinedAt?: string | Date; birthDate?: string },
+		state: MemberState,
+	): Promise<CommunityMember & { linked: true; matchedBy: 'email' | 'phone'; changedFields: string[] }> {
+		const candidates = await this.findLinkCandidates(input.email, input.cellPhone);
+		const ctx = await this.loadMemberMatchContext(communityId);
+
+		// El target se volvió miembro entre fases → informativo.
+		if (ctx.memberParticipantIds.has(linkParticipantId)) {
+			const member = ctx.membersByParticipantId.get(linkParticipantId)!;
+			const profile = resolveMemberProfile(member);
+			throw new MemberCreateConflictError(
+				'ALREADY_MEMBER',
+				{
+					member: {
+						memberId: member.id,
+						firstName: profile.firstName,
+						lastName: profile.lastName,
+					},
+				},
+				'Esa persona ya es miembro de esta comunidad.',
+			);
+		}
+
+		const target = candidates.find((c) => c.participant.id === linkParticipantId);
+		if (!target) {
+			throw new MemberCreateConflictError(
+				'LINK_TARGET_MISMATCH',
+				{},
+				'Los datos ya no coinciden con esa persona; verifica de nuevo.',
+			);
+		}
+
+		// Colisión del teléfono del input (efectivo post-overlay) o del propio
+		// participant (evaluado por el trigger en el INSERT, antes del overlay)
+		// con OTRO miembro. El target ya se verificó que no es miembro.
+		if (ctx.collides(input.cellPhone) || ctx.collides(target.participant.cellPhone)) {
+			throw new Error('PHONE_DUPLICATE_IN_COMMUNITY');
+		}
+
+		let member: CommunityMember;
+		try {
+			member = await this.addMember(communityId, linkParticipantId, state);
+		} catch (err: any) {
+			// Defense in depth: trg_cm_phone_uniq_insert cubre la ventana entre
+			// el check de arriba y este INSERT.
+			if (
+				typeof err?.message === 'string' &&
+				err.message.includes('PHONE_DUPLICATE_IN_COMMUNITY')
+			) {
+				throw new Error('PHONE_DUPLICATE_IN_COMMUNITY');
+			}
+			throw err;
+		}
+
+		const overlay = this.buildMemberOverlay(input, target.participant);
+		if (Object.keys(overlay).length > 0) {
+			try {
+				await this.memberRepo.update(member.id, overlay);
+			} catch (err: any) {
+				// trg_cm_phone_uniq_update defiende la escritura del overlay.
+				if (
+					typeof err?.message === 'string' &&
+					err.message.includes('PHONE_DUPLICATE_IN_COMMUNITY')
+				) {
+					throw new Error('PHONE_DUPLICATE_IN_COMMUNITY');
+				}
+				throw err;
+			}
+		}
+
+		await this.applyMemberDates(member.id, extras);
+
+		const loaded = await this.findMemberWithBirthday(member.id);
+		return {
+			...(loaded as CommunityMember),
+			linked: true,
+			matchedBy: target.matchedBy,
+			changedFields: Object.keys(overlay),
+		};
 	}
 
 	async importFromRetreat(communityId: string, retreatId: string, participantIds: string[]) {
@@ -2590,28 +3004,12 @@ export class CommunityService {
 					const newMember = await this.addMember(communityId, existingParticipant.id, state);
 
 					// Overlay: si el input difiere del Participant existente,
-					// guardar como overlay per-community. Resuelve el bug donde
-					// "Juan" capturado por el bot quedaba sobrescrito por
-					// "Joseph" del Participant. Solo se persiste lo que difiere.
-					const overlay: Partial<CommunityMember> = {};
-					if (firstName && firstName !== (existingParticipant.firstName || '')) {
-						overlay.firstName = firstName;
-					}
-					if (lastName && lastName !== (existingParticipant.lastName || '')) {
-						overlay.lastName = lastName;
-					}
-					if (
-						email &&
-						email.toLowerCase() !== (existingParticipant.email || '').toLowerCase()
-					) {
-						overlay.email = email;
-					}
-					// Para teléfono comparamos crudo; la dedupe de findParticipantByEmailOrPhone
-					// ya hace match por sufijo, pero el coordinador puede haber tipeado el
-					// formato con espacios distintos — preservar el input solo si difiere.
-					if (cellPhone && cellPhone !== (existingParticipant.cellPhone || '')) {
-						overlay.cellPhone = cellPhone;
-					}
+					// guardar como overlay per-community (helper compartido con
+					// el alta manual). Solo se persiste lo que difiere.
+					const overlay = this.buildMemberOverlay(
+						{ firstName, lastName, email, cellPhone },
+						existingParticipant,
+					);
 					if (Object.keys(overlay).length > 0) {
 						await this.memberRepo.update(newMember.id, overlay);
 					}

@@ -346,6 +346,72 @@ export const importMembersSchema = z.object({
 	}),
 });
 
+/**
+ * Candidato a vínculo devuelto en el 409 `EXISTING_PARTICIPANT_FOUND` de
+ * `POST /communities/:id/members/create`. Deliberadamente SIN email ni
+ * cellPhone: el admin no tecleó los datos de contacto del candidato y el
+ * payload del 409 no debe servir como oracle de enumeración (probear
+ * teléfonos → cosechar identidades). Solo lo que hace falta para que el
+ * admin reconozca a la persona y confirme el vínculo.
+ */
+export const memberCandidateSchema = z.object({
+	participantId: z.string().uuid(),
+	firstName: z.string(),
+	lastName: z.string(),
+	matchedBy: z.enum(['email', 'phone']),
+});
+export type MemberCandidate = z.infer<typeof memberCandidateSchema>;
+
+/**
+ * Schema para POST /communities/:id/members/create (alta manual de miembro).
+ * Cubre las dos fases del reconocimiento de persona existente:
+ *
+ *  - Fase 1 (sin flags): el service busca candidatos por email/teléfono y
+ *    responde 409 `EXISTING_PARTICIPANT_FOUND` / `ALREADY_MEMBER` si hay match.
+ *  - Fase 2a `linkParticipantId`: el admin confirmó vincular ese Participant
+ *    (id que llegó en el 409).
+ *  - Fase 2b `forceNewParticipant`: el admin confirmó "es otra persona" —
+ *    crear Participant nuevo aunque haya candidatos.
+ */
+export const createCommunityMemberSchema = z.object({
+	body: z
+		.object({
+			firstName: z.string().trim().min(1).max(100),
+			lastName: z.string().trim().min(1).max(100),
+			// email admite '' (mismo patrón anti-empty-string que
+			// updateMemberProfileSchema): el service trata '' como "sin email"
+			// en el lookup de candidatos.
+			email: z
+				.string()
+				.trim()
+				.max(254)
+				.refine((v) => v === '' || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v), {
+					message: 'Invalid email format',
+				})
+				.optional(),
+			// Requerido: es la vía principal del lookup (el modal lo exige
+			// client-side; bulk NO pasa por esta ruta y puede mandar '').
+			cellPhone: z.string().trim().min(1).max(30),
+			birthDate: z
+				.string()
+				.trim()
+				.max(10)
+				.refine((v) => v === '' || /^(?:\d{4}-)?\d{2}-\d{2}$/.test(v), {
+					message: 'birthDate debe ser YYYY-MM-DD o MM-DD',
+				})
+				.optional(),
+			joinedAt: z.coerce.date().optional(),
+			linkParticipantId: z.string().uuid().optional(),
+			forceNewParticipant: z.boolean().optional(),
+		})
+		.refine((d) => !(d.linkParticipantId && d.forceNewParticipant), {
+			message: 'linkParticipantId y forceNewParticipant son mutuamente excluyentes',
+		}),
+	params: z.object({
+		id: z.string().uuid(),
+	}),
+});
+
 export const updateMemberStateSchema = z.object({
 	body: z.object({
 		state: MemberStateEnum,

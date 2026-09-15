@@ -3,7 +3,7 @@ import { TestDataFactory } from '../test-utils/testDataFactory';
 import { User } from '@/entities/user.entity';
 import { Community } from '@/entities/community.entity';
 import { Retreat } from '@/entities/retreat.entity';
-import { CommunityService } from '@/services/communityService';
+import { CommunityService, MemberCreateConflictError } from '@/services/communityService';
 import { MemberStateEnum } from '@repo/types';
 import { AppDataSource } from '@/data-source';
 import { CommunityAdmin } from '@/entities/communityAdmin.entity';
@@ -2581,7 +2581,10 @@ describe('Community Service', () => {
 				firstName: 'Auto',
 				lastName: 'Link',
 				email: 'create-member@test.com',
-				cellPhone: '555-1234',
+				// Teléfono único: los participants NO se limpian entre tests (ver
+				// describe de dos fases abajo) y '555-1234' matchearía leftovers de
+				// createPublicJoinRequest/updateMemberProfile → EXISTING_PARTICIPANT_FOUND.
+				cellPhone: '555-3141592',
 			});
 
 			expect(member).toBeTruthy();
@@ -3519,6 +3522,506 @@ describe('Community Service', () => {
 			expect((member as any)?.lastName).toBeFalsy();
 			expect(member?.participant?.firstName).toBe('NuevoMiembro');
 			expect(member?.participant?.lastName).toBe('NuevoApellido');
+		});
+	});
+
+	describe('createCommunityMember — reconocimiento de persona existente (dos fases)', () => {
+		// La DB de test se arma con synchronize (sin migrations): no tiene triggers
+		// ni índices parciales. Y clearTestData intenta `DELETE FROM participant`
+		// cuando la tabla física es `participants` — ese DELETE falla en silencio
+		// y los participants ACUMULAN entre tests. La suite histórica sobrevive
+		// porque usa emails/teléfonos únicos por test; este describe hace lo mismo
+		// rotando la base del teléfono en cada test (Date.now + seed desempatan
+		// mismo-milisegundo).
+		let phoneSeed = 0;
+		const mkPhones = () => {
+			phoneSeed += 1;
+			const base = String(10_000_000 + ((Date.now() + phoneSeed * 137) % 90_000_000));
+			const mk = (i: number) => `55${base.slice(0, 6)}${String(i).padStart(2, '0')}`;
+			return { a: mk(1), b: mk(2), c: mk(3), d: mk(4), e: mk(5), family: mk(99) };
+		};
+		let PH = mkPhones();
+
+		beforeEach(() => {
+			PH = mkPhones();
+		});
+
+		// trg_cm_phone_uniq_insert vive solo en la migration 20260521170000;
+		// synchronize no lo crea. El test que documenta esa invariante de DB lo
+		// instala a mano con el SQL exacto de la migración original.
+		const CM_PHONE_UNIQ_TRIGGER_SQL = `
+			CREATE TRIGGER IF NOT EXISTS "trg_cm_phone_uniq_insert"
+			BEFORE INSERT ON "community_member"
+			BEGIN
+				SELECT RAISE(ABORT, 'PHONE_DUPLICATE_IN_COMMUNITY')
+				WHERE EXISTS (
+					SELECT 1
+					FROM "community_member" cm
+					LEFT JOIN "participants" p ON p.id = cm.participantId
+					LEFT JOIN "participants" pNew ON pNew.id = NEW.participantId
+					WHERE cm.communityId = NEW.communityId
+					  AND cm.id != COALESCE(NEW.id, '')
+					  AND length(COALESCE(NEW.cellPhone, pNew.cellPhone, '')) > 0
+					  AND length(COALESCE(cm.cellPhone, p.cellPhone, '')) > 0
+					  AND substr(
+					        REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(COALESCE(NEW.cellPhone, pNew.cellPhone), ' ', ''), '-', ''), '(', ''), ')', ''), '+', ''),
+					        -10
+					      ) =
+					      substr(
+					        REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(COALESCE(cm.cellPhone, p.cellPhone), ' ', ''), '-', ''), '(', ''), ')', ''), '+', ''),
+					        -10
+					      )
+					  AND length(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(COALESCE(NEW.cellPhone, pNew.cellPhone), ' ', ''), '-', ''), '(', ''), ')', ''), '+', '')) >= 7
+				);
+			END`;
+
+		const input = (over: Record<string, any> = {}) => ({
+			firstName: 'Nuevo',
+			lastName: 'Miembro',
+			email: '',
+			cellPhone: PH.a,
+			...over,
+		});
+
+		/** Captura el error de una llamada que DEBE fallar, para inspeccionar code/payload. */
+		const expectConflict = async (p: Promise<any>): Promise<any> => {
+			try {
+				await p;
+			} catch (e) {
+				return e;
+			}
+			throw new Error('esperaba un conflicto y la llamada resolvió');
+		};
+
+		it('sin candidatos crea Participant nuevo (regresión del flujo histórico)', async () => {
+			const result = await service.createCommunityMember(testCommunity.id, {
+				firstName: 'Alguien',
+				lastName: 'Nueva',
+				email: 'alguien-nueva@example.com',
+				cellPhone: PH.a,
+			});
+			expect(result).not.toBeNull();
+			expect(result?.participantId).toBeDefined();
+			expect(result?.participant?.retreatId).toBeNull();
+			expect(result?.linked).toBeUndefined();
+		});
+
+		it('match por email con casing distinto → EXISTING_PARTICIPANT_FOUND matchedBy email, sin datos de contacto', async () => {
+			const existing = await TestDataFactory.createTestParticipant(testRetreat.id, {
+				firstName: 'María',
+				lastName: 'López',
+				email: 'Maria.Lopez@Example.com',
+				cellPhone: PH.b,
+			});
+
+			const err = await expectConflict(
+				service.createCommunityMember(testCommunity.id, {
+					firstName: 'María',
+					lastName: 'López',
+					email: 'maria.lopez@example.com',
+					cellPhone: PH.a,
+				}),
+			);
+			expect(err).toBeInstanceOf(MemberCreateConflictError);
+			expect(err.code).toBe('EXISTING_PARTICIPANT_FOUND');
+			expect(err.payload.candidates).toHaveLength(1);
+			const cand = err.payload.candidates[0];
+			expect(cand.participantId).toBe(existing.id);
+			expect(cand.matchedBy).toBe('email');
+			// SECURITY: el 409 no expone email/teléfono de los candidatos
+			// (enumeration oracle mitigation) — solo identidad mínima.
+			expect(Object.keys(cand).sort()).toEqual(
+				['firstName', 'lastName', 'matchedBy', 'participantId'].sort(),
+			);
+		});
+
+		it('match por teléfono con formato distinto (+52 y espacios) → matchedBy phone', async () => {
+			await TestDataFactory.createTestParticipant(testRetreat.id, {
+				firstName: 'Pedro',
+				lastName: 'Ramírez',
+				email: 'pedro.ramirez@example.com',
+				cellPhone: `+52 ${PH.c.slice(0, 2)} ${PH.c.slice(2, 6)} ${PH.c.slice(6)}`,
+			});
+
+			const err = await expectConflict(
+				service.createCommunityMember(testCommunity.id, input({ cellPhone: PH.c })),
+			);
+			expect(err).toBeInstanceOf(MemberCreateConflictError);
+			expect(err.code).toBe('EXISTING_PARTICIPANT_FOUND');
+			expect(err.payload.candidates[0].matchedBy).toBe('phone');
+		});
+
+		it('cuando matchea por email Y teléfono, email gana (un solo candidato, sin duplicado)', async () => {
+			await TestDataFactory.createTestParticipant(testRetreat.id, {
+				email: 'ambos@example.com',
+				cellPhone: PH.d,
+			});
+
+			const err = await expectConflict(
+				service.createCommunityMember(
+					testCommunity.id,
+					input({ email: 'Ambos@Example.com', cellPhone: PH.d }),
+				),
+			);
+			expect(err.code).toBe('EXISTING_PARTICIPANT_FOUND');
+			expect(err.payload.candidates).toHaveLength(1);
+			expect(err.payload.candidates[0].matchedBy).toBe('email');
+		});
+
+		it('cap de 5 candidatos cuando 6 participants comparten teléfono', async () => {
+			for (let i = 1; i <= 6; i++) {
+				await TestDataFactory.createTestParticipant(testRetreat.id, {
+					firstName: `Familiar${i}`,
+					lastName: 'García',
+					email: `familiar${i}-cap@example.com`,
+					cellPhone: PH.family,
+				});
+			}
+
+			const err = await expectConflict(
+				service.createCommunityMember(testCommunity.id, input({ cellPhone: PH.family })),
+			);
+			expect(err.code).toBe('EXISTING_PARTICIPANT_FOUND');
+			expect(err.payload.candidates).toHaveLength(5);
+		});
+
+		it('excluye participants con dataDeletedAt: el borrado no se ofrece ni resucita', async () => {
+			const partRepo = AppDataSource.getRepository(
+				require('@/entities/participant.entity').Participant,
+			);
+			const deleted = await TestDataFactory.createTestParticipant(testRetreat.id, {
+				email: 'borrado@example.com',
+				cellPhone: PH.b,
+			});
+			await partRepo.update(deleted.id, { dataDeletedAt: new Date() });
+
+			// El email/teléfono del borrado NO genera conflicto: el alta procede
+			const result = await service.createCommunityMember(
+				testCommunity.id,
+				input({ email: 'borrado@example.com', cellPhone: PH.b }),
+			);
+			expect(result).not.toBeNull();
+			expect(result?.participantId).not.toBe(deleted.id);
+		});
+
+		it('excluye placeholders @placeholder.local del match por email (los encuentra por teléfono)', async () => {
+			await TestDataFactory.createTestParticipant(testRetreat.id, {
+				email: `phone-${PH.e}@placeholder.local`,
+				cellPhone: PH.e,
+			});
+
+			const err = await expectConflict(
+				service.createCommunityMember(
+					testCommunity.id,
+					input({ email: `phone-${PH.e}@placeholder.local`, cellPhone: PH.e }),
+				),
+			);
+			expect(err.code).toBe('EXISTING_PARTICIPANT_FOUND');
+			expect(err.payload.candidates).toHaveLength(1);
+			// La rama email lo excluyó; llegó por la rama teléfono (dedupe del bulk)
+			expect(err.payload.candidates[0].matchedBy).toBe('phone');
+		});
+
+		it('ALREADY_MEMBER reporta el nombre del overlay, no el del Participant', async () => {
+			const participant = await TestDataFactory.createTestParticipant(testRetreat.id, {
+				firstName: 'Joseph',
+				lastName: 'Perez',
+				email: 'joseph@example.com',
+				cellPhone: PH.b,
+			});
+			const member = await TestDataFactory.createTestCommunityMember(
+				testCommunity.id,
+				participant.id,
+				{ firstName: 'Juan' },
+			);
+
+			const err = await expectConflict(
+				service.createCommunityMember(testCommunity.id, input({ cellPhone: PH.b })),
+			);
+			expect(err).toBeInstanceOf(MemberCreateConflictError);
+			expect(err.code).toBe('ALREADY_MEMBER');
+			expect(err.payload.member).toMatchObject({
+				memberId: member.id,
+				firstName: 'Juan',
+				lastName: 'Perez',
+			});
+		});
+
+		it('teléfono del input colisiona con overlay de un miembro → PHONE_DUPLICATE aunque haya candidatos', async () => {
+			// Miembro NO candidato: su email/teléfono propios no matchean el input
+			const memberPart = await TestDataFactory.createTestParticipant(testRetreat.id, {
+				email: 'miembro-no-candidato@example.com',
+				cellPhone: PH.a,
+			});
+			await TestDataFactory.createTestCommunityMember(testCommunity.id, memberPart.id, {
+				cellPhone: PH.c, // overlay — teléfono efectivo del miembro
+			});
+			// Candidato linkeable por email
+			await TestDataFactory.createTestParticipant(testRetreat.id, {
+				email: 'candidato@example.com',
+				cellPhone: PH.b,
+			});
+
+			const err = await expectConflict(
+				service.createCommunityMember(
+					testCommunity.id,
+					input({ email: 'candidato@example.com', cellPhone: PH.c }),
+				),
+			);
+			// Orden del decision tree: la colisión del input gana sobre la lista
+			expect(err).not.toBeInstanceOf(MemberCreateConflictError);
+			expect(err.message).toBe('PHONE_DUPLICATE_IN_COMMUNITY');
+		});
+
+		it('excluye de la lista al candidato cuyo teléfono propio colisiona con un miembro', async () => {
+			// Miembro con teléfono efectivo PH.d
+			const memberPart = await TestDataFactory.createTestParticipant(testRetreat.id, {
+				email: 'miembro-colision@example.com',
+				cellPhone: PH.d,
+			});
+			await TestDataFactory.createTestCommunityMember(testCommunity.id, memberPart.id);
+			// Dos candidatos que matchean por el MISMO email (retiros distintos —
+			// el unique es (LOWER(email), retreatId)): A colisiona, B es limpio
+			const retreat2 = await TestDataFactory.createTestRetreat();
+			await TestDataFactory.createTestParticipant(testRetreat.id, {
+				firstName: 'Colisiona',
+				lastName: 'Hermano',
+				email: 'gemelos@example.com',
+				cellPhone: PH.d,
+			});
+			await TestDataFactory.createTestParticipant(retreat2.id, {
+				firstName: 'Limpio',
+				lastName: 'Hermano',
+				email: 'gemelos@example.com',
+				cellPhone: PH.a,
+			});
+
+			const err = await expectConflict(
+				service.createCommunityMember(
+					testCommunity.id,
+					input({ email: 'gemelos@example.com', cellPhone: PH.b }),
+				),
+			);
+			expect(err.code).toBe('EXISTING_PARTICIPANT_FOUND');
+			// Solo el hermano limpio: vincular a A dispararía trg_cm_phone_uniq_insert
+			expect(err.payload.candidates).toHaveLength(1);
+			expect(err.payload.candidates[0].firstName).toBe('Limpio');
+		});
+
+		it('si TODOS los candidatos colisionan por teléfono, el conflicto reportado es el teléfono', async () => {
+			const memberPart = await TestDataFactory.createTestParticipant(testRetreat.id, {
+				email: 'miembro-colision-total@example.com',
+				cellPhone: PH.d,
+			});
+			await TestDataFactory.createTestCommunityMember(testCommunity.id, memberPart.id);
+			await TestDataFactory.createTestParticipant(testRetreat.id, {
+				email: 'unico-colisionante@example.com',
+				cellPhone: PH.d,
+			});
+
+			const err = await expectConflict(
+				service.createCommunityMember(
+					testCommunity.id,
+					input({ email: 'unico-colisionante@example.com', cellPhone: PH.a }),
+				),
+			);
+			expect(err).not.toBeInstanceOf(MemberCreateConflictError);
+			expect(err.message).toBe('PHONE_DUPLICATE_IN_COMMUNITY');
+		});
+
+		it('fase 2a: vincula sin duplicar identidad, overlay solo donde difiere, joinedAt/birthDate respetados', async () => {
+			const target = await TestDataFactory.createTestParticipant(testRetreat.id, {
+				firstName: 'Joseph',
+				lastName: 'Perez',
+				email: 'joseph.link@example.com',
+				cellPhone: `+52 ${PH.d.slice(0, 2)} ${PH.d.slice(2, 6)} ${PH.d.slice(6)}`,
+			});
+			const joinedAt = new Date('2026-01-15T12:00:00Z');
+
+			const result = await service.createCommunityMember(testCommunity.id, {
+				firstName: 'Juan', // difiere → overlay
+				lastName: 'Perez', // igual → sin overlay
+				email: 'joseph.link@example.com', // igual (case-insensitive) → sin overlay
+				cellPhone: PH.d, // difiere en formato → overlay (comparación cruda)
+				joinedAt: joinedAt.toISOString(),
+				birthDate: '1990-03-15',
+				linkParticipantId: target.id,
+			});
+
+			expect(result?.linked).toBe(true);
+			expect(result?.matchedBy).toBe('email');
+			expect(result?.changedFields).toEqual(['firstName', 'cellPhone']);
+
+			// El Participant global quedó INTACTO (regla de oro del modelo overlay)
+			const partRepo = AppDataSource.getRepository(
+				require('@/entities/participant.entity').Participant,
+			);
+			const fresh = await partRepo.findOne({ where: { id: target.id } });
+			expect(fresh?.firstName).toBe('Joseph');
+			expect(fresh?.lastName).toBe('Perez');
+			expect(fresh?.email).toBe('joseph.link@example.com');
+			expect(fresh?.cellPhone).toBe(`+52 ${PH.d.slice(0, 2)} ${PH.d.slice(2, 6)} ${PH.d.slice(6)}`);
+
+			// El overlay y las fechas viven en community_member
+			const memberRepo = AppDataSource.getRepository(
+				require('@/entities/communityMember.entity').CommunityMember,
+			);
+			const member = await memberRepo.findOne({
+				where: { participantId: target.id, communityId: testCommunity.id },
+			});
+			expect(member?.firstName).toBe('Juan');
+			expect(member?.lastName).toBeFalsy();
+			expect(member?.email).toBeFalsy();
+			expect(member?.cellPhone).toBe(PH.d);
+			expect(new Date(member!.joinedAt).getTime()).toBe(joinedAt.getTime());
+			expect(member?.birthDate).toBe('1990-03-15');
+		});
+
+		it('linkParticipantId fuera de los candidatos recomputados → LINK_TARGET_MISMATCH', async () => {
+			await TestDataFactory.createTestParticipant(testRetreat.id, {
+				email: 'real-candidato@example.com',
+				cellPhone: PH.a,
+			});
+
+			const err = await expectConflict(
+				service.createCommunityMember(
+					testCommunity.id,
+					input({
+						email: 'real-candidato@example.com',
+						cellPhone: PH.b,
+						// Revalidación server-side: este id nunca estuvo en la lista
+						linkParticipantId: '00000000-0000-4000-8000-000000000000',
+					}),
+				),
+			);
+			expect(err).toBeInstanceOf(MemberCreateConflictError);
+			expect(err.code).toBe('LINK_TARGET_MISMATCH');
+		});
+
+		it('el target se volvió miembro entre fases → ALREADY_MEMBER', async () => {
+			const target = await TestDataFactory.createTestParticipant(testRetreat.id, {
+				firstName: 'Ya',
+				lastName: 'Miembro',
+				email: 'ya-miembro@example.com',
+				cellPhone: PH.a,
+			});
+			await TestDataFactory.createTestCommunityMember(testCommunity.id, target.id);
+
+			const err = await expectConflict(
+				service.createCommunityMember(
+					testCommunity.id,
+					input({
+						email: 'ya-miembro@example.com',
+						cellPhone: PH.b,
+						linkParticipantId: target.id,
+					}),
+				),
+			);
+			expect(err).toBeInstanceOf(MemberCreateConflictError);
+			expect(err.code).toBe('ALREADY_MEMBER');
+			expect(err.payload.member.memberId).toBeDefined();
+		});
+
+		it('colisión de teléfono insertada entre fases → PHONE_DUPLICATE antes del INSERT', async () => {
+			const target = await TestDataFactory.createTestParticipant(testRetreat.id, {
+				email: 'target-race@example.com',
+				cellPhone: PH.a,
+			});
+			// Entre la fase 1 y la 2a, otro admin agregó a alguien con ese teléfono
+			const otro = await TestDataFactory.createTestParticipant(testRetreat.id, {
+				email: 'otro-miembro@example.com',
+				cellPhone: PH.a,
+			});
+			await TestDataFactory.createTestCommunityMember(testCommunity.id, otro.id);
+
+			const err = await expectConflict(
+				service.createCommunityMember(
+					testCommunity.id,
+					input({
+						email: 'target-race@example.com',
+						cellPhone: PH.b,
+						linkParticipantId: target.id,
+					}),
+				),
+			);
+			expect(err).not.toBeInstanceOf(MemberCreateConflictError);
+			expect(err.message).toBe('PHONE_DUPLICATE_IN_COMMUNITY');
+		});
+
+		it('invariante documentado: trg_cm_phone_uniq_insert aborta el INSERT directo con teléfono efectivo duplicado', async () => {
+			const p1 = await TestDataFactory.createTestParticipant(testRetreat.id, {
+				email: 'trigger-a@example.com',
+				cellPhone: PH.a,
+			});
+			const p2 = await TestDataFactory.createTestParticipant(testRetreat.id, {
+				email: 'trigger-b@example.com',
+				cellPhone: PH.a,
+			});
+			await TestDataFactory.createTestCommunityMember(testCommunity.id, p1.id);
+
+			const memberRepo = AppDataSource.getRepository(
+				require('@/entities/communityMember.entity').CommunityMember,
+			);
+			// synchronize no corre migrations: el trigger se instala a mano con el
+			// SQL de 20260521170000 (ver comentario del describe).
+			await AppDataSource.query(CM_PHONE_UNIQ_TRIGGER_SQL);
+			// Sin pasar por el service: el trigger de DB es la defensa de la ventana
+			// check→INSERT (race condition).
+			await expect(
+				memberRepo.save(
+					memberRepo.create({
+						communityId: testCommunity.id,
+						participantId: p2.id,
+						state: 'active_member',
+					}),
+				),
+			).rejects.toThrow(/PHONE_DUPLICATE_IN_COMMUNITY/);
+		});
+
+		it('forceNew con email de participant de retiro crea el duplicado (aceptado por diseño)', async () => {
+			const retreatPart = await TestDataFactory.createTestParticipant(testRetreat.id, {
+				email: 'duplicado-retiro@example.com',
+				cellPhone: PH.a,
+			});
+
+			const result = await service.createCommunityMember(testCommunity.id, {
+				firstName: 'Otra',
+				lastName: 'Persona',
+				email: 'duplicado-retiro@example.com',
+				cellPhone: PH.b,
+				forceNewParticipant: true,
+			});
+			// El unique (LOWER(email), retreatId) no cruza: retreatId NULL vs retiro
+			expect(result).not.toBeNull();
+			expect(result?.participantId).not.toBe(retreatPart.id);
+			expect(result?.linked).toBeUndefined();
+		});
+
+		it('forceNew con email de participant retreatId-NULL (miembro de otra comunidad) → EMAIL_DUPLICATE_IN_PARTICIPANTS, no 500', async () => {
+			// Miembro de OTRA comunidad creado por modal → participant con retreatId NULL
+			const otraComunidad = await TestDataFactory.createTestCommunity(testUser.id);
+			await service.createCommunityMember(otraComunidad.id, {
+				firstName: 'Global',
+				lastName: 'Modal',
+				email: 'global-modal@example.com',
+				cellPhone: PH.a,
+			});
+
+			// El índice parcial UQ_participants_email_retreat NO dispara aquí:
+			// en SQLite los NULL son únicos entre sí, así que dos pares
+			// (email, retreatId=NULL) no violan el índice. Sin el check de
+			// aplicación del service, el "es otra persona" crearía un duplicado
+			// silencioso de identidad global (el email es la identidad del
+			// participante). Este test clava ese comportamiento.
+			await expect(
+				service.createCommunityMember(testCommunity.id, {
+					firstName: 'Distinta',
+					lastName: 'Persona',
+					email: 'global-modal@example.com',
+					cellPhone: PH.b,
+					forceNewParticipant: true,
+				}),
+			).rejects.toThrow('EMAIL_DUPLICATE_IN_PARTICIPANTS');
 		});
 	});
 });
