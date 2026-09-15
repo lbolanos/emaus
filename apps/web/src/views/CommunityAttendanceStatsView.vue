@@ -297,6 +297,83 @@
           </CardContent>
         </Card>
       </template>
+
+      <!-- Candidatos al retiro: asisten a las reuniones de la comunidad pero no
+           tienen inscripción activa en el retiro filtrado. Complemento del
+           ranking, que con retiro filtrado se estrecha al equipo servidor.
+           Va FUERA de la rama "sin reuniones": la asistencia se mide contra la
+           comunidad, no contra las preparaciones del retiro, así que la sección
+           es útil aunque el calendario del retiro aún no esté sincronizado. -->
+      <Card v-if="filters.retreatId">
+        <CardHeader class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div>
+            <CardTitle class="text-lg">
+              {{ $t('community.attendanceStats.unenrolledTitle') }}
+            </CardTitle>
+            <p class="text-sm text-muted-foreground mt-1">
+              {{ $t('community.attendanceStats.unenrolledHint') }}
+            </p>
+          </div>
+          <Badge variant="outline" class="shrink-0">
+            {{ $t('community.attendanceStats.unenrolledCount', { count: unenrolledCandidates.length }) }}
+          </Badge>
+        </CardHeader>
+        <CardContent>
+          <!-- Escritorio: mismas columnas que el ranking, sin sort interactivo
+               (el backend ordena por tasa descendente). -->
+          <div class="hidden md:block overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{{ $t('community.attendanceStats.member') }}</TableHead>
+                  <TableHead>{{ $t('community.attendanceStats.state') }}</TableHead>
+                  <TableHead class="text-right">{{ $t('community.attendanceStats.retreatsServed') }}</TableHead>
+                  <TableHead class="text-right">{{ $t('community.attendanceStats.attendance') }}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                <TableRow v-for="member in unenrolledCandidates" :key="member.memberId">
+                  <TableCell class="font-medium">{{ member.firstName }} {{ member.lastName }}</TableCell>
+                  <TableCell class="text-muted-foreground text-sm">
+                    {{ $t(`community.memberStates.${member.state}`) }}
+                  </TableCell>
+                  <TableCell class="text-right tabular-nums">{{ member.retreatsServed }}</TableCell>
+                  <TableCell class="text-right">
+                    <Badge :variant="frequencyVariant(member.frequency)">
+                      {{ Math.round(member.ratePercent) }}% · {{ member.attended }}/{{ member.total }}
+                    </Badge>
+                  </TableCell>
+                </TableRow>
+              </TableBody>
+            </Table>
+          </div>
+
+          <!-- Móvil -->
+          <div class="md:hidden space-y-2">
+            <div
+              v-for="member in unenrolledCandidates"
+              :key="member.memberId"
+              class="flex items-center justify-between gap-3 p-3 border rounded-lg"
+            >
+              <div class="min-w-0">
+                <p class="font-medium truncate">{{ member.firstName }} {{ member.lastName }}</p>
+                <p class="text-xs text-muted-foreground">
+                  {{ $t(`community.memberStates.${member.state}`) }}
+                  ·
+                  {{ $t('community.attendanceStats.retreatsServedShort', { count: member.retreatsServed }) }}
+                </p>
+              </div>
+              <Badge :variant="frequencyVariant(member.frequency)" class="shrink-0">
+                {{ Math.round(member.ratePercent) }}% · {{ member.attended }}/{{ member.total }}
+              </Badge>
+            </div>
+          </div>
+
+          <p v-if="unenrolledCandidates.length === 0" class="py-8 text-center text-muted-foreground">
+            {{ $t('community.attendanceStats.unenrolledEmpty') }}
+          </p>
+        </CardContent>
+      </Card>
     </template>
   </div>
 </template>
@@ -380,6 +457,14 @@ const communityName = computed(() => communityStore.currentCommunity?.name ?? ''
  */
 const retreatNotSynced = computed(
   () => Boolean(filters.value.retreatId) && stats.value?.retreatLinkedMeetingCount === 0,
+);
+
+// Guard on the FILTER, not the payload: the backend only sends the array with
+// retreatId, but the section must not render even if a stale payload carries it.
+// Attendance here is the COMMUNITY's (see the backend), so it stays useful even
+// when `retreatNotSynced` is true.
+const unenrolledCandidates = computed<AttendanceStatsMemberRow[]>(() =>
+  filters.value.retreatId ? stats.value?.unenrolledCandidates ?? [] : [],
 );
 
 // Los tipos vienen del backend (solo los que la comunidad usa), pero el tipo

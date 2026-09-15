@@ -558,6 +558,11 @@ export const communityAttendanceStatsSchema = z.object({
 	// Preparaciones del retiro filtrado que están sincronizadas. 0 con un retiro
 	// elegido = "sin sincronizar", que es distinto de "sin asistencia".
 	retreatLinkedMeetingCount: z.number().int().nonnegative(),
+	// Miembros del padrón con >= 1 asistencia sobre las reuniones consideradas
+	// DE LA COMUNIDAD (los filtros de tipo/fecha aplican; el retiro NO acota las
+	// reuniones medidas) y sin fila activa en retreat_participants del retiro
+	// filtrado. Sólo presente con filters.retreatId.
+	unenrolledCandidates: z.array(attendanceStatsMemberRowSchema).optional(),
 });
 export type CommunityAttendanceStats = z.infer<typeof communityAttendanceStatsSchema>;
 

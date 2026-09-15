@@ -4,6 +4,7 @@ import { AppDataSource } from '@/data-source';
 import { User } from '@/entities/user.entity';
 import { Community } from '@/entities/community.entity';
 import { Retreat } from '@/entities/retreat.entity';
+import { Participant } from '@/entities/participant.entity';
 import { CommunityMember } from '@/entities/communityMember.entity';
 import { RetreatParticipant } from '@/entities/retreatParticipant.entity';
 import { RetreatPreparation } from '@/entities/retreatPreparation.entity';
@@ -11,6 +12,7 @@ import {
 	RetreatCommunityMismatchError,
 	getAttendanceStats,
 	getServerAttendanceForRetreat,
+	loadRetreatEnrolledParticipantIds,
 } from '@/services/communityAttendanceStats';
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -571,6 +573,203 @@ describe('communityAttendanceStats', () => {
 			await expect(
 				getServerAttendanceForRetreat(community.id, retreat.id, now),
 			).rejects.toThrow(/otra comunidad/);
+		});
+	});
+
+	describe('unenrolledCandidates', () => {
+		const linkRetreat = async () => {
+			await AppDataSource.getRepository(Retreat).update(retreat.id, {
+				communityId: community.id,
+			});
+		};
+
+		/**
+		 * Factory gotcha: `addMember()` creates its participant against `retreat`,
+		 * and `createTestParticipant` ALWAYS inserts an active walker row in
+		 * `retreat_participants` for the retreat it is given — so a plain
+		 * `addMember()` is already ENROLLED. A candidate needs a participant
+		 * created against a second retreat (no row in this one).
+		 */
+		const addCandidate = async (state = 'active_member') => {
+			const otherRetreat = await TestDataFactory.createTestRetreat();
+			const participant = await TestDataFactory.createTestParticipant(otherRetreat.id);
+			const member = await TestDataFactory.createTestCommunityMember(
+				community.id,
+				participant.id,
+				{ state: state as never },
+			);
+			await setJoinedAt(member.id, longAgo);
+			return { participant, member };
+		};
+
+		const addGeneralMeeting = async (daysAgo: number) =>
+			TestDataFactory.createTestCommunityMeeting(community.id, {
+				meetingType: 'general',
+				startDate: new Date(now.getTime() - daysAgo * DAY),
+			});
+
+		it('measures attendance against the community, not the retreat (unsynced retreat still yields candidates)', async () => {
+			await linkRetreat();
+			const { member } = await addCandidate();
+			// A GENERAL meeting, not linked to the retreat's calendar: the
+			// candidate list must see it even though the retreat report itself
+			// has nothing to show (retreatLinkedMeetingCount === 0).
+			const meeting = await addGeneralMeeting(3);
+			await TestDataFactory.createTestCommunityAttendance(meeting.id, member.id, true);
+
+			const stats = await getAttendanceStats(community.id, { retreatId: retreat.id }, now);
+
+			expect(stats.retreatLinkedMeetingCount).toBe(0);
+			expect(stats.meetings).toHaveLength(0);
+			expect(stats.unenrolledCandidates).toHaveLength(1);
+			expect(stats.unenrolledCandidates![0]).toMatchObject({
+				memberId: member.id,
+				attended: 1,
+				total: 1,
+				ratePercent: 100,
+				frequency: 'high',
+			});
+		});
+
+		it('excludes members with an active enrollment of any type', async () => {
+			await linkRetreat();
+			const walker = await addMember(); // factory default: active walker row
+			const waiting = await addMember();
+			await AppDataSource.getRepository(RetreatParticipant).update(
+				{ retreatId: retreat.id, participantId: waiting.participant.id },
+				{ type: 'waiting' },
+			);
+			const server = await addMember();
+			await AppDataSource.getRepository(RetreatParticipant).update(
+				{ retreatId: retreat.id, participantId: server.participant.id },
+				{ type: 'server' },
+			);
+			const meeting = await addGeneralMeeting(3);
+			for (const enrolled of [walker, waiting, server]) {
+				await TestDataFactory.createTestCommunityAttendance(meeting.id, enrolled.member.id, true);
+			}
+
+			const stats = await getAttendanceStats(community.id, { retreatId: retreat.id }, now);
+
+			expect(stats.unenrolledCandidates).toEqual([]);
+			// Sanity: they are on the roster, just enrolled — the unfiltered
+			// ranking still lists them.
+			const wholeRoster = await getAttendanceStats(community.id, {}, now);
+			expect(wholeRoster.members.map((m) => m.memberId)).toContain(walker.member.id);
+		});
+
+		it('treats a cancelled enrollment as not enrolled', async () => {
+			await linkRetreat();
+			const { participant, member } = await addMember();
+			await AppDataSource.getRepository(RetreatParticipant).update(
+				{ retreatId: retreat.id, participantId: participant.id },
+				{ isCancelled: true },
+			);
+			const meeting = await addGeneralMeeting(3);
+			await TestDataFactory.createTestCommunityAttendance(meeting.id, member.id, true);
+
+			const stats = await getAttendanceStats(community.id, { retreatId: retreat.id }, now);
+
+			expect(stats.unenrolledCandidates).toHaveLength(1);
+			expect(stats.unenrolledCandidates![0].memberId).toBe(member.id);
+		});
+
+		it('omits the array when no retreat is filtered', async () => {
+			await addMember();
+
+			const stats = await getAttendanceStats(community.id, {}, now);
+
+			expect(stats.unenrolledCandidates).toBeUndefined();
+		});
+
+		it('loadRetreatEnrolledParticipantIds refuses a retreat from another community', async () => {
+			const other = await TestDataFactory.createTestCommunity(user.id, { name: 'Otra' });
+			await AppDataSource.getRepository(Retreat).update(retreat.id, { communityId: other.id });
+			await expect(
+				loadRetreatEnrolledParticipantIds(community.id, retreat.id),
+			).rejects.toThrow(RetreatCommunityMismatchError);
+		});
+
+		it('excludes participants who exercised data deletion', async () => {
+			await linkRetreat();
+			const { participant, member } = await addCandidate();
+			const meeting = await addGeneralMeeting(3);
+			await TestDataFactory.createTestCommunityAttendance(meeting.id, member.id, true);
+			await AppDataSource.getRepository(Participant).update(participant.id, {
+				dataDeletedAt: new Date(),
+			});
+
+			const stats = await getAttendanceStats(community.id, { retreatId: retreat.id }, now);
+
+			expect(stats.unenrolledCandidates).toEqual([]);
+		});
+
+		it('includes pending_verification members', async () => {
+			await linkRetreat();
+			const { member } = await addCandidate('pending_verification');
+			const meeting = await addGeneralMeeting(3);
+			await TestDataFactory.createTestCommunityAttendance(meeting.id, member.id, true);
+
+			const stats = await getAttendanceStats(community.id, { retreatId: retreat.id }, now);
+
+			expect(stats.unenrolledCandidates![0]).toMatchObject({
+				memberId: member.id,
+				state: 'pending_verification',
+			});
+		});
+
+		it('omits members without any attendance', async () => {
+			await linkRetreat();
+			const absent = await addCandidate();
+			const present = await addCandidate();
+			const meeting = await addGeneralMeeting(3);
+			await TestDataFactory.createTestCommunityAttendance(meeting.id, absent.member.id, false);
+			await TestDataFactory.createTestCommunityAttendance(meeting.id, present.member.id, true);
+
+			const stats = await getAttendanceStats(community.id, { retreatId: retreat.id }, now);
+
+			expect(stats.unenrolledCandidates?.map((c) => c.memberId)).toEqual([present.member.id]);
+		});
+
+		it('sorts candidates by rate descending', async () => {
+			await linkRetreat();
+			const half = await addCandidate();
+			const full = await addCandidate();
+			const first = await addGeneralMeeting(4);
+			const second = await addGeneralMeeting(3);
+			await TestDataFactory.createTestCommunityAttendance(first.id, half.member.id, false);
+			await TestDataFactory.createTestCommunityAttendance(second.id, half.member.id, true);
+			await TestDataFactory.createTestCommunityAttendance(first.id, full.member.id, true);
+			await TestDataFactory.createTestCommunityAttendance(second.id, full.member.id, true);
+
+			const stats = await getAttendanceStats(community.id, { retreatId: retreat.id }, now);
+
+			expect(stats.unenrolledCandidates?.map((c) => c.memberId)).toEqual([
+				full.member.id,
+				half.member.id,
+			]);
+		});
+
+		it('inherits the meetingType filter when measuring candidates', async () => {
+			await linkRetreat();
+			const { member } = await addCandidate();
+			const general = await addGeneralMeeting(3);
+			await TestDataFactory.createTestCommunityMeeting(community.id, {
+				meetingType: 'formation',
+				startDate: new Date(now.getTime() - 2 * DAY),
+			});
+			await TestDataFactory.createTestCommunityAttendance(general.id, member.id, true);
+
+			const formationOnly = await getAttendanceStats(
+				community.id,
+				{ retreatId: retreat.id, meetingType: 'formation' },
+				now,
+			);
+			// The general meeting they attended is filtered out, so nothing counts.
+			expect(formationOnly.unenrolledCandidates).toEqual([]);
+
+			const unfiltered = await getAttendanceStats(community.id, { retreatId: retreat.id }, now);
+			expect(unfiltered.unenrolledCandidates).toHaveLength(1);
 		});
 	});
 });

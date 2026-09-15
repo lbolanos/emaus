@@ -2696,7 +2696,11 @@
       "allRetreats": "Todos los retiros",
       "retreatNotSynced": "Este retiro no tiene preparaciones sincronizadas",
       "retreatNotSyncedHint": "Sus preparaciones aún no existen como reuniones de la comunidad, así que no hay asistencia que medir. Sincronízalas desde el calendario del retiro.",
-      "goToPreparations": "Ir a las preparaciones"
+      "goToPreparations": "Ir a las preparaciones",
+      "unenrolledTitle": "Asisten pero no se han inscrito al retiro",
+      "unenrolledHint": "Miembros del padrón con al menos una asistencia a las reuniones de la comunidad (según los filtros de tipo y fechas) y sin inscripción activa en este retiro.",
+      "unenrolledCount": "{count} candidatos",
+      "unenrolledEmpty": "Nadie: todos los miembros que han asistido ya tienen una inscripción activa en este retiro."
     },
     "convoke": {
       "action": "Convocar servidores",

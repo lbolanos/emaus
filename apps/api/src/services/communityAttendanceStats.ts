@@ -309,6 +309,42 @@ export const loadRetreatServingParticipantIds = async (
 };
 
 /**
+ * `participantId`s with an ACTIVE row in `retreat_participants` for the retreat
+ * — any type (server, partial_server, walker, waiting), `isCancelled = false`.
+ * That is the product definition of "enrolled in the retreat": a walker or
+ * waiting-list row counts, a cancelled one does not. Rows with a NULL
+ * `participantId` can never match a roster member.
+ *
+ * Throws `RetreatCommunityMismatchError` like `loadRetreatServingParticipantIds`
+ * (own guard, no reliance on call order): the retreat-community link is what
+ * authorizes crossing the two rosters.
+ */
+export const loadRetreatEnrolledParticipantIds = async (
+	communityId: string,
+	retreatId: string,
+): Promise<Set<string>> => {
+	const retreat = await AppDataSource.getRepository(Retreat).findOne({
+		where: { id: retreatId },
+		select: ['id', 'communityId'],
+	});
+	if (!retreat) throw new RetreatCommunityMismatchError('El retiro no existe');
+	if (retreat.communityId !== communityId) {
+		throw new RetreatCommunityMismatchError(
+			retreat.communityId
+				? 'El retiro pertenece a otra comunidad'
+				: 'El retiro no está vinculado a una comunidad',
+		);
+	}
+	const rows = await AppDataSource.getRepository(RetreatParticipant).find({
+		where: { retreatId, isCancelled: false },
+		select: ['id', 'participantId'],
+	});
+	return new Set(
+		rows.map((row) => row.participantId).filter((id): id is string => Boolean(id)),
+	);
+};
+
+/**
  * Retiros DE ESTA COMUNIDAD en los que cada participante sirvió, por
  * `participantId`. Mide el compromiso en retiros servidos, no sólo en reuniones
  * asistidas — un servidor veterano puede faltar a una preparación y seguir
@@ -377,7 +413,40 @@ export interface CommunityAttendanceStatsResult {
 	 * sin explicación.
 	 */
 	retreatLinkedMeetingCount: number;
+	/**
+	 * Complement of the serving-team ranking: roster members (ROSTER_STATES)
+	 * with `attended >= 1` over the community's considered meetings — the
+	 * retreat filter scopes the EXCLUSION list, not the measured meetings —
+	 * and no active enrollment in the filtered retreat. Only present when
+	 * `filters.retreatId` is set.
+	 */
+	unenrolledCandidates?: AttendanceStatsMemberRow[];
 }
+
+/** Ranking order: rate descending, last name as tiebreaker. */
+const byRateThenLastName = (a: AttendanceStatsMemberRow, b: AttendanceStatsMemberRow): number =>
+	b.ratePercent - a.ratePercent || a.lastName.localeCompare(b.lastName);
+
+/** Maps a member + its rate into the row shape both rankings share. */
+const toMemberRow = (
+	member: CommunityMember,
+	rate: MemberRate,
+	retreatsServed: Map<string, number>,
+): AttendanceStatsMemberRow => {
+	const profile = resolveMemberProfile(member);
+	return {
+		memberId: member.id,
+		participantId: member.participantId,
+		firstName: profile.firstName,
+		lastName: profile.lastName,
+		state: member.state,
+		attended: rate.attended,
+		total: rate.total,
+		ratePercent: rate.ratePercent,
+		frequency: rate.frequency,
+		retreatsServed: retreatsServed.get(member.participantId) ?? 0,
+	};
+};
 
 /**
  * The report: how each meeting of the selected type went, and how each member
@@ -406,6 +475,41 @@ export const getAttendanceStats = async (
 	const rates = computeMemberRates(considered, attendedByMember, members);
 	const retreatsServed = await loadCommunityRetreatsServed(communityId);
 
+	// Complement of the serving-team ranking. Candidates are measured against
+	// the COMMUNITY's considered meetings (type/date filters inherited, retreat
+	// scoping deliberately NOT): the retreat being staffed is typically an
+	// upcoming one whose preparations haven't happened yet, and the question
+	// here is "who shows commitment to the community but is missing from this
+	// retreat's roster" — historical attendance is the signal.
+	let unenrolledCandidates: AttendanceStatsMemberRow[] | undefined;
+	if (filters.retreatId) {
+		const enrolled = await loadRetreatEnrolledParticipantIds(communityId, filters.retreatId);
+		const communityScope = await loadConsideredMeetings(
+			communityId,
+			{ ...filters, retreatId: undefined },
+			now,
+		);
+		const candidateMembers = allMembers.filter(
+			(m) =>
+				(ROSTER_STATES as readonly string[]).includes(m.state) &&
+				!enrolled.has(m.participantId),
+		);
+		const candidateAttended = await loadAttendedByMember(
+			communityScope.considered.map((m) => m.id),
+		);
+		const candidateRates = computeMemberRates(
+			communityScope.considered,
+			candidateAttended,
+			candidateMembers,
+		);
+		unenrolledCandidates = candidateMembers
+			.map((member) => toMemberRow(member, candidateRates.get(member.id)!, retreatsServed))
+			// `attended >= 1` gates the list: the premise is "they have attended";
+			// a 0-attendance row would read as "no data", not "never comes".
+			.filter((row) => row.attended >= 1)
+			.sort(byRateThenLastName);
+	}
+
 	// `eligible` is the roster as it stood on the meeting date. Historical rows
 	// can predate every `joinedAt`; falling back to the current roster keeps the
 	// percentage meaningful instead of dividing by zero.
@@ -429,23 +533,8 @@ export const getAttendanceStats = async (
 	});
 
 	const memberRows: AttendanceStatsMemberRow[] = members
-		.map((member) => {
-			const profile = resolveMemberProfile(member);
-			const rate = rates.get(member.id)!;
-			return {
-				memberId: member.id,
-				participantId: member.participantId,
-				firstName: profile.firstName,
-				lastName: profile.lastName,
-				state: member.state,
-				attended: rate.attended,
-				total: rate.total,
-				ratePercent: rate.ratePercent,
-				frequency: rate.frequency,
-				retreatsServed: retreatsServed.get(member.participantId) ?? 0,
-			};
-		})
-		.sort((a, b) => b.ratePercent - a.ratePercent || a.lastName.localeCompare(b.lastName));
+		.map((member) => toMemberRow(member, rates.get(member.id)!, retreatsServed))
+		.sort(byRateThenLastName);
 
 	// Average of the per-meeting percentages, i.e. "on a typical meeting this
 	// share of the roster shows up". Same shape as the dashboard's
@@ -484,6 +573,7 @@ export const getAttendanceStats = async (
 			startDate: retreat.startDate,
 		})),
 		retreatLinkedMeetingCount,
+		unenrolledCandidates,
 	};
 };
 
