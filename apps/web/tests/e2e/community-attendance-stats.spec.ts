@@ -334,5 +334,182 @@ test.describe.serial('Estadísticas de asistencia por tipo de reunión — E2E',
 			await owner.dispose();
 			await admin!.dispose();
 		}
+		});
+
+		test('lista a los que asisten a la comunidad pero no se inscribieron al retiro', async ({
+			baseURL,
+		}) => {
+			const admin = await loginAs(baseURL!, E2E_USERS.superadmin).catch(() => null);
+			test.skip(!admin, 'e2e-superadmin no sembrado en esta base (¿DB con datos de prod?)');
+			const stamp = Date.now();
+
+			// Retiro propio de la corrida, vinculado a la comunidad y SIN
+			// preparaciones sincronizadas: la asistencia de los candidatos se
+			// mide contra las reuniones de la COMUNIDAD, no contra las del
+			// retiro, así que el caso angustioso (retiro próximo sin calendario)
+			// es justo el que este test ejercita.
+			const createRetreat = await admin!.ctx.post('/api/retreats', {
+				headers: withCsrf(admin!.csrfToken),
+				data: {
+					parish: `E2E Candidatos ${stamp}`,
+					startDate: '2030-04-10',
+					endDate: '2030-04-12',
+					houseId: E2E_HOUSE_ID,
+				},
+			});
+			expect(createRetreat.ok(), `create retreat: ${createRetreat.status()}`).toBeTruthy();
+			const retreatId = (await createRetreat.json()).id as string;
+
+			const link = await admin!.ctx.put(`/api/retreats/${retreatId}`, {
+				headers: withCsrf(admin!.csrfToken),
+				data: { communityId: community },
+			});
+			expect(link.ok(), `link retreat: ${link.status()}`).toBeTruthy();
+
+			const owner = await loginAs(baseURL!, E2E_USERS.owner);
+			const createdMeetingIds: string[] = [];
+			let historyEntryId: string | null = null;
+			try {
+				// Dos generales pasadas: dos reuniones dan tasas distintas y
+				// permiten afirmar el orden por tasa descendente.
+				const makeGeneral = async (offsetDays: number) => {
+					const res = await owner.ctx.post(`/api/communities/${community}/meetings`, {
+						data: {
+							title: `E2E General candidata ${stamp} ${offsetDays}`,
+							startDate: iso(offsetDays),
+							durationMinutes: 60,
+							meetingType: 'general',
+						},
+						headers: withCsrf(owner.csrfToken),
+					});
+					expect(res.status(), `crear general ${offsetDays}`).toBe(201);
+					const body = await res.json();
+					createdMeetingIds.push(body.id);
+					return body.id as string;
+				};
+				const generalA = await makeGeneral(-10);
+				const generalB = await makeGeneral(-5);
+
+				// Dos miembros del padrón con ingreso antiguo: cualquier reunión
+				// les cuenta.
+				const makeMember = async (n: number) => {
+					const res = await owner.ctx.post(
+						`/api/communities/${community}/members/create`,
+						{
+							data: {
+								firstName: 'E2E',
+								lastName: `Candidato ${n} ${stamp}`,
+								email: `e2e-cand-${stamp}-${n}@test.local`,
+								cellPhone: `55${String(stamp).slice(-7)}${n}`,
+								joinedAt: '2020-01-01',
+							},
+							headers: withCsrf(owner.csrfToken),
+						},
+					);
+					expect(res.status(), `crear miembro candidato ${n}`).toBe(201);
+					return (await res.json()) as { id: string; participantId: string };
+				};
+				const asisteTodo = await makeMember(1);
+				const asisteMitad = await makeMember(2);
+
+				const bulk = async (
+					memberId: string,
+					records: { meetingId: string; attended: boolean }[],
+				) => {
+					const res = await owner.ctx.post(
+						`/api/communities/${community}/members/${memberId}/attendance/bulk`,
+						{ data: { records }, headers: withCsrf(owner.csrfToken) },
+					);
+					expect(res.ok(), `bulk attendance: ${res.status()}`).toBeTruthy();
+				};
+				await bulk(asisteTodo.id, [
+					{ meetingId: generalA, attended: true },
+					{ meetingId: generalB, attended: true },
+				]);
+				await bulk(asisteMitad.id, [
+					{ meetingId: generalA, attended: true },
+					{ meetingId: generalB, attended: false },
+				]);
+
+				// 1. Con retreatId: ambos aparecen, medidos contra la comunidad
+				//    (el retiro no tiene NADA sincronizado) y ordenados por tasa
+				//    descendente.
+				const statsRes = await owner.ctx.get(
+					`/api/communities/${community}/attendance-stats?retreatId=${retreatId}`,
+				);
+				expect(statsRes.ok(), `stats con retreatId: ${statsRes.status()}`).toBeTruthy();
+				const stats = await statsRes.json();
+				expect(stats.retreatLinkedMeetingCount).toBe(0);
+				const candidates = stats.unenrolledCandidates ?? [];
+				const memberIds = candidates.map((c: { memberId: string }) => c.memberId);
+				expect(memberIds).toContain(asisteTodo.id);
+				expect(memberIds).toContain(asisteMitad.id);
+				const idxTodo = memberIds.indexOf(asisteTodo.id);
+				const idxMitad = memberIds.indexOf(asisteMitad.id);
+				expect(idxTodo, '100% antes que 50%').toBeLessThan(idxMitad);
+				const rowTodo = candidates[idxTodo];
+				expect(rowTodo.attended).toBe(2);
+				expect(rowTodo.total).toBe(2);
+				expect(Math.round(rowTodo.ratePercent)).toBe(100);
+				expect(rowTodo.frequency).toBe('high');
+				expect(rowTodo.state).toBe('active_member');
+
+				// 2. Sin retreatId el campo ni viaja: el cliente no debe pintar
+				//    la sección con un payload de otro alcance.
+				const plainRes = await owner.ctx.get(
+					`/api/communities/${community}/attendance-stats`,
+				);
+				expect(plainRes.ok()).toBeTruthy();
+				const plain = await plainRes.json();
+				expect('unenrolledCandidates' in plain).toBe(false);
+
+				// 3. Cualquier fila ACTIVA en el retiro cuenta como inscrito: al
+				//    dar de alta a uno como servidor, sale de la lista y el otro
+				//    queda.
+				const enroll = await admin!.ctx.post('/api/history', {
+					headers: withCsrf(admin!.csrfToken),
+					data: {
+						participantId: asisteTodo.participantId,
+						retreatId,
+						roleInRetreat: 'server',
+					},
+				});
+				expect(enroll.status(), `enroll: ${enroll.status()}`).toBe(201);
+				historyEntryId = ((await enroll.json()) as { id: string }).id;
+
+				const afterRes = await owner.ctx.get(
+					`/api/communities/${community}/attendance-stats?retreatId=${retreatId}`,
+				);
+				expect(afterRes.ok()).toBeTruthy();
+				const after = await afterRes.json();
+				const afterIds = (after.unenrolledCandidates ?? []).map(
+					(c: { memberId: string }) => c.memberId,
+				);
+				expect(afterIds).not.toContain(asisteTodo.id);
+				expect(afterIds).toContain(asisteMitad.id);
+			} finally {
+				if (historyEntryId) {
+					await admin!.ctx
+						.delete(`/api/history/${historyEntryId}`, {
+							headers: withCsrf(admin!.csrfToken),
+						})
+						.catch(() => undefined);
+				}
+				for (const meetingId of createdMeetingIds) {
+					await owner.ctx
+						.delete(`/api/communities/meetings/${meetingId}`, {
+							headers: withCsrf(owner.csrfToken),
+						})
+						.catch(() => undefined);
+				}
+				await admin!.ctx
+					.delete(`/api/retreats/${retreatId}`, {
+						headers: withCsrf(admin!.csrfToken),
+					})
+					.catch(() => undefined);
+				await owner.dispose();
+				await admin!.dispose();
+			}
+		});
+
 	});
-});

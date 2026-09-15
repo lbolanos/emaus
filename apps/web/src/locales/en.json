@@ -2587,7 +2587,11 @@
       "allRetreats": "All retreats",
       "retreatNotSynced": "This retreat has no synced preparations",
       "retreatNotSyncedHint": "Its preparations do not exist as community meetings yet, so there is no attendance to measure. Sync them from the retreat calendar.",
-      "goToPreparations": "Go to preparations"
+      "goToPreparations": "Go to preparations",
+      "unenrolledTitle": "Attending but not enrolled in the retreat",
+      "unenrolledHint": "Roster members with at least one attendance in the community's meetings (per the type and date filters) and no active enrollment in this retreat.",
+      "unenrolledCount": "{count} candidates",
+      "unenrolledEmpty": "Nobody: every member who attended already has an active enrollment in this retreat."
     },
     "convoke": {
       "action": "Call for servers",

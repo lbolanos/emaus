@@ -370,6 +370,102 @@ describe('CommunityAttendanceStatsView', () => {
 		expect(wrapper.text()).not.toContain('community.attendanceStats.noMeetingsHint');
 	});
 
+	it('renders the unenrolled candidates card when a retreat is filtered', async () => {
+		mockQuery.value = { retreatId: 'retreat-1' };
+		mockGetStats.mockResolvedValue(
+			statsPayload({
+				unenrolledCandidates: [member({ firstName: 'Asiste', lastName: 'SinInscribir' })],
+			}),
+		);
+		const wrapper = factory();
+		await flushPromises();
+		await nextTick();
+
+		expect(wrapper.text()).toContain('community.attendanceStats.unenrolledTitle');
+		expect(wrapper.text()).toContain('community.attendanceStats.unenrolledCount');
+		expect(wrapper.text()).toContain('Asiste SinInscribir');
+	});
+
+	// The computed guards on the FILTER, not on the payload: a stale payload
+	// carrying the array without retreatId must not render the section.
+	it('does not render the candidates card without a retreat filter, even if the payload carries it', async () => {
+		mockGetStats.mockResolvedValue(
+			statsPayload({
+				unenrolledCandidates: [member({ firstName: 'Asiste', lastName: 'SinInscribir' })],
+			}),
+		);
+		const wrapper = factory();
+		await flushPromises();
+		await nextTick();
+
+		expect(wrapper.text()).not.toContain('community.attendanceStats.unenrolledTitle');
+		expect(wrapper.text()).not.toContain('SinInscribir');
+	});
+
+	it('shows the candidates empty state when every attendee is already enrolled', async () => {
+		mockQuery.value = { retreatId: 'retreat-1' };
+		mockGetStats.mockResolvedValue(statsPayload({ unenrolledCandidates: [] }));
+		const wrapper = factory();
+		await flushPromises();
+		await nextTick();
+
+		expect(wrapper.text()).toContain('community.attendanceStats.unenrolledTitle');
+		expect(wrapper.text()).toContain('community.attendanceStats.unenrolledEmpty');
+	});
+
+	// The card lives OUTSIDE the meetings branch: candidate attendance is
+	// measured against the community's meetings, so it stays useful next to
+	// the "retreat not synced" report of an upcoming retreat.
+	it('keeps the candidates card visible when the retreat has no synced preparations', async () => {
+		mockQuery.value = { retreatId: 'retreat-1' };
+		mockGetStats.mockResolvedValue(
+			statsPayload({
+				meetings: [],
+				retreatLinkedMeetingCount: 0,
+				totals: { meetingCount: 0, memberCount: 1, averageRatePercent: 0 },
+				unenrolledCandidates: [member({ firstName: 'Asiste', lastName: 'SinInscribir' })],
+			}),
+		);
+		const wrapper = factory();
+		await flushPromises();
+		await nextTick();
+
+		expect(wrapper.text()).toContain('community.attendanceStats.retreatNotSynced');
+		expect(wrapper.text()).toContain('community.attendanceStats.unenrolledTitle');
+		expect(wrapper.text()).toContain('SinInscribir');
+	});
+
+	// The card has NO interactive sort: the backend sends the candidates
+	// already sorted by rate (descending), so the view must paint the payload
+	// order untouched.
+	it('paints the candidates in the order the backend sends them', async () => {
+		mockQuery.value = { retreatId: 'retreat-1' };
+		mockGetStats.mockResolvedValue(
+			statsPayload({
+				unenrolledCandidates: [
+					member({ firstName: 'Total', lastName: 'Candido' }),
+					member({
+						firstName: 'Medio',
+						lastName: 'Candido',
+						ratePercent: 50,
+						frequency: 'medium',
+						attended: 1,
+						total: 2,
+					}),
+				],
+			}),
+		);
+		const wrapper = factory();
+		await flushPromises();
+		await nextTick();
+
+		const rows = wrapper.findAll('tbody tr').map((r) => r.text());
+		const candidates = rows.filter((text) => text.includes('Candido'));
+		expect(candidates).toHaveLength(2);
+		expect(candidates[0]).toContain('Total');
+		expect(candidates[1]).toContain('Medio');
+	});
+
 	it('muestra el estado vacío cuando no hay reuniones celebradas', async () => {
 		mockGetStats.mockResolvedValue(
 			statsPayload({
