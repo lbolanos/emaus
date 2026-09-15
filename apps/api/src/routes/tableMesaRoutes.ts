@@ -41,6 +41,9 @@ router.post(
 router.post(
 	'/export/:retreatId',
 	requirePermission('table:read'),
+	// El DOCX incluye medicación/dieta/discapacidad/contactos de emergencia de
+	// cada participante: exige también participant:health, no solo table:read.
+	requirePermission('participant:health'),
 	requireRetreatAccess('retreatId'),
 	tableMesaController.exportTablesToDocx,
 );

@@ -256,12 +256,15 @@ app.post('/api/auth/refresh', async (req, res) => {
 ## Endpoints públicos: whitelist de campos, nunca la entidad
 
 Un endpoint sin autenticación que devuelve la entidad de TypeORM tal cual filtra todo lo que
-alguien agregue a esa tabla después, sin que nadie lo revise. No es hipotético en este repo:
-`GET /api/retreats/public` devuelve el `Retreat` completo, así que hoy expone sin login
-`paymentInfo` (banco, titular, número de cuenta y CLABE) y `contactPhones` (nombre + celular de
-varias personas). El volante público los muestra a propósito, pero el **listado** los entrega en
-JSON a cualquiera con un `curl`, incluidos retiros cuyo volante nadie abrió — material listo para
-pedir depósitos suplantando a la organización.
+alguien agregue a esa tabla después, sin que nadie lo revise. No fue hipotético en este repo:
+hasta 2026-09-14, `GET /api/retreats/public` (el **listado**, no el detalle) devolvía el
+`Retreat` completo, exponiendo sin login `paymentInfo` (banco, titular, número de cuenta y CLABE),
+`contactPhones` (nombre + celular de varias personas), `cost`, `openingNotes`/`closingNotes` y
+`createdBy` de TODOS los retiros públicos de un jalón — material listo para pedir depósitos
+suplantando a la organización, sin que nadie hubiera abierto el volante de ninguno. **Corregido**:
+`getPublicRetreats` ahora arma un whitelist mínimo (id/parish/fechas/slug/tipo/ciudad-estado); el
+volante público (`PublicRetreatFlyerModal`) SÍ necesita esos campos, pero solo los pide vía
+`getRetreatByIdPublic`/`getRetreatBySlugPublic` al abrir un retiro específico, nunca en bloque.
 
 Reglas:
 
@@ -273,6 +276,16 @@ Reglas:
 - Al agregar una columna a una entidad con endpoints públicos, revisar qué endpoints la empiezan a
   exponer. Un `grep` de `res.json(` sobre los controladores públicos toma un minuto.
 - Verificalo desde fuera, sin sesión: `curl -s https://emaus.cc/api/<ruta> | python3 -m json.tool`.
+- **Scopear por ID no es scopear por permiso.** Al mover los campos sensibles del listado al
+  detalle (`getRetreatByIdPublic`/`getRetreatBySlugPublic`), el primer intento devolvía
+  `paymentInfo`/`contactPhones`/dirección para **cualquier** `id`/`slug` válido, incluidos
+  retiros que la organización nunca marcó `isPublic: true` — el endpoint sí limitaba el radio a
+  UN retiro, pero no verificaba que ESE retiro fuera público. `createParticipant` (la escritura)
+  ya exige `isPublic: true` (`assertRetreatAcceptsRegistrations`); el detalle de LECTURA se había
+  quedado sin el mismo guard. Encontrado por `security-review` en el cierre de la misma tarea que
+  introdujo el bug. Regla: un endpoint público "de un recurso" necesita el mismo chequeo de
+  visibilidad que el endpoint público "de escritura" sobre ese recurso — no alcanza con que la
+  respuesta esté acotada a un solo ID.
 
 ## `z.string().url()` NO acota el esquema: acepta `javascript:`
 

@@ -7,7 +7,10 @@ export const RESOURCES = {
 	house: [...DEFAULT_OPERATIONS] as const,
 	inventoryItem: [...DEFAULT_OPERATIONS] as const,
 	retreat: [...DEFAULT_OPERATIONS] as const,
-	participant: [...DEFAULT_OPERATIONS] as const,
+	// 'health' además de los CRUD default: datos sensibles de salud/contacto de
+	// emergencia (medicación, dieta, discapacidad, notas, contactos). Separado
+	// de 'read' porque hoy 'participant:read' lo tiene hasta regular_server.
+	participant: [...DEFAULT_OPERATIONS, 'health'] as const,
 	user: [...DEFAULT_OPERATIONS, 'manage'] as const,
 	table: [...DEFAULT_OPERATIONS] as const,
 	payment: [...DEFAULT_OPERATIONS] as const,
@@ -24,7 +27,7 @@ export const RESOURCES = {
 } as const;
 
 export type ResourceType = keyof typeof RESOURCES;
-export type OperationType = (typeof DEFAULT_OPERATIONS)[number] | 'manage';
+export type OperationType = (typeof DEFAULT_OPERATIONS)[number] | 'manage' | 'health';
 
 // Generate all possible permissions
 export type Permission = `${ResourceType}:${OperationType}`;

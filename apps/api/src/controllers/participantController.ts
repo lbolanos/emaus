@@ -9,8 +9,10 @@ import {
 } from "@repo/types";
 import { z } from "zod";
 import { authorizationService, ensureRetreatAccess } from "../middleware/authorization";
+import { Participant } from "../entities/participant.entity";
 import { participantAvailabilityService } from "../services/participantAvailabilityService";
 import { getParticipantShirtOrderSummary } from "../services/shirtReportService";
+import { domainAuditService, DomainAuditAction } from "../services/domainAuditService";
 
 const recaptchaService = new RecaptchaService();
 
@@ -53,6 +55,100 @@ function stripScholarshipAmount<T>(data: T): T {
 	return data;
 }
 
+/**
+ * Campos de salud/contacto de emergencia que solo debe ver quien tiene
+ * `participant:health` (admin, treasurer, logistics, superadmin). Deja fuera
+ * a propósito `snores`/`hasMedication`/`hasDietaryRestrictions` (booleanos
+ * usados por la asignación de camas, sin ruta protegida hoy) y `sacraments`
+ * (dato religioso, no de salud) — solo el detalle libre y los contactos.
+ */
+const SENSITIVE_HEALTH_FIELDS = [
+	"medicationDetails",
+	"medicationSchedule",
+	"dietaryRestrictionsDetails",
+	"disabilitySupport",
+	"notes",
+	"emergencyContact1Name",
+	"emergencyContact1Relation",
+	"emergencyContact1HomePhone",
+	"emergencyContact1WorkPhone",
+	"emergencyContact1CellPhone",
+	"emergencyContact1Email",
+	"emergencyContact2Name",
+	"emergencyContact2Relation",
+	"emergencyContact2HomePhone",
+	"emergencyContact2WorkPhone",
+	"emergencyContact2CellPhone",
+	"emergencyContact2Email",
+] as const;
+
+/**
+ * Returns true when the request user can read the health/emergency-contact
+ * fields of a participant. Permission: participant:health (admin, treasurer,
+ * logistics, superadmin). If the request has no authenticated user, access
+ * is denied.
+ */
+export async function canViewHealthData(req: Request): Promise<boolean> {
+	const userId = (req as any).user?.id;
+	if (!userId) return false;
+	try {
+		return await authorizationService.hasPermission(userId, "participant:health");
+	} catch {
+		return false;
+	}
+}
+
+/**
+ * Strip the sensitive health/emergency-contact fields from a participant
+ * payload (or array) before sending it to a client that lacks
+ * participant:health. Same shape as stripScholarshipAmount.
+ *
+ * Exported (with `canViewHealthData`) for reuse by `retreatParticipantController`,
+ * whose `RetreatParticipant.participant` relation embeds the same Participant
+ * shape and needs the same gate.
+ */
+export function stripSensitiveHealthFields<T>(data: T): T {
+	if (data == null) return data;
+	if (Array.isArray(data)) {
+		return data.map((item) => stripSensitiveHealthFields(item)) as any;
+	}
+	if (typeof data === "object") {
+		const obj: any =
+			typeof (data as any).toJSON === "function" ? (data as any).toJSON() : { ...data };
+		for (const field of SENSITIVE_HEALTH_FIELDS) {
+			if (field in obj) {
+				delete obj[field];
+			}
+		}
+		return obj;
+	}
+	return data;
+}
+
+/**
+ * DTO mínimo para la respuesta de un alta pública de participante.
+ *
+ * `createParticipant` identifica a la persona por correo y, si ya existía una
+ * ficha con ese correo, reutiliza —y actualiza— esa fila (ver comentario junto
+ * a `claimExisting` más abajo). Devolver la entidad completa ahí filtraba
+ * medicación, dieta, discapacidad, notas y ambos contactos de emergencia a
+ * cualquiera que conociera el correo de un participante ya registrado: el
+ * cuerpo de la petición no necesita incluir esos campos para que vinieran de
+ * vuelta en la respuesta. El registro público nunca necesitó leer esos datos
+ * — solo confirma que el alta ocurrió.
+ */
+function toPublicRegistrationResult(
+	participant: Pick<Participant, "id" | "firstName" | "lastName" | "type" | "retreatId">,
+) {
+	return {
+		id: participant.id,
+		firstName: participant.firstName,
+		lastName: participant.lastName,
+		type: participant.type,
+		retreatId: participant.retreatId,
+	};
+}
+
 export const getAllParticipants = async (
   req: Request,
   res: Response,
@@ -85,8 +181,23 @@ export const getAllParticipants = async (
       includePayments === "true", // Include payment details when requested
       parsedTagIds,
     );
-    const canSee = await canViewScholarshipAmount(req);
-    res.json(canSee ? participants : stripScholarshipAmount(participants));
+    const canSeeScholarship = await canViewScholarshipAmount(req);
+    const canSeeHealth = await canViewHealthData(req);
+    let result: unknown = participants;
+    if (!canSeeScholarship) result = stripScholarshipAmount(result);
+    if (!canSeeHealth) result = stripSensitiveHealthFields(result);
+    // Un evento por llamada (no uno por participante): la lista puede traer
+    // decenas de fichas y el punto de auditoría es "quién pidió un listado
+    // que incluye salud", no repetir el mismo hecho N veces.
+    if (canSeeHealth && Array.isArray(participants) && participants.length > 0) {
+      void domainAuditService.log({
+        action: DomainAuditAction.PARTICIPANT_HEALTH_VIEW,
+        resourceType: "participant",
+        retreatId: typeof retreatId === "string" ? retreatId : null,
+        metadata: { endpoint: "list", count: participants.length },
+      });
+    }
+    res.json(result);
   } catch (error) {
     next(error);
   }
@@ -105,8 +216,21 @@ export const getParticipantById = async (
       typeof retreatId === "string" ? retreatId : undefined,
     );
     if (participant) {
-      const canSee = await canViewScholarshipAmount(req);
-      res.json(canSee ? participant : stripScholarshipAmount(participant));
+      const canSeeScholarship = await canViewScholarshipAmount(req);
+      const canSeeHealth = await canViewHealthData(req);
+      let result: unknown = participant;
+      if (!canSeeScholarship) result = stripScholarshipAmount(result);
+      if (!canSeeHealth) result = stripSensitiveHealthFields(result);
+      if (canSeeHealth) {
+        void domainAuditService.log({
+          action: DomainAuditAction.PARTICIPANT_HEALTH_VIEW,
+          resourceType: "participant",
+          resourceId: participant.id,
+          retreatId: participant.retreatId ?? null,
+          metadata: { endpoint: "detail" },
+        });
+      }
+      res.json(result);
     } else {
       res.status(404).json({ message: "Participant not found" });
     }
@@ -360,7 +484,7 @@ export const createParticipant = async (
       }
     }
 
-    res.status(201).json(newParticipant);
+    res.status(201).json(toPublicRegistrationResult(newParticipant));
   } catch (error) {
     if (error instanceof Error) {
       const code = (error as Error & { code?: string }).code;
@@ -443,7 +567,10 @@ export const createCoupleParticipant = async (
 
     const couple =
       await participantService.createCoupleParticipants(validatedData);
-    res.status(201).json(couple);
+    res.status(201).json({
+      husband: toPublicRegistrationResult(couple.husband),
+      wife: toPublicRegistrationResult(couple.wife),
+    });
   } catch (error) {
     if (error instanceof Error) {
       const code = (error as Error & { code?: string }).code;
@@ -554,7 +681,24 @@ export const updateParticipant = async (
       body,
     );
     if (updatedParticipant) {
-      res.json(canSee ? updatedParticipant : stripScholarshipAmount(updatedParticipant));
+      const canSeeHealth = await canViewHealthData(req);
+      let result: unknown = updatedParticipant;
+      if (!canSee) result = stripScholarshipAmount(result);
+      if (!canSeeHealth) result = stripSensitiveHealthFields(result);
+      // Mismo criterio que getParticipantById: la respuesta del PATCH devuelve
+      // la ficha completa a quien tiene participant:health, así que es una
+      // lectura de salud igual que un GET — faltaba este log (code-review,
+      // cierre 2026-09-14).
+      if (canSeeHealth) {
+        void domainAuditService.log({
+          action: DomainAuditAction.PARTICIPANT_HEALTH_VIEW,
+          resourceType: "participant",
+          resourceId: updatedParticipant.id,
+          retreatId: updatedParticipant.retreatId ?? null,
+          metadata: { endpoint: "update" },
+        });
+      }
+      res.json(result);
     } else {
       res.status(404).json({ message: "Participant not found" });
     }
@@ -847,6 +991,53 @@ export const deleteParticipantByDeleteToken = async (
     }
     const ok = await participantService.anonymizeParticipantByToken(token);
     if (!ok) return res.status(404).json({ message: "Token no válido" });
+    res.json({ success: true });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Deja constancia en la auditoría de que el usuario exportó a archivo (CSV/XLSX)
+ * columnas de salud/contacto de emergencia. La exportación en sí ocurre en el
+ * cliente sobre datos que el servidor ya entregó (gateado por
+ * `participant:health` en getAllParticipants); este endpoint no mueve datos,
+ * solo registra el hecho. Protegido con el mismo permiso: solo quien pudo ver
+ * la ficha completa pudo exportarla.
+ */
+export const logHealthDataExport = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const { retreatId, count, format } = req.body as {
+      retreatId?: string;
+      count?: number;
+      format?: string;
+    };
+    // SECURITY: `retreatId` es opcional (el cliente puede exportar sin un
+    // retiro seleccionado) pero, si viene, debe ser uno al que el caller
+    // tenga acceso — si no, cualquiera con participant:health en CUALQUIER
+    // retiro podría escribir una entrada de auditoría falsa apuntando a un
+    // retiro ajeno (ver requireRetreatAccess, mismo chequeo que usan otras
+    // rutas de este archivo).
+    const userId = (req as any).user?.id;
+    if (typeof retreatId === "string" && userId) {
+      const hasAccess = await authorizationService.hasRetreatAccess(userId, retreatId);
+      if (!hasAccess) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+    }
+    void domainAuditService.log({
+      action: DomainAuditAction.PARTICIPANT_HEALTH_EXPORT,
+      resourceType: "participant",
+      retreatId: typeof retreatId === "string" ? retreatId : null,
+      metadata: {
+        count: typeof count === "number" ? count : null,
+        format: typeof format === "string" ? format : null,
+      },
+    });
     res.json({ success: true });
   } catch (error) {
     next(error);

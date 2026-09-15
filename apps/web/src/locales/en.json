@@ -10,7 +10,10 @@
         "confirm": "Participant confirmed",
         "checkin": "Check-in",
         "attendance_confirmation": "Attendance confirmation",
-        "anonymize": "Data anonymized (GDPR)"
+        "anonymize": "Data anonymized (GDPR)",
+        "health_view": "Health record viewed",
+        "health_export": "Health record exported",
+        "health_data_purged": "Health data automatically purged"
       },
       "table": {
         "create": "Table created",
@@ -485,6 +488,7 @@
       "about": "About Emmaus Retreats",
       "contactUs": "Contact Us",
       "privacy": "Privacy",
+      "security": "Data Security",
       "terms": "Terms",
       "copyright": "© {year} Emmaus Retreats International"
     },
@@ -2660,6 +2664,15 @@
         "deletion": "It is deleted along with the rest of your information when you request its removal."
       }
     },
+    "retention": {
+      "title": "How Long We Keep Your Information",
+      "content": "The retention period depends on the type of data:",
+      "items": {
+        "health": "Health information and emergency contacts are automatically deleted 30 days after the retreat they relate to ends. The rest of your record (name, email, participation history) is kept until you request its deletion.",
+        "backups": "We run daily database backups, stored encrypted with a cloud provider (Amazon Web Services, with servers in the United States) for 90 days. Data you already deleted from your record may still exist in a backup until that backup rotates out.",
+        "logs": "Technical system access logs are kept for up to 90 days for security purposes, then deleted."
+      }
+    },
     "use": {
       "title": "Use of Your Information",
       "content": "We use your personal information for the following purposes:",
@@ -2699,7 +2712,7 @@
       "content": "If you have questions about this privacy policy or how we handle your data, please contact us:",
       "email": "Email"
     },
-    "lastUpdatedDate": "September 1, 2026"
+    "lastUpdatedDate": "September 14, 2026"
   },
   "terms": {
     "title": "Terms and Conditions",

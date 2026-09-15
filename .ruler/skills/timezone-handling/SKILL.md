@@ -243,6 +243,21 @@ En código de producción: el flujo del UI ya envía la string `YYYY-MM-DD` — 
 - **Los contadores de "hoy" del dashboard cuentan mal la tarde-noche**: `setHours(0,0,0,0)` da la medianoche del proceso. Usá `dayBoundsInTimezone()`.
 - **Una fecha date-only sale un día antes en un correo**: `toLocaleDateString()` sin `timeZone: 'UTC'` sobre una `@Column('date')`. Regla N°3.
 - **`tz-lookup` no carga en Jest**: usa dynamic `await import('tz-lookup' as any)` en lugar de `require()` — la package es CommonJS y `import.meta.url` no existe en Jest.
+- **Suite en verde toda la tarde, roja después de las ~18:00 hora local (CDMX)**: un servicio
+  nuevo reinventó el corte de fecha con `new Date().toISOString().slice(0,10)` (día calendario en
+  UTC del proceso) en vez de reusar el patrón `todayYmdInAppTz`/`isRetreatPast` ya existente en
+  `participantService.ts:121-131`. Pasadas las ~18:00 en CDMX (UTC-6), el día UTC ya cruzó al
+  siguiente mientras el día civil local no, y una comparación de "hace N días" contra una columna
+  `'date'` (que guarda el día LOCAL, Regla del `Setup en SQLite + TypeORM` de arriba) queda
+  desfasada por exactamente un día — justo el margen que un test de límite ("no toca algo de
+  hace N-1 días") existe para cubrir. Bug real encontrado en `healthDataRetentionService.ts`
+  durante el cierre de una tarea, no durante su desarrollo original (2026-09-14): la suite había
+  corrido en verde toda la sesión porque siempre se probó de día. Fix: `cutoffYmd()` con
+  aritmética civil pura anclada a `APP_TIMEZONE` (mismo patrón que la Regla N°5). **Lección
+  operativa**: cualquier servicio que calcule un corte de fecha "hace N días" debe reusar un
+  helper ya auditado (`todayYmdInAppTz`/`isRetreatPast`), nunca reimplementar el cálculo; y si el
+  bug ya se coló, la suite de ese servicio conviene correrla una vez cerca del borde del día
+  local (noche) antes de darla por verificada, no solo en el horario en que se escribió.
 
 ## Archivos clave
 

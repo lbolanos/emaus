@@ -1292,9 +1292,23 @@ export class CommunityService {
 		}));
 	}
 
-	async updateMemberState(memberId: string, state: MemberState, actorUserId?: string) {
-		const existing = await this.memberRepo.findOne({ where: { id: memberId } });
-		if (!existing) return null;
+	/**
+	 * SECURITY (cross-tenant IDOR, ver docs/security/notify-cross-tenant-idor-2026-05-15.md
+	 * §TODO de seguimiento): la ruta valida con `requireCommunityAccess('id')`
+	 * que el caller sea admin de `:id`, pero antes de este fix el service
+	 * operaba solo sobre `memberId` — un admin de la comunidad A podía
+	 * cambiar el estado de un miembro de la comunidad B con solo conocer su
+	 * id. `communityId` aquí re-valida que el miembro pertenezca a la
+	 * comunidad que el caller sí administra.
+	 */
+	async updateMemberState(
+		communityId: string,
+		memberId: string,
+		state: MemberState,
+		actorUserId?: string,
+	) {
+		const existing = await this.memberRepo.findOne({ where: { id: memberId, communityId } });
+		if (!existing) throw new Error('Member not found in this community');
 
 		const previousState = existing.state;
 		// G5: capturar auditoría — quién y cuándo cambió, y desde qué estado
@@ -1320,11 +1334,17 @@ export class CommunityService {
 		return updated;
 	}
 
-	async removeMember(memberId: string) {
+	/** SECURITY (cross-tenant IDOR): ver docstring de `updateMemberState`. */
+	async removeMember(communityId: string, memberId: string) {
+		const existing = await this.memberRepo.findOne({ where: { id: memberId, communityId } });
+		if (!existing) throw new Error('Member not found in this community');
 		await this.memberRepo.delete(memberId);
 	}
 
-	async updateMemberNotes(memberId: string, notes: string | null) {
+	/** SECURITY (cross-tenant IDOR): ver docstring de `updateMemberState`. */
+	async updateMemberNotes(communityId: string, memberId: string, notes: string | null) {
+		const existing = await this.memberRepo.findOne({ where: { id: memberId, communityId } });
+		if (!existing) throw new Error('Member not found in this community');
 		await this.memberRepo.update(memberId, { notes });
 		return this.memberRepo.findOne({
 			where: { id: memberId },
@@ -1525,9 +1545,10 @@ export class CommunityService {
 		};
 	}
 
-	async getMemberTimeline(memberId: string) {
+	/** SECURITY (cross-tenant IDOR): ver docstring de `updateMemberState`. */
+	async getMemberTimeline(communityId: string, memberId: string) {
 		const member = await this.memberRepo.findOne({
-			where: { id: memberId },
+			where: { id: memberId, communityId },
 			relations: ['participant', 'community'],
 		});
 

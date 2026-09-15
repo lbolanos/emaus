@@ -17,6 +17,7 @@ import {
 	getReceptionStats,
 	getParticipantByDeleteToken,
 	deleteParticipantByDeleteToken,
+	logHealthDataExport,
 } from '../controllers/participantController';
 import { validateRequest } from '../middleware/validateRequest';
 import {
@@ -97,5 +98,10 @@ router.put(
 	updateParticipant,
 );
 router.delete('/:id', requirePermission('participant:delete'), deleteParticipant);
+router.post(
+	'/health-export-audit',
+	requirePermission('participant:health'),
+	logHealthDataExport,
+);
 
 export default router;

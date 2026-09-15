@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { CommunityService, MemberCreateConflictError } from '../services/communityService';
 import { RecaptchaService } from '../services/recaptchaService';
 import { authorizationService } from '../middleware/authorization';
+import { stripSensitiveHealthFields } from './participantController';
 import { communityAuditService, CommunityAuditAction } from '../services/communityAuditService';
 import {
 	createCommunitySchema,
@@ -239,30 +240,58 @@ export class CommunityController {
 			return res.status(400).json({ message: 'retreatId query parameter is required' });
 		}
 		const participants = await communityService.getPotentialMembers(id, retreatId);
-		res.json(participants);
+		// SECURITY: `getPotentialMembers` trae la ficha completa del Participant
+		// (medicación, dieta, discapacidad, notas, contactos de emergencia) para
+		// armar el picker de "agregar miembro" — solo estaba gateado por
+		// `requireCommunityAccess` (cualquier admin de la comunidad, no solo
+		// quien tiene participant:health). Mismo gate que /participants.
+		const userId = (req.user as any)?.id;
+		const canSeeHealth = userId
+			? await authorizationService.hasPermission(userId, 'participant:health')
+			: false;
+		res.json(canSeeHealth ? participants : stripSensitiveHealthFields(participants));
 	}
 
 	static async updateMemberState(req: Request, res: Response) {
 		const { id: communityId, memberId } = req.params;
 		const { state } = req.body;
 		const actorUserId = (req.user as any)?.id;
-		const member = await communityService.updateMemberState(memberId, state, actorUserId);
-		void communityAuditService.log({
-			action: CommunityAuditAction.MEMBER_STATE_CHANGE,
-			resourceType: 'community_member',
-			resourceId: memberId,
-			communityId,
-			actorUserId,
-			metadata: { newState: state, previousState: (member as any)?.previousState },
-			ipAddress: req.ip,
-			userAgent: req.get('user-agent'),
-		});
-		res.json(member);
+		try {
+			const member = await communityService.updateMemberState(
+				communityId,
+				memberId,
+				state,
+				actorUserId,
+			);
+			void communityAuditService.log({
+				action: CommunityAuditAction.MEMBER_STATE_CHANGE,
+				resourceType: 'community_member',
+				resourceId: memberId,
+				communityId,
+				actorUserId,
+				metadata: { newState: state, previousState: (member as any)?.previousState },
+				ipAddress: req.ip,
+				userAgent: req.get('user-agent'),
+			});
+			res.json(member);
+		} catch (err: any) {
+			if (err?.message === 'Member not found in this community') {
+				return res.status(404).json({ message: err.message });
+			}
+			throw err;
+		}
 	}
 
 	static async removeMember(req: Request, res: Response) {
 		const { id: communityId, memberId } = req.params;
-		await communityService.removeMember(memberId);
+		try {
+			await communityService.removeMember(communityId, memberId);
+		} catch (err: any) {
+			if (err?.message === 'Member not found in this community') {
+				return res.status(404).json({ message: err.message });
+			}
+			throw err;
+		}
 		void communityAuditService.log({
 			action: CommunityAuditAction.MEMBER_REMOVE,
 			resourceType: 'community_member',
@@ -276,10 +305,17 @@ export class CommunityController {
 	}
 
 	static async updateMemberNotes(req: Request, res: Response) {
-		const { memberId } = req.params;
+		const { id: communityId, memberId } = req.params;
 		const { notes } = req.body;
-		const member = await communityService.updateMemberNotes(memberId, notes);
-		res.json(member);
+		try {
+			const member = await communityService.updateMemberNotes(communityId, memberId, notes);
+			res.json(member);
+		} catch (err: any) {
+			if (err?.message === 'Member not found in this community') {
+				return res.status(404).json({ message: err.message });
+			}
+			throw err;
+		}
 	}
 
 	/**
@@ -481,9 +517,9 @@ export class CommunityController {
 	}
 
 	static async getMemberTimeline(req: Request, res: Response) {
-		const { memberId } = req.params;
+		const { id: communityId, memberId } = req.params;
 		try {
-			const timeline = await communityService.getMemberTimeline(memberId);
+			const timeline = await communityService.getMemberTimeline(communityId, memberId);
 			res.json(timeline);
 		} catch (error: any) {
 			if (error.message === 'Member not found') {

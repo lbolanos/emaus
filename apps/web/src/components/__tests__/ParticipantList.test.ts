@@ -1128,4 +1128,47 @@ describe('ParticipantList Component', () => {
 			w.unmount();
 		});
 	});
+
+	describe('Columnas de salud/contacto de emergencia', () => {
+		// Regla de negocio: solo participant:health puede ver/exportar estas
+		// columnas — no participant:read (que hasta regular_server tiene).
+		const HEALTH_KEYS = ['medicationDetails', 'dietaryRestrictionsDetails', 'emergencyContact1Name'];
+
+		it('se ocultan de allColumns sin participant:health (fixture por defecto: sin permisos)', () => {
+			const allColumns = (wrapper.vm as any).$.setupState.allColumns;
+			const keys = allColumns.map((c: any) => c.key);
+			for (const key of HEALTH_KEYS) {
+				expect(keys).not.toContain(key);
+			}
+			// El resto de las columnas sigue disponible.
+			expect(keys).toContain('firstName');
+		});
+
+		it('aparecen en allColumns con participant:health otorgado para el retiro seleccionado', async () => {
+			// Se muta el store del wrapper ya montado (en vez de crear uno nuevo):
+			// un segundo createTestWrapper con la misma pinia no reproduce de forma
+			// fiable el registro de stores del primero en este entorno de test.
+			const { useAuthStore: useAuthStoreImport } = await import('@/stores/authStore');
+			const authStore = useAuthStoreImport();
+			authStore.userProfile = {
+				...(authStore.userProfile as any),
+				roles: [
+					{
+						id: 'role-1',
+						role: { name: 'admin' },
+						retreats: [{ retreatId: 'test-retreat-id' }],
+						globalPermissions: [{ resource: 'participant', operation: 'health' }],
+					},
+				],
+			} as any;
+			await nextTick();
+
+			const setupState = (wrapper.vm as any).$.setupState;
+			const allColumns = setupState.allColumns;
+			const keys = allColumns.map((c: any) => c.key);
+			for (const key of HEALTH_KEYS) {
+				expect(keys).toContain(key);
+			}
+		});
+	});
 });

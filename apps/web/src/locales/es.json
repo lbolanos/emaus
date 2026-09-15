@@ -10,7 +10,10 @@
         "confirm": "Participante confirmado",
         "checkin": "Check-in",
         "attendance_confirmation": "Confirmación de asistencia",
-        "anonymize": "Datos anonimizados (GDPR)"
+        "anonymize": "Datos anonimizados (GDPR)",
+        "health_view": "Ficha de salud consultada",
+        "health_export": "Ficha de salud exportada",
+        "health_data_purged": "Datos de salud purgados automáticamente"
       },
       "table": {
         "create": "Mesa creada",
@@ -484,6 +487,7 @@
       "about": "Sobre Retiros Emaús",
       "contactUs": "Contáctanos",
       "privacy": "Privacidad",
+      "security": "Seguridad de tus datos",
       "terms": "Términos",
       "copyright": "© {year} Retiros Emaús Internacional"
     },
@@ -2773,6 +2777,15 @@
         "deletion": "Se elimina junto con el resto de tu información cuando solicitas su eliminación."
       }
     },
+    "retention": {
+      "title": "Cuánto tiempo conservamos tu información",
+      "content": "El plazo de conservación depende del tipo de dato:",
+      "items": {
+        "health": "La información de salud y los contactos de emergencia se eliminan automáticamente 30 días después de que termina el retiro al que corresponden. El resto de tu ficha (nombre, correo, historial de participación) se conserva mientras no solicites su eliminación.",
+        "backups": "Hacemos respaldos diarios de la base de datos, guardados de forma cifrada en un proveedor de nube (Amazon Web Services, con servidores en Estados Unidos) durante 90 días. Un dato que ya eliminaste de tu ficha puede seguir existiendo en un respaldo hasta que ese respaldo se rote.",
+        "logs": "Los registros técnicos de acceso al sistema se conservan hasta 90 días para fines de seguridad, y después se eliminan."
+      }
+    },
     "use": {
       "title": "Uso de tu Información",
       "content": "Utilizamos tu información personal para los siguientes propósitos:",
@@ -2812,7 +2825,7 @@
       "content": "Si tienes preguntas sobre esta política de privacidad o cómo manejamos tus datos, por favor contáctanos:",
       "email": "Correo electrónico"
     },
-    "lastUpdatedDate": "1 de septiembre de 2026"
+    "lastUpdatedDate": "14 de septiembre de 2026"
   },
   "terms": {
     "title": "Términos y Condiciones",

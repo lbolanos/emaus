@@ -58,6 +58,7 @@ const RetreatShirtTypesView = () => import('../views/RetreatShirtTypesView.vue')
 
 import { useAuthStore } from '@/stores/authStore';
 import { useRetreatStore } from '@/stores/retreatStore';
+import { useAuthPermissions } from '@/composables/useAuthPermissions';
 import { trackPageView } from '@/services/telemetryService';
 import { shouldReloadForChunkError, isChunkLoadError } from '@/utils/chunkErrorRecovery';
 
@@ -284,7 +285,7 @@ const router = createRouter({
 					path: 'food',
 					name: 'food',
 					component: FoodView,
-					meta: { requiresRetreat: true },
+					meta: { requiresRetreat: true, requiresPermission: 'participant:health' },
 				},
 				{
 					path: 'cancellation-and-notes',
@@ -314,7 +315,7 @@ const router = createRouter({
 					path: 'medicines-report',
 					name: 'medicines-report',
 					component: MedicinesReportView,
-					meta: { requiresRetreat: true },
+					meta: { requiresRetreat: true, requiresPermission: 'participant:health' },
 				},
 				{
 					path: 'canceled',
@@ -713,6 +714,24 @@ router.beforeEach(async (to, from, next) => {
 		);
 		if (!auth.isAuthenticated || !isAdmin) {
 			next({ name: 'login' });
+			return;
+		}
+	}
+
+	// Defensa en profundidad: el Sidebar ya oculta estos enlaces, pero una URL
+	// escrita a mano no pasa por ahí. `requiresPermission` es 'resource:operation'
+	// (hoy solo 'participant:health' en food/medicines-report).
+	const requiredPermission = to.matched
+		.map((record) => record.meta?.requiresPermission as string | undefined)
+		.find(Boolean);
+	if (requiredPermission && auth.isAuthenticated) {
+		const { retreatOnlyPermissions, isSuperadmin } = useAuthPermissions();
+		if (!isSuperadmin.value && !retreatOnlyPermissions.value.includes(requiredPermission)) {
+			next(
+				typeof to.params.id === 'string' && to.params.id
+					? { name: 'retreat-dashboard', params: { id: to.params.id } }
+					: { name: 'home' },
+			);
 			return;
 		}
 	}

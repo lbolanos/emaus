@@ -266,7 +266,16 @@ describe('Dry-Run Mode - createParticipant controller', () => {
 	describe('when dryRun is absent or false', () => {
 		it('should create participant normally when dryRun is not sent', async () => {
 			mockVerifyToken.mockResolvedValue({ valid: true });
-			const newParticipant = { id: '456', email: 'new@example.com' };
+			// La respuesta pública es un DTO fijo (ver publicRegistrationResponseLeak.test.ts),
+			// no la entidad: solo estos campos, nunca `email` u otros datos de la ficha.
+			const newParticipant = {
+				id: '456',
+				email: 'new@example.com',
+				firstName: 'Leonel',
+				lastName: 'Ruiz',
+				type: 'server',
+				retreatId: '00000000-0000-0000-0000-000000000001',
+			};
 			mockCreateParticipant.mockResolvedValue(newParticipant);
 
 			const req = createMockReq({
@@ -277,7 +286,13 @@ describe('Dry-Run Mode - createParticipant controller', () => {
 			await createParticipant(req, res, mockNext);
 
 			expect(res.status).toHaveBeenCalledWith(201);
-			expect(res.json).toHaveBeenCalledWith(newParticipant);
+			expect(res.json).toHaveBeenCalledWith({
+				id: '456',
+				firstName: 'Leonel',
+				lastName: 'Ruiz',
+				type: 'server',
+				retreatId: '00000000-0000-0000-0000-000000000001',
+			});
 			expect(mockValidateParticipant).not.toHaveBeenCalled();
 		});
 

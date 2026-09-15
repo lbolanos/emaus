@@ -124,6 +124,7 @@ describe('Community Service', () => {
 			const member = await TestDataFactory.createTestCommunityMember(testCommunity.id, p.id);
 
 			const updated = await service.updateMemberState(
+				testCommunity.id,
 				member.id,
 				MemberStateEnum.Enum.far_from_location,
 			);
@@ -1333,8 +1334,8 @@ describe('Community Service', () => {
 			const m3 = await service.addMember(testCommunity.id, pPending.id);
 			const m4 = await service.addMember(testCommunity.id, pAnotherGroup.id);
 
-			await service.updateMemberState(m3.id, 'pending_verification', testUser.id);
-			await service.updateMemberState(m4.id, 'another_group', testUser.id);
+			await service.updateMemberState(testCommunity.id, m3.id, 'pending_verification', testUser.id);
+			await service.updateMemberState(testCommunity.id, m4.id, 'another_group', testUser.id);
 
 			const meeting = await service.createMeeting(testCommunity.id, {
 				title: 'Meeting filtrado',
@@ -2009,7 +2010,7 @@ describe('Community Service', () => {
 			);
 			await partRepo.update(p.id, { userId: user.id });
 			const member = await service.addMember(testCommunity.id, p.id);
-			await service.updateMemberState(member.id, 'pending_verification', testUser.id);
+			await service.updateMemberState(testCommunity.id, member.id, 'pending_verification', testUser.id);
 
 			const result = await service.getMyCommunitiesWithMeetings(user.id);
 			expect(result.length).toBe(0);
@@ -2078,7 +2079,7 @@ describe('Community Service', () => {
 				const p = await TestDataFactory.createTestParticipant(testRetreat.id);
 				await partRepo.update(p.id, { email });
 				const m = await service.addMember(testCommunity.id, p.id);
-				if (state !== 'active_member') await service.updateMemberState(m.id, state as any, testUser.id);
+				if (state !== 'active_member') await service.updateMemberState(testCommunity.id, m.id, state as any, testUser.id);
 				return m;
 			};
 
@@ -2211,9 +2212,9 @@ describe('Community Service', () => {
 			const memberPending = await service.addMember(testCommunity.id, pPending.id);
 			const memberAnother = await service.addMember(testCommunity.id, pAnother.id);
 			const memberPaused = await service.addMember(testCommunity.id, pPaused.id);
-			await service.updateMemberState(memberPending.id, 'pending_verification', testUser.id);
-			await service.updateMemberState(memberAnother.id, 'another_group', testUser.id);
-			await service.updateMemberState(memberPaused.id, 'paused', testUser.id);
+			await service.updateMemberState(testCommunity.id, memberPending.id, 'pending_verification', testUser.id);
+			await service.updateMemberState(testCommunity.id, memberAnother.id, 'another_group', testUser.id);
+			await service.updateMemberState(testCommunity.id, memberPaused.id, 'paused', testUser.id);
 			(globalThis as any).__sentEmails = []; // limpiar previos
 
 			await service.createMeeting(testCommunity.id, {
@@ -2311,9 +2312,9 @@ describe('Community Service', () => {
 				firstName: '<script>alert(1)</script>',
 			});
 			const member = await service.addMember(testCommunity.id, p.id);
-			await service.updateMemberState(member.id, 'pending_verification', testUser.id);
+			await service.updateMemberState(testCommunity.id, member.id, 'pending_verification', testUser.id);
 			(globalThis as any).__sentEmails = [];
-			await service.updateMemberState(member.id, 'active_member', testUser.id);
+			await service.updateMemberState(testCommunity.id, member.id, 'active_member', testUser.id);
 			await new Promise((r) => setTimeout(r, 50));
 
 			const email = getSent().find((e: any) => e.to === 'xss@test.com');
@@ -2360,9 +2361,9 @@ describe('Community Service', () => {
 				firstName: '{community.name}',
 			});
 			const member = await service.addMember(testCommunity.id, p.id);
-			await service.updateMemberState(member.id, 'pending_verification', testUser.id);
+			await service.updateMemberState(testCommunity.id, member.id, 'pending_verification', testUser.id);
 			(globalThis as any).__sentEmails = [];
-			await service.updateMemberState(member.id, 'active_member', testUser.id);
+			await service.updateMemberState(testCommunity.id, member.id, 'active_member', testUser.id);
 			await new Promise((r) => setTimeout(r, 50));
 
 			const email = getSent().find((e: any) => e.to === 'doublepass@test.com');
@@ -2468,7 +2469,7 @@ describe('Community Service', () => {
 			await new Promise((r) => setTimeout(r, 50)); // dejar pasar notifyJoinRequest
 			(globalThis as any).__sentEmails = []; // limpiar
 
-			await service.updateMemberState(member!.id, 'active_member', testUser.id);
+			await service.updateMemberState(testCommunity.id, member!.id, 'active_member', testUser.id);
 			await new Promise((r) => setTimeout(r, 100));
 
 			const sent = getSent();
@@ -2488,7 +2489,7 @@ describe('Community Service', () => {
 			await new Promise((r) => setTimeout(r, 50));
 			(globalThis as any).__sentEmails = [];
 
-			await service.updateMemberState(member!.id, 'no_answer', testUser.id);
+			await service.updateMemberState(testCommunity.id, member!.id, 'no_answer', testUser.id);
 			await new Promise((r) => setTimeout(r, 100));
 
 			const sent = getSent();
@@ -2507,7 +2508,7 @@ describe('Community Service', () => {
 			const member = await memberRepo.findOne({ where: { participantId: p.id } });
 			(globalThis as any).__sentEmails = [];
 
-			await service.updateMemberState(member!.id, 'no_answer', testUser.id);
+			await service.updateMemberState(testCommunity.id, member!.id, 'no_answer', testUser.id);
 			await new Promise((r) => setTimeout(r, 100));
 
 			const sent = getSent();
@@ -2522,12 +2523,110 @@ describe('Community Service', () => {
 			);
 			let member = await memberRepo.findOne({ where: { participantId: p.id } });
 
-			await service.updateMemberState(member!.id, 'no_answer', testUser.id);
+			await service.updateMemberState(testCommunity.id, member!.id, 'no_answer', testUser.id);
 
 			member = await memberRepo.findOne({ where: { id: member!.id } });
 			expect(member!.previousState).toBe('active_member');
 			expect(member!.verifiedBy).toBe(testUser.id);
 			expect(member!.verifiedAt).toBeTruthy();
+		});
+	});
+
+	// ─── SECURITY: cross-tenant IDOR en operaciones de member ───────────────
+	// docs/security/notify-cross-tenant-idor-2026-05-15.md marcó estas 4 rutas
+	// como "TODO de seguimiento": `requireCommunityAccess('id')` valida que el
+	// caller sea admin de `:id`, pero el service operaba solo sobre `:memberId`
+	// sin verificar que perteneciera a esa comunidad. Un admin de la comunidad
+	// A podía leer/mutar/borrar miembros de la comunidad B con solo conocer su
+	// id. Mismo patrón de fix que `updateMemberProfile`/`getMemberAttendance`.
+	describe('SECURITY — cross-tenant IDOR en member ops (updateMemberState/removeMember/updateMemberNotes/getMemberTimeline)', () => {
+		it('updateMemberState: rechaza y NO cambia el estado de un miembro de otra comunidad', async () => {
+			const otherCommunity = await TestDataFactory.createTestCommunity(testUser.id, {
+				name: 'Otra comunidad',
+			});
+			const p = await TestDataFactory.createTestParticipant(testRetreat.id);
+			const memberInOther = await service.addMember(otherCommunity.id, p.id);
+
+			await expect(
+				service.updateMemberState(
+					testCommunity.id,
+					memberInOther.id,
+					'active_member',
+					testUser.id,
+				),
+			).rejects.toThrow('Member not found in this community');
+
+			const stillOther = await service.getMembers(otherCommunity.id);
+			expect(stillOther.find((m) => m.id === memberInOther.id)?.state).toBe(
+				memberInOther.state,
+			);
+		});
+
+		it('removeMember: rechaza y NO borra un miembro de otra comunidad', async () => {
+			const otherCommunity = await TestDataFactory.createTestCommunity(testUser.id, {
+				name: 'Otra comunidad',
+			});
+			const p = await TestDataFactory.createTestParticipant(testRetreat.id);
+			const memberInOther = await service.addMember(otherCommunity.id, p.id);
+
+			await expect(
+				service.removeMember(testCommunity.id, memberInOther.id),
+			).rejects.toThrow('Member not found in this community');
+
+			const stillThere = await service.getMembers(otherCommunity.id);
+			expect(stillThere.some((m) => m.id === memberInOther.id)).toBe(true);
+		});
+
+		it('updateMemberNotes: rechaza y NO edita las notas de un miembro de otra comunidad', async () => {
+			const otherCommunity = await TestDataFactory.createTestCommunity(testUser.id, {
+				name: 'Otra comunidad',
+			});
+			const p = await TestDataFactory.createTestParticipant(testRetreat.id);
+			const memberInOther = await service.addMember(otherCommunity.id, p.id);
+
+			await expect(
+				service.updateMemberNotes(testCommunity.id, memberInOther.id, 'nota inyectada'),
+			).rejects.toThrow('Member not found in this community');
+
+			const stillThere = await service.getMembers(otherCommunity.id);
+			expect(stillThere.find((m) => m.id === memberInOther.id)?.notes).not.toBe(
+				'nota inyectada',
+			);
+		});
+
+		it('getMemberTimeline: rechaza leer el timeline de un miembro de otra comunidad', async () => {
+			const otherCommunity = await TestDataFactory.createTestCommunity(testUser.id, {
+				name: 'Otra comunidad',
+			});
+			const p = await TestDataFactory.createTestParticipant(testRetreat.id);
+			const memberInOther = await service.addMember(otherCommunity.id, p.id);
+
+			await expect(
+				service.getMemberTimeline(testCommunity.id, memberInOther.id),
+			).rejects.toThrow('Member not found');
+		});
+
+		it('las 4 operaciones SÍ funcionan cuando el miembro pertenece a la comunidad correcta', async () => {
+			const p = await TestDataFactory.createTestParticipant(testRetreat.id);
+			const member = await service.addMember(testCommunity.id, p.id);
+
+			const updated = await service.updateMemberState(
+				testCommunity.id,
+				member.id,
+				'no_answer',
+				testUser.id,
+			);
+			expect(updated?.state).toBe('no_answer');
+
+			const withNotes = await service.updateMemberNotes(testCommunity.id, member.id, 'ok');
+			expect(withNotes?.notes).toBe('ok');
+
+			const timeline = await service.getMemberTimeline(testCommunity.id, member.id);
+			expect(timeline.member.id).toBe(member.id);
+
+			await service.removeMember(testCommunity.id, member.id);
+			const remaining = await service.getMembers(testCommunity.id);
+			expect(remaining.some((m) => m.id === member.id)).toBe(false);
 		});
 	});
 

@@ -101,6 +101,34 @@ jobs:
           name: web-coverage
           fail_ci_if_error: false
 
+  audit:
+    name: Dependency Audit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # No bloqueante a propósito: hay deuda preexistente de vulnerabilidades
+      # transitivas (tiptap, nodemailer, js-yaml de eslint/ruler, etc.) que no
+      # se resuelve en este cambio. El objetivo es visibilidad — que una
+      # vulnerabilidad NUEVA aparezca en el summary de cada PR — no bloquear
+      # el pipeline hasta que se audite y actualice esa deuda a propósito.
+      - name: Run pnpm audit (informational)
+        run: pnpm audit --audit-level=high
+        continue-on-error: true
+
   build:
     name: Build
     runs-on: ubuntu-latest
@@ -129,7 +157,7 @@ jobs:
   ci-summary:
     name: CI Summary
     runs-on: ubuntu-latest
-    needs: [lint, test-api, test-web, build]
+    needs: [lint, test-api, test-web, build, audit]
     if: always()
     steps:
       - name: Generate CI Summary
@@ -142,3 +170,4 @@ jobs:
           echo "| Test API | ${{ needs.test-api.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Build | ${{ needs.build.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Test Web | ${{ needs.test-web.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Dependency Audit (informativo) | ${{ needs.audit.result }} |" >> $GITHUB_STEP_SUMMARY
