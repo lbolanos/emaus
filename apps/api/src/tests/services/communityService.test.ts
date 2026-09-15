@@ -3928,7 +3928,7 @@ describe('Community Service', () => {
 			expect(err.message).toBe('PHONE_DUPLICATE_IN_COMMUNITY');
 		});
 
-		it('fase 2a: vincula sin duplicar identidad, overlay solo donde difiere, joinedAt/birthDate respetados', async () => {
+		it('fase 2a: vincula sin duplicar identidad; la ficha existente manda (sin overlay), joinedAt/birthDate respetados', async () => {
 			const target = await TestDataFactory.createTestParticipant(testRetreat.id, {
 				firstName: 'Joseph',
 				lastName: 'Perez',
@@ -3938,10 +3938,12 @@ describe('Community Service', () => {
 			const joinedAt = new Date('2026-01-15T12:00:00Z');
 
 			const result = await service.createCommunityMember(testCommunity.id, {
-				firstName: 'Juan', // difiere → overlay
-				lastName: 'Perez', // igual → sin overlay
-				email: 'joseph.link@example.com', // igual (case-insensitive) → sin overlay
-				cellPhone: PH.d, // difiere en formato → overlay (comparación cruda)
+				// Los datos del form solo disparan el lookup: aunque difieran del
+				// Participant (o estén inventados), NO se guardan como overlay.
+				firstName: 'Juan',
+				lastName: 'Perez',
+				email: 'joseph.link@example.com',
+				cellPhone: PH.d,
 				joinedAt: joinedAt.toISOString(),
 				birthDate: '1990-03-15',
 				linkParticipantId: target.id,
@@ -3949,7 +3951,7 @@ describe('Community Service', () => {
 
 			expect(result?.linked).toBe(true);
 			expect(result?.matchedBy).toBe('email');
-			expect(result?.changedFields).toEqual(['firstName', 'cellPhone']);
+			expect(result?.changedFields).toEqual([]);
 
 			// El Participant global quedó INTACTO (regla de oro del modelo overlay)
 			const partRepo = AppDataSource.getRepository(
@@ -3961,17 +3963,18 @@ describe('Community Service', () => {
 			expect(fresh?.email).toBe('joseph.link@example.com');
 			expect(fresh?.cellPhone).toBe(`+52 ${PH.d.slice(0, 2)} ${PH.d.slice(2, 6)} ${PH.d.slice(6)}`);
 
-			// El overlay y las fechas viven en community_member
+			// Sin overlay de identidad: la ficha existente manda en display y en
+			// notificaciones (un correo tecleado al azar no rerutea nada).
 			const memberRepo = AppDataSource.getRepository(
 				require('@/entities/communityMember.entity').CommunityMember,
 			);
 			const member = await memberRepo.findOne({
 				where: { participantId: target.id, communityId: testCommunity.id },
 			});
-			expect(member?.firstName).toBe('Juan');
+			expect(member?.firstName).toBeFalsy();
 			expect(member?.lastName).toBeFalsy();
 			expect(member?.email).toBeFalsy();
-			expect(member?.cellPhone).toBe(PH.d);
+			expect(member?.cellPhone).toBeFalsy();
 			expect(new Date(member!.joinedAt).getTime()).toBe(joinedAt.getTime());
 			expect(member?.birthDate).toBe('1990-03-15');
 		});

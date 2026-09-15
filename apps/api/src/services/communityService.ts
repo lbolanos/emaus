@@ -1171,8 +1171,10 @@ export class CommunityService {
 	 * Fase 2a: el admin confirmó vincular un Participant existente. Revalida
 	 * server-side que el id siga en la lista de candidatos (los datos pueden
 	 * haber cambiado entre fases), re-chequea colisiones y ejecuta el vínculo:
-	 * addMember + overlay diff + joinedAt/birthDate. NUNCA escribe en
-	 * participants.* (regla de oro del modelo overlay).
+	 * addMember + joinedAt/birthDate. NUNCA escribe en participants.* (regla de
+	 * oro del modelo overlay). El form solo disparó el lookup: la ficha
+	 * existente manda en identidad (sin overlay), o el nombre/correo tecleado
+	 * —a veces inventado— taparía el real y rerutearía notificaciones.
 	 */
 	private async linkExistingParticipantAsMember(
 		communityId: string,
@@ -1232,22 +1234,10 @@ export class CommunityService {
 			throw err;
 		}
 
-		const overlay = this.buildMemberOverlay(input, target.participant);
-		if (Object.keys(overlay).length > 0) {
-			try {
-				await this.memberRepo.update(member.id, overlay);
-			} catch (err: any) {
-				// trg_cm_phone_uniq_update defiende la escritura del overlay.
-				if (
-					typeof err?.message === 'string' &&
-					err.message.includes('PHONE_DUPLICATE_IN_COMMUNITY')
-				) {
-					throw new Error('PHONE_DUPLICATE_IN_COMMUNITY');
-				}
-				throw err;
-			}
-		}
-
+		// Sin overlay de identidad: el admin confirmó que ES la persona de la
+		// ficha, así que la ficha manda (nombre, correo y teléfono del
+		// Participant). `buildMemberOverlay` queda para el bulk, donde el input
+		// del bot trae datos frescos que sí valen la pena preservar.
 		await this.applyMemberDates(member.id, extras);
 
 		const loaded = await this.findMemberWithBirthday(member.id);
@@ -1255,7 +1245,7 @@ export class CommunityService {
 			...(loaded as CommunityMember),
 			linked: true,
 			matchedBy: target.matchedBy,
-			changedFields: Object.keys(overlay),
+			changedFields: [],
 		};
 	}
 
