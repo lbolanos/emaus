@@ -43,9 +43,11 @@ jest.mock('../../data-source', () => ({
 
 const mockFindAllParticipants = jest.fn();
 const mockFindParticipantById = jest.fn();
+const mockUpdateParticipant = jest.fn();
 jest.mock('../../services/participantService', () => ({
 	findAllParticipants: mockFindAllParticipants,
 	findParticipantById: mockFindParticipantById,
+	updateParticipant: mockUpdateParticipant,
 }));
 
 const mockDomainAuditLog = jest.fn();
@@ -62,6 +64,7 @@ import { authorizationService } from '../../middleware/authorization';
 import {
 	getAllParticipants,
 	getParticipantById,
+	updateParticipant,
 	logHealthDataExport,
 } from '../../controllers/participantController';
 
@@ -170,8 +173,42 @@ describe('auditoría de lectura/exportación de datos de salud', () => {
 		});
 	});
 
+	describe('updateParticipant', () => {
+		it('registra PARTICIPANT_HEALTH_VIEW cuando el caller tiene participant:health (la respuesta trae salud sin recortar)', async () => {
+			jest.spyOn(authorizationService, 'hasPermission').mockResolvedValue(true);
+			mockUpdateParticipant.mockResolvedValue(participantWithHealth);
+
+			const req = createMockReq({ params: { id: 'p-1' }, body: { firstName: 'Ana' } });
+			const res = createMockRes();
+			await updateParticipant(req, res, mockNext);
+
+			expect(mockDomainAuditLog).toHaveBeenCalledWith(
+				expect.objectContaining({
+					action: 'participant.health_view',
+					resourceId: 'p-1',
+					retreatId: 'retreat-1',
+					metadata: expect.objectContaining({ endpoint: 'update' }),
+				}),
+			);
+		});
+
+		it('NO registra nada sin participant:health (y la respuesta viene sin salud)', async () => {
+			jest.spyOn(authorizationService, 'hasPermission').mockResolvedValue(false);
+			mockUpdateParticipant.mockResolvedValue(participantWithHealth);
+
+			const req = createMockReq({ params: { id: 'p-1' }, body: { firstName: 'Ana' } });
+			const res = createMockRes();
+			await updateParticipant(req, res, mockNext);
+
+			expect(mockDomainAuditLog).not.toHaveBeenCalled();
+			const body = (res.json as jest.Mock).mock.calls[0][0];
+			expect(body).not.toHaveProperty('medicationDetails');
+		});
+	});
+
 	describe('logHealthDataExport (POST /participants/health-export-audit)', () => {
-		it('registra PARTICIPANT_HEALTH_EXPORT con los metadatos recibidos', async () => {
+		it('registra PARTICIPANT_HEALTH_EXPORT con los metadatos recibidos cuando el caller tiene acceso al retiro', async () => {
+			jest.spyOn(authorizationService, 'hasRetreatAccess').mockResolvedValue(true);
 			const req = createMockReq({
 				body: { retreatId: 'retreat-1', count: 12, format: 'xlsx' },
 			});
@@ -186,6 +223,35 @@ describe('auditoría de lectura/exportación de datos de salud', () => {
 				}),
 			);
 			expect(res.json).toHaveBeenCalledWith({ success: true });
+		});
+
+		it('registra sin chequeo de retiro cuando el cliente no manda retreatId', async () => {
+			const hasRetreatAccessSpy = jest.spyOn(authorizationService, 'hasRetreatAccess');
+			const req = createMockReq({ body: { count: 3, format: 'csv' } });
+			const res = createMockRes();
+			await logHealthDataExport(req, res, mockNext);
+
+			expect(hasRetreatAccessSpy).not.toHaveBeenCalled();
+			expect(mockDomainAuditLog).toHaveBeenCalledWith(
+				expect.objectContaining({
+					action: 'participant.health_export',
+					retreatId: null,
+					metadata: { count: 3, format: 'csv' },
+				}),
+			);
+			expect(res.json).toHaveBeenCalledWith({ success: true });
+		});
+
+		it('rechaza con 403 si el caller no tiene acceso al retiro indicado (spoofing cross-tenant)', async () => {
+			jest.spyOn(authorizationService, 'hasRetreatAccess').mockResolvedValue(false);
+			const req = createMockReq({
+				body: { retreatId: 'retreat-ajeno', count: 5, format: 'xlsx' },
+			});
+			const res = createMockRes();
+			await logHealthDataExport(req, res, mockNext);
+
+			expect(res.status).toHaveBeenCalledWith(403);
+			expect(mockDomainAuditLog).not.toHaveBeenCalled();
 		});
 	});
 });

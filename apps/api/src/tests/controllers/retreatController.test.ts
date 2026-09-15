@@ -214,14 +214,14 @@ describe("Retreat Controller", () => {
 
     test("should return public flyer data for public endpoint", async () => {
       const env = await TestDataFactory.createCompleteTestEnvironment();
-      const retreat = env.retreat;
+      const retreat = { ...env.retreat, isPublic: true };
 
       const req = createMockRequest({ params: { id: retreat.id } });
       const res = createMockResponse();
       const next = mockNext;
 
       // Mock findById to return the created retreat
-      jest.spyOn(retreatService, "findById").mockResolvedValue(retreat);
+      jest.spyOn(retreatService, "findById").mockResolvedValue(retreat as any);
 
       await retreatController.getRetreatByIdPublic(req, res, next);
 
@@ -237,14 +237,14 @@ describe("Retreat Controller", () => {
 
     test("should not include sensitive data in public response", async () => {
       const env = await TestDataFactory.createCompleteTestEnvironment();
-      const retreat = env.retreat;
+      const retreat = { ...env.retreat, isPublic: true };
 
       const req = createMockRequest({ params: { id: retreat.id } });
       const res = createMockResponse();
       const next = mockNext;
 
       // Mock findById to return the created retreat
-      jest.spyOn(retreatService, "findById").mockResolvedValue(retreat);
+      jest.spyOn(retreatService, "findById").mockResolvedValue(retreat as any);
 
       await retreatController.getRetreatByIdPublic(req, res, next);
 
@@ -259,6 +259,7 @@ describe("Retreat Controller", () => {
       const env = await TestDataFactory.createCompleteTestEnvironment();
       const retreat = {
         ...env.retreat,
+        isPublic: true,
         endDate: new Date("2000-01-02") as any,
       };
 
@@ -278,6 +279,7 @@ describe("Retreat Controller", () => {
       const env = await TestDataFactory.createCompleteTestEnvironment();
       const retreat = {
         ...env.retreat,
+        isPublic: true,
         endDate: new Date("2099-12-31") as any,
       };
 
@@ -302,6 +304,7 @@ describe("Retreat Controller", () => {
       const env = await TestDataFactory.createCompleteTestEnvironment(
         {},
         {
+          isPublic: true,
           cost: "3100",
           paymentInfo: "Depósito en sucursal",
           paymentMethods: "Transferencia o efectivo",
@@ -424,6 +427,7 @@ describe("Retreat Controller", () => {
       const env = await TestDataFactory.createCompleteTestEnvironment();
       const retreat = {
         ...env.retreat,
+        isPublic: true,
         endDate: new Date("2000-01-02") as any,
       };
 
@@ -446,6 +450,7 @@ describe("Retreat Controller", () => {
       const env = await TestDataFactory.createCompleteTestEnvironment();
       const retreat = {
         ...env.retreat,
+        isPublic: true,
         endDate: new Date("2099-12-31") as any,
       };
 

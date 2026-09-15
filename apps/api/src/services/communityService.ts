@@ -894,7 +894,7 @@ export class CommunityService {
 		actorUserId?: string,
 	) {
 		const existing = await this.memberRepo.findOne({ where: { id: memberId, communityId } });
-		if (!existing) return null;
+		if (!existing) throw new Error('Member not found in this community');
 
 		const previousState = existing.state;
 		// G5: capturar auditoría — quién y cuándo cambió, y desde qué estado

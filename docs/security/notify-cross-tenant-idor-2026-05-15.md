@@ -213,6 +213,16 @@ uno por cada una de las 4 funciones confirmando que rechazan/no tocan un miembro
 comunidad, más uno confirmando que las 4 siguen funcionando con el miembro correcto. 158 tests
 del archivo en verde.
 
+**Addendum 2026-09-14** (encontrado por `code-review` en el cierre de la tarea de protección de
+datos de salud): `updateMemberState` había quedado con `if (!existing) return null;` en vez de
+lanzar como sus 3 hermanas — no era una fuga de datos, pero el controller escribía una entrada de
+auditoría `MEMBER_STATE_CHANGE` engañosa (con `previousState: undefined`) y respondía 200/`null`
+en vez de 404 para un intento cross-tenant. Corregido a lanzar `'Member not found in this
+community'`, igual que `removeMember`/`updateMemberNotes`; el controller ahora atrapa ese caso
+específico antes de escribir el log de auditoría. Lección: al aplicar un fix de seguridad a varias
+funciones "hermanas", verificar que las cuatro terminen con el mismo contrato de error, no solo la
+misma validación de scope.
+
 ---
 
 ## Referencias internas

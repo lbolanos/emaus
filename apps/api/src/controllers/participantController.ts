@@ -88,7 +88,7 @@ const SENSITIVE_HEALTH_FIELDS = [
  * logistics, superadmin). If the request has no authenticated user, access
  * is denied.
  */
-async function canViewHealthData(req: Request): Promise<boolean> {
+export async function canViewHealthData(req: Request): Promise<boolean> {
 	const userId = (req as any).user?.id;
 	if (!userId) return false;
 	try {
@@ -102,8 +102,12 @@ async function canViewHealthData(req: Request): Promise<boolean> {
  * Strip the sensitive health/emergency-contact fields from a participant
  * payload (or array) before sending it to a client that lacks
  * participant:health. Same shape as stripScholarshipAmount.
+ *
+ * Exported (with `canViewHealthData`) for reuse by `retreatParticipantController`,
+ * whose `RetreatParticipant.participant` relation embeds the same Participant
+ * shape and needs the same gate.
  */
-function stripSensitiveHealthFields<T>(data: T): T {
+export function stripSensitiveHealthFields<T>(data: T): T {
 	if (data == null) return data;
 	if (Array.isArray(data)) {
 		return data.map((item) => stripSensitiveHealthFields(item)) as any;
@@ -681,6 +685,19 @@ export const updateParticipant = async (
       let result: unknown = updatedParticipant;
       if (!canSee) result = stripScholarshipAmount(result);
       if (!canSeeHealth) result = stripSensitiveHealthFields(result);
+      // Mismo criterio que getParticipantById: la respuesta del PATCH devuelve
+      // la ficha completa a quien tiene participant:health, así que es una
+      // lectura de salud igual que un GET — faltaba este log (code-review,
+      // cierre 2026-09-14).
+      if (canSeeHealth) {
+        void domainAuditService.log({
+          action: DomainAuditAction.PARTICIPANT_HEALTH_VIEW,
+          resourceType: "participant",
+          resourceId: updatedParticipant.id,
+          retreatId: updatedParticipant.retreatId ?? null,
+          metadata: { endpoint: "update" },
+        });
+      }
       res.json(result);
     } else {
       res.status(404).json({ message: "Participant not found" });
@@ -999,6 +1016,19 @@ export const logHealthDataExport = async (
       count?: number;
       format?: string;
     };
+    // SECURITY: `retreatId` es opcional (el cliente puede exportar sin un
+    // retiro seleccionado) pero, si viene, debe ser uno al que el caller
+    // tenga acceso — si no, cualquiera con participant:health en CUALQUIER
+    // retiro podría escribir una entrada de auditoría falsa apuntando a un
+    // retiro ajeno (ver requireRetreatAccess, mismo chequeo que usan otras
+    // rutas de este archivo).
+    const userId = (req as any).user?.id;
+    if (typeof retreatId === "string" && userId) {
+      const hasAccess = await authorizationService.hasRetreatAccess(userId, retreatId);
+      if (!hasAccess) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+    }
     void domainAuditService.log({
       action: DomainAuditAction.PARTICIPANT_HEALTH_EXPORT,
       resourceType: "participant",

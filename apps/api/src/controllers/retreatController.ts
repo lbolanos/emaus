@@ -175,7 +175,11 @@ export const getRetreatByIdPublic = async (
 ) => {
   try {
     const retreat = await findById(req.params.id);
-    if (!retreat) {
+    // SECURITY: sin login. `buildPublicRetreatDetail` incluye paymentInfo,
+    // contactPhones y la dirección de la casa — nunca servirlos para un
+    // retiro que la organización no marcó público (createParticipant exige
+    // lo mismo, ver RETREAT_NOT_PUBLIC en assertRetreatAcceptsRegistrations).
+    if (!retreat || !retreat.isPublic) {
       return res.status(404).json({ message: "Retreat not found" });
     }
     const shirtTypes = await listShirtTypes(retreat.id);
@@ -193,7 +197,8 @@ export const getRetreatBySlugPublic = async (
 ) => {
   try {
     const retreat = await findBySlug(req.params.slug);
-    if (!retreat) {
+    // SECURITY: mismo guard que getRetreatByIdPublic — ver comentario ahí.
+    if (!retreat || !retreat.isPublic) {
       return res.status(404).json({ message: "Retreat not found" });
     }
     const shirtTypes = await listShirtTypes(retreat.id);

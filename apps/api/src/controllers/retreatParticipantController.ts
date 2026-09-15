@@ -1,5 +1,7 @@
 import { Request, Response } from 'express';
 import { getUserFromRequest } from '../utils/auth';
+import { RetreatParticipant } from '../entities/retreatParticipant.entity';
+import { canViewHealthData, stripSensitiveHealthFields } from './participantController';
 import {
 	getUserRetreatHistory,
 	getUserRetreatHistoryByRole,
@@ -17,6 +19,28 @@ import {
 	syncRetreatFields,
 } from '../services/retreatParticipantService';
 import { emitReceptionBagMade } from '../realtime';
+
+/**
+ * SECURITY: `RetreatParticipant.participant` (relación cargada por
+ * `getParticipantsByRetreat`/`getParticipantsByRole`) trae la ficha completa
+ * del participante — medicación, dieta, discapacidad, notas y los 12 campos
+ * de contacto de emergencia — sin el mismo gate `participant:health` que ya
+ * protege `/participants` (ver `stripSensitiveHealthFields` en
+ * `participantController.ts`). Estos dos endpoints solo estaban gateados por
+ * acceso genérico al retiro (`requireRetreatAccess`), que cualquier rol —
+ * incluido el más limitado — cumple.
+ */
+async function stripHealthFromRetreatParticipants(
+	req: Request,
+	items: RetreatParticipant[],
+): Promise<RetreatParticipant[]> {
+	if (await canViewHealthData(req)) return items;
+	return items.map((item) =>
+		item.participant
+			? ({ ...item, participant: stripSensitiveHealthFields(item.participant) } as RetreatParticipant)
+			: item,
+	);
+}
 
 // ==================== USER RETREAT HISTORY ====================
 
@@ -153,7 +177,7 @@ export const getParticipantsByRetreatController = async (
 
 		const { retreatId } = req.params;
 		const participants = await getParticipantsByRetreat(retreatId);
-		res.json(participants);
+		res.json(await stripHealthFromRetreatParticipants(req, participants));
 	} catch (error: any) {
 		res.status(500).json({ message: error.message });
 	}
@@ -197,7 +221,7 @@ export const getParticipantsByRoleController = async (
 
 		const { retreatId, role } = req.params;
 		const participants = await getParticipantsByRole(retreatId, role as any);
-		res.json(participants);
+		res.json(await stripHealthFromRetreatParticipants(req, participants));
 	} catch (error: any) {
 		res.status(500).json({ message: error.message });
 	}

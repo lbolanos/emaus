@@ -276,6 +276,16 @@ Reglas:
 - Al agregar una columna a una entidad con endpoints públicos, revisar qué endpoints la empiezan a
   exponer. Un `grep` de `res.json(` sobre los controladores públicos toma un minuto.
 - Verificalo desde fuera, sin sesión: `curl -s https://emaus.cc/api/<ruta> | python3 -m json.tool`.
+- **Scopear por ID no es scopear por permiso.** Al mover los campos sensibles del listado al
+  detalle (`getRetreatByIdPublic`/`getRetreatBySlugPublic`), el primer intento devolvía
+  `paymentInfo`/`contactPhones`/dirección para **cualquier** `id`/`slug` válido, incluidos
+  retiros que la organización nunca marcó `isPublic: true` — el endpoint sí limitaba el radio a
+  UN retiro, pero no verificaba que ESE retiro fuera público. `createParticipant` (la escritura)
+  ya exige `isPublic: true` (`assertRetreatAcceptsRegistrations`); el detalle de LECTURA se había
+  quedado sin el mismo guard. Encontrado por `security-review` en el cierre de la misma tarea que
+  introdujo el bug. Regla: un endpoint público "de un recurso" necesita el mismo chequeo de
+  visibilidad que el endpoint público "de escritura" sobre ese recurso — no alcanza con que la
+  respuesta esté acotada a un solo ID.
 
 ## `z.string().url()` NO acota el esquema: acepta `javascript:`
 

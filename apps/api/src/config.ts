@@ -60,7 +60,7 @@ export const config = {
 		// "thinking" (gemini-3-pro-preview, gemini-3.5-flash) consumen muchos tokens
 		// en razonamiento interno; si el stream se corta con finishReason=length
 		// sube AI_CHAT_MAX_TOKENS a 8192 o 16384.
-		maxTokens: parseInt(process.env.AI_CHAT_MAX_TOKENS || '4096'),
+		maxTokens: parseInt(process.env.AI_CHAT_MAX_TOKENS || '4096', 10),
 		// Provider API keys (set the one matching AI_PROVIDER)
 		googleApiKey: process.env.GOOGLE_GENERATIVE_AI_API_KEY || '',
 		anthropicApiKey: process.env.ANTHROPIC_API_KEY || '',
@@ -90,7 +90,7 @@ export const config = {
 		warnOnly: process.env.MIGRATIONS_WARN_ONLY === 'true',
 		dryRun: process.env.MIGRATIONS_DRY_RUN === 'true',
 		logLevel: process.env.MIGRATIONS_LOG_LEVEL || 'info',
-		maxPendingMigrations: parseInt(process.env.MIGRATIONS_MAX_PENDING || '10'),
+		maxPendingMigrations: parseInt(process.env.MIGRATIONS_MAX_PENDING || '10', 10),
 		ignoreMissingMigrationsTable: process.env.MIGRATIONS_IGNORE_MISSING_TABLE === 'true',
 		seed: {
 			autoRun: process.env.SEED_AUTO_RUN === 'true',

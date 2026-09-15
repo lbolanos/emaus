@@ -2540,21 +2540,22 @@ describe('Community Service', () => {
 	// A podía leer/mutar/borrar miembros de la comunidad B con solo conocer su
 	// id. Mismo patrón de fix que `updateMemberProfile`/`getMemberAttendance`.
 	describe('SECURITY — cross-tenant IDOR en member ops (updateMemberState/removeMember/updateMemberNotes/getMemberTimeline)', () => {
-		it('updateMemberState: no toca un miembro de otra comunidad', async () => {
+		it('updateMemberState: rechaza y NO cambia el estado de un miembro de otra comunidad', async () => {
 			const otherCommunity = await TestDataFactory.createTestCommunity(testUser.id, {
 				name: 'Otra comunidad',
 			});
 			const p = await TestDataFactory.createTestParticipant(testRetreat.id);
 			const memberInOther = await service.addMember(otherCommunity.id, p.id);
 
-			const result = await service.updateMemberState(
-				testCommunity.id,
-				memberInOther.id,
-				'active_member',
-				testUser.id,
-			);
+			await expect(
+				service.updateMemberState(
+					testCommunity.id,
+					memberInOther.id,
+					'active_member',
+					testUser.id,
+				),
+			).rejects.toThrow('Member not found in this community');
 
-			expect(result).toBeNull();
 			const stillOther = await service.getMembers(otherCommunity.id);
 			expect(stillOther.find((m) => m.id === memberInOther.id)?.state).toBe(
 				memberInOther.state,
