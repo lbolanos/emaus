@@ -207,6 +207,17 @@ if (Object.keys(overlay).length > 0) {
 
 Esto resuelve el bug donde "Juan Pérez" del bot quedaba sobrescrito por "Joseph Perez" del Participant existente.
 
+### Alta manual (modal): el link NO escribe overlay
+
+`linkExistingParticipantAsMember` (fase 2a del alta manual con confirmación) **no** llama a
+`buildMemberOverlay`: la ficha existente manda en identidad. El form solo disparó el lookup, así
+que lo tecleado —a veces un email inventado al azar— no debe tapar el nombre real ni quedar como
+contacto de la comunidad (rerutearía notificaciones a ninguna parte). `changedFields` del response
+vuelve siempre `[]`. La distinción: el overlay se escribe solo cuando el input trae datos frescos
+de la persona (bulk del bot/import); para corregir datos a propósito existe `updateMemberProfile`
+(owner-only). No "restaurar" el overlay en el link manual: fue bug real (2026-09-14, el roster
+mostraba lo tecleado en vez del nombre de la ficha).
+
 ## Por qué NO existe account takeover via overlay
 
 El vector original: admin malicioso cambia `participants.email = attacker@x.com`. Cuando el atacante registra una cuenta con ese email, `authService.linkParticipantToExistingUser` hace `WHERE LOWER(participant.email) = :email` y vincula el Participant al user del atacante → heredan historial.
