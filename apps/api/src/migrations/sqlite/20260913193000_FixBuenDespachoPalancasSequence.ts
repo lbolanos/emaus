@@ -28,10 +28,10 @@ export class FixBuenDespachoPalancasSequence20260913193000 implements MigrationI
 	// Secuencia "Palancas" del retiro Buen Despacho (e9b3c568-…).
 	private static readonly SEQUENCE_ID = 'e27b0940-5f99-4921-9de4-ed8a1d53ba03';
 
-	// Paso nuevo: Definición a 18 días, en posición 2 (entre contacto y
-	// recordatorios). Mismo canal/hora que el resto de la secuencia.
+	// Paso nuevo: Definición a 18 días — queda en posición 2 (entre el
+	// contacto inicial y el primer recordatorio) tras la renumeración
+	// canónica. Mismo canal/hora que el resto de la secuencia.
 	private static readonly DEFINITION_OFFSET_DAYS = 18;
-	private static readonly DEFINITION_STEP_ORDER = 2;
 
 	public async up(queryRunner: QueryRunner): Promise<void> {
 		const seq = FixBuenDespachoPalancasSequence20260913193000.SEQUENCE_ID;

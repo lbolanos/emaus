@@ -185,6 +185,23 @@ if (!columns.some((c) => c.name === 'mi_columna')) {
 
 Para índices y tablas basta `IF NOT EXISTS`; para los INSERT de seed, comparar antes.
 
+**Renumeraciones y cálculos posicionales: derivalos, no los incrementes.** Un
+`UPDATE stepOrder = stepOrder + 1 WHERE stepOrder >= 2` no es re-ejecutable: si el intento
+anterior murió después de ese UPDATE, el reintento corre sobre el estado ya desplazado y deja
+huecos. La forma convergente es re-derivar la posición desde un dato estable — posición
+cronológica por `offsetDays`:
+
+```sql
+UPDATE sequence_steps AS ss
+SET stepOrder = (SELECT COUNT(*) FROM sequence_steps s2
+                 WHERE s2.sequenceId = ss.sequenceId AND s2.offsetDays > ss.offsetDays)
+```
+
+Produce la numeración canónica sin importar desde qué estado parcial parta (la subquery
+correlacionada es estable porque no modifica la columna que lee). Pasó el 2026-09-13 con la
+secuencia de palancas de Buen Despacho: el auto-run aplicó el delta, el INSERT reventó, y solo
+la forma derivada autocuró el hueco en el reintento.
+
 > Deuda conocida al 2026-09-08: cinco migraciones ya aplicadas declaran `transaction = false` y
 > tienen un `ADD COLUMN` sin guarda —`AddClosingChurchAndFamilyInvitationTemplates`,
 > `AddRetreatFeesMealsAndDebts`, `AddSourceToRetreatMemorySong`, `CrmSequencingSchemaAndSeed` e
