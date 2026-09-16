@@ -37,7 +37,9 @@ const selectedParticipantId = ref('');
 const alreadyMember = ref<{ memberId: string; firstName: string; lastName: string } | null>(null);
 
 // Payload validado de la fase 1; los reenvíos (link / forceNew) lo reutilizan
-// añadiendo el flag correspondiente.
+// añadiendo el flag correspondiente. Los flags viven aquí para que sendCreate
+// acepte el mismo tipo en las tres llamadas (vue-tsc: una interface sin index
+// signature no es asignable a Record<string, unknown>).
 interface MemberPayload {
 	firstName: string;
 	lastName: string;
@@ -45,6 +47,8 @@ interface MemberPayload {
 	cellPhone: string;
 	joinedAt?: string;
 	birthDate?: string;
+	linkParticipantId?: string;
+	forceNewParticipant?: boolean;
 }
 let basePayload: MemberPayload | null = null;
 
@@ -107,8 +111,8 @@ const validateForm = (): boolean => {
 };
 
 // Éxito compartido por los tres envíos (nuevo, vincular, forzar nuevo).
-const sendCreate = async (payload: Record<string, unknown>) => {
-	const result = await communityStore.createMember(props.communityId, payload as any);
+const sendCreate = async (payload: MemberPayload) => {
+	const result = await communityStore.createMember(props.communityId, payload);
 	if (result?.linked) {
 		// Al vincular, la ficha existente manda: mostrar su nombre real, no lo
 		// que se tecleó en el form (que solo sirvió para buscar a la persona).
