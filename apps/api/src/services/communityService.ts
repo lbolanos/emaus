@@ -802,7 +802,12 @@ export class CommunityService {
 			}
 		}
 
-		const normalizedPhone = phone?.replace(/[\s()\-+]/g, '') || null;
+		// /\D/g — same digit-only normalization as the phone pipeline upstream.
+		// Dots in the input ("55.1234.5678") still match a stored "55 1234 5678"
+		// (the old class-based strip kept them and the suffix never matched),
+		// and LIKE wildcards (% _) can't survive into the suffix query, so a
+		// probe like "%%%%%%%%%%" can't enumerate every participant with a phone.
+		const normalizedPhone = phone?.replace(/\D/g, '') || null;
 		if (normalizedPhone && normalizedPhone.length >= 7) {
 			const suffix = normalizedPhone.slice(-10);
 			const byPhone = await this.participantRepo

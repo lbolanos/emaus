@@ -3750,6 +3750,53 @@ describe('Community Service', () => {
 			expect(err.payload.candidates[0].matchedBy).toBe('phone');
 		});
 
+		it('match por teléfono con puntos (55.XXXX.XX) → matchedBy phone (normalización /\\D/g)', async () => {
+			// Formato que deja el teclado numérico de iOS al teclear con puntos:
+			// la normalización vieja (clase [\\s()\\-+] solo) conservaba los
+			// puntos, el sufijo nunca calzaba y se creaba una ficha duplicada.
+			const existing = await TestDataFactory.createTestParticipant(testRetreat.id, {
+				firstName: 'Punto',
+				lastName: 'Torres',
+				email: 'punto.torres@example.com',
+				cellPhone: PH.e,
+			});
+
+			const err = await expectConflict(
+				service.createCommunityMember(testCommunity.id, {
+					firstName: 'Punto',
+					lastName: 'Torres',
+					email: '',
+					cellPhone: `${PH.e.slice(0, 2)}.${PH.e.slice(2, 6)}.${PH.e.slice(6)}`,
+				}),
+			);
+			expect(err.code).toBe('EXISTING_PARTICIPANT_FOUND');
+			expect(err.payload.candidates[0].participantId).toBe(existing.id);
+			expect(err.payload.candidates[0].matchedBy).toBe('phone');
+		});
+
+		it('wildcards de LIKE no enumeran: "%%%%%%%%%%" no devuelve candidatos', async () => {
+			// Oracle de enumeración: con la normalización vieja el sufijo
+			// "%%%%%%%%%%" compilaba un LIKE que calzaba cualquier teléfono de
+			// 10+ dígitos y listaba a TODOS los participantes con teléfono.
+			// Con /\\D/g el input queda vacío y la rama de teléfono se salta.
+			await TestDataFactory.createTestParticipant(testRetreat.id, {
+				firstName: 'Víctima',
+				lastName: 'Enum',
+				email: 'victima.enum@example.com',
+				cellPhone: PH.e,
+			});
+
+			const result = await service.createCommunityMember(testCommunity.id, {
+				firstName: 'Otra',
+				lastName: 'Persona',
+				email: '',
+				cellPhone: '%%%%%%%%%%',
+			});
+			// Sin candidatos → flujo normal de creación, ninguna ficha expuesta.
+			expect(result).not.toBeNull();
+			expect(result?.linked).toBeUndefined();
+		});
+
 		it('cuando matchea por email Y teléfono, email gana (un solo candidato, sin duplicado)', async () => {
 			await TestDataFactory.createTestParticipant(testRetreat.id, {
 				email: 'ambos@example.com',
