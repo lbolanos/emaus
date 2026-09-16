@@ -303,7 +303,13 @@ describe("Email Lookup Feature - Server Registration", () => {
       await createParticipant(req, res, mockNext);
 
       expect(res.status).toHaveBeenCalledWith(201);
-      expect(res.json).toHaveBeenCalledWith(newParticipant);
+      // The response is the minimal public registration DTO
+      // (toPublicRegistrationResult) — the raw participant never leaves the
+      // server.
+      expect(res.json).toHaveBeenCalledWith({
+        id: "456",
+        firstName: "María",
+      });
     });
 
     it("should return 201 when updating an existing participant in the same retreat", async () => {
@@ -329,7 +335,12 @@ describe("Email Lookup Feature - Server Registration", () => {
 
       // Should NOT return 409 - the same-retreat case now updates
       expect(res.status).toHaveBeenCalledWith(201);
-      expect(res.json).toHaveBeenCalledWith(updatedParticipant);
+      // Public DTO again: no email travels back in the response.
+      expect(res.json).toHaveBeenCalledWith({
+        id: "123",
+        firstName: "Juan Updated",
+        retreatId: "retreat-1",
+      });
     });
 
     it("should return 400 when reCAPTCHA fails on create", async () => {
