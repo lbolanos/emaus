@@ -174,13 +174,19 @@ describe('findNextMeetingForParticipant', () => {
 			recurrenceDayOfWeek: 'wednesday',
 		});
 
+		// Clock captured BEFORE the call: the service resolves "now" at its own
+		// instant, so the legitimate next occurrence ("today at this same time")
+		// can land a few ms behind this assertion's Date.now() and flake. A
+		// genuinely stale occurrence would be days behind, so the slack doesn't
+		// mask a real regression.
+		const t0 = Date.now();
 		const result = await findNextMeetingForParticipant(participant.id);
 
 		expect(result.title).toBe('Reunión semanal');
 		expect(result.meetingId).toBeTruthy(); // el template id
 		expect(result.nextMeetingDate).toBeTruthy();
 		// La próxima ocurrencia calculada debe ser futura
-		expect(new Date(result.nextMeetingDate!).getTime()).toBeGreaterThan(Date.now());
+		expect(new Date(result.nextMeetingDate!).getTime()).toBeGreaterThan(t0 - 60_000);
 		expect(result.communityName).toBe('Con solo template');
 	});
 
