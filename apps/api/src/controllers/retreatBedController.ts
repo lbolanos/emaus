@@ -7,7 +7,24 @@ import { autoAssignBedsForRetreat } from '../services/participantService';
 import { authorizationService } from '../middleware/authorization';
 import { sortRetreatBedsNaturally } from '../utils/naturalSort';
 import { domainAuditService, DomainAuditAction } from '../services/domainAuditService';
+import { canViewHealthData, stripSensitiveHealthFields } from './participantController';
 import type { Request, Response, NextFunction } from 'express';
+
+/**
+ * Strip health/emergency-contact data from bed.participant for callers without
+ * `participant:health` — same gate as the /participants endpoints. The bed map
+ * embedded the full Participant ficha (medication, diet, disability, emergency
+ * contacts) and served it to any role with retreat access. The UI keeps
+ * working: the booleans the bed map renders (snores, hasMedication,
+ * hasDietaryRestrictions) are not in SENSITIVE_HEALTH_FIELDS.
+ */
+const bedsWithoutHealth = <T>(payload: T): T => {
+	const stripBed = (bed: any): any =>
+		bed && typeof bed === 'object' && bed.participant
+			? { ...bed, participant: stripSensitiveHealthFields(bed.participant) }
+			: bed;
+	return (Array.isArray(payload) ? payload.map(stripBed) : stripBed(payload)) as T;
+};
 
 export const getRetreatBeds = async (req: Request, res: Response, next: NextFunction) => {
 	try {
@@ -56,7 +73,17 @@ export const getRetreatBeds = async (req: Request, res: Response, next: NextFunc
 			}
 		}
 
-		res.json(beds);
+		const canSeeHealth = await canViewHealthData(req);
+		if (canSeeHealth) {
+			void domainAuditService.log({
+				action: DomainAuditAction.PARTICIPANT_HEALTH_VIEW,
+				resourceType: 'participant',
+				retreatId,
+				metadata: { endpoint: 'bed-map', count: beds.length },
+			});
+		}
+
+		res.json(canSeeHealth ? beds : bedsWithoutHealth(beds));
 	} catch (error) {
 		next(error);
 	}
@@ -204,7 +231,11 @@ export const assignParticipantToBed = async (req: Request, res: Response, next: 
 			},
 		});
 
-		res.json(coupleWarning ? { ...updatedBed, warning: coupleWarning } : updatedBed);
+		// Mutations already audit their own action (BED_ASSIGN/BED_UNASSIGN);
+		// the health gate here only shapes the response payload.
+		const canSeeHealth = await canViewHealthData(req);
+		const bedPayload = coupleWarning ? { ...updatedBed, warning: coupleWarning } : updatedBed;
+		res.json(canSeeHealth ? bedPayload : bedsWithoutHealth(bedPayload));
 	} catch (error: any) {
 		// Convert errors to appropriate HTTP responses
 		let statusCode = 400;
@@ -283,7 +314,8 @@ export const toggleBedActive = async (req: Request, res: Response, next: NextFun
 			relations: ['participant'],
 		});
 
-		res.json(updatedBed);
+		const canSeeHealth = await canViewHealthData(req);
+		res.json(canSeeHealth ? updatedBed : bedsWithoutHealth(updatedBed));
 	} catch (error) {
 		next(error);
 	}

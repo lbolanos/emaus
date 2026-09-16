@@ -1,11 +1,47 @@
 import { Request, Response, NextFunction } from 'express';
 import * as tableMesaService from '../services/tableMesaService';
+import { domainAuditService, DomainAuditAction } from '../services/domainAuditService';
+import { canViewHealthData, stripSensitiveHealthFields } from './participantController';
+
+/**
+ * Strip health/emergency-contact data from every Participant a table payload
+ * embeds — lider/colider1/colider2 are nested single objects (stripped one by
+ * one: stripSensitiveHealthFields recurses arrays but not nested objects) and
+ * walkers is an array of flattened participants (the recursive strip covers
+ * it). Same `participant:health` gate as the /participants endpoints: the
+ * table JSON views served the full ficha to any role with table access.
+ */
+const tablesWithoutHealth = <T>(payload: T): T => {
+	const stripTable = (table: any): any => {
+		if (!table || typeof table !== 'object') return table;
+		const stripped: any = { ...table };
+		for (const slot of ['lider', 'colider1', 'colider2']) {
+			if (stripped[slot]) {
+				stripped[slot] = stripSensitiveHealthFields(stripped[slot]);
+			}
+		}
+		if (Array.isArray(stripped.walkers)) {
+			stripped.walkers = stripSensitiveHealthFields(stripped.walkers);
+		}
+		return stripped;
+	};
+	return (Array.isArray(payload) ? payload.map(stripTable) : stripTable(payload)) as T;
+};
 
 export const getTablesForRetreat = async (req: Request, res: Response, next: NextFunction) => {
 	try {
 		const { retreatId } = req.params;
 		const tables = await tableMesaService.findTablesByRetreatId(retreatId);
-		res.json(tables);
+		const canSeeHealth = await canViewHealthData(req);
+		if (canSeeHealth) {
+			void domainAuditService.log({
+				action: DomainAuditAction.PARTICIPANT_HEALTH_VIEW,
+				resourceType: 'participant',
+				retreatId,
+				metadata: { endpoint: 'table-list', count: tables.length },
+			});
+		}
+		res.json(canSeeHealth ? tables : tablesWithoutHealth(tables));
 	} catch (error: any) {
 		next(error);
 	}
@@ -27,7 +63,8 @@ export const getTable = async (req: Request, res: Response, next: NextFunction) 
 		if (!table) {
 			return res.status(404).json({ message: 'Table not found' });
 		}
-		res.json(table);
+		const canSeeHealth = await canViewHealthData(req);
+		res.json(canSeeHealth ? table : tablesWithoutHealth(table));
 	} catch (error: any) {
 		next(error);
 	}
@@ -80,7 +117,10 @@ export const assignLeader = async (req: Request, res: Response, next: NextFuncti
 			participantId,
 			role as any,
 		);
-		res.json(updatedTable);
+		// Mutations already audit their own action; the health gate here only
+		// shapes the response payload.
+		const canSeeHealth = await canViewHealthData(req);
+		res.json(canSeeHealth ? updatedTable : tablesWithoutHealth(updatedTable));
 	} catch (error) {
 		next(error);
 	}
@@ -99,7 +139,8 @@ export const unassignLeader = async (req: Request, res: Response, next: NextFunc
 		}
 
 		const updatedTable = await tableMesaService.unassignLeaderFromTable(tableId, role as any);
-		res.json(updatedTable);
+		const canSeeHealth = await canViewHealthData(req);
+		res.json(canSeeHealth ? updatedTable : tablesWithoutHealth(updatedTable));
 	} catch (error) {
 		next(error);
 	}
@@ -118,7 +159,8 @@ export const assignWalker = async (req: Request, res: Response, next: NextFuncti
 		}
 
 		const updatedTable = await tableMesaService.assignWalkerToTable(tableId, participantId);
-		res.json(updatedTable);
+		const canSeeHealth = await canViewHealthData(req);
+		res.json(canSeeHealth ? updatedTable : tablesWithoutHealth(updatedTable));
 	} catch (error) {
 		next(error);
 	}
@@ -137,7 +179,8 @@ export const unassignWalker = async (req: Request, res: Response, next: NextFunc
 		}
 
 		const updatedTable = await tableMesaService.unassignWalkerFromTable(tableId, walkerId);
-		res.json(updatedTable);
+		const canSeeHealth = await canViewHealthData(req);
+		res.json(canSeeHealth ? updatedTable : tablesWithoutHealth(updatedTable));
 	} catch (error) {
 		next(error);
 	}
