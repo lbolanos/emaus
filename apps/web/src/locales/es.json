@@ -1505,6 +1505,7 @@
     "endTime": "Fin del Retiro:",
     "arrivalTimeNote": "Importante que tu familia asista",
     "whatToBring": "Qué llevar:",
+    "detailFailed": "No se pudo cargar la información completa del retiro (costo, ubicación, contactos). Vuelve a intentar más tarde.",
     "defaultItems": {
       "personalThermos": "Termo personal",
       "towel": "Toalla",

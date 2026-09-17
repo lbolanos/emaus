@@ -600,6 +600,7 @@
     <PublicRetreatFlyerModal
       :open="isRetreatFlyerOpen"
       :retreat="selectedRetreat"
+      :detail-failed="flyerDetailFailed"
       @update:open="isRetreatFlyerOpen = $event"
     />
 
@@ -691,6 +692,10 @@ const detailCommunity = ref<any>(null);
 // Retreat flyer modal state
 const isRetreatFlyerOpen = ref(false);
 const selectedRetreat = ref<any>(null);
+// true cuando getPublicRetreatDetail falló y el volante quedó solo con los
+// datos del listado (fechas/parroquia): el modal muestra un aviso discreto
+// para que la falta de costo/ubicación no parezca "este retiro no cuesta".
+const flyerDetailFailed = ref(false);
 
 // Data
 const retreats = ref<any[]>([]);
@@ -1030,12 +1035,18 @@ const openRetreatFlyer = async (retreat: any, event: Event) => {
   // llega el detalle.
   selectedRetreat.value = retreat;
   isRetreatFlyerOpen.value = true;
+  flyerDetailFailed.value = false;
   try {
     const detail = await getPublicRetreatDetail(retreat.id);
     if (selectedRetreat.value?.id === retreat.id) {
       selectedRetreat.value = detail;
     }
   } catch (error) {
+    // Antes solo console.error: el modal quedaba con fechas/parroquia y nada
+    // avisaba que faltaban costo, ubicación y teléfonos por un error de red.
+    if (selectedRetreat.value?.id === retreat.id) {
+      flyerDetailFailed.value = true;
+    }
     console.error('Failed to load public retreat detail:', error);
   }
 };

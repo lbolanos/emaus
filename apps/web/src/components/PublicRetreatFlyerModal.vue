@@ -136,6 +136,17 @@
               </div>
             </div>
 
+            <!-- Detail fetch failed: the flyer shows only listing data (dates,
+                 parish) — cost, location and phones are missing because the
+                 request failed, not because the retreat has none. -->
+            <p
+              v-if="detailFailed"
+              class="flex items-center justify-center gap-1.5 text-xs text-stone-400 pt-2"
+            >
+              <AlertTriangle :size="12" />
+              {{ t('retreatFlyer.detailFailed') }}
+            </p>
+
             <!-- CTA -->
             <div class="relative pt-6">
               <!-- Centered Walker Registration -->
@@ -221,6 +232,10 @@ interface Retreat {
 const props = defineProps<{
   open: boolean;
   retreat: Retreat | null;
+  // true cuando el detalle (getPublicRetreatDetail) falló y `retreat` solo
+  // trae los datos del listado público. Booleano ausente → false → aviso
+  // oculto, así los llamadores que no lo pasan no cambian.
+  detailFailed?: boolean;
 }>();
 
 defineEmits<{

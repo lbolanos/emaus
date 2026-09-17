@@ -1425,6 +1425,7 @@
     "dareToLiveIt": "Dare to live it!",
     "arrivalTimeNote": "Important that your family attends",
     "whatToBring": "What to bring:",
+    "detailFailed": "Couldn't load the full retreat details (cost, location, contacts). Please try again later.",
     "register": "Register!",
     "scanToRegister": "Scan to secure your spot",
     "goToRegistration": "Go to Registration",
