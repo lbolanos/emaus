@@ -18,6 +18,28 @@ export function parseDaysEnv(raw: string | undefined, fallback: number, max = 36
 	return Math.min(parsed, max);
 }
 
+/**
+ * Parsea AUDIT_LOG_RETENTION_DAYS a un número de días para la purga de las
+ * tablas de auditoría. winston-daily-rotate-file (config.audit.retentionDays)
+ * consume el valor crudo con sus propios sufijos; la purga de la DB necesita
+ * días numéricos y antes usaba `parseInt`, que lee '1y' como 1 DÍA (89 menos
+ * que el NDJSON). Acepta los sufijos de winston que representan >= un día —
+ * 'd'/'D' días, 'w'/'W' semanas, 'M' meses (30d), 'y'/'Y' años (365d) — y
+ * número pelado = días. Cualquier otra cosa (vacío, 'm' de minutos, texto)
+ * cae al default: la retención nunca debe degradar a 0/NaN.
+ */
+export function parseRetentionDaysEnv(raw: string | undefined, fallback = 90): number {
+	const match = /^(\d+)\s*([dDwWyY]|M)?$/.exec((raw ?? '').trim());
+	if (!match) return fallback;
+	const value = parseInt(match[1], 10);
+	if (!Number.isFinite(value) || value <= 0) return fallback;
+	const multipliers: Record<string, number> = { d: 1, w: 7, M: 30, y: 365 };
+	// 'M' mayúscula es meses en winston; el resto se normaliza a minúsculas
+	// ('D'/'W'/'Y' son días/semanas/años, no meses).
+	const unit = match[2] === 'M' ? 'M' : (match[2] ?? 'd').toLowerCase();
+	return value * (multipliers[unit] ?? 1);
+}
+
 // Fail fast if seeding is enabled in production without explicit master-user credentials
 if (
 	process.env.NODE_ENV === 'production' &&
@@ -83,7 +105,10 @@ export const config = {
 		// Retención numérica (días) de las tablas de auditoría en la DB
 		// (audit_logs, domain_audit_log, community_audit_log) — antes crecían
 		// sin límite. Mismo default que el NDJSON de arriba, mismo env var.
-		dbRetentionDays: parseInt(process.env.AUDIT_LOG_RETENTION_DAYS || '90', 10) || 90,
+		// OJO: el valor crudo ('90d', '1y'...) lo consume winston arriba tal
+		// cual; aquí se parsea con los mismos sufijos a días — ver
+		// parseRetentionDaysEnv.
+		dbRetentionDays: parseRetentionDaysEnv(process.env.AUDIT_LOG_RETENTION_DAYS, 90),
 	},
 	migrations: {
 		autoRun: process.env.MIGRATIONS_AUTO_RUN === 'true',
