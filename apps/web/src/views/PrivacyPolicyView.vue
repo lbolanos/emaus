@@ -193,18 +193,21 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 
 const { t } = useI18n();
 
+// Los listados van en computed: un ref inicializado con t() congela las
+// cadenas al locale del setup y un cambio de idioma deja la página a medias.
+
 // Fecha de la versión vigente del aviso. Es un literal a propósito: un
 // `new Date()` mostraba la fecha de hoy en cada visita, de modo que el aviso
 // nunca identificaba una versión estable. Actualizar al cambiar el texto.
-const lastUpdated = ref(t('privacy.lastUpdatedDate'));
+const lastUpdated = computed(() => t('privacy.lastUpdatedDate'));
 
 // Information items
-const informationItems = ref([
+const informationItems = computed(() => [
 	t('privacy.information.items.personal'),
 	t('privacy.information.items.contact'),
 	t('privacy.information.items.demographic'),
@@ -214,14 +217,14 @@ const informationItems = ref([
 ]);
 
 // Use of information items
-const useItems = ref([
+const useItems = computed(() => [
 	t('privacy.use.items.registration'),
 	t('privacy.use.items.communication'),
 	t('privacy.use.items.improvement'),
 ]);
 
 // Sensitive data items
-const sensitiveItems = ref([
+const sensitiveItems = computed(() => [
 	t('privacy.sensitive.items.consent'),
 	t('privacy.sensitive.items.purpose'),
 	t('privacy.sensitive.items.access'),
@@ -229,14 +232,14 @@ const sensitiveItems = ref([
 ]);
 
 // Data retention items
-const retentionItems = ref([
+const retentionItems = computed(() => [
 	t('privacy.retention.items.health'),
 	t('privacy.retention.items.backups'),
 	t('privacy.retention.items.logs'),
 ]);
 
 // User rights items
-const rightsItems = ref([
+const rightsItems = computed(() => [
 	t('privacy.rights.items.access'),
 	t('privacy.rights.items.correction'),
 	t('privacy.rights.items.deletion'),
