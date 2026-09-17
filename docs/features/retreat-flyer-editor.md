@@ -10,7 +10,10 @@ Cómo se diseña el volante de un retiro y dónde vive cada pieza.
 | `/app/retreats/:id/flyer/edit` | El editor: bloques, imágenes, textos y plantillas |
 
 El volante público de la landing (`PublicRetreatFlyerModal.vue`) es **otro** componente y no lee
-`flyer_options`: no se ve afectado por nada de esto.
+`flyer_options`: no se ve afectado por nada de esto. Si `LandingView.vue` no puede cargar el
+detalle del retiro, monta el volante con los datos del listado y le pasa `detailFailed`
+(`:detail-failed`) para que muestre el aviso de que el detalle no pudo cargarse
+(key `retreatFlyer.detailFailed`).
 
 Los volantes de reuniones de comunidad (`apps/web/src/components/flyers/*`) son un sistema
 aparte, sin relación con este.

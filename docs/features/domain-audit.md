@@ -54,10 +54,31 @@ Es **fire-and-forget**: un fallo de auditoría nunca rompe la operación de nego
 | `AUDIT_DB_ENABLED` | `true` | Sink a base de datos |
 | `AUDIT_FILE_ENABLED` | `true` | Sink a archivo NDJSON |
 | `AUDIT_LOG_DIR` | dev `apps/api/logs`, prod `/var/log/emaus` | Directorio de los NDJSON |
-| `AUDIT_LOG_RETENTION_DAYS` | `90d` | Retención (días o nº de archivos) |
+| `AUDIT_LOG_RETENTION_DAYS` | `90d` | Retención de ambos sinks con un solo valor: rotación del NDJSON y purga de la tabla. Acepta sufijos `d`/`w`/`M` (meses)/`y`; un número pelado son días (ver «Retención y purga») |
 | `AUDIT_LOG_MAX_SIZE` | `20m` | Tamaño por archivo antes de rotar |
 
 En tests el logger de archivo está en `silent` (no abre file handles).
+
+### Retención y purga
+
+`AUDIT_LOG_RETENTION_DAYS` alimenta los **dos sinks** con la misma cifra, para que "cuánto
+conservamos los logs" tenga una sola respuesta:
+
+- **NDJSON**: `config.audit.retentionDays` pasa el valor crudo a winston-daily-rotate-file.
+- **Tabla**: `config.audit.dbRetentionDays` (`apps/api/src/config.ts`) lo parsea a días puros
+  con `parseRetentionDaysEnv` — sufijos `d` / `w` / `M` (meses, **solo mayúscula**: una `m`
+  minúscula no matchea y cae al default) / `y`; un número pelado son días; vacío o inválido
+  cae al default (90).
+
+La purga de la tabla la ejecuta `apps/api/src/services/auditRetentionService.ts`: cron diario
+a las 03:30 UTC (después del backup de las 03:00 y del cleanup de adjuntos de las 03:15),
+borra de `audit_logs`, `domain_audit_log` y `community_audit_log` todo lo anterior al cutoff.
+Fire-and-forget como el resto de la auditoría; `performCleanup()` queda expuesto para tests
+y disparo manual.
+
+> Bug que motivó el parser actual: antes un `parseInt` descartaba el sufijo — `1y` quedaba
+> como **1 día** de retención real en la tabla, mientras el NDJSON sí respetaba el año.
+> Un cambio de retención siempre merece verificar los dos sinks por separado.
 
 ---
 
