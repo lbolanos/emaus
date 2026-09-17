@@ -492,7 +492,16 @@ const visibleColumns = ref<string[]>([]);
 // Load saved columns and initialize state on mount
 onMounted(() => {
     console.log('[Component] ParticipantList - Mounted');
-    const savedColumns = participantStore.getColumnSelection(currentViewName.value, props.columnsToShowInTable);
+    // allColumns (baseColumns filtrado por permisos) es el universo válido: el
+    // store descarta del saved las claves que ya no existen (columnas quitadas
+    // o de salud tras revocar participant:health). El watcher de abajo
+    // re-persiste la lista saneada, así el localStorage se limpia solo.
+    const validKeys = allColumns.value.map((c) => c.key);
+    const savedColumns = participantStore.getColumnSelection(
+        currentViewName.value,
+        props.columnsToShowInTable,
+        validKeys,
+    );
     visibleColumns.value = [...savedColumns];
     filters.value = { ...props.defaultFilters };
     
@@ -1019,9 +1028,13 @@ const toggleFilterStatus = () => {
 
 // Deja constancia (best-effort, sin bloquear la descarga) cuando el archivo
 // exportado incluye columnas de salud/contacto de emergencia — ver
-// SENSITIVE_HEALTH_FIELDS en participantController.ts.
+// SENSITIVE_HEALTH_FIELDS en participantController.ts. La condición se cruza
+// contra allColumns (lo que la sesión puede exportar de verdad): una clave de
+// salud rancia del localStorage, de una columna que el usuario ya no puede ver,
+// hacía disparar la auditoría de un archivo que no traía esos datos.
 const auditExportIfIncludesHealth = (columnKeys: string[], count: number, format: string) => {
-    if (columnKeys.some((key) => HEALTH_COLUMN_KEYS.has(key))) {
+    const exportable = new Set(allColumns.value.map((c) => c.key));
+    if (columnKeys.some((key) => exportable.has(key) && HEALTH_COLUMN_KEYS.has(key))) {
         void auditHealthDataExport(selectedRetreatId.value ?? undefined, count, format);
     }
 };

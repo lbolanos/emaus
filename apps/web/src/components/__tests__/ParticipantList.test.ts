@@ -225,6 +225,7 @@ vi.mock('@/services/api', () => {
 	const mockApiDelete = vi.fn(() => Promise.resolve({ data: {} }));
 	const mockListShirtTypes = vi.fn(() => Promise.resolve([]));
 	const mockGetParticipantById = vi.fn(() => Promise.resolve({ shirtSizes: [] }));
+	const mockAuditHealthDataExport = vi.fn(() => Promise.resolve({}));
 
 	return {
 		api: {
@@ -237,12 +238,14 @@ vi.mock('@/services/api', () => {
 		mockApiPost,
 		mockApiPut,
 		mockApiDelete,
+		mockAuditHealthDataExport,
 		listShirtTypes: mockListShirtTypes,
 		getParticipantById: mockGetParticipantById,
 		// Other functions the component might import
 		getPalanqueroOptions: vi.fn(() => Promise.resolve([])),
 		sendEmailViaBackend: vi.fn(() => Promise.resolve({})),
 		getSmtpConfig: vi.fn(() => Promise.resolve({})),
+		auditHealthDataExport: mockAuditHealthDataExport,
 	};
 });
 
@@ -1169,6 +1172,89 @@ describe('ParticipantList Component', () => {
 			for (const key of HEALTH_KEYS) {
 				expect(keys).toContain(key);
 			}
+		});
+
+		it('descarta al montar una clave de salud fantasma del localStorage y re-persiste la lista sana', async () => {
+			// Escenario: el usuario tenía participant:health, dejó una columna de
+			// salud guardada en la selección, y el permiso fue revocado. La clave
+			// ya no está en allColumns: no renderiza y no se puede destogglear en
+			// el picker (que solo lista columnas válidas) — el fix la sanea al
+			// montar y el localStorage queda limpio por sí solo.
+			localStorage.setItem(
+				'participant-columns-walkers',
+				JSON.stringify(['firstName', 'medicationDetails']),
+			);
+
+			const fresh = mount(ParticipantList, {
+				props: { type: 'walker' },
+				global: {
+					plugins: [pinia],
+					stubs: { 'router-link': true, 'router-view': true, teleport: true },
+					mocks: {
+						$t: (key: string) => key,
+						$router: { push: vi.fn() },
+						$route: { name: 'walkers', params: {}, query: {} },
+					},
+				},
+			});
+			await flushPromises();
+			await nextTick();
+
+			const visible = (fresh.vm as any).$.setupState.visibleColumns as string[];
+			expect(visible).toContain('firstName');
+			expect(visible).not.toContain('medicationDetails');
+
+			// Self-heal: la clave fantasma no vuelve a quedar guardada.
+			const stored = JSON.parse(
+				localStorage.getItem('participant-columns-walkers') || '[]',
+			);
+			expect(stored).toContain('firstName');
+			expect(stored).not.toContain('medicationDetails');
+
+			fresh.unmount();
+		});
+
+		it('la auditoría de export no dispara con una clave de salud que la sesión no puede exportar', async () => {
+			// Fixture por defecto: sin participant:health → 'medicationDetails'
+			// no está en allColumns → no puede estar en el archivo exportado,
+			// así que el beacon de auditoría tampoco debe salir.
+			const apiModule = await import('@/services/api');
+			const setupState = (wrapper.vm as any).$.setupState;
+
+			setupState.auditExportIfIncludesHealth(['medicationDetails'], 3, 'csv');
+			await nextTick();
+
+			expect(vi.mocked(apiModule.auditHealthDataExport)).not.toHaveBeenCalled();
+		});
+
+		it('la auditoría de export sí dispara con participant:health y la clave exportable', async () => {
+			// Control positivo del test anterior: con el permiso otorgado la
+			// clave sí es exportable y el beacon sale con el retiro activo.
+			const apiModule = await import('@/services/api');
+			const { useAuthStore: useAuthStoreImport } = await import('@/stores/authStore');
+			const authStore = useAuthStoreImport();
+			authStore.userProfile = {
+				...(authStore.userProfile as any),
+				roles: [
+					{
+						id: 'role-1',
+						role: { name: 'admin' },
+						retreats: [{ retreatId: 'test-retreat-id' }],
+						globalPermissions: [{ resource: 'participant', operation: 'health' }],
+					},
+				],
+			} as any;
+			await nextTick();
+
+			const setupState = (wrapper.vm as any).$.setupState;
+			setupState.auditExportIfIncludesHealth(['medicationDetails'], 3, 'csv');
+			await nextTick();
+
+			expect(vi.mocked(apiModule.auditHealthDataExport)).toHaveBeenCalledWith(
+				'test-retreat-id',
+				3,
+				'csv',
+			);
 		});
 	});
 });

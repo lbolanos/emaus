@@ -285,14 +285,30 @@ export const useParticipantStore = defineStore('participant', () => {
 		return columnSelections[viewName] || null;
 	}
 
-	function getColumnSelection(viewName: string, defaultColumns: string[]): string[] {
+	function getColumnSelection(
+		viewName: string,
+		defaultColumns: string[],
+		validColumns?: string[],
+	): string[] {
 		const saved = loadColumnSelection(viewName);
 		if (Array.isArray(saved) && saved.length > 0) {
+			// Drop saved keys that no longer exist in the view's universe (a
+			// column removed from the app, or a health column after the user's
+			// permission was revoked). Ghost keys can't render, can't be
+			// un-toggled in the picker (it only lists valid columns), and made
+			// the health-export audit fire for data that wasn't in the file.
+			const sanitized = validColumns
+				? saved.filter((c) => validColumns.includes(c))
+				: saved;
+			if (sanitized.length === 0) {
+				return defaultColumns;
+			}
 			// Merge: keep saved order/visibility, append any new default columns
 			// that weren't in the saved selection (e.g. added after the user last saved).
-			const missing = defaultColumns.filter((c) => !saved.includes(c));
-			if (missing.length > 0) {
-				const merged = [...saved, ...missing];
+			const isValid = validColumns ? (c: string) => validColumns.includes(c) : () => true;
+			const missing = defaultColumns.filter((c) => !sanitized.includes(c) && isValid(c));
+			if (missing.length > 0 || sanitized.length !== saved.length) {
+				const merged = [...sanitized, ...missing];
 				columnSelections[viewName] = merged;
 				try {
 					localStorage.setItem(`participant-columns-${viewName}`, JSON.stringify(merged));

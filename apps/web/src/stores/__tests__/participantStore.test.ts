@@ -507,6 +507,52 @@ describe('ParticipantStore', () => {
 			expect(result).toEqual(['firstName', 'lastName', 'email']);
 		});
 
+		it('should drop saved keys outside validColumns and persist the cleanup', () => {
+			const viewName = 'walkers';
+			// 'medicationDetails' quedó en localStorage de una sesión con
+			// participant:health; sin la columna en allColumns es una clave
+			// fantasma que no se puede destogglear en el picker.
+			store.saveColumnSelection(viewName, ['firstName', 'medicationDetails']);
+
+			const result = store.getColumnSelection(viewName, ['firstName'], [
+				'firstName',
+				'lastName',
+			]);
+
+			expect(result).toEqual(['firstName']);
+			// Self-heal: el saved rancio no vuelve a leerse del localStorage.
+			expect(localStorage.getItem(`participant-columns-${viewName}`)).toBe(
+				JSON.stringify(['firstName']),
+			);
+		});
+
+		it('should fall back to defaults when every saved key is invalid', () => {
+			const viewName = 'servers';
+			store.saveColumnSelection(viewName, ['medicationDetails', 'notes']);
+
+			const result = store.getColumnSelection(viewName, ['firstName', 'lastName'], [
+				'firstName',
+				'lastName',
+			]);
+
+			expect(result).toEqual(['firstName', 'lastName']);
+		});
+
+		it('should not append default columns that are invalid either', () => {
+			const viewName = 'walkers';
+			store.saveColumnSelection(viewName, ['firstName']);
+
+			// 'medicationDetails' viene en los defaults pero no sobrevive al
+			// universo válido (permiso revocado): el merge no debe colarla.
+			const result = store.getColumnSelection(
+				viewName,
+				['firstName', 'medicationDetails'],
+				['firstName', 'lastName'],
+			);
+
+			expect(result).toEqual(['firstName']);
+		});
+
 		it('should persist column selections to localStorage', () => {
 			const viewName = 'test-view';
 			const columns = ['firstName', 'lastName'];
