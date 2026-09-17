@@ -448,7 +448,7 @@ const receptionStore = useReceptionStore();
 const participantStore = useParticipantStore();
 const { participants } = storeToRefs(participantStore);
 const { isSidebarCollapsed, isMobile } = storeToRefs(uiStore);
-const { can, isSuperadmin, currentRetreatRole, retreatOnlyPermissions, canAccessResource } =
+const { can, isSuperadmin, currentRetreatRole, canAccessResource } =
   useAuthPermissions();
 const route = useRoute();
 const { isRetreatSection, currentSectionTitle } = useRouteContext();
@@ -1121,13 +1121,12 @@ const filteredMenuSections = computed(() => {
 
       if (item.permission && item.permission !== 'superadmin' && item.name !== 'role-management' && item.name !== 'communities') {
         const operation = item.permissionOperation ?? 'read';
-        if (isSuperadmin) {
-          // superadmin siempre ve todos los menús
-        } else if (item.requiresRetreat && retreatStore.selectedRetreatId) {
-          // For retreat items, check only retreat role permissions (not global)
-          const hasPermission = retreatOnlyPermissions.value.includes(`${item.permission}:${operation}`);
-          if (!hasPermission) return false;
-        } else {
+        if (!isSuperadmin) {
+          // superadmin siempre ve todos los menús. Para el resto, el mismo set
+          // combinado (global + rol del retiro) contra el que valida el API:
+          // los items de retiro ya no usan retreatOnlyPermissions, que ocultaba
+          // menús a usuarios con un permiso global (p.ej. participant:health)
+          // que el backend sí acepta.
           const hasPermission =
             operation === 'read'
               ? can.read(item.permission)

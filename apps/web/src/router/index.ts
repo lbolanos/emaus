@@ -59,6 +59,7 @@ const RetreatShirtTypesView = () => import('../views/RetreatShirtTypesView.vue')
 import { useAuthStore } from '@/stores/authStore';
 import { useRetreatStore } from '@/stores/retreatStore';
 import { useAuthPermissions } from '@/composables/useAuthPermissions';
+import type { Permission } from '@/utils/permissions';
 import { trackPageView } from '@/services/telemetryService';
 import { shouldReloadForChunkError, isChunkLoadError } from '@/utils/chunkErrorRecovery';
 
@@ -725,8 +726,12 @@ router.beforeEach(async (to, from, next) => {
 		.map((record) => record.meta?.requiresPermission as string | undefined)
 		.find(Boolean);
 	if (requiredPermission && auth.isAuthenticated) {
-		const { retreatOnlyPermissions, isSuperadmin } = useAuthPermissions();
-		if (!isSuperadmin.value && !retreatOnlyPermissions.value.includes(requiredPermission)) {
+		// Mismo set combinado (global + rol del retiro) contra el que valida el
+		// API: hasPermission, no retreatOnlyPermissions — ese restringía al rol
+		// del retiro y redirigía a usuarios con un permiso global (p.ej.
+		// participant:health) a los que el backend sí sirve.
+		const { hasPermission, isSuperadmin } = useAuthPermissions();
+		if (!isSuperadmin.value && !hasPermission(requiredPermission as Permission)) {
 			next(
 				typeof to.params.id === 'string' && to.params.id
 					? { name: 'retreat-dashboard', params: { id: to.params.id } }

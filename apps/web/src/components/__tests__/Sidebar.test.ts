@@ -653,6 +653,9 @@ describe('Sidebar Component', () => {
 		// Regla de negocio: la ficha de salud (medicación, dieta) solo la ve
 		// quien tiene `participant:health` (admin/treasurer/logistics/superadmin),
 		// no cualquier rol con `participant:read` (hasta regular_server lo tiene).
+		// Desde la unificación del check, lo que decide es canAccessResource (el
+		// set combinado global + rol del retiro, mismo criterio que el API), no
+		// retreatOnlyPermissions.
 		const getSections = (w: VueWrapper<any>): any[] => {
 			const state = (w.vm as any).$.setupState;
 			const raw = state?.filteredMenuSections;
@@ -663,52 +666,51 @@ describe('Sidebar Component', () => {
 				.flatMap((s: any) => s.items)
 				.find((i: any) => i.name === name);
 
+		// Fija el mock del composable: todo permitido, salvo lo que niegue
+		// canAccess (por defecto, ninguna operación).
+		const mockPermissions = (
+			canAccess: (resource: string, operation: string) => boolean = () => true,
+		) => {
+			vi.mocked(useAuthPermissions).mockReturnValue({
+				can: {
+					read: vi.fn(() => true),
+					create: vi.fn(() => true),
+					update: vi.fn(() => true),
+					delete: vi.fn(() => true),
+					list: vi.fn(() => true),
+					manage: vi.fn(() => true),
+				},
+				canAccessResource: vi.fn(canAccess),
+				isSuperadmin: vi.fn(() => false),
+				isAdmin: vi.fn(() => true),
+				hasRole: vi.fn(() => true),
+				currentRetreatRole: { value: null },
+			} as any);
+		};
+
 		afterEach(() => {
 			// clearAllMocks (afterEach de arriba) no borra la implementación fijada
 			// por mockReturnValue — restaurarla explícito para no filtrar el
 			// permiso de salud a otros tests de este archivo.
-			vi.mocked(useAuthPermissions).mockReturnValue({
-				can: {
-					read: vi.fn(() => true),
-					create: vi.fn(() => true),
-					update: vi.fn(() => true),
-					delete: vi.fn(() => true),
-					list: vi.fn(() => true),
-					manage: vi.fn(() => true),
-				},
-				canAccessResource: vi.fn(() => true),
-				isSuperadmin: vi.fn(() => false),
-				isAdmin: vi.fn(() => true),
-				hasRole: vi.fn(() => true),
-				currentRetreatRole: { value: null },
-				retreatOnlyPermissions: { value: [] },
-			} as any);
+			mockPermissions();
 		});
 
-		it('hides medicines-report and food for a role without participant:health (default admin fixture, empty retreatOnlyPermissions)', () => {
-			// El wrapper por defecto de este archivo (beforeEach de arriba) monta con
-			// rol 'admin' global y `retreatOnlyPermissions: { value: [] }` mockeado.
-			expect(findItem(wrapper, 'medicines-report')).toBeUndefined();
-			expect(findItem(wrapper, 'food')).toBeUndefined();
+		it('hides medicines-report and food when canAccessResource denies participant:health', async () => {
+			mockPermissions((_resource, operation) => operation !== 'health');
+
+			const deniedWrapper = createTestWrapper(Sidebar, {
+				global: { mocks: { $t: (key: string) => key } },
+			});
+			await nextTick();
+
+			expect(findItem(deniedWrapper, 'medicines-report')).toBeUndefined();
+			expect(findItem(deniedWrapper, 'food')).toBeUndefined();
+
+			deniedWrapper.unmount();
 		});
 
 		it('shows medicines-report and food once participant:health is granted', async () => {
-			vi.mocked(useAuthPermissions).mockReturnValue({
-				can: {
-					read: vi.fn(() => true),
-					create: vi.fn(() => true),
-					update: vi.fn(() => true),
-					delete: vi.fn(() => true),
-					list: vi.fn(() => true),
-					manage: vi.fn(() => true),
-				},
-				canAccessResource: vi.fn(() => true),
-				isSuperadmin: vi.fn(() => false),
-				isAdmin: vi.fn(() => true),
-				hasRole: vi.fn(() => true),
-				currentRetreatRole: { value: null },
-				retreatOnlyPermissions: { value: ['participant:read', 'participant:health'] },
-			} as any);
+			mockPermissions();
 
 			const grantedWrapper = createTestWrapper(Sidebar, {
 				global: { mocks: { $t: (key: string) => key } },

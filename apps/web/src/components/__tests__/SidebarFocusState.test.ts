@@ -153,7 +153,10 @@ vi.mock('@/composables/useAuthPermissions', () => ({
 		isAdmin: vi.fn(() => true),
 		hasRole: vi.fn(() => true),
 		currentRetreatRole: { value: null },
-		retreatOnlyPermissions: { value: [] },
+		// The unified permission check calls this for permissionOperation
+		// items (food / medicines-report). isSuperadmin here is a function,
+		// not a ref, so `.value` is undefined and the check is NOT skipped.
+		canAccessResource: vi.fn(() => true),
 	}),
 }));
 
