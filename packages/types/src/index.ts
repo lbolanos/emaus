@@ -826,6 +826,19 @@ export const createParticipantSchema = z.object({
 });
 export type CreateParticipant = z.infer<typeof createParticipantSchema.shape.body>;
 
+// POST /participants/health-export-audit — beacon the web client fires after
+// exporting health columns to a file. Same fields logHealthDataExport reads;
+// route-level validation rejects malformed beacons before the audit write.
+export const logHealthDataExportSchema = z.object({
+	body: z.object({
+		format: z.enum(['csv', 'xlsx']),
+		count: z.number().int().min(0),
+		// '' ("no retreat selected") normalizes to undefined — the repo's
+		// anti-empty-string pattern; a bare uuid().optional() would 400 it.
+		retreatId: z.preprocess((v) => (v === '' ? undefined : v), z.string().uuid().optional()),
+	}),
+});
+
 // POST /participants/couple/new — registro de pareja (retiros retreat_type='couples').
 // Un submit crea a ambos cónyuges vinculados. type/retreatId/gender viajan a nivel
 // del body (gender lo deriva el server del slot husband/wife); los campos per-retiro

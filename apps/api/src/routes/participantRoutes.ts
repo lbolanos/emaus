@@ -24,6 +24,7 @@ import {
 	createParticipantSchema,
 	createCoupleParticipantSchema,
 	updateParticipantSchema,
+	logHealthDataExportSchema,
 } from '@repo/types';
 import { isAuthenticated } from '../middleware/isAuthenticated';
 import { requirePermission, requireRetreatAccess } from '../middleware/authorization';
@@ -101,6 +102,7 @@ router.delete('/:id', requirePermission('participant:delete'), deleteParticipant
 router.post(
 	'/health-export-audit',
 	requirePermission('participant:health'),
+	validateRequest(logHealthDataExportSchema),
 	logHealthDataExport,
 );
 

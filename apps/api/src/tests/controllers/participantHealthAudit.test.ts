@@ -60,6 +60,7 @@ jest.mock('../../services/domainAuditService', () => ({
 }));
 
 import { Request, Response, NextFunction } from 'express';
+import { logHealthDataExportSchema } from '@repo/types';
 import { authorizationService } from '../../middleware/authorization';
 import {
 	getAllParticipants,
@@ -252,6 +253,61 @@ describe('auditoría de lectura/exportación de datos de salud', () => {
 
 			expect(res.status).toHaveBeenCalledWith(403);
 			expect(mockDomainAuditLog).not.toHaveBeenCalled();
+		});
+	});
+
+	// Route-level guard: POST /participants/health-export-audit runs
+	// validateRequest(logHealthDataExportSchema) before the controller. The beacon
+	// is fire-and-forget for the client, so a malformed payload must die at the
+	// schema instead of reaching the audit write with garbage metadata.
+	describe('logHealthDataExportSchema (validación de ruta)', () => {
+		const validBody = {
+			format: 'xlsx',
+			count: 12,
+			retreatId: '9b68d0e8-5f9a-4c1d-a7b3-2f2f7f6c1111',
+		} as const;
+
+		it('acepta el beacon válido y preserva el retreatId', () => {
+			const result = logHealthDataExportSchema.safeParse({ body: validBody });
+			expect(result.success).toBe(true);
+			if (result.success) {
+				expect(result.data.body).toEqual(validBody);
+			}
+		});
+
+		it('normaliza retreatId "" a undefined (cliente sin retiro seleccionado)', () => {
+			const result = logHealthDataExportSchema.safeParse({
+				body: { format: 'csv', count: 3, retreatId: '' },
+			});
+			// La trampa del empty-string: `.uuid().optional()` rechazaría '' con 400
+			// y el beacon fire-and-forget perdería la auditoría silenciosamente.
+			expect(result.success).toBe(true);
+			if (result.success) {
+				expect(result.data.body.retreatId).toBeUndefined();
+			}
+		});
+
+		it('rechaza format fuera del enum, count inválido y retreatId no-uuid', () => {
+			expect(
+				logHealthDataExportSchema.safeParse({ body: { ...validBody, format: 'pdf' } }).success,
+			).toBe(false);
+			expect(
+				logHealthDataExportSchema.safeParse({ body: { ...validBody, count: -1 } }).success,
+			).toBe(false);
+			expect(
+				logHealthDataExportSchema.safeParse({ body: { ...validBody, count: 1.5 } }).success,
+			).toBe(false);
+			// El controller recibe ids reales de la UI; 'retreat-1' delatan un beacon forjado.
+			expect(
+				logHealthDataExportSchema.safeParse({ body: { ...validBody, retreatId: 'retreat-1' } })
+					.success,
+			).toBe(false);
+		});
+
+		it('rechaza body sin format o sin count', () => {
+			expect(logHealthDataExportSchema.safeParse({ body: { count: 1 } }).success).toBe(false);
+			expect(logHealthDataExportSchema.safeParse({ body: { format: 'csv' } }).success).toBe(false);
+			expect(logHealthDataExportSchema.safeParse({ body: {} }).success).toBe(false);
 		});
 	});
 });
