@@ -260,4 +260,49 @@ describe('CreateMemberModal — two-phase flow', () => {
 		expect(submit.attributes('disabled')).toBeDefined();
 		expect(wrapper.emitted('created')).toBeFalsy();
 	});
+
+	it('closing mid-confirmation and reopening resets the state machine', async () => {
+		createMemberMock
+			.mockRejectedValueOnce(err409('EXISTING_PARTICIPANT_FOUND', { candidates: CANDIDATES }))
+			.mockRejectedValueOnce(err409('EXISTING_PARTICIPANT_FOUND', { candidates: [CANDIDATES[1]] }))
+			.mockResolvedValueOnce({ id: 'member-6' });
+		const wrapper = mountModal();
+
+		// First submit: 409 with candidates lands on the confirm step.
+		await submitForm(wrapper);
+		expect(wrapper.text()).toContain('¿Ya conocemos a esta persona?');
+
+		// Close right in the middle of the confirmation and reopen: the modal
+		// must come back as a fresh form (step, candidates, fields).
+		// basePayload itself is a plain `let` — not observable via setupState —
+		// but its contract is that any re-send after reopening carries exactly
+		// what the form says, which the second half asserts.
+		await wrapper.setProps({ open: false });
+		await wrapper.setProps({ open: true });
+		await flushPromises();
+
+		expect(wrapper.text()).toContain('Crear nuevo miembro');
+		expect(wrapper.text()).not.toContain('¿Ya conocemos a esta persona?');
+		expect((wrapper.find('#firstName').element as HTMLInputElement).value).toBe('');
+
+		// A different person: forceNew must carry the NEW payload with no
+		// trace of the aborted submission.
+		await wrapper.find('#firstName').setValue('María');
+		await wrapper.find('#lastName').setValue('García');
+		await wrapper.find('#email').setValue('maria@example.com');
+		await wrapper.find('#cellPhone').setValue('555-2222');
+		await buttonByText(wrapper, 'Crear miembro')!.trigger('click');
+		await flushPromises();
+		await buttonByText(wrapper, 'Es otra persona, crear nueva')!.trigger('click');
+		await flushPromises();
+
+		const [, forcePayload] = createMemberMock.mock.calls[2];
+		expect(forcePayload).toEqual({
+			firstName: 'María',
+			lastName: 'García',
+			email: 'maria@example.com',
+			cellPhone: '555-2222',
+			forceNewParticipant: true,
+		});
+	});
 });
