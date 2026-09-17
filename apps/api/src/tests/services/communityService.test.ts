@@ -4127,6 +4127,45 @@ describe('Community Service', () => {
 			).rejects.toThrow(/PHONE_DUPLICATE_IN_COMMUNITY/);
 		});
 
+		it('race en el alta nueva: el trigger aborta el INSERT y el service lo traduce a PHONE_DUPLICATE (no escapa el error crudo)', async () => {
+			// Dos admins dan de alta casi a la vez a dos personas que comparten
+			// teléfono (familia). Los lookups del segundo pasan ANTES de que el
+			// primero commitee; el trigger trg_cm_phone_uniq_insert defiende la
+			// ventana check→INSERT. Este test verifica que el catch del service
+			// traduce ese RAISE al Error plano del código — sin él, el SqliteError
+			// crudo escalaba al controller.
+			const primero = await TestDataFactory.createTestParticipant(testRetreat.id, {
+				email: 'race-primero@example.com',
+				cellPhone: PH.a,
+			});
+			await TestDataFactory.createTestCommunityMember(testCommunity.id, primero.id);
+			await AppDataSource.query(CM_PHONE_UNIQ_TRIGGER_SQL);
+
+			// Estado al momento del chequeo: el primer miembro "aún no existía".
+			const linkSpy = jest
+				.spyOn(service as any, 'checkExistingParticipantsForLink')
+				.mockResolvedValue(undefined);
+			const collisionSpy = jest
+				.spyOn(service as any, 'findPhoneCollision')
+				.mockResolvedValue(null);
+			try {
+				const err = await expectConflict(
+					service.createCommunityMember(testCommunity.id, {
+						firstName: 'Segundo',
+						lastName: 'Admin',
+						email: 'race-segundo@example.com',
+						cellPhone: PH.a,
+					}),
+				);
+				expect(err).not.toBeInstanceOf(MemberCreateConflictError);
+				// Traducción exacta: el controller mapea este mensaje a 409.
+				expect(err.message).toBe('PHONE_DUPLICATE_IN_COMMUNITY');
+			} finally {
+				linkSpy.mockRestore();
+				collisionSpy.mockRestore();
+			}
+		});
+
 		it('forceNew con email de participant de retiro crea el duplicado (aceptado por diseño)', async () => {
 			const retreatPart = await TestDataFactory.createTestParticipant(testRetreat.id, {
 				email: 'duplicado-retiro@example.com',

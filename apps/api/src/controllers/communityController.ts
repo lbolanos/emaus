@@ -209,13 +209,21 @@ export class CommunityController {
 					...err.payload,
 				});
 			}
-			if (err?.message === 'PHONE_DUPLICATE_IN_COMMUNITY') {
+			// `.includes` y no `===`: el RAISE ABORT de los triggers llega a veces
+			// con el código embebido en un mensaje más largo del driver, no pelado.
+			if (
+				typeof err?.message === 'string' &&
+				err.message.includes('PHONE_DUPLICATE_IN_COMMUNITY')
+			) {
 				return res.status(409).json({
 					code: 'PHONE_DUPLICATE_IN_COMMUNITY',
 					message: 'Ya existe otro miembro de esta comunidad con ese teléfono.',
 				});
 			}
-			if (err?.message === 'EMAIL_DUPLICATE_IN_PARTICIPANTS') {
+			if (
+				typeof err?.message === 'string' &&
+				err.message.includes('EMAIL_DUPLICATE_IN_PARTICIPANTS')
+			) {
 				return res.status(409).json({
 					code: 'EMAIL_DUPLICATE_IN_PARTICIPANTS',
 					message:

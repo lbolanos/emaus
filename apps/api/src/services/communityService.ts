@@ -1066,7 +1066,24 @@ export class CommunityService {
 			state,
 		});
 
-		const savedMember = await this.memberRepo.save(member);
+		let savedMember: CommunityMember;
+		try {
+			savedMember = await this.memberRepo.save(member);
+		} catch (err: any) {
+			// Defense in depth para la ventana check→INSERT: si el teléfono del
+			// participant nuevo colisiona con otro miembro que entró entre el
+			// findPhoneCollision de arriba y este save, el trigger
+			// trg_cm_phone_uniq_insert hace RAISE ABORT. Sin este catch el error
+			// crudo del trigger escalaba como 500 en vez del 409 legible (mismo
+			// patrón que el link de la fase 2a).
+			if (
+				typeof err?.message === 'string' &&
+				err.message.includes('PHONE_DUPLICATE_IN_COMMUNITY')
+			) {
+				throw new Error('PHONE_DUPLICATE_IN_COMMUNITY');
+			}
+			throw err;
+		}
 
 		// joinedAt/birthDate post-creación (mismo criterio en el flujo de link).
 		await this.applyMemberDates(savedMember.id, { joinedAt, birthDate });
