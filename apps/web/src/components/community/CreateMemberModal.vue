@@ -74,6 +74,11 @@ watch(() => props.open, (isOpen) => {
 });
 
 const resetForm = () => {
+	// basePayload es estado de la máquina de fases (lo usan "Agregar existente"
+	// y "Es otra persona"); hoy handleSubmit siempre lo reasigna antes de usarlo,
+	// pero dejarlo rancio tras cerrar en medio de la confirmación es una trampa
+	// para cualquier camino futuro que llegue a la fase 2 sin re-submit.
+	basePayload = null;
 	formData.value = {
 		firstName: '',
 		lastName: '',
