@@ -61,6 +61,14 @@ export class Community {
 	flyerBackgroundUrl?: string | null;
 
 	/**
+	 * Opacidad del recuadro central (glass card) del flyer, 0.3–1.0. NULL → cada
+	 * estilo usa su default (~0.8). Se resetea junto con el fondo: es una sola
+	 * identidad visual.
+	 */
+	@Column({ type: 'float', nullable: true })
+	flyerCardOpacity?: number | null;
+
+	/**
 	 * IANA timezone (ej. 'America/Mexico_City'). Se infiere desde lat/lon en
 	 * create/update via `inferTimezoneFromCoords`. Fallback de runtime cuando
 	 * está NULL: 'America/Mexico_City'. Usar `getCommunityTimezone(c)` helper.

@@ -654,6 +654,20 @@ export class CommunityController {
 		}
 	}
 
+	static async setFlyerCardOpacity(req: Request, res: Response) {
+		const { id: communityId } = req.params;
+		const { opacity } = req.body;
+		try {
+			const community = await communityService.setFlyerCardOpacity(communityId, opacity);
+			res.json(community);
+		} catch (error: any) {
+			if (error.message === 'Community not found') {
+				return res.status(404).json({ message: 'Community not found' });
+			}
+			throw error;
+		}
+	}
+
 	// --- Recurrence Instance Management ---
 
 	static async getMyCommunities(req: Request, res: Response) {

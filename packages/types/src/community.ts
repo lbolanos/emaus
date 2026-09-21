@@ -93,6 +93,8 @@ export const communitySchema = z.object({
 	timezone: z.string().optional().nullable(),
 	// Fondo personalizado del flyer de reunión. NULL = fondo por defecto.
 	flyerBackgroundUrl: z.string().optional().nullable(),
+	// Opacidad del recuadro central (glass card), 0.3–1.0. NULL = default (~0.8).
+	flyerCardOpacity: z.number().optional().nullable(),
 	createdAt: z.coerce.date(),
 	updatedAt: z.coerce.date(),
 	// Calculated fields
@@ -351,6 +353,19 @@ export const setCommunityFlyerBackgroundSchema = z.object({
 });
 
 export const deleteCommunityFlyerBackgroundSchema = z.object({
+	params: z.object({
+		id: z.string().uuid(),
+	}),
+});
+
+/**
+ * Opacidad del recuadro central (glass card) del flyer. 0.3–1.0: por debajo de
+ * 0.3 el texto pelea con el fondo en las imágenes claras; 1 = opaco total.
+ */
+export const setCommunityFlyerCardOpacitySchema = z.object({
+	body: z.object({
+		opacity: z.number().min(0.3).max(1),
+	}),
 	params: z.object({
 		id: z.string().uuid(),
 	}),

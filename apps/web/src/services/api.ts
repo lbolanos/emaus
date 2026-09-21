@@ -1533,6 +1533,16 @@ export async function deleteCommunityFlyerBackground(
   return response.data;
 }
 
+export async function setCommunityFlyerCardOpacity(
+  communityId: string,
+  opacity: number,
+): Promise<Community> {
+  const response = await api.put(`/communities/${communityId}/flyer-card-opacity`, {
+    opacity,
+  });
+  return response.data;
+}
+
 export async function createNextMeetingInstance(
   meetingId: string,
 ): Promise<CommunityMeeting & { isPastDate?: boolean }> {

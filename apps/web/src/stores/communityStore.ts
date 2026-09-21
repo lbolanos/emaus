@@ -365,6 +365,12 @@ export const useCommunityStore = defineStore('community', () => {
 		return updated;
 	};
 
+	const setFlyerCardOpacity = async (communityId: string, opacity: number) => {
+		const updated = await api.setCommunityFlyerCardOpacity(communityId, opacity);
+		if (currentCommunity.value?.id === updated.id) currentCommunity.value = updated;
+		return updated;
+	};
+
 	const createNextMeetingInstance = async (meetingId: string) => {
 		loading.value = true;
 		error.value = null;
@@ -669,6 +675,7 @@ export const useCommunityStore = defineStore('community', () => {
 		setMeetingPhoto,
 		setFlyerBackground,
 		clearFlyerBackground,
+		setFlyerCardOpacity,
 		deleteMeetingPhoto,
 		createNextMeetingInstance,
 		fetchAttendance,

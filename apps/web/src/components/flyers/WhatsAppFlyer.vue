@@ -2,7 +2,7 @@
 	<div
 		id="printable-area"
 		class="whatsapp-container relative flex p-8 overflow-hidden rounded-2xl shadow-2xl"
-		:style="{ backgroundImage: `url('${backgroundUrl || '/poster.png'}')` }"
+		:style="containerStyle"
 	>
 		<!-- Light overlay -->
 		<div class="absolute inset-0 bg-gradient-to-b from-white/60 via-white/40 to-white/65"></div>
@@ -81,7 +81,18 @@ const props = defineProps<{
 	communityName: string;
 	/** Community-picked background; falls back to the shipped default art. */
 	backgroundUrl?: string;
+	/** Community-tuned glass card opacity (0.3–1); unset → style default. */
+	cardOpacity?: number;
 }>();
+
+// Background image + the --card-a knob the glass card reads (same mechanism
+// as the poster style).
+const containerStyle = computed(() => ({
+	backgroundImage: `url('${props.backgroundUrl || '/poster.png'}')`,
+	...(props.cardOpacity !== undefined
+		? { '--card-a': String(props.cardOpacity) }
+		: {}),
+}));
 
 const showBrandHeader = computed(() => !/^ema[úu]s\b/i.test(props.communityName.trim()));
 
@@ -122,9 +133,9 @@ const locationMessage = computed(() => {
 .glass-card-wa {
 	background: linear-gradient(
 		135deg,
-		rgba(255, 255, 255, 0.85) 0%,
-		rgba(255, 255, 255, 0.78) 50%,
-		rgba(255, 255, 255, 0.82) 100%
+		rgba(255, 255, 255, var(--card-a, 0.85)) 0%,
+		rgba(255, 255, 255, var(--card-a, 0.78)) 50%,
+		rgba(255, 255, 255, var(--card-a, 0.82)) 100%
 	);
 	backdrop-filter: blur(12px) saturate(180%);
 	-webkit-backdrop-filter: blur(12px) saturate(180%);

@@ -22,6 +22,7 @@ import {
 	setCommunityMeetingPhotoSchema,
 	setCommunityFlyerBackgroundSchema,
 	deleteCommunityFlyerBackgroundSchema,
+	setCommunityFlyerCardOpacitySchema,
 	importMembersSchema,
 	createCommunityMemberSchema,
 	updateMemberStateSchema,
@@ -260,6 +261,12 @@ router.delete(
 	requireCommunityAccess(),
 	validateRequest(deleteCommunityFlyerBackgroundSchema),
 	(req, res, next) => CommunityController.deleteFlyerBackground(req, res).catch(next),
+);
+router.put(
+	'/:id/flyer-card-opacity',
+	requireCommunityAccess(),
+	validateRequest(setCommunityFlyerCardOpacitySchema),
+	(req, res, next) => CommunityController.setFlyerCardOpacity(req, res).catch(next),
 );
 
 // G3: Re-disparar notificación a miembros sobre una reunión (botón "Notificar").

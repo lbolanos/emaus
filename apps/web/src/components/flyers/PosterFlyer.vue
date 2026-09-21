@@ -2,7 +2,7 @@
 	<div
 		id="printable-area"
 		class="poster-container relative w-full overflow-hidden rounded-3xl print:rounded-none shadow-2xl print:shadow-none"
-		:style="{ backgroundImage: `url('${backgroundUrl || '/poster.png'}')` }"
+		:style="containerStyle"
 	>
 		<!-- Overlay for better contrast — dense enough that a busy background
 		     image doesn't fight the text, while the edges still let it breathe -->
@@ -116,7 +116,19 @@ const props = defineProps<{
 	communityName: string;
 	/** Community-picked background; falls back to the shipped default art. */
 	backgroundUrl?: string;
+	/** Community-tuned glass card opacity (0.3–1); unset → style default. */
+	cardOpacity?: number;
 }>();
+
+// Background image + the --card-a knob the glass card reads. Driving the alpha
+// through a CSS var keeps the gradient in one place while the community dials
+// the transparency.
+const containerStyle = computed(() => ({
+	backgroundImage: `url('${props.backgroundUrl || '/poster.png'}')`,
+	...(props.cardOpacity !== undefined
+		? { '--card-a': String(props.cardOpacity) }
+		: {}),
+}));
 
 // The meeting title leads the hierarchy; without one, the community name
 // keeps the leading role (and then there is no subtitle to duplicate it).
@@ -156,9 +168,9 @@ const locationMessage = computed(() => {
 .glass-card-premium {
 	background: linear-gradient(
 		135deg,
-		rgba(24, 24, 34, 0.82) 0%,
-		rgba(16, 16, 26, 0.78) 50%,
-		rgba(24, 24, 34, 0.80) 100%
+		rgba(24, 24, 34, var(--card-a, 0.82)) 0%,
+		rgba(16, 16, 26, var(--card-a, 0.78)) 50%,
+		rgba(24, 24, 34, var(--card-a, 0.80)) 100%
 	);
 	backdrop-filter: blur(20px);
 	-webkit-backdrop-filter: blur(20px);

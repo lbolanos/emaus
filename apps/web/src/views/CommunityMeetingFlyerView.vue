@@ -80,6 +80,25 @@
                 <span class="block bg-white px-2 py-1.5 text-xs font-medium text-gray-700">{{ PRESET_LABELS[preset] }}</span>
               </button>
             </div>
+
+            <div class="mt-3 border-t border-gray-100 pt-3">
+              <label for="flyer-card-opacity" class="mb-1.5 flex items-center justify-between text-xs font-medium text-gray-600">
+                <span>Transparencia del recuadro</span>
+                <span class="tabular-nums text-gray-500">{{ Math.round(cardTransparency * 100) }}%</span>
+              </label>
+              <input
+                id="flyer-card-opacity"
+                v-model.number="cardTransparency"
+                type="range"
+                min="0"
+                max="0.7"
+                step="0.05"
+                class="w-full accent-blue-600"
+                :disabled="isSavingOpacity"
+                @change="handleOpacityChange"
+              />
+            </div>
+
             <div class="mt-3 space-y-1 border-t border-gray-100 pt-3">
               <Button
                 variant="ghost"
@@ -183,6 +202,7 @@
         :processed-description="processedDescription"
         :community-name="communityName"
         :background-url="community?.flyerBackgroundUrl || undefined"
+        :card-opacity="roundedCardOpacity"
       />
     </div>
 
@@ -382,11 +402,49 @@ const handlePickBackground = async () => {
   }
 };
 
+// Transparency of the central glass card, dialled by the community. The slider
+// speaks "transparency" (what the coordinator asked for); the stored value is
+// the opacity (1 - transparency), clamped to the schema range 0.3–1. The flyer
+// previews live via the card-opacity prop; @change (slider released) saves.
+const cardTransparency = ref(0.2);
+const isSavingOpacity = ref(false);
+
+const syncCardTransparency = () => {
+  cardTransparency.value = 1 - (community.value?.flyerCardOpacity ?? 0.8);
+};
+
+// 1 - 1 - x leaves float noise (0.30000000000000004) in the --card-a attribute;
+// round it so the DOM style stays clean and matches the stored value.
+const roundedCardOpacity = computed(() => Math.round((1 - cardTransparency.value) * 100) / 100);
+
+const handleOpacityChange = async () => {
+  if (!community.value) return;
+  // Round away float noise from the 0.05 steps before clamping to 0.3–1.
+  const opacity = Math.min(1, Math.max(0.3, Math.round((1 - cardTransparency.value) * 100) / 100));
+
+  isSavingOpacity.value = true;
+  try {
+    const updated = await communityStore.setFlyerCardOpacity(community.value.id, opacity);
+    community.value = updated;
+  } catch (error: any) {
+    console.error('Failed to save flyer card opacity:', error);
+    toast({
+      title: 'Error al guardar la transparencia',
+      description: error.message || 'No se pudo guardar la transparencia del recuadro.',
+      variant: 'destructive',
+    });
+  } finally {
+    isSavingOpacity.value = false;
+  }
+};
+
 const handleResetBackground = async () => {
   if (!community.value) return;
   try {
     const updated = await communityStore.clearFlyerBackground(community.value.id);
     community.value = updated;
+    // "Restaurar por defecto" also clears the card opacity (one visual identity).
+    syncCardTransparency();
     isBackgroundPickerOpen.value = false;
     toast({ title: 'Fondo restaurado', description: 'El flyer vuelve al fondo por defecto.' });
   } catch (error: any) {
@@ -501,6 +559,7 @@ onMounted(async () => {
     // Fetch community data
     await communityStore.fetchCommunity(communityId);
     community.value = communityStore.currentCommunity;
+    syncCardTransparency();
 
     // Find the meeting in the list
     await communityStore.fetchMeetings(communityId);

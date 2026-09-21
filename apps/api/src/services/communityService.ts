@@ -1766,8 +1766,24 @@ export class CommunityService {
 	}
 
 	/**
-	 * Restaura el fondo por defecto de los flyers (columna a NULL; el objeto de
-	 * S3, si existía, no se toca — ver nota en setFlyerBackground).
+	 * Opacidad del recuadro central (glass card) del flyer. Es parte de la misma
+	 * identidad visual que el fondo: se resetea junto con él.
+	 */
+	async setFlyerCardOpacity(communityId: string, opacity: number) {
+		const community = await this.getCommunityById(communityId);
+		if (!community) {
+			throw new Error('Community not found');
+		}
+
+		await this.communityRepo.update(communityId, { flyerCardOpacity: opacity });
+		return this.getCommunityById(communityId);
+	}
+
+	/**
+	 * Restaura el fondo por defecto de los flyers (columnas a NULL; el objeto de
+	 * S3, si existía, no se toca — ver nota en setFlyerBackground). También
+	 * resetea la opacidad del recuadro: "por defecto" es la identidad visual
+	 * completa, no solo la imagen.
 	 */
 	async clearFlyerBackground(communityId: string) {
 		const community = await this.getCommunityById(communityId);
@@ -1775,7 +1791,10 @@ export class CommunityService {
 			throw new Error('Community not found');
 		}
 
-		await this.communityRepo.update(communityId, { flyerBackgroundUrl: null });
+		await this.communityRepo.update(communityId, {
+			flyerBackgroundUrl: null,
+			flyerCardOpacity: null,
+		});
 		return this.getCommunityById(communityId);
 	}
 
