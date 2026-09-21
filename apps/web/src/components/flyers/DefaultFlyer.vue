@@ -4,7 +4,9 @@
 		class="print-optimized shadow-2xl print:shadow-none rounded-3xl overflow-hidden relative bg-white border border-gray-200"
 	>
 		<!-- Header Section -->
-		<header class="relative h-[140px] px-8 py-4 flex flex-row items-center justify-between overflow-hidden print:h-[130px] print:px-6 print:py-3">
+		<!-- min-h instead of a fixed h: a long title wraps and used to get
+		     clipped by overflow-hidden at the fixed header height. -->
+		<header class="relative min-h-[140px] px-8 py-5 flex flex-row items-center justify-between overflow-hidden print:min-h-[120px] print:px-6 print:py-3">
 			<!-- Background Image with enhanced overlay -->
 			<div class="absolute inset-0 bg-cover bg-center z-0" style="background-image: url('/header_bck.png')">
 				<div class="absolute inset-0 bg-gradient-to-r from-blue-900/80 via-blue-800/70 to-blue-900/80"></div>
@@ -24,9 +26,10 @@
 			</div>
 
 			<!-- Main Title -->
-			<div class="relative z-10 text-right flex-1 pr-2">
+			<div class="relative z-10 text-right flex-1">
 				<p class="text-[17px] text-white/95 font-bold mb-0.5 uppercase tracking-[0.25em] drop-shadow-lg">Reunión de Comunidad</p>
-				<h1 class="text-[68px] font-bold text-white leading-[0.9] transform -rotate-1 origin-bottom-right pb-1 font-display"
+				<h1 class="font-bold text-white leading-[0.9] transform -rotate-1 origin-bottom-right pb-1 font-display break-words"
+						:class="titleSizeClass"
 						style="font-family: 'Miltonian Tattoo', cursive; filter: drop-shadow(5px 5px 10px rgba(0,0,0,0.7)); text-shadow: 4px 4px 8px rgba(0,0,0,0.5);">
 					{{ meeting?.title || '' }}
 				</h1>
@@ -119,6 +122,15 @@ const props = defineProps<{
 	processedDescription: string;
 	communityName: string;
 }>();
+
+// The display font is expressive but wide: a long meeting title at full size
+// runs into the header edges. Step the size down as the title grows instead.
+const titleSizeClass = computed(() => {
+	const length = props.meeting?.title?.trim().length ?? 0;
+	if (length > 40) return 'text-[34px] print:text-[30px]';
+	if (length > 22) return 'text-[44px] print:text-[38px]';
+	return 'text-[64px] print:text-[56px]';
+});
 
 // Same date/time pattern as the Poster and WhatsApp flyers: date-only line
 // (no year, no ghost time) plus a separate "hh:mm hrs." line.
