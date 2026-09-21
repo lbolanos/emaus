@@ -51,7 +51,8 @@ remates entre comillas van textuales.
   historias), viñetas de 3-4 para listas y señales.
 - El **último bloque siempre es el compromiso de la semana**: acciones concretas y las
   lecturas recomendadas.
-- Cerrar con la cita del documento en la caja azul clara, con su autor.
+- Cada bloque cierra con una **frase de un santo** sobre ese tema, en la línea en cursiva.
+- Cerrar con la cita más fuerte en la caja azul clara, con su autor.
 - Una idea por bloque; si un bloque pasa de ~4 líneas de párrafo, se parte.
 
 ## 3. Generar
@@ -71,6 +72,32 @@ Render en dos pasadas: la primera con alto generoso (2400) deja una franja blanc
 Sin eso la imagen sale con un vacío que en WhatsApp se nota.
 
 Entregar el PNG en `~/Desktop/` con nombre `emaus-sesionN-<tema>.png`.
+
+## 3 bis. Las citas de santos: atribución o nada
+
+Los documentos de preparación arrastran atribuciones falsas — la 4ª sesión daba
+«No puedo ganarle a Dios cuando se trata de dar» a un **Peter Coates** que no existe
+(el poema se atribuye a Juan Romero, publicado por Radio María). No se copia el autor
+del documento sin comprobarlo.
+
+Regla: **solo entra una cita que se pueda anclar a obra y lugar.** «Circula atribuida a
+X» no basta, por muchos sitios que la repitan — así se cuelan las apócrifas de Santo
+Tomás sobre la amistad o de San Francisco de Sales sobre la mansedumbre, que no tienen
+fuente primaria localizable. Si no hay fuente, se busca otra cita o se deja el bloque sin
+frase; nunca se inventa la referencia.
+
+Las que ya están verificadas y sirven de banco de salida:
+
+| Tema | Cita | Fuente |
+|---|---|---|
+| Amor al prójimo | «A la tarde te examinarán en el amor.» | San Juan de la Cruz, *Dichos de luz y amor*, 60 |
+| Familia | «El amor empieza en casa.» | Santa Teresa de Calcuta, discurso del Nobel, 1979 |
+| Compasión, servicio | «Los pobres son nuestros señores y maestros.» | San Vicente de Paúl, *Conferencias* |
+| Paciencia, carácter | «La paciencia todo lo alcanza.» | Santa Teresa de Jesús, «Nada te turbe» |
+| Amistad | «No hay amistad verdadera sino entre aquellos a quienes Tú unes.» | San Agustín, *Confesiones* IV, 4 |
+| Caridad (1 Cor 13) | «En el corazón de la Iglesia, mi Madre, yo seré el amor.» | Santa Teresa de Lisieux, *Manuscrito B* |
+| Obras, compromiso | «El amor se debe poner más en las obras que en las palabras.» | San Ignacio de Loyola, *Ejercicios Espirituales*, 230 |
+| Cierre | «Donde no hay amor, pon amor y sacarás amor.» | San Juan de la Cruz, carta de 1589 |
 
 ## 4. Trampas ya pagadas
 
