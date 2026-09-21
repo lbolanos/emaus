@@ -14,10 +14,21 @@
 				<!-- Decorative top accent -->
 				<div class="absolute -top-1 left-1/2 -translate-x-1/2 w-24 h-1 bg-gradient-to-r from-transparent via-emaus-gold to-transparent rounded-full"></div>
 
-				<!-- Title with enhanced styling -->
-				<h1 class="font-serif-title text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold tracking-[0.15em] text-emaus-gold shadow-text-gold leading-tight mb-4 animate-fade-in">
-					{{ communityName }}
+				<!-- Emaús brand — same anti-duplication guard as the WhatsApp style:
+				     "EMAÚS / Emaús del Valle" stacked would read as a stutter. -->
+				<h2 v-if="showBrandHeader" class="font-serif-title text-sm sm:text-base font-semibold tracking-[0.45em] text-white/80 mb-4">
+					EMAÚS
+				</h2>
+
+				<!-- Meeting title leads; the community becomes the supporting line -->
+				<h1 class="font-serif-title text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold tracking-[0.08em] text-emaus-gold shadow-text-gold leading-tight mb-2 animate-fade-in">
+					{{ heroTitle }}
 				</h1>
+
+				<!-- Community as the supporting line -->
+				<p v-if="showCommunitySubtitle" class="text-xs sm:text-sm uppercase tracking-[0.35em] text-white/85 font-semibold mb-4 text-shadow-medium">
+					{{ communityName }}
+				</p>
 
 				<!-- Decorative divider -->
 				<div class="flex items-center gap-4 mb-6 w-full max-w-sm">
@@ -106,6 +117,12 @@ const props = defineProps<{
 	/** Community-picked background; falls back to the shipped default art. */
 	backgroundUrl?: string;
 }>();
+
+// The meeting title leads the hierarchy; without one, the community name
+// keeps the leading role (and then there is no subtitle to duplicate it).
+const heroTitle = computed(() => props.meeting?.title?.trim() || props.communityName);
+const showCommunitySubtitle = computed(() => !!props.meeting?.title?.trim());
+const showBrandHeader = computed(() => !/^ema[úu]s\b/i.test(props.communityName.trim()));
 
 const formattedDateOnly = computed(() => {
 	if (!props.meeting?.startDate) return '';

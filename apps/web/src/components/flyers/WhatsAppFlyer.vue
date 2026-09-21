@@ -11,12 +11,17 @@
 		<section class="glass-card-wa relative flex h-full w-full flex-col items-center justify-center rounded-2xl px-8 py-6 text-center">
 			<!-- Emaús header — hidden when the community name already carries the brand
 			     (e.g. "Emaús del Valle" would read "EMAÚS / Emaús del Valle"). -->
-			<h2 v-if="showBrandHeader" class="font-serif-title text-5xl font-bold tracking-[0.2em] text-emaus-gold-dark mb-4">EMAÚS</h2>
+			<h2 v-if="showBrandHeader" class="font-serif-title text-4xl font-bold tracking-[0.2em] text-emaus-gold-dark mb-3">EMAÚS</h2>
 
-			<!-- Community name -->
-			<h1 class="font-serif-title text-3xl sm:text-4xl font-bold tracking-[0.12em] text-emaus-gold-dark leading-tight mb-3">
-				{{ communityName }}
+			<!-- Meeting title leads; the community becomes the supporting line -->
+			<h1 class="font-serif-title text-2xl sm:text-3xl font-bold tracking-[0.06em] text-emaus-gold-dark leading-tight mb-2">
+				{{ heroTitle }}
 			</h1>
+
+			<!-- Community as the supporting line -->
+			<p v-if="showCommunitySubtitle" class="text-[11px] uppercase tracking-[0.3em] text-gray-600 font-semibold mb-3">
+				{{ communityName }}
+			</p>
 
 			<!-- Decorative divider -->
 			<div class="flex items-center gap-3 mb-4 w-full max-w-xs">
@@ -79,6 +84,11 @@ const props = defineProps<{
 }>();
 
 const showBrandHeader = computed(() => !/^ema[úu]s\b/i.test(props.communityName.trim()));
+
+// Same hierarchy as the poster style: the meeting title leads; without one,
+// the community name keeps the leading role (no subtitle to duplicate it).
+const heroTitle = computed(() => props.meeting?.title?.trim() || props.communityName);
+const showCommunitySubtitle = computed(() => !!props.meeting?.title?.trim());
 
 const formattedDateOnly = computed(() => {
 	if (!props.meeting?.startDate) return '';

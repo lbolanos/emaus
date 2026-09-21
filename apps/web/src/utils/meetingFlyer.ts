@@ -113,6 +113,36 @@ export function formatMeetingTime(
 	});
 }
 
+/** Spanish connectors that stay lowercase inside a displayed title. */
+const LOWERCASE_CONNECTORS = new Set([
+	'de', 'del', 'la', 'el', 'los', 'las', 'y', 'e', 'o', 'u',
+	'en', 'a', 'al', 'con', 'sin', 'por', 'para', 's/n',
+]);
+
+function hasInnerUppercase(word: string): boolean {
+	return word.slice(1) !== word.slice(1).toLowerCase();
+}
+
+/**
+ * Display-only casing for flyer copy: community names and addresses are
+ * often typed in a hurry ("Buen despacho") and the flyer is public-facing
+ * material. Capitalizes lowercase words, keeps connectors lowercase, and
+ * never rewrites a word that already carries capitals beyond the first
+ * letter ("CDMX", "AV.", "McOebel") — that casing was chosen on purpose.
+ */
+export function titleCaseForDisplay(text: string): string {
+	return text
+		.split(/\s+/)
+		.filter(Boolean)
+		.map((word, index) => {
+			if (hasInnerUppercase(word)) return word;
+			const lower = word.toLowerCase();
+			if (index > 0 && LOWERCASE_CONNECTORS.has(lower)) return lower;
+			return lower.charAt(0).toUpperCase() + lower.slice(1);
+		})
+		.join(' ');
+}
+
 /**
  * Formats the full community address for flyers and template previews.
  * - Drops the state when it repeats the city ("Ciudad de México, Ciudad de México").
@@ -130,14 +160,17 @@ export function formatCommunityAddress(community: {
 }): string {
 	const city = community.city?.trim();
 	const country = community.country?.trim();
+	// Display casing is normalized per part: see titleCaseForDisplay.
 	const parts = [
-		community.address1,
-		community.address2,
-		city,
+		titleCaseForDisplay(community.address1 ?? ''),
+		community.address2 ? titleCaseForDisplay(community.address2) : undefined,
+		city ? titleCaseForDisplay(city) : undefined,
 		// Avoid rendering "Ciudad de México, Ciudad de México" when city === state.
-		community.state?.trim()?.toLowerCase() !== city?.toLowerCase() ? community.state : undefined,
+		community.state?.trim()?.toLowerCase() !== city?.toLowerCase()
+			? titleCaseForDisplay(community.state ?? '')
+			: undefined,
 		community.zipCode,
-		/^m[ée]xico$/i.test(country ?? '') ? undefined : country,
+		/^m[ée]xico$/i.test(country ?? '') ? undefined : country ? titleCaseForDisplay(country) : undefined,
 	].filter((part) => part && part.trim());
 	return parts.join(', ');
 }

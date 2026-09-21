@@ -3,6 +3,7 @@ import {
 	formatCommunityAddress,
 	formatMeetingDateOnly,
 	formatMeetingTimeOnly,
+	titleCaseForDisplay,
 } from '@/utils/meetingFlyer';
 
 describe('meetingFlyer — formatCommunityAddress', () => {
@@ -47,6 +48,37 @@ describe('meetingFlyer — formatCommunityAddress', () => {
 				zipCode: '',
 			}),
 		).toBe('Calle Tlacoquemecatl 218, Colonia del Valle Sur, Ciudad de México');
+	});
+
+	it('title-cases parts typed in a hurry', () => {
+		expect(
+			formatCommunityAddress({
+				...base,
+				address1: 'calle tlacoquemecatl 218',
+				address2: 'colonia del valle sur',
+			}),
+		).toBe('Calle Tlacoquemecatl 218, Colonia del Valle Sur, Ciudad de México, 03100');
+	});
+});
+
+describe('meetingFlyer — titleCaseForDisplay', () => {
+	it('capitalizes a hurriedly typed community name', () => {
+		expect(titleCaseForDisplay('Buen despacho')).toBe('Buen Despacho');
+	});
+
+	it('keeps Spanish connectors lowercase (except when opening)', () => {
+		expect(titleCaseForDisplay('parroquia el señor del buen despacho')).toBe(
+			'Parroquia el Señor del Buen Despacho',
+		);
+		expect(titleCaseForDisplay('a la orilla del mar')).toBe('A la Orilla del Mar');
+	});
+
+	it('never rewrites words with inner capitals — that casing is intentional', () => {
+		expect(titleCaseForDisplay('AV. CDMX 218')).toBe('AV. CDMX 218');
+	});
+
+	it('leaves already-correct text unchanged', () => {
+		expect(titleCaseForDisplay('Calle Tlacoquemecatl 218')).toBe('Calle Tlacoquemecatl 218');
 	});
 });
 

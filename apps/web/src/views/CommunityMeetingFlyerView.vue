@@ -181,6 +181,7 @@ import {
   formatMeetingDateOnly,
   formatMeetingTime,
   formatCommunityAddress,
+  titleCaseForDisplay,
   type MeetingFlyerData
 } from '@/utils/meetingFlyer';
 import { useToast } from '@repo/ui';
@@ -222,9 +223,10 @@ const formattedDuration = computed(() => {
   return formatDuration(meeting.value.durationMinutes);
 });
 
-// Get community name
+// Get community name — display-cased ("Buen despacho" → "Buen Despacho"):
+// the flyer is public-facing material and the stored name is typed in a hurry.
 const communityName = computed(() => {
-  return community.value?.name || '';
+  return titleCaseForDisplay(community.value?.name || '');
 });
 
 // Format the community address
