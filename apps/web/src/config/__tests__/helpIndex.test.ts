@@ -78,6 +78,16 @@ describe('helpIndex', () => {
 			expect(getHelpByRoute('retreat-flyer-edit')?.key).toBe('flyer-editor');
 		});
 
+		// Igual para el volante de reunión: vista publicada y editor comparten ayuda,
+		// y no caen en la del retiro por la substring "flyer".
+		it('maps both meeting flyer routes to its own help section', () => {
+			expect(getHelpByRoute('community-meeting-flyer')?.key).toBe('meeting-flyer-editor');
+			expect(getHelpByRoute('community-meeting-flyer-edit')?.key).toBe('meeting-flyer-editor');
+			expect(getHelpByRoute('community-meeting-flyer-edit')?.topics[0]?.content).toBe(
+				'meeting-flyer-editor.md',
+			);
+		});
+
 		it('maps the role-management route to its help section (no queda sin ayuda)', () => {
 			const s = getHelpByRoute('role-management');
 			expect(s?.key).toBe('role-management');

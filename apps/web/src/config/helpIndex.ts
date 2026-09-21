@@ -377,6 +377,23 @@ export const helpIndex: HelpSection[] = [
 		],
 	},
 	{
+		key: 'meeting-flyer-editor',
+		title: 'Meeting Flyer',
+		titleEs: 'Volante de la reunión',
+		icon: 'mdi-palette',
+		// Matched by substring, so this covers both community-meeting-flyer and
+		// community-meeting-flyer-edit
+		routeContext: ['community-meeting-flyer'],
+		topics: [
+			{
+				key: 'meeting-flyer-editor-overview',
+				title: 'Overview',
+				titleEs: 'Descripción general',
+				content: 'meeting-flyer-editor.md',
+			},
+		],
+	},
+	{
 		key: 'notes-and-meeting-points',
 		title: 'Notes and Meeting Points',
 		titleEs: 'Notas y Puntos de Encuentro',
