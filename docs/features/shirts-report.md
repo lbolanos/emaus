@@ -12,7 +12,7 @@ Cada tipo de prenda puede tener un `price` (configurable en `/app/settings/shirt
 
 `/app/shirts-report` — disponible en el menú lateral bajo **Reportes**, entre "Reporte de Bolsas" y "Reporte de Medicinas".
 
-Permiso requerido: `participant:read` (mismo nivel que ver el listado de servidores).
+Permiso requerido: `participant:read` **+ acceso al retiro** (`requireRetreatAccess('retreatId')`). El reporte lista `cellPhone`/`country` de todos los servidores del retiro — PII con alcance por retiro: `participant:read` solo (permiso global) dejaría a cualquier usuario autenticado enumerar los teléfonos de un retiro ajeno.
 
 ---
 
@@ -77,7 +77,7 @@ Campo de texto en el toolbar de la tabla. Filtra en tiempo real (insensible a ma
 - Número de retiro (`idOnRetreat`)
 - Talla (`size` de cualquiera de sus prendas)
 
-Botón `X` para limpiar la búsqueda. Cuando no hay resultados se muestra "Sin resultados para tu búsqueda" con un link rápido para limpiar.
+Botón `X` para limpiar la búsqueda. Cuando la tabla queda vacía el mensaje distingue quién la vació: con búsqueda activa, "Sin resultados para tu búsqueda" con link para limpiar; con el filtro "Solo sin confirmar" y todo confirmado, "Todos los pedidos de este retiro están confirmados" con link **Mostrar todos** (desactivar el filtro, no limpiar la búsqueda).
 
 Junto al buscador vive el chip **"Solo sin confirmar"** (con el conteo de pendientes) — ver [Confirmación del pedido](#5-confirmación-del-pedido).
 
@@ -95,17 +95,21 @@ Piezas:
 - **Botón de WhatsApp** (ícono `MessageSquare`, junto al badge): abre `https://api.whatsapp.com/send?phone=…` con la lada resuelta del país del participante (`buildWhatsAppChatLink(cellPhone, country)` de `apps/web/src/utils/phone.ts`), en pestaña nueva. Sin texto precargado: abre la **conversación real**, donde viven las respuestas (la app solo registra lo que ella envía). Si el participante no tiene teléfono, el botón no se renderiza.
 - **Filtro "Solo sin confirmar"**: chip en el toolbar que deja la lista en pendientes. Compone **AND** con la búsqueda; el contador del chip siempre cuenta sobre el total del reporte.
 
-**Permisos**: ver el reporte requiere `participant:read`; dar/quitar el chulo requiere `participant:update` + acceso al retiro. El teléfono/país viajan en la respuesta del reporte bajo esos mismos permisos.
+**Permisos**: ver el reporte requiere `participant:read` + acceso al retiro (`requireRetreatAccess`); dar/quitar el chulo requiere `participant:update` + acceso al retiro. El teléfono/país viajan en la respuesta del reporte bajo esos mismos permisos.
 
 **Endpoint**:
 
 ```
 PATCH /api/history/retreat/:retreatId/participant/:participantId/shirt-order-confirmation
 Body: { confirmed: boolean }   → { ok: true }
-Permiso: participant:update + requireRetreatAccess
+Permiso: participant:update + requireRetreatAccess('retreatId')
+Body validado por setShirtOrderConfirmationSchema (validateRequest): un body
+ausente o con confirmed no-booleano recibe 400 antes de llegar al controller.
 ```
 
 `confirmed: true` estampa `shirtOrderConfirmedAt = new Date()`; `false` lo limpia a `NULL`. Con un par retiro×participante inexistente afecta 0 filas y responde `ok: true` (mismo contrato que `bag-made`).
+
+**Write-protect**: `shirtOrderConfirmedAt` solo lo escribe este PATCH. El CRUD de historial sin scope (`PUT`/`POST /history`) lo excluye por tipo (`Omit<RetreatSnapshotFields, 'shirtOrderConfirmedAt'>`) y en runtime (`stripWriteProtectedFields` al entrar a `createHistoryEntry`/`updateHistoryEntry`) — sin eso, un `PUT` con el campo en el body bypasearía el gate de retiro del PATCH.
 
 Aplica a `server` y `partial_server` (ambos ya salen en el reporte); los walkers no participan de este flujo. Sin evento realtime: el reporte es de un coordinador, no una pantalla compartida (a diferencia de `bag-made` que sí emite para recepción).
 
@@ -190,10 +194,10 @@ apps/api/src/routes/retreatParticipant.routes.ts  (PATCH shirt-order-confirmatio
 
 ```
 GET /api/retreats/:retreatId/shirt-report
-Permiso: participant:read
+Permiso: participant:read + requireRetreatAccess('retreatId')
 
 PATCH /api/history/retreat/:retreatId/participant/:participantId/shirt-order-confirmation
-Body: { confirmed: boolean }
+Body: { confirmed: boolean }  (validado por setShirtOrderConfirmationSchema)
 Permiso: participant:update + requireRetreatAccess('retreatId')
 ```
 
@@ -240,7 +244,7 @@ apps/web/src/utils/phone.ts   (buildWhatsAppChatLink)
 - Vue 3 Composition API con `<script setup>`.
 - Estado local: `loading`, `report`, `searchQuery`, `onlyUnconfirmed`, `savingStates`, `currentRetreatId`.
 - Stores: `useRetreatStore` (para obtener `selectedRetreatId`); `useToast` para el rollback del toggle.
-- Llama `getShirtReport(retreatId)` en `onMounted` (guarda `currentRetreatId` para el toggle).
+- Llama `getShirtReport(retreatId)` en `onMounted` (guarda `currentRetreatId` para el toggle) y **recarga al cambiar de retiro** (watcher de `retreatStore.selectedRetreatId`, patrón `AngelitosView`): sin él, el toggle escribiría contra el retiro del montaje.
 - Computed: `filteredParticipants` (búsqueda AND solo-sin-confirmar), `totals` (incluye `confirmed`), `sortedShirtTypes`.
 - `toggleConfirmation`: patrón `CommunityAttendanceView.toggleAttendance` — guard por `savingStates[participantId]`, flip optimista del objeto local, await PATCH, catch → rollback + toast, finally limpia el guard. Sin refetch.
 - Sin Pinia store dedicado — el reporte se recarga cada vez que entras a la vista.
@@ -263,6 +267,7 @@ Reusa las tablas existentes (no agrega ninguna):
 ```
 apps/api/src/tests/services/shirtReportService.test.ts
 apps/api/src/tests/routes/shirtOrderConfirmation.routes.simple.test.ts
+apps/api/src/tests/routes/shirtReport.routes.simple.test.ts
 ```
 
 27 casos en el spec del service (filtrado, precios, totales, orden, y desde la feature de confirmación):
@@ -272,14 +277,19 @@ apps/api/src/tests/routes/shirtOrderConfirmation.routes.simple.test.ts
 - Al limpiar (`false`) vuelve a `NULL`.
 - El estado es por retiro: confirmado en retiro A no aparece en el reporte del retiro B.
 
-9 casos en el spec de rutas (supertest contra el router real con middlewares stubbeados — el 403 vive en el middleware, invisible al controller directo):
+12 casos en el spec de rutas del PATCH (supertest contra el router real con middlewares stubbeados — el 403 vive en el middleware, invisible al controller directo):
 
 - Wiring: 200 registra `requirePermission('participant:update')` + `requireRetreatAccess('retreatId')`; 401 sin sesión; 403 sin permiso; 403 sin acceso al retiro (flag intacto en cada caso).
-- Semántica: 400 si `confirmed` no es booleano o falta; `true` estampa timestamp (verificado por query directa); `false` → `NULL`; par inexistente responde `ok: true` (contrato documentado).
+- Semántica: 400 si `confirmed` no es booleano, falta, o no hay body JSON (validateRequest); `true` estampa timestamp (verificado por query directa); `false` → `NULL`; par inexistente responde `ok: true` **y no toca al participante real del retiro** (prueba las 0 filas — un WHERE sin `participantId` estamparía al retiro entero).
+- Write-protect: 2 unit tests de `stripWriteProtectedFields` (suelta el campo y conserva el resto; no-op sin el campo). El camino HTTP del PUT/POST de historial no es ejercible bajo jest — hidratar entities por el grafo del router lanza el error preexistente "Class constructor … cannot be invoked without 'new'" (documentado en `palancasCountWritePath.test.ts`).
+
+4 casos en el spec de rutas del GET (mismo molde, mockeando `isAuthenticated` — `shirtTypeRoutes` importa otro archivo de auth):
+
+- Wiring: 200 registra `requirePermission('participant:read')` + `requireRetreatAccess('retreatId')`; 401 sin sesión; 403 sin permiso; 403 sin acceso al retiro.
 
 ```bash
 pnpm --filter api test src/tests/services/shirtReportService.test.ts
-pnpm --filter api test src/tests/routes/shirtOrderConfirmation.routes.simple.test.ts
+pnpm --filter api test src/tests/routes/shirtOrderConfirmation.routes.simple.test.ts src/tests/routes/shirtReport.routes.simple.test.ts
 ```
 
 ### Frontend (Vitest)
@@ -288,7 +298,7 @@ pnpm --filter api test src/tests/routes/shirtOrderConfirmation.routes.simple.tes
 apps/web/src/views/__tests__/ShirtsReportView.test.ts
 ```
 
-29 casos: carga inicial, header con totales (incluye "Confirmados X/Y"), columnas dinámicas, render de tallas y `—`, búsqueda por nombre/número/talla, estado vacío, footer con conteos, impresión, y el bloque de confirmación: badges por estado, toggle optimista (args correctos, sin refetch), rollback con toast, doble-tap con un solo PATCH, filtro "Solo sin confirmar" (+ composición AND con búsqueda), link wa.me con la lada resuelta por país (y ausente sin teléfono), y la columna ✓ print con estado real.
+31 casos: carga inicial, header con totales (incluye "Confirmados X/Y"), columnas dinámicas, render de tallas y `—`, búsqueda por nombre/número/talla, estado vacío, footer con conteos, impresión, y el bloque de confirmación: badges por estado, toggle optimista (args correctos, sin refetch), rollback con toast, doble-tap con un solo PATCH, **recarga + toggle contra el retiro nuevo al cambiar de retiro en el sidebar**, filtro "Solo sin confirmar" (+ composición AND con búsqueda, + mensaje "todos confirmados" con desactivar-filtro cuando vacía la tabla), link wa.me con la lada resuelta por país (y ausente sin teléfono), y la columna ✓ print con estado real.
 
 ```bash
 pnpm --filter web test src/views/__tests__/ShirtsReportView.test.ts
