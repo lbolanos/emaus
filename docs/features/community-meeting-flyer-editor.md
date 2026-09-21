@@ -76,6 +76,17 @@ coincide con el panel se lee como "el editor no responde").
 > se ve más volante y menos ficha. Ningún diseño guardado se rompió: el cambio toca solo la capa
 > más baja de la cascada.
 
+### El header: el nombre de la comunidad lleva `max-w`
+
+El nombre bajo el logo tiene `max-w-[160px]` (en `MeetingFlyerHeader` **y** en el `DefaultFlyer`
+— el markup está duplicado a propósito entre ambos estilos). Sin el tope, un nombre largo en
+mayúsculas + tracking ancho (`Emaús Santa María de los Reyes Huatlatlauca, Puebla` midió 432px)
+estira la columna del logo — que es `flex-shrink-0` y no cede — y estrangula el título en una
+franja pegada al borde derecho: el usuario lo reportó como "no hay espacio derecho en el título"
+(2026-09-21). Con el tope, un nombre largo envuelve en líneas cortas centradas bajo el logo y el
+título recupera su ancho (5 líneas/328px → 2 líneas/600px con esa comunidad). Poster y WhatsApp
+no lo necesitan: son layouts centrados donde el nombre no compite con el título.
+
 ### Presets = receta completa
 
 `MEETING_FLYER_THEME_PRESETS` no es solo el tema: cada preset de reunión viaja con su
@@ -128,6 +139,22 @@ Personalizado resuelve `flyerOptions` y le pasa al canvas `layout`, `imageOverri
 comunidad no personalizó". Lo cubre `CommunityMeetingFlyerView.test.ts` (§ "Saved design",
 escrito en M3 antes de cerrar la vista) y el e2e.
 
+## Copiar / compartir la imagen
+
+El botón sigue la capacidad de la plataforma, en este orden:
+
+1. **Portapapeles** (desktop): `ClipboardItem.supports('image/png')` + `clipboard.write`. El
+   blob se le entrega al `ClipboardItem` como **Promise creada sincrónicamente con el click** —
+   los checks de render y la captura corren DENTRO de esa promise, porque un solo `await` previo
+   al `write` gasta el user gesture que la escritura necesita (el patrón del volante del retiro).
+2. **Share sheet** (teléfonos): iOS Safari no puede escribir imágenes al portapapeles, así que
+   el camino primario ahí es `navigator.canShare({ files })` → `navigator.share({ files })` —
+   compartir directo a WhatsApp es el caso de uso real del teléfono. El botón lo anuncia: en un
+   teléfono dice **"Compartir"** con icono de share, no "Copiar imagen". `AbortError` = el
+   usuario cerró el sheet: silencioso.
+3. **Descarga** como último recurso en ambos caminos (`flyer-reunion.png`): si el portapapeles
+   rechaza o el share falla, la imagen se guarda para adjuntar a mano.
+
 ## Impresión
 
 - El canvas reunion reclama `#printable-area` **y** `data-custom-canvas` solo cuando `printable`
@@ -156,7 +183,7 @@ que el del retiro.
 | `apps/web/src/stores/__tests__/meetingFlyerEditorStore.test.ts` | El borrador: semilla del fondo sin ensuciar, qué ensucia, deshacer, **el regression guard del shadowing de `blockStyles`**, el paquete del preset, preservar campos ajenos en el PUT, y guardar completo con `layoutVersion` 2 |
 | `apps/web/src/components/flyers/__tests__/MeetingFlyerCanvas.test.ts` | Bloques por slot y orden, imágenes preset/override, chrome (línea EMAÚS y su omisión), QR, defaults sin caja (texto claro + sombra; `locationQr` oscuro sobre su plato), tema/override por bloque, velo, drag/drop/selección solo con `editable`, e `#printable-area` + `data-custom-canvas` solo con `printable` |
 | `apps/web/src/views/__tests__/CommunityMeetingFlyerEditView.test.ts` | El editor: layout por slots, semilla visible, ocultar del preview, drag entre slots, preset ensucia con su receta, descartar, guardar completo, flechas y su cruce de columna, undo, borrar diseño con confirmación, guard de salida, overrides en vivo |
-| `apps/web/src/views/__tests__/CommunityMeetingFlyerView.test.ts` | La vista publicada: el 4º botón, **"Saved design"** (el canvas recibe layout/imágenes/tema/cajas guardados — el fixture usa valores que NO son los defaults, o una prop olvidada pasaría), los defaults sin caja sin nada guardado, popover Fondo fuera en custom, y los tres estilos legacy intactos |
+| `apps/web/src/views/__tests__/CommunityMeetingFlyerView.test.ts` | La vista publicada: el 4º botón, **"Saved design"** (el canvas recibe layout/imágenes/tema/cajas guardados — el fixture usa valores que NO son los defaults, o una prop olvidada pasaría), los defaults sin caja sin nada guardado, popover Fondo fuera en custom, los tres estilos legacy intactos, y **el botón copiar/compartir por plataforma** (ClipboardItem con Promise en desktop, share sheet con File en teléfono, AbortError silencioso, rechazo del portapapeles → descarga) |
 | `apps/web/src/components/flyer/__tests__/FlyerDesignPanel.test.ts` (describe *meeting flavour*) | El contrato flavor-agnóstico: `tPrefix`, `styleDefaults` (contraste juzgado contra los defaults sin caja) y `presets` con su paquete de cajas |
 | `apps/web/src/components/flyer/__tests__/FlyerTextPanel.test.ts` (describe *meeting flavour*) | El contrato de `config`: 8 campos single-line, placeholder dinámico del título y nota de oculto con prefijo propio |
 | `apps/web/src/config/__tests__/helpIndex.test.ts` | Que ambas rutas del volante de reunión caen en su sección de ayuda y no en la del retiro |

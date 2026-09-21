@@ -252,3 +252,42 @@ editor desde ahí; los otros 3 estilos no cambian.
 - Gate: móvil 3/3, hermano desktop 3/3 (regresión de los spans), View unit 6/6; restauración
   verificada por el dato en copia de la DB (`flyerOptions` NULL, fondo NULL, 0 reuniones ZZE2E).
 
+### Bugs reportados por el usuario con capturas (mismo día, segunda tanda)
+
+Dos reportes con foto del teléfono y del desktop; ambos verificados por el dato en runtime
+antes de tocar código.
+
+- **"En desk no hay espacio derecho en título"** — el título NO desbordaba: el padding `px-8`
+  del header se respetaba (gap medido 31.7px, línea por línea). Lo que pasaba: el nombre de la
+  comunidad bajo el logo (`text-[11px] uppercase tracking-[0.2em]`, sin `max-width`) medía
+  432px con "Emaús Santa María de los Reyes Huatlatlauca, Puebla" y, siendo su columna
+  `flex-shrink-0`, se comía el header y estrangulaba el título en una franja de 328px contra el
+  margen derecho (envolvía en 5 líneas). Fix: `max-w-[160px]` en el `<p>` del nombre, en
+  `MeetingFlyerHeader.vue` **y** `DefaultFlyer.vue` (mismo markup duplicado) — el nombre largo
+  envuelve en líneas cortas centradas bajo el logo y el título pasa a 2 líneas/600px. Poster y
+  WhatsApp no lo necesitan (layouts centrados). Verificado en dev con la reunión real de
+  Huatlatlauca en los dos estilos, midiendo logoCol/título/gap tras reload (sin el style inline
+  del preview).
+- **"La copia no funciona en celular"** — `handleCopyImage` hacía `await domToBlob(...)` ANTES
+  de `navigator.clipboard.write([...])`: en iOS Safari el user gesture se gasta con el primer
+  await Y además iOS no soporta escribir `image/png` al portapapeles → siempre fallaba.
+  Reescritura por capacidad de plataforma: desktop → clipboard con el blob como **Promise dentro
+  del ClipboardItem** (checks de render y captura corren DENTRO de la promise; patrón del
+  retreat); teléfono → `canShare({files})` + `navigator.share` (share sheet, el caso de uso
+  real es compartir a WhatsApp; el botón dice "Compartir" con icono Share2 allí, decidido en
+  `onMounted`); `AbortError` del share = cancelado silencioso; **descarga** del PNG como último
+  recurso en ambos caminos. El retiro NO se tocó (no reportado; su camino clipboard+download ya
+  funciona en desktop).
+- Tests: describe nuevo en `CommunityMeetingFlyerView.test.ts` (4 tests: Promise al
+  ClipboardItem en desktop, rechazo del clipboard → descarga con `download="flyer-reunion.png"`,
+  share sheet con File en teléfono + label "Compartir", AbortError sin descarga). Dos lecciones
+  de happy-dom en el camino: `vi.restoreAllMocks()` en el afterEach restauraba TAMBIÉN los
+  mocks globales del setup (mató el ResizeObserver mid-mount → restauración manual por spy) y
+  las `<img>` de happy-dom nunca quedan `complete` (la espera de imágenes colgaba el handler
+  para siempre → own property `complete` en las imgs del fixture).
+- Gate: View unit 10/10; familia flyers 126/126; suite web completa 204 archivos / 3034 pasados
+  | 2 skipped; e2e móvil 3/3; e2e hermano desktop 3/3; restauración por el dato (`flyerOptions`
+  NULL, fondo NULL, 0 reuniones ZZE2E). La verificación física en un teléfono real (share sheet
+  de iOS) queda como prueba manual del usuario.
+
+
