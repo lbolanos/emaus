@@ -33,6 +33,9 @@ export interface RetreatSnapshotFields {
 	idOnRetreat?: number | null;
 	familyFriendColor?: string | null;
 	bagMade?: boolean;
+	// Confirmación del pedido de camisetas (flujo SERVER_SHIRT_CONFIRMATION):
+	// timestamp del chulo del coordinador; null = sin confirmar.
+	shirtOrderConfirmedAt?: Date | null;
 	// Scholarship
 	isScholarship?: boolean;
 	scholarshipAmount?: number | null;

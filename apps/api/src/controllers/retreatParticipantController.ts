@@ -343,3 +343,29 @@ export const updateBagMadeController = async (req: Request, res: Response): Prom
 		res.status(500).json({ message: error.message });
 	}
 };
+
+/**
+ * Update the shirt-order confirmation flag (SERVER_SHIRT_CONFIRMATION flow) for
+ * a participant in a retreat. `true` stamps now, `false` clears back to NULL.
+ * No realtime emit: unlike reception's bagMade, the shirt report is a
+ * single-coordinator tool (see specs/shirt-order-confirmation).
+ */
+export const updateShirtOrderConfirmationController = async (
+	req: Request,
+	res: Response,
+): Promise<void> => {
+	try {
+		const { participantId, retreatId } = req.params;
+		const { confirmed } = req.body;
+		if (typeof confirmed !== 'boolean') {
+			res.status(400).json({ message: 'confirmed debe ser un booleano' });
+			return;
+		}
+		await syncRetreatFields(participantId, retreatId, {
+			shirtOrderConfirmedAt: confirmed ? new Date() : null,
+		});
+		res.json({ ok: true });
+	} catch (error: any) {
+		res.status(500).json({ message: error.message });
+	}
+};

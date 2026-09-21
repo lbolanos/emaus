@@ -14,6 +14,7 @@ import {
 	deleteHistoryEntryController,
 	markPrimaryRetreatController,
 	updateBagMadeController,
+	updateShirtOrderConfirmationController,
 } from '../controllers/retreatParticipantController';
 import { isAuthenticated } from '../middleware/authentication';
 import { requirePermission, requireRetreatAccess } from '../middleware/authorization';
@@ -116,6 +117,13 @@ router.patch(
 	requirePermission('participant:update'),
 	requireRetreatAccess('retreatId'),
 	updateBagMadeController,
+);
+router.patch(
+	'/history/retreat/:retreatId/participant/:participantId/shirt-order-confirmation',
+	isAuthenticated,
+	requirePermission('participant:update'),
+	requireRetreatAccess('retreatId'),
+	updateShirtOrderConfirmationController,
 );
 
 export default router;

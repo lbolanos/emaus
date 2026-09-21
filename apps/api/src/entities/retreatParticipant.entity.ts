@@ -94,6 +94,13 @@ export class RetreatParticipant {
 	@Column({ type: 'boolean', default: false })
 	bagMade!: boolean;
 
+	// Resultado manual del flujo SERVER_SHIRT_CONFIRMATION (secuencia de WhatsApp
+	// "Confirmación de camisetas (servidores)"): timestamp cuando el coordinador
+	// marcó que el servidor confirmó su pedido de prendas (tallas + cargo).
+	// NULL = sin confirmar.
+	@Column({ type: 'datetime', nullable: true })
+	shirtOrderConfirmedAt?: Date | null;
+
 	// Becado = exento de todo (paz y salvo v2): si isScholarship, el monto esperado es 0
 	// independientemente de cobro/comidas/deudas.
 	@Column({ type: 'boolean', default: false })

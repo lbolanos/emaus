@@ -17,10 +17,12 @@ import { TestDataFactory } from '../test-utils/testDataFactory';
 import { Retreat } from '@/entities/retreat.entity';
 import { House } from '@/entities/house.entity';
 import { ParticipantShirtSize } from '@/entities/participantShirtSize.entity';
+import { RetreatParticipant } from '@/entities/retreatParticipant.entity';
 import { v4 as uuidv4 } from 'uuid';
 
 import { createShirtType } from '@/services/shirtTypeService';
 import { getShirtOrdersForRetreat, getParticipantShirtOrderSummary } from '@/services/shirtReportService';
+import { syncRetreatFields } from '@/services/retreatParticipantService';
 
 const getDS = () => TestDataFactory['testDataSource'];
 
@@ -380,6 +382,99 @@ describe('Shirt Report Service', () => {
 		expect(betoRow.shirts.find((s) => s.size === 'M')?.price).toBeNull();
 		expect(anaRow.shirtCharge).toBe(250);
 		expect(betoRow.shirtCharge).toBe(0);
+	});
+
+	// --- Confirmación del pedido (shirtOrderConfirmedAt) + contacto WhatsApp ---
+
+	it('returns shirtOrderConfirmedAt null by default and surfaces cellPhone/country', async () => {
+		const retreatId = await makeRetreat();
+		const shirt = await createShirtType(retreatId, { name: 'Playera' });
+
+		const server = await TestDataFactory.createTestParticipant(retreatId, {
+			firstName: 'Sin',
+			lastName: 'Chulo',
+			type: 'server',
+		} as any);
+		await assignShirtSize(server.id, shirt.id, 'M');
+
+		const result = await getShirtOrdersForRetreat(retreatId);
+		expect(result.participants[0].shirtOrderConfirmedAt).toBeNull();
+		// Defaults de la factory: alimentan el botón de WhatsApp del reporte.
+		expect(result.participants[0].cellPhone).toBe('1234567890');
+		expect(result.participants[0].country).toBe('Test Country');
+	});
+
+	it('after the coordinator confirms, the report returns the timestamp as a raw string', async () => {
+		const retreatId = await makeRetreat();
+		const shirt = await createShirtType(retreatId, { name: 'Playera' });
+
+		const server = await TestDataFactory.createTestParticipant(retreatId, {
+			firstName: 'Con',
+			lastName: 'Chulo',
+			type: 'server',
+		} as any);
+		await assignShirtSize(server.id, shirt.id, 'M');
+
+		await syncRetreatFields(server.id, retreatId, { shirtOrderConfirmedAt: new Date() });
+
+		const result = await getShirtOrdersForRetreat(retreatId);
+		const at = result.participants[0].shirtOrderConfirmedAt;
+		// La query es cruda: SQLite devuelve datetime como string, no Date.
+		expect(typeof at).toBe('string');
+		expect(at).not.toBe('');
+	});
+
+	it('clearing the confirmation nulls the timestamp back', async () => {
+		const retreatId = await makeRetreat();
+		const shirt = await createShirtType(retreatId, { name: 'Playera' });
+
+		const server = await TestDataFactory.createTestParticipant(retreatId, {
+			firstName: 'Quita',
+			lastName: 'Chulo',
+			type: 'server',
+		} as any);
+		await assignShirtSize(server.id, shirt.id, 'M');
+
+		await syncRetreatFields(server.id, retreatId, { shirtOrderConfirmedAt: new Date() });
+		await syncRetreatFields(server.id, retreatId, { shirtOrderConfirmedAt: null });
+
+		const result = await getShirtOrdersForRetreat(retreatId);
+		expect(result.participants[0].shirtOrderConfirmedAt).toBeNull();
+	});
+
+	it('the confirmation is per-retreat: another retreat of the same server stays null', async () => {
+		const retreatA = await makeRetreat();
+		const retreatB = await makeRetreat();
+		const shirtA = await createShirtType(retreatA, { name: 'Playera A' });
+		const shirtB = await createShirtType(retreatB, { name: 'Playera B' });
+
+		const server = await TestDataFactory.createTestParticipant(retreatA, {
+			firstName: 'Cross',
+			lastName: 'Confirm',
+			type: 'server',
+		} as any);
+		await assignShirtSize(server.id, shirtA.id, 'M');
+
+		// El mismo servidor también sirve en el retiro B.
+		const rpRepo = getDS().getRepository(RetreatParticipant);
+		await rpRepo.save(
+			rpRepo.create({
+				participantId: server.id,
+				retreatId: retreatB,
+				roleInRetreat: 'server',
+				type: 'server',
+				isCancelled: false,
+				isPrimaryRetreat: false,
+			} as any),
+		);
+		await assignShirtSize(server.id, shirtB.id, 'G');
+
+		await syncRetreatFields(server.id, retreatA, { shirtOrderConfirmedAt: new Date() });
+
+		const reportA = await getShirtOrdersForRetreat(retreatA);
+		const reportB = await getShirtOrdersForRetreat(retreatB);
+		expect(reportA.participants[0].shirtOrderConfirmedAt).not.toBeNull();
+		expect(reportB.participants[0].shirtOrderConfirmedAt).toBeNull();
 	});
 });
 
