@@ -58,6 +58,48 @@ vi.mock('qrcode.vue', () => ({
 	default: { name: 'QrcodeVue', template: '<canvas />', props: ['value', 'size'] },
 }));
 
+// Toast assertions need a mock the test can reach: the global @repo/ui mock
+// mints a fresh vi.fn() per useToast() call. This file-level replacement keeps
+// the same stub contracts for everything the editor tree mounts (view + panels;
+// see setup.ts for the rationale behind each shape) and shares one toast.
+const { mockToast } = vi.hoisted(() => ({ mockToast: vi.fn() }));
+vi.mock('@repo/ui', () => {
+	const slot = () => ({ template: '<div><slot /></div>' });
+	return {
+		// `onClick` must NOT be declared: it would turn @click into a prop and
+		// the stub would swallow every click (same trap as the global mock).
+		Button: {
+			name: 'Button',
+			template: '<button :disabled="disabled"><slot /></button>',
+			props: ['variant', 'size', 'disabled', 'title'],
+		},
+		Card: slot(),
+		CardContent: slot(),
+		// Tab stubs render every panel at once, as the global mock does: hiding
+		// panels the way reka-ui does would make the inactive ones unreachable.
+		Tabs: slot(),
+		TabsList: { name: 'TabsList', template: '<div role="tablist"><slot /></div>' },
+		TabsTrigger: { name: 'TabsTrigger', template: '<button role="tab"><slot /></button>' },
+		TabsContent: { name: 'TabsContent', template: '<div role="tabpanel"><slot /></div>' },
+		Label: { name: 'Label', template: '<label><slot /></label>' },
+		Input: {
+			name: 'Input',
+			props: ['modelValue', 'placeholder', 'disabled'],
+			emits: ['update:modelValue'],
+			template:
+				'<input :value="modelValue" :placeholder="placeholder" :disabled="disabled" @input="$emit(\'update:modelValue\', $event.target.value)" />',
+		},
+		Textarea: {
+			name: 'Textarea',
+			props: ['modelValue', 'placeholder', 'rows', 'disabled'],
+			emits: ['update:modelValue'],
+			template:
+				'<textarea :value="modelValue" :placeholder="placeholder" :rows="rows" :disabled="disabled" @input="$emit(\'update:modelValue\', $event.target.value)" />',
+		},
+		useToast: () => ({ toast: mockToast }),
+	};
+});
+
 import CommunityMeetingFlyerEditView from '../CommunityMeetingFlyerEditView.vue';
 import { useMeetingFlyerEditorStore } from '@/stores/meetingFlyerEditorStore';
 
@@ -330,6 +372,47 @@ describe('CommunityMeetingFlyerEditView', () => {
 			await flushPromises();
 
 			expect(clearFlyerOptions).not.toHaveBeenCalled();
+			expect(slotBlocks(wrapper, 'right')[0]).toBe('dateTime');
+		});
+	});
+
+	describe('failed persistence', () => {
+		it('toasts on a failed save and the draft stays dirty', async () => {
+			const wrapper = await mountEditor();
+			await wrapper.find('[data-toggle-visibility="description"]').trigger('click');
+			await nextTick();
+			setFlyerOptions.mockRejectedValueOnce(new Error('network down'));
+			const store = useMeetingFlyerEditorStore();
+
+			await buttonByText(wrapper, 'meetingFlyerEditor.save')!.trigger('click');
+			await flushPromises();
+
+			expect(mockToast).toHaveBeenCalledWith(
+				expect.objectContaining({ title: 'meetingFlyerEditor.saveFailed', variant: 'destructive' }),
+			);
+			// The store only snapshots on success: nothing was saved, so the
+			// unsaved-changes badge must survive the failure.
+			expect(store.isDirty).toBe(true);
+		});
+
+		it('toasts on a failed design clear and the design stays', async () => {
+			vi.spyOn(window, 'confirm').mockReturnValue(true);
+			const wrapper = await mountEditor({
+				layoutVersion: 2,
+				blocks: [{ id: 'dateTime', slot: 'right', order: 0, visible: true }],
+			});
+			clearFlyerOptions.mockRejectedValueOnce(new Error('boom'));
+
+			await buttonByText(wrapper, 'meetingFlyerEditor.clearDesign')!.trigger('click');
+			await flushPromises();
+
+			expect(mockToast).toHaveBeenCalledWith(
+				expect.objectContaining({
+					title: 'meetingFlyerEditor.clearDesignFailed',
+					variant: 'destructive',
+				}),
+			);
+			// The DELETE never landed: the saved layout is still the mounted one.
 			expect(slotBlocks(wrapper, 'right')[0]).toBe('dateTime');
 		});
 	});

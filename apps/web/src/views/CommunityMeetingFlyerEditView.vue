@@ -49,7 +49,7 @@
 				>
 					{{ t('meetingFlyerEditor.discard') }}
 				</Button>
-				<Button size="sm" :disabled="!store.isDirty || store.saving" @click="store.save()">
+				<Button size="sm" :disabled="!store.isDirty || store.saving" @click="save">
 					<Loader2 v-if="store.saving" class="mr-1.5 h-4 w-4 animate-spin" />
 					{{ store.saving ? t('meetingFlyerEditor.saving') : t('meetingFlyerEditor.save') }}
 				</Button>
@@ -265,6 +265,20 @@ function discard() {
 }
 
 /**
+ * Saving is the action users trust blindly: a rejected PUT with no feedback
+ * reads as "saved" and the design dies on the next navigation. The dirty badge
+ * survives a failure (the store only snapshots on success) — this adds the
+ * missing half, telling the user it did NOT save.
+ */
+async function save() {
+	try {
+		await store.save();
+	} catch {
+		toast({ title: t('meetingFlyerEditor.saveFailed'), variant: 'destructive' });
+	}
+}
+
+/**
  * Presets and "match to the image" arrive as whole looks here. When the recipe
  * doesn't ship its own box reset, the meeting's boxed defaults still need one —
  * otherwise a light-text look lands its text on the white cards.
@@ -284,6 +298,8 @@ async function clearDesign() {
 		community.value = updated;
 		store.loadFromCommunity(updated);
 		toast({ title: t('meetingFlyerEditor.designCleared') });
+	} catch {
+		toast({ title: t('meetingFlyerEditor.clearDesignFailed'), variant: 'destructive' });
 	} finally {
 		resetting.value = false;
 	}

@@ -324,3 +324,34 @@ antes de tocar código.
   un teléfono real (share sheet → WhatsApp) queda como prueba manual del usuario.
 
 
+
+### Tanda de code-review: bypasses, restore de e2e y fallos silenciosos (2026-09-21)
+
+Los tres fixes priorizados de los 20 hallazgos supervivientes de la revisión:
+
+- **`background-url-bypass` + `opacity-bypass`** — `updateCommunitySchema` aceptaba
+  `flyerBackgroundUrl` (string arbitrario: el volante público SIN login lo renderiza como CSS
+  `url(...)` → fuga de IP/UA) y `flyerCardOpacity` (sin clamp: `-5` persistía). Fix: omitir
+  `flyerBackgroundUrl`/`flyerCardOpacity`/`flyerOptions` del schema (patrón de
+  `updateCommunityMeetingSchema` que omite `photoUrl`); Zod striea las keys y el único llamador
+  del PUT genérico (`CommunityListView`) no manda campos flyer. Tests: 2 nuevos en
+  `communityFlyerBackgroundSchema.spec.ts` (los campos no sobreviven al `parse`; `name` sí).
+- **`e2e-wipes-real-data`** — los specs e2e del flyer restauraban "limpiando": DELETE a ciegas
+  que dejaba la comunidad real en NULL aunque tuviera identidad guardada. Fix: helper
+  `tests/e2e/helpers/communityFlyerState.ts` (`captureFlyerState` antes del primer write,
+  `restoreFlyerState` en el afterAll; orden fijo: DELETE ambos → reponer background
+  preset/data-URI → PUT opacity → PUT flyerOptions; S3 declarado no restaurable a propósito).
+  **El dato cazó un bug del helper**: la ruta del background es PUT, el helper usaba POST y el
+  404 caía en silencio — ahora `mustOk` estalla si un paso del restore no aterriza. El spec de
+  background además asumía comunidad limpia (dial inicial 0.2): ganó wipe inicial en el
+  beforeAll, como los otros dos. Verificado por el dato: sembrado `/jesus_bg.png` + 0.55 +
+  flyerOptions mínimo → 3 corridas (una con test fallido a mitad) → estado idéntico al
+  sembrado; al final la comunidad volvió a su NULL real.
+- **`save-unhandled`** — Guardar/Borrar diseño fallaban en silencio en el editor (el store
+  re-lanza, pero la vista no avisaba; `isDirty` ya sobrevivía). Fix: handler `save()` con
+  catch → toast destructivo, ídem `clearDesign`; keys `saveFailed`/`clearDesignFailed` en
+  es+en. Test: mock a nivel archivo de `@repo/ui` con `mockToast` hoisted (el global mintea un
+  `vi.fn()` fresco por llamada) + describe "failed persistence" (2 tests).
+- Gates: schema spec 16/16; EditView 24/24; e2e background 5/5 + editor 3/3 + móvil 3/3;
+  `pnpm --filter api build` y `pnpm build` del web verdes; suite web completa 204 archivos /
+  3039 pasados | 2 skipped.

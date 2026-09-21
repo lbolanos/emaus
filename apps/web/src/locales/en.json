@@ -3374,6 +3374,7 @@
     "backToFlyer": "Back to the flyer",
     "save": "Save",
     "saving": "Saving…",
+    "saveFailed": "Could not save the design",
     "unsavedChanges": "You have unsaved changes",
     "discard": "Discard changes",
     "preview": "Preview",
@@ -3382,6 +3383,7 @@
     "clearDesignHint": "Deletes the community's saved design and goes back to the original",
     "confirmClearDesign": "This will delete the saved design and ALL of this community's meetings will go back to the original design. Continue?",
     "designCleared": "Design restored",
+    "clearDesignFailed": "Could not clear the design",
     "tabs": {
       "design": "Design",
       "images": "Images",

@@ -3698,6 +3698,7 @@
     "backToFlyer": "Volver al volante",
     "save": "Guardar",
     "saving": "Guardando…",
+    "saveFailed": "No se pudo guardar el diseño",
     "unsavedChanges": "Tienes cambios sin guardar",
     "discard": "Descartar cambios",
     "preview": "Vista previa",
@@ -3706,6 +3707,7 @@
     "clearDesignHint": "Borra el diseño guardado de la comunidad y vuelve al original",
     "confirmClearDesign": "Se borrará el diseño guardado y TODAS las reuniones de esta comunidad volverán al diseño original. ¿Continuar?",
     "designCleared": "Diseño restaurado",
+    "clearDesignFailed": "No se pudo borrar el diseño",
     "tabs": {
       "design": "Diseño",
       "images": "Imágenes",
