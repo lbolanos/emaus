@@ -43,12 +43,25 @@
           <MessageCircle class="w-4 h-4" />
           <span class="hidden sm:inline">WhatsApp</span>
         </button>
+        <button
+          @click="setFlyerStyle('custom')"
+          :class="[
+            'flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200',
+            flyerStyle === 'custom'
+              ? 'bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white shadow-lg shadow-violet-500/30'
+              : 'text-gray-600 hover:bg-gray-100/80 hover:text-gray-900'
+          ]">
+          <Palette class="w-4 h-4" />
+          <span class="hidden sm:inline">Personalizado</span>
+        </button>
       </div>
 
       <!-- Background picker — only for the styles that render a background image.
+           'custom' manages its background (and everything else) in the design editor,
+           so the gallery picker and the card-opacity slider don't apply to it.
            Popover (not Dialog): the reka-ui Popover+Command freeze bug only
            happens inside Dialogs; this toolbar is plain in-flow DOM. -->
-      <div v-if="flyerStyle !== 'default'" class="toolbar-glass flex items-center gap-1 rounded-xl p-1 shadow-xl">
+      <div v-if="flyerStyle !== 'default' && flyerStyle !== 'custom'" class="toolbar-glass flex items-center gap-1 rounded-xl p-1 shadow-xl">
         <Popover v-model:open="isBackgroundPickerOpen">
           <PopoverTrigger as-child>
             <Button
@@ -126,10 +139,21 @@
 
       <!-- Action Buttons Group -->
       <div class="toolbar-glass flex items-center gap-1 rounded-xl p-1 shadow-xl">
-        <Button 
-          @click="handleEditMeeting" 
-          variant="ghost" 
-          size="icon" 
+        <!-- Always reachable: the design is per community, not per style, and the
+             editor is also how you get a custom flyer in the first place. -->
+        <Button
+          @click="handleEditDesign"
+          variant="ghost"
+          size="icon"
+          title="Editar diseño"
+          class="rounded-lg hover:bg-gray-100/80 transition-all"
+        >
+          <Palette class="w-4 h-4 text-gray-600" />
+        </Button>
+        <Button
+          @click="handleEditMeeting"
+          variant="ghost"
+          size="icon"
           title="Editar reunión"
           class="rounded-lg hover:bg-gray-100/80 transition-all"
         >
@@ -192,9 +216,30 @@
     </div>
 
     <!-- Flyer Container - Dynamic Component -->
-    <div v-else ref="flyerRef" :class="[flyerStyle === 'whatsapp' ? 'max-w-[650px]' : 'max-w-[850px]', 'mx-auto px-4 print:max-w-[210mm] print:w-[210mm] print:mx-0 print:px-0 print:pt-0']">
+    <div
+      v-else
+      ref="flyerRef"
+      :class="[flyerStyle === 'whatsapp' ? 'max-w-[650px]' : 'max-w-[850px]', 'mx-auto px-4 print:max-w-[210mm] print:w-[210mm] print:mx-0 print:px-0 print:pt-0']"
+      :style="customContainerStyle"
+    >
+      <!-- The community's saved editor design. Every prop matters: the canvas falls
+           back to its defaults for any prop it is not given, so a missing one reads
+           as "nothing was customised" instead of as a bug (the retreat's lesson). -->
+      <MeetingFlyerCanvas
+        v-if="flyerStyle === 'custom'"
+        ref="customCanvasRef"
+        :meeting="meeting"
+        :community="community"
+        :flyer-options="community?.flyerOptions"
+        :layout="savedMeetingLayout.blocks"
+        :image-overrides="savedMeetingLayout.images"
+        :theme="community?.flyerOptions?.theme"
+        :block-styles="community?.flyerOptions?.blockStyles"
+        :scale="effectiveScale"
+      />
       <component
         :is="flyerComponent"
+        v-else
         :meeting="meeting"
         :community="community"
         :formatted-duration="formattedDuration"
@@ -218,17 +263,19 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useCommunityStore } from '@/stores/communityStore';
 import { Button, Popover, PopoverContent, PopoverTrigger } from '@repo/ui';
-import { Printer, Pencil, ArrowLeft, LayoutTemplate, Image, MessageCircle, Copy, Check, Loader2, ChevronRight, RotateCcw, Upload } from 'lucide-vue-next';
+import { Printer, Pencil, ArrowLeft, LayoutTemplate, Image, MessageCircle, Copy, Check, Loader2, ChevronRight, RotateCcw, Upload, Palette } from 'lucide-vue-next';
 import { FLYER_BACKGROUND_PRESETS, type FlyerBackgroundPreset } from '@repo/types';
 import { pickFile } from '@/utils/filePicker';
 import { useI18n } from 'vue-i18n';
 import DefaultFlyer from '@/components/flyers/DefaultFlyer.vue';
 import PosterFlyer from '@/components/flyers/PosterFlyer.vue';
 import WhatsAppFlyer from '@/components/flyers/WhatsAppFlyer.vue';
+import MeetingFlyerCanvas from '@/components/flyers/MeetingFlyerCanvas.vue';
+import { resolveMeetingFlyerLayout } from '@/utils/meetingFlyerLayout';
 import MeetingFormModal from '@/components/community/MeetingFormModal.vue';
 import { getSavedFlyerStyle, saveFlyerStyle, type FlyerStyle } from '@/utils/flyerStorage';
 import {
@@ -273,6 +320,76 @@ const flyerComponent = computed(() => {
   }
 });
 
+// --- 'custom': the community's saved editor design, same treatment the retreat's
+// published flyer gives its canvas (mobile scale, one-page print shrink-to-fit). ---
+
+/** The design saved by the editor, reconciled against the default arrangement. */
+const savedMeetingLayout = computed(() => resolveMeetingFlyerLayout(community.value?.flyerOptions ?? null));
+
+const customCanvasRef = ref<{ $el: HTMLElement } | null>(null);
+const customScale = ref(1);
+const customCanvasHeight = ref(0);
+let resizeObserver: ResizeObserver | null = null;
+
+/** Print CSS takes full control of sizing, so the mobile downscale must be off then. */
+const isPrinting = ref(false);
+const effectiveScale = computed(() => (isPrinting.value ? 1 : customScale.value));
+
+// The fixed 850px design has to fit the available width; the container's px-4 is
+// not available width, so measure it out (the lesson the editor already learned).
+const updateCustomScale = () => {
+  if (flyerStyle.value !== 'custom' || !flyerRef.value) return;
+  const styles = window.getComputedStyle(flyerRef.value);
+  const horizontalPadding =
+    parseFloat(styles.paddingLeft || '0') + parseFloat(styles.paddingRight || '0');
+  customScale.value = Math.min((flyerRef.value.clientWidth - horizontalPadding) / 850, 1);
+  const el = customCanvasRef.value?.$el;
+  if (el) customCanvasHeight.value = el.scrollHeight;
+};
+
+/** A scaled element keeps its unscaled layout box, so the container must shrink too. */
+const customWrapperHeight = computed(() => {
+  if (customScale.value >= 1 || !customCanvasHeight.value) return undefined;
+  return `${customCanvasHeight.value * customScale.value}px`;
+});
+
+// A4 minus this page's 5mm @page margin, in CSS px at 96dpi (1mm = 96/25.4 px).
+const A4_USABLE_WIDTH_PX = (210 - 10) * (96 / 25.4);
+const A4_USABLE_HEIGHT_PX = (297 - 10) * (96 / 25.4);
+const FLYER_DESIGN_WIDTH_PX = 850;
+
+/**
+ * Shrink-to-fit for print: the block layout's height varies with the meeting's
+ * content, so a fixed scale would spill onto a second page. A flyer is a one-page
+ * document, so the limiting dimension decides the scale.
+ */
+const printScale = computed(() => {
+  const widthScale = A4_USABLE_WIDTH_PX / FLYER_DESIGN_WIDTH_PX;
+  const heightScale = customCanvasHeight.value
+    ? A4_USABLE_HEIGHT_PX / customCanvasHeight.value
+    : widthScale;
+  // Truncate (never round up) and keep 1% of slack: browsers disagree slightly on
+  // the px→mm mapping when printing, and rounding up spills onto a second page.
+  return (Math.floor(Math.min(widthScale, heightScale) * 0.99 * 1000) / 1000).toFixed(3);
+});
+
+/** Height reservation for screen + the print factor, only while custom is showing. */
+const customContainerStyle = computed(() => {
+  if (flyerStyle.value !== 'custom') return undefined;
+  return {
+    height: isPrinting.value ? undefined : customWrapperHeight.value,
+    '--flyer-print-scale': printScale.value,
+  } as Record<string, string | undefined>;
+});
+
+// Open the design editor (per community; the preview there renders this meeting).
+const handleEditDesign = () => {
+  router.push({
+    name: 'community-meeting-flyer-edit',
+    params: { id: route.params.id, meetingId: route.params.meetingId },
+  });
+};
+
 // Format the duration for display
 const formattedDuration = computed(() => {
   if (!meeting.value?.durationMinutes) return '';
@@ -310,9 +427,14 @@ const processedDescription = computed(() => {
   return replaceFlyerVariables(template, flyerData);
 });
 
-// Print functionality
+// Print functionality. The custom canvas scales down on narrow screens; print CSS
+// must take over, so the scale is dropped for the print render (and restored after).
 const handlePrint = () => {
-  window.print();
+  isPrinting.value = true;
+  nextTick(() => {
+    window.print();
+    isPrinting.value = false;
+  });
 };
 
 // Go back to meetings list
@@ -572,6 +694,44 @@ onMounted(async () => {
   } finally {
     isLoading.value = false;
   }
+
+  // The flyer container only exists past the loading state.
+  await nextTick();
+  window.addEventListener('beforeprint', onBeforePrint);
+  window.addEventListener('afterprint', onAfterPrint);
+  if (flyerRef.value) {
+    resizeObserver = new ResizeObserver(updateCustomScale);
+    resizeObserver.observe(flyerRef.value);
+    const el = customCanvasRef.value?.$el;
+    if (el) resizeObserver.observe(el);
+    updateCustomScale();
+  }
+});
+
+// Ctrl/Cmd+P skips handlePrint; the listeners keep the custom canvas unscaled then too.
+const onBeforePrint = () => {
+  isPrinting.value = true;
+};
+const onAfterPrint = () => {
+  isPrinting.value = false;
+};
+
+// Switching styles mounts/unmounts the custom canvas: re-measure, and watch the
+// new element (observing an already-observed target is a no-op).
+watch(flyerStyle, async () => {
+  await nextTick();
+  updateCustomScale();
+  const el = customCanvasRef.value?.$el;
+  if (el && resizeObserver) resizeObserver.observe(el);
+});
+
+onUnmounted(() => {
+  window.removeEventListener('beforeprint', onBeforePrint);
+  window.removeEventListener('afterprint', onAfterPrint);
+  if (resizeObserver) {
+    resizeObserver.disconnect();
+    resizeObserver = null;
+  }
 });
 </script>
 
@@ -608,6 +768,22 @@ onMounted(async () => {
   /* Ensure all absolutely positioned elements stay within bounds */
   #printable-area .absolute {
     max-width: 210mm;
+  }
+
+  /* The 'custom' style keeps its 850px design width and shrinks to fit one page.
+     The attribute is only set by the published canvas (printable), never by the
+     editor's preview, and this rule outranks the generic 210mm sizing above. */
+  #printable-area[data-custom-canvas] {
+    width: 850px !important;
+    max-width: 850px !important;
+    transform: scale(var(--flyer-print-scale, 0.9)) !important;
+    transform-origin: top left !important;
+  }
+
+  /* The generic 210mm cap on absolutely-positioned children would clip the
+     custom canvas's full-bleed veil (850px design over a 793px cap). */
+  #printable-area[data-custom-canvas] .absolute {
+    max-width: none;
   }
 }
 </style>
