@@ -132,6 +132,15 @@ Todo vive en `community.flyerOptions` (columna `simple-json`), validado por
 - **API**: `PUT` / `DELETE /api/communities/:id/flyer-options` (patrón de
   `flyer-card-opacity`: `requireCommunityAccess` + `validateRequest`). Ambos devuelven la
   comunidad refrescada.
+- **La identidad del flyer NO viaja por el PUT genérico de comunidad** (`PUT /api/communities/:id`):
+  `updateCommunitySchema` omite `flyerBackgroundUrl`, `flyerCardOpacity` y `flyerOptions`
+  (fix de code-review, 2026-09-21). Antes el schema los aceptaba y un community owner podía
+  saltarse las garantías de los endpoints dedicados — un `flyerBackgroundUrl` arbitrario (el
+  volante público, sin login, lo renderiza como CSS `url(...)` = fuga de IP/UA de quien lo ve)
+  o una `flyerCardOpacity` sin el clamp 0.3–1 (`-5` persistía). Zod descarta esas keys en
+  silencio; el único llamador del PUT genérico (`CommunityListView`) manda una lista explícita
+  de campos sin flyer. Las URLs de storage (S3) quedaron deliberadamente NO restaurables por
+  API — mismo cierre.
 - `resolveMeetingFlyerLayout` **no tiene rama v1**: honra cualquier `blocks` array sin pedir
   `layoutVersion` (columna nueva, sin legacy), descarta ids duplicados/inventados y rellena
   faltantes en su spot por defecto.

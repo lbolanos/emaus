@@ -315,6 +315,14 @@ export const updateCommunitySchema = z.object({
 			createdBy: true,
 			createdAt: true,
 			updatedAt: true,
+			// Flyer identity only travels through its dedicated endpoints
+			// (preset-locked background upload, 0.3–1 opacity, whole-design
+			// flyer-options PUT). Accepting them here let any community owner
+			// bypass those guarantees — e.g. an arbitrary flyerBackgroundUrl
+			// that the public, unauthenticated flyer renders as CSS.
+			flyerBackgroundUrl: true,
+			flyerCardOpacity: true,
+			flyerOptions: true,
 		})
 		.partial(),
 	params: z.object({ id: z.string().uuid() }),

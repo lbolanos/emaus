@@ -5,6 +5,7 @@ import {
 	FLYER_BACKGROUND_PRESETS,
 	setCommunityFlyerBackgroundSchema,
 	setCommunityFlyerCardOpacitySchema,
+	updateCommunitySchema,
 } from '@repo/types';
 
 const params = { id: 'f1060047-5305-4f75-89c4-a649e449975e' };
@@ -93,6 +94,40 @@ describe('setCommunityFlyerCardOpacitySchema — el dial vive entre 0.3 y 1', ()
 			body: { opacity: 0.8 },
 		});
 		expect(result.success).toBe(false);
+	});
+});
+
+describe('updateCommunitySchema — la identidad del flyer no pasa por el PUT genérico', () => {
+	// El fondo/opacidad/diseño del flyer tienen endpoints dedicados con sus
+	// garantías (preset enum-locked, opacidad 0.3–1, diseño validado entero).
+	// El PUT genérico de comunidad lo puede llamar cualquier owner: si aceptara
+	// estos campos, podría colar una URL arbitraria que el flyer público (sin
+	// autenticación) renderiza como CSS. Zod descarta las keys no declaradas.
+	it('descarta flyerBackgroundUrl/flyerCardOpacity/flyerOptions del body', () => {
+		const parsed = updateCommunitySchema.parse({
+			params,
+			body: {
+				name: 'Emaús del Valle',
+				flyerBackgroundUrl: '//attacker.example/px.png',
+				flyerCardOpacity: -5,
+				flyerOptions: { layoutVersion: 2 },
+			},
+		});
+
+		expect(parsed.body).not.toHaveProperty('flyerBackgroundUrl');
+		expect(parsed.body).not.toHaveProperty('flyerCardOpacity');
+		expect(parsed.body).not.toHaveProperty('flyerOptions');
+		expect(parsed.body.name).toBe('Emaús del Valle');
+	});
+
+	it('sigue aceptando los campos editables del formulario de comunidad', () => {
+		const parsed = updateCommunitySchema.parse({
+			params,
+			body: { name: 'Emaús del Valle', city: 'Ciudad de México', timezone: 'America/Mexico_City' },
+		});
+
+		expect(parsed.body.name).toBe('Emaús del Valle');
+		expect(parsed.body.timezone).toBe('America/Mexico_City');
 	});
 });
 
