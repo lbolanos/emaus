@@ -36,7 +36,7 @@
 					<svg class="w-5 h-5 text-emaus-gold" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
 					</svg>
-					<p class="text-xl sm:text-2xl md:text-3xl text-white font-bold capitalize text-shadow-strong">
+					<p class="text-xl sm:text-2xl md:text-3xl text-white font-bold first-letter:uppercase text-shadow-strong">
 						{{ formattedDateOnly }}
 					</p>
 				</div>
@@ -52,7 +52,7 @@
 				</div>
 
 				<!-- Description with better styling -->
-				<p v-if="processedDescription" class="mb-5 text-sm sm:text-base md:text-lg text-white font-medium leading-relaxed max-w-lg px-4 text-shadow-medium">
+				<p v-if="processedDescription" class="mb-5 text-sm sm:text-base md:text-lg text-white font-medium leading-relaxed max-w-lg px-4 text-shadow-medium whitespace-pre-line">
 					{{ processedDescription }}
 				</p>
 
@@ -115,10 +115,14 @@ const props = defineProps<{
 
 const formattedDateOnly = computed(() => {
 	if (!props.meeting?.startDate) return '';
+	// "miércoles, 23 de septiembre de 2026" → "miércoles, 23 de septiembre".
+	// Note: 'date-long' preset (date-only). Passing dateStyle alone inherits
+	// timeStyle from the default 'datetime-short' preset and appends the time.
+	// The connector "de" must go with the year, or it dangles at the end.
 	return formatDateInCommunityTimezone(props.meeting.startDate, props.community, {
 		locale: 'es-ES',
-		dateStyle: 'full',
-	}).replace(/,?\s*\d{4}.*$/, '');
+		preset: 'date-long',
+	}).replace(/\s+de\s+\d{4}\s*$/, '');
 });
 
 const formattedTime = computed(() => {

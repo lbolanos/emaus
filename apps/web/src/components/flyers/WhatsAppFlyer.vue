@@ -29,7 +29,7 @@
 				<svg class="w-4 h-4 text-emaus-gold-dark" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
 				</svg>
-				<p class="text-lg text-gray-900 font-bold capitalize">
+				<p class="text-lg text-gray-900 font-bold first-letter:uppercase">
 					{{ formattedDateOnly }}
 				</p>
 			</div>
@@ -45,7 +45,7 @@
 			</div>
 
 			<!-- Description -->
-			<p v-if="processedDescription" class="mb-4 text-sm text-gray-700 font-medium leading-relaxed max-w-sm px-2 line-clamp-3">
+			<p v-if="processedDescription" class="mb-4 text-sm text-gray-700 font-medium leading-relaxed max-w-sm px-2 line-clamp-5 whitespace-pre-line">
 				{{ processedDescription }}
 			</p>
 
@@ -79,10 +79,14 @@ const props = defineProps<{
 const formattedDateOnly = computed(() => {
 	if (!props.meeting?.startDate) return '';
 	// Usar TZ de la comunidad para que el flyer refleje la hora local correcta.
+	// "miércoles, 23 de septiembre de 2026" → "miércoles, 23 de septiembre".
+	// Note: 'date-long' preset (date-only). Passing dateStyle alone inherits
+	// timeStyle from the default 'datetime-short' preset and appends the time.
+	// The connector "de" must go with the year, or it dangles at the end.
 	return formatDateInCommunityTimezone(props.meeting.startDate, props.community, {
 		locale: 'es-ES',
-		dateStyle: 'full',
-	}).replace(/,?\s*\d{4}.*$/, ''); // strip trailing year (formato "lunes, 15 de junio de 2026" → "lunes, 15 de junio")
+		preset: 'date-long',
+	}).replace(/\s+de\s+\d{4}\s*$/, '');
 });
 
 const formattedTime = computed(() => {
