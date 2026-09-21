@@ -74,18 +74,19 @@ editor desde ahí; los otros 3 estilos no cambian.
 
 ## M4 — Tests + docs + ayuda in-app
 
-- [ ] Unit: `meetingFlyerEditorStore.test.ts` (semilla, dirty, undo, save)
-- [ ] Unit: `meetingFlyerLayout.test.ts` (ids inventados, faltantes, mover)
-- [ ] Unit: `MeetingFlyerCanvas.test.ts` (slots, draggable, css vars, printable; mock qrcode.vue)
-- [ ] Unit: `CommunityMeetingFlyerEditView.test.ts` (tabs, flechas, guardar, salir)
-- [ ] Unit: `CommunityMeetingFlyerView.test.ts` — **"Saved design"** + legacy intactos
-- [ ] Unit: casos con config de reunión en `FlyerDesignPanel`/`FlyerTextPanel` tests
-- [ ] E2E `community-meeting-flyer-editor.spec.ts` (locale es-MX, reunión desechable,
+- [x] Unit: `meetingFlyerEditorStore.test.ts` (semilla, dirty, undo, save)
+- [x] Unit: `meetingFlyerLayout.test.ts` (ids inventados, faltantes, mover)
+- [x] Unit: `MeetingFlyerCanvas.test.ts` (slots, draggable, css vars, printable; mock qrcode.vue)
+- [x] Unit: `CommunityMeetingFlyerEditView.test.ts` (tabs, flechas, guardar, salir)
+- [x] Unit: `CommunityMeetingFlyerView.test.ts` — **"Saved design"** + legacy intactos
+      (escrito en M3, ver desviaciones M3)
+- [x] Unit: casos con config de reunión en `FlyerDesignPanel`/`FlyerTextPanel` tests
+- [x] E2E `community-meeting-flyer-editor.spec.ts` (locale es-MX, reunión desechable,
       afterAll restaura `flyer-options` SIEMPRE)
-- [ ] Ayuda in-app `apps/web/src/docs/{es,en}/meeting-flyer-editor.md` + `helpIndex.ts`
-- [ ] Doc maestra `docs/features/community-meeting-flyer-editor.md` con tabla de cobertura;
+- [x] Ayuda in-app `apps/web/src/docs/{es,en}/meeting-flyer-editor.md` + `helpIndex.ts`
+- [x] Doc maestra `docs/features/community-meeting-flyer-editor.md` con tabla de cobertura;
       actualizar la referencia en `retreat-flyer-editor.md`
-- [ ] Verificar: playwright chromium verde + comunidad restaurada (GET → flyerOptions null);
+- [x] Verificar: playwright chromium verde + comunidad restaurada (GET → flyerOptions null);
       helpIndex test verde
 
 **Done**: feature cubierta y documentada; nada rojo.
@@ -186,4 +187,28 @@ editor desde ahí; los otros 3 estilos no cambian.
   190×190; poster legacy usa `/poster.png`. La **impresión física** de los 4 estilos queda
   como verificación manual (`window.print` abre un diálogo que el browser MCP no puede
   cerrar); ídem la copia real al portapapeles (dimensiones del canvas QR verificadas).
+
+### M4
+
+- Los casos de reunión de `FlyerDesignPanel`/`FlyerTextPanel` se añadieron como describes
+  "meeting flavour" DENTRO de los archivos de test existentes del retiro, no como archivos
+  propios: son el mismo componente, y así el contrato flavor-agnóstico (tPrefix/config/
+  styleDefaults/presets) queda fijado junto al del retiro. Ningún test del retreat se editó.
+- E2E: el beforeAll también borra `flyer-options` Y `flyer-background` antes de crear la
+  reunión desechable — la comunidad de dev venía con un diseño guardado de la verificación M3 y
+  un fondo residual volvería no-determinista el assert de "distribución por defecto" y el fondo
+  preset de Cartel. Ambos DELETE son idempotentes y el afterAll restaura exactamente igual.
+- E2E, dos hallazgos del camino real: el "Volver al volante" de la toolbar llega al árbol de
+  accesibilidad como **link** (Button `as-child` sobre router-link), no como button; y la caja
+  apagada del look Cartel se resuelve a `--fb-bg: transparent` en el style inline (la opacidad
+  0 nunca llega como `rgba(...,0)`), consistente con el bloque `locationQr` del unit test.
+- helpIndex: la sección nueva (`routeContext: ['community-meeting-flyer']`, substring cubre
+  vista y editor) más un test que fija que ambas rutas caen en SU sección y no en la del retiro
+  (la substring "flyer" del retreat solo matchea `retreat-flyer*`; verificado sin colisión).
+- La doc maestra se escribió como "diferencias sobre la del retiro" (la referencia se lee
+  primero), no como pieza autocontenida — el maquinario compartido ya está documentado ahí.
+- Gate final: suite web completa 204 archivos / 3029 pasados (+79) | 2 skipped, sin editar
+  tests del retreat; e2e chromium 3/3; helpIndex 33/33; restauración verificada por el dato en
+  copia de la DB (`flyerOptions` NULL, `flyerBackgroundUrl` NULL, 0 reuniones ZZE2E) — esto
+  además dejó la comunidad de dev limpia del diseño que había dejado la verificación M3.
 

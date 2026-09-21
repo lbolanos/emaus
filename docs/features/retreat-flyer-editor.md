@@ -15,8 +15,10 @@ detalle del retiro, monta el volante con los datos del listado y le pasa `detail
 (`:detail-failed`) para que muestre el aviso de que el detalle no pudo cargarse
 (key `retreatFlyer.detailFailed`).
 
-Los volantes de reuniones de comunidad (`apps/web/src/components/flyers/*`) son un sistema
-aparte, sin relación con este.
+Los volantes de reuniones de comunidad comparten el maquinario de este editor (factory del store,
+paneles, layout) bajo su propio flavor: ver
+`docs/features/community-meeting-flyer-editor.md`. Los tres estilos legacy de aquél
+(Default/Cartel/WhatsApp) siguen siendo un sistema aparte, sin relación con este.
 
 ## Anatomía
 
