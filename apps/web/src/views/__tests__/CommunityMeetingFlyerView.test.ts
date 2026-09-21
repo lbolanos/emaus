@@ -73,6 +73,12 @@ vi.mock('qrcode.vue', () => ({
 	default: { name: 'QrcodeVue', template: '<canvas />', props: ['value', 'size'] },
 }));
 
+// The copy button captures the flyer with modern-screenshot (mocked: the real
+// one needs a fully laid-out canvas).
+vi.mock('modern-screenshot', () => ({
+	domToBlob: vi.fn(async () => new Blob(['flyer-png'], { type: 'image/png' })),
+}));
+
 // Local lucide mock: the global one is a fixed allowlist and this view's icons
 // (plus its blocks') are not all on it.
 vi.mock('lucide-vue-next', () => ({
@@ -89,6 +95,7 @@ vi.mock('lucide-vue-next', () => ({
 	RotateCcw: { name: 'RotateCcw', template: '<svg></svg>' },
 	Upload: { name: 'Upload', template: '<svg></svg>' },
 	Palette: { name: 'Palette', template: '<svg></svg>' },
+	Share2: { name: 'Share2', template: '<svg></svg>' },
 	Calendar: { name: 'Calendar', template: '<svg></svg>' },
 	MapPin: { name: 'MapPin', template: '<svg></svg>' },
 	FileText: { name: 'FileText', template: '<svg></svg>' },
@@ -96,6 +103,9 @@ vi.mock('lucide-vue-next', () => ({
 
 import CommunityMeetingFlyerView from '../CommunityMeetingFlyerView.vue';
 import { useCommunityStore } from '@/stores/communityStore';
+import { domToBlob } from 'modern-screenshot';
+
+const domToBlobMock = vi.mocked(domToBlob);
 
 const BASE_MEETING = {
 	id: 'meeting-1',
@@ -246,6 +256,167 @@ describe('CommunityMeetingFlyerView', () => {
 			// must keep the generic 210mm rule.
 			expect(canvas.attributes('data-custom-canvas')).toBeUndefined();
 			expect(wrapper.find('[data-flyer-block]').exists()).toBe(false);
+		});
+	});
+
+	describe('copy/share image button (one capability per platform)', () => {
+		// The phone bug (2026-09-21): the old flow awaited the capture BEFORE
+		// clipboard.write, which burns the user gesture — and iOS Safari can't
+		// write images to the clipboard at all. Now: clipboard on desktop (the
+		// blob handed to ClipboardItem as a Promise, created with the click),
+		// the OS share sheet on phones, download as the last resort.
+
+		const savedClipboard = Object.getOwnPropertyDescriptor(navigator, 'clipboard');
+		const savedCanShare = Object.getOwnPropertyDescriptor(navigator, 'canShare');
+		const savedShare = Object.getOwnPropertyDescriptor(navigator, 'share');
+		const savedClipboardItem = Object.getOwnPropertyDescriptor(window, 'ClipboardItem');
+		// Own spies are restored individually — vi.restoreAllMocks() would also
+		// tear down the global setup mocks (ResizeObserver dies mid-mount).
+		const ownRestores: Array<() => void> = [];
+
+		afterEach(() => {
+			const restore = (target: object, key: string, saved: PropertyDescriptor | undefined) => {
+				if (saved) Object.defineProperty(target, key, saved);
+				else delete (target as Record<string, unknown>)[key];
+			};
+			restore(navigator, 'clipboard', savedClipboard);
+			restore(navigator, 'canShare', savedCanShare);
+			restore(navigator, 'share', savedShare);
+			restore(window, 'ClipboardItem', savedClipboardItem);
+			ownRestores.splice(0).forEach((fn) => fn());
+			domToBlobMock.mockClear();
+		});
+
+		/** Desktop-like clipboard: supports image/png writes. */
+		const stubImageClipboard = (writeImpl?: (items: unknown[]) => Promise<void>) => {
+			(window as unknown as Record<string, unknown>).ClipboardItem = class {
+				static supports(type: string) {
+					return type === 'image/png';
+				}
+				constructor(public items: Record<string, Promise<Blob>>) {}
+			};
+			const write = vi.fn(writeImpl ?? (async () => {}));
+			Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { write } });
+			return write;
+		};
+
+		/** Phone-like: no image clipboard (iOS), Web Share with files available. */
+		const stubWebShare = (shareImpl?: () => Promise<void>) => {
+			(window as unknown as Record<string, unknown>).ClipboardItem = undefined;
+			const share = vi.fn(shareImpl ?? (async () => {}));
+			Object.defineProperty(navigator, 'canShare', {
+				configurable: true,
+				value: (data: { files?: unknown[] }) => !!data?.files?.length,
+			});
+			Object.defineProperty(navigator, 'share', { configurable: true, value: share });
+			return share;
+		};
+
+		/**
+		 * happy-dom lays out at 0×0 (stub the rect) and its <img> elements never
+		 * finish loading (force `complete`).
+		 */
+		const prepareFlyerElement = (wrapper: ReturnType<typeof mount>) => {
+			const el = wrapper.find('#printable-area').element as HTMLElement;
+			const rectSpy = vi.spyOn(el, 'getBoundingClientRect').mockReturnValue({
+				width: 850, height: 1200, top: 0, left: 0, right: 850, bottom: 1200, x: 0, y: 0,
+				toJSON: () => ({}),
+			} as DOMRect);
+			ownRestores.push(() => rectSpy.mockRestore());
+			el.querySelectorAll('img').forEach((img) =>
+				Object.defineProperty(img, 'complete', { configurable: true, get: () => true }),
+			);
+			return el;
+		};
+
+		/** Click copy/share and let the handler's 200ms render-settle timer pass. */
+		const flushCopy = async (wrapper: ReturnType<typeof mount>) => {
+			const el = prepareFlyerElement(wrapper);
+			const button = wrapper.findAll('button').find((b) =>
+				b.text().includes('Copiar imagen') || b.text().includes('Compartir'),
+			);
+			await button!.trigger('click');
+			await flushPromises();
+			await new Promise((resolve) => setTimeout(resolve, 260));
+			await flushPromises();
+			return el;
+		};
+
+		it('desktop: hands ClipboardItem the capture as a Promise (the gesture survives)', async () => {
+			const write = stubImageClipboard();
+
+			const wrapper = mountFlyer({ style: 'default' });
+			await flushPromises();
+			const el = await flushCopy(wrapper);
+
+			expect(write).toHaveBeenCalledTimes(1);
+			const item = (write.mock.calls[0] as unknown[][])[0][0] as {
+				items: Record<string, Promise<Blob>>;
+			};
+			// The anti-gesture-burn pattern: the ClipboardItem receives the Promise
+			// (created synchronously with the click), never a pre-awaited blob.
+			expect(item.items['image/png']).toBeInstanceOf(Promise);
+			await expect(item.items['image/png']).resolves.toBeInstanceOf(Blob);
+			expect(domToBlobMock).toHaveBeenCalledWith(el, expect.objectContaining({ scale: 2 }));
+		});
+
+		it('clipboard refused → downloads the PNG instead', async () => {
+			stubImageClipboard(async () => {
+				throw new DOMException('denied', 'NotAllowedError');
+			});
+			const anchorClick = vi
+				.spyOn(HTMLAnchorElement.prototype, 'click')
+				.mockImplementation(() => {});
+			ownRestores.push(() => anchorClick.mockRestore());
+			const urlSpy = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:mock-url');
+			ownRestores.push(() => urlSpy.mockRestore());
+
+			const wrapper = mountFlyer({ style: 'default' });
+			await flushPromises();
+			await flushCopy(wrapper);
+
+			expect(anchorClick).toHaveBeenCalledTimes(1);
+			expect(anchorClick.mock.instances[0]).toMatchObject({ download: 'flyer-reunion.png' });
+		});
+
+		it('phone: says "Compartir" and opens the OS share sheet with the PNG', async () => {
+			const share = stubWebShare();
+
+			const wrapper = mountFlyer({ style: 'default' });
+			await flushPromises();
+
+			// The label tells the phone user what the tap does before they tap.
+			const button = wrapper.findAll('button').find((b) => b.text().includes('Compartir'));
+			expect(button).toBeDefined();
+			prepareFlyerElement(wrapper);
+			await button!.trigger('click');
+			await flushPromises();
+			await new Promise((resolve) => setTimeout(resolve, 260));
+			await flushPromises();
+
+			expect(share).toHaveBeenCalledTimes(1);
+			const arg = share.mock.calls[0][0] as { files: File[] };
+			expect(arg.files).toHaveLength(1);
+			expect(arg.files[0]).toBeInstanceOf(File);
+			expect(arg.files[0].name).toBe('flyer-reunion.png');
+			expect(arg.files[0].type).toBe('image/png');
+		});
+
+		it('phone: dismissing the share sheet stays silent (no download)', async () => {
+			const share = stubWebShare(async () => {
+				throw new DOMException('share canceled', 'AbortError');
+			});
+			const anchorClick = vi
+				.spyOn(HTMLAnchorElement.prototype, 'click')
+				.mockImplementation(() => {});
+			ownRestores.push(() => anchorClick.mockRestore());
+
+			const wrapper = mountFlyer({ style: 'default' });
+			await flushPromises();
+			await flushCopy(wrapper);
+
+			expect(share).toHaveBeenCalledTimes(1);
+			expect(anchorClick).not.toHaveBeenCalled();
 		});
 	});
 });

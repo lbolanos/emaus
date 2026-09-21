@@ -186,9 +186,12 @@
       >
         <Loader2 v-if="isCopying" class="w-5 h-5 animate-spin" />
         <Check v-else-if="copySuccess" class="w-5 h-5" />
+        <!-- Phones get the OS share sheet, not the clipboard — the icon and label
+             say so before the tap surprises anyone. -->
+        <Share2 v-else-if="prefersShare" class="w-5 h-5" />
         <Copy v-else class="w-5 h-5" />
         <span class="font-semibold sr-only sm:not-sr-only">
-          {{ isCopying ? 'Copiando...' : copySuccess ? '¡Copiado!' : 'Copiar imagen' }}
+          {{ isCopying ? 'Copiando...' : copySuccess ? '¡Copiado!' : prefersShare ? 'Compartir' : 'Copiar imagen' }}
         </span>
       </Button>
     </div>
@@ -267,7 +270,7 @@ import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useCommunityStore } from '@/stores/communityStore';
 import { Button, Popover, PopoverContent, PopoverTrigger } from '@repo/ui';
-import { Printer, Pencil, ArrowLeft, LayoutTemplate, Image, MessageCircle, Copy, Check, Loader2, ChevronRight, RotateCcw, Upload, Palette } from 'lucide-vue-next';
+import { Printer, Pencil, ArrowLeft, LayoutTemplate, Image, MessageCircle, Copy, Check, Loader2, ChevronRight, RotateCcw, Upload, Palette, Share2 } from 'lucide-vue-next';
 import { FLYER_BACKGROUND_PRESETS, type FlyerBackgroundPreset } from '@repo/types';
 import { pickFile } from '@/utils/filePicker';
 import { useI18n } from 'vue-i18n';
@@ -579,84 +582,153 @@ const handleResetBackground = async () => {
   }
 };
 
-// Copy flyer as image to clipboard
+// --- Copy/share the flyer as an image ---
+// Phones can't take the clipboard path: iOS Safari doesn't support image
+// clipboard writes at all, and any await before clipboard.write() burns the
+// user gesture the write needs. So the button follows the platform's
+// capability: clipboard on desktop (the blob handed to ClipboardItem as a
+// Promise, created synchronously with the click — the retreat flyer's
+// pattern), the native share sheet on phones (sharing to WhatsApp is the
+// actual use case there), and a PNG download as the last resort everywhere.
+
+const supportsImageClipboard = () =>
+	typeof ClipboardItem !== 'undefined' &&
+	typeof ClipboardItem.supports === 'function' &&
+	ClipboardItem.supports('image/png') &&
+	!!navigator.clipboard?.write;
+
+/** Wait until the flyer is fully painted (dimensions, images, QR) before capturing. */
+const waitForFlyerReady = async (flyerElement: HTMLElement) => {
+	const rect = flyerElement.getBoundingClientRect();
+	if (rect.width === 0 || rect.height === 0) {
+		throw new Error('El flyer no tiene dimensiones válidas');
+	}
+
+	await new Promise((resolve) => setTimeout(resolve, 200));
+
+	const imagePromises: Promise<void>[] = [];
+	flyerElement.querySelectorAll('img').forEach((img) => {
+		if (!img.complete) {
+			imagePromises.push(
+				new Promise((resolve) => {
+					img.onload = () => resolve();
+					img.onerror = () => resolve();
+					if (img.complete) resolve();
+				}),
+			);
+		}
+	});
+	await Promise.all(imagePromises);
+
+	const canvases = flyerElement.querySelectorAll('canvas');
+	for (const canvas of canvases) {
+		if (canvas.width === 0 || canvas.height === 0) {
+			throw new Error('El código QR no está listo. Espere un momento y vuelva a intentar.');
+		}
+	}
+};
+
+const captureFlyerBlob = async (flyerElement: HTMLElement) => {
+	await waitForFlyerReady(flyerElement);
+	// modern-screenshot handles CSS gradients, SVGs, and canvases properly
+	const { domToBlob } = await import('modern-screenshot');
+	const blob = await domToBlob(flyerElement, {
+		scale: 2,
+		backgroundColor: '#ffffff',
+	});
+	if (!blob) throw new Error('La captura del flyer devolvió una imagen vacía');
+	return blob;
+};
+
+const downloadFlyerBlob = (blob: Blob) => {
+	const a = document.createElement('a');
+	a.href = URL.createObjectURL(blob);
+	a.download = 'flyer-reunion.png';
+	a.click();
+};
+
+// The label tells the truth about what the tap will do (share sheet vs clipboard).
+const prefersShare = ref(false);
+
 const handleCopyImage = async () => {
-  if (!flyerRef.value || isCopying.value) return;
+	if (!flyerRef.value || isCopying.value) return;
 
-  isCopying.value = true;
-  copySuccess.value = false;
+	const flyerElement = flyerRef.value.firstElementChild as HTMLElement | null;
+	if (!flyerElement) {
+		toast({
+			title: 'Error al generar imagen',
+			description: 'No se encontró el elemento del flyer.',
+			variant: 'destructive',
+		});
+		return;
+	}
 
-  try {
-    // Find the actual flyer element (first child of the container)
-    const flyerElement = flyerRef.value.firstElementChild as HTMLElement;
-    if (!flyerElement) {
-      throw new Error('No se encontró el elemento del flyer');
-    }
+	isCopying.value = true;
+	copySuccess.value = false;
 
-    // Ensure the element has dimensions
-    const rect = flyerElement.getBoundingClientRect();
-    if (rect.width === 0 || rect.height === 0) {
-      throw new Error('El flyer no tiene dimensiones válidas');
-    }
+	try {
+		if (supportsImageClipboard()) {
+			// The capture runs INSIDE the promise handed to ClipboardItem: awaiting
+			// it here first would spend the user gesture before clipboard.write().
+			const blobPromise = captureFlyerBlob(flyerElement);
+			try {
+				await navigator.clipboard.write([
+					new ClipboardItem({ 'image/png': blobPromise }),
+				]);
 
-    // Wait for all elements to be fully rendered
-    await new Promise(resolve => setTimeout(resolve, 200));
+				copySuccess.value = true;
+				toast({
+					title: '¡Flyer copiado!',
+					description: 'La imagen se ha copiado al portapapeles.',
+				});
+				setTimeout(() => {
+					copySuccess.value = false;
+				}, 2000);
+				return;
+			} catch (clipboardError) {
+				// Clipboard refused (permissions, focus…): hand the PNG over as a
+				// download instead. If the capture itself failed, the await below
+				// rethrows and reaches the outer toast.
+				console.error('Clipboard write failed, falling back to download:', clipboardError);
+				const blob = await blobPromise;
+				downloadFlyerBlob(blob);
+				toast({
+					title: 'Flyer descargado',
+					description: 'No se pudo copiar al portapapeles; guardamos la imagen para que la adjuntes.',
+				});
+				return;
+			}
+		}
 
-    // Ensure all images are loaded
-    const imagePromises: Promise<void>[] = [];
-    flyerElement.querySelectorAll('img').forEach((img) => {
-      if (!img.complete) {
-        imagePromises.push(
-          new Promise((resolve) => {
-            img.onload = () => resolve();
-            img.onerror = () => resolve();
-            if (img.complete) resolve();
-          })
-        );
-      }
-    });
-    await Promise.all(imagePromises);
-
-    // Check canvas elements (QR codes) have proper dimensions
-    const canvases = flyerElement.querySelectorAll('canvas');
-    for (const canvas of canvases) {
-      if (canvas.width === 0 || canvas.height === 0) {
-        throw new Error('El código QR no está listo. Espere un momento y vuelva a intentar.');
-      }
-    }
-
-    // Use modern-screenshot which handles CSS gradients, SVGs, and canvases properly
-    const { domToBlob } = await import('modern-screenshot');
-    const blob = await domToBlob(flyerElement, {
-      scale: 2,
-      backgroundColor: '#ffffff',
-    });
-
-    // Copy to clipboard using Clipboard API
-    await navigator.clipboard.write([
-      new ClipboardItem({ 'image/png': blob })
-    ]);
-
-    copySuccess.value = true;
-    toast({
-      title: '¡Flyer copiado!',
-      description: 'La imagen se ha copiado al portapapeles.',
-    });
-
-    // Reset success state after 2 seconds
-    setTimeout(() => {
-      copySuccess.value = false;
-    }, 2000);
-  } catch (error) {
-    console.error('Error generating image:', error);
-    toast({
-      title: 'Error al generar imagen',
-      description: 'No se pudo capturar el flyer como imagen.',
-      variant: 'destructive',
-    });
-  } finally {
-    isCopying.value = false;
-  }
+		// Phone path: build the PNG, then hand it to the OS share sheet.
+		const blob = await captureFlyerBlob(flyerElement);
+		const file = new File([blob], 'flyer-reunion.png', { type: 'image/png' });
+		if (navigator.canShare?.({ files: [file] })) {
+			try {
+				await navigator.share({ files: [file], title: meeting.value?.title || 'Flyer' });
+				// Resolved = the sheet closed (shared or dismissed): the user saw
+				// what happened, nothing to add.
+				return;
+			} catch (shareError) {
+				if ((shareError as DOMException)?.name === 'AbortError') return; // dismissed
+				console.error('Share failed, falling back to download:', shareError);
+			}
+		}
+		downloadFlyerBlob(blob);
+		toast({
+			title: 'Flyer descargado',
+			description: 'Guardamos el volante como imagen para que la puedas adjuntar.',
+		});
+	} catch (error) {
+		console.error('Error generating image:', error);
+		toast({
+			title: 'Error al generar imagen',
+			description: 'No se pudo capturar el flyer como imagen.',
+			variant: 'destructive',
+		});
+	} finally {
+		isCopying.value = false;
+	}
 };
 
 // Handle meeting updated
@@ -674,6 +746,9 @@ const handleMeetingUpdated = async () => {
 
 // Load meeting and community data
 onMounted(async () => {
+  // Which capability the copy button will use (decided once, from the platform).
+  prefersShare.value = !supportsImageClipboard() && typeof navigator.canShare === 'function';
+
   const communityId = route.params.id as string;
   const meetingId = route.params.meetingId as string;
 
