@@ -81,7 +81,7 @@
 			<div v-if="community?.googleMapsUrl && community.googleMapsUrl.trim()" class="qr-container absolute bottom-4 left-4 flex flex-col items-center gap-2 md:bottom-6 md:left-6 print:bottom-2 print:left-2">
 				<div class="qr-card relative overflow-hidden rounded-xl p-1 bg-gradient-to-br from-emaus-gold via-amber-400 to-emaus-gold shadow-lg">
 					<div class="bg-white rounded-lg p-2">
-						<QrcodeVue :value="community.googleMapsUrl" :size="80" level="L" background="#ffffff" render-as="canvas" class="rounded-sm" />
+						<QrcodeVue :value="community.googleMapsUrl" :size="110" level="L" background="#ffffff" render-as="canvas" class="rounded-sm" />
 					</div>
 				</div>
 				<span class="qr-label text-[10px] sm:text-xs font-bold uppercase tracking-widest text-white bg-black/40 backdrop-blur-sm px-3 py-1 rounded-full border border-white/20">
@@ -92,7 +92,7 @@
 			<!-- Decorative bottom right element -->
 			<div class="absolute bottom-6 right-6 opacity-60 print:hidden">
 				<div class="text-emaus-gold/40 text-6xl font-serif-title tracking-widest" style="writing-mode: vertical-rl;">
-					Emaú
+					Emaús
 				</div>
 			</div>
 		</main>
@@ -102,12 +102,11 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import QrcodeVue from 'qrcode.vue';
-import { formatDateInCommunityTimezone } from '@repo/utils';
+import { formatMeetingDateOnly, formatMeetingTimeOnly } from '@/utils/meetingFlyer';
 
 const props = defineProps<{
 	meeting: any;
 	community: any;
-	formattedDate: string;
 	formattedAddress: string;
 	processedDescription: string;
 	communityName: string;
@@ -115,22 +114,12 @@ const props = defineProps<{
 
 const formattedDateOnly = computed(() => {
 	if (!props.meeting?.startDate) return '';
-	// "miércoles, 23 de septiembre de 2026" → "miércoles, 23 de septiembre".
-	// Note: 'date-long' preset (date-only). Passing dateStyle alone inherits
-	// timeStyle from the default 'datetime-short' preset and appends the time.
-	// The connector "de" must go with the year, or it dangles at the end.
-	return formatDateInCommunityTimezone(props.meeting.startDate, props.community, {
-		locale: 'es-ES',
-		preset: 'date-long',
-	}).replace(/\s+de\s+\d{4}\s*$/, '');
+	return formatMeetingDateOnly(props.meeting.startDate, props.community);
 });
 
 const formattedTime = computed(() => {
 	if (!props.meeting?.startDate) return '';
-	return formatDateInCommunityTimezone(props.meeting.startDate, props.community, {
-		locale: 'es-ES',
-		preset: 'time',
-	});
+	return formatMeetingTimeOnly(props.meeting.startDate, props.community);
 });
 
 const locationMessage = computed(() => {

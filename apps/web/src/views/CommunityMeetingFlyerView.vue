@@ -1,7 +1,13 @@
 <template>
   <div class="min-h-screen bg-gradient-to-br from-slate-100 via-blue-50/50 to-indigo-100/30 py-8 print:p-0 print:bg-white print:min-h-0">
     <!-- Enhanced Floating Toolbar -->
-    <div class="floating-toolbar fixed top-20 right-4 md:right-8 z-50 print:hidden flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
+    <!-- Fully in-flow (no sticky): the natural top of this toolbar (~48px) sits
+         ABOVE any sticky top we could declare below the navbar (~80px), and a
+         sticky element whose declared top is greater than its natural position
+         gets pushed DOWN at the top of the page — overlapping the breadcrumb
+         below. In-flow, nothing can overlap; sm:w-fit + sm:ml-auto keep it
+         right-aligned. -->
+    <div class="floating-toolbar z-50 print:hidden flex flex-col sm:flex-row sm:w-fit sm:ml-auto sm:mr-8 items-stretch sm:items-center gap-2 sm:gap-3 mb-4">
       <!-- Style Selector - Enhanced -->
       <div class="toolbar-glass flex items-center gap-1 rounded-xl p-1 shadow-xl">
         <button
@@ -85,7 +91,7 @@
     </div>
 
     <!-- Breadcrumb Navigation -->
-    <div :class="[flyerStyle === 'whatsapp' ? 'max-w-[650px]' : 'max-w-[850px]', 'mx-auto px-4 pt-16 sm:pt-4 print:hidden']">
+    <div :class="[flyerStyle === 'whatsapp' ? 'max-w-[650px]' : 'max-w-[850px]', 'mx-auto px-4 print:hidden']">
       <div class="flex items-center text-sm text-gray-600 mb-4">
         <router-link 
           :to="{ name: 'community-meetings', params: { id: route.params.id } }" 
@@ -107,12 +113,11 @@
     </div>
 
     <!-- Flyer Container - Dynamic Component -->
-    <div v-else ref="flyerRef" :class="[flyerStyle === 'whatsapp' ? 'max-w-[650px]' : 'max-w-[850px]', 'mx-auto px-4 pt-20 sm:pt-4 print:max-w-[210mm] print:w-[210mm] print:mx-0 print:px-0 print:pt-0']">
+    <div v-else ref="flyerRef" :class="[flyerStyle === 'whatsapp' ? 'max-w-[650px]' : 'max-w-[850px]', 'mx-auto px-4 print:max-w-[210mm] print:w-[210mm] print:mx-0 print:px-0 print:pt-0']">
       <component
         :is="flyerComponent"
         :meeting="meeting"
         :community="community"
-        :formatted-date="formattedDate"
         :formatted-duration="formattedDuration"
         :formatted-address="formattedAddress"
         :processed-description="processedDescription"
@@ -146,7 +151,7 @@ import { getSavedFlyerStyle, saveFlyerStyle, type FlyerStyle } from '@/utils/fly
 import {
   replaceFlyerVariables,
   formatDuration,
-  formatMeetingDate,
+  formatMeetingDateOnly,
   formatMeetingTime,
   formatCommunityAddress,
   type MeetingFlyerData
@@ -184,12 +189,6 @@ const flyerComponent = computed(() => {
   }
 });
 
-// Format the date for display — pass community para respetar su TZ.
-const formattedDate = computed(() => {
-  if (!meeting.value?.startDate) return '';
-  return formatMeetingDate(meeting.value.startDate, community.value);
-});
-
 // Format the duration for display
 const formattedDuration = computed(() => {
   if (!meeting.value?.durationMinutes) return '';
@@ -212,7 +211,7 @@ const processedDescription = computed(() => {
   if (!meeting.value || !community.value) return '';
 
   const flyerData: MeetingFlyerData = {
-    fecha: formattedDate.value,
+    fecha: formatMeetingDateOnly(meeting.value.startDate, community.value),
     hora: formatMeetingTime(meeting.value.startDate, community.value),
     nombre: meeting.value.title || '',
     descripcion: meeting.value.description || '',
