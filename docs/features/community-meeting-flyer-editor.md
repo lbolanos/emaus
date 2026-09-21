@@ -162,6 +162,16 @@ El botón sigue la capacidad de la plataforma, en este orden:
 3. **Descarga** como último recurso en ambos caminos (`flyer-reunion.png`): si el portapapeles
    rechaza o el share falla, la imagen se guarda para adjuntar a mano.
 
+**La captura renderiza el diseño a 1:1** (`isCapturing`, el mismo patrón que `isPrinting`):
+`domToBlob` dimensiona su lienzo con el bounding rect del elemento, que arrastra el
+`transform: scale(...)` de la escala móvil — capturado escalado, del diseño de 850px solo entra
+su esquina (medido con un teléfono emulado: **704×812 en vez de 1700×1963**; reportado como "la
+imagen sale cortada a la derecha y abajo", 2026-09-21). Durante la captura el canvas renderiza
+sin escala, el contenedor se sostiene a 850px sin padding (a escala ≥ 1 el canvas va fluido y
+apilaría el diseño en el ancho del teléfono: medido 704×3822), `overflow-hidden` recorta el
+flash y el `ResizeObserver` se pausa para no re-escalar a media captura. En desktop corrige de
+paso un recorte sutil que la escala 0.962 dejaba pasar (~4%, imperceptible).
+
 ## Impresión
 
 - El canvas reunion reclama `#printable-area` **y** `data-custom-canvas` solo cuando `printable`
@@ -190,7 +200,7 @@ que el del retiro.
 | `apps/web/src/stores/__tests__/meetingFlyerEditorStore.test.ts` | El borrador: semilla del fondo sin ensuciar, qué ensucia, deshacer, **el regression guard del shadowing de `blockStyles`**, el paquete del preset, preservar campos ajenos en el PUT, y guardar completo con `layoutVersion` 2 |
 | `apps/web/src/components/flyers/__tests__/MeetingFlyerCanvas.test.ts` | Bloques por slot y orden, imágenes preset/override, chrome (línea EMAÚS y su omisión), QR, defaults sin caja (texto claro + sombra; `locationQr` oscuro sobre su plato), tema/override por bloque, velo, drag/drop/selección solo con `editable`, e `#printable-area` + `data-custom-canvas` solo con `printable` |
 | `apps/web/src/views/__tests__/CommunityMeetingFlyerEditView.test.ts` | El editor: layout por slots, semilla visible, ocultar del preview, drag entre slots, preset ensucia con su receta, descartar, guardar completo, flechas y su cruce de columna, undo, borrar diseño con confirmación, guard de salida, overrides en vivo |
-| `apps/web/src/views/__tests__/CommunityMeetingFlyerView.test.ts` | La vista publicada: el 4º botón, **"Saved design"** (el canvas recibe layout/imágenes/tema/cajas guardados — el fixture usa valores que NO son los defaults, o una prop olvidada pasaría), los defaults sin caja sin nada guardado, popover Fondo fuera en custom, los tres estilos legacy intactos, y **el botón copiar/compartir por plataforma** (ClipboardItem con Promise en desktop, share sheet con File en teléfono, AbortError silencioso, rechazo del portapapeles → descarga) |
+| `apps/web/src/views/__tests__/CommunityMeetingFlyerView.test.ts` | La vista publicada: el 4º botón, **"Saved design"** (el canvas recibe layout/imágenes/tema/cajas guardados — el fixture usa valores que NO son los defaults, o una prop olvidada pasaría), los defaults sin caja sin nada guardado, popover Fondo fuera en custom, los tres estilos legacy intactos, y **el botón copiar/compartir por plataforma** (ClipboardItem con Promise en desktop, share sheet con File en teléfono, AbortError silencioso, rechazo del portapapeles → descarga, y la captura del canvas custom a 1:1 con el contenedor a 850px) |
 | `apps/web/src/components/flyer/__tests__/FlyerDesignPanel.test.ts` (describe *meeting flavour*) | El contrato flavor-agnóstico: `tPrefix`, `styleDefaults` (contraste juzgado contra los defaults sin caja) y `presets` con su paquete de cajas |
 | `apps/web/src/components/flyer/__tests__/FlyerTextPanel.test.ts` (describe *meeting flavour*) | El contrato de `config`: 8 campos single-line, placeholder dinámico del título y nota de oculto con prefijo propio |
 | `apps/web/src/config/__tests__/helpIndex.test.ts` | Que ambas rutas del volante de reunión caen en su sección de ayuda y no en la del retiro |

@@ -219,10 +219,13 @@
     </div>
 
     <!-- Flyer Container - Dynamic Component -->
+    <!-- overflow-hidden while capturing: the canvas renders at 1:1 for the PNG
+         (isCapturing), which is wider than a phone screen — clip the momentary
+         flash instead of letting the page scroll sideways. -->
     <div
       v-else
       ref="flyerRef"
-      :class="[flyerStyle === 'whatsapp' ? 'max-w-[650px]' : 'max-w-[850px]', 'mx-auto px-4 print:max-w-[210mm] print:w-[210mm] print:mx-0 print:px-0 print:pt-0']"
+      :class="[flyerStyle === 'whatsapp' ? 'max-w-[650px]' : 'max-w-[850px]', 'mx-auto px-4 print:max-w-[210mm] print:w-[210mm] print:mx-0 print:px-0 print:pt-0', isCapturing ? 'overflow-hidden' : '']"
       :style="customContainerStyle"
     >
       <!-- The community's saved editor design. Every prop matters: the canvas falls
@@ -336,12 +339,22 @@ let resizeObserver: ResizeObserver | null = null;
 
 /** Print CSS takes full control of sizing, so the mobile downscale must be off then. */
 const isPrinting = ref(false);
-const effectiveScale = computed(() => (isPrinting.value ? 1 : customScale.value));
+/** domToBlob sizes its canvas from the element's bounding rect, which carries the
+ *  downscale: captured while scaled, only the scaled corner of the 850px design
+ *  fits in the PNG (a phone reported the shared image cut at the right and bottom,
+ *  2026-09-21). Same cure as print — render at 1:1 for the capture. */
+const isCapturing = ref(false);
+const effectiveScale = computed(() =>
+  isPrinting.value || isCapturing.value ? 1 : customScale.value,
+);
 
 // The fixed 850px design has to fit the available width; the container's px-4 is
 // not available width, so measure it out (the lesson the editor already learned).
 const updateCustomScale = () => {
-  if (flyerStyle.value !== 'custom' || !flyerRef.value) return;
+  // Skip while capturing: the container is held at the 850px design width then,
+  // and re-measuring mid-capture would downscale (or drop the height) while
+  // domToBlob is reading the element.
+  if (isCapturing.value || flyerStyle.value !== 'custom' || !flyerRef.value) return;
   const styles = window.getComputedStyle(flyerRef.value);
   const horizontalPadding =
     parseFloat(styles.paddingLeft || '0') + parseFloat(styles.paddingRight || '0');
@@ -380,6 +393,12 @@ const printScale = computed(() => {
 const customContainerStyle = computed(() => {
   if (flyerStyle.value !== 'custom') return undefined;
   return {
+    // During capture the canvas must LAY OUT at the full design width: past
+    // scale ≥ 1 it goes fluid (width 100%), and 100% of a phone container is
+    // 352px — the 850px design stacks tall instead (measured 704×3822). Hold
+    // the container at 850px with no padding for that moment; the reserved
+    // height keeps the page from jumping (the flash is clipped, see template).
+    ...(isCapturing.value ? { width: '850px', paddingLeft: '0', paddingRight: '0' } : {}),
     height: isPrinting.value ? undefined : customWrapperHeight.value,
     '--flyer-print-scale': printScale.value,
   } as Record<string, string | undefined>;
@@ -629,15 +648,23 @@ const waitForFlyerReady = async (flyerElement: HTMLElement) => {
 };
 
 const captureFlyerBlob = async (flyerElement: HTMLElement) => {
-	await waitForFlyerReady(flyerElement);
-	// modern-screenshot handles CSS gradients, SVGs, and canvases properly
-	const { domToBlob } = await import('modern-screenshot');
-	const blob = await domToBlob(flyerElement, {
-		scale: 2,
-		backgroundColor: '#ffffff',
-	});
-	if (!blob) throw new Error('La captura del flyer devolvió una imagen vacía');
-	return blob;
+	// The capture must read the design at 1:1 (see isCapturing): one tick with the
+	// downscale off before domToBlob measures the element.
+	isCapturing.value = true;
+	try {
+		await nextTick();
+		await waitForFlyerReady(flyerElement);
+		// modern-screenshot handles CSS gradients, SVGs, and canvases properly
+		const { domToBlob } = await import('modern-screenshot');
+		const blob = await domToBlob(flyerElement, {
+			scale: 2,
+			backgroundColor: '#ffffff',
+		});
+		if (!blob) throw new Error('La captura del flyer devolvió una imagen vacía');
+		return blob;
+	} finally {
+		isCapturing.value = false;
+	}
 };
 
 const downloadFlyerBlob = (blob: Blob) => {

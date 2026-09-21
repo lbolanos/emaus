@@ -418,5 +418,49 @@ describe('CommunityMeetingFlyerView', () => {
 			expect(share).toHaveBeenCalledTimes(1);
 			expect(anchorClick).not.toHaveBeenCalled();
 		});
+
+		it('custom canvas: domToBlob receives the design at 1:1, not downscaled', async () => {
+			// The second phone report (2026-09-21): the shared PNG came out cut at
+			// the right and bottom. domToBlob sizes its canvas from the bounding
+			// rect, so a captured-while-scaled canvas only fits its scaled corner
+			// (measured in dev: 704×812 instead of 1700×1963). The capture must
+			// render the 850px design unscaled for that one moment.
+			const write = stubImageClipboard();
+			const transformAtCapture: string[] = [];
+			const containerWidthAtCapture: (string | undefined)[] = [];
+			domToBlobMock.mockImplementation(async (el: HTMLElement) => {
+				transformAtCapture.push(el.style.transform);
+				// Past scale ≥ 1 the canvas goes fluid (width 100%): the container
+				// must be held at the 850px design width or the design stacks narrow.
+				containerWidthAtCapture.push(el.parentElement?.style.width);
+				return new Blob(['flyer-png'], { type: 'image/png' });
+			});
+			ownRestores.push(() =>
+				domToBlobMock.mockImplementation(async () =>
+					new Blob(['flyer-png'], { type: 'image/png' }),
+				),
+			);
+
+			const wrapper = mountFlyer({ style: 'custom' });
+			await flushPromises();
+
+			const el = wrapper.find('#printable-area').element as HTMLElement;
+			// Pre-state (happy-dom lays out at 0×0): the canvas is downscaled and
+			// carries the mobile transform — the state that truncated the PNG.
+			expect(el.style.transform).toContain('scale(');
+
+			prepareFlyerElement(wrapper);
+			const button = buttonByText(wrapper, 'Copiar imagen');
+			await button!.trigger('click');
+			await flushPromises();
+			await new Promise((resolve) => setTimeout(resolve, 260));
+			await flushPromises();
+
+			expect(write).toHaveBeenCalledTimes(1);
+			// Captured unscaled at the full design width, downscale back afterwards.
+			expect(transformAtCapture).toEqual(['']);
+			expect(containerWidthAtCapture).toEqual(['850px']);
+			expect(el.style.transform).toContain('scale(');
+		});
 	});
 });

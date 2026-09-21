@@ -299,4 +299,28 @@ antes de tocar código.
   NULL, fondo NULL, 0 reuniones ZZE2E). La verificación física en un teléfono real (share sheet
   de iOS) queda como prueba manual del usuario.
 
+### Tercer reporte: "al copiar en celular la imagen sale cortada" (mismo día, captura #7)
+
+- **PNG truncado a la derecha y abajo** — `domToBlob` dimensiona su lienzo con el bounding
+  rect del elemento, que arrastra el `transform: scale(0.414)` de la escala móvil: del diseño
+  de 850px solo entra la esquina escalada. Reproducido por el dato con emulación 390×844 e
+  interceptando el blob por el camino real del botón: **704×812** en vez de 1700×1963. Primer
+  intento (quitar solo el transform) medido **704×3822**: a escala ≥ 1 el canvas va fluido
+  (`width: 100%` = 352px) y el diseño se apila — mi experimento manual había funcionado porque
+  borró el transform CONSERVANDO el `width: 850px` inline que el camino real del componente no
+  conservaba. Opciones descartadas por el dato: `style: { transform: 'none' }` en las options
+  de domToBlob (704×812) y transform en ancestro (gBCR hereda transforms de cualquier nivel).
+- Fix (patrón `isPrinting` extendido): `isCapturing` → `effectiveScale 1` durante la captura,
+  contenedor sostenido a 850px sin padding, `overflow-hidden` para el flash, y guard en
+  `updateCustomScale` (el ResizeObserver no re-escala a media captura). De paso, en desktop la
+  escala 0.962 también truncaba ~4% (imperceptible) — ahora la copia sale a 850px reales.
+- Verificado por el dato: blob **1700×1963**, transform restaurado a `scale(0.414118)` tras la
+  captura y contenedor fluid de nuevo; análisis visual del PNG generado: título entero, todas
+  las secciones hasta el footer, sin cortes. Test nuevo en el describe de copiar/compartir
+  (fija `transformAtCapture === ['']` y `containerWidthAtCapture === ['850px']`, y el
+  downscale de vuelta al terminar).
+- Gate: View unit 11/11; familia (flyers + stores + utils + View) 56 archivos / 965; suite web
+  completa 204 archivos / 3035 pasados | 2 skipped; e2e móvil 3/3. La verificación física en
+  un teléfono real (share sheet → WhatsApp) queda como prueba manual del usuario.
+
 
