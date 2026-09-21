@@ -3,7 +3,8 @@
  */
 
 const FLYER_STYLE_KEY = 'emaus_flyer_style';
-const VALID_STYLES = ['default', 'poster', 'whatsapp'] as const;
+// 'custom' renders the community's saved editor design (community.flyerOptions).
+const VALID_STYLES = ['default', 'poster', 'whatsapp', 'custom'] as const;
 export type FlyerStyle = (typeof VALID_STYLES)[number];
 
 /**
