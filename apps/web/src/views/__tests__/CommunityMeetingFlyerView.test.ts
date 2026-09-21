@@ -175,26 +175,29 @@ describe('CommunityMeetingFlyerView', () => {
 			expect(canvas.attributes('data-custom-canvas')).toBeDefined();
 		});
 
-		it('renders the default white cards when nothing was saved', async () => {
+		it("renders the flavour's boxless defaults when nothing was saved", async () => {
 			const wrapper = mountFlyer({ style: 'custom' });
 			await flushPromises();
 
 			const dateBlock = wrapper.find('[data-flyer-block="dateTime"]');
-			expect(dateBlock.attributes('style')).toContain('--fb-bg: rgba(255, 255, 255, 0.85)');
+			expect(dateBlock.attributes('style')).toContain('--fb-bg: transparent');
+			expect(dateBlock.attributes('style')).toContain('--fb-text: #ffffff');
 		});
 
 		it("paints the community's saved theme and block styles", async () => {
 			// The retreat's lesson: a prop the published view forgets to pass doesn't
 			// look like a bug — the canvas falls back to its defaults and the saved
-			// design silently reads as "nothing was customised".
+			// design silently reads as "nothing was customised". The fixture's values
+			// are deliberately unlike this flavour's boxless defaults so a dropped
+			// prop fails the test.
 			const wrapper = mountFlyer({
 				style: 'custom',
 				community: {
 					flyerOptions: {
 						layoutVersion: 2,
 						images: {},
-						theme: { textColor: '#ffffff', headingColor: '#fde68a', textShadow: true },
-						blockStyles: { dateTime: { backgroundColor: '#ffffff', backgroundOpacity: 0 } },
+						theme: { textColor: '#fef3c7', headingColor: '#93c5fd', textShadow: true },
+						blockStyles: { dateTime: { backgroundColor: '#111827', backgroundOpacity: 70 } },
 						hiddenTexts: [],
 					},
 				},
@@ -202,12 +205,12 @@ describe('CommunityMeetingFlyerView', () => {
 			await flushPromises();
 
 			const dateBlock = wrapper.find('[data-flyer-block="dateTime"]');
-			expect(dateBlock.attributes('style')).toContain('--fb-text: #ffffff');
-			// The saved override clears the date's card: text straight on the artwork.
-			expect(dateBlock.attributes('style')).toContain('--fb-bg: transparent');
+			expect(dateBlock.attributes('style')).toContain('--fb-text: #fef3c7');
+			// The saved card reached the canvas, not just the theme colours.
+			expect(dateBlock.attributes('style')).toContain('--fb-bg: rgba(17, 24, 39, 0.7)');
 			// A block without an override still follows the saved theme.
 			const description = wrapper.find('[data-flyer-block="description"]');
-			expect(description.attributes('style')).toContain('--fb-text: #ffffff');
+			expect(description.attributes('style')).toContain('--fb-text: #fef3c7');
 		});
 
 		it('hides the background picker (the editor owns the background)', async () => {

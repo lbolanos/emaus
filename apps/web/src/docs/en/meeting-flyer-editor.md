@@ -24,8 +24,9 @@ community. The title and the header don't move: they are part of the frame.
 ## Design
 
 **Quick looks** change the whole flyer at once: Poster, Ink, Veils and **Original**, which
-restores the usual colours (white cards with dark text). Each look ships with its boxes already
-calibrated — Poster, for instance, reads text straight off the photo and drops the cards.
+restores the starting point: clear text straight over the artwork, no cards. Applying a look
+clears any cards you left on individual blocks; if you want cards, raise a block's background
+opacity.
 
 - **Whole flyer** — text and heading colours, the block backgrounds and **dimming the background
   image** when the photo competes with the letters.

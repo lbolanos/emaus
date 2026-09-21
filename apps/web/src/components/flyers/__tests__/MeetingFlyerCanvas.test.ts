@@ -134,21 +134,26 @@ describe('MeetingFlyerCanvas', () => {
 	});
 
 	describe('styling', () => {
-		// This flavour's defaults are the original DefaultFlyer's white cards, so
-		// what the Design panel calls "reset" is what the unedited flyer looks like.
-		it('paints the white translucent cards by default', () => {
+		// This flavour's defaults read straight off the artwork (the legacy Cartel
+		// look): no card, clear type with a shadow — so what the Design panel calls
+		// "reset" is what the unedited flyer looks like.
+		it('goes boxless by default: clear text straight over the artwork', () => {
 			const wrapper = mountCanvas();
 			const style = wrapper.find('[data-flyer-block="dateTime"]').attributes('style') ?? '';
 
-			expect(style).toContain('--fb-bg: rgba(255, 255, 255, 0.85)');
-			expect(style).toContain('--fb-text: #111827');
+			expect(style).toContain('--fb-bg: transparent');
+			expect(style).toContain('--fb-text: #ffffff');
+			expect(style).toContain('--fb-heading: #fde68a');
+			// The shadow is what keeps the clear type readable over light patches.
+			expect(style).not.toContain('--fb-shadow: none');
 		});
 
-		it('leaves the QR block boxless: its white plate is its own contrast', () => {
+		it('keeps the QR block dark: its white plate is its own contrast', () => {
 			const wrapper = mountCanvas();
 			const style = wrapper.find('[data-flyer-block="locationQr"]').attributes('style') ?? '';
 
 			expect(style).toContain('--fb-bg: transparent');
+			expect(style).toContain('--fb-text: #111827');
 		});
 
 		it('applies the theme colours to every block', () => {

@@ -143,27 +143,28 @@ describe('FlyerDesignPanel', () => {
 			// purpose (generic style vocabulary) — only the panel's own labels move.
 		});
 
-		// This flavour's defaults are white cards with dark text: contrast is judged
-		// against the defaults the caller passes, not the retreat's open canvas.
-		it('warns about white-on-white using the meeting style defaults', () => {
-			const warned = mountMeetingPanel({
+		// This flavour's defaults are boxless clear type: contrast is judged against
+		// the defaults the caller passes — the untouched flyer doesn't warn against
+		// the mid-grey stand-in, but a white box under white text still does.
+		it('judges contrast against the boxless meeting defaults', () => {
+			const plain = mountMeetingPanel({
 				styleDefaults: MEETING_FLYER_BLOCK_STYLE_DEFAULTS,
 				theme: { textColor: '#ffffff' } as FlyerTheme,
 			});
-			expect(warned.html()).toContain('meetingFlyerEditor.design.lowContrast');
+			expect(plain.html()).not.toContain('meetingFlyerEditor.design.lowContrast');
 
-			const fine = mountMeetingPanel({
+			const boxed = mountMeetingPanel({
 				styleDefaults: MEETING_FLYER_BLOCK_STYLE_DEFAULTS,
-				theme: { textColor: '#111827' } as FlyerTheme,
+				theme: { textColor: '#ffffff', backgroundColor: '#ffffff', backgroundOpacity: 90 } as FlyerTheme,
 			});
-			expect(fine.html()).not.toContain('meetingFlyerEditor.design.lowContrast');
+			expect(boxed.html()).toContain('meetingFlyerEditor.design.lowContrast');
 		});
 
 		it('offers the meeting looks, each shipping its box reset', async () => {
 			const wrapper = mountMeetingPanel({ presets: MEETING_FLYER_THEME_PRESETS });
 
-			// 'poster' reads its text straight off the artwork, so its recipe must
-			// also clear the white cards this flavour defaults to.
+			// 'poster' reads its text straight off the artwork: its recipe clears
+			// any SAVED card, or the date would keep a white card under white type.
 			const poster = wrapper
 				.findAll('button')
 				.find((b) => b.text().includes('meetingFlyerEditor.design.preset.poster'));

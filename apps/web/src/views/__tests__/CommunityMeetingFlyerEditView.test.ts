@@ -178,8 +178,8 @@ describe('CommunityMeetingFlyerEditView', () => {
 		const wrapper = await mountEditor();
 		const store = useMeetingFlyerEditorStore();
 
-		// 'poster' is a light-on-photo look: its recipe must also clear the white
-		// cards this flavour defaults to, or the date turns invisible.
+		// 'poster' is a light-on-photo look: its recipe also clears any SAVED
+		// card, or a card left from an earlier design turns the date invisible.
 		const poster = buttonByText(wrapper, 'meetingFlyerEditor.design.preset.poster');
 		await poster!.trigger('click');
 		await nextTick();

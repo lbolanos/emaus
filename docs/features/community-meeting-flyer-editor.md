@@ -60,23 +60,31 @@ La línea "EMAÚS" del header y del bloque `community` se omite si la comunidad 
 "Emaús" (`/^ema[úu]s\b/i`) — si no, quedaba "EMAÚS — Emaús del Valle". El nombre se muestra con
 `titleCaseForDisplay`, que deja conectores cortos en minúscula ("Emaús **del** Valle").
 
-### Defaults de estilo: la lección del retiro, al revés
+### Defaults de estilo
 
-El retiro nació sin cajas (texto directo sobre el arte). La reunión **ya tenía** tarjetas blancas
-translúcidas (el estilo Default original), así que sus `MEETING_FLYER_BLOCK_STYLE_DEFAULTS` son
-esas tarjetas — y el default visible coincide con lo que el panel Diseño muestra como "Original".
-`locationQr` nace sin caja. Véase § "Estilo" de la doc del retiro: un default que no coincide con
-el panel se lee como "el editor no responde".
+Sin diseño guardado, el volante lee como el estilo Cartel hermano: **texto claro con sombra
+directo sobre la imagen, sin cajas** — los fondos preset son arte oscuro pensado para letra
+clara. La tarjeta blanca sigue deletreada en el default (`backgroundColor` blanco con
+`backgroundOpacity: 0`, § "Estilo" de la doc del retiro): subir la opacidad del fondo de un
+bloque en el panel devuelve la tarjeta translúcida de siempre en un solo movimiento. `locationQr`
+mantiene texto oscuro: su plato blanco es su contraste. Y el default visible sigue coincidiendo
+con lo que el panel Diseño muestra como "Original" — la lección del retiro (un default que no
+coincide con el panel se lee como "el editor no responde").
+
+> Nació al revés: la primera iteración replicó las tarjetas blancas translúcidas del DefaultFlyer
+> legacy. El mismo día de cerrarse la feature, pedido del usuario, pasó a cajas transparentes —
+> se ve más volante y menos ficha. Ningún diseño guardado se rompió: el cambio toca solo la capa
+> más baja de la cascada.
 
 ### Presets = receta completa
 
 `MEETING_FLYER_THEME_PRESETS` no es solo el tema: cada preset de reunión viaja con su
 `blockStyles` (`meetingPresetBlockStyles(theme)`). Un preset con `backgroundColor` en el tema
-(Velos, Tinta) pinta su propio velo y manda `{}` — las cajas default quedan; un preset sin él
-(**Cartel**) lee el texto directo sobre la foto y **tiene que apagar las cajas** blancas:
-`{backgroundColor:'#ffffff', backgroundOpacity:0}` en los cuatro bloques con caja. Sin ese
-paquete, la fecha quedaba invisible sobre su caja blanca. `clearTheme(true)` limpia tema y cajas
-juntos.
+(Velos, Tinta) pinta su propio velo sobre todo el lienzo y manda `{}` — los overrides por bloque
+siguen siendo del usuario; un preset sin él (**Cartel**) lee el texto directo sobre la foto y
+**limpia cualquier caja guardada** en los cuatro bloques que pueden llevarla. El default ya es
+sin cajas, pero una comunidad puede haber dejado una caja manual: sin ese paquete, "Cartel"
+dejaría una tarjeta blanca bajo su texto blanco. `clearTheme(true)` limpia tema y cajas juntos.
 
 ## Semilla del fondo
 
@@ -146,10 +154,10 @@ que el del retiro.
 | `apps/api/src/tests/services/communityFlyerOptionsSchema.simple.test.ts` | Lo que el API acepta y rechaza en `flyerOptions` (ids de bloque de reunión, imagen `javascript:`, tope de overrides) |
 | `apps/web/src/utils/__tests__/meetingFlyerLayout.test.ts` | Honrar `blocks` sin `layoutVersion`, descartar ids del retiro/duplicados/inventados, rellenar faltantes, renumerar, y `moveBlockInLayout` con visibilidad preservada |
 | `apps/web/src/stores/__tests__/meetingFlyerEditorStore.test.ts` | El borrador: semilla del fondo sin ensuciar, qué ensucia, deshacer, **el regression guard del shadowing de `blockStyles`**, el paquete del preset, preservar campos ajenos en el PUT, y guardar completo con `layoutVersion` 2 |
-| `apps/web/src/components/flyers/__tests__/MeetingFlyerCanvas.test.ts` | Bloques por slot y orden, imágenes preset/override, chrome (línea EMAÚS y su omisión), QR, cajas blancas default, `locationQr` sin caja, tema/override por bloque, velo, drag/drop/selección solo con `editable`, e `#printable-area` + `data-custom-canvas` solo con `printable` |
+| `apps/web/src/components/flyers/__tests__/MeetingFlyerCanvas.test.ts` | Bloques por slot y orden, imágenes preset/override, chrome (línea EMAÚS y su omisión), QR, defaults sin caja (texto claro + sombra; `locationQr` oscuro sobre su plato), tema/override por bloque, velo, drag/drop/selección solo con `editable`, e `#printable-area` + `data-custom-canvas` solo con `printable` |
 | `apps/web/src/views/__tests__/CommunityMeetingFlyerEditView.test.ts` | El editor: layout por slots, semilla visible, ocultar del preview, drag entre slots, preset ensucia con su receta, descartar, guardar completo, flechas y su cruce de columna, undo, borrar diseño con confirmación, guard de salida, overrides en vivo |
-| `apps/web/src/views/__tests__/CommunityMeetingFlyerView.test.ts` | La vista publicada: el 4º botón, **"Saved design"** (el canvas recibe layout/imágenes/tema/cajas guardados), popover Fondo fuera en custom, y los tres estilos legacy intactos |
-| `apps/web/src/components/flyer/__tests__/FlyerDesignPanel.test.ts` (describe *meeting flavour*) | El contrato flavor-agnóstico: `tPrefix`, `styleDefaults` (contraste juzgado contra las cajas blancas) y `presets` con su paquete de cajas |
+| `apps/web/src/views/__tests__/CommunityMeetingFlyerView.test.ts` | La vista publicada: el 4º botón, **"Saved design"** (el canvas recibe layout/imágenes/tema/cajas guardados — el fixture usa valores que NO son los defaults, o una prop olvidada pasaría), los defaults sin caja sin nada guardado, popover Fondo fuera en custom, y los tres estilos legacy intactos |
+| `apps/web/src/components/flyer/__tests__/FlyerDesignPanel.test.ts` (describe *meeting flavour*) | El contrato flavor-agnóstico: `tPrefix`, `styleDefaults` (contraste juzgado contra los defaults sin caja) y `presets` con su paquete de cajas |
 | `apps/web/src/components/flyer/__tests__/FlyerTextPanel.test.ts` (describe *meeting flavour*) | El contrato de `config`: 8 campos single-line, placeholder dinámico del título y nota de oculto con prefijo propio |
 | `apps/web/src/config/__tests__/helpIndex.test.ts` | Que ambas rutas del volante de reunión caen en su sección de ayuda y no en la del retiro |
-| `apps/web/tests/e2e/community-meeting-flyer-editor.spec.ts` | El camino real: Personalizado monta los 5 bloques, el editor guarda (flechas + Cartel + ocultar texto + PUT 200) y la vista publicada hereda layout + cajas + textos tras reload, con Default/Cartel/WhatsApp intactos. **Escribe en una comunidad real**: su afterAll restaura SIEMPRE `flyer-options` y el fondo, y borra la reunión desechable |
+| `apps/web/tests/e2e/community-meeting-flyer-editor.spec.ts` | El camino real: Personalizado monta los 5 bloques, el editor guarda (flechas + Cartel + ocultar texto + PUT 200) y la vista publicada hereda layout + tema (el velo del Cartel) + textos tras reload, con Default/Cartel/WhatsApp intactos. **Escribe en una comunidad real**: su afterAll restaura SIEMPRE `flyer-options` y el fondo, y borra la reunión desechable |

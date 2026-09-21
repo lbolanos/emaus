@@ -24,8 +24,9 @@ ubicación y la comunidad. El título y el encabezado no se mueven: son parte de
 ## Diseño
 
 **Estilos rápidos** cambia el volante entero de un golpe: Cartel, Tinta, Velos, y **Original**,
-que devuelve los colores de siempre (cajas blancas con texto oscuro). Cada estilo ya viene con
-sus cajas calibradas — por ejemplo Cartel lee el texto directo sobre la foto y quita las cajas.
+que devuelve el punto de partida: texto claro directo sobre la imagen, sin cajas. Al aplicar un
+estilo se limpian las cajas que hayas dejado en bloques sueltos; si quieres tarjetas, sube la
+opacidad del fondo de un bloque.
 
 - **Todo el volante** — el color del texto y de los títulos, el fondo de los bloques y
   **atenuar la imagen de fondo** si la foto compite con las letras.

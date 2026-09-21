@@ -181,13 +181,14 @@ test.describe.serial('Community meeting flyer — design editor (E2E)', () => {
 
 		expect(await leftBlocks()).toEqual(['description', 'dateTime']);
 		await expect(page.locator('#printable-area')).not.toContainText('¡Te esperamos!');
-		// The 'Cartel' look also cleared this flavour's white cards (opacity 0
-		// resolves to a boxless block) and brought its own text colour — the saved
-		// theme + block styles reach the published canvas, not just the layout.
-		const dateTimeStyle =
-			(await page.locator('[data-flyer-block="dateTime"]').getAttribute('style')) ?? '';
-		expect(dateTimeStyle).toContain('--fb-bg: transparent');
-		expect(dateTimeStyle).toContain('--fb-text: #ffffff');
+		// The 'Cartel' look reached the published canvas, not just the layout:
+		// its dark 40% scrim. This flavour's boxless defaults already paint
+		// transparent cards with white text, so the scrim is the part only the
+		// saved theme can paint (inline style — the canvas's other dark rgba()s
+		// live in scoped CSS and never match this selector).
+		await expect(
+			page.locator('#printable-area div[style*="background-color: rgba(0, 0, 0, 0.4)"]'),
+		).toBeVisible();
 
 		// 6) It persists across a reload (community.flyerOptions, not local state).
 		await page.reload();

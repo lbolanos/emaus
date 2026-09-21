@@ -212,3 +212,25 @@ editor desde ahí; los otros 3 estilos no cambian.
   copia de la DB (`flyerOptions` NULL, `flyerBackgroundUrl` NULL, 0 reuniones ZZE2E) — esto
   además dejó la comunidad de dev limpia del diseño que había dejado la verificación M3.
 
+### Post-M4 — defaults sin caja (mismo día, pedido del usuario)
+
+- `MEETING_FLYER_BLOCK_STYLE_DEFAULTS` pasó de tarjetas blancas translúcidas (texto `#111827`,
+  heading `#6b7280`) a **sin caja con texto claro directo sobre la imagen**: tarjeta aún
+  deletreada (`backgroundColor '#ffffff'` con `backgroundOpacity: 0`), `textColor '#ffffff'`,
+  `headingColor '#fde68a'`, `textShadow: true` — el look del estilo Cartel hermano, para el que
+  está pensado el arte de los fondos preset. `locationQr` no cambió (texto oscuro: su plato
+  blanco es su contraste). Ningún diseño guardado se rompe: toca solo la capa más baja de la
+  cascada, y subir la opacidad del fondo de un bloque devuelve la tarjeta de siempre.
+- `meetingPresetBlockStyles` se conserva como reset defensivo, con el matiz invertido: ya no
+  apaga "las cajas default" (ya no las hay) sino cualquier caja GUARDADA por la comunidad.
+- Tests ajustados (solo reunión): Canvas (defaults sin caja + QR oscuro), DesignPanel meeting
+  flavour (contraste: el default sin caja no avisa contra el gris medio; caja blanca + texto
+  blanco sí avisa), View (**"Saved design" reforzado**: el fixture viejo —texto blanco + caja
+  0— quedó indistinguible del default; usa ahora colores/caja que NO son defaults, o una prop
+  olvidada volvería a pasar en silencio), EditView (comentario del preset).
+- E2E: `--fb-bg: transparent` + `--fb-text: #ffffff` dejó de distinguir el diseño guardado del
+  default → el assert pasó al velo del Cartel (`background-color: rgba(0, 0, 0, 0.4)`, el único
+  background negro inline del canvas; los demás rgba oscuros viven en CSS scoped).
+- Ayuda es/en y doc maestra actualizadas (§ "Defaults de estilo" reescrita; § presets ahora
+  "limpia cajas guardadas").
+

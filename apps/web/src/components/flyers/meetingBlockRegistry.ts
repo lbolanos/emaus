@@ -46,59 +46,62 @@ export const MEETING_FLYER_PRESET_IMAGES = {
 } as const;
 
 /**
- * How each block looks before the theme or a per-block override touches it: the
- * white translucent cards of the original DefaultFlyer, so what the Design panel
- * shows as "reset" is what the unedited flyer actually looks like. The QR block
- * carries no box — its white plate already provides the contrast it needs.
+ * How each block looks before the theme or a per-block override touches it:
+ * clear text straight over the artwork, like the legacy Cartel style — the
+ * preset backgrounds are dark art meant for light type. The white card is
+ * still spelled in at opacity 0 (see resolveBlockStyle): raising the opacity
+ * in the panel brings the old translucent card back in one move. The QR
+ * block keeps dark text — its white plate is its own contrast.
  */
 export const MEETING_FLYER_BLOCK_STYLE_DEFAULTS: Record<MeetingFlyerBlockId, FlyerBlockStyle> = {
 	dateTime: {
 		backgroundColor: '#ffffff',
-		backgroundOpacity: 85,
-		textColor: '#111827',
-		headingColor: '#6b7280',
-		textShadow: false,
+		backgroundOpacity: 0,
+		textColor: '#ffffff',
+		headingColor: '#fde68a',
+		textShadow: true,
 		textAlign: 'left',
 	},
 	description: {
 		backgroundColor: '#ffffff',
-		backgroundOpacity: 85,
-		textColor: '#111827',
-		headingColor: '#6b7280',
-		textShadow: false,
+		backgroundOpacity: 0,
+		textColor: '#ffffff',
+		headingColor: '#fde68a',
+		textShadow: true,
 		textAlign: 'left',
 	},
 	location: {
 		backgroundColor: '#ffffff',
-		backgroundOpacity: 85,
-		textColor: '#111827',
-		headingColor: '#6b7280',
-		textShadow: false,
+		backgroundOpacity: 0,
+		textColor: '#ffffff',
+		headingColor: '#fde68a',
+		textShadow: true,
 		textAlign: 'left',
 	},
 	locationQr: { textColor: '#111827', headingColor: '#111827', textShadow: false, textAlign: 'center' },
 	community: {
 		backgroundColor: '#ffffff',
-		backgroundOpacity: 85,
-		textColor: '#111827',
-		headingColor: '#6b7280',
-		textShadow: false,
+		backgroundOpacity: 0,
+		textColor: '#ffffff',
+		headingColor: '#fde68a',
+		textShadow: true,
 		textAlign: 'center',
 	},
 };
 
-/** The blocks whose defaults carry the white card; the QR's plate is its own contrast. */
+/** The blocks a look may have to clear; the QR's plate is its own contrast. */
 const BOXED_BLOCK_IDS = ['dateTime', 'description', 'location', 'community'] as const;
 
 /** "No box" spelled the way resolveBlockStyle documents: opacity 0 over a layer that has one. */
 const BOXLESS: FlyerBlockStyle = { backgroundColor: '#ffffff', backgroundOpacity: 0 };
 
 /**
- * A meeting look is a whole recipe, not just a palette. The flavour's defaults are
- * white cards with dark text, so a recipe that reads its text straight off the
- * artwork must also clear those cards — otherwise "Cartel" (white text) keeps the
- * white cards and the date turns invisible. A recipe that paints its own veil in
- * the theme replaces the cards everywhere, so it just drops per-block overrides.
+ * A meeting look is a whole recipe, not just a palette. The flavour's defaults
+ * are boxless, but a community may have SAVED a card on a block — a recipe
+ * that reads its text straight off the artwork must also clear those saved
+ * cards, or "Cartel" (white text) leaves a white card under the date. A
+ * recipe that paints its own veil in the theme covers the whole canvas, so
+ * it just drops per-block overrides.
  */
 export function meetingPresetBlockStyles(theme: FlyerTheme): Partial<Record<string, FlyerBlockStyle>> {
 	if (theme.backgroundColor) return {};
