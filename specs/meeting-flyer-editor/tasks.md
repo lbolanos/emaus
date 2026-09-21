@@ -268,6 +268,15 @@ antes de tocar código.
   WhatsApp no lo necesitan (layouts centrados). Verificado en dev con la reunión real de
   Huatlatlauca en los dos estilos, midiendo logoCol/título/gap tras reload (sin el style inline
   del preview).
+- **Re-apertura del bug del título (mismo día, con capturas #5/#6)**: "aún no deja espacio a la
+  derecha". Las capturas confirmaron que el max-w SÍ funcionaba (nombre en 4 líneas cortas,
+  título en 2 — el usuario veía dev, no prod), pero la queja literal siempre fue el margen: el
+  título right-aligned quedaba a ~31px del borde (el `px-8`), que a tamaño display lee como
+  pegado; el look deseado mostraba 40–60px. Sin clipping real (header sin overflow, verificado).
+  Fix: `pr-4` en la columna del título (`MeetingFlyerHeader` **y** `DefaultFlyer`) — kicker y
+  título ganan aire juntos sin cambiar el wrap (la línea más larga tenía 42px de slack).
+  Verificado por el dato en dev en ambos estilos: gap 31.2 → 46.6px (custom) y 48.5px (default),
+  mismas 2 líneas, sin overflow. Gate: familia flyer 100/100 + View 10/10.
 - **"La copia no funciona en celular"** — `handleCopyImage` hacía `await domToBlob(...)` ANTES
   de `navigator.clipboard.write([...])`: en iOS Safari el user gesture se gasta con el primer
   await Y además iOS no soporta escribir `image/png` al portapapeles → siempre fallaba.

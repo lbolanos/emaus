@@ -42,7 +42,11 @@
 
 		<!-- The title lives in the chrome, like the retreat's banner: overridable as
 		     text, hidden as text, but never dragged around -->
-		<div class="relative z-10 text-right flex-1">
+		<!-- pr-4: the header's px-8 leaves the right-aligned title only ~31px from
+		     the flyer edge, which reads as touching it at display size (reported
+		     2026-09-21 with screenshots). This padding airs kicker+title together —
+		     they stay flush with each other — without narrowing the header. -->
+		<div class="relative z-10 text-right flex-1 pr-4">
 			<p
 				v-if="content.kickerText"
 				class="text-[17px] text-white/95 font-bold mb-0.5 uppercase tracking-[0.25em] drop-shadow-lg"

@@ -30,7 +30,9 @@
 			</div>
 
 			<!-- Main Title -->
-			<div class="relative z-10 text-right flex-1">
+			<!-- pr-4: same breathing room as MeetingFlyerHeader (duplicated markup):
+			     px-8 alone leaves the right-aligned title ~31px from the edge. -->
+			<div class="relative z-10 text-right flex-1 pr-4">
 				<p class="text-[17px] text-white/95 font-bold mb-0.5 uppercase tracking-[0.25em] drop-shadow-lg">Reunión de Comunidad</p>
 				<h1 class="font-bold text-white leading-[0.9] transform -rotate-1 origin-bottom-right pb-1 font-display break-words"
 						:class="titleSizeClass"

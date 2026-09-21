@@ -87,6 +87,13 @@ franja pegada al borde derecho: el usuario lo reportó como "no hay espacio dere
 título recupera su ancho (5 líneas/328px → 2 líneas/600px con esa comunidad). Poster y WhatsApp
 no lo necesitan: son layouts centrados donde el nombre no compite con el título.
 
+La columna del título lleva además `pr-4` (mismo par de archivos): era la otra mitad del mismo
+reporte. Con solo el `px-8` del header, el título right-aligned quedaba a ~31px del borde, que a
+tamaño display lee como "pegado/cortado" — con capturas, el usuario mostró el look deseado con
+40–60px de aire. El padding de la columna (no del header) airea kicker y título **juntos** —
+siguen flush entre sí — y no cambia el wrap: la línea más larga tenía 42px de slack en su columna
+de 600px. Medido en dev: gap 31px → 46–48px en ambos estilos, mismas 2 líneas.
+
 ### Presets = receta completa
 
 `MEETING_FLYER_THEME_PRESETS` no es solo el tema: cada preset de reunión viaja con su
