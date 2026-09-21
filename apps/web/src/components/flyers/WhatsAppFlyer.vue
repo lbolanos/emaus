@@ -2,7 +2,7 @@
 	<div
 		id="printable-area"
 		class="whatsapp-container relative flex p-8 overflow-hidden rounded-2xl shadow-2xl"
-		:style="{ backgroundImage: `url('/poster.png')` }"
+		:style="{ backgroundImage: `url('${backgroundUrl || '/poster.png'}')` }"
 	>
 		<!-- Light overlay -->
 		<div class="absolute inset-0 bg-gradient-to-b from-white/60 via-white/40 to-white/65"></div>
@@ -74,6 +74,8 @@ const props = defineProps<{
 	formattedAddress: string;
 	processedDescription: string;
 	communityName: string;
+	/** Community-picked background; falls back to the shipped default art. */
+	backgroundUrl?: string;
 }>();
 
 const showBrandHeader = computed(() => !/^ema[úu]s\b/i.test(props.communityName.trim()));

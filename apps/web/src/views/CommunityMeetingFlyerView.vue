@@ -45,6 +45,31 @@
         </button>
       </div>
 
+      <!-- Background picker — only for the styles that render a background image -->
+      <div v-if="flyerStyle !== 'default'" class="toolbar-glass flex items-center gap-1 rounded-xl p-1 shadow-xl">
+        <Button
+          variant="ghost"
+          class="rounded-lg hover:bg-gray-100/80 transition-all text-gray-600 gap-2"
+          title="Cambiar el fondo del flyer"
+          :disabled="isSavingBackground"
+          @click="handlePickBackground"
+        >
+          <Loader2 v-if="isSavingBackground" class="w-4 h-4 animate-spin" />
+          <Image v-else class="w-4 h-4" />
+          <span class="hidden sm:inline">{{ isSavingBackground ? 'Guardando...' : 'Fondo' }}</span>
+        </Button>
+        <Button
+          v-if="community?.flyerBackgroundUrl"
+          variant="ghost"
+          size="icon"
+          class="rounded-lg hover:bg-gray-100/80 transition-all"
+          title="Restaurar el fondo por defecto"
+          @click="handleResetBackground"
+        >
+          <RotateCcw class="w-4 h-4 text-gray-600" />
+        </Button>
+      </div>
+
       <!-- Action Buttons Group -->
       <div class="toolbar-glass flex items-center gap-1 rounded-xl p-1 shadow-xl">
         <Button 
@@ -122,6 +147,7 @@
         :formatted-address="formattedAddress"
         :processed-description="processedDescription"
         :community-name="communityName"
+        :background-url="community?.flyerBackgroundUrl || undefined"
       />
     </div>
 
@@ -141,7 +167,8 @@ import { ref, computed, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useCommunityStore } from '@/stores/communityStore';
 import { Button } from '@repo/ui';
-import { Printer, Pencil, ArrowLeft, LayoutTemplate, Image, MessageCircle, Copy, Check, Loader2, ChevronRight } from 'lucide-vue-next';
+import { Printer, Pencil, ArrowLeft, LayoutTemplate, Image, MessageCircle, Copy, Check, Loader2, ChevronRight, RotateCcw } from 'lucide-vue-next';
+import { pickFile } from '@/utils/filePicker';
 import { useI18n } from 'vue-i18n';
 import DefaultFlyer from '@/components/flyers/DefaultFlyer.vue';
 import PosterFlyer from '@/components/flyers/PosterFlyer.vue';
@@ -239,6 +266,64 @@ const handleGoBack = () => {
 const handleEditMeeting = () => {
   meetingToEdit.value = meeting.value;
   isMeetingModalOpen.value = true;
+};
+
+// Custom flyer background (community-wide identity). Same flow as the meeting
+// photo: pick → data-URI → the API processes/stores it (S3 or inline in dev).
+const isSavingBackground = ref(false);
+
+const handlePickBackground = async () => {
+  if (!community.value || isSavingBackground.value) return;
+
+  const file = await pickFile({ accept: 'image/png,image/jpeg,image/jpg,image/webp' });
+  if (!file) return;
+  if (!file.type.startsWith('image/')) {
+    toast({ title: 'Error', description: 'El archivo debe ser una imagen', variant: 'destructive' });
+    return;
+  }
+  if (file.size > 2 * 1024 * 1024) {
+    toast({ title: 'Error', description: 'La imagen no puede exceder 2MB', variant: 'destructive' });
+    return;
+  }
+
+  const imageDataUrl = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => resolve(e.target?.result as string);
+    reader.onerror = () => reject(new Error('No se pudo leer la imagen'));
+    reader.readAsDataURL(file);
+  });
+
+  isSavingBackground.value = true;
+  try {
+    const updated = await communityStore.setFlyerBackground(community.value.id, imageDataUrl);
+    community.value = updated;
+    toast({ title: 'Fondo actualizado', description: 'El flyer ya usa tu imagen de fondo.' });
+  } catch (error: any) {
+    console.error('Failed to save flyer background:', error);
+    toast({
+      title: 'Error al guardar el fondo',
+      description: error.message || 'No se pudo guardar la imagen de fondo.',
+      variant: 'destructive',
+    });
+  } finally {
+    isSavingBackground.value = false;
+  }
+};
+
+const handleResetBackground = async () => {
+  if (!community.value) return;
+  try {
+    const updated = await communityStore.clearFlyerBackground(community.value.id);
+    community.value = updated;
+    toast({ title: 'Fondo restaurado', description: 'El flyer vuelve al fondo por defecto.' });
+  } catch (error: any) {
+    console.error('Failed to reset flyer background:', error);
+    toast({
+      title: 'Error al restaurar',
+      description: error.message || 'No se pudo restaurar el fondo por defecto.',
+      variant: 'destructive',
+    });
+  }
 };
 
 // Copy flyer as image to clipboard

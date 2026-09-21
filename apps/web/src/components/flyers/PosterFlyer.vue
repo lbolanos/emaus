@@ -2,22 +2,17 @@
 	<div
 		id="printable-area"
 		class="poster-container relative w-full overflow-hidden rounded-3xl print:rounded-none shadow-2xl print:shadow-none"
-		:style="{ backgroundImage: `url('/poster.png')` }"
+		:style="{ backgroundImage: `url('${backgroundUrl || '/poster.png'}')` }"
 	>
-		<!-- Overlay for better contrast -->
-		<div class="absolute inset-0 bg-gradient-to-b from-black/30 via-black/10 to-black/50 print:hidden"></div>
+		<!-- Overlay for better contrast — dense enough that a busy background
+		     image doesn't fight the text, while the edges still let it breathe -->
+		<div class="absolute inset-0 bg-gradient-to-b from-black/55 via-black/40 to-black/65 print:hidden"></div>
 		
 		<main class="relative flex min-h-[600px] w-full items-center justify-center p-8 md:p-12 print:p-6 print:min-h-0">
 			<!-- Main Content Card with enhanced glassmorphism -->
 			<section class="glass-card-premium relative flex max-w-2xl flex-col items-center justify-center rounded-3xl px-8 py-10 text-center sm:px-12 sm:py-12 md:px-16 md:py-14 shadow-2xl">
 				<!-- Decorative top accent -->
 				<div class="absolute -top-1 left-1/2 -translate-x-1/2 w-24 h-1 bg-gradient-to-r from-transparent via-emaus-gold to-transparent rounded-full"></div>
-				
-				<!-- Decorative corner elements -->
-				<div class="absolute top-4 left-4 w-8 h-8 border-t-2 border-l-2 border-emaus-gold/50 rounded-tl-lg"></div>
-				<div class="absolute top-4 right-4 w-8 h-8 border-t-2 border-r-2 border-emaus-gold/50 rounded-tr-lg"></div>
-				<div class="absolute bottom-4 left-4 w-8 h-8 border-b-2 border-l-2 border-emaus-gold/50 rounded-bl-lg"></div>
-				<div class="absolute bottom-4 right-4 w-8 h-8 border-b-2 border-r-2 border-emaus-gold/50 rounded-br-lg"></div>
 
 				<!-- Title with enhanced styling -->
 				<h1 class="font-serif-title text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold tracking-[0.15em] text-emaus-gold shadow-text-gold leading-tight mb-4 animate-fade-in">
@@ -56,12 +51,10 @@
 					{{ processedDescription }}
 				</p>
 
-				<!-- Another decorative divider -->
+				<!-- Another decorative divider (same motif as the one above) -->
 				<div class="flex items-center gap-4 mb-5 w-full max-w-xs">
 					<div class="flex-1 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent"></div>
-					<svg class="w-4 h-4 text-emaus-gold/80" fill="currentColor" viewBox="0 0 24 24">
-						<path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" />
-					</svg>
+					<div class="w-2 h-2 rotate-45 bg-emaus-gold/80"></div>
 					<div class="flex-1 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent"></div>
 				</div>
 
@@ -110,6 +103,8 @@ const props = defineProps<{
 	formattedAddress: string;
 	processedDescription: string;
 	communityName: string;
+	/** Community-picked background; falls back to the shipped default art. */
+	backgroundUrl?: string;
 }>();
 
 const formattedDateOnly = computed(() => {
@@ -138,18 +133,20 @@ const locationMessage = computed(() => {
 	min-height: 600px;
 }
 
-/* Enhanced Glassmorphism with better contrast */
+/* Glassmorphism — opaque enough to rest text on a busy background.
+   No saturate() here: it re-saturates the image showing through and
+   brings back the visual noise the veil is trying to calm. */
 .glass-card-premium {
 	background: linear-gradient(
 		135deg,
-		rgba(30, 30, 40, 0.65) 0%,
-		rgba(20, 20, 30, 0.55) 50%,
-		rgba(30, 30, 40, 0.60) 100%
+		rgba(24, 24, 34, 0.82) 0%,
+		rgba(16, 16, 26, 0.78) 50%,
+		rgba(24, 24, 34, 0.80) 100%
 	);
-	backdrop-filter: blur(20px) saturate(180%);
-	-webkit-backdrop-filter: blur(20px) saturate(180%);
+	backdrop-filter: blur(20px);
+	-webkit-backdrop-filter: blur(20px);
 	border: 1px solid rgba(255, 255, 255, 0.15);
-	box-shadow: 
+	box-shadow:
 		0 8px 32px rgba(0, 0, 0, 0.4),
 		0 16px 48px rgba(0, 0, 0, 0.2),
 		inset 0 1px 0 rgba(255, 255, 255, 0.1),

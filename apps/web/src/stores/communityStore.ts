@@ -349,6 +349,18 @@ export const useCommunityStore = defineStore('community', () => {
 		return updated;
 	};
 
+	const setFlyerBackground = async (communityId: string, imageDataUrl: string) => {
+		const updated = await api.setCommunityFlyerBackground(communityId, imageDataUrl);
+		if (currentCommunity.value?.id === updated.id) currentCommunity.value = updated;
+		return updated;
+	};
+
+	const clearFlyerBackground = async (communityId: string) => {
+		const updated = await api.deleteCommunityFlyerBackground(communityId);
+		if (currentCommunity.value?.id === updated.id) currentCommunity.value = updated;
+		return updated;
+	};
+
 	const createNextMeetingInstance = async (meetingId: string) => {
 		loading.value = true;
 		error.value = null;
@@ -651,6 +663,8 @@ export const useCommunityStore = defineStore('community', () => {
 		updateMeeting,
 		deleteMeeting,
 		setMeetingPhoto,
+		setFlyerBackground,
+		clearFlyerBackground,
 		deleteMeetingPhoto,
 		createNextMeetingInstance,
 		fetchAttendance,

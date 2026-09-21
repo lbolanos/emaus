@@ -1514,6 +1514,23 @@ export async function deleteCommunityMeetingPhoto(
   return response.data;
 }
 
+export async function setCommunityFlyerBackground(
+  communityId: string,
+  imageDataUrl: string,
+): Promise<Community> {
+  const response = await api.put(`/communities/${communityId}/flyer-background`, {
+    imageDataUrl,
+  });
+  return response.data;
+}
+
+export async function deleteCommunityFlyerBackground(
+  communityId: string,
+): Promise<Community> {
+  const response = await api.delete(`/communities/${communityId}/flyer-background`);
+  return response.data;
+}
+
 export async function createNextMeetingInstance(
   meetingId: string,
 ): Promise<CommunityMeeting & { isPastDate?: boolean }> {
