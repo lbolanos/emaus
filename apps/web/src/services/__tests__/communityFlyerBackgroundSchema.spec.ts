@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import {
 	FLYER_BACKGROUND_PRESETS,
 	setCommunityFlyerBackgroundSchema,
+	setCommunityFlyerCardOpacitySchema,
 } from '@repo/types';
 
 const params = { id: 'f1060047-5305-4f75-89c4-a649e449975e' };
@@ -58,6 +59,38 @@ describe('setCommunityFlyerBackgroundSchema — preset o imagen, nunca ambas', (
 		const result = setCommunityFlyerBackgroundSchema.safeParse({
 			params: { id: 'no-soy-uuid' },
 			body: { preset: 'poster.png' },
+		});
+		expect(result.success).toBe(false);
+	});
+});
+
+describe('setCommunityFlyerCardOpacitySchema — el dial vive entre 0.3 y 1', () => {
+	// Debajo de 0.3 el texto pelea con el fondo en imágenes claras; el límite
+	// viene del schema compartido, así que este test fija el contrato.
+	it('acepta los extremos del rango', () => {
+		expect(setCommunityFlyerCardOpacitySchema.parse({ params, body: { opacity: 0.3 } }).body.opacity).toBe(0.3);
+		expect(setCommunityFlyerCardOpacitySchema.parse({ params, body: { opacity: 1 } }).body.opacity).toBe(1);
+	});
+
+	it('rechaza opacidad por debajo de 0.3', () => {
+		const result = setCommunityFlyerCardOpacitySchema.safeParse({ params, body: { opacity: 0.29 } });
+		expect(result.success).toBe(false);
+	});
+
+	it('rechaza opacidad por encima de 1', () => {
+		const result = setCommunityFlyerCardOpacitySchema.safeParse({ params, body: { opacity: 1.01 } });
+		expect(result.success).toBe(false);
+	});
+
+	it('rechaza un body sin opacidad', () => {
+		const result = setCommunityFlyerCardOpacitySchema.safeParse({ params, body: {} });
+		expect(result.success).toBe(false);
+	});
+
+	it('rechaza un id de comunidad que no es uuid', () => {
+		const result = setCommunityFlyerCardOpacitySchema.safeParse({
+			params: { id: 'no-soy-uuid' },
+			body: { opacity: 0.8 },
 		});
 		expect(result.success).toBe(false);
 	});

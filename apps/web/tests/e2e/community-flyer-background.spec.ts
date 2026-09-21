@@ -149,6 +149,36 @@ test.describe.serial('Community flyer — galería de fondos (E2E)', () => {
 		expect(titleBox.y + titleBox.height).toBeLessThanOrEqual(headerBox.y + headerBox.height + 2);
 	});
 
+	test('el slider gradúa la transparencia del recuadro y persiste', async ({ baseURL }) => {
+		test.skip(!!skipReason, skipReason);
+		await openFlyer(baseURL!);
+
+		await selectStyle('Poster');
+		await page.getByRole('button', { name: 'Fondo' }).click();
+
+		// Dial inicial: 20% de transparencia (opacidad 0.8, el default).
+		const slider = page.locator('#flyer-card-opacity');
+		await expect(slider).toHaveValue('0.2');
+
+		// fill dispara input (v-model, preview vivo) + change (guardado).
+		const putPromise = page.waitForResponse(
+			(r) => r.request().method() === 'PUT' && /flyer-card-opacity$/.test(r.url()),
+		);
+		await slider.fill('0.7');
+		await expect((await putPromise).status()).toBe(200);
+
+		// Preview en vivo: la glass card lee --card-a desde el style inline.
+		await expect(area()).toHaveCSS('--card-a', '0.3');
+		await expect(page.locator('label[for="flyer-card-opacity"]')).toContainText('70%');
+
+		// Persistencia: tras reload el dial y el alpha vienen de la DB.
+		await page.reload();
+		await expect(page.locator('#printable-area')).toBeVisible();
+		await expect(area()).toHaveCSS('--card-a', '0.3');
+		await page.getByRole('button', { name: 'Fondo' }).click();
+		await expect(slider).toHaveValue('0.7');
+	});
+
 	test('restaurar devuelve el fondo por defecto', async ({ baseURL }) => {
 		test.skip(!!skipReason, skipReason);
 		await openFlyer(baseURL!);
