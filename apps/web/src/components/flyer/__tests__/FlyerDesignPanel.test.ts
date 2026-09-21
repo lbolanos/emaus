@@ -3,6 +3,11 @@ import { mount } from '@vue/test-utils';
 import { nextTick } from 'vue';
 import type { FlyerBlockId, FlyerBlockLayout, FlyerTheme } from '@repo/types';
 import FlyerDesignPanel from '../editor/FlyerDesignPanel.vue';
+import {
+	MEETING_FLYER_BLOCK_STYLE_DEFAULTS,
+	MEETING_FLYER_THEME_PRESETS,
+} from '../../flyers/meetingBlockRegistry';
+import type { MeetingFlyerBlockLayout } from '@repo/types';
 
 const BLOCKS: FlyerBlockLayout[] = [
 	{ id: 'intro', slot: 'left', order: 0, visible: true },
@@ -101,5 +106,81 @@ describe('FlyerDesignPanel', () => {
 
 		await wrapper.find('[data-move-down="intro"]').trigger('click');
 		expect(wrapper.emitted('moveBlock')?.[0]).toEqual(['intro', 'left', 1]);
+	});
+
+	// The panel is shared with the meeting flavour: these pin the props that keep
+	// it flavour-agnostic (tPrefix, styleDefaults, presets).
+	describe('meeting flavour', () => {
+		const MEETING_BLOCKS: MeetingFlyerBlockLayout[] = [
+			{ id: 'dateTime', slot: 'left', order: 0, visible: true },
+			{ id: 'description', slot: 'left', order: 1, visible: true },
+			{ id: 'locationQr', slot: 'right', order: 0, visible: true },
+		];
+
+		function mountMeetingPanel(over: Partial<Record<string, unknown>> = {}) {
+			return mount(FlyerDesignPanel, {
+				props: {
+					tPrefix: 'meetingFlyerEditor',
+					blocks: MEETING_BLOCKS,
+					theme: {} as FlyerTheme,
+					blockStyles: {},
+					selectedBlockId: null,
+					...over,
+				},
+			});
+		}
+
+		it('renders its labels under the meeting prefix', async () => {
+			const wrapper = mountMeetingPanel();
+
+			// The per-block reset only shows up once a block is selected
+			await wrapper.setProps({ selectedBlockId: 'dateTime' });
+			await nextTick();
+
+			expect(wrapper.text()).toContain('meetingFlyerEditor.design.reset');
+			expect(wrapper.text()).not.toContain('retreatFlyerEditor.design.reset');
+			// FlyerStyleFields keeps the shared retreatFlyerEditor.design.* wording on
+			// purpose (generic style vocabulary) — only the panel's own labels move.
+		});
+
+		// This flavour's defaults are white cards with dark text: contrast is judged
+		// against the defaults the caller passes, not the retreat's open canvas.
+		it('warns about white-on-white using the meeting style defaults', () => {
+			const warned = mountMeetingPanel({
+				styleDefaults: MEETING_FLYER_BLOCK_STYLE_DEFAULTS,
+				theme: { textColor: '#ffffff' } as FlyerTheme,
+			});
+			expect(warned.html()).toContain('meetingFlyerEditor.design.lowContrast');
+
+			const fine = mountMeetingPanel({
+				styleDefaults: MEETING_FLYER_BLOCK_STYLE_DEFAULTS,
+				theme: { textColor: '#111827' } as FlyerTheme,
+			});
+			expect(fine.html()).not.toContain('meetingFlyerEditor.design.lowContrast');
+		});
+
+		it('offers the meeting looks, each shipping its box reset', async () => {
+			const wrapper = mountMeetingPanel({ presets: MEETING_FLYER_THEME_PRESETS });
+
+			// 'poster' reads its text straight off the artwork, so its recipe must
+			// also clear the white cards this flavour defaults to.
+			const poster = wrapper
+				.findAll('button')
+				.find((b) => b.text().includes('meetingFlyerEditor.design.preset.poster'));
+			await poster!.trigger('click');
+
+			const [theme, blockStyles] = wrapper.emitted('applyPreset')![0] as any[];
+			expect(theme.textColor).toBe('#ffffff');
+			expect(blockStyles.dateTime).toMatchObject({ backgroundOpacity: 0 });
+
+			// 'veils' paints its own background in the theme, so it drops the resets
+			const veils = wrapper
+				.findAll('button')
+				.find((b) => b.text().includes('meetingFlyerEditor.design.preset.veils'));
+			await veils!.trigger('click');
+
+			const [, veilsBlocks] = wrapper.emitted('applyPreset')![1] as any[];
+			expect(veilsBlocks).toEqual({});
+		});
 	});
 });
