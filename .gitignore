@@ -145,3 +145,7 @@ apps/api/database.worktree.sqlite*
 # al reescribirlo.
 inscripciones.csv
 inscripciones-*.csv
+
+# Screenshots de verificación del browser MCP, guardados dentro del workspace para
+# poder leerlos. Fuera del bloque de ruler a propósito.
+.screenshots/
