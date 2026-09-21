@@ -387,7 +387,7 @@ const handlePickBackground = async () => {
 
   isSavingBackground.value = true;
   try {
-    const updated = await communityStore.setFlyerBackground(community.value.id, imageDataUrl);
+    const updated = await communityStore.setFlyerBackground(community.value.id, { imageDataUrl });
     community.value = updated;
     toast({ title: 'Fondo actualizado', description: 'El flyer ya usa tu imagen de fondo.' });
   } catch (error: any) {
