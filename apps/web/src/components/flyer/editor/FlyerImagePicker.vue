@@ -1,14 +1,14 @@
 <template>
 	<div class="space-y-2">
 		<div class="flex items-center justify-between gap-2">
-			<Label class="text-xs">{{ t(`retreatFlyerEditor.images.${imageKey}`) }}</Label>
+			<Label class="text-xs">{{ t(`${tPrefix}.images.${imageKey}`) }}</Label>
 			<button
 				v-if="modelValue"
 				type="button"
 				class="text-[11px] text-muted-foreground underline hover:text-foreground"
 				@click="emit('update', undefined)"
 			>
-				{{ t('retreatFlyerEditor.images.useDefault') }}
+				{{ t(`${tPrefix}.images.useDefault`) }}
 			</button>
 		</div>
 
@@ -31,12 +31,12 @@
 			     ref after hours of HMR makes click() a silent no-op. -->
 			<label
 				class="flex h-12 w-16 cursor-pointer flex-col items-center justify-center gap-0.5 rounded border-2 border-dashed border-muted-foreground/40 text-muted-foreground hover:border-muted-foreground hover:text-foreground"
-				:title="t('retreatFlyerEditor.images.upload')"
+				:title="t(`${tPrefix}.images.upload`)"
 			>
 				<Loader2 v-if="uploading" class="h-4 w-4 animate-spin" />
 				<ImagePlus v-else class="h-4 w-4" />
 				<span class="text-[9px] leading-none">
-					{{ uploading ? t('retreatFlyerEditor.images.uploading') : t('retreatFlyerEditor.images.upload') }}
+					{{ uploading ? t(`${tPrefix}.images.uploading`) : t(`${tPrefix}.images.upload`) }}
 				</span>
 				<input
 					type="file"
@@ -51,7 +51,7 @@
 		<!-- An uploaded image is not in the gallery, so show what is actually in use -->
 		<p v-if="isCustom" class="flex items-center gap-1.5 text-[11px] text-muted-foreground">
 			<img :src="modelValue" alt="" class="h-6 w-8 rounded object-cover" />
-			{{ t('retreatFlyerEditor.images.current') }}
+			{{ t(`${tPrefix}.images.current`) }}
 		</p>
 		<p v-if="error" class="text-[11px] text-destructive">{{ error }}</p>
 	</div>
@@ -66,12 +66,22 @@ import type { FlyerImages } from '@repo/types';
 import { resizeImageToDataUrl } from '@/utils/imageResize';
 import { uploadFlyerAsset } from '@/services/api';
 import { apiErrorMessage } from '@/services/apiError';
-import { FLYER_PRESET_ASSETS } from '../flyerPresetAssets';
+import { FLYER_PRESET_ASSETS, type FlyerPresetAsset } from '../flyerPresetAssets';
 
-const props = defineProps<{
-	imageKey: keyof FlyerImages;
-	modelValue?: string;
-}>();
+const props = withDefaults(
+	defineProps<{
+		imageKey: keyof FlyerImages;
+		modelValue?: string;
+		/** i18n prefix the editor flavour lives under (retreatFlyerEditor, meetingFlyerEditor). */
+		tPrefix?: string;
+		/** Which flavour's preset gallery to show; keys mirror FlyerImages. */
+		presetsByKind?: Partial<Record<keyof FlyerImages, FlyerPresetAsset[]>>;
+	}>(),
+	{
+		tPrefix: 'retreatFlyerEditor',
+		presetsByKind: () => FLYER_PRESET_ASSETS,
+	},
+);
 
 const emit = defineEmits<{
 	update: [url: string | undefined];
@@ -82,7 +92,7 @@ const { t } = useI18n();
 const uploading = ref(false);
 const error = ref('');
 
-const presets = computed(() => FLYER_PRESET_ASSETS[props.imageKey] ?? []);
+const presets = computed(() => props.presetsByKind?.[props.imageKey] ?? []);
 
 const isCustom = computed(
 	() => !!props.modelValue && !presets.value.some((p) => p.url === props.modelValue),
@@ -103,7 +113,7 @@ async function onFileChange(event: Event) {
 		const url = await uploadFlyerAsset(props.imageKey, dataUrl);
 		emit('update', url);
 	} catch (err) {
-		error.value = apiErrorMessage(err, t('retreatFlyerEditor.images.failed'));
+		error.value = apiErrorMessage(err, t(`${props.tPrefix}.images.failed`));
 	} finally {
 		uploading.value = false;
 		// Clearing the value lets the same file be picked again after an error

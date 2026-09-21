@@ -26,7 +26,7 @@
 			@drop="onBlockDrop($event, index)"
 			@click="onBlockClick(block.id)"
 		>
-			<component :is="FLYER_BLOCK_COMPONENTS[block.id]" :content="content" />
+			<component :is="components[block.id]" :content="content" />
 		</div>
 
 		<p
@@ -40,45 +40,55 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue';
-import type { FlyerBlockId, FlyerBlockLayout, FlyerSlot, FlyerTheme, FlyerBlockStyle } from '@repo/types';
-import type { FlyerContent } from '@/composables/useFlyerContent';
+import type { Component } from 'vue';
+import type { FlyerSlot, FlyerTheme, FlyerBlockStyle } from '@repo/types';
+import type { AnyBlockLayout } from '@/utils/flyerLayout';
 import { resolveBlockStyle } from '@/utils/flyerStyle';
-import { FLYER_BLOCK_COMPONENTS } from './blockRegistry';
+import { FLYER_BLOCK_COMPONENTS, FLYER_BLOCK_STYLE_DEFAULTS } from './blockRegistry';
 
 const props = withDefaults(
 	defineProps<{
 		slotName: FlyerSlot;
-		blocks: FlyerBlockLayout[];
-		content: FlyerContent;
+		blocks: AnyBlockLayout[];
+		/** Opaque payload the flavour's blocks read; the column only moves it around. */
+		content: Record<string, any>;
 		theme?: FlyerTheme | null;
-		blockStyles?: Partial<Record<FlyerBlockId, FlyerBlockStyle>> | null;
+		blockStyles?: Partial<Record<string, FlyerBlockStyle>> | null;
+		/** Which flavour's block components and built-in styles to use. */
+		components?: Record<string, Component>;
+		styleDefaults?: Record<string, FlyerBlockStyle>;
 		editable?: boolean;
-		selectedBlockId?: FlyerBlockId | null;
+		selectedBlockId?: string | null;
 		emptyLabel?: string;
 	}>(),
-	{ editable: false, emptyLabel: '' },
+	{
+		editable: false,
+		emptyLabel: '',
+		components: () => FLYER_BLOCK_COMPONENTS,
+		styleDefaults: () => FLYER_BLOCK_STYLE_DEFAULTS,
+	},
 );
 
 const emit = defineEmits<{
 	/** Where the drop landed. The canvas knows which block is being dragged. */
 	dropAt: [slot: FlyerSlot, index: number];
-	selectBlock: [blockId: FlyerBlockId];
-	dragBlockStart: [blockId: FlyerBlockId];
+	selectBlock: [blockId: string];
+	dragBlockStart: [blockId: string];
 	dragBlockEnd: [];
 }>();
 
 /** Which block currently shows the "it lands here" line. */
-const dropIndicator = ref<FlyerBlockId | null>(null);
+const dropIndicator = ref<string | null>(null);
 
 const stylesById = computed(() => {
 	const result: Record<string, ReturnType<typeof resolveBlockStyle>> = {};
 	for (const block of props.blocks) {
-		result[block.id] = resolveBlockStyle(block.id, props.theme, props.blockStyles);
+		result[block.id] = resolveBlockStyle(block.id, props.theme, props.blockStyles, props.styleDefaults);
 	}
 	return result;
 });
 
-function styleFor(blockId: FlyerBlockId) {
+function styleFor(blockId: string) {
 	const { hasBox: _hasBox, align: _align, ...cssVars } = stylesById.value[blockId] ?? {};
 	return cssVars as Record<string, string>;
 }
@@ -86,7 +96,7 @@ function styleFor(blockId: FlyerBlockId) {
 // Insertion index is the index of the block being hovered — the same approach the
 // side panel used. No getBoundingClientRect: it returns zeroes under happy-dom and
 // would also have to account for the preview's transform: scale().
-function onBlockDragOver(event: DragEvent, blockId: FlyerBlockId, _index: number) {
+function onBlockDragOver(event: DragEvent, blockId: string, _index: number) {
 	if (!props.editable) return;
 	event.preventDefault();
 	event.stopPropagation();
@@ -115,7 +125,7 @@ function onSlotDrop(event: DragEvent) {
 	emit('dropAt', props.slotName, props.blocks.length);
 }
 
-function onBlockClick(blockId: FlyerBlockId) {
+function onBlockClick(blockId: string) {
 	if (!props.editable) return;
 	emit('selectBlock', blockId);
 }

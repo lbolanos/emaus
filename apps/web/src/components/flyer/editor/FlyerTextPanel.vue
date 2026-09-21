@@ -1,17 +1,17 @@
 <template>
 	<div class="space-y-4">
-		<p class="text-sm text-muted-foreground">{{ t('retreatFlyerEditor.texts.hint') }}</p>
+		<p class="text-sm text-muted-foreground">{{ t(`${tPrefix}.texts.hint`) }}</p>
 
-		<div v-for="key in FLYER_TEXT_OVERRIDE_KEYS" :key="key" class="space-y-1.5">
+		<div v-for="key in config.keys" :key="key" class="space-y-1.5">
 			<div class="flex items-center justify-between gap-2">
 				<Label :for="`flyer-text-${key}`" class="text-xs" :class="isHidden(key) ? 'opacity-50' : ''">
-					{{ t(`retreatFlyerEditor.texts.${key}`) }}
+					{{ t(`${tPrefix}.texts.${key}`) }}
 				</Label>
 				<button
 					type="button"
 					class="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
-					:aria-label="isHidden(key) ? t('retreatFlyerEditor.show') : t('retreatFlyerEditor.hide')"
-					:title="isHidden(key) ? t('retreatFlyerEditor.show') : t('retreatFlyerEditor.hide')"
+					:aria-label="isHidden(key) ? t(`${tPrefix}.show`) : t(`${tPrefix}.hide`)"
+					:title="isHidden(key) ? t(`${tPrefix}.show`) : t(`${tPrefix}.hide`)"
 					:data-text-toggle="key"
 					@click="emit('toggleVisibility', key)"
 				>
@@ -20,12 +20,12 @@
 			</div>
 
 			<p v-if="isHidden(key)" class="text-[11px] text-muted-foreground">
-				{{ t('retreatFlyerEditor.texts.hiddenNote') }}
+				{{ t(`${tPrefix}.texts.hiddenNote`) }}
 			</p>
 
 			<template v-else>
 				<Textarea
-					v-if="MULTILINE_KEYS.includes(key)"
+					v-if="config.multilineKeys.includes(key)"
 					:id="`flyer-text-${key}`"
 					:model-value="values[key] ?? ''"
 					rows="2"
@@ -49,54 +49,74 @@ import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { Eye, EyeOff } from 'lucide-vue-next';
 import { Input, Label, Textarea } from '@repo/ui';
-import type { FlyerTextKey } from '@repo/types';
-import { FLYER_TEXT_OVERRIDE_KEYS, type FlyerTextOverrideKey } from '@/stores/flyerEditorStore';
+import { FLYER_TEXT_OVERRIDE_KEYS } from '@/stores/flyerEditorStore';
+import type { FlyerTextPanelConfig } from './flyerTextConfig';
 
-const props = defineProps<{
-	values: Record<string, string>;
-	hiddenTexts: FlyerTextKey[];
-}>();
+const props = withDefaults(
+	defineProps<{
+		values: Record<string, string>;
+		hiddenTexts: string[];
+		/** Which flavour's override keys and fallbacks to edit. */
+		config?: FlyerTextPanelConfig;
+		/** Per-key placeholders that win over the i18n default (dynamic values). */
+		placeholderOverrides?: Record<string, string>;
+		/** i18n prefix the editor flavour lives under (retreatFlyerEditor, meetingFlyerEditor). */
+		tPrefix?: string;
+	}>(),
+	{
+		config: () => ({
+			keys: FLYER_TEXT_OVERRIDE_KEYS,
+			multilineKeys: [
+				'hopeQuoteOverride',
+				'encounterDescriptionOverride',
+				'reservationNoteOverride',
+				'arrivalTimeNoteOverride',
+				'scanToRegisterOverride',
+			],
+			defaultKeys: {
+				catholicRetreatOverride: 'catholicRetreat',
+				emausForOverride: 'emausFor',
+				weekendOfHopeOverride: 'weekendOfHope',
+				hopeOverride: 'hope',
+				hopeQuoteOverride: 'hopeQuote',
+				encounterDescriptionOverride: 'encounterDescription',
+				dareToLiveItOverride: 'dareToLiveIt',
+				arrivalTimeNoteOverride: 'arrivalTimeNote',
+				whatToBringOverride: 'whatToBring',
+				registerOverride: 'register',
+				scanToRegisterOverride: 'scanToRegister',
+				comeOverride: 'come',
+				limitedCapacityOverride: 'limitedCapacity',
+				dontMissItOverride: 'dontMissIt',
+				reservationNoteOverride: 'reservationNote',
+			},
+			defaultPrefix: 'retreatFlyer',
+		}),
+		placeholderOverrides: () => ({}),
+		tPrefix: 'retreatFlyerEditor',
+	},
+);
 
 const emit = defineEmits<{
-	update: [key: FlyerTextOverrideKey, value: string];
-	toggleVisibility: [key: FlyerTextKey];
+	update: [key: string, value: string];
+	toggleVisibility: [key: string];
 }>();
 
 const { t } = useI18n();
 
-const MULTILINE_KEYS: readonly string[] = [
-	'hopeQuoteOverride',
-	'encounterDescriptionOverride',
-	'reservationNoteOverride',
-	'arrivalTimeNoteOverride',
-	'scanToRegisterOverride',
-];
+const isHidden = (key: string) => props.hiddenTexts.includes(key);
 
-const isHidden = (key: string) => props.hiddenTexts.includes(key as FlyerTextKey);
-
-/** Each override key falls back to a retreatFlyer.* default, shown as the placeholder. */
-const DEFAULT_KEYS: Record<FlyerTextOverrideKey, string> = {
-	catholicRetreatOverride: 'catholicRetreat',
-	emausForOverride: 'emausFor',
-	weekendOfHopeOverride: 'weekendOfHope',
-	hopeOverride: 'hope',
-	hopeQuoteOverride: 'hopeQuote',
-	encounterDescriptionOverride: 'encounterDescription',
-	dareToLiveItOverride: 'dareToLiveIt',
-	arrivalTimeNoteOverride: 'arrivalTimeNote',
-	whatToBringOverride: 'whatToBring',
-	registerOverride: 'register',
-	scanToRegisterOverride: 'scanToRegister',
-	comeOverride: 'come',
-	limitedCapacityOverride: 'limitedCapacity',
-	dontMissItOverride: 'dontMissIt',
-	reservationNoteOverride: 'reservationNote',
-};
-
+/** Each override key falls back to a flavour default, shown as the placeholder. */
 const placeholders = computed(() => {
 	const result: Record<string, string> = {};
-	for (const key of FLYER_TEXT_OVERRIDE_KEYS) {
-		result[key] = t(`retreatFlyer.${DEFAULT_KEYS[key]}`);
+	for (const key of props.config.keys) {
+		const override = props.placeholderOverrides[key];
+		if (override !== undefined) {
+			result[key] = override;
+			continue;
+		}
+		const defaultKey = props.config.defaultKeys[key];
+		result[key] = defaultKey ? t(`${props.config.defaultPrefix}.${defaultKey}`) : '';
 	}
 	return result;
 });

@@ -113,19 +113,19 @@ const props = withDefaults(
 		printable?: boolean;
 		/** Turns the flyer into a drop target. Off for the read-only view. */
 		editable?: boolean;
-		selectedBlockId?: FlyerBlockId | null;
+		selectedBlockId?: string | null;
 		emptySlotLabel?: string;
 	}>(),
 	{ scale: 1, editable: false, emptySlotLabel: '', printable: true },
 );
 
 const emit = defineEmits<{
-	moveBlock: [blockId: FlyerBlockId, slot: FlyerSlot, index: number];
-	selectBlock: [blockId: FlyerBlockId];
+	moveBlock: [blockId: string, slot: FlyerSlot, index: number];
+	selectBlock: [blockId: string];
 }>();
 
 /** Which block the pointer is carrying; the columns only report where it landed. */
-const draggingId = ref<FlyerBlockId | null>(null);
+const draggingId = ref<string | null>(null);
 
 function onDropAt(slot: FlyerSlot, index: number) {
 	if (!draggingId.value) return;

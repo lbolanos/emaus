@@ -1,4 +1,4 @@
-import type { FlyerBlockId, FlyerBlockStyle, FlyerTextAlign, FlyerTheme } from '@repo/types';
+import type { FlyerBlockStyle, FlyerTextAlign, FlyerTheme } from '@repo/types';
 import { FLYER_BLOCK_STYLE_DEFAULTS } from '@/components/flyer/blockRegistry';
 
 /** CSS custom properties the blocks read. */
@@ -69,16 +69,20 @@ function definedFields(style: FlyerBlockStyle | undefined): FlyerBlockStyle {
 /**
  * Cascade: the block's built-in default, then the flyer-wide theme, then the block's
  * own override. Each layer only replaces the fields it sets.
+ *
+ * `defaults` is which flavour's block registry to read the built-in styles from
+ * (retreat, meeting); callers that don't pass one keep the retreat behaviour.
  */
 export function resolveBlockStyle(
-	blockId: FlyerBlockId,
+	blockId: string,
 	theme?: FlyerTheme | null,
-	blockStyles?: Partial<Record<FlyerBlockId, FlyerBlockStyle>> | null,
+	blockStyles?: Partial<Record<string, FlyerBlockStyle>> | null,
+	defaults: Record<string, FlyerBlockStyle> = FLYER_BLOCK_STYLE_DEFAULTS,
 ): ResolvedBlockStyle {
 	const { scrim: _scrim, scrimOpacity: _scrimOpacity, ...themeBlockFields } = theme ?? {};
 
 	const merged: FlyerBlockStyle = {
-		...FLYER_BLOCK_STYLE_DEFAULTS[blockId],
+		...defaults[blockId],
 		...definedFields(themeBlockFields as FlyerBlockStyle),
 		...definedFields(blockStyles?.[blockId]),
 	};
@@ -157,16 +161,17 @@ export interface ContrastCheck {
  * which is what people hit, without pretending to sample the image.
  */
 export function checkBlockContrast(
-	blockId: FlyerBlockId,
+	blockId: string,
 	theme?: FlyerTheme | null,
-	blockStyles?: Partial<Record<FlyerBlockId, FlyerBlockStyle>> | null,
+	blockStyles?: Partial<Record<string, FlyerBlockStyle>> | null,
+	defaults: Record<string, FlyerBlockStyle> = FLYER_BLOCK_STYLE_DEFAULTS,
 ): ContrastCheck {
-	const resolved = resolveBlockStyle(blockId, theme, blockStyles);
+	const resolved = resolveBlockStyle(blockId, theme, blockStyles, defaults);
 	const text = resolved['--fb-text'];
 
 	let background = '#808080';
 	if (resolved.hasBox) {
-		const merged = { ...FLYER_BLOCK_STYLE_DEFAULTS[blockId], ...(theme ?? {}), ...(blockStyles?.[blockId] ?? {}) };
+		const merged = { ...defaults[blockId], ...(theme ?? {}), ...(blockStyles?.[blockId] ?? {}) };
 		const opacity = (merged.backgroundOpacity ?? 100) / 100;
 		// A translucent box still lets the artwork through, so blend towards mid-grey
 		background = blendHex(merged.backgroundColor ?? '#ffffff', '#808080', opacity);
@@ -221,8 +226,20 @@ export function themeForBackground(averageLuminance: number): FlyerTheme {
 			};
 }
 
+/** A one-click look offered in the editor: a palette, plus optional block resets. */
+export interface FlyerThemePreset {
+	id: string;
+	theme: FlyerTheme;
+	/**
+	 * Flavours whose block defaults paint boxes (the meeting's white cards) can bundle
+	 * the box reset the look needs — without it, "text straight on the photo" presets
+	 * land their light text on a white card. Absent means the preset is theme-only.
+	 */
+	blockStyles?: Partial<Record<string, FlyerBlockStyle>>;
+}
+
 /** One-click starting points offered in the editor. */
-export const FLYER_THEME_PRESETS: { id: string; theme: FlyerTheme }[] = [
+export const FLYER_THEME_PRESETS: FlyerThemePreset[] = [
 	{
 		// Text straight on the photo, white with a strong shadow: the poster look.
 		id: 'poster',

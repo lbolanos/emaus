@@ -12,12 +12,17 @@ export interface ResolvedFlyerLayout {
 	images: FlyerImages;
 }
 
-const KNOWN_BLOCK_IDS = new Set<string>(FLYER_DEFAULT_LAYOUT.map((block) => block.id));
-const KNOWN_SLOTS = new Set<string>(['left', 'right', 'wide']);
+/** What every flyer flavour's block layout looks like, regardless of its id enum. */
+export interface AnyBlockLayout {
+	id: string;
+	slot: FlyerSlot;
+	order: number;
+	visible: boolean;
+}
 
 /** Renumbers `order` to 0..n-1 within each slot, so gaps and ties can't survive a save. */
-function normalizeOrder(blocks: FlyerBlockLayout[]): FlyerBlockLayout[] {
-	const bySlot = new Map<FlyerSlot, FlyerBlockLayout[]>();
+function normalizeOrder<T extends AnyBlockLayout>(blocks: T[]): T[] {
+	const bySlot = new Map<FlyerSlot, T[]>();
 
 	for (const block of blocks) {
 		const slot = bySlot.get(block.slot) ?? [];
@@ -25,13 +30,48 @@ function normalizeOrder(blocks: FlyerBlockLayout[]): FlyerBlockLayout[] {
 		bySlot.set(block.slot, slot);
 	}
 
-	const result: FlyerBlockLayout[] = [];
+	const result: T[] = [];
 	for (const slotBlocks of bySlot.values()) {
 		slotBlocks
 			.sort((a, b) => a.order - b.order)
 			.forEach((block, index) => result.push({ ...block, order: index }));
 	}
 	return result;
+}
+
+/**
+ * Reconciles a stored block array against a flavour's default layout:
+ * unknown ids and duplicate ids are dropped, blocks the stored layout doesn't
+ * mention keep their default placement, and `order` is renumbered per slot.
+ *
+ * Shared by every flyer flavour (retreat, meeting); each passes its own default
+ * layout, which is also what defines the valid ids and slots.
+ */
+export function reconcileStoredBlocks<T extends AnyBlockLayout>(
+	stored: unknown,
+	defaultLayout: readonly T[],
+): T[] {
+	const knownIds = new Set(defaultLayout.map((block) => block.id));
+	const knownSlots = new Set(defaultLayout.map((block) => block.slot));
+
+	const seen = new Map<string, T>();
+	for (const block of (Array.isArray(stored) ? stored : []) as T[]) {
+		if (!block || !knownIds.has(block.id) || !knownSlots.has(block.slot)) continue;
+		if (seen.has(block.id)) continue;
+		seen.set(block.id, {
+			id: block.id,
+			slot: block.slot,
+			order: Number.isFinite(block.order) ? block.order : 0,
+			visible: block.visible !== false,
+		} as T);
+	}
+
+	// Anything the stored layout doesn't mention keeps its default placement.
+	for (const fallback of defaultLayout) {
+		if (!seen.has(fallback.id)) seen.set(fallback.id, { ...fallback });
+	}
+
+	return normalizeOrder([...seen.values()]);
 }
 
 /**
@@ -64,36 +104,19 @@ export function resolveFlyerLayout(raw: Record<string, any> | null | undefined):
 		};
 	}
 
-	const seen = new Map<FlyerBlockId, FlyerBlockLayout>();
-	for (const block of storedBlocks as FlyerBlockLayout[]) {
-		if (!block || !KNOWN_BLOCK_IDS.has(block.id) || !KNOWN_SLOTS.has(block.slot)) continue;
-		if (seen.has(block.id)) continue;
-		seen.set(block.id, {
-			id: block.id,
-			slot: block.slot,
-			order: Number.isFinite(block.order) ? block.order : 0,
-			visible: block.visible !== false,
-		});
-	}
-
-	// Anything the stored layout doesn't mention keeps its default placement.
-	for (const fallback of FLYER_DEFAULT_LAYOUT) {
-		if (!seen.has(fallback.id)) seen.set(fallback.id, { ...fallback });
-	}
-
-	return { blocks: normalizeOrder([...seen.values()]), images };
+	return { blocks: reconcileStoredBlocks<FlyerBlockLayout>(storedBlocks, FLYER_DEFAULT_LAYOUT), images };
 }
 
 /**
  * Moves a block to `toSlot` at `toIndex`, renumbering both the source and target slots.
  * Returns a new array; the input is left alone.
  */
-export function moveBlockInLayout(
-	blocks: FlyerBlockLayout[],
-	blockId: FlyerBlockId,
+export function moveBlockInLayout<T extends AnyBlockLayout>(
+	blocks: T[],
+	blockId: T['id'],
 	toSlot: FlyerSlot,
 	toIndex: number,
-): FlyerBlockLayout[] {
+): T[] {
 	const moving = blocks.find((block) => block.id === blockId);
 	if (!moving) return blocks;
 
