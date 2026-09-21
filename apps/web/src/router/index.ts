@@ -566,6 +566,13 @@ const router = createRouter({
 					meta: { requiresRetreat: false },
 				},
 				{
+					path: 'communities/:id/meetings/:meetingId/flyer/edit',
+					name: 'community-meeting-flyer-edit',
+					component: () => import('../views/CommunityMeetingFlyerEditView.vue'),
+					props: true,
+					meta: { requiresRetreat: false },
+				},
+				{
 					path: 'communities/:id/attendance/:meetingId',
 					name: 'community-attendance',
 					component: () => import('../views/CommunityAttendanceView.vue'),

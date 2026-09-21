@@ -3358,6 +3358,102 @@
     "noCommunity": "No community linked",
     "noCommunityHint": "Link the retreat to a community (Edit retreat → General) to take attendance on its preparations."
   },
+  "meetingFlyer": {
+    "kicker": "Community Meeting",
+    "emausLine": "EMAÚS",
+    "dateLabel": "Date & Time",
+    "durationLabel": "Duration",
+    "descriptionLabel": "Description",
+    "locationLabel": "Location",
+    "qrCaption": "Scan to view on Maps",
+    "communityBrand": "{name} Community",
+    "footerText": "See you there!"
+  },
+  "meetingFlyerEditor": {
+    "title": "Meeting flyer editor",
+    "backToFlyer": "Back to the flyer",
+    "save": "Save",
+    "saving": "Saving…",
+    "unsavedChanges": "You have unsaved changes",
+    "discard": "Discard changes",
+    "preview": "Preview",
+    "resetLayout": "Reset to the original layout",
+    "clearDesign": "Delete design",
+    "clearDesignHint": "Deletes the community's saved design and goes back to the original",
+    "confirmClearDesign": "This will delete the saved design and ALL of this community's meetings will go back to the original design. Continue?",
+    "designCleared": "Design restored",
+    "tabs": {
+      "design": "Design",
+      "images": "Images",
+      "texts": "Texts"
+    },
+    "blocks": {
+      "dateTime": "Date & time",
+      "description": "Description",
+      "location": "Location",
+      "locationQr": "Location QR",
+      "community": "Community"
+    },
+    "dragHint": "Drag blocks around the flyer, or move them with the arrows in the list.",
+    "show": "Show",
+    "hide": "Hide",
+    "hidden": "Hidden",
+    "emptySlot": "Drop a block here",
+    "images": {
+      "bodyBackground": "Flyer background",
+      "headerBackground": "Header background",
+      "footerBackground": "Footer background",
+      "logo": "Logo",
+      "upload": "Upload image",
+      "uploading": "Uploading…",
+      "useDefault": "Use the default",
+      "current": "Current",
+      "hint": "The design is saved for the whole community. Images at least 1200 px wide look best.",
+      "failed": "Could not upload the image."
+    },
+    "texts": {
+      "hint": "Leave a field empty to use the default text.",
+      "kickerOverride": "Header top line",
+      "titleOverride": "Meeting title",
+      "dateLabelOverride": "Label: date & time",
+      "durationLabelOverride": "Label: duration",
+      "descriptionLabelOverride": "Label: description",
+      "locationLabelOverride": "Label: location",
+      "qrCaptionOverride": "Text under the QR",
+      "footerTextOverride": "Footer: closing message",
+      "hiddenNote": "Hidden: not shown on the flyer."
+    },
+    "design": {
+      "presets": "Quick styles",
+      "preset": {
+        "poster": "Poster",
+        "ink": "Ink",
+        "veils": "Veils",
+        "original": "Original"
+      },
+      "wholeFlyer": "Whole flyer",
+      "blocks": "Blocks",
+      "scrim": "Dim the background image",
+      "scrimHint": "Useful when the photo is high-contrast and the text competes with it.",
+      "scrimMode": {
+        "none": "No dimming",
+        "dark": "Darken",
+        "light": "Lighten"
+      },
+      "reset": "Reset",
+      "selectHint": "Tap a block on the flyer to give it its own style.",
+      "matchBackground": "Match colors to the image",
+      "matchFailed": "Could not read the background image.",
+      "lowContrast": "This text is barely readable on its background",
+      "lowContrastHint": "This text is barely readable on its background. Try another text colour, a veil, or dimming the image.",
+      "moveUp": "Move block up",
+      "moveDown": "Move block down",
+      "hiddenCount": "{count} hidden block | {count} hidden blocks"
+    },
+    "leaveWithoutSaving": "You have unsaved changes to the flyer. Leave anyway?",
+    "undo": "Undo",
+    "undoHint": "Undo the last change (⌘Z)"
+  },
   "retreatFlyerEditor": {
     "title": "Flyer editor",
     "backToFlyer": "Back to the flyer",

@@ -3682,6 +3682,102 @@
     "noCommunity": "Sin comunidad vinculada",
     "noCommunityHint": "Vincula el retiro a una comunidad (Editar retiro → General) para poder pasar lista en sus preparaciones."
   },
+  "meetingFlyer": {
+    "kicker": "Reunión de Comunidad",
+    "emausLine": "EMAÚS",
+    "dateLabel": "Fecha y Hora",
+    "durationLabel": "Duración",
+    "descriptionLabel": "Descripción",
+    "locationLabel": "Ubicación",
+    "qrCaption": "Escanea para ver en Maps",
+    "communityBrand": "Comunidad {name}",
+    "footerText": "¡Te esperamos!"
+  },
+  "meetingFlyerEditor": {
+    "title": "Editor del volante de reunión",
+    "backToFlyer": "Volver al volante",
+    "save": "Guardar",
+    "saving": "Guardando…",
+    "unsavedChanges": "Tienes cambios sin guardar",
+    "discard": "Descartar cambios",
+    "preview": "Vista previa",
+    "resetLayout": "Restaurar distribución original",
+    "clearDesign": "Borrar diseño",
+    "clearDesignHint": "Borra el diseño guardado de la comunidad y vuelve al original",
+    "confirmClearDesign": "Se borrará el diseño guardado y TODAS las reuniones de esta comunidad volverán al diseño original. ¿Continuar?",
+    "designCleared": "Diseño restaurado",
+    "tabs": {
+      "design": "Diseño",
+      "images": "Imágenes",
+      "texts": "Textos"
+    },
+    "blocks": {
+      "dateTime": "Fecha y hora",
+      "description": "Descripción",
+      "location": "Ubicación",
+      "locationQr": "QR de ubicación",
+      "community": "Comunidad"
+    },
+    "dragHint": "Arrastra los bloques sobre el volante, o muévelos con las flechas de la lista.",
+    "show": "Mostrar",
+    "hide": "Ocultar",
+    "hidden": "Oculto",
+    "emptySlot": "Suelta un bloque aquí",
+    "images": {
+      "bodyBackground": "Fondo del volante",
+      "headerBackground": "Fondo del encabezado",
+      "footerBackground": "Fondo del pie",
+      "logo": "Logotipo",
+      "upload": "Subir imagen",
+      "uploading": "Subiendo…",
+      "useDefault": "Usar la predeterminada",
+      "current": "Actual",
+      "hint": "El diseño se guarda para toda la comunidad. Se ve mejor con imágenes de al menos 1200 px de ancho.",
+      "failed": "No se pudo subir la imagen."
+    },
+    "texts": {
+      "hint": "Deja un campo vacío para usar el texto predeterminado.",
+      "kickerOverride": "Línea superior del encabezado",
+      "titleOverride": "Título de la reunión",
+      "dateLabelOverride": "Etiqueta: fecha y hora",
+      "durationLabelOverride": "Etiqueta: duración",
+      "descriptionLabelOverride": "Etiqueta: descripción",
+      "locationLabelOverride": "Etiqueta: ubicación",
+      "qrCaptionOverride": "Texto bajo el QR",
+      "footerTextOverride": "Pie: mensaje final",
+      "hiddenNote": "Oculto: no aparece en el volante."
+    },
+    "design": {
+      "presets": "Estilos rápidos",
+      "preset": {
+        "poster": "Cartel",
+        "ink": "Tinta",
+        "veils": "Velos",
+        "original": "Original"
+      },
+      "wholeFlyer": "Todo el volante",
+      "blocks": "Bloques",
+      "scrim": "Atenuar la imagen de fondo",
+      "scrimHint": "Útil cuando la foto tiene mucho contraste y el texto compite con ella.",
+      "scrimMode": {
+        "none": "Sin atenuar",
+        "dark": "Oscurecer",
+        "light": "Aclarar"
+      },
+      "reset": "Restaurar",
+      "selectHint": "Toca un bloque del volante para darle un estilo propio.",
+      "matchBackground": "Ajustar colores a la imagen",
+      "matchFailed": "No se pudo leer la imagen de fondo.",
+      "lowContrast": "Este texto casi no se lee sobre su fondo",
+      "lowContrastHint": "Este texto casi no se lee sobre su fondo. Prueba otro color de texto, un velo, o atenuar la imagen.",
+      "moveUp": "Subir el bloque",
+      "moveDown": "Bajar el bloque",
+      "hiddenCount": "{count} bloque oculto | {count} bloques ocultos"
+    },
+    "leaveWithoutSaving": "Tienes cambios sin guardar en el volante. ¿Salir de todas formas?",
+    "undo": "Deshacer",
+    "undoHint": "Deshacer el último cambio (⌘Z)"
+  },
   "retreatFlyerEditor": {
     "title": "Editor del volante",
     "backToFlyer": "Volver al volante",
