@@ -39,9 +39,12 @@ vi.mock('@/services/telemetryService', () => ({
 }));
 
 const mockGetShirtReport = vi.fn();
+const mockUpdateShirtOrderConfirmation = vi.fn();
 vi.mock('@/services/api', () => ({
   api: { get: vi.fn(), post: vi.fn(), put: vi.fn(), patch: vi.fn(), delete: vi.fn() },
   getShirtReport: (...args: any[]) => mockGetShirtReport(...args),
+  updateShirtOrderConfirmation: (...args: any[]) =>
+    mockUpdateShirtOrderConfirmation(...args),
 }));
 
 vi.mock('lucide-vue-next', () => {
@@ -54,10 +57,13 @@ vi.mock('lucide-vue-next', () => {
     Users: icon('users'),
     Sparkles: icon('sparkles'),
     Package: icon('package'),
+    PackageCheck: icon('package-check'),
     Wallet: icon('wallet'),
+    MessageSquare: icon('message-square'),
   };
 });
 
+const mockToast = vi.fn();
 vi.mock('@repo/ui', () => ({
   Input: {
     name: 'Input',
@@ -67,7 +73,7 @@ vi.mock('@repo/ui', () => ({
   },
   Button: { name: 'Button', template: '<button><slot /></button>' },
   Badge: { name: 'Badge', template: '<span><slot /></span>' },
-  useToast: () => ({ toast: vi.fn() }),
+  useToast: () => ({ toast: mockToast }),
 }));
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -88,6 +94,9 @@ function makeServer(overrides: Record<string, any> = {}) {
     idOnRetreat: 10,
     type: 'server' as const,
     shirts: [],
+    shirtOrderConfirmedAt: null,
+    cellPhone: null,
+    country: null,
     ...overrides,
   };
 }
@@ -100,6 +109,9 @@ function makeAngelito(overrides: Record<string, any> = {}) {
     idOnRetreat: 11,
     type: 'partial_server' as const,
     shirts: [],
+    shirtOrderConfirmedAt: null,
+    cellPhone: null,
+    country: null,
     ...overrides,
   };
 }
@@ -136,6 +148,8 @@ function mountView(report: { shirtTypes: any[]; participants: any[] } | null = n
 describe('ShirtsReportView', () => {
   beforeEach(() => {
     mockGetShirtReport.mockReset();
+    mockUpdateShirtOrderConfirmation.mockReset();
+    mockToast.mockReset();
   });
 
   afterEach(() => {
@@ -215,8 +229,8 @@ describe('ShirtsReportView', () => {
       });
       await flushPromises();
       const headers = w.findAll('thead th').map((th) => th.text());
-      // # | Nombre | Playera | Chamarra | Valor | ✓
-      expect(headers).toEqual(['#', 'Nombre', 'Playera', 'Chamarra', 'Valor', '✓']);
+      // # | Nombre | Playera | Chamarra | Valor | Confirmado | ✓
+      expect(headers).toEqual(['#', 'Nombre', 'Playera', 'Chamarra', 'Valor', 'Confirmado', '✓']);
     });
 
     it('muestra la talla en la columna correcta y "—" cuando no pidió ese tipo', async () => {
@@ -229,7 +243,7 @@ describe('ShirtsReportView', () => {
       await flushPromises();
 
       const cells = w.findAll('tbody tr:first-child td').map((td) => td.text().trim());
-      // # | Nombre | Playera | Chamarra | ✓
+      // # | Nombre | Playera | Chamarra | Valor | Confirmado | ✓
       expect(cells[2]).toBe('—');
       expect(cells[3]).toBe('G');
     });
@@ -274,7 +288,7 @@ describe('ShirtsReportView', () => {
       expect(rows[1].findAll('td')[0].text().trim()).toBe('—');
     });
 
-    it('cada fila incluye una columna ✓ vacía para confirmar a mano', async () => {
+    it('cada fila incluye una columna ✓ vacía para confirmar a mano (pendiente)', async () => {
       const w = mountView({
         shirtTypes: [PLAYERA_TYPE],
         participants: [makeServer({ shirts: [makeShirt(PLAYERA_TYPE.id, 'Playera', 'M')] })],
@@ -284,6 +298,22 @@ describe('ShirtsReportView', () => {
       // El cuadrito de confirmar es un span vacío con borde
       expect(lastCell.find('span').exists()).toBe(true);
       expect(lastCell.text().trim()).toBe('');
+    });
+
+    it('la columna ✓ print-only muestra el ✓ real para los confirmados', async () => {
+      const w = mountView({
+        shirtTypes: [PLAYERA_TYPE],
+        participants: [
+          makeServer({
+            firstName: 'Lista',
+            shirtOrderConfirmedAt: '2026-09-21 12:00:00.000',
+            shirts: [makeShirt(PLAYERA_TYPE.id, 'Playera', 'M')],
+          }),
+        ],
+      });
+      await flushPromises();
+      const lastCell = w.find('tbody tr').findAll('td').at(-1)!;
+      expect(lastCell.text().trim()).toBe('✓');
     });
   });
 
@@ -402,6 +432,209 @@ describe('ShirtsReportView', () => {
       await w.find('input').setValue('ana');
       await nextTick();
       expect(w.text()).toContain('de 2');
+    });
+  });
+
+  // ── Confirmación del pedido (chulo del coordinador) ──────────────────────
+
+  describe('confirmación del pedido', () => {
+    function makeConfirmedReport() {
+      return {
+        shirtTypes: [PLAYERA_TYPE],
+        participants: [
+          makeServer({
+            firstName: 'Ya',
+            lastName: 'Confirmado',
+            shirtOrderConfirmedAt: '2026-09-21 12:00:00.000',
+            shirts: [makeShirt(PLAYERA_TYPE.id, 'Playera', 'M')],
+          }),
+          makeServer({
+            firstName: 'Todavía',
+            lastName: 'No',
+            shirts: [makeShirt(PLAYERA_TYPE.id, 'Playera', 'G')],
+          }),
+          makeAngelito({
+            firstName: 'Angel',
+            lastName: 'Confirmado',
+            shirtOrderConfirmedAt: '2026-09-21 13:00:00.000',
+            shirts: [makeShirt(PLAYERA_TYPE.id, 'Playera', 'S')],
+          }),
+        ],
+      };
+    }
+
+    function chipButton(w: ReturnType<typeof mountView>) {
+      return w.findAll('button').find((b) => b.text().includes('Solo sin confirmar'))!;
+    }
+
+    it('muestra la stat card "Confirmados X/Y" contando sobre el total del reporte', async () => {
+      const w = mountView(makeConfirmedReport());
+      await flushPromises();
+      expect(w.text()).toContain('Confirmados');
+      expect(w.text()).toContain('2/3');
+    });
+
+    it('muestra "Confirmados 0/N" cuando nadie ha confirmado', async () => {
+      const w = mountView({
+        shirtTypes: [PLAYERA_TYPE],
+        participants: [
+          makeServer({ shirts: [makeShirt(PLAYERA_TYPE.id, 'Playera', 'M')] }),
+          makeServer({ firstName: 'Otra', shirts: [makeShirt(PLAYERA_TYPE.id, 'Playera', 'G')] }),
+        ],
+      });
+      await flushPromises();
+      expect(w.text()).toContain('0/2');
+    });
+
+    it('el badge refleja el estado de cada fila', async () => {
+      const w = mountView(makeConfirmedReport());
+      await flushPromises();
+      const badges = w.findAll('tbody button').map((b) => b.text());
+      // Orden de filas: Ya Confirmado, Todavía No, Angel Confirmado
+      expect(badges[0]).toBe('✓ Confirmado');
+      expect(badges[1]).toBe('● Sin confirmar');
+      expect(badges[2]).toBe('✓ Confirmado');
+    });
+
+    it('dar el chulo llama al PATCH con true y voltea el badge sin refetch', async () => {
+      const report = makeConfirmedReport();
+      const w = mountView(report);
+      await flushPromises();
+      mockUpdateShirtOrderConfirmation.mockResolvedValueOnce(undefined);
+      const pending = report.participants[1];
+      const badge = w.findAll('tbody button')[1];
+
+      await badge.trigger('click');
+      await nextTick();
+
+      expect(mockUpdateShirtOrderConfirmation).toHaveBeenCalledWith(
+        RETREAT_ID,
+        pending.participantId,
+        true,
+      );
+      expect(w.findAll('tbody button')[1].text()).toBe('✓ Confirmado');
+      expect(w.text()).toContain('3/3');
+      // Sin refetch del reporte tras el toggle.
+      expect(mockGetShirtReport).toHaveBeenCalledTimes(1);
+      await flushPromises();
+    });
+
+    it('quitar el chulo llama al PATCH con false y vuelve a "● Sin confirmar"', async () => {
+      const report = makeConfirmedReport();
+      const w = mountView(report);
+      await flushPromises();
+      mockUpdateShirtOrderConfirmation.mockResolvedValueOnce(undefined);
+      const confirmed = report.participants[0];
+
+      await w.findAll('tbody button')[0].trigger('click');
+      await flushPromises();
+
+      expect(mockUpdateShirtOrderConfirmation).toHaveBeenCalledWith(
+        RETREAT_ID,
+        confirmed.participantId,
+        false,
+      );
+      expect(w.findAll('tbody button')[0].text()).toBe('● Sin confirmar');
+      expect(w.text()).toContain('1/3');
+    });
+
+    it('si el guardado falla, el badge vuelve a su estado anterior y sale un toast', async () => {
+      const report = makeConfirmedReport();
+      const w = mountView(report);
+      await flushPromises();
+      mockUpdateShirtOrderConfirmation.mockRejectedValueOnce(new Error('network'));
+      const badge = w.findAll('tbody button')[1];
+
+      await badge.trigger('click');
+      await flushPromises();
+
+      expect(w.findAll('tbody button')[1].text()).toBe('● Sin confirmar');
+      expect(w.text()).toContain('2/3');
+      expect(mockToast).toHaveBeenCalledWith(
+        expect.objectContaining({ variant: 'destructive' }),
+      );
+    });
+
+    it('un doble-tap durante el guardado pendiente solo dispara un PATCH', async () => {
+      const report = makeConfirmedReport();
+      const w = mountView(report);
+      await flushPromises();
+      let resolveToggle!: () => void;
+      mockUpdateShirtOrderConfirmation.mockImplementationOnce(
+        () => new Promise<void>((r) => (resolveToggle = r)),
+      );
+
+      await w.findAll('tbody button')[1].trigger('click');
+      await w.findAll('tbody button')[1].trigger('click');
+
+      expect(mockUpdateShirtOrderConfirmation).toHaveBeenCalledTimes(1);
+      resolveToggle();
+      await flushPromises();
+      expect(w.findAll('tbody button')[1].text()).toBe('✓ Confirmado');
+    });
+
+    it('"Solo sin confirmar" deja la lista en pendientes y compone AND con la búsqueda', async () => {
+      const report = makeConfirmedReport();
+      const w = mountView(report);
+      await flushPromises();
+
+      await chipButton(w).trigger('click');
+      await nextTick();
+
+      expect(w.text()).toContain('Todavía');
+      expect(w.text()).not.toContain('Ya Confirmado');
+      // El contador siempre cuenta sobre el total del reporte.
+      expect(w.text()).toContain('2/3');
+      // Chip con el número de pendientes.
+      expect(chipButton(w).text()).toContain('1');
+
+      // Composición con la búsqueda: sin match dentro de los pendientes.
+      await w.find('input').setValue('ya');
+      await nextTick();
+      expect(w.text()).toContain('Sin resultados para tu búsqueda');
+
+      // La búsqueda que sí matchea al pendiente lo encuentra.
+      await w.find('input').setValue('todavía');
+      await nextTick();
+      expect(w.text()).toContain('Todavía');
+    });
+
+    it('el botón de WhatsApp abre la conversación con la lada resuelta del país', async () => {
+      const w = mountView({
+        shirtTypes: [PLAYERA_TYPE],
+        participants: [
+          makeServer({
+            firstName: 'Con',
+            lastName: 'Teléfono',
+            cellPhone: '5551234567',
+            country: 'MX',
+            shirts: [makeShirt(PLAYERA_TYPE.id, 'Playera', 'M')],
+          }),
+        ],
+      });
+      await flushPromises();
+
+      const link = w.find('a[href^="https://api.whatsapp.com/send"]');
+      expect(link.exists()).toBe(true);
+      expect(link.attributes('href')).toBe('https://api.whatsapp.com/send?phone=525551234567');
+      expect(link.attributes('title')).toBe('Ver conversación de WhatsApp');
+      expect(link.attributes('target')).toBe('_blank');
+    });
+
+    it('sin teléfono no se renderiza el link de WhatsApp (no hay link muerto)', async () => {
+      const w = mountView({
+        shirtTypes: [PLAYERA_TYPE],
+        participants: [
+          makeServer({
+            firstName: 'Sin',
+            lastName: 'Teléfono',
+            cellPhone: null,
+            shirts: [makeShirt(PLAYERA_TYPE.id, 'Playera', 'M')],
+          }),
+        ],
+      });
+      await flushPromises();
+      expect(w.find('a[href^="https://api.whatsapp.com/send"]').exists()).toBe(false);
     });
   });
 

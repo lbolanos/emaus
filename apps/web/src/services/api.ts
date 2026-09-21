@@ -1003,6 +1003,22 @@ export async function updateBagMade(
 }
 
 /**
+ * Chulo del coordinador: el servidor confirmó su pedido de camisetas (respuesta
+ * al mensaje de la secuencia SERVER_SHIRT_CONFIRMATION). `true` estampa el
+ * timestamp, `false` lo limpia.
+ */
+export async function updateShirtOrderConfirmation(
+  retreatId: string,
+  participantId: string,
+  confirmed: boolean,
+): Promise<void> {
+  await api.patch(
+    `/history/retreat/${retreatId}/participant/${participantId}/shirt-order-confirmation`,
+    { confirmed },
+  );
+}
+
+/**
  * Check if a participant exists by email (for server registration flow)
  * Returns existence status and participant details if found
  */

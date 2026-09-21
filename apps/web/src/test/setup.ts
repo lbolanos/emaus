@@ -463,6 +463,7 @@ vi.mock('lucide-vue-next', () => ({
 	Table: { name: 'Table', template: '<svg></svg>' },
 	Settings: { name: 'Settings', template: '<svg></svg>' },
 	Package: { name: 'Package', template: '<svg></svg>' },
+	PackageCheck: { name: 'PackageCheck', template: '<svg></svg>' },
 	Globe: { name: 'Globe', template: '<svg></svg>' },
 	Briefcase: { name: 'Briefcase', template: '<svg></svg>' },
 	Search: { name: 'Search', template: '<svg></svg>' },
