@@ -145,6 +145,7 @@ Sistema TypeORM contra SQLite. Comandos: `migration:generate`, `migration:run`, 
 | Generar un PDF suelto **para mandar** (WhatsApp/correo) con el membrete de Emaús: horario de retiro, propuesta, listado para el equipo | `documentos-membretados` |
 | Crear/regenerar un video-demo NARRADO de una feature (Playwright headed + subtítulos + TTS Deepgram/`say` + mux ffmpeg) | `demo-videos` |
 | Armar el recuerdo de un retiro terminado: foto de grupo + rótulo en vertical para WhatsApp, o reencuadrar uno hecho | `retreat-keepsakes` |
+| Resumir una sesión de preparación en una infografía vertical (PNG para WhatsApp) con el tema, la fecha y los puntos de la charla | `resumen-sesion-preparacion` |
 | Subir videos al canal de YouTube "Emaús Retiros", generar arte del canal/miniaturas con IA (nano banana/Gemini), OAuth de YouTube, o el botón de ayuda `HelpVideoButton` in-app | `youtube-publishing` |
 | Levantar `pnpm dev` en un git worktree (`.claude/worktrees/<branch>/`) sin chocar con los puertos del main | `worktree-testing` |
 | Entrar por SSH al servidor de prod, AWS CLI, bucket `emaus-media`, backup manual de la DB | `infra-remota` |
