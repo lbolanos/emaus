@@ -311,19 +311,40 @@ export const setCommunityMemberPhotoSchema = z.object({
 });
 
 /**
+ * Fondos predeterminados que el picker del flyer ofrece además de la subida
+ * propia: assets estáticos versionados en apps/web/public/. El front arma la
+ * URL pública ('/poster.png'); la comunidad guarda esa URL, igual que la de
+ * una imagen subida.
+ */
+export const FLYER_BACKGROUND_PRESETS = [
+	'poster.png',
+	'jesus_bg.png',
+	'jesus2.png',
+	'cta-bg.webp',
+] as const;
+export type FlyerBackgroundPreset = (typeof FLYER_BACKGROUND_PRESETS)[number];
+
+/**
  * Fondo personalizado del flyer de reunión (identidad visual de la comunidad).
- * Mismo contrato que las fotos: data-URI base64; magic bytes + 2 MB se validan
- * en imageService. Sin gif: un fondo animado compite con el texto del flyer.
+ * Dos caminos excluyentes: un preset del catálogo (URL pública del repo) o un
+ * data-URI base64 (magic bytes + 2 MB se validan en imageService). Sin gif: un
+ * fondo animado compite con el texto del flyer.
  */
 export const setCommunityFlyerBackgroundSchema = z.object({
-	body: z.object({
-		imageDataUrl: z
-			.string()
-			.min(1)
-			.regex(/^data:image\/(jpeg|jpg|png|webp);base64,/, {
-				message: 'imageDataUrl debe ser un data-URI de imagen válido',
-			}),
-	}),
+	body: z
+		.object({
+			imageDataUrl: z
+				.string()
+				.min(1)
+				.regex(/^data:image\/(jpeg|jpg|png|webp);base64,/, {
+					message: 'imageDataUrl debe ser un data-URI de imagen válido',
+				})
+				.optional(),
+			preset: z.enum(FLYER_BACKGROUND_PRESETS).optional(),
+		})
+		.refine((b) => Boolean(b.imageDataUrl) !== Boolean(b.preset), {
+			message: 'Envía exactamente una de: preset o imageDataUrl',
+		}),
 	params: z.object({
 		id: z.string().uuid(),
 	}),

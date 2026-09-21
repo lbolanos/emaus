@@ -617,9 +617,12 @@ export class CommunityController {
 
 	static async uploadFlyerBackground(req: Request, res: Response) {
 		const { id: communityId } = req.params;
-		const { imageDataUrl } = req.body;
+		const { imageDataUrl, preset } = req.body;
 		try {
-			const community = await communityService.setFlyerBackground(communityId, imageDataUrl);
+			// Preset del catálogo: URL pública directa, sin subida a storage.
+			const community = preset
+				? await communityService.setFlyerBackgroundUrl(communityId, `/${preset}`)
+				: await communityService.setFlyerBackground(communityId, imageDataUrl);
 			res.json(community);
 		} catch (error: any) {
 			if (error.message === 'Community not found') {

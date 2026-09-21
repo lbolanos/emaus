@@ -1514,13 +1514,15 @@ export async function deleteCommunityMeetingPhoto(
   return response.data;
 }
 
+// Community flyer background: a gallery preset (repo public asset) or an
+// uploaded image (data-URI; the API validates magic bytes + 2MB).
+import type { FlyerBackgroundPreset } from '@repo/types';
+
 export async function setCommunityFlyerBackground(
   communityId: string,
-  imageDataUrl: string,
+  background: { imageDataUrl: string } | { preset: FlyerBackgroundPreset },
 ): Promise<Community> {
-  const response = await api.put(`/communities/${communityId}/flyer-background`, {
-    imageDataUrl,
-  });
+  const response = await api.put(`/communities/${communityId}/flyer-background`, background);
   return response.data;
 }
 

@@ -45,29 +45,64 @@
         </button>
       </div>
 
-      <!-- Background picker — only for the styles that render a background image -->
+      <!-- Background picker — only for the styles that render a background image.
+           Popover (not Dialog): the reka-ui Popover+Command freeze bug only
+           happens inside Dialogs; this toolbar is plain in-flow DOM. -->
       <div v-if="flyerStyle !== 'default'" class="toolbar-glass flex items-center gap-1 rounded-xl p-1 shadow-xl">
-        <Button
-          variant="ghost"
-          class="rounded-lg hover:bg-gray-100/80 transition-all text-gray-600 gap-2"
-          title="Cambiar el fondo del flyer"
-          :disabled="isSavingBackground"
-          @click="handlePickBackground"
-        >
-          <Loader2 v-if="isSavingBackground" class="w-4 h-4 animate-spin" />
-          <Image v-else class="w-4 h-4" />
-          <span class="hidden sm:inline">{{ isSavingBackground ? 'Guardando...' : 'Fondo' }}</span>
-        </Button>
-        <Button
-          v-if="community?.flyerBackgroundUrl"
-          variant="ghost"
-          size="icon"
-          class="rounded-lg hover:bg-gray-100/80 transition-all"
-          title="Restaurar el fondo por defecto"
-          @click="handleResetBackground"
-        >
-          <RotateCcw class="w-4 h-4 text-gray-600" />
-        </Button>
+        <Popover v-model:open="isBackgroundPickerOpen">
+          <PopoverTrigger as-child>
+            <Button
+              variant="ghost"
+              class="rounded-lg hover:bg-gray-100/80 transition-all text-gray-600 gap-2"
+              title="Cambiar el fondo del flyer"
+              :disabled="isSavingBackground"
+            >
+              <Loader2 v-if="isSavingBackground" class="w-4 h-4 animate-spin" />
+              <Image v-else class="w-4 h-4" />
+              <span class="hidden sm:inline">{{ isSavingBackground ? 'Guardando...' : 'Fondo' }}</span>
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent align="end" class="w-80 p-3">
+            <p class="mb-2 px-1 text-xs font-semibold uppercase tracking-wider text-gray-500">Galería de fondos</p>
+            <div class="grid grid-cols-2 gap-2">
+              <button
+                v-for="preset in FLYER_BACKGROUND_PRESETS"
+                :key="preset"
+                type="button"
+                class="overflow-hidden rounded-lg border text-left transition-all disabled:opacity-50"
+                :class="community?.flyerBackgroundUrl === `/${preset}`
+                  ? 'border-blue-600 ring-2 ring-blue-500/40'
+                  : 'border-gray-200 hover:border-gray-400'"
+                :disabled="isSavingBackground"
+                @click="handleSelectPreset(preset)"
+              >
+                <img :src="`/${preset}`" :alt="PRESET_LABELS[preset]" class="h-20 w-full object-cover" />
+                <span class="block bg-white px-2 py-1.5 text-xs font-medium text-gray-700">{{ PRESET_LABELS[preset] }}</span>
+              </button>
+            </div>
+            <div class="mt-3 space-y-1 border-t border-gray-100 pt-3">
+              <Button
+                variant="ghost"
+                class="w-full justify-start gap-2 text-gray-700"
+                :disabled="isSavingBackground"
+                @click="handlePickBackground"
+              >
+                <Upload class="h-4 w-4" />
+                Subir mi imagen…
+              </Button>
+              <Button
+                v-if="community?.flyerBackgroundUrl"
+                variant="ghost"
+                class="w-full justify-start gap-2 text-gray-700"
+                :disabled="isSavingBackground"
+                @click="handleResetBackground"
+              >
+                <RotateCcw class="h-4 w-4" />
+                Restaurar por defecto
+              </Button>
+            </div>
+          </PopoverContent>
+        </Popover>
       </div>
 
       <!-- Action Buttons Group -->
@@ -166,8 +201,9 @@
 import { ref, computed, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useCommunityStore } from '@/stores/communityStore';
-import { Button } from '@repo/ui';
-import { Printer, Pencil, ArrowLeft, LayoutTemplate, Image, MessageCircle, Copy, Check, Loader2, ChevronRight, RotateCcw } from 'lucide-vue-next';
+import { Button, Popover, PopoverContent, PopoverTrigger } from '@repo/ui';
+import { Printer, Pencil, ArrowLeft, LayoutTemplate, Image, MessageCircle, Copy, Check, Loader2, ChevronRight, RotateCcw, Upload } from 'lucide-vue-next';
+import { FLYER_BACKGROUND_PRESETS, type FlyerBackgroundPreset } from '@repo/types';
 import { pickFile } from '@/utils/filePicker';
 import { useI18n } from 'vue-i18n';
 import DefaultFlyer from '@/components/flyers/DefaultFlyer.vue';
@@ -270,12 +306,46 @@ const handleEditMeeting = () => {
   isMeetingModalOpen.value = true;
 };
 
-// Custom flyer background (community-wide identity). Same flow as the meeting
-// photo: pick → data-URI → the API processes/stores it (S3 or inline in dev).
+// Custom flyer background (community-wide identity). Two roads: a gallery
+// preset (public asset shipped with the repo) or an uploaded image (same flow
+// as the meeting photo: pick → data-URI → the API stores it, S3 or inline dev).
 const isSavingBackground = ref(false);
+const isBackgroundPickerOpen = ref(false);
+
+// Display names for the gallery thumbnails (order follows FLYER_BACKGROUND_PRESETS).
+const PRESET_LABELS: Record<FlyerBackgroundPreset, string> = {
+  'poster.png': 'Montaña clásica',
+  'jesus_bg.png': 'Rostro de luz',
+  'jesus2.png': 'Manos en ofrenda',
+  'cta-bg.webp': 'Valle con niebla',
+};
+
+const handleSelectPreset = async (preset: FlyerBackgroundPreset) => {
+  if (!community.value || isSavingBackground.value) return;
+
+  isSavingBackground.value = true;
+  try {
+    const updated = await communityStore.setFlyerBackground(community.value.id, { preset });
+    community.value = updated;
+    isBackgroundPickerOpen.value = false;
+    toast({ title: 'Fondo actualizado', description: `El flyer ya usa «${PRESET_LABELS[preset]}».` });
+  } catch (error: any) {
+    console.error('Failed to save flyer background preset:', error);
+    toast({
+      title: 'Error al guardar el fondo',
+      description: error.message || 'No se pudo guardar el fondo de la galería.',
+      variant: 'destructive',
+    });
+  } finally {
+    isSavingBackground.value = false;
+  }
+};
 
 const handlePickBackground = async () => {
   if (!community.value || isSavingBackground.value) return;
+  // Close the popover so the flyer (and its saving spinner) stays in view
+  // while the native file picker is open.
+  isBackgroundPickerOpen.value = false;
 
   const file = await pickFile({ accept: 'image/png,image/jpeg,image/jpg,image/webp' });
   if (!file) return;
@@ -317,6 +387,7 @@ const handleResetBackground = async () => {
   try {
     const updated = await communityStore.clearFlyerBackground(community.value.id);
     community.value = updated;
+    isBackgroundPickerOpen.value = false;
     toast({ title: 'Fondo restaurado', description: 'El flyer vuelve al fondo por defecto.' });
   } catch (error: any) {
     console.error('Failed to reset flyer background:', error);

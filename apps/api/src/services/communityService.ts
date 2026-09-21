@@ -1751,6 +1751,21 @@ export class CommunityService {
 	}
 
 	/**
+	 * Fija el fondo del flyer a una URL directa (un preset del catálogo que
+	 * vive en public/ del web). No pasa por storeFlyerAsset: el archivo ya
+	 * está versionado con el repo, no hay nada que subir.
+	 */
+	async setFlyerBackgroundUrl(communityId: string, url: string) {
+		const community = await this.getCommunityById(communityId);
+		if (!community) {
+			throw new Error('Community not found');
+		}
+
+		await this.communityRepo.update(communityId, { flyerBackgroundUrl: url });
+		return this.getCommunityById(communityId);
+	}
+
+	/**
 	 * Restaura el fondo por defecto de los flyers (columna a NULL; el objeto de
 	 * S3, si existía, no se toca — ver nota en setFlyerBackground).
 	 */

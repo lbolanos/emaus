@@ -8,6 +8,7 @@ import {
 	CommunityAdmin,
 	CommunityAttendance,
 	MemberState,
+	FlyerBackgroundPreset,
 } from '@repo/types';
 
 // Action history interface for undo functionality
@@ -349,8 +350,11 @@ export const useCommunityStore = defineStore('community', () => {
 		return updated;
 	};
 
-	const setFlyerBackground = async (communityId: string, imageDataUrl: string) => {
-		const updated = await api.setCommunityFlyerBackground(communityId, imageDataUrl);
+	const setFlyerBackground = async (
+		communityId: string,
+		background: { imageDataUrl: string } | { preset: FlyerBackgroundPreset },
+	) => {
+		const updated = await api.setCommunityFlyerBackground(communityId, background);
 		if (currentCommunity.value?.id === updated.id) currentCommunity.value = updated;
 		return updated;
 	};
