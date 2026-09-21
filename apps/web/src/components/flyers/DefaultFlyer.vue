@@ -46,7 +46,8 @@
 					</div>
 					<div class="flex-1">
 						<h4 class="font-black text-[15px] uppercase text-gray-500 tracking-[0.15em] mb-1.5">Fecha y Hora</h4>
-						<p class="text-[20px] font-black text-gray-900">{{ formattedDate }}</p>
+						<p class="text-[20px] font-black text-gray-900 first-letter:uppercase">{{ formattedDateOnly }}</p>
+						<p class="text-[16px] text-blue-700 font-bold mt-0.5">{{ formattedTime }} hrs.</p>
 						<p v-if="!meeting?.isAnnouncement" class="text-[16px] text-blue-700 font-bold mt-1">Duración: {{ formattedDuration }}</p>
 					</div>
 				</div>
@@ -105,18 +106,31 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue';
 import QrcodeVue from 'qrcode.vue';
 import { Calendar, FileText, MapPin } from 'lucide-vue-next';
+import { formatMeetingDateOnly, formatMeetingTimeOnly } from '@/utils/meetingFlyer';
 
-defineProps<{
+const props = defineProps<{
 	meeting: any;
 	community: any;
-	formattedDate: string;
 	formattedDuration: string;
 	formattedAddress: string;
 	processedDescription: string;
 	communityName: string;
 }>();
+
+// Same date/time pattern as the Poster and WhatsApp flyers: date-only line
+// (no year, no ghost time) plus a separate "hh:mm hrs." line.
+const formattedDateOnly = computed(() => {
+	if (!props.meeting?.startDate) return '';
+	return formatMeetingDateOnly(props.meeting.startDate, props.community);
+});
+
+const formattedTime = computed(() => {
+	if (!props.meeting?.startDate) return '';
+	return formatMeetingTimeOnly(props.meeting.startDate, props.community);
+});
 </script>
 
 <style scoped>

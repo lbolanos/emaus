@@ -9,8 +9,9 @@
 
 		<!-- Main Content Card - fills entire container -->
 		<section class="glass-card-wa relative flex h-full w-full flex-col items-center justify-center rounded-2xl px-8 py-6 text-center">
-			<!-- Emaús header -->
-			<h2 class="font-serif-title text-5xl font-bold tracking-[0.2em] text-emaus-gold-dark mb-4">EMAÚS</h2>
+			<!-- Emaús header — hidden when the community name already carries the brand
+			     (e.g. "Emaús del Valle" would read "EMAÚS / Emaús del Valle"). -->
+			<h2 v-if="showBrandHeader" class="font-serif-title text-5xl font-bold tracking-[0.2em] text-emaus-gold-dark mb-4">EMAÚS</h2>
 
 			<!-- Community name -->
 			<h1 class="font-serif-title text-3xl sm:text-4xl font-bold tracking-[0.12em] text-emaus-gold-dark leading-tight mb-3">
@@ -65,36 +66,26 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
-import { formatDateInCommunityTimezone } from '@repo/utils';
+import { formatMeetingDateOnly, formatMeetingTimeOnly } from '@/utils/meetingFlyer';
 
 const props = defineProps<{
 	meeting: any;
 	community: any;
-	formattedDate: string;
 	formattedAddress: string;
 	processedDescription: string;
 	communityName: string;
 }>();
 
+const showBrandHeader = computed(() => !/^ema[úu]s\b/i.test(props.communityName.trim()));
+
 const formattedDateOnly = computed(() => {
 	if (!props.meeting?.startDate) return '';
-	// Usar TZ de la comunidad para que el flyer refleje la hora local correcta.
-	// "miércoles, 23 de septiembre de 2026" → "miércoles, 23 de septiembre".
-	// Note: 'date-long' preset (date-only). Passing dateStyle alone inherits
-	// timeStyle from the default 'datetime-short' preset and appends the time.
-	// The connector "de" must go with the year, or it dangles at the end.
-	return formatDateInCommunityTimezone(props.meeting.startDate, props.community, {
-		locale: 'es-ES',
-		preset: 'date-long',
-	}).replace(/\s+de\s+\d{4}\s*$/, '');
+	return formatMeetingDateOnly(props.meeting.startDate, props.community);
 });
 
 const formattedTime = computed(() => {
 	if (!props.meeting?.startDate) return '';
-	return formatDateInCommunityTimezone(props.meeting.startDate, props.community, {
-		locale: 'es-ES',
-		preset: 'time',
-	});
+	return formatMeetingTimeOnly(props.meeting.startDate, props.community);
 });
 
 const locationMessage = computed(() => {

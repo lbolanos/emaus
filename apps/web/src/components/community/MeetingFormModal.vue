@@ -319,7 +319,7 @@ import MeetingRecurrenceForm from './forms/MeetingRecurrenceForm.vue';
 import {
   replaceFlyerVariables,
   formatDuration,
-  formatMeetingDate,
+  formatMeetingDateOnly,
   formatCommunityAddress,
   type MeetingFlyerData
 } from '@/utils/meetingFlyer';
@@ -479,7 +479,7 @@ const previewMessage = computed(() => {
     return 'Completa la fecha y hora para ver la vista previa...';
   }
   const data: MeetingFlyerData = {
-    fecha: formatMeetingDate(new Date(form.value.date + 'T' + form.value.time)),
+    fecha: formatMeetingDateOnly(new Date(form.value.date + 'T' + form.value.time)),
     hora: form.value.time,
     nombre: form.value.title || 'Nombre de la reunión',
     descripcion: form.value.description || '',

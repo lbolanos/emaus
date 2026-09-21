@@ -1,6 +1,7 @@
 /**
  * Utility functions for meeting flyer template variable replacement
  */
+import { formatDateInCommunityTimezone } from '@repo/utils';
 
 export interface MeetingFlyerData {
 	fecha: string;
@@ -113,7 +114,11 @@ export function formatMeetingTime(
 }
 
 /**
- * Formats the full community address
+ * Formats the full community address for flyers and template previews.
+ * - Drops the state when it repeats the city ("Ciudad de México, Ciudad de México").
+ * - Drops the country for the home market ("Mexico"/"México"): a meeting flyer
+ *   targets the community's own city, and the English spelling reads like a bug
+ *   in Spanish copy. Other countries are kept.
  */
 export function formatCommunityAddress(community: {
 	address1: string;
@@ -123,13 +128,47 @@ export function formatCommunityAddress(community: {
 	zipCode: string;
 	country: string;
 }): string {
+	const city = community.city?.trim();
+	const country = community.country?.trim();
 	const parts = [
 		community.address1,
 		community.address2,
-		community.city,
-		community.state,
+		city,
+		// Avoid rendering "Ciudad de México, Ciudad de México" when city === state.
+		community.state?.trim()?.toLowerCase() !== city?.toLowerCase() ? community.state : undefined,
 		community.zipCode,
-		community.country,
+		/^m[ée]xico$/i.test(country ?? '') ? undefined : country,
 	].filter((part) => part && part.trim());
 	return parts.join(', ');
+}
+
+/**
+ * Flyer date line: long weekday + date in the community's TZ, without year or
+ * time. "miércoles, 23 de septiembre de 2026" → "miércoles, 23 de septiembre".
+ * Note: 'date-long' preset (date-only). Passing dateStyle alone inherits
+ * timeStyle from the default 'datetime-short' preset and appends the time.
+ * The connector "de" must go with the year, or it dangles at the end.
+ */
+export function formatMeetingDateOnly(
+	date: Date | string,
+	community?: { timezone?: string | null } | null,
+): string {
+	return formatDateInCommunityTimezone(date, community, {
+		locale: 'es-ES',
+		preset: 'date-long',
+	}).replace(/\s+de\s+\d{4}\s*$/, '');
+}
+
+/**
+ * Flyer time line ("19:45") in the community's TZ. Callers append the unit
+ * ("hrs.") so every flyer style renders it identically.
+ */
+export function formatMeetingTimeOnly(
+	date: Date | string,
+	community?: { timezone?: string | null } | null,
+): string {
+	return formatDateInCommunityTimezone(date, community, {
+		locale: 'es-ES',
+		preset: 'time',
+	});
 }
