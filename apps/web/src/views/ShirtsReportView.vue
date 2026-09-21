@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRetreatStore } from '@/stores/retreatStore'
 import { Input, useToast } from '@repo/ui'
 import { formatCurrency } from '@repo/utils'
@@ -111,11 +111,7 @@ async function toggleConfirmation(participant: ShirtReportParticipant) {
   }
 }
 
-onMounted(async () => {
-  if (retreatStore.retreats.length === 0) await retreatStore.fetchRetreats()
-  const retreatId =
-    retreatStore.selectedRetreatId || retreatStore.mostRecentRetreat?.id
-  if (!retreatId) return
+async function loadReport(retreatId: string) {
   currentRetreatId.value = retreatId
   loading.value = true
   try {
@@ -125,7 +121,24 @@ onMounted(async () => {
   } finally {
     loading.value = false
   }
+}
+
+onMounted(async () => {
+  if (retreatStore.retreats.length === 0) await retreatStore.fetchRetreats()
+  const retreatId =
+    retreatStore.selectedRetreatId || retreatStore.mostRecentRetreat?.id
+  if (!retreatId) return
+  await loadReport(retreatId)
 })
+
+// Cambiar de retiro en el sidebar recarga el reporte; sin esto el toggle
+// confirmaría contra currentRetreatId del montaje (el retiro anterior).
+watch(
+  () => retreatStore.selectedRetreatId,
+  (retreatId) => {
+    if (retreatId) void loadReport(retreatId)
+  },
+)
 </script>
 
 <template>
@@ -355,7 +368,24 @@ onMounted(async () => {
 
             <tr v-if="filteredParticipants.length === 0">
               <td :colspan="4 + sortedShirtTypes.length" class="px-4 py-12 text-center">
-                <div class="flex flex-col items-center gap-2 text-gray-400">
+                <!-- Sin búsqueda: quien vació la tabla fue el filtro — ofrecer
+                     desactivarlo, no "limpiar la búsqueda". -->
+                <div
+                  v-if="!searchQuery"
+                  class="flex flex-col items-center gap-2 text-gray-400"
+                >
+                  <PackageCheck class="w-8 h-8 opacity-40" />
+                  <p class="text-sm font-medium">
+                    Todos los pedidos de este retiro están confirmados.
+                  </p>
+                  <button
+                    class="text-xs text-indigo-500 hover:text-indigo-700 underline"
+                    @click="onlyUnconfirmed = false"
+                  >
+                    Mostrar todos
+                  </button>
+                </div>
+                <div v-else class="flex flex-col items-center gap-2 text-gray-400">
                   <Search class="w-8 h-8 opacity-40" />
                   <p class="text-sm font-medium">Sin resultados para tu búsqueda.</p>
                   <button

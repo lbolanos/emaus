@@ -505,7 +505,9 @@ describe('ShirtsReportView', () => {
       const badge = w.findAll('tbody button')[1];
 
       await badge.trigger('click');
-      await nextTick();
+      // Flush ANTES de asertar: un refetch agregado tras el await del PATCH
+      // solo se vería después de que el mock resuelve.
+      await flushPromises();
 
       expect(mockUpdateShirtOrderConfirmation).toHaveBeenCalledWith(
         RETREAT_ID,
@@ -516,7 +518,31 @@ describe('ShirtsReportView', () => {
       expect(w.text()).toContain('3/3');
       // Sin refetch del reporte tras el toggle.
       expect(mockGetShirtReport).toHaveBeenCalledTimes(1);
+    });
+
+    it('cambiar de retiro en el sidebar recarga el reporte y el toggle patea al retiro nuevo', async () => {
+      const report = makeConfirmedReport();
+      const w = mountView(report);
       await flushPromises();
+      expect(mockGetShirtReport).toHaveBeenCalledTimes(1);
+
+      const retreatStore = useRetreatStore();
+      mockGetShirtReport.mockResolvedValueOnce(report);
+      retreatStore.selectedRetreatId = 'retreat-nuevo';
+      await flushPromises();
+
+      expect(mockGetShirtReport).toHaveBeenCalledTimes(2);
+      expect(mockGetShirtReport).toHaveBeenLastCalledWith('retreat-nuevo');
+
+      // El toggle debe escribir contra el retiro activo, no el del montaje.
+      const confirmed = report.participants[0];
+      await w.findAll('tbody button')[0].trigger('click');
+      await flushPromises();
+      expect(mockUpdateShirtOrderConfirmation).toHaveBeenCalledWith(
+        'retreat-nuevo',
+        confirmed.participantId,
+        false,
+      );
     });
 
     it('quitar el chulo llama al PATCH con false y vuelve a "● Sin confirmar"', async () => {
@@ -597,6 +623,36 @@ describe('ShirtsReportView', () => {
       await w.find('input').setValue('todavía');
       await nextTick();
       expect(w.text()).toContain('Todavía');
+    });
+
+    it('con el filtro activo y todo confirmado, ofrece desactivar el filtro (no limpiar búsqueda)', async () => {
+      const w = mountView({
+        shirtTypes: [PLAYERA_TYPE],
+        participants: [
+          makeServer({
+            shirtOrderConfirmedAt: '2026-09-21 12:00:00.000',
+            shirts: [makeShirt(PLAYERA_TYPE.id, 'Playera', 'M')],
+          }),
+          makeAngelito({
+            shirtOrderConfirmedAt: '2026-09-21 13:00:00.000',
+            shirts: [makeShirt(PLAYERA_TYPE.id, 'Playera', 'S')],
+          }),
+        ],
+      });
+      await flushPromises();
+
+      await chipButton(w).trigger('click');
+      await nextTick();
+
+      // El filtro vació la tabla, no la búsqueda: el mensaje y el botón
+      // tienen que hablar del filtro.
+      expect(w.text()).toContain('Todos los pedidos de este retiro están confirmados');
+      expect(w.text()).not.toContain('Sin resultados para tu búsqueda');
+
+      const showAll = w.findAll('button').find((b) => b.text() === 'Mostrar todos')!;
+      await showAll.trigger('click');
+      await nextTick();
+      expect(w.text()).toContain('Ana'); // las filas vuelven
     });
 
     it('el botón de WhatsApp abre la conversación con la lada resuelta del país', async () => {

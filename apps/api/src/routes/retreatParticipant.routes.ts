@@ -18,6 +18,8 @@ import {
 } from '../controllers/retreatParticipantController';
 import { isAuthenticated } from '../middleware/authentication';
 import { requirePermission, requireRetreatAccess } from '../middleware/authorization';
+import { validateRequest } from '../middleware/validateRequest';
+import { setShirtOrderConfirmationSchema } from '@repo/types';
 
 const router = Router();
 
@@ -123,6 +125,7 @@ router.patch(
 	isAuthenticated,
 	requirePermission('participant:update'),
 	requireRetreatAccess('retreatId'),
+	validateRequest(setShirtOrderConfirmationSchema),
 	updateShirtOrderConfirmationController,
 );
 

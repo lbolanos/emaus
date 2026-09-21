@@ -99,3 +99,41 @@ Marcar al cerrar cada milestone, anotando las desviaciones reales respecto al pl
   dashboard (preexistentes, no de esta feature; la vista del reporte y su recarga no
   registraron errores). El screenshot inicial de Playwright cayó en la raíz del worktree en
   vez de `/tmp/chrome` (convención); movido al limpiar.
+
+## Desviaciones del cierre (code-review post-M3)
+
+El `/cierre` (2026-09-21) pasó code-review sobre el diff real de la rama
+(`a16e4536..HEAD`); 7 hallazgos se arreglaron, 8 se descartaron con motivo:
+
+- **Authz GET shirt-report**: el reporte ahora también pasa
+  `requireRetreatAccess('retreatId')` — lista `cellPhone`/`country` de todos los
+  servidores del retiro y `participant:read` es un permiso global (sembrado al rol
+  `regular`); sin el gate, PII enumerable por retreatId. Spec nuevo
+  `shirtReport.routes.simple.test.ts` (wiring + 401/403).
+- **Write-protect del history CRUD**: `CreateHistoryData`/`UpdateHistoryData` ahora
+  extienden `Omit<RetreatSnapshotFields, 'shirtOrderConfirmedAt'>` y
+  `stripWriteProtectedFields` lo quita en runtime al entrar a
+  `createHistoryEntry`/`updateHistoryEntry` — un `PUT /history` con el campo en el
+  body bypaseaba el gate de retiro del PATCH dedicado.
+- **Watcher del retiro**: `ShirtsReportView` recarga el reporte al cambiar
+  `selectedRetreatId` (patrón `AngelitosView`); sin él, el toggle escribía contra el
+  retiro del montaje.
+- **Empty state del filtro**: la tabla vacía por "Solo sin confirmar" + todo
+  confirmado ahora ofrece "Mostrar todos" (antes mentía con "Sin resultados para tu
+  búsqueda" y link a limpiar la búsqueda).
+- **Validación del PATCH**: `validateRequest(setShirtOrderConfirmationSchema)` en la
+  ruta — sin JSON body el endpoint daba 500 (destructuring sobre `undefined`); ahora
+  400. El check manual del controller se retiró (redundante).
+- **Spec endurecidos**: caso 400-sin-body + prueba de 0-filas en el par inexistente
+  (un WHERE sin `participantId` estamparía al retiro entero); flushPromises antes del
+  assert de no-refetch; 2 casos web nuevos (watcher, empty state del filtro).
+- **Test HTTP del write-protect no viable**: PUT/POST `/history` hidratan entities por
+  el grafo del router y bajo jest lanzan el error preexistente "Class constructor
+  RetreatParticipant cannot be invoked without 'new'" (documentado en
+  `palancasCountWritePath.test.ts`). Se testea `stripWriteProtectedFields` unitariamente.
+- **Descartados**: error→empty state y fallback MX de país (preexistentes, fuera de
+  alcance); vanish del filtro al confirmar (diseño deliberado de cola de pendientes);
+  3 copias del shape y extracción de composable (refactor cosmético); whatsappLink 2×/render
+  (perf no medida, N chico); comentarios/it() en español en el spec web (consistencia con
+  los vecinos del mismo archivo); echo de `error.message` en el 500 (copia bag-made, solo
+  alcanzable con permisos).

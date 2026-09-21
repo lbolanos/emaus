@@ -50,6 +50,7 @@ jest.mock('../../middleware/authorization', () => {
 });
 
 import participantHistoryRoutes from '../../routes/retreatParticipant.routes';
+import { stripWriteProtectedFields } from '../../services/retreatParticipantService';
 
 const app = express();
 app.use(express.json());
@@ -149,6 +150,16 @@ describe('PATCH /history/retreat/:retreatId/participant/:participantId/shirt-ord
 			expect(await readConfirmedAt(participantId, retreatId)).toBeNull();
 		});
 
+		it('400 when the request has no JSON body at all (validateRequest, not a 500)', async () => {
+			// No .send(): no Content-Type → express.json skips → req.body is
+			// undefined. The route schema rejects it before the controller's
+			// destructuring could blow up.
+			const response = await request(app).patch(url());
+
+			expect(response.status).toBe(400);
+			expect(await readConfirmedAt(participantId, retreatId)).toBeNull();
+		});
+
 		it('true stamps the timestamp on the retreat_participants row', async () => {
 			const response = await request(app).patch(url()).send({ confirmed: true });
 
@@ -177,6 +188,41 @@ describe('PATCH /history/retreat/:retreatId/participant/:participantId/shirt-ord
 
 			expect(response.status).toBe(200);
 			expect(response.body).toEqual({ ok: true });
+			// 0 rows affected, proven: the retreat's real participant stays
+			// untouched — this is what catches a WHERE that drops participantId
+			// (which would stamp the whole retreat).
+			expect(await readConfirmedAt(participantId, retreatId)).toBeNull();
+		});
+	});
+
+	describe('write-protect on the unscoped history CRUD', () => {
+		// PUT/POST /history run the real updateHistoryEntry/createHistoryEntry,
+		// which hydrate entities through the router graph — under jest that
+		// throws the pre-existing "Class constructor RetreatParticipant cannot
+		// be invoked without 'new'" (documented in palancasCountWritePath
+		// .test.ts), so the HTTP path is not exercisable here. The strip both
+		// CRUD entry points call is what this unit test pins down.
+		it('stripWriteProtectedFields drops shirtOrderConfirmedAt and keeps the rest', async () => {
+			const payload = stripWriteProtectedFields({
+				participantId,
+				retreatId,
+				roleInRetreat: 'server',
+				notes: 'coordinador',
+				shirtOrderConfirmedAt: '2020-01-01 00:00:00',
+			});
+
+			expect(payload).toEqual({
+				participantId,
+				retreatId,
+				roleInRetreat: 'server',
+				notes: 'coordinador',
+			});
+			expect('shirtOrderConfirmedAt' in payload).toBe(false);
+		});
+
+		it('is a no-op on payloads that never carried the field', async () => {
+			expect(stripWriteProtectedFields({ notes: 'hola' })).toEqual({ notes: 'hola' });
+			expect(stripWriteProtectedFields({})).toEqual({});
 		});
 	});
 });

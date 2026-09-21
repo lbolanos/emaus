@@ -356,11 +356,9 @@ export const updateShirtOrderConfirmationController = async (
 ): Promise<void> => {
 	try {
 		const { participantId, retreatId } = req.params;
+		// Body validated by setShirtOrderConfirmationSchema in the route
+		// (validateRequest): a missing/non-boolean `confirmed` never reaches here.
 		const { confirmed } = req.body;
-		if (typeof confirmed !== 'boolean') {
-			res.status(400).json({ message: 'confirmed debe ser un booleano' });
-			return;
-		}
 		await syncRetreatFields(participantId, retreatId, {
 			shirtOrderConfirmedAt: confirmed ? new Date() : null,
 		});
