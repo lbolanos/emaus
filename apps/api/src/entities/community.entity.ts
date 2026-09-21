@@ -9,6 +9,7 @@ import {
 	OneToMany,
 } from 'typeorm';
 import { User } from './user.entity';
+import type { MeetingFlyerOptions } from '@repo/types';
 import { CommunityMember } from './communityMember.entity';
 import { CommunityMeeting } from './communityMeeting.entity';
 import { CommunityAdmin } from './communityAdmin.entity';
@@ -67,6 +68,15 @@ export class Community {
 	 */
 	@Column({ type: 'float', nullable: true })
 	flyerCardOpacity?: number | null;
+
+	/**
+	 * Design of the "Personalizado" meeting-flyer style (blocks, theme, texts,
+	 * images). Community identity like the two columns above: every meeting of
+	 * the community inherits it. NULL = never customized. JSON column validated
+	 * by meetingFlyerOptionsSchema; the PUT replaces it whole.
+	 */
+	@Column({ type: 'simple-json', nullable: true })
+	flyerOptions?: MeetingFlyerOptions | null;
 
 	/**
 	 * IANA timezone (ej. 'America/Mexico_City'). Se infiere desde lat/lon en

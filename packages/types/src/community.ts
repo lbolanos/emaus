@@ -1,4 +1,12 @@
 import { z } from 'zod';
+import {
+	FLYER_LAYOUT_VERSION,
+	FLYER_TEXT_MAX,
+	flyerBlockLayoutBaseSchema,
+	flyerBlockStyleSchema,
+	flyerImagesSchema,
+	flyerThemeSchema,
+} from './flyer';
 
 // Member state enum.
 //
@@ -56,6 +64,74 @@ export type ParticipationFrequency = z.infer<typeof ParticipationFrequencyEnum>;
 export const CommunityStatusEnum = z.enum(['pending', 'active', 'rejected']);
 export type CommunityStatus = z.infer<typeof CommunityStatusEnum>;
 
+// Community meeting flyer — block ids, layout and design options.
+//
+// The design is COMMUNITY identity (like flyerBackgroundUrl/flyerCardOpacity):
+// every meeting of the community inherits it. Built on the shared schemas in
+// './flyer' — this file is re-exported by index.ts, so importing from './index'
+// would close a cycle.
+export const meetingFlyerBlockIdSchema = z.enum([
+	'dateTime',
+	'description',
+	'location',
+	'locationQr',
+	'community',
+]);
+export type MeetingFlyerBlockId = z.infer<typeof meetingFlyerBlockIdSchema>;
+
+export const meetingFlyerBlockLayoutSchema = flyerBlockLayoutBaseSchema.extend({
+	id: meetingFlyerBlockIdSchema,
+});
+export type MeetingFlyerBlockLayout = z.infer<typeof meetingFlyerBlockLayoutSchema>;
+
+/**
+ * The meeting flyer's editable texts. Same convention as the retreat flyer: an
+ * empty override means "use the default wording", while a key in `hiddenTexts`
+ * means "this line does not belong on my flyer".
+ */
+export const meetingFlyerTextKeySchema = z.enum([
+	'kickerOverride',
+	'titleOverride',
+	'dateLabelOverride',
+	'durationLabelOverride',
+	'descriptionLabelOverride',
+	'locationLabelOverride',
+	'qrCaptionOverride',
+	'footerTextOverride',
+]);
+export type MeetingFlyerTextKey = z.infer<typeof meetingFlyerTextKeySchema>;
+
+/**
+ * Design of the "Personalizado" meeting-flyer style. The PUT replaces the whole
+ * `flyer_options` column, so the editor must carry over everything it does not
+ * touch. NOTE: z.object() silently drops undeclared keys — any future field has
+ * to be declared here or saves will quietly lose it (same as the retreat's
+ * flyerOptionsSchema).
+ */
+export const meetingFlyerOptionsSchema = z.object({
+	/** Always 2 today; kept explicit so a future v3 can reconcile old rows. */
+	layoutVersion: z.number().int().min(1).max(FLYER_LAYOUT_VERSION).optional(),
+	// Capped: only 5 block ids exist, and the canvas mounts a component per entry.
+	blocks: z.array(meetingFlyerBlockLayoutSchema).max(16).optional(),
+	images: flyerImagesSchema.optional(),
+	/** Palette applied to every block, plus the wash over the background image. */
+	theme: flyerThemeSchema.optional(),
+	/** Per-block overrides on top of the theme. Zod validates the keys against the enum. */
+	blockStyles: z.record(meetingFlyerBlockIdSchema, flyerBlockStyleSchema).optional(),
+	/** Texts left off the flyer entirely, as opposed to just not customised. */
+	hiddenTexts: z.array(meetingFlyerTextKeySchema).max(20).optional(),
+
+	kickerOverride: z.string().max(FLYER_TEXT_MAX).optional(),
+	titleOverride: z.string().max(FLYER_TEXT_MAX).optional(),
+	dateLabelOverride: z.string().max(FLYER_TEXT_MAX).optional(),
+	durationLabelOverride: z.string().max(FLYER_TEXT_MAX).optional(),
+	descriptionLabelOverride: z.string().max(FLYER_TEXT_MAX).optional(),
+	locationLabelOverride: z.string().max(FLYER_TEXT_MAX).optional(),
+	qrCaptionOverride: z.string().max(FLYER_TEXT_MAX).optional(),
+	footerTextOverride: z.string().max(FLYER_TEXT_MAX).optional(),
+});
+export type MeetingFlyerOptions = z.infer<typeof meetingFlyerOptionsSchema>;
+
 // Community schema
 export const communitySchema = z.object({
 	id: z.string().uuid(),
@@ -95,6 +171,9 @@ export const communitySchema = z.object({
 	flyerBackgroundUrl: z.string().optional().nullable(),
 	// Opacidad del recuadro central (glass card), 0.3–1.0. NULL = default (~0.8).
 	flyerCardOpacity: z.number().optional().nullable(),
+	// Diseño del flyer "Personalizado" (bloques/tema/textos/imágenes). NULL = la
+	// comunidad nunca lo personalizó; todas sus reuniones lo heredan por igual.
+	flyerOptions: meetingFlyerOptionsSchema.optional().nullable(),
 	createdAt: z.coerce.date(),
 	updatedAt: z.coerce.date(),
 	// Calculated fields
@@ -366,6 +445,26 @@ export const setCommunityFlyerCardOpacitySchema = z.object({
 	body: z.object({
 		opacity: z.number().min(0.3).max(1),
 	}),
+	params: z.object({
+		id: z.string().uuid(),
+	}),
+});
+
+/**
+ * Diseño completo del flyer de reunión ("Personalizado"). El PUT reemplaza la
+ * columna entera: el editor manda el objeto completo, arrastrando lo que no
+ * edita. El DELETE la deja en NULL (la comunidad vuelve a "sin diseño").
+ */
+export const setCommunityFlyerOptionsSchema = z.object({
+	body: z.object({
+		flyerOptions: meetingFlyerOptionsSchema,
+	}),
+	params: z.object({
+		id: z.string().uuid(),
+	}),
+});
+
+export const deleteCommunityFlyerOptionsSchema = z.object({
 	params: z.object({
 		id: z.string().uuid(),
 	}),

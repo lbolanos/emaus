@@ -668,6 +668,33 @@ export class CommunityController {
 		}
 	}
 
+	static async setFlyerOptions(req: Request, res: Response) {
+		const { id: communityId } = req.params;
+		const { flyerOptions } = req.body;
+		try {
+			const community = await communityService.setFlyerOptions(communityId, flyerOptions);
+			res.json(community);
+		} catch (error: any) {
+			if (error.message === 'Community not found') {
+				return res.status(404).json({ message: 'Community not found' });
+			}
+			throw error;
+		}
+	}
+
+	static async clearFlyerOptions(req: Request, res: Response) {
+		const { id: communityId } = req.params;
+		try {
+			const community = await communityService.clearFlyerOptions(communityId);
+			res.json(community);
+		} catch (error: any) {
+			if (error.message === 'Community not found') {
+				return res.status(404).json({ message: 'Community not found' });
+			}
+			throw error;
+		}
+	}
+
 	// --- Recurrence Instance Management ---
 
 	static async getMyCommunities(req: Request, res: Response) {

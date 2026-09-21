@@ -1543,6 +1543,27 @@ export async function setCommunityFlyerCardOpacity(
   return response.data;
 }
 
+// Community meeting flyer design (the "Personalizado" style). The PUT replaces
+// the whole column: callers must send the complete options object.
+import type { MeetingFlyerOptions } from '@repo/types';
+
+export async function setCommunityFlyerOptions(
+  communityId: string,
+  flyerOptions: MeetingFlyerOptions,
+): Promise<Community> {
+  const response = await api.put(`/communities/${communityId}/flyer-options`, {
+    flyerOptions,
+  });
+  return response.data;
+}
+
+export async function deleteCommunityFlyerOptions(
+  communityId: string,
+): Promise<Community> {
+  const response = await api.delete(`/communities/${communityId}/flyer-options`);
+  return response.data;
+}
+
 export async function createNextMeetingInstance(
   meetingId: string,
 ): Promise<CommunityMeeting & { isPastDate?: boolean }> {

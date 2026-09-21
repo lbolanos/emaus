@@ -23,6 +23,8 @@ import {
 	setCommunityFlyerBackgroundSchema,
 	deleteCommunityFlyerBackgroundSchema,
 	setCommunityFlyerCardOpacitySchema,
+	setCommunityFlyerOptionsSchema,
+	deleteCommunityFlyerOptionsSchema,
 	importMembersSchema,
 	createCommunityMemberSchema,
 	updateMemberStateSchema,
@@ -267,6 +269,22 @@ router.put(
 	requireCommunityAccess(),
 	validateRequest(setCommunityFlyerCardOpacitySchema),
 	(req, res, next) => CommunityController.setFlyerCardOpacity(req, res).catch(next),
+);
+
+// Diseño completo del flyer "Personalizado" (4º estilo). Mismo criterio de
+// acceso que el fondo: identidad visual de la comunidad, trabajo del equipo de
+// servidores. El PUT reemplaza la columna entera; el DELETE la deja en NULL.
+router.put(
+	'/:id/flyer-options',
+	requireCommunityAccess(),
+	validateRequest(setCommunityFlyerOptionsSchema),
+	(req, res, next) => CommunityController.setFlyerOptions(req, res).catch(next),
+);
+router.delete(
+	'/:id/flyer-options',
+	requireCommunityAccess(),
+	validateRequest(deleteCommunityFlyerOptionsSchema),
+	(req, res, next) => CommunityController.clearFlyerOptions(req, res).catch(next),
 );
 
 // G3: Re-disparar notificación a miembros sobre una reunión (botón "Notificar").

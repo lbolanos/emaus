@@ -8,7 +8,7 @@ import { User } from '../entities/user.entity';
 import { UserRole } from '../entities/userRole.entity';
 import { Participant } from '../entities/participant.entity';
 import { Retreat } from '../entities/retreat.entity';
-import { MemberState, type MemberCandidate } from '@repo/types';
+import { MemberState, type MemberCandidate, type MeetingFlyerOptions } from '@repo/types';
 import { In, MoreThanOrEqual, Not } from 'typeorm';
 import { calculateNextOccurrence, nextWeekdayOccurrence } from '../utils/recurrenceUtils';
 import { EmailService } from './emailService';
@@ -1776,6 +1776,37 @@ export class CommunityService {
 		}
 
 		await this.communityRepo.update(communityId, { flyerCardOpacity: opacity });
+		return this.getCommunityById(communityId);
+	}
+
+	/**
+	 * Diseño completo del flyer de reunión "Personalizado". Reemplaza la columna
+	 * entera: el editor escribe el objeto completo, arrastrando lo que no edita.
+	 * La validación de forma corre en el validateRequest de la ruta; acá solo se
+	 * persiste.
+	 */
+	async setFlyerOptions(communityId: string, flyerOptions: MeetingFlyerOptions) {
+		const community = await this.getCommunityById(communityId);
+		if (!community) {
+			throw new Error('Community not found');
+		}
+
+		await this.communityRepo.update(communityId, { flyerOptions });
+		return this.getCommunityById(communityId);
+	}
+
+	/**
+	 * Devuelve la comunidad a "sin diseño personalizado". No toca el fondo ni la
+	 * opacidad: esos mandan para los estilos Poster/WhatsApp, este diseño solo
+	 * para el 4º estilo "Personalizado".
+	 */
+	async clearFlyerOptions(communityId: string) {
+		const community = await this.getCommunityById(communityId);
+		if (!community) {
+			throw new Error('Community not found');
+		}
+
+		await this.communityRepo.update(communityId, { flyerOptions: null });
 		return this.getCommunityById(communityId);
 	}
 

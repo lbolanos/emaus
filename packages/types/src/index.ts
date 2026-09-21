@@ -1,5 +1,13 @@
 import { z } from 'zod';
 import { normalizeEmail } from './text';
+import {
+	FLYER_LAYOUT_VERSION,
+	FLYER_TEXT_MAX,
+	flyerBlockLayoutBaseSchema,
+	flyerBlockStyleSchema,
+	flyerImagesSchema,
+	flyerThemeSchema,
+} from './flyer';
 
 // Base UUID schema for reuse
 const idSchema = z.string().uuid();
@@ -64,6 +72,11 @@ export type Room = z.infer<typeof roomSchema>;
 
 // Flyer layout (v2): the body of the flyer is a set of blocks laid out in three
 // managed cells. Header, banner and footer are fixed chrome, not blocks.
+//
+// The shared pieces (slots, layout base, images, block styles, theme) live in
+// './flyer' so community.ts — which index.ts re-exports, closing the cycle — can
+// build the meeting flyer schemas on top of them. This file keeps only what is
+// retreat-specific: the block/text ids and the options object below.
 export const flyerBlockIdSchema = z.enum([
 	'intro',
 	'startTime',
@@ -76,87 +89,10 @@ export const flyerBlockIdSchema = z.enum([
 ]);
 export type FlyerBlockId = z.infer<typeof flyerBlockIdSchema>;
 
-export const flyerSlotSchema = z.enum(['left', 'right', 'wide']);
-export type FlyerSlot = z.infer<typeof flyerSlotSchema>;
-
-export const flyerBlockLayoutSchema = z.object({
+export const flyerBlockLayoutSchema = flyerBlockLayoutBaseSchema.extend({
 	id: flyerBlockIdSchema,
-	slot: flyerSlotSchema,
-	/** Position within its own slot. */
-	order: z.number().int().min(0),
-	visible: z.boolean().default(true),
 });
 export type FlyerBlockLayout = z.infer<typeof flyerBlockLayoutSchema>;
-
-/**
- * A flyer image: an app-bundled preset (`/jesus2.png`), an https URL (S3), or an
- * inline data URI (the fallback when S3 is not configured).
- *
- * SECURITY: these end up in `background-image: url(...)` and `<img :src>`, and the
- * field can be written straight through PUT /retreats/:id, skipping the upload
- * endpoint's checks. Restricting the scheme keeps `javascript:` and friends out;
- * the length cap bounds the inline case (512KB binary ≈ 700KB of base64).
- */
-const flyerImageUrlSchema = z.preprocess(
-	// The client clears an image by sending '', which a formatted .optional() would
-	// reject with a 400 — a bug this repo has already paid for more than once.
-	(value) => (typeof value === 'string' && value.trim() === '' ? undefined : value),
-	z
-		.string()
-		.max(1_000_000, { message: 'La imagen es demasiado grande' })
-		.refine(
-			(value) =>
-				// `(?!\/)` tras la primera barra: sin él, la rama de ruta de la app acepta
-				// `//attacker.example/x.png`, porque `/` está dentro de `[\w./-]`. Eso es una
-				// URL protocol-relative, y el volante es público y sin autenticación: cada
-				// visitante cargaría el recurso desde un origen ajeno, que se queda con su IP
-				// y su user-agent. Justo lo que el bloque SECURITY de arriba quiere impedir.
-				/^(\/(?!\/)[\w./-]*|https:\/\/[^\s"']+|data:image\/[\w+.-]+;base64,[\w+/=]+)$/.test(
-					value,
-				),
-			{ message: 'La imagen debe ser una ruta de la app, una URL https o una imagen en base64' },
-		)
-		.optional(),
-);
-
-/** Image URLs. Empty/absent means "use the built-in preset". */
-export const flyerImagesSchema = z.object({
-	bodyBackground: flyerImageUrlSchema,
-	headerBackground: flyerImageUrlSchema,
-	footerBackground: flyerImageUrlSchema,
-	logo: flyerImageUrlSchema,
-});
-export type FlyerImages = z.infer<typeof flyerImagesSchema>;
-
-const hexColorSchema = z.string().regex(/^#[0-9a-fA-F]{6}$/, 'Debe ser un color en formato #rrggbb');
-
-/**
- * How a block is painted. Every field is optional and falls back to the theme, and
- * then to the block's built-in default.
- *
- * An absent `backgroundColor` means no box at all — the text sits straight on the
- * flyer's image, which is the poster look the flyer defaults to. The "light veil" and
- * "dark veil" shortcuts in the editor are just presets writing white/black here, so
- * there is no separate mode to keep in sync.
- */
-export const flyerBlockStyleSchema = z.object({
-	backgroundColor: hexColorSchema.optional(),
-	backgroundOpacity: z.number().int().min(0).max(100).optional(),
-	textColor: hexColorSchema.optional(),
-	headingColor: hexColorSchema.optional(),
-	textShadow: z.boolean().optional(),
-	/** Which way the block's own contents line up: its icons, lists and text. */
-	textAlign: z.enum(['left', 'center', 'right']).optional(),
-});
-export type FlyerBlockStyle = z.infer<typeof flyerBlockStyleSchema>;
-export type FlyerTextAlign = NonNullable<FlyerBlockStyle['textAlign']>;
-
-/** The same knobs applied to every block, plus the wash over the background image. */
-export const flyerThemeSchema = flyerBlockStyleSchema.extend({
-	scrim: z.enum(['none', 'dark', 'light']).optional(),
-	scrimOpacity: z.number().int().min(0).max(100).optional(),
-});
-export type FlyerTheme = z.infer<typeof flyerThemeSchema>;
 
 /**
  * The flyer's editable texts. Every one of them can be hidden outright, which is a
@@ -181,11 +117,6 @@ export const flyerTextKeySchema = z.enum([
 	'reservationNoteOverride',
 ]);
 export type FlyerTextKey = z.infer<typeof flyerTextKeySchema>;
-
-export const FLYER_LAYOUT_VERSION = 2;
-
-/** Upper bound for the flyer's free-text overrides; they are headings and short lines. */
-const FLYER_TEXT_MAX = 2000;
 
 /** Which slot an uploaded flyer image is meant for; drives the resize bounds. */
 export const flyerAssetKindSchema = z.enum([
@@ -1001,6 +932,9 @@ export type {
 } from './user';
 
 export * from './message-template';
+// Shared flyer schemas: re-exported so @repo/types consumers keep seeing them
+// from the package root, unchanged, after the extraction to './flyer'.
+export * from './flyer';
 export * from './segment';
 export * from './sequence';
 export * from './crm';

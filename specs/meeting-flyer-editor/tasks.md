@@ -11,21 +11,21 @@ Marcar al cerrar cada milestone, anotando las desviaciones reales respecto al pl
 
 ## M1 — Fundación: schema + entidad + migración + API
 
-- [ ] `packages/types/src/flyer.ts` — extraer schemas flyer compartidos de `index.ts`
+- [x] `packages/types/src/flyer.ts` — extraer schemas flyer compartidos de `index.ts`
       (`flyerSlotSchema`, `flyerImagesSchema`, `flyerBlockStyleSchema`, `flyerThemeSchema`,
       `flyerBlockLayoutSchema`, `FLYER_LAYOUT_VERSION`); `index.ts` importa y re-exporta `[P]`
-- [ ] `packages/types/src/community.ts` — `meetingFlyerBlockIdSchema`,
+- [x] `packages/types/src/community.ts` — `meetingFlyerBlockIdSchema`,
       `meetingFlyerBlockLayoutSchema`, `meetingFlyerTextKeySchema`, `meetingFlyerOptionsSchema`,
       `communitySchema` += `flyerOptions`, `setCommunityFlyerOptionsSchema`
-- [ ] `touch apps/api/src/index.ts` tras editar packages/types
-- [ ] Migración `20260921200000_AddCommunityFlyerOptions.ts` (ADD COLUMN con guarda
+- [x] `touch apps/api/src/index.ts` tras editar packages/types
+- [x] Migración `20260921200000_AddCommunityFlyerOptions.ts` (ADD COLUMN con guarda
       `PRAGMA table_info`, `down` DROP COLUMN)
-- [ ] `community.entity.ts` — `flyerOptions` simple-json nullable
-- [ ] Rutas `PUT`/`DELETE /:id/flyer-options` + controller + service (patrón flyer-card-opacity)
-- [ ] `api.ts` + `communityStore` — `setCommunityFlyerOptions`/`deleteCommunityFlyerOptions`
-- [ ] Test API `communityFlyerOptionsSchema.simple.test.ts`
-- [ ] Verificar: `pnpm --filter api build`; migración aplicada **por el dato** (copia DB a /tmp +
-      `PRAGMA table_info` + PUT roundtrip); jest; PUT sin sesión → 401, admin ajeno → 403
+- [x] `community.entity.ts` — `flyerOptions` simple-json nullable
+- [x] Rutas `PUT`/`DELETE /:id/flyer-options` + controller + service (patrón flyer-card-opacity)
+- [x] `api.ts` + `communityStore` — `setCommunityFlyerOptions`/`deleteCommunityFlyerOptions`
+- [x] Test API `communityFlyerOptionsSchema.simple.test.ts` (18 tests)
+- [x] Verificar: `pnpm --filter api build`; migración aplicada **por el dato** (copia DB a /tmp +
+      `PRAGMA table_info` + PUT roundtrip); jest; PUT sin sesión → 403, admin ajeno → 403
 
 **Done**: el diseño de una comunidad se guarda y se lee por API, sin tocar nada del retiro.
 
@@ -92,4 +92,23 @@ editor desde ahí; los otros 3 estilos no cambian.
 
 ## Desviaciones respecto al plan
 
-(ninguna todavía)
+### M1
+
+- Columna física `flyerOptions` (camelCase), no `"flyer_options"` como decía el plan:
+  las columnas hermanas de la misma familia (`flyerBackgroundUrl`, `flyerCardOpacity`)
+  son camelCase en la tabla y la entity no declara `name:`.
+- PUT sin sesión responde **403**, no 401: es el comportamiento de
+  `isAuthenticated`+`requireCommunityAccess` (verificado idéntico en la ruta hermana
+  `flyer-background`). El plan decía "401" como expectativa, no como requisito del API.
+- Los schemas de reunión viven ANTES de `communitySchema` en `community.ts` (TDZ:
+  `communitySchema` referencia `meetingFlyerOptionsSchema`), no "junto a
+  `FLYER_BACKGROUND_PRESETS`"; solo los write schemas quedaron junto a esa familia.
+  `flyerBlockLayoutSchema` se partió en `flyerBlockLayoutBaseSchema` (compartido, sin
+  id) + `extend({ id })` en cada flavour — el plan decía "genérico en el id".
+- Fix preexistente incluido en la tanda: `CommunityMeetingFlyerView.vue` L390 llamaba
+  `setFlyerBackground(id, string)` cuando el store espera `{ imageDataUrl }` — error de
+  tipos que ya rompía `pnpm --filter web build` en HEAD (verificado con stash); no lo
+  causó M1.
+- `FLYER_TEXT_MAX` también se movió a `flyer.ts` (era privado en index.ts y ambos
+  flavours lo usan).
+

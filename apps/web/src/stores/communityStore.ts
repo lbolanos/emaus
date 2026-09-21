@@ -9,6 +9,7 @@ import {
 	CommunityAttendance,
 	MemberState,
 	FlyerBackgroundPreset,
+	MeetingFlyerOptions,
 } from '@repo/types';
 
 // Action history interface for undo functionality
@@ -371,6 +372,21 @@ export const useCommunityStore = defineStore('community', () => {
 		return updated;
 	};
 
+	const setFlyerOptions = async (
+		communityId: string,
+		flyerOptions: MeetingFlyerOptions,
+	) => {
+		const updated = await api.setCommunityFlyerOptions(communityId, flyerOptions);
+		if (currentCommunity.value?.id === updated.id) currentCommunity.value = updated;
+		return updated;
+	};
+
+	const clearFlyerOptions = async (communityId: string) => {
+		const updated = await api.deleteCommunityFlyerOptions(communityId);
+		if (currentCommunity.value?.id === updated.id) currentCommunity.value = updated;
+		return updated;
+	};
+
 	const createNextMeetingInstance = async (meetingId: string) => {
 		loading.value = true;
 		error.value = null;
@@ -676,6 +692,8 @@ export const useCommunityStore = defineStore('community', () => {
 		setFlyerBackground,
 		clearFlyerBackground,
 		setFlyerCardOpacity,
+		setFlyerOptions,
+		clearFlyerOptions,
 		deleteMeetingPhoto,
 		createNextMeetingInstance,
 		fetchAttendance,
