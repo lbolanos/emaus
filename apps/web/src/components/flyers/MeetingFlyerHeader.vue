@@ -27,9 +27,13 @@
 				{{ content.emausLine }}
 			</h2>
 			<div class="flex items-center gap-2 mt-1">
+				<!-- max-w: without it a long community name (uppercase + wide tracking)
+				     stretches this flex-shrink-0 column across the header and squeezes
+				     the title into a narrow strip against the right edge. Capped, a
+				     long name wraps into short centered lines under the logo instead. -->
 				<p
 					v-if="content.showEmausLine || content.communityName"
-					class="text-[11px] text-white/95 text-center uppercase font-bold leading-tight tracking-[0.2em] drop-shadow-md"
+					class="max-w-[160px] text-[11px] text-white/95 text-center uppercase font-bold leading-tight tracking-[0.2em] drop-shadow-md"
 				>
 					{{ content.communityName }}
 				</p>

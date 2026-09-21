@@ -21,7 +21,11 @@
 				</div>
 				<h2 class="text-[22px] font-black uppercase tracking-[0.35em] text-white leading-none font-header drop-shadow-lg">Emaús</h2>
 				<div class="flex items-center gap-2 mt-1">
-					<p class="text-[11px] text-white/95 text-center uppercase font-bold leading-tight tracking-[0.2em] drop-shadow-md">{{ communityName }}</p>
+					<!-- max-w: without it a long community name (uppercase + wide tracking)
+					     stretches this flex-shrink-0 column across the header and squeezes
+					     the title into a narrow strip against the right edge. Capped, a
+					     long name wraps into short centered lines under the logo instead. -->
+					<p class="max-w-[160px] text-[11px] text-white/95 text-center uppercase font-bold leading-tight tracking-[0.2em] drop-shadow-md">{{ communityName }}</p>
 				</div>
 			</div>
 
