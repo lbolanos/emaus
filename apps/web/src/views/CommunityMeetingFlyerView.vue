@@ -19,7 +19,7 @@
               : 'text-gray-600 hover:bg-gray-100/80 hover:text-gray-900'
           ]">
           <LayoutTemplate class="w-4 h-4" />
-          <span class="hidden sm:inline">Default</span>
+          <span class="sr-only sm:not-sr-only">Default</span>
         </button>
         <button
           @click="setFlyerStyle('poster')"
@@ -30,7 +30,7 @@
               : 'text-gray-600 hover:bg-gray-100/80 hover:text-gray-900'
           ]">
           <Image class="w-4 h-4" />
-          <span class="hidden sm:inline">Poster</span>
+          <span class="sr-only sm:not-sr-only">Poster</span>
         </button>
         <button
           @click="setFlyerStyle('whatsapp')"
@@ -41,7 +41,7 @@
               : 'text-gray-600 hover:bg-gray-100/80 hover:text-gray-900'
           ]">
           <MessageCircle class="w-4 h-4" />
-          <span class="hidden sm:inline">WhatsApp</span>
+          <span class="sr-only sm:not-sr-only">WhatsApp</span>
         </button>
         <button
           @click="setFlyerStyle('custom')"
@@ -52,7 +52,7 @@
               : 'text-gray-600 hover:bg-gray-100/80 hover:text-gray-900'
           ]">
           <Palette class="w-4 h-4" />
-          <span class="hidden sm:inline">Personalizado</span>
+          <span class="sr-only sm:not-sr-only">Personalizado</span>
         </button>
       </div>
 
@@ -72,7 +72,7 @@
             >
               <Loader2 v-if="isSavingBackground" class="w-4 h-4 animate-spin" />
               <Image v-else class="w-4 h-4" />
-              <span class="hidden sm:inline">{{ isSavingBackground ? 'Guardando...' : 'Fondo' }}</span>
+              <span class="sr-only sm:not-sr-only">{{ isSavingBackground ? 'Guardando...' : 'Fondo' }}</span>
             </Button>
           </PopoverTrigger>
           <PopoverContent align="end" class="w-80 p-3">
@@ -165,7 +165,7 @@
           class="rounded-lg hover:bg-gray-100/80 transition-all text-gray-600 gap-2"
         >
           <ArrowLeft class="w-4 h-4" />
-          <span class="hidden sm:inline">Volver</span>
+          <span class="sr-only sm:not-sr-only">Volver</span>
         </Button>
       </div>
 
@@ -175,7 +175,7 @@
         class="print-button bg-gradient-to-r from-blue-600 via-blue-500 to-indigo-600 hover:from-blue-700 hover:via-blue-600 hover:to-indigo-700 text-white px-5 py-2.5 rounded-xl shadow-xl flex items-center gap-2.5 transition-all duration-300 hover:scale-[1.02] hover:shadow-blue-500/40 border border-white/20"
       >
         <Printer class="w-5 h-5" />
-        <span class="font-semibold hidden sm:inline">Imprimir</span>
+        <span class="font-semibold sr-only sm:not-sr-only">Imprimir</span>
       </Button>
 
       <!-- Copy Image Button -->
@@ -187,7 +187,7 @@
         <Loader2 v-if="isCopying" class="w-5 h-5 animate-spin" />
         <Check v-else-if="copySuccess" class="w-5 h-5" />
         <Copy v-else class="w-5 h-5" />
-        <span class="font-semibold hidden sm:inline">
+        <span class="font-semibold sr-only sm:not-sr-only">
           {{ isCopying ? 'Copiando...' : copySuccess ? '¡Copiado!' : 'Copiar imagen' }}
         </span>
       </Button>

@@ -234,3 +234,21 @@ editor desde ahí; los otros 3 estilos no cambian.
 - Ayuda es/en y doc maestra actualizadas (§ "Defaults de estilo" reescrita; § presets ahora
   "limpia cajas guardadas").
 
+### E2E móvil + fix a11y de labels (mismo día, pedido del usuario)
+
+- Spec `community-meeting-flyer-mobile.spec.ts` (iPhone 12 inline al estilo
+  `server-registration-mobile`, skip firefox): escala del diseño de 850px con altura reservada
+  (`altura × escala` ±4px) y **cero overflow horizontal** en los 4 estilos; QR visible tras la
+  escala; editor en móvil (vista previa ARRIBA del panel, flechas, Guardar PUT 200, persistencia
+  tras reload). Misma disciplina de comunidad que el hermano (afterAll restaura SIEMPRE).
+- Hallazgo 1 — a11y real cazado por el spec: los 8 labels `hidden sm:inline` de la vista
+  publicada (4 estilos, Fondo, Volver, Imprimir, Copiar) dejaban botones **solo-ícono sin nombre
+  accesible** en teléfono. Fix: `sr-only sm:not-sr-only` (nombre accesible siempre, visual
+  igual). El spec clickea los estilos por nombre en 390px, que es el guard.
+- Hallazgo 2 — el assert de llegada al editor usa la **barra de título del shell**
+  (`span.truncate.pl-10`): en móvil `AppLayout` oculta el h1 de la página (`mobile-hide-h1`) y
+  sube su texto a la barra fija, así que `getByRole('heading')` no existe en 390px (el hermano
+  desktop sí lo usa y sigue verde).
+- Gate: móvil 3/3, hermano desktop 3/3 (regresión de los spans), View unit 6/6; restauración
+  verificada por el dato en copia de la DB (`flyerOptions` NULL, fondo NULL, 0 reuniones ZZE2E).
+
