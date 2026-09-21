@@ -54,6 +54,13 @@ export class Community {
 	googleMapsUrl?: string;
 
 	/**
+	 * Fondo personalizado del flyer de reunión (URL pública de S3 o data-URI en
+	 * dev). NULL → los flyers usan el fondo por defecto (/poster.png).
+	 */
+	@Column({ type: 'text', nullable: true })
+	flyerBackgroundUrl?: string | null;
+
+	/**
 	 * IANA timezone (ej. 'America/Mexico_City'). Se infiere desde lat/lon en
 	 * create/update via `inferTimezoneFromCoords`. Fallback de runtime cuando
 	 * está NULL: 'America/Mexico_City'. Usar `getCommunityTimezone(c)` helper.

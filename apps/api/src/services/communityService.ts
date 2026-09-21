@@ -16,6 +16,7 @@ import { MessageTemplate } from '../entities/messageTemplate.entity';
 import { imageService } from './imageService';
 import { avatarStorageService } from './avatarStorageService';
 import { s3Service } from './s3Service';
+import { storeFlyerAsset } from './flyerAssetService';
 // renderTemplate (línea ~39) usa single-pass regex local en vez de los
 // helpers de `@repo/utils` para prevenir placeholder-spoofing. Pero el
 // resto del service sí usa `resolveMemberProfile` para resolver el overlay
@@ -1729,6 +1730,38 @@ export class CommunityService {
 
 		await this.meetingRepo.update(meetingId, { photoUrl: null, photoS3Key: null });
 		return this.getMeetingById(meetingId);
+	}
+
+	/**
+	 * Fondo personalizado del flyer de reunión (identidad visual de la comunidad).
+	 * Reutiliza el storage de assets del flyer de retiro: objeto público bajo
+	 * flyer-assets/ (S3) o data-URI inline en dev sin S3. Al reemplazar, el objeto
+	 * anterior queda huérfano en el bucket — mismo trade-off que los assets del
+	 * flyer de retiro: más barato que trackear s3Keys por un webp de ~100KB.
+	 */
+	async setFlyerBackground(communityId: string, imageDataUrl: string) {
+		const community = await this.getCommunityById(communityId);
+		if (!community) {
+			throw new Error('Community not found');
+		}
+
+		const url = await storeFlyerAsset(imageDataUrl, 'bodyBackground');
+		await this.communityRepo.update(communityId, { flyerBackgroundUrl: url });
+		return this.getCommunityById(communityId);
+	}
+
+	/**
+	 * Restaura el fondo por defecto de los flyers (columna a NULL; el objeto de
+	 * S3, si existía, no se toca — ver nota en setFlyerBackground).
+	 */
+	async clearFlyerBackground(communityId: string) {
+		const community = await this.getCommunityById(communityId);
+		if (!community) {
+			throw new Error('Community not found');
+		}
+
+		await this.communityRepo.update(communityId, { flyerBackgroundUrl: null });
+		return this.getCommunityById(communityId);
 	}
 
 	/**

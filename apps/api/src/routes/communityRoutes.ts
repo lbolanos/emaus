@@ -20,6 +20,8 @@ import {
 	createCommunityMeetingSchema,
 	updateCommunityMeetingSchema,
 	setCommunityMeetingPhotoSchema,
+	setCommunityFlyerBackgroundSchema,
+	deleteCommunityFlyerBackgroundSchema,
 	importMembersSchema,
 	createCommunityMemberSchema,
 	updateMemberStateSchema,
@@ -242,6 +244,22 @@ router.put(
 );
 router.delete('/meetings/:id/photo', requireCommunityMeetingAccess(), (req, res, next) =>
 	CommunityController.deleteMeetingPhoto(req, res).catch(next),
+);
+
+// Fondo personalizado del flyer de reunión (identidad visual de la comunidad).
+// Mismo criterio de acceso que la foto de miembro: es trabajo del equipo de
+// servidores, no redirige nada ni expone datos.
+router.put(
+	'/:id/flyer-background',
+	requireCommunityAccess(),
+	validateRequest(setCommunityFlyerBackgroundSchema),
+	(req, res, next) => CommunityController.uploadFlyerBackground(req, res).catch(next),
+);
+router.delete(
+	'/:id/flyer-background',
+	requireCommunityAccess(),
+	validateRequest(deleteCommunityFlyerBackgroundSchema),
+	(req, res, next) => CommunityController.deleteFlyerBackground(req, res).catch(next),
 );
 
 // G3: Re-disparar notificación a miembros sobre una reunión (botón "Notificar").

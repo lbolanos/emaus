@@ -91,6 +91,8 @@ export const communitySchema = z.object({
 	defaultMeetingDescription: z.string().optional().nullable(),
 	// IANA TZ inferido de lat/lon o seteado a mano. NULL = fallback en consumidores.
 	timezone: z.string().optional().nullable(),
+	// Fondo personalizado del flyer de reunión. NULL = fondo por defecto.
+	flyerBackgroundUrl: z.string().optional().nullable(),
 	createdAt: z.coerce.date(),
 	updatedAt: z.coerce.date(),
 	// Calculated fields
@@ -305,6 +307,31 @@ export const setCommunityMemberPhotoSchema = z.object({
 	params: z.object({
 		id: z.string().uuid(),
 		memberId: z.string().uuid(),
+	}),
+});
+
+/**
+ * Fondo personalizado del flyer de reunión (identidad visual de la comunidad).
+ * Mismo contrato que las fotos: data-URI base64; magic bytes + 2 MB se validan
+ * en imageService. Sin gif: un fondo animado compite con el texto del flyer.
+ */
+export const setCommunityFlyerBackgroundSchema = z.object({
+	body: z.object({
+		imageDataUrl: z
+			.string()
+			.min(1)
+			.regex(/^data:image\/(jpeg|jpg|png|webp);base64,/, {
+				message: 'imageDataUrl debe ser un data-URI de imagen válido',
+			}),
+	}),
+	params: z.object({
+		id: z.string().uuid(),
+	}),
+});
+
+export const deleteCommunityFlyerBackgroundSchema = z.object({
+	params: z.object({
+		id: z.string().uuid(),
 	}),
 });
 
