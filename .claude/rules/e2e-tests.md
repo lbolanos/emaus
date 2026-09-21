@@ -47,6 +47,15 @@ Cinco cosas que hacen fallar un spec nuevo por razones que no son del código:
 Aserción negativa sobre una pantalla que aún no cargó (`toHaveCount(0)`) siempre pasa: esperá
 primero a que la pantalla esté, o el test es un falso verde.
 
+- **Un teardown que «restaura» se verifica sembrando estado previo distintivo.** Correr el spec
+  desde una base limpia no distingue un restore real de un DELETE a ciegas: ambos dejan NULL.
+  Siembra un valor que ningún test use como entrada, corré el spec (con un test fallando a
+  mitad, para ejercitar el afterAll de verdad) y verificá por el dato que el estado vuelve
+  exacto al sembrado. Y cada paso del restore debe estallar si no aterriza: un POST a una ruta
+  PUT da 404 **en silencio** y el «restore» pasa tranquilo (pasó el 2026-09-21 con el helper
+  del flyer — patrón: `captureFlyerState`/`restoreFlyerState` + `mustOk` en
+  `tests/e2e/helpers/communityFlyerState.ts`).
+
 Y si el spec mide **peticiones de red**, dos cosas más:
 
 - **Filtrá por tipo de recurso, no por origen.** El ruido a excluir en dev son los módulos que

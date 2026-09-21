@@ -5,6 +5,11 @@ import {
 	type Page,
 } from '@playwright/test';
 import { loginAs, type AuthSession } from './helpers/auth';
+import {
+	captureFlyerState,
+	restoreFlyerState,
+	type CommunityFlyerState,
+} from './helpers/communityFlyerState';
 
 /**
  * E2E of the meeting flyer design editor (2026-09-21): the fourth style
@@ -19,7 +24,8 @@ import { loginAs, type AuthSession } from './helpers/auth';
  *
  * The community is real: this editor WRITES community.flyerOptions, so the
  * beforeAll clears any leftover design/background for a deterministic start
- * and the afterAll ALWAYS restores (DELETE both), even if a test fails halfway.
+ * and the afterAll ALWAYS restores what the community had before the run
+ * (captured before the wipe — not a blanket NULL), even if a test fails halfway.
  * The legacy styles (Default/Poster/WhatsApp) must stay untouched by all of it.
  */
 test.use({ locale: 'es-MX' });
@@ -39,6 +45,7 @@ test.describe.serial('Community meeting flyer — design editor (E2E)', () => {
 	let context: BrowserContext;
 	let page: Page;
 	let skipReason = '';
+	let priorFlyer: CommunityFlyerState | null = null;
 
 	test.beforeAll(async ({ browser, baseURL }) => {
 		s = await loginAs(baseURL!, USER);
@@ -59,7 +66,9 @@ test.describe.serial('Community meeting flyer — design editor (E2E)', () => {
 		// Deterministic starting point: whatever a previous manual run left saved
 		// (a design, a community background) would change the default-layout
 		// assertions below. Both deletes are idempotent on an already-clean
-		// community — and the afterAll puts it back the same way.
+		// community — and the afterAll puts back what was captured right here,
+		// not a blanket NULL.
+		priorFlyer = await captureFlyerState(s.ctx, communityId);
 		await s.ctx.delete(`/api/communities/${communityId}/flyer-options`, {
 			headers: { 'X-CSRF-Token': s.csrfToken },
 		});
@@ -88,16 +97,12 @@ test.describe.serial('Community meeting flyer — design editor (E2E)', () => {
 	});
 
 	test.afterAll(async () => {
-		// The community is real: ALWAYS give back its design and background (both
-		// DELETE, idempotent), then delete the throwaway meeting (flat URL — the
-		// communityId is NOT in the path) and close.
+		// The community is real: ALWAYS give back its design, background and
+		// opacity as they were found (captured in the beforeAll), then delete
+		// the throwaway meeting (flat URL — the communityId is NOT in the path)
+		// and close.
 		if (communityId) {
-			await s.ctx.delete(`/api/communities/${communityId}/flyer-options`, {
-				headers: { 'X-CSRF-Token': s.csrfToken },
-			});
-			await s.ctx.delete(`/api/communities/${communityId}/flyer-background`, {
-				headers: { 'X-CSRF-Token': s.csrfToken },
-			});
+			await restoreFlyerState(s.ctx, s.csrfToken, communityId, priorFlyer);
 		}
 		if (meetingId) {
 			await s.ctx.delete(`/api/communities/meetings/${meetingId}?scope=this`, {

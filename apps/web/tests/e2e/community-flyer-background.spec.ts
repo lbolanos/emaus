@@ -5,6 +5,11 @@ import {
 	type Page,
 } from '@playwright/test';
 import { loginAs, type AuthSession } from './helpers/auth';
+import {
+	captureFlyerState,
+	restoreFlyerState,
+	type CommunityFlyerState,
+} from './helpers/communityFlyerState';
 
 /**
  * E2E del fondo del flyer de reunión (2026-09-21): la comunidad puede elegir
@@ -40,6 +45,7 @@ test.describe.serial('Community flyer — galería de fondos (E2E)', () => {
 	let context: BrowserContext;
 	let page: Page;
 	let skipReason = '';
+	let priorFlyer: CommunityFlyerState | null = null;
 
 	test.beforeAll(async ({ browser, baseURL }) => {
 		s = await loginAs(baseURL!, USER);
@@ -56,6 +62,19 @@ test.describe.serial('Community flyer — galería de fondos (E2E)', () => {
 			return;
 		}
 		communityId = list[0].id;
+
+		// The tests below overwrite the community's visual identity; the afterAll
+		// puts back what it actually had, not a blanket NULL.
+		priorFlyer = await captureFlyerState(s.ctx, communityId);
+
+		// Deterministic start, like the editor spec: the slider test asserts
+		// the DEFAULT dial (20% transparency), which only holds while the
+		// community has no saved opacity — and this background DELETE nulls
+		// background AND opacity together. flyerOptions is left alone: no
+		// legacy style reads it (the editor spec covers that side).
+		await s.ctx.delete(`/api/communities/${communityId}/flyer-background`, {
+			headers: { 'X-CSRF-Token': s.csrfToken },
+		});
 
 		const createRes = await s.ctx.post(`/api/communities/${communityId}/meetings`, {
 			data: {
@@ -77,13 +96,12 @@ test.describe.serial('Community flyer — galería de fondos (E2E)', () => {
 	});
 
 	test.afterAll(async () => {
-		// La comunidad es real: devolver SIEMPRE su fondo a NULL, aunque un test
-		// fallara antes del de restauración. Luego borrar la reunión (URL plana
-		// del servicio web: el communityId NO va en el path) y cerrar.
+		// La comunidad es real: devolver SIEMPRE su fondo/opacidad/diseño al
+		// estado capturado en el beforeAll, aunque un test fallara a mitad.
+		// Luego borrar la reunión (URL plana del servicio web: el communityId
+		// NO va en el path) y cerrar.
 		if (communityId) {
-			await s.ctx.delete(`/api/communities/${communityId}/flyer-background`, {
-				headers: { 'X-CSRF-Token': s.csrfToken },
-			});
+			await restoreFlyerState(s.ctx, s.csrfToken, communityId, priorFlyer);
 		}
 		if (meetingId) {
 			await s.ctx.delete(`/api/communities/meetings/${meetingId}?scope=this`, {

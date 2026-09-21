@@ -6,6 +6,11 @@ import {
 	type Page,
 } from '@playwright/test';
 import { loginAs, type AuthSession } from './helpers/auth';
+import {
+	captureFlyerState,
+	restoreFlyerState,
+	type CommunityFlyerState,
+} from './helpers/communityFlyerState';
 
 /**
  * E2E of the meeting flyer on a phone (2026-09-21): the custom design is a
@@ -20,7 +25,8 @@ import { loginAs, type AuthSession } from './helpers/auth';
  *
  * Same community discipline as the editor spec: this WRITES
  * community.flyerOptions, so the beforeAll clears leftovers for a deterministic
- * start and the afterAll ALWAYS restores (DELETE both), even if a test fails.
+ * start and the afterAll ALWAYS restores what the community had before the run
+ * (captured in the beforeAll — not a blanket NULL), even if a test fails.
  * The style buttons keep an accessible name below `sm` (sr-only labels) — this
  * spec selects them by role name on a 390px viewport, which is also the guard
  * for that.
@@ -58,6 +64,7 @@ test.describe.serial('Community meeting flyer — phone (E2E)', () => {
 	let context: BrowserContext;
 	let page: Page;
 	let skipReason = '';
+	let priorFlyer: CommunityFlyerState | null = null;
 
 	test.beforeAll(async ({ browser, baseURL }) => {
 		s = await loginAs(baseURL!, USER);
@@ -76,6 +83,9 @@ test.describe.serial('Community meeting flyer — phone (E2E)', () => {
 		communityId = list[0].id;
 
 		// Deterministic start + guaranteed restore, exactly like the editor spec.
+		// The state is captured BEFORE the wipe: the afterAll gives back what the
+		// community actually had, not a blanket NULL.
+		priorFlyer = await captureFlyerState(s.ctx, communityId);
 		await s.ctx.delete(`/api/communities/${communityId}/flyer-options`, {
 			headers: { 'X-CSRF-Token': s.csrfToken },
 		});
@@ -104,15 +114,11 @@ test.describe.serial('Community meeting flyer — phone (E2E)', () => {
 	});
 
 	test.afterAll(async () => {
-		// Real community: ALWAYS give back its design and background, then delete
-		// the throwaway meeting (flat URL — the communityId is NOT in the path).
+		// Real community: ALWAYS give back its design, background and opacity as
+		// they were found, then delete the throwaway meeting (flat URL — the
+		// communityId is NOT in the path).
 		if (communityId) {
-			await s.ctx.delete(`/api/communities/${communityId}/flyer-options`, {
-				headers: { 'X-CSRF-Token': s.csrfToken },
-			});
-			await s.ctx.delete(`/api/communities/${communityId}/flyer-background`, {
-				headers: { 'X-CSRF-Token': s.csrfToken },
-			});
+			await restoreFlyerState(s.ctx, s.csrfToken, communityId, priorFlyer);
 		}
 		if (meetingId) {
 			await s.ctx.delete(`/api/communities/meetings/${meetingId}?scope=this`, {
