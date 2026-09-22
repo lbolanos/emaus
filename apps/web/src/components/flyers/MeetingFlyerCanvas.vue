@@ -251,6 +251,15 @@ const blocksInSlot = computed(() => {
 	}
 }
 
+/* Same editor affordance as the retreat canvas: the blocks carry the `group`
+   class, this is what makes them answer the pointer. (The retreat's other two
+   extras are deliberately NOT copied: flyerPulse targets .animate-pulse, which
+   this flavour's markup never uses, and the .font-header.drop-shadow-xl print
+   rule targets a weight this header doesn't carry.) */
+.print-optimized .group:hover {
+	transform: translateY(-2px);
+}
+
 /* Override AppLayout's mobile rule that hides every h1, which also kills the flyer title */
 .print-optimized h1 {
 	display: block !important;

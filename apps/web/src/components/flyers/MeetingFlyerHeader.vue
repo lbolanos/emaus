@@ -70,6 +70,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import type { MeetingFlyerContent } from '@/composables/useMeetingFlyerContent';
+import { meetingTitleSizeClass } from '@/utils/meetingFlyer';
 
 const props = defineProps<{
 	content: MeetingFlyerContent;
@@ -77,12 +78,7 @@ const props = defineProps<{
 	logo: string;
 }>();
 
-// The display font is expressive but wide: a long meeting title at full size
-// runs into the header edges. Step the size down as the title grows instead.
-const titleSizeClass = computed(() => {
-	const length = props.content.titleText?.trim().length ?? 0;
-	if (length > 40) return 'text-[34px] print:text-[30px]';
-	if (length > 22) return 'text-[44px] print:text-[38px]';
-	return 'text-[64px] print:text-[56px]';
-});
+// Title size steps down as the title grows (shared with the Default flyer, so
+// the two styles can't drift apart).
+const titleSizeClass = computed(() => meetingTitleSizeClass(props.content.titleText));
 </script>

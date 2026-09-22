@@ -3,6 +3,8 @@ import {
 	formatCommunityAddress,
 	formatMeetingDateOnly,
 	formatMeetingTimeOnly,
+	meetingTitleSizeClass,
+	showEmausBrandLine,
 	titleCaseForDisplay,
 } from '@/utils/meetingFlyer';
 
@@ -97,5 +99,34 @@ describe('meetingFlyer — flyer date/time lines', () => {
 
 	it('formatMeetingTimeOnly renders 24h hh:mm without unit (caller appends hrs.)', () => {
 		expect(formatMeetingTimeOnly(isoDate, community)).toBe('19:45');
+	});
+});
+
+describe('meetingFlyer — showEmausBrandLine', () => {
+	it('drops the brand line for names that already carry it (any accent/case)', () => {
+		expect(showEmausBrandLine('Emaús del Valle')).toBe(false);
+		expect(showEmausBrandLine('EMAUS Guadalajara')).toBe(false);
+		expect(showEmausBrandLine('  emaús del valle  ')).toBe(false);
+	});
+
+	it('keeps the brand line for every other community', () => {
+		expect(showEmausBrandLine('Buen Despacho')).toBe(true);
+		expect(showEmausBrandLine('')).toBe(true);
+		expect(showEmausBrandLine(null)).toBe(true);
+	});
+});
+
+describe('meetingFlyer — meetingTitleSizeClass', () => {
+	it('steps the size down as the title grows', () => {
+		expect(meetingTitleSizeClass('Convivencia')).toBe('text-[64px] print:text-[56px]');
+		expect(meetingTitleSizeClass('Convivencia de Adviento')).toBe('text-[44px] print:text-[38px]');
+		expect(
+			meetingTitleSizeClass('Convivencia de Adviento con la comunidad del Señor del Buen Despacho'),
+		).toBe('text-[34px] print:text-[30px]');
+	});
+
+	it('measures the trimmed title and survives empty input', () => {
+		expect(meetingTitleSizeClass('  ')).toBe('text-[64px] print:text-[56px]');
+		expect(meetingTitleSizeClass(null)).toBe('text-[64px] print:text-[56px]');
 	});
 });

@@ -71,7 +71,8 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
-import { formatMeetingDateOnly, formatMeetingTimeOnly } from '@/utils/meetingFlyer';
+import { showEmausBrandLine } from '@/utils/meetingFlyer';
+import { useMeetingFlyerDateTime } from '@/composables/useMeetingFlyerDateTime';
 
 const props = defineProps<{
 	meeting: any;
@@ -94,22 +95,17 @@ const containerStyle = computed(() => ({
 		: {}),
 }));
 
-const showBrandHeader = computed(() => !/^ema[úu]s\b/i.test(props.communityName.trim()));
+const showBrandHeader = computed(() => showEmausBrandLine(props.communityName));
 
 // Same hierarchy as the poster style: the meeting title leads; without one,
 // the community name keeps the leading role (no subtitle to duplicate it).
 const heroTitle = computed(() => props.meeting?.title?.trim() || props.communityName);
 const showCommunitySubtitle = computed(() => !!props.meeting?.title?.trim());
 
-const formattedDateOnly = computed(() => {
-	if (!props.meeting?.startDate) return '';
-	return formatMeetingDateOnly(props.meeting.startDate, props.community);
-});
-
-const formattedTime = computed(() => {
-	if (!props.meeting?.startDate) return '';
-	return formatMeetingTimeOnly(props.meeting.startDate, props.community);
-});
+const { formattedDateOnly, formattedTime } = useMeetingFlyerDateTime(
+	() => props.meeting,
+	() => props.community,
+);
 
 const locationMessage = computed(() => {
 	return props.formattedAddress || 'Ubicación por definir';

@@ -205,3 +205,28 @@ export function formatMeetingTimeOnly(
 		preset: 'time',
 	});
 }
+
+/**
+ * Community names like "Emaús del Valle" already carry the movement's name;
+ * repeating "EMAÚS" above them reads as a stutter, so the brand line is
+ * dropped. Shared by the meeting flyer chrome, the Poster and the WhatsApp
+ * flyer — one regex, one ruling.
+ */
+const STARTS_WITH_EMAUS = /^ema[úu]s\b/i;
+
+export function showEmausBrandLine(communityName: string | null | undefined): boolean {
+	return !STARTS_WITH_EMAUS.test((communityName ?? '').trim());
+}
+
+/**
+ * The display font is expressive but wide: a long meeting title at full size
+ * runs into the header edges. Step the size down as the title grows instead.
+ * Shared by the custom flyer's header and the Default flyer's title block —
+ * the steps must not drift apart again.
+ */
+export function meetingTitleSizeClass(title: string | null | undefined): string {
+	const length = title?.trim().length ?? 0;
+	if (length > 40) return 'text-[34px] print:text-[30px]';
+	if (length > 22) return 'text-[44px] print:text-[38px]';
+	return 'text-[64px] print:text-[56px]';
+}

@@ -118,7 +118,8 @@
 import { computed } from 'vue';
 import QrcodeVue from 'qrcode.vue';
 import { Calendar, FileText, MapPin } from 'lucide-vue-next';
-import { formatMeetingDateOnly, formatMeetingTimeOnly } from '@/utils/meetingFlyer';
+import { meetingTitleSizeClass } from '@/utils/meetingFlyer';
+import { useMeetingFlyerDateTime } from '@/composables/useMeetingFlyerDateTime';
 
 const props = defineProps<{
 	meeting: any;
@@ -131,24 +132,14 @@ const props = defineProps<{
 
 // The display font is expressive but wide: a long meeting title at full size
 // runs into the header edges. Step the size down as the title grows instead.
-const titleSizeClass = computed(() => {
-	const length = props.meeting?.title?.trim().length ?? 0;
-	if (length > 40) return 'text-[34px] print:text-[30px]';
-	if (length > 22) return 'text-[44px] print:text-[38px]';
-	return 'text-[64px] print:text-[56px]';
-});
+const titleSizeClass = computed(() => meetingTitleSizeClass(props.meeting?.title));
 
 // Same date/time pattern as the Poster and WhatsApp flyers: date-only line
 // (no year, no ghost time) plus a separate "hh:mm hrs." line.
-const formattedDateOnly = computed(() => {
-	if (!props.meeting?.startDate) return '';
-	return formatMeetingDateOnly(props.meeting.startDate, props.community);
-});
-
-const formattedTime = computed(() => {
-	if (!props.meeting?.startDate) return '';
-	return formatMeetingTimeOnly(props.meeting.startDate, props.community);
-});
+const { formattedDateOnly, formattedTime } = useMeetingFlyerDateTime(
+	() => props.meeting,
+	() => props.community,
+);
 </script>
 
 <style scoped>
