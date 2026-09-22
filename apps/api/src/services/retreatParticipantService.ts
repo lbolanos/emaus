@@ -33,6 +33,9 @@ export interface RetreatSnapshotFields {
 	idOnRetreat?: number | null;
 	familyFriendColor?: string | null;
 	bagMade?: boolean;
+	// Confirmación del pedido de camisetas (flujo SERVER_SHIRT_CONFIRMATION):
+	// timestamp del chulo del coordinador; null = sin confirmar.
+	shirtOrderConfirmedAt?: Date | null;
 	// Scholarship
 	isScholarship?: boolean;
 	scholarshipAmount?: number | null;
@@ -59,7 +62,11 @@ export interface RetreatSnapshotFields {
 	notes?: string | null;
 }
 
-export interface CreateHistoryData extends RetreatSnapshotFields {
+// shirtOrderConfirmedAt is write-protected: only the dedicated PATCH
+// /history/retreat/:retreatId/participant/:participantId/shirt-order-confirmation
+// may set it (behind requireRetreatAccess + a boolean → server-stamped timestamp).
+// Excluding it here keeps the unscoped history CRUD from bypassing that gate.
+export interface CreateHistoryData extends Omit<RetreatSnapshotFields, 'shirtOrderConfirmedAt'> {
 	userId?: string | null;
 	participantId?: string | null;
 	retreatId: string;
@@ -69,11 +76,24 @@ export interface CreateHistoryData extends RetreatSnapshotFields {
 	metadata?: Record<string, any>;
 }
 
-export interface UpdateHistoryData extends RetreatSnapshotFields {
+export interface UpdateHistoryData extends Omit<RetreatSnapshotFields, 'shirtOrderConfirmedAt'> {
 	roleInRetreat?: RoleInRetreat;
 	isPrimaryRetreat?: boolean;
 	notes?: string;
 	metadata?: Record<string, any>;
+}
+
+/**
+ * Strip write-protected snapshot fields from an incoming history payload.
+ * The interfaces above already omit them, but callers pass `req.body` through a
+ * type assertion — TypeScript does not filter runtime objects.
+ * Exported for its unit test (the HTTP path itself cannot be exercised under
+ * jest: hydrating entities through the router graph throws the documented
+ * "cannot be invoked without 'new'" — see palancasCountWritePath.test.ts).
+ */
+export function stripWriteProtectedFields<T extends Record<string, unknown>>(data: T): T {
+	delete (data as { shirtOrderConfirmedAt?: unknown }).shirtOrderConfirmedAt;
+	return data;
 }
 
 // ==================== CRUD OPERATIONS ====================
@@ -156,6 +176,8 @@ export const getHistoryByParticipantId = async (
  * Create a new history entry
  */
 export const createHistoryEntry = async (data: CreateHistoryData): Promise<RetreatParticipant> => {
+	stripWriteProtectedFields(data);
+
 	// Must have at least one identifier
 	if (!data.userId && !data.participantId) {
 		throw new Error('Se requiere userId o participantId');
@@ -234,6 +256,8 @@ export const updateHistoryEntry = async (
 	id: string,
 	updates: UpdateHistoryData,
 ): Promise<RetreatParticipant> => {
+	stripWriteProtectedFields(updates);
+
 	const history = await retreatParticipantRepository.findOne({ where: { id } });
 
 	if (!history) {

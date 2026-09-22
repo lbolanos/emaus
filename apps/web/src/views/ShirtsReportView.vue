@@ -1,25 +1,46 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRetreatStore } from '@/stores/retreatStore'
-import { Input } from '@repo/ui'
+import { Input, useToast } from '@repo/ui'
 import { formatCurrency } from '@repo/utils'
-import { getShirtReport } from '@/services/api'
+import { getShirtReport, updateShirtOrderConfirmation } from '@/services/api'
+import { buildWhatsAppChatLink } from '@/utils/phone'
 import type { ShirtReportResponse, ShirtReportParticipant } from '@repo/types'
-import { Shirt, Printer, Search, X, Users, Sparkles, Package, Wallet } from 'lucide-vue-next'
+import {
+  Shirt,
+  Printer,
+  Search,
+  X,
+  Users,
+  Sparkles,
+  Package,
+  PackageCheck,
+  Wallet,
+  MessageSquare,
+} from 'lucide-vue-next'
 
 const retreatStore = useRetreatStore()
+const { toast } = useToast()
 
 const loading = ref(false)
 const report = ref<ShirtReportResponse | null>(null)
 const searchQuery = ref('')
+const onlyUnconfirmed = ref(false)
+const currentRetreatId = ref<string | null>(null)
+// Guard anti doble-tap por participante (patrón toggleAttendance).
+const savingStates = ref<Record<string, boolean>>({})
 
 const sortedShirtTypes = computed(() => report.value?.shirtTypes ?? [])
 
 const filteredParticipants = computed<ShirtReportParticipant[]>(() => {
   const all = report.value?.participants ?? []
   const q = searchQuery.value.trim().toLowerCase()
-  if (!q) return all
-  return all.filter((p) => {
+  let list = all
+  if (onlyUnconfirmed.value) {
+    list = list.filter((p) => !p.shirtOrderConfirmedAt)
+  }
+  if (!q) return list
+  return list.filter((p) => {
     const name = `${p.firstName} ${p.lastName}`.toLowerCase()
     const num = String(p.idOnRetreat ?? '')
     const sizes = p.shirts.map((s) => s.size.toLowerCase()).join(' ')
@@ -32,12 +53,14 @@ const totals = computed(() => {
   let servers = 0
   let angelitos = 0
   let garments = 0
+  let confirmed = 0
   for (const p of list) {
     if (p.type === 'partial_server') angelitos++
     else servers++
     garments += p.shirts.length
+    if (p.shirtOrderConfirmedAt) confirmed++
   }
-  return { servers, angelitos, garments, total: list.length }
+  return { servers, angelitos, garments, confirmed, total: list.length }
 })
 
 const totalCharge = computed(() => report.value?.totalCharge ?? 0)
@@ -54,11 +77,42 @@ function getSize(participant: ShirtReportParticipant, shirtTypeId: string): stri
   return participant.shirts.find((s) => s.shirtTypeId === shirtTypeId)?.size ?? ''
 }
 
-onMounted(async () => {
-  if (retreatStore.retreats.length === 0) await retreatStore.fetchRetreats()
-  const retreatId =
-    retreatStore.selectedRetreatId || retreatStore.mostRecentRetreat?.id
-  if (!retreatId) return
+function whatsappLink(participant: ShirtReportParticipant): string | null {
+  return buildWhatsAppChatLink(participant.cellPhone, participant.country)
+}
+
+// Chulo optimista: flip local inmediato, rollback + toast al fallar, sin refetch
+// (patrón CommunityAttendanceView.toggleAttendance).
+async function toggleConfirmation(participant: ShirtReportParticipant) {
+  if (!currentRetreatId.value || savingStates.value[participant.participantId]) return
+
+  const previous = participant.shirtOrderConfirmedAt
+  const confirmed = !previous
+
+  savingStates.value[participant.participantId] = true
+  participant.shirtOrderConfirmedAt = confirmed ? new Date().toISOString() : null
+
+  try {
+    await updateShirtOrderConfirmation(
+      currentRetreatId.value,
+      participant.participantId,
+      confirmed,
+    )
+  } catch (e) {
+    console.error('Error saving shirt order confirmation:', e)
+    participant.shirtOrderConfirmedAt = previous
+    toast({
+      title: 'Error',
+      description: `No se pudo guardar la confirmación de ${participant.firstName}`,
+      variant: 'destructive',
+    })
+  } finally {
+    savingStates.value[participant.participantId] = false
+  }
+}
+
+async function loadReport(retreatId: string) {
+  currentRetreatId.value = retreatId
   loading.value = true
   try {
     report.value = await getShirtReport(retreatId)
@@ -67,7 +121,24 @@ onMounted(async () => {
   } finally {
     loading.value = false
   }
+}
+
+onMounted(async () => {
+  if (retreatStore.retreats.length === 0) await retreatStore.fetchRetreats()
+  const retreatId =
+    retreatStore.selectedRetreatId || retreatStore.mostRecentRetreat?.id
+  if (!retreatId) return
+  await loadReport(retreatId)
 })
+
+// Cambiar de retiro en el sidebar recarga el reporte; sin esto el toggle
+// confirmaría contra currentRetreatId del montaje (el retiro anterior).
+watch(
+  () => retreatStore.selectedRetreatId,
+  (retreatId) => {
+    if (retreatId) void loadReport(retreatId)
+  },
+)
 </script>
 
 <template>
@@ -116,6 +187,15 @@ onMounted(async () => {
               <div class="text-[10px] text-emerald-600 uppercase tracking-wide">Valor total</div>
             </div>
           </div>
+          <div class="text-center px-3 py-1.5 rounded-lg bg-teal-50 border border-teal-100 flex items-center gap-2">
+            <PackageCheck class="w-4 h-4 text-teal-600" />
+            <div class="leading-tight text-left">
+              <div class="text-lg font-bold text-teal-700">
+                {{ totals.confirmed }}/{{ totals.total }}
+              </div>
+              <div class="text-[10px] text-teal-600 uppercase tracking-wide">Confirmados</div>
+            </div>
+          </div>
 
           <button
             class="p-2 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors no-print"
@@ -132,19 +212,39 @@ onMounted(async () => {
     <div class="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
       <!-- Toolbar -->
       <div class="px-4 py-3 border-b border-gray-100 no-print">
-        <div class="relative max-w-md">
-          <Search class="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
-          <Input
-            v-model="searchQuery"
-            placeholder="Buscar por nombre, número o talla..."
-            class="pl-8 pr-8 h-8 text-sm"
-          />
+        <div class="flex items-center gap-3 flex-wrap">
+          <div class="relative max-w-md flex-1 min-w-[12rem]">
+            <Search class="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+            <Input
+              v-model="searchQuery"
+              placeholder="Buscar por nombre, número o talla..."
+              class="pl-8 pr-8 h-8 text-sm"
+            />
+            <button
+              v-if="searchQuery"
+              class="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+              @click="clearSearch"
+            >
+              <X class="w-3.5 h-3.5" />
+            </button>
+          </div>
+          <!-- Chip (no input): los tests de búsqueda usan el primer input de la vista. -->
           <button
-            v-if="searchQuery"
-            class="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
-            @click="clearSearch"
+            type="button"
+            class="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg border text-xs font-medium transition-colors"
+            :class="onlyUnconfirmed
+              ? 'bg-indigo-600 border-indigo-600 text-white'
+              : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'"
+            :title="onlyUnconfirmed ? 'Mostrando solo servidores sin confirmar' : 'Filtrar solo sin confirmar'"
+            @click="onlyUnconfirmed = !onlyUnconfirmed"
           >
-            <X class="w-3.5 h-3.5" />
+            Solo sin confirmar
+            <span
+              class="inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1 rounded-full text-[10px] font-bold"
+              :class="onlyUnconfirmed ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-500'"
+            >
+              {{ totals.total - totals.confirmed }}
+            </span>
           </button>
         </div>
       </div>
@@ -189,6 +289,9 @@ onMounted(async () => {
               <th class="px-3 py-2.5 w-20 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">
                 Valor
               </th>
+              <th class="no-print px-3 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                Confirmado
+              </th>
               <th class="print-only px-3 py-2.5 w-12 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">
                 ✓
               </th>
@@ -224,14 +327,65 @@ onMounted(async () => {
               <td class="px-3 py-2.5 text-right text-xs font-medium text-gray-700 tabular-nums">
                 {{ formatCurrency(participant.shirtCharge) }}
               </td>
+              <td class="no-print px-3 py-2.5">
+                <div class="flex items-center gap-2">
+                  <button
+                    type="button"
+                    class="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-full text-xs font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    :class="participant.shirtOrderConfirmedAt
+                      ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
+                      : 'bg-gray-100 text-gray-500 hover:bg-gray-200'"
+                    :disabled="savingStates[participant.participantId]"
+                    :title="participant.shirtOrderConfirmedAt
+                      ? 'Confirmado — clic para quitar el chulo'
+                      : 'Sin confirmar — clic cuando el servidor responda'"
+                    @click="toggleConfirmation(participant)"
+                  >
+                    {{ participant.shirtOrderConfirmedAt ? '✓ Confirmado' : '● Sin confirmar' }}
+                  </button>
+                  <a
+                    v-if="whatsappLink(participant)"
+                    :href="whatsappLink(participant) ?? undefined"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="inline-flex items-center justify-center w-7 h-7 rounded-full text-emerald-600 hover:bg-emerald-50 transition-colors"
+                    title="Ver conversación de WhatsApp"
+                  >
+                    <MessageSquare class="w-4 h-4" />
+                  </a>
+                </div>
+              </td>
               <td class="print-only px-3 py-2.5 text-center">
-                <span class="inline-block w-5 h-5 border-2 border-gray-300 rounded" />
+                <span
+                  v-if="participant.shirtOrderConfirmedAt"
+                  class="inline-flex items-center justify-center w-5 h-5 text-xs font-bold text-emerald-700"
+                >
+                  ✓
+                </span>
+                <span v-else class="inline-block w-5 h-5 border-2 border-gray-300 rounded" />
               </td>
             </tr>
 
             <tr v-if="filteredParticipants.length === 0">
-              <td :colspan="3 + sortedShirtTypes.length" class="px-4 py-12 text-center">
-                <div class="flex flex-col items-center gap-2 text-gray-400">
+              <td :colspan="4 + sortedShirtTypes.length" class="px-4 py-12 text-center">
+                <!-- Sin búsqueda: quien vació la tabla fue el filtro — ofrecer
+                     desactivarlo, no "limpiar la búsqueda". -->
+                <div
+                  v-if="!searchQuery"
+                  class="flex flex-col items-center gap-2 text-gray-400"
+                >
+                  <PackageCheck class="w-8 h-8 opacity-40" />
+                  <p class="text-sm font-medium">
+                    Todos los pedidos de este retiro están confirmados.
+                  </p>
+                  <button
+                    class="text-xs text-indigo-500 hover:text-indigo-700 underline"
+                    @click="onlyUnconfirmed = false"
+                  >
+                    Mostrar todos
+                  </button>
+                </div>
+                <div v-else class="flex flex-col items-center gap-2 text-gray-400">
                   <Search class="w-8 h-8 opacity-40" />
                   <p class="text-sm font-medium">Sin resultados para tu búsqueda.</p>
                   <button

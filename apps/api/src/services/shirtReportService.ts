@@ -19,6 +19,12 @@ export type ShirtReportParticipant = {
 	type: 'server' | 'partial_server';
 	shirts: ShirtReportShirt[];
 	shirtCharge: number;
+	// Confirmación del pedido (chulo del coordinador, flujo SERVER_SHIRT_CONFIRMATION)
+	// y contacto para el botón de WhatsApp del reporte. La query es cruda: SQLite
+	// devuelve datetime como string ('2026-09-21 12:00:00.000'), no Date.
+	shirtOrderConfirmedAt: string | null;
+	cellPhone: string | null;
+	country: string | null;
 };
 
 export type ShirtReportShirtType = {
@@ -50,6 +56,10 @@ type Row = {
 	size: string;
 	// SQLite devuelve decimal como string en queries crudos.
 	price: string | number | null;
+	// ...y datetime también: llega como string, no Date.
+	shirtOrderConfirmedAt: string | null;
+	cellPhone: string | null;
+	country: string | null;
 };
 
 export const getShirtOrdersForRetreat = async (
@@ -85,6 +95,9 @@ export const getShirtOrdersForRetreat = async (
        p.lastName        AS lastName,
        rp.idOnRetreat    AS idOnRetreat,
        rp.type           AS type,
+       rp.shirtOrderConfirmedAt AS shirtOrderConfirmedAt,
+       p.cellPhone       AS cellPhone,
+       p.country         AS country,
        pss.shirtTypeId   AS shirtTypeId,
        rst.name          AS shirtTypeName,
        rst.color         AS color,
@@ -124,6 +137,9 @@ export const getShirtOrdersForRetreat = async (
 				type: r.type,
 				shirts: [],
 				shirtCharge: 0,
+				shirtOrderConfirmedAt: r.shirtOrderConfirmedAt ?? null,
+				cellPhone: r.cellPhone ?? null,
+				country: r.country ?? null,
 			};
 			byParticipant.set(r.participantId, entry);
 		}

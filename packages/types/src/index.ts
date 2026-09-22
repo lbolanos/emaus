@@ -669,8 +669,21 @@ export const shirtReportParticipantSchema = z.object({
 	type: z.enum(['server', 'partial_server']),
 	shirts: z.array(shirtReportShirtSchema),
 	shirtCharge: z.number(),
+	// Confirmación del pedido (chulo del coordinador) y contacto para el botón de
+	// WhatsApp del reporte. La query del reporte es cruda: SQLite devuelve datetime
+	// como string — por eso string y no z.coerce.date().
+	shirtOrderConfirmedAt: z.string().nullable(),
+	cellPhone: z.string().nullable(),
+	country: z.string().nullable(),
 });
 export type ShirtReportParticipant = z.infer<typeof shirtReportParticipantSchema>;
+
+// PATCH /history/retreat/:retreatId/participant/:participantId/shirt-order-confirmation
+// `true` estampa el timestamp del chulo; `false` lo limpia a null.
+export const setShirtOrderConfirmationSchema = z.object({
+	confirmed: z.boolean(),
+});
+export type SetShirtOrderConfirmation = z.infer<typeof setShirtOrderConfirmationSchema>;
 
 // Per-size price override: a row exists only for sizes that differ from the
 // shirt type's base price; the effective price is COALESCE(override, base, 0).

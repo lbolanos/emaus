@@ -12,7 +12,7 @@ Cada tipo de prenda puede tener un `price` (configurable en `/app/settings/shirt
 
 `/app/shirts-report` — disponible en el menú lateral bajo **Reportes**, entre "Reporte de Bolsas" y "Reporte de Medicinas".
 
-Permiso requerido: `participant:read` (mismo nivel que ver el listado de servidores).
+Permiso requerido: `participant:read` **+ acceso al retiro** (`requireRetreatAccess('retreatId')`). El reporte lista `cellPhone`/`country` de todos los servidores del retiro — PII con alcance por retiro: `participant:read` solo (permiso global) dejaría a cualquier usuario autenticado enumerar los teléfonos de un retiro ajeno.
 
 ---
 
@@ -26,6 +26,7 @@ Permiso requerido: `participant:read` (mismo nivel que ver el listado de servido
 | Angelitos | Cuenta de `type = 'partial_server'` con al menos una prenda solicitada |
 | Prendas | Total de filas en `participant_shirt_size` para los participantes listados |
 | Valor total | Suma de `shirtCharge` de todos los participantes listados (`totalCharge` de la respuesta) |
+| Confirmados | `X/Y` — cuántos ya confirmaron su pedido (`shirtOrderConfirmedAt` no-null) sobre el total listado |
 
 Botón **Imprimir** a la derecha (icono de impresora) que ejecuta `window.print()`.
 
@@ -39,7 +40,6 @@ Una **fila por persona**. Las columnas se generan dinámicamente según los `Ret
 |---|---|
 | `#` | `idOnRetreat` o `—` si no tiene |
 | Nombre | `firstName lastName` |
-| Tipo | Badge **SERVIDOR** (azul) o **ANGELITO** (rosa) |
 
 Después se agrega una columna por cada tipo de prenda configurado (orden por `sortOrder`):
 
@@ -51,7 +51,8 @@ Después se agrega una columna por cada tipo de prenda configurado (orden por `s
 | Columna fija | Descripción |
 |---|---|
 | Valor | `shirtCharge` de la persona (suma del precio de cada prenda con precio configurado; `$0.00` si ninguna lo tiene) |
-| `✓` | Cuadrito vacío con borde — para que el coordinador marque a mano cuando confirma con la persona |
+| Confirmado | Badge clicable **✓ Confirmado** (verde) / **● Sin confirmar** (gris) + botón de WhatsApp — ver [Confirmación del pedido](#5-confirmación-del-pedido). Oculta al imprimir |
+| `✓` | Solo visible al imprimir: **✓ verde** si ya confirmó, cuadrito vacío si no |
 
 **Ordenamiento**: por `lastName`, luego `firstName` (alfabético, en SQL).
 
@@ -76,11 +77,45 @@ Campo de texto en el toolbar de la tabla. Filtra en tiempo real (insensible a ma
 - Número de retiro (`idOnRetreat`)
 - Talla (`size` de cualquiera de sus prendas)
 
-Botón `X` para limpiar la búsqueda. Cuando no hay resultados se muestra "Sin resultados para tu búsqueda" con un link rápido para limpiar.
+Botón `X` para limpiar la búsqueda. Cuando la tabla queda vacía el mensaje distingue quién la vació: con búsqueda activa, "Sin resultados para tu búsqueda" con link para limpiar; con el filtro "Solo sin confirmar" y todo confirmado, "Todos los pedidos de este retiro están confirmados" con link **Mostrar todos** (desactivar el filtro, no limpiar la búsqueda).
+
+Junto al buscador vive el chip **"Solo sin confirmar"** (con el conteo de pendientes) — ver [Confirmación del pedido](#5-confirmación-del-pedido).
 
 ---
 
-### 5. Estado vacío
+### 5. Confirmación del pedido
+
+El proceso real: se lanza la secuencia de WhatsApp "Confirmación de camisetas (servidores)" (plantillas `SERVER_SHIRT_CONFIRMATION`), el servidor responde confirmando sus tallas/cargo, y el coordinador le da el chulo desde esta vista. Antes esto se cuadraba imprimiendo el reporte y palomeando a mano; ahora el estado queda registrado **por retiro** en `retreat_participants.shirtOrderConfirmedAt`.
+
+**Semántica**: `NULL` = sin confirmar; timestamp = cuándo se dio el chulo. Un solo estado, sin notas ni quién lo marcó.
+
+Piezas:
+
+- **Badge clicable** en la columna Confirmado: clic marca (timestamp `new Date()` server-side), otro clic desmarca (`NULL`). Toggle optimista con rollback + toast destructivo si falla el guardado; guard anti doble-tap por participante (`savingStates`); sin refetch del reporte tras el toggle. Escribir en pantalla NO envía ningún mensaje — el chulo es manual, tras leer la respuesta del servidor.
+- **Botón de WhatsApp** (ícono `MessageSquare`, junto al badge): abre `https://api.whatsapp.com/send?phone=…` con la lada resuelta del país del participante (`buildWhatsAppChatLink(cellPhone, country)` de `apps/web/src/utils/phone.ts`), en pestaña nueva. Sin texto precargado: abre la **conversación real**, donde viven las respuestas (la app solo registra lo que ella envía). Si el participante no tiene teléfono, el botón no se renderiza.
+- **Filtro "Solo sin confirmar"**: chip en el toolbar que deja la lista en pendientes. Compone **AND** con la búsqueda; el contador del chip siempre cuenta sobre el total del reporte.
+
+**Permisos**: ver el reporte requiere `participant:read` + acceso al retiro (`requireRetreatAccess`); dar/quitar el chulo requiere `participant:update` + acceso al retiro. El teléfono/país viajan en la respuesta del reporte bajo esos mismos permisos.
+
+**Endpoint**:
+
+```
+PATCH /api/history/retreat/:retreatId/participant/:participantId/shirt-order-confirmation
+Body: { confirmed: boolean }   → { ok: true }
+Permiso: participant:update + requireRetreatAccess('retreatId')
+Body validado por setShirtOrderConfirmationSchema (validateRequest): un body
+ausente o con confirmed no-booleano recibe 400 antes de llegar al controller.
+```
+
+`confirmed: true` estampa `shirtOrderConfirmedAt = new Date()`; `false` lo limpia a `NULL`. Con un par retiro×participante inexistente afecta 0 filas y responde `ok: true` (mismo contrato que `bag-made`).
+
+**Write-protect**: `shirtOrderConfirmedAt` solo lo escribe este PATCH. El CRUD de historial sin scope (`PUT`/`POST /history`) lo excluye por tipo (`Omit<RetreatSnapshotFields, 'shirtOrderConfirmedAt'>`) y en runtime (`stripWriteProtectedFields` al entrar a `createHistoryEntry`/`updateHistoryEntry`) — sin eso, un `PUT` con el campo en el body bypasearía el gate de retiro del PATCH.
+
+Aplica a `server` y `partial_server` (ambos ya salen en el reporte); los walkers no participan de este flujo. Sin evento realtime: el reporte es de un coordinador, no una pantalla compartida (a diferencia de `bag-made` que sí emite para recepción).
+
+---
+
+### 6. Estado vacío
 
 Cuando el retiro no tiene servidores ni angelitos con prendas pedidas:
 
@@ -90,12 +125,12 @@ Cuando el retiro no tiene servidores ni angelitos con prendas pedidas:
 
 ---
 
-### 6. Impresión
+### 7. Impresión
 
-Estilos `@media print` ocultan el toolbar, la cabecera del sidebar, los botones y el footer (clase `.no-print`). Lo que queda visible al imprimir:
+Estilos `@media print` ocultan el toolbar, la cabecera del sidebar, los botones, el footer y la **columna Confirmado** (clase `.no-print`). Lo que queda visible al imprimir:
 
-- Header con totales.
-- Tabla con bordes sólidos en cada celda y un cuadrito vacío en la columna `✓` para marcar a mano.
+- Header con totales (incluye el badge "Confirmados X/Y").
+- Tabla con bordes sólidos en cada celda y la columna `✓` con **estado real**: ✓ verde si ya confirmó en el sistema, cuadrito vacío para los pendientes (útil como lista de seguimiento en la reunión semanal).
 
 Tipografía reducida en print (`11px`) para que quepa más por hoja.
 
@@ -125,7 +160,8 @@ Internamente hace:
 2. **Single SQL query** con joins:
 
    ```sql
-   SELECT p.*, rp.idOnRetreat, rp.type, pss.shirtTypeId, rst.name, pss.size, rst.price, ...
+   SELECT p.*, rp.idOnRetreat, rp.type, rp.shirtOrderConfirmedAt, p.cellPhone, p.country,
+          pss.shirtTypeId, rst.name, pss.size, rst.price, ...
      FROM participants p
      INNER JOIN retreat_participants rp
        ON rp.participantId = p.id
@@ -143,19 +179,29 @@ Internamente hace:
      ORDER BY p.lastName ASC, p.firstName ASC, rst.sortOrder ASC
    ```
 
+   La query es cruda: SQLite devuelve `datetime`/`decimal` como **string** — `shirtOrderConfirmedAt`, `cellPhone` y `country` se tipan `string | null` en todo el pipeline (nunca `z.coerce.date()`).
+
 3. **Agrupar** las filas por `participantId` para producir el array `participants[].shirts[]`, sumando `shirtCharge` por persona y `totalCharge` global (redondeo a centavos en cada suma; SQLite devuelve `decimal` como string, siempre `Number(...)` antes de sumar).
 
 #### Controller y route
 
 ```
 apps/api/src/controllers/shirtReportController.ts
+apps/api/src/controllers/retreatParticipantController.ts  (updateShirtOrderConfirmationController)
 apps/api/src/routes/shirtTypeRoutes.ts:18-22
+apps/api/src/routes/retreatParticipant.routes.ts  (PATCH shirt-order-confirmation)
 ```
 
 ```
 GET /api/retreats/:retreatId/shirt-report
-Permiso: participant:read
+Permiso: participant:read + requireRetreatAccess('retreatId')
+
+PATCH /api/history/retreat/:retreatId/participant/:participantId/shirt-order-confirmation
+Body: { confirmed: boolean }  (validado por setShirtOrderConfirmationSchema)
+Permiso: participant:update + requireRetreatAccess('retreatId')
 ```
+
+El PATCH usa `syncRetreatFields` (mismo camino que `bag-made`) contra la fila de `retreat_participants`: `confirmed: true` → `shirtOrderConfirmedAt = new Date()`, `false` → `NULL`. Responde `{ ok: true }`.
 
 Devuelve `ShirtReportResponse`:
 
@@ -165,6 +211,9 @@ Devuelve `ShirtReportResponse`:
   participants: Array<{
     participantId, firstName, lastName, idOnRetreat,
     type: 'server' | 'partial_server',
+    shirtOrderConfirmedAt: string | null,
+    cellPhone: string | null,
+    country: string | null,
     shirts: Array<{ shirtTypeId, shirtTypeName, color, sortOrder, size, price: number | null }>,
     shirtCharge: number,
   }>,
@@ -179,30 +228,33 @@ packages/types/src/index.ts (sección "Shirt Report")
 ```
 
 - `shirtReportShirtSchema` / `ShirtReportShirt` — incluye `price: number | null`.
-- `shirtReportParticipantSchema` / `ShirtReportParticipant` — incluye `shirtCharge: number`.
+- `shirtReportParticipantSchema` / `ShirtReportParticipant` — incluye `shirtCharge: number`, `shirtOrderConfirmedAt`, `cellPhone` y `country` (los tres `string | null`).
 - `shirtReportShirtTypeSchema` / `ShirtReportShirtType` — incluye `price: number | null`.
 - `shirtReportResponseSchema` / `ShirtReportResponse` — incluye `totalCharge: number`.
+- `setShirtOrderConfirmationSchema` / `SetShirtOrderConfirmation` — body del PATCH (`{ confirmed: boolean }`).
 
 ### Frontend
 
 ```
 apps/web/src/views/ShirtsReportView.vue
-apps/web/src/services/api.ts  (función getShirtReport)
+apps/web/src/services/api.ts  (getShirtReport + updateShirtOrderConfirmation)
+apps/web/src/utils/phone.ts   (buildWhatsAppChatLink)
 ```
 
 - Vue 3 Composition API con `<script setup>`.
-- Estado local: `loading`, `report`, `searchQuery`.
-- Stores: `useRetreatStore` (para obtener `selectedRetreatId`).
-- Llama `getShirtReport(retreatId)` en `onMounted`.
-- Computed: `filteredParticipants`, `totals`, `sortedShirtTypes`.
+- Estado local: `loading`, `report`, `searchQuery`, `onlyUnconfirmed`, `savingStates`, `currentRetreatId`.
+- Stores: `useRetreatStore` (para obtener `selectedRetreatId`); `useToast` para el rollback del toggle.
+- Llama `getShirtReport(retreatId)` en `onMounted` (guarda `currentRetreatId` para el toggle) y **recarga al cambiar de retiro** (watcher de `retreatStore.selectedRetreatId`, patrón `AngelitosView`): sin él, el toggle escribiría contra el retiro del montaje.
+- Computed: `filteredParticipants` (búsqueda AND solo-sin-confirmar), `totals` (incluye `confirmed`), `sortedShirtTypes`.
+- `toggleConfirmation`: patrón `CommunityAttendanceView.toggleAttendance` — guard por `savingStates[participantId]`, flip optimista del objeto local, await PATCH, catch → rollback + toast, finally limpia el guard. Sin refetch.
 - Sin Pinia store dedicado — el reporte se recarga cada vez que entras a la vista.
 
 ### Base de datos
 
 Reusa las tablas existentes (no agrega ninguna):
 
-- `participants` — datos personales.
-- `retreat_participants` — overlay por retiro (`type`, `isCancelled`, `idOnRetreat`).
+- `participants` — datos personales (`cellPhone`, `country` alimentan el botón de WhatsApp).
+- `retreat_participants` — overlay por retiro (`type`, `isCancelled`, `idOnRetreat`). Columna `shirtOrderConfirmedAt` (datetime nullable) agregada por la migración `20260921220000_AddShirtOrderConfirmedAtToRetreatParticipants` — el estado de confirmación es **por retiro**.
 - `participant_shirt_size` — relación M:N persona ↔ tipo de playera + talla.
 - `retreat_shirt_type` — catálogo de tipos por retiro; columna `price` (nullable, `NULL`/`0` = sin cargo) agregada por la migración `ServerShirtPricingAndConfirmation`.
 
@@ -214,26 +266,30 @@ Reusa las tablas existentes (no agrega ninguna):
 
 ```
 apps/api/src/tests/services/shirtReportService.test.ts
+apps/api/src/tests/routes/shirtOrderConfirmation.routes.simple.test.ts
+apps/api/src/tests/routes/shirtReport.routes.simple.test.ts
 ```
 
-13 casos:
+27 casos en el spec del service (filtrado, precios, totales, orden, y desde la feature de confirmación):
 
-- Devuelve arrays vacíos cuando no hay datos.
-- `shirtTypes` ordenados por `sortOrder` independientemente del orden de inserción.
-- Excluye walkers aunque tengan filas en `participant_shirt_size`.
-- Excluye servidores y angelitos cancelados.
-- Excluye servidores y angelitos sin pedidos.
-- Incluye ambos (server + partial_server) con todas sus prendas.
-- Filtra placeholders de talla (`''`, `'null'`, `NULL`).
-- No mezcla prendas de otro retiro.
-- `shirtTypes` incluyen el precio (o `null` si no está configurado).
-- `shirtCharge` por participante suma el precio de cada prenda pedida.
-- `shirtCharge` es 0 cuando el tipo no tiene precio configurado.
-- `totalCharge` suma el `shirtCharge` de todos los participantes.
-- `totalCharge` es 0 cuando no hay participantes con prendas.
+- `shirtOrderConfirmedAt` llega `null` por defecto, junto con `cellPhone`/`country`.
+- Tras confirmar por `syncRetreatFields`, el reporte devuelve el timestamp como string no-null.
+- Al limpiar (`false`) vuelve a `NULL`.
+- El estado es por retiro: confirmado en retiro A no aparece en el reporte del retiro B.
+
+12 casos en el spec de rutas del PATCH (supertest contra el router real con middlewares stubbeados — el 403 vive en el middleware, invisible al controller directo):
+
+- Wiring: 200 registra `requirePermission('participant:update')` + `requireRetreatAccess('retreatId')`; 401 sin sesión; 403 sin permiso; 403 sin acceso al retiro (flag intacto en cada caso).
+- Semántica: 400 si `confirmed` no es booleano, falta, o no hay body JSON (validateRequest); `true` estampa timestamp (verificado por query directa); `false` → `NULL`; par inexistente responde `ok: true` **y no toca al participante real del retiro** (prueba las 0 filas — un WHERE sin `participantId` estamparía al retiro entero).
+- Write-protect: 2 unit tests de `stripWriteProtectedFields` (suelta el campo y conserva el resto; no-op sin el campo). El camino HTTP del PUT/POST de historial no es ejercible bajo jest — hidratar entities por el grafo del router lanza el error preexistente "Class constructor … cannot be invoked without 'new'" (documentado en `palancasCountWritePath.test.ts`).
+
+4 casos en el spec de rutas del GET (mismo molde, mockeando `isAuthenticated` — `shirtTypeRoutes` importa otro archivo de auth):
+
+- Wiring: 200 registra `requirePermission('participant:read')` + `requireRetreatAccess('retreatId')`; 401 sin sesión; 403 sin permiso; 403 sin acceso al retiro.
 
 ```bash
 pnpm --filter api test src/tests/services/shirtReportService.test.ts
+pnpm --filter api test src/tests/routes/shirtOrderConfirmation.routes.simple.test.ts src/tests/routes/shirtReport.routes.simple.test.ts
 ```
 
 ### Frontend (Vitest)
@@ -242,7 +298,7 @@ pnpm --filter api test src/tests/services/shirtReportService.test.ts
 apps/web/src/views/__tests__/ShirtsReportView.test.ts
 ```
 
-18 casos: carga inicial, header con totales (incluye el tile de valor), columnas dinámicas (incluye la columna Valor), badges de tipo, render de tallas y `—`, búsqueda por nombre/número/talla, estado vacío, footer con conteos, e impresión.
+31 casos: carga inicial, header con totales (incluye "Confirmados X/Y"), columnas dinámicas, render de tallas y `—`, búsqueda por nombre/número/talla, estado vacío, footer con conteos, impresión, y el bloque de confirmación: badges por estado, toggle optimista (args correctos, sin refetch), rollback con toast, doble-tap con un solo PATCH, **recarga + toggle contra el retiro nuevo al cambiar de retiro en el sidebar**, filtro "Solo sin confirmar" (+ composición AND con búsqueda, + mensaje "todos confirmados" con desactivar-filtro cuando vacía la tabla), link wa.me con la lada resuelta por país (y ausente sin teléfono), y la columna ✓ print con estado real.
 
 ```bash
 pnpm --filter web test src/views/__tests__/ShirtsReportView.test.ts
@@ -265,9 +321,17 @@ El endpoint dedicado:
 - Filtra a nivel SQL (sin pedidos = sin fila), evita post-procesamiento.
 - Devuelve un payload pequeño y específico para esta vista.
 
-### ¿Por qué la columna ✓ vacía en vez de un checkbox real?
+### ¿Por qué el chulo es manual y no se parsea la respuesta de WhatsApp?
 
-El propósito es marcar **a mano sobre el papel impreso**. Un checkbox interactivo añadiría complejidad (estado, persistencia) sin valor real para el caso de uso (la confirmación es offline, en la reunión semanal).
+El mensaje de la secuencia pide al servidor confirmar tallas y cargo; la respuesta llega al WhatsApp **del coordinador** (número personal, no uno conectado a la app). La app no puede leerla — el chulo lo estampa la persona que leyó la respuesta. El botón de WhatsApp por fila existe justo para acortar ese paso: abrir la conversación, leer, dar el chulo.
+
+### ¿Por qué `shirtOrderConfirmedAt` datetime y no un boolean?
+
+Un solo estado de dos valores, pero el timestamp gratis responde "¿cuándo confirmó?" — dato que un boolean obligaría a reconstruir. `NULL` = sin confirmar. Mismo patrón que `checkedInAt` (datetime nullable por participante-retiro).
+
+### ¿Por qué sin realtime ni refetch tras el toggle?
+
+El reporte lo usa **un coordinador a la vez**; a diferencia de `bag-made` (recepción multi-pantalla), no hay segunda pantalla que enterarse del cambio. El toggle optimista actualiza el estado local y el contador; recargar la vista re-lee del servidor.
 
 ### ¿Por qué solo `window.print()` y no exportación a Excel?
 

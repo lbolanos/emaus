@@ -5,7 +5,7 @@ Dos piezas relacionadas:
 1. **Precio por tipo de prenda**: cada `retreat_shirt_type` puede tener un `price`; el valor de las prendas pedidas se suma al saldo esperado de **servidores y angelitos** (no del caminante — su prenda va incluida en la cuota del retiro).
 2. **Secuencia de confirmación**: un aviso + recordatorio por WhatsApp (asistido) que le muestra a cada servidor/angelito su pedido actual (prendas, tallas, valor) para que lo confirme o corrija antes del retiro.
 
-> No confundir con [Reporte de Camisetas](./shirts-report.md) (vista de confirmación en papel para la reunión semanal) — esa vista ahora también muestra el valor por prenda, pero es un documento aparte.
+> No confundir con [Reporte de Camisetas](./shirts-report.md) — la cuadratura de la confirmación (chulo digital + impresión para la reunión semanal). Esa vista también muestra el valor por prenda, pero es un documento aparte.
 
 ---
 
@@ -52,6 +52,8 @@ Sembrada por la migración `20260910120000_ServerShirtPricingAndConfirmation` co
 | Recordatorio | 7 días antes del retiro | WhatsApp (asistido) | Participante | `SERVER_SHIRT_CONFIRMATION_REMINDER` |
 
 Audiencia `server` (→ `server` + `partial_server`, cubre angelitos). Sin `maxOverdueDays`: un retiro a menos de 21 días igual dispara el aviso como catch-up legítimo (mismo criterio que "Pre-retiro: palancas"); el único freno es `isRetreatClosed` por `endDate`.
+
+La respuesta llega al WhatsApp personal del coordinador (la app no puede leerla): cuando este la lee, registra el resultado con el chulo de `retreat_participants.shirtOrderConfirmedAt` desde el [Reporte de Camisetas](./shirts-report.md#5-confirmación-del-pedido).
 
 El mensaje usa dos variables nuevas:
 
