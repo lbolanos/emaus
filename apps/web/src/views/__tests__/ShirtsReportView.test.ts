@@ -391,10 +391,10 @@ describe('ShirtsReportView', () => {
   // ── Estado vacío ─────────────────────────────────────────────────────────
 
   describe('estado vacío', () => {
-    it('muestra mensaje cuando no hay servidores ni angelitos con pedidos', async () => {
+    it('muestra mensaje cuando el retiro no tiene equipo servidor', async () => {
       const w = mountView({ shirtTypes: [PLAYERA_TYPE], participants: [] });
       await flushPromises();
-      expect(w.text()).toContain('Ningún servidor o angelito ha pedido prendas');
+      expect(w.text()).toContain('No hay servidores ni angelitos en este retiro');
     });
   });
 
@@ -467,6 +467,12 @@ describe('ShirtsReportView', () => {
       return w.findAll('button').find((b) => b.text().includes('Solo sin confirmar'))!;
     }
 
+    // El badge separa el glifo de la leyenda (la leyenda se oculta en móvil),
+    // así que el texto crudo trae espacios internos: comparar normalizado.
+    function badgeLabel(b: { text: () => string }) {
+      return b.text().replace(/\s+/g, '');
+    }
+
     it('muestra la stat card "Confirmados X/Y" contando sobre el total del reporte', async () => {
       const w = mountView(makeConfirmedReport());
       await flushPromises();
@@ -489,11 +495,25 @@ describe('ShirtsReportView', () => {
     it('el badge refleja el estado de cada fila', async () => {
       const w = mountView(makeConfirmedReport());
       await flushPromises();
-      const badges = w.findAll('tbody button').map((b) => b.text());
+      const badges = w.findAll('tbody button').map((b) => badgeLabel(b));
       // Orden de filas: Ya Confirmado, Todavía No, Angel Confirmado
-      expect(badges[0]).toBe('✓ Confirmado');
-      expect(badges[1]).toBe('● Sin confirmar');
-      expect(badges[2]).toBe('✓ Confirmado');
+      expect(badges[0]).toBe('✓Confirmado');
+      expect(badges[1]).toBe('●Sinconfirmar');
+      expect(badges[2]).toBe('✓Confirmado');
+    });
+
+    it('la leyenda del badge vive en un span ocultable (hidden sm:inline) para móvil', async () => {
+      const w = mountView(makeConfirmedReport());
+      await flushPromises();
+      const badge = w.findAll('tbody button')[0];
+      // Glifo siempre visible...
+      expect(badge.text().trim()).toContain('✓');
+      // ...y la leyenda completa solo a partir del breakpoint sm.
+      const label = badge.find('span');
+      expect(label.exists()).toBe(true);
+      expect(label.attributes('class')).toContain('hidden');
+      expect(label.attributes('class')).toContain('sm:inline');
+      expect(label.text().trim()).toBe('Confirmado');
     });
 
     it('dar el chulo llama al PATCH con true y voltea el badge sin refetch', async () => {
@@ -514,7 +534,7 @@ describe('ShirtsReportView', () => {
         pending.participantId,
         true,
       );
-      expect(w.findAll('tbody button')[1].text()).toBe('✓ Confirmado');
+      expect(badgeLabel(w.findAll('tbody button')[1])).toBe('✓Confirmado');
       expect(w.text()).toContain('3/3');
       // Sin refetch del reporte tras el toggle.
       expect(mockGetShirtReport).toHaveBeenCalledTimes(1);
@@ -560,7 +580,7 @@ describe('ShirtsReportView', () => {
         confirmed.participantId,
         false,
       );
-      expect(w.findAll('tbody button')[0].text()).toBe('● Sin confirmar');
+      expect(badgeLabel(w.findAll('tbody button')[0])).toBe('●Sinconfirmar');
       expect(w.text()).toContain('1/3');
     });
 
@@ -574,7 +594,7 @@ describe('ShirtsReportView', () => {
       await badge.trigger('click');
       await flushPromises();
 
-      expect(w.findAll('tbody button')[1].text()).toBe('● Sin confirmar');
+      expect(badgeLabel(w.findAll('tbody button')[1])).toBe('●Sinconfirmar');
       expect(w.text()).toContain('2/3');
       expect(mockToast).toHaveBeenCalledWith(
         expect.objectContaining({ variant: 'destructive' }),
@@ -596,7 +616,7 @@ describe('ShirtsReportView', () => {
       expect(mockUpdateShirtOrderConfirmation).toHaveBeenCalledTimes(1);
       resolveToggle();
       await flushPromises();
-      expect(w.findAll('tbody button')[1].text()).toBe('✓ Confirmado');
+      expect(badgeLabel(w.findAll('tbody button')[1])).toBe('✓Confirmado');
     });
 
     it('"Solo sin confirmar" deja la lista en pendientes y compone AND con la búsqueda', async () => {
@@ -691,6 +711,146 @@ describe('ShirtsReportView', () => {
       });
       await flushPromises();
       expect(w.find('a[href^="https://api.whatsapp.com/send"]').exists()).toBe(false);
+    });
+  });
+
+  // ── Universo completo + filtro "Requieren camiseta" ─────────────────────
+
+  describe('universo del equipo y filtro "Requieren camiseta"', () => {
+    function makeTeamReport() {
+      return {
+        shirtTypes: [PLAYERA_TYPE],
+        participants: [
+          makeServer({
+            firstName: 'Pide',
+            lastName: 'Una',
+            shirts: [makeShirt(PLAYERA_TYPE.id, 'Playera', 'M')],
+          }),
+          makeServer({
+            firstName: 'Pide',
+            lastName: 'Dos',
+            shirtOrderConfirmedAt: '2026-09-21 12:00:00.000',
+            shirts: [makeShirt(PLAYERA_TYPE.id, 'Playera', 'G')],
+          }),
+          // Respondió "no necesito camisetas": sin prendas, pero confirmable.
+          makeServer({ firstName: 'NoNecesita', lastName: 'Nada', shirts: [] }),
+          makeAngelito({
+            firstName: 'AngelSin',
+            lastName: 'Prendas',
+            shirtOrderConfirmedAt: '2026-09-21 13:00:00.000',
+            shirts: [],
+          }),
+        ],
+      };
+    }
+
+    function requiringChip(w: ReturnType<typeof mountView>) {
+      return w.findAll('button').find((b) => b.text().includes('Requieren camiseta'))!;
+    }
+
+    function unconfirmedChip(w: ReturnType<typeof mountView>) {
+      return w.findAll('button').find((b) => b.text().includes('Solo sin confirmar'))!;
+    }
+
+    it('lista a todo el equipo: quien no pidió prendas también aparece y cuenta en X/Y', async () => {
+      const w = mountView(makeTeamReport());
+      await flushPromises();
+
+      expect(w.text()).toContain('Equipo servidor del retiro');
+      const rows = w.findAll('tbody tr');
+      expect(rows).toHaveLength(4);
+      expect(w.text()).toContain('NoNecesita');
+      expect(w.text()).toContain('AngelSin');
+      // X/Y mide sobre el universo completo (2 confirmados de 4).
+      expect(w.text()).toContain('2/4');
+      expect(w.text()).toMatch(/Mostrando\s+4\s+personas/);
+      // Badge del chip = quienes requieren (2 de los 4).
+      expect(requiringChip(w).text()).toMatch(/2/);
+    });
+
+    it('el chip "Requieren camiseta" estrecha a quienes pidieron ≥1 prenda', async () => {
+      const w = mountView(makeTeamReport());
+      await flushPromises();
+
+      await requiringChip(w).trigger('click');
+      await nextTick();
+
+      expect(w.text()).toContain('Pide Una');
+      expect(w.text()).toContain('Pide Dos');
+      expect(w.text()).not.toContain('NoNecesita');
+      expect(w.text()).not.toContain('AngelSin');
+      expect(w.text()).toMatch(/Mostrando\s+2\s+de\s+4\s+personas/);
+      // El contador X/Y no se mueve con el filtro.
+      expect(w.text()).toContain('2/4');
+    });
+
+    it('compone AND con "Solo sin confirmar"', async () => {
+      const w = mountView(makeTeamReport());
+      await flushPromises();
+
+      await requiringChip(w).trigger('click');
+      await unconfirmedChip(w).trigger('click');
+      await nextTick();
+
+      // Requieren Y sin confirmar → solo Pide Una.
+      expect(w.text()).toContain('Pide Una');
+      expect(w.text()).not.toContain('Pide Dos');
+      expect(w.text()).not.toContain('NoNecesita');
+    });
+
+    it('compone AND con la búsqueda: el sin-prendas no aparece aunque el query lo matchee', async () => {
+      const w = mountView(makeTeamReport());
+      await flushPromises();
+
+      await requiringChip(w).trigger('click');
+      await nextTick();
+      await w.find('input').setValue('nonecesita');
+      await nextTick();
+
+      expect(w.text()).toContain('Sin resultados para tu búsqueda');
+    });
+
+    it('con el chip activo y nadie requiriendo, ofrece "Quitar filtros"', async () => {
+      const w = mountView({
+        shirtTypes: [PLAYERA_TYPE],
+        participants: [
+          makeServer({ firstName: 'Sin', lastName: 'Prendas', shirts: [] }),
+          makeAngelito({ firstName: 'Tampoco', lastName: 'Pidió', shirts: [] }),
+        ],
+      });
+      await flushPromises();
+
+      await requiringChip(w).trigger('click');
+      await nextTick();
+
+      expect(w.text()).toContain('Nadie coincide con los filtros activos');
+      expect(w.text()).not.toContain('Todos los pedidos de este retiro están confirmados');
+
+      const clear = w.findAll('button').find((b) => b.text() === 'Quitar filtros')!;
+      await clear.trigger('click');
+      await nextTick();
+      expect(w.text()).toContain('Sin Prendas');
+      expect(w.text()).toContain('Tampoco');
+    });
+
+    it('el chulo también funciona sobre una fila sin prendas', async () => {
+      const report = makeTeamReport();
+      const w = mountView(report);
+      await flushPromises();
+      mockUpdateShirtOrderConfirmation.mockResolvedValueOnce(undefined);
+      const noGarment = report.participants[2]; // NoNecesita Nada
+      // Orden de filas = orden de la fixture → el badge 2 es el del sin-prendas.
+      const badge = w.findAll('tbody button')[2];
+
+      await badge.trigger('click');
+      await flushPromises();
+
+      expect(mockUpdateShirtOrderConfirmation).toHaveBeenCalledWith(
+        RETREAT_ID,
+        noGarment.participantId,
+        true,
+      );
+      expect(w.text()).toContain('3/4');
     });
   });
 

@@ -17,6 +17,7 @@ export type ShirtReportParticipant = {
 	lastName: string;
 	idOnRetreat: number | null;
 	type: 'server' | 'partial_server';
+	/** Empty when the server did not order any garment — they still get confirmed. */
 	shirts: ShirtReportShirt[];
 	shirtCharge: number;
 	// Confirmación del pedido (chulo del coordinador, flujo SERVER_SHIRT_CONFIRMATION)
@@ -49,11 +50,13 @@ type Row = {
 	lastName: string;
 	idOnRetreat: number | null;
 	type: 'server' | 'partial_server';
-	shirtTypeId: string;
-	shirtTypeName: string;
+	// Garment columns come from LEFT JOINs: all null when the server did not
+	// order anything (they still get a row so they can be confirmed too).
+	shirtTypeId: string | null;
+	shirtTypeName: string | null;
 	color: string | null;
-	sortOrder: number;
-	size: string;
+	sortOrder: number | null;
+	size: string | null;
 	// SQLite devuelve decimal como string en queries crudos.
 	price: string | number | null;
 	// ...y datetime también: llega como string, no Date.
@@ -86,6 +89,14 @@ export const getShirtOrdersForRetreat = async (
 
 	// Single query: join participants + retreat_participants + participant_shirt_size + retreat_shirt_type
 	// scoping shirt-types to this retreat so cross-retreat sizes are excluded.
+	// Universe = EVERY non-cancelled server/partial_server of the retreat: the
+	// SERVER_SHIRT_CONFIRMATION sequence enrolls them all (some answer "no
+	// necesito camisetas" and earn their checkmark too), so the garment side is
+	// a LEFT JOIN — whoever ordered nothing still gets one row with null garment
+	// columns and aggregates to shirts: []. The retreat scoping lives INSIDE
+	// the derived table (INNER): a bare LEFT JOIN chain would let cross-retreat
+	// rows through with null rst columns (phantom garments), and moving the
+	// scoping to WHERE would drop the no-garment rows again.
 	// The LEFT JOIN coalesces the per-size override over the type's base price,
 	// so each row's `price` is already EFFECTIVE.
 	const rows: Row[] = await AppDataSource.query(
@@ -110,14 +121,20 @@ export const getShirtOrdersForRetreat = async (
        AND rp.retreatId = ?
        AND rp.isCancelled = 0
        AND rp.type IN ('server', 'partial_server')
-     INNER JOIN participant_shirt_size pss
-       ON pss.participantId = p.id
-       AND pss.size IS NOT NULL
-       AND pss.size != ''
-       AND pss.size != 'null'
-     INNER JOIN retreat_shirt_type rst
+     LEFT JOIN (
+       SELECT pss2.participantId AS participantId,
+              pss2.shirtTypeId  AS shirtTypeId,
+              pss2.size         AS size
+       FROM participant_shirt_size pss2
+       INNER JOIN retreat_shirt_type rst2
+         ON rst2.id = pss2.shirtTypeId
+         AND rst2.retreatId = ?
+       WHERE pss2.size IS NOT NULL
+         AND pss2.size != ''
+         AND pss2.size != 'null'
+     ) pss ON pss.participantId = p.id
+     LEFT JOIN retreat_shirt_type rst
        ON rst.id = pss.shirtTypeId
-       AND rst.retreatId = ?
      LEFT JOIN retreat_shirt_type_size_price ssp
        ON ssp.shirtTypeId = rst.id
        AND ssp.size = pss.size
@@ -143,6 +160,10 @@ export const getShirtOrdersForRetreat = async (
 			};
 			byParticipant.set(r.participantId, entry);
 		}
+		// No-garment row (LEFT JOIN without match): the participant stays
+		// listed with shirts: [] — the "no necesito camisetas" answer gets its
+		// checkmark like anyone else's (SERVER_SHIRT_CONFIRMATION flow).
+		if (r.shirtTypeId == null) continue;
 		const price = r.price != null && r.price !== '' ? Number(r.price) : null;
 		entry.shirts.push({
 			shirtTypeId: r.shirtTypeId,

@@ -1,11 +1,13 @@
 /**
- * Tests for shirtReportService — listing servidores y angelitos con prendas pedidas
- * para el reporte semanal.
+ * Tests for shirtReportService — listing el equipo servidor completo (servidores
+ * y angelitos) del retiro con sus prendas pedidas, para el reporte semanal.
  *
  * Reglas cubiertas:
  *  - Walkers excluidos (aunque tengan prendas en `participant_shirt_size`).
  *  - Participantes cancelados excluidos.
- *  - Participantes sin prendas excluidos.
+ *  - Participantes sin prendas INCLUIDOS con `shirts: []` — la secuencia
+ *    SERVER_SHIRT_CONFIRMATION enrola a todo el equipo y el "no necesito
+ *    camisetas" también se confirma.
  *  - Angelitos (`partial_server`) incluidos junto con servers.
  *  - shirtTypes en la respuesta vienen ordenados por `sortOrder`.
  *  - Cada participante trae todas sus prendas para este retiro.
@@ -133,7 +135,7 @@ describe('Shirt Report Service', () => {
 		expect(result.participants).toEqual([]);
 	});
 
-	it('excludes servers and angelitos who did not order any garment', async () => {
+	it('includes servers and angelitos who did not order any garment (shirts: [], shirtCharge: 0)', async () => {
 		const retreatId = await makeRetreat();
 		await createShirtType(retreatId, { name: 'Playera' });
 
@@ -142,9 +144,23 @@ describe('Shirt Report Service', () => {
 			lastName: 'Order',
 			type: 'server',
 		} as any);
+		await TestDataFactory.createTestParticipant(retreatId, {
+			firstName: 'Tampoco',
+			lastName: 'Angel',
+			type: 'partial_server',
+		} as any);
 
 		const result = await getShirtOrdersForRetreat(retreatId);
-		expect(result.participants).toEqual([]);
+		expect(result.participants).toHaveLength(2);
+		for (const p of result.participants) {
+			expect(p.shirts).toEqual([]);
+			expect(p.shirtCharge).toBe(0);
+			// Confirmation/contact fields are present too — their "no necesito
+			// camisetas" answer still earns a checkmark.
+			expect(p).toHaveProperty('shirtOrderConfirmedAt', null);
+			expect(p).toHaveProperty('cellPhone');
+			expect(p).toHaveProperty('country');
+		}
 	});
 
 	it('includes both servers and angelitos with their shirts', async () => {
@@ -225,11 +241,23 @@ describe('Shirt Report Service', () => {
 		await assignShirtSize(server.id, shirtA.id, 'M');
 		// Asignación a tipo de OTRO retiro — no debería aparecer en el reporte de A
 		await assignShirtSize(server.id, shirtB.id, 'G');
+		// Servidor cuyas ÚNICAS filas son del otro retiro: sigue listado (equipo
+		// completo), pero sin prendas de este retiro.
+		const crossOnly = await TestDataFactory.createTestParticipant(retreatA, {
+			firstName: 'Only',
+			lastName: 'Cross',
+			type: 'server',
+		} as any);
+		await assignShirtSize(crossOnly.id, shirtB.id, 'S');
 
 		const result = await getShirtOrdersForRetreat(retreatA);
-		expect(result.participants).toHaveLength(1);
-		expect(result.participants[0].shirts).toHaveLength(1);
-		expect(result.participants[0].shirts[0].shirtTypeName).toBe('Playera A');
+		expect(result.participants).toHaveLength(2);
+		const cross = result.participants.find((p) => p.firstName === 'Cross')!;
+		expect(cross.shirts).toHaveLength(1);
+		expect(cross.shirts[0].shirtTypeName).toBe('Playera A');
+		const onlyCross = result.participants.find((p) => p.firstName === 'Only')!;
+		expect(onlyCross.shirts).toEqual([]);
+		expect(onlyCross.shirtCharge).toBe(0);
 	});
 
 	// --- Precio / shirtCharge / totalCharge ---
@@ -304,10 +332,29 @@ describe('Shirt Report Service', () => {
 		expect(result.totalCharge).toBe(270);
 	});
 
-	it('totalCharge is 0 when there are no participants with garments', async () => {
+	it('mixes garment and no-garment servers: both listed, totalCharge only sums the orderer', async () => {
 		const retreatId = await makeRetreat();
+		const playera = await createShirtType(retreatId, { name: 'Playera', price: 135 });
+
+		const orderer = await TestDataFactory.createTestParticipant(retreatId, {
+			firstName: 'Con',
+			lastName: 'Pedido',
+			type: 'server',
+		} as any);
+		await assignShirtSize(orderer.id, playera.id, 'M');
+
+		await TestDataFactory.createTestParticipant(retreatId, {
+			firstName: 'Sin',
+			lastName: 'Pedido',
+			type: 'server',
+		} as any);
+
 		const result = await getShirtOrdersForRetreat(retreatId);
-		expect(result.totalCharge).toBe(0);
+		expect(result.participants).toHaveLength(2);
+		expect(result.totalCharge).toBe(135);
+		const sin = result.participants.find((p) => p.firstName === 'Sin')!;
+		expect(sin.shirts).toEqual([]);
+		expect(sin.shirtCharge).toBe(0);
 	});
 
 	// --- Precio por talla (override sobre el base) ---

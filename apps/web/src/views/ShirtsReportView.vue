@@ -26,6 +26,9 @@ const loading = ref(false)
 const report = ref<ShirtReportResponse | null>(null)
 const searchQuery = ref('')
 const onlyUnconfirmed = ref(false)
+// Universo = todo el equipo servidor; este chip estrecha a quienes pidieron
+// ≥1 prenda (la confirmación también aplica a quien responde "no necesito").
+const onlyRequiring = ref(false)
 const currentRetreatId = ref<string | null>(null)
 // Guard anti doble-tap por participante (patrón toggleAttendance).
 const savingStates = ref<Record<string, boolean>>({})
@@ -36,6 +39,9 @@ const filteredParticipants = computed<ShirtReportParticipant[]>(() => {
   const all = report.value?.participants ?? []
   const q = searchQuery.value.trim().toLowerCase()
   let list = all
+  if (onlyRequiring.value) {
+    list = list.filter((p) => p.shirts.length > 0)
+  }
   if (onlyUnconfirmed.value) {
     list = list.filter((p) => !p.shirtOrderConfirmedAt)
   }
@@ -54,13 +60,15 @@ const totals = computed(() => {
   let angelitos = 0
   let garments = 0
   let confirmed = 0
+  let requiring = 0
   for (const p of list) {
     if (p.type === 'partial_server') angelitos++
     else servers++
     garments += p.shirts.length
     if (p.shirtOrderConfirmedAt) confirmed++
+    if (p.shirts.length > 0) requiring++
   }
-  return { servers, angelitos, garments, confirmed, total: list.length }
+  return { servers, angelitos, garments, confirmed, requiring, total: list.length }
 })
 
 const totalCharge = computed(() => report.value?.totalCharge ?? 0)
@@ -153,7 +161,7 @@ watch(
           <div class="min-w-0">
             <h2 class="text-base font-semibold text-gray-900 leading-tight">Reporte de camisetas</h2>
             <p class="text-xs text-gray-500 mt-0.5">
-              Servidores y angelitos con prendas solicitadas
+              Equipo servidor del retiro: pedido y confirmación de camisetas
             </p>
           </div>
         </div>
@@ -228,7 +236,24 @@ watch(
               <X class="w-3.5 h-3.5" />
             </button>
           </div>
-          <!-- Chip (no input): los tests de búsqueda usan el primer input de la vista. -->
+          <!-- Chips (no inputs): los tests de búsqueda usan el primer input de la vista. -->
+          <button
+            type="button"
+            class="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg border text-xs font-medium transition-colors"
+            :class="onlyRequiring
+              ? 'bg-indigo-600 border-indigo-600 text-white'
+              : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'"
+            :title="onlyRequiring ? 'Mostrando solo quienes pidieron prendas' : 'Filtrar solo quienes requieren camiseta'"
+            @click="onlyRequiring = !onlyRequiring"
+          >
+            Requieren camiseta
+            <span
+              class="inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1 rounded-full text-[10px] font-bold"
+              :class="onlyRequiring ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-500'"
+            >
+              {{ totals.requiring }}
+            </span>
+          </button>
           <button
             type="button"
             class="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg border text-xs font-medium transition-colors"
@@ -267,7 +292,7 @@ watch(
         <div class="flex flex-col items-center gap-2 text-gray-400">
           <Shirt class="w-8 h-8 opacity-40" />
           <p class="text-sm font-medium">
-            Ningún servidor o angelito ha pedido prendas en este retiro.
+            No hay servidores ni angelitos en este retiro.
           </p>
         </div>
       </div>
@@ -341,7 +366,12 @@ watch(
                       : 'Sin confirmar — clic cuando el servidor responda'"
                     @click="toggleConfirmation(participant)"
                   >
-                    {{ participant.shirtOrderConfirmedAt ? '✓ Confirmado' : '● Sin confirmar' }}
+                    <!-- En pantallas angostas (celular) queda solo el glifo; la
+                         leyenda completa aparece desde sm. -->
+                    {{ participant.shirtOrderConfirmedAt ? '✓' : '●' }}
+                    <span class="hidden sm:inline">
+                      {{ participant.shirtOrderConfirmedAt ? 'Confirmado' : 'Sin confirmar' }}
+                    </span>
                   </button>
                   <a
                     v-if="whatsappLink(participant)"
@@ -368,10 +398,10 @@ watch(
 
             <tr v-if="filteredParticipants.length === 0">
               <td :colspan="4 + sortedShirtTypes.length" class="px-4 py-12 text-center">
-                <!-- Sin búsqueda: quien vació la tabla fue el filtro — ofrecer
+                <!-- Sin búsqueda: quien vació la tabla fue un chip — ofrecer
                      desactivarlo, no "limpiar la búsqueda". -->
                 <div
-                  v-if="!searchQuery"
+                  v-if="!searchQuery && onlyUnconfirmed && !onlyRequiring"
                   class="flex flex-col items-center gap-2 text-gray-400"
                 >
                   <PackageCheck class="w-8 h-8 opacity-40" />
@@ -383,6 +413,21 @@ watch(
                     @click="onlyUnconfirmed = false"
                   >
                     Mostrar todos
+                  </button>
+                </div>
+                <div
+                  v-else-if="!searchQuery"
+                  class="flex flex-col items-center gap-2 text-gray-400"
+                >
+                  <PackageCheck class="w-8 h-8 opacity-40" />
+                  <p class="text-sm font-medium">
+                    Nadie coincide con los filtros activos.
+                  </p>
+                  <button
+                    class="text-xs text-indigo-500 hover:text-indigo-700 underline"
+                    @click="onlyRequiring = false; onlyUnconfirmed = false"
+                  >
+                    Quitar filtros
                   </button>
                 </div>
                 <div v-else class="flex flex-col items-center gap-2 text-gray-400">
