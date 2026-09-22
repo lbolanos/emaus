@@ -1,6 +1,6 @@
 # Reporte de Camisetas
 
-Vista de **confirmación uno-a-uno** de las prendas (playera, chamarra, etc.) que pidieron servidores y angelitos de un retiro, con el **valor a cobrar** por cada una. Pensada para imprimirse y llevarse a la reunión semanal de preparación, donde el coordinador valida con cada persona qué pidió y de qué talla.
+Vista de **confirmación uno-a-uno** de las prendas (playera, chamarra, etc.) del **equipo servidor completo** de un retiro — servidores y angelitos, **incluidos quienes no pidieron prendas** — con el **valor a cobrar** por cada una. Pensada para imprimirse y llevarse a la reunión semanal de preparación, donde el coordinador valida con cada persona qué pidió y de qué talla.
 
 Cada tipo de prenda puede tener un `price` (configurable en `/app/settings/shirt-types`); ese valor se suma al saldo esperado de servidores y angelitos (`Participant.chargeBreakdown.shirts`) — el caminante no lo paga aparte, va incluido en la cuota del retiro. Detalle del cargo: [Confirmación de camisetas y precio por prenda](./shirt-pricing-and-confirmation.md).
 
@@ -22,11 +22,11 @@ Permiso requerido: `participant:read` **+ acceso al retiro** (`requireRetreatAcc
 
 | Badge | Descripción |
 |---|---|
-| Servidores | Cuenta de `type = 'server'` con al menos una prenda solicitada |
-| Angelitos | Cuenta de `type = 'partial_server'` con al menos una prenda solicitada |
+| Servidores | Cuenta de `type = 'server'` del retiro (equipo completo, pida o no prendas) |
+| Angelitos | Cuenta de `type = 'partial_server'` del retiro (equipo completo) |
 | Prendas | Total de filas en `participant_shirt_size` para los participantes listados |
 | Valor total | Suma de `shirtCharge` de todos los participantes listados (`totalCharge` de la respuesta) |
-| Confirmados | `X/Y` — cuántos ya confirmaron su pedido (`shirtOrderConfirmedAt` no-null) sobre el total listado |
+| Confirmados | `X/Y` — cuántos ya confirmaron su pedido (`shirtOrderConfirmedAt` no-null) sobre el equipo completo listado |
 
 Botón **Imprimir** a la derecha (icono de impresora) que ejecuta `window.print()`.
 
@@ -58,14 +58,21 @@ Después se agrega una columna por cada tipo de prenda configurado (orden por `s
 
 ---
 
-### 3. Filtro por inclusión
+### 3. Universo y filtro «Requieren camiseta»
 
-La lista **solo incluye servidores y angelitos que pidieron al menos una prenda**. Se excluyen automáticamente:
+La lista base es **todo el equipo servidor del retiro**: la secuencia de WhatsApp `SERVER_SHIRT_CONFIRMATION` se enrola a todos los servidores y angelitos no cancelados, y quien no pidió prendas también responde ("no necesito camisetas") y recibe su chulo — excluirlo del reporte dejaba a esa gente fuera de la cuadratura de confirmación.
+
+Quien no pidió aparece con `shirts: []`: columnas de talla en `—`, Valor `$0.00`, badge y botón de WhatsApp operativos. Solo se excluye a:
 
 - Caminantes (`walker`) — éstos van en [Reporte de Bolsas](./bags-report.md).
 - Cancelados (`isCancelled = true`).
-- Servidores/angelitos sin filas en `participant_shirt_size` para este retiro.
-- Filas con `size` vacío, `null` (cadena placeholder legacy) o `NULL`.
+
+Para estrechar la lista al pedido de compra viven dos chips en el toolbar:
+
+- **«Requieren camiseta»** (badge con el conteo): deja solo a quienes pidieron ≥1 prenda de este retiro — la lista para la reunión de compra.
+- **«Solo sin confirmar»**: deja solo pendientes de confirmación (ver [Confirmación del pedido](#5-confirmación-del-pedido)).
+
+Ambos componen **AND** entre sí y con la búsqueda; los contadores (chips y "Confirmados X/Y") siempre miden sobre el equipo completo, no sobre la lista filtrada.
 
 ---
 
@@ -77,9 +84,9 @@ Campo de texto en el toolbar de la tabla. Filtra en tiempo real (insensible a ma
 - Número de retiro (`idOnRetreat`)
 - Talla (`size` de cualquiera de sus prendas)
 
-Botón `X` para limpiar la búsqueda. Cuando la tabla queda vacía el mensaje distingue quién la vació: con búsqueda activa, "Sin resultados para tu búsqueda" con link para limpiar; con el filtro "Solo sin confirmar" y todo confirmado, "Todos los pedidos de este retiro están confirmados" con link **Mostrar todos** (desactivar el filtro, no limpiar la búsqueda).
+Botón `X` para limpiar la búsqueda. Cuando la tabla queda vacía el mensaje distingue quién la vació: con búsqueda activa, "Sin resultados para tu búsqueda" con link para limpiar; con el chip "Solo sin confirmar" como único filtro activo y todo confirmado, "Todos los pedidos de este retiro están confirmados" con link **Mostrar todos**; con "Requieren camiseta" activo (solo o combinado) y nadie que cumpla, "Nadie coincide con los filtros activos" con link **Quitar filtros** (desactiva ambos chips, no limpia la búsqueda).
 
-Junto al buscador vive el chip **"Solo sin confirmar"** (con el conteo de pendientes) — ver [Confirmación del pedido](#5-confirmación-del-pedido).
+Junto al buscador viven los chips **"Requieren camiseta"** y **"Solo sin confirmar"** (cada uno con su conteo) — ver [Universo y filtro](#3-universo-y-filtro-requieren-camiseta) y [Confirmación del pedido](#5-confirmación-del-pedido).
 
 ---
 
@@ -91,7 +98,7 @@ El proceso real: se lanza la secuencia de WhatsApp "Confirmación de camisetas (
 
 Piezas:
 
-- **Badge clicable** en la columna Confirmado: clic marca (timestamp `new Date()` server-side), otro clic desmarca (`NULL`). Toggle optimista con rollback + toast destructivo si falla el guardado; guard anti doble-tap por participante (`savingStates`); sin refetch del reporte tras el toggle. Escribir en pantalla NO envía ningún mensaje — el chulo es manual, tras leer la respuesta del servidor.
+- **Badge clicable** en la columna Confirmado: clic marca (timestamp `new Date()` server-side), otro clic desmarca (`NULL`). En pantallas angostas (celular) la leyenda se oculta y queda solo el glifo (`✓`/`●` en un `span hidden sm:inline`). Toggle optimista con rollback + toast destructivo si falla el guardado; guard anti doble-tap por participante (`savingStates`); sin refetch del reporte tras el toggle. Escribir en pantalla NO envía ningún mensaje — el chulo es manual, tras leer la respuesta del servidor.
 - **Botón de WhatsApp** (ícono `MessageSquare`, junto al badge): abre `https://api.whatsapp.com/send?phone=…` con la lada resuelta del país del participante (`buildWhatsAppChatLink(cellPhone, country)` de `apps/web/src/utils/phone.ts`), en pestaña nueva. Sin texto precargado: abre la **conversación real**, donde viven las respuestas (la app solo registra lo que ella envía). Si el participante no tiene teléfono, el botón no se renderiza.
 - **Filtro "Solo sin confirmar"**: chip en el toolbar que deja la lista en pendientes. Compone **AND** con la búsqueda; el contador del chip siempre cuenta sobre el total del reporte.
 
@@ -117,11 +124,11 @@ Aplica a `server` y `partial_server` (ambos ya salen en el reporte); los walkers
 
 ### 6. Estado vacío
 
-Cuando el retiro no tiene servidores ni angelitos con prendas pedidas:
+Cuando el retiro no tiene equipo servidor:
 
-> Ningún servidor o angelito ha pedido prendas en este retiro.
+> No hay servidores ni angelitos en este retiro.
 
-(Por ejemplo, retiro recién creado, o donde nadie ha completado el formulario de servidor.)
+(Por ejemplo, retiro recién creado. Quien sí existe pero no pidió prendas **sí aparece** — con tallas en `—` y Valor `$0.00`.)
 
 ---
 
@@ -168,20 +175,26 @@ Internamente hace:
        AND rp.retreatId = ?
        AND rp.isCancelled = 0
        AND rp.type IN ('server', 'partial_server')
-     INNER JOIN participant_shirt_size pss
-       ON pss.participantId = p.id
-       AND pss.size IS NOT NULL
-       AND pss.size != ''
-       AND pss.size != 'null'
-     INNER JOIN retreat_shirt_type rst
+     LEFT JOIN (
+       SELECT pss2.participantId, pss2.shirtTypeId, pss2.size
+         FROM participant_shirt_size pss2
+         INNER JOIN retreat_shirt_type rst2
+           ON rst2.id = pss2.shirtTypeId
+           AND rst2.retreatId = ?
+        WHERE pss2.size IS NOT NULL
+          AND pss2.size != ''
+          AND pss2.size != 'null'
+     ) pss ON pss.participantId = p.id
+     LEFT JOIN retreat_shirt_type rst
        ON rst.id = pss.shirtTypeId
-       AND rst.retreatId = ?
      ORDER BY p.lastName ASC, p.firstName ASC, rst.sortOrder ASC
    ```
 
+   El lado de prendas es un **LEFT JOIN a una subquery derivada**: el scope por retiro y los placeholders de talla se filtran **dentro** de la subquery, así quien no pidió nada del retiro sigue trayendo una fila (agrega a `shirts: []`) mientras las filas de otro retiro nunca llegan a la query externa. Un LEFT JOIN plano dejaría pasar filas cross-retreat con columnas `rst` NULL (prendas fantasma); mover el scope al `WHERE` eliminaría al sin-prendas otra vez.
+
    La query es cruda: SQLite devuelve `datetime`/`decimal` como **string** — `shirtOrderConfirmedAt`, `cellPhone` y `country` se tipan `string | null` en todo el pipeline (nunca `z.coerce.date()`).
 
-3. **Agrupar** las filas por `participantId` para producir el array `participants[].shirts[]`, sumando `shirtCharge` por persona y `totalCharge` global (redondeo a centavos en cada suma; SQLite devuelve `decimal` como string, siempre `Number(...)` antes de sumar).
+3. **Agrupar** las filas por `participantId` para producir el array `participants[].shirts[]` (la fila sin prendas crea la entrada y se salta el push — `shirtTypeId` NULL), sumando `shirtCharge` por persona y `totalCharge` global (redondeo a centavos en cada suma; SQLite devuelve `decimal` como string, siempre `Number(...)` antes de sumar).
 
 #### Controller y route
 
@@ -242,10 +255,10 @@ apps/web/src/utils/phone.ts   (buildWhatsAppChatLink)
 ```
 
 - Vue 3 Composition API con `<script setup>`.
-- Estado local: `loading`, `report`, `searchQuery`, `onlyUnconfirmed`, `savingStates`, `currentRetreatId`.
+- Estado local: `loading`, `report`, `searchQuery`, `onlyRequiring`, `onlyUnconfirmed`, `savingStates`, `currentRetreatId`.
 - Stores: `useRetreatStore` (para obtener `selectedRetreatId`); `useToast` para el rollback del toggle.
 - Llama `getShirtReport(retreatId)` en `onMounted` (guarda `currentRetreatId` para el toggle) y **recarga al cambiar de retiro** (watcher de `retreatStore.selectedRetreatId`, patrón `AngelitosView`): sin él, el toggle escribiría contra el retiro del montaje.
-- Computed: `filteredParticipants` (búsqueda AND solo-sin-confirmar), `totals` (incluye `confirmed`), `sortedShirtTypes`.
+- Computed: `filteredParticipants` (búsqueda AND requieren-camiseta AND solo-sin-confirmar), `totals` (incluye `confirmed` y `requiring`), `sortedShirtTypes`.
 - `toggleConfirmation`: patrón `CommunityAttendanceView.toggleAttendance` — guard por `savingStates[participantId]`, flip optimista del objeto local, await PATCH, catch → rollback + toast, finally limpia el guard. Sin refetch.
 - Sin Pinia store dedicado — el reporte se recarga cada vez que entras a la vista.
 
@@ -270,8 +283,9 @@ apps/api/src/tests/routes/shirtOrderConfirmation.routes.simple.test.ts
 apps/api/src/tests/routes/shirtReport.routes.simple.test.ts
 ```
 
-27 casos en el spec del service (filtrado, precios, totales, orden, y desde la feature de confirmación):
+27 casos en el spec del service (universo del equipo, filtrado de prendas, precios, totales, orden, y desde la feature de confirmación):
 
+- El universo es el equipo completo: quien no pidió prendas aparece con `shirts: []`, `shirtCharge: 0` y sus campos de confirmación/contacto (también un servidor cuyas únicas filas son de otro retiro).
 - `shirtOrderConfirmedAt` llega `null` por defecto, junto con `cellPhone`/`country`.
 - Tras confirmar por `syncRetreatFields`, el reporte devuelve el timestamp como string no-null.
 - Al limpiar (`false`) vuelve a `NULL`.
@@ -298,7 +312,7 @@ pnpm --filter api test src/tests/routes/shirtOrderConfirmation.routes.simple.tes
 apps/web/src/views/__tests__/ShirtsReportView.test.ts
 ```
 
-31 casos: carga inicial, header con totales (incluye "Confirmados X/Y"), columnas dinámicas, render de tallas y `—`, búsqueda por nombre/número/talla, estado vacío, footer con conteos, impresión, y el bloque de confirmación: badges por estado, toggle optimista (args correctos, sin refetch), rollback con toast, doble-tap con un solo PATCH, **recarga + toggle contra el retiro nuevo al cambiar de retiro en el sidebar**, filtro "Solo sin confirmar" (+ composición AND con búsqueda, + mensaje "todos confirmados" con desactivar-filtro cuando vacía la tabla), link wa.me con la lada resuelta por país (y ausente sin teléfono), y la columna ✓ print con estado real.
+38 casos: carga inicial, header con totales (incluye "Confirmados X/Y"), columnas dinámicas, render de tallas y `—`, búsqueda por nombre/número/talla, estado vacío, footer con conteos, impresión, el bloque de confirmación (badges por estado y leyenda responsive del badge, toggle optimista con args correctos y sin refetch, rollback con toast, doble-tap con un solo PATCH, **recarga + toggle contra el retiro nuevo al cambiar de retiro en el sidebar**, filtro "Solo sin confirmar" + composición AND con búsqueda, link wa.me con la lada resuelta por país y ausente sin teléfono, columna ✓ print con estado real), y el bloque del universo: todo el equipo listado con X/Y sobre el total, chip "Requieren camiseta" (estrecha, compone AND con el otro chip y con la búsqueda, badge con conteo, mensaje "Nadie coincide con los filtros activos" con Quitar filtros) y el chulo sobre una fila sin prendas.
 
 ```bash
 pnpm --filter web test src/views/__tests__/ShirtsReportView.test.ts
@@ -318,8 +332,12 @@ No hay tests E2E dedicados (la cobertura backend + frontend es suficiente). Si e
 
 El endpoint dedicado:
 - Una sola query SQL → 1 round-trip a la DB.
-- Filtra a nivel SQL (sin pedidos = sin fila), evita post-procesamiento.
+- Define el universo y el scope de prendas a nivel SQL (equipo completo por INNER JOIN; prendas válidas del retiro por LEFT JOIN a subquery derivada).
 - Devuelve un payload pequeño y específico para esta vista.
+
+### ¿Por qué el universo es todo el equipo y no solo quien pidió prendas?
+
+La secuencia `SERVER_SHIRT_CONFIRMATION` enrola a **todos** los servidores y angelitos no cancelados (`messageSequenceService` resuelve `audience = 'server'` sin mirar `participant_shirt_size`). Parte del equipo responde "no necesito camisetas" — y esa respuesta **también** es una confirmación que el coordinador quiere registrar y cuadrar. Con el INNER JOIN original esa gente quedaba fuera del reporte y la cuenta "Confirmados X/Y" nunca cerraba contra los mensajes enviados. La lista de compra se recupera con el chip "Requieren camiseta".
 
 ### ¿Por qué el chulo es manual y no se parsea la respuesta de WhatsApp?
 

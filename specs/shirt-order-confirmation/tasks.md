@@ -137,3 +137,29 @@ El `/cierre` (2026-09-21) pasó code-review sobre el diff real de la rama
   (perf no medida, N chico); comentarios/it() en español en el spec web (consistencia con
   los vecinos del mismo archivo); echo de `error.message` en el 500 (copia bag-made, solo
   alcanzable con permisos).
+
+## Evolución post-merge (2026-09-22): universo del reporte = todo el equipo servidor
+
+Petición de Leonardo tras usar la feature: la confirmación no es "confirmaron su pedido" sino
+"confirmaron" — parte del equipo responde **"no necesito camisetas"** y también recibe chulo.
+El INNER JOIN a `participant_shirt_size` excluía a esa gente del reporte, así que la cuenta
+"Confirmados X/Y" nunca cerraba contra los mensajes que la secuencia envía (enrola a TODOS
+los `server`/`partial_server` no cancelados; verificado en `messageSequenceService` —
+`audience = 'server'` no mira tallas).
+
+Cambios (directo sobre master):
+
+- **API** `shirtReportService.ts`: el lado de prendas pasó de INNER JOIN encadenado a **LEFT
+  JOIN contra una subquery derivada** (scope por retiro y placeholders de talla filtrados
+  adentro). El INNER plano dejaba pasar filas cross-retreat con columnas `rst` NULL (lo cazó
+  el caso "does not include shirts from a different retreat" con prendas fantasma). Quien no
+  pidió queda `shirts: []`, `shirtCharge: 0`, confirmable.
+- **Web** `ShirtsReportView.vue`: chip **"Requieren camiseta"** (badge con conteo, AND con
+  búsqueda y "Solo sin confirmar"); "Confirmados X/Y" sobre el equipo completo; subtítulo y
+  empty states actualizados; nuevo estado "Nadie coincide con los filtros activos" →
+  "Quitar filtros". La leyenda del badge (Confirmado/Sin confirmar) pasó a un
+  `span hidden sm:inline` — en celular queda solo el glifo (petición de Leonardo).
+- **Specs**: service 27 casos (invertida la exclusión de sin-prendas, extendido cross-retreat,
+  caso de mezcla); vitest 31 → 38 (bloque del universo + badge responsive).
+- Sin migración, sin endpoint nuevo, sin cambio en `@repo/types` (`shirts` ya era array
+  sin mínimo).
