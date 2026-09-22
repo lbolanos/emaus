@@ -191,6 +191,7 @@ import FlyerImagePicker from '@/components/flyer/editor/FlyerImagePicker.vue';
 import type { FlyerTextPanelConfig } from '@/components/flyer/editor/flyerTextConfig';
 import { FLYER_IMAGE_KEYS } from '@/components/flyer/flyerPresetAssets';
 import type { FlyerBlockStyle, FlyerTheme } from '@repo/types';
+import { innerAvailableWidth } from '@/utils/flyerScale';
 import {
 	MEETING_FLYER_BLOCK_STYLE_DEFAULTS,
 	MEETING_FLYER_PRESET_ASSETS,
@@ -249,7 +250,9 @@ let resizeObserver: ResizeObserver | null = null;
 
 const updateScale = () => {
 	if (!previewColumnRef.value) return;
-	previewScale.value = Math.min(previewColumnRef.value.clientWidth / 850, 1);
+	// Padding measured out, same as the published view's scale: the column's
+	// padding is not width the 850px design may use.
+	previewScale.value = Math.min(innerAvailableWidth(previewColumnRef.value) / 850, 1);
 	const el = canvasRef.value?.$el;
 	if (el) canvasHeight.value = el.scrollHeight;
 };
@@ -307,11 +310,15 @@ async function clearDesign() {
 
 async function load(id: string, id2: string) {
 	if (!id || !id2) return;
-	await communityStore.fetchCommunity(id);
+	// Independent requests: the community (the design's owner) and the meetings
+	// list (this preview's data source — there is no single-meeting endpoint, so
+	// the list comes whole and this finds its meeting by id).
+	const [, meetings] = await Promise.all([
+		communityStore.fetchCommunity(id),
+		communityStore.fetchMeetings(id),
+	]);
 	community.value = communityStore.currentCommunity;
-	// The preview needs this meeting's data; the design it shows is the community's.
-	await communityStore.fetchMeetings(id);
-	meeting.value = communityStore.meetings?.find((m: any) => m.id === id2) ?? null;
+	meeting.value = meetings?.find((m: any) => m.id === id2) ?? null;
 	store.loadFromCommunity(community.value);
 	updateScale();
 }

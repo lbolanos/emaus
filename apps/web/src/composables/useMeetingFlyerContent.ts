@@ -6,6 +6,7 @@ import {
 	formatMeetingDateOnly,
 	formatMeetingTimeOnly,
 	replaceFlyerVariables,
+	showEmausBrandLine,
 	titleCaseForDisplay,
 	type MeetingFlyerData,
 } from '@/utils/meetingFlyer';
@@ -50,12 +51,6 @@ export interface MeetingFlyerContent {
 	// Footer
 	footerText: string;
 }
-
-/**
- * Community names like "Emaús del Valle" already carry the movement's name;
- * repeating "EMAÚS" above them reads as a stutter, so the line is dropped.
- */
-const STARTS_WITH_EMAUS = /^ema[úu]s\b/i;
 
 export function useMeetingFlyerContent(
 	getMeeting: () => any,
@@ -110,7 +105,7 @@ export function useMeetingFlyerContent(
 	return reactive({
 		kickerText: editableText('kickerOverride', () => t('meetingFlyer.kicker')),
 		titleText: editableText('titleOverride', () => meeting.value?.title || ''),
-		showEmausLine: computed(() => !STARTS_WITH_EMAUS.test(community.value?.name || '')),
+		showEmausLine: computed(() => showEmausBrandLine(community.value?.name)),
 		emausLine: computed(() => t('meetingFlyer.emausLine')),
 		communityName,
 
@@ -133,7 +128,12 @@ export function useMeetingFlyerContent(
 		descriptionLabelText: editableText('descriptionLabelOverride', () =>
 			t('meetingFlyer.descriptionLabel'),
 		),
-		descriptionText: editableText('descriptionOverride', () => templatedDescription.value),
+		// The description's BODY is the meeting's own data (its template with the
+		// variables resolved), not free design text: it has no override key and no
+		// hidden toggle — editableText here used to ask for a 'descriptionOverride'
+		// that no schema declares and no panel writes, which always fell through
+		// to the fallback anyway.
+		descriptionText: templatedDescription,
 
 		locationLabelText: editableText('locationLabelOverride', () => t('meetingFlyer.locationLabel')),
 		address,

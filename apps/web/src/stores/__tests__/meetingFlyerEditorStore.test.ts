@@ -68,6 +68,27 @@ describe('meetingFlyerEditorStore', () => {
 			expect(store.textOverrides.kickerOverride).toBe('');
 			expect(store.isDirty).toBe(false);
 		});
+
+		// resolveMeetingFlyerLayout honours any blocks array without asking for a
+		// layoutVersion (the column is new, there is no legacy). "Has a design" has
+		// to be judged the same way, or a stored design without the version got its
+		// bodyBackground re-seeded from flyerBackgroundUrl — the canvas rendered the
+		// saved design while the editor quietly opened with a different background.
+		it('does not reseed a saved design that carries no layoutVersion', () => {
+			const store = useMeetingFlyerEditorStore();
+			store.loadFromCommunity(
+				communityWith(
+					{
+						blocks: MEETING_FLYER_DEFAULT_LAYOUT,
+						images: { bodyBackground: '/poster.png' },
+					},
+					{ flyerBackgroundUrl: '/jesus_bg.png' },
+				),
+			);
+
+			expect(store.images.bodyBackground).toBe('/poster.png');
+			expect(store.isDirty).toBe(false);
+		});
 	});
 
 	describe('editing', () => {
@@ -255,6 +276,75 @@ describe('meetingFlyerEditorStore', () => {
 
 			await store.save();
 			expect(store.canUndo).toBe(false);
+		});
+
+		// Typing fires one operation per keystroke; without coalescing, undo walked
+		// a title back letter by letter and a burst of keystrokes evicted real
+		// steps off the 30-deep cap.
+		describe('coalescing typing bursts', () => {
+			afterEach(() => {
+				vi.restoreAllMocks();
+			});
+
+			it('collapses a burst on one field into a single step', () => {
+				const store = useMeetingFlyerEditorStore();
+				store.loadFromCommunity(communityWith());
+
+				store.setTextOverride('titleOverride', 'A');
+				store.setTextOverride('titleOverride', 'Ad');
+				store.setTextOverride('titleOverride', 'Adv');
+
+				store.undo();
+				expect(store.textOverrides.titleOverride).toBe('');
+				expect(store.canUndo).toBe(false);
+			});
+
+			it('starts a new step once the burst window has passed', () => {
+				const clock = vi.spyOn(Date, 'now').mockReturnValue(1_000);
+				const store = useMeetingFlyerEditorStore();
+				store.loadFromCommunity(communityWith());
+
+				store.setTextOverride('titleOverride', 'A');
+				clock.mockReturnValue(1_400); // still inside the window: same step
+				store.setTextOverride('titleOverride', 'Ad');
+				clock.mockReturnValue(3_000); // window long gone: new step
+				store.setTextOverride('titleOverride', 'Adv');
+
+				store.undo();
+				expect(store.textOverrides.titleOverride).toBe('Ad');
+				store.undo();
+				expect(store.textOverrides.titleOverride).toBe('');
+				expect(store.canUndo).toBe(false);
+			});
+
+			it('keeps different fields as separate steps', () => {
+				const store = useMeetingFlyerEditorStore();
+				store.loadFromCommunity(communityWith());
+
+				store.setTextOverride('titleOverride', 'Adv');
+				store.setThemeField('textColor', '#ffffff');
+
+				store.undo();
+				expect(store.theme.textColor).toBeUndefined();
+				expect(store.textOverrides.titleOverride).toBe('Adv');
+				store.undo();
+				expect(store.textOverrides.titleOverride).toBe('');
+			});
+
+			it('makes typing after an undo undoable again', () => {
+				const store = useMeetingFlyerEditorStore();
+				store.loadFromCommunity(communityWith());
+
+				store.setTextOverride('titleOverride', 'Adv');
+				store.undo();
+
+				// Same tag, same millisecond — must still push: the state before
+				// this keystroke only exists if it was recorded.
+				store.setTextOverride('titleOverride', 'N');
+				expect(store.canUndo).toBe(true);
+				store.undo();
+				expect(store.textOverrides.titleOverride).toBe('');
+			});
 		});
 	});
 });

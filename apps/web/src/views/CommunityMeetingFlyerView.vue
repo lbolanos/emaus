@@ -276,6 +276,7 @@ import { Button, Popover, PopoverContent, PopoverTrigger } from '@repo/ui';
 import { Printer, Pencil, ArrowLeft, LayoutTemplate, Image, MessageCircle, Copy, Check, Loader2, ChevronRight, RotateCcw, Upload, Palette, Share2 } from 'lucide-vue-next';
 import { FLYER_BACKGROUND_PRESETS, type FlyerBackgroundPreset } from '@repo/types';
 import { pickFile } from '@/utils/filePicker';
+import { innerAvailableWidth } from '@/utils/flyerScale';
 import { useI18n } from 'vue-i18n';
 import DefaultFlyer from '@/components/flyers/DefaultFlyer.vue';
 import PosterFlyer from '@/components/flyers/PosterFlyer.vue';
@@ -355,10 +356,7 @@ const updateCustomScale = () => {
   // and re-measuring mid-capture would downscale (or drop the height) while
   // domToBlob is reading the element.
   if (isCapturing.value || flyerStyle.value !== 'custom' || !flyerRef.value) return;
-  const styles = window.getComputedStyle(flyerRef.value);
-  const horizontalPadding =
-    parseFloat(styles.paddingLeft || '0') + parseFloat(styles.paddingRight || '0');
-  customScale.value = Math.min((flyerRef.value.clientWidth - horizontalPadding) / 850, 1);
+  customScale.value = Math.min(innerAvailableWidth(flyerRef.value) / 850, 1);
   const el = customCanvasRef.value?.$el;
   if (el) customCanvasHeight.value = el.scrollHeight;
 };
@@ -572,6 +570,9 @@ const handleOpacityChange = async () => {
     community.value = updated;
   } catch (error: any) {
     console.error('Failed to save flyer card opacity:', error);
+    // The community kept its stored opacity: snap the dial back to it, or the
+    // slider keeps showing the value that failed and reads as saved.
+    syncCardTransparency();
     toast({
       title: 'Error al guardar la transparencia',
       description: error.message || 'No se pudo guardar la transparencia del recuadro.',
@@ -669,9 +670,14 @@ const captureFlyerBlob = async (flyerElement: HTMLElement) => {
 
 const downloadFlyerBlob = (blob: Blob) => {
 	const a = document.createElement('a');
-	a.href = URL.createObjectURL(blob);
+	const url = URL.createObjectURL(blob);
+	a.href = url;
 	a.download = 'flyer-reunion.png';
 	a.click();
+	// The anchor's href holds the blob alive; releasing it immediately can abort
+	// the download on some browsers. Deferred instead of never — every share taps
+	// this and the blobs (megabytes of PNG) would pile up for the session.
+	setTimeout(() => URL.revokeObjectURL(url), 10_000);
 };
 
 // The label tells the truth about what the tap will do (share sheet vs clipboard).

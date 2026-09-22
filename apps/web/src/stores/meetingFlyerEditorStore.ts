@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia';
-import { FLYER_LAYOUT_VERSION, type MeetingFlyerBlockLayout } from '@repo/types';
+import { type MeetingFlyerBlockLayout } from '@repo/types';
 import { resolveMeetingFlyerLayout } from '@/utils/meetingFlyerLayout';
 import { useCommunityStore } from '@/stores/communityStore';
 import { createFlyerEditorStoreSetup } from '@/stores/createFlyerEditorStore';
@@ -41,7 +41,12 @@ export const useMeetingFlyerEditorStore = defineStore('meetingFlyerEditor', () =
 		// of the community's identity, not a choice this editor makes. `images` is one
 		// of the editor's own fields, so the seed never leaks into untouchedOptions —
 		// and since it happens before the dirty snapshot, opening the editor is clean.
-		const hasSavedDesign = raw?.layoutVersion === FLYER_LAYOUT_VERSION && Array.isArray(raw?.blocks);
+		// "Has a design" is judged the same way resolveMeetingFlyerLayout judges it
+		// (any blocks array, layoutVersion or not): demanding the version here
+		// re-seeded bodyBackground over a saved design whose writer skipped it — the
+		// canvas still rendered that design, so the editor opened with a different
+		// background and read as uncommitted work.
+		const hasSavedDesign = Array.isArray(raw?.blocks) && raw.blocks.length > 0;
 		const options =
 			!hasSavedDesign && community?.flyerBackgroundUrl
 				? {

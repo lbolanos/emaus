@@ -62,6 +62,15 @@ export function createFlyerEditorStoreSetup<TBlock extends AnyBlockLayout>(
 		/** Set while undoing, so restoring a state doesn't get pushed as a new step. */
 		let restoring = false;
 
+		// Typing in a field fires one operation per keystroke; pushing every one
+		// makes undo step back letter by letter and evicts real steps off the cap.
+		// Ops that come from continuous editing pass a coalescing tag: while the
+		// same tag lands within the window, the pre-burst state already on the
+		// stack is the right thing to undo to, so nothing new is pushed.
+		const UNDO_COALESCE_MS = 1000;
+		let lastUndoTag: string | null = null;
+		let lastUndoAt = 0;
+
 		/** Serialised form of what save() would send, used to detect changes. */
 		const snapshot = computed(() =>
 			JSON.stringify({
@@ -99,9 +108,21 @@ export function createFlyerEditorStoreSetup<TBlock extends AnyBlockLayout>(
 			hiddenTexts: hiddenTexts.value,
 		}));
 
-		/** Records the state before a change, so it can be stepped back to. */
-		function pushUndo() {
+		/**
+		 * Records the state before a change, so it can be stepped back to. Pass a
+		 * `tag` for ops fired per keystroke (see UNDO_COALESCE_MS above).
+		 */
+		function pushUndo(tag?: string) {
 			if (restoring) return;
+			const now = Date.now();
+			if (tag !== undefined && tag === lastUndoTag && now - lastUndoAt < UNDO_COALESCE_MS) {
+				// Same typing burst: keep the pre-burst state, extend the window so
+				// the burst survives a short pause mid-edit.
+				lastUndoAt = now;
+				return;
+			}
+			lastUndoTag = tag ?? null;
+			lastUndoAt = now;
 			undoStack.value = [...undoStack.value, snapshot.value].slice(-UNDO_LIMIT);
 		}
 
@@ -124,6 +145,10 @@ export function createFlyerEditorStoreSetup<TBlock extends AnyBlockLayout>(
 			if (previous === undefined) return;
 			undoStack.value = undoStack.value.slice(0, -1);
 			applySnapshot(previous);
+			// Whatever is typed next must land as a fresh undo step, even with the
+			// same tag inside the window — the pre-typing state is only on record
+			// if it was pushed.
+			lastUndoTag = null;
 		}
 
 		function loadFrom(id: string | null, raw: Record<string, any> | null | undefined) {
@@ -164,6 +189,7 @@ export function createFlyerEditorStoreSetup<TBlock extends AnyBlockLayout>(
 			savedSnapshot.value = snapshot.value;
 			// Nothing to step back to once we (re)load the entity
 			undoStack.value = [];
+			lastUndoTag = null;
 		}
 
 		function moveBlock(blockId: string, toSlot: FlyerSlot, toIndex: number) {
@@ -184,7 +210,7 @@ export function createFlyerEditorStoreSetup<TBlock extends AnyBlockLayout>(
 		}
 
 		function setTextOverride(key: string, value: string) {
-			pushUndo();
+			pushUndo(`text:${key}`);
 			textOverrides.value = { ...textOverrides.value, [key]: value };
 		}
 
@@ -201,7 +227,7 @@ export function createFlyerEditorStoreSetup<TBlock extends AnyBlockLayout>(
 
 		/** An undefined value clears the field so the layer below shows through again. */
 		function setThemeField<K extends keyof FlyerTheme>(key: K, value: FlyerTheme[K] | undefined) {
-			pushUndo();
+			pushUndo(`theme:${String(key)}`);
 			const next = { ...theme.value };
 			if (value === undefined) delete next[key];
 			else next[key] = value;
@@ -238,7 +264,7 @@ export function createFlyerEditorStoreSetup<TBlock extends AnyBlockLayout>(
 			key: K,
 			value: FlyerBlockStyle[K] | undefined,
 		) {
-			pushUndo();
+			pushUndo(`style:${blockId}:${String(key)}`);
 			const current = { ...(blockStyles.value[blockId] ?? {}) };
 			if (value === undefined) delete current[key];
 			else current[key] = value;
@@ -287,6 +313,7 @@ export function createFlyerEditorStoreSetup<TBlock extends AnyBlockLayout>(
 				await config.persist(entityId.value, draftOptions.value as Record<string, any>);
 				savedSnapshot.value = snapshot.value;
 				undoStack.value = [];
+				lastUndoTag = null;
 			} finally {
 				saving.value = false;
 			}
