@@ -1,13 +1,15 @@
 import { randomUUID } from 'crypto';
 import type { FlyerAssetKind } from '@repo/types';
-import { imageService } from './imageService';
+import { imageService, FlyerAssetError } from './imageService';
 import { s3Service } from './s3Service';
 import { avatarStorageService } from './avatarStorageService';
 
 /** Inline data URIs get stored in the retreat row, so keep them small. */
 const MAX_INLINE_BYTES = 512 * 1024;
 
-export class FlyerAssetError extends Error {}
+// Re-exported for its original consumers (flyerAssetController types its catch
+// with it); the class itself lives in imageService, next to the throws.
+export { FlyerAssetError };
 
 /**
  * Stores an image the coordinator picked for a flyer and returns its URL.

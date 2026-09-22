@@ -1756,12 +1756,13 @@ export class CommunityService {
 	 * está versionado con el repo, no hay nada que subir.
 	 */
 	async setFlyerBackgroundUrl(communityId: string, url: string) {
-		const community = await this.getCommunityById(communityId);
-		if (!community) {
+		// No pre-read needed: SQLite's `changes` counts the rows the WHERE matched
+		// (not the rows whose value actually differs), so an idempotent re-PUT still
+		// reports affected=1 and only a missing community reports 0.
+		const result = await this.communityRepo.update(communityId, { flyerBackgroundUrl: url });
+		if (!result.affected) {
 			throw new Error('Community not found');
 		}
-
-		await this.communityRepo.update(communityId, { flyerBackgroundUrl: url });
 		return this.getCommunityById(communityId);
 	}
 
@@ -1770,12 +1771,10 @@ export class CommunityService {
 	 * identidad visual que el fondo: se resetea junto con él.
 	 */
 	async setFlyerCardOpacity(communityId: string, opacity: number) {
-		const community = await this.getCommunityById(communityId);
-		if (!community) {
+		const result = await this.communityRepo.update(communityId, { flyerCardOpacity: opacity });
+		if (!result.affected) {
 			throw new Error('Community not found');
 		}
-
-		await this.communityRepo.update(communityId, { flyerCardOpacity: opacity });
 		return this.getCommunityById(communityId);
 	}
 
@@ -1786,12 +1785,10 @@ export class CommunityService {
 	 * persiste.
 	 */
 	async setFlyerOptions(communityId: string, flyerOptions: MeetingFlyerOptions) {
-		const community = await this.getCommunityById(communityId);
-		if (!community) {
+		const result = await this.communityRepo.update(communityId, { flyerOptions });
+		if (!result.affected) {
 			throw new Error('Community not found');
 		}
-
-		await this.communityRepo.update(communityId, { flyerOptions });
 		return this.getCommunityById(communityId);
 	}
 
@@ -1801,12 +1798,10 @@ export class CommunityService {
 	 * para el 4º estilo "Personalizado".
 	 */
 	async clearFlyerOptions(communityId: string) {
-		const community = await this.getCommunityById(communityId);
-		if (!community) {
+		const result = await this.communityRepo.update(communityId, { flyerOptions: null });
+		if (!result.affected) {
 			throw new Error('Community not found');
 		}
-
-		await this.communityRepo.update(communityId, { flyerOptions: null });
 		return this.getCommunityById(communityId);
 	}
 
@@ -1817,15 +1812,13 @@ export class CommunityService {
 	 * completa, no solo la imagen.
 	 */
 	async clearFlyerBackground(communityId: string) {
-		const community = await this.getCommunityById(communityId);
-		if (!community) {
-			throw new Error('Community not found');
-		}
-
-		await this.communityRepo.update(communityId, {
+		const result = await this.communityRepo.update(communityId, {
 			flyerBackgroundUrl: null,
 			flyerCardOpacity: null,
 		});
+		if (!result.affected) {
+			throw new Error('Community not found');
+		}
 		return this.getCommunityById(communityId);
 	}
 

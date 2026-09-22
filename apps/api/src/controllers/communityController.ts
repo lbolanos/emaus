@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { CommunityService, MemberCreateConflictError } from '../services/communityService';
 import { RecaptchaService } from '../services/recaptchaService';
+import { FlyerAssetError } from '../services/imageService';
 import { authorizationService } from '../middleware/authorization';
 import { stripSensitiveHealthFields } from './participantController';
 import { communityAuditService, CommunityAuditAction } from '../services/communityAuditService';
@@ -589,13 +590,11 @@ export class CommunityController {
 			if (error.message === 'Meeting not found') {
 				return res.status(404).json({ message: 'Meeting not found' });
 			}
-			// Errores de validación de imagen (formato/tamaño) → 400
-			if (
-				error.message?.includes('image') ||
-				error.message?.includes('Image') ||
-				error.message?.includes('MIME') ||
-				error.message?.includes('2MB')
-			) {
+			// Typed rejection from the image pipeline (format/size/MIME): the caller's
+			// fault → 400. Anything else (an S3 failure, say) is the server's fault and
+			// must surface as a 500 — substring matching the message used to swallow
+			// those too whenever the error happened to contain "image".
+			if (error instanceof FlyerAssetError) {
 				return res.status(400).json({ message: error.message });
 			}
 			throw error;
@@ -628,13 +627,9 @@ export class CommunityController {
 			if (error.message === 'Community not found') {
 				return res.status(404).json({ message: 'Community not found' });
 			}
-			// Errores de validación de imagen (formato/tamaño) → 400
-			if (
-				error.message?.includes('image') ||
-				error.message?.includes('Image') ||
-				error.message?.includes('MIME') ||
-				error.message?.includes('2MB')
-			) {
+			// Same contract as uploadMeetingPhoto: typed rejections are a 400, real
+			// server faults (storage, processing) stay a 500.
+			if (error instanceof FlyerAssetError) {
 				return res.status(400).json({ message: error.message });
 			}
 			throw error;

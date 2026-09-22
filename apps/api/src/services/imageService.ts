@@ -7,6 +7,18 @@ interface ProcessedImage {
 	height: number;
 }
 
+/**
+ * Every image rejection below is the caller's fault (bad format, bad MIME,
+ * too large) — which is exactly what a 400 means. Throwing a typed error lets
+ * controllers classify with `instanceof` instead of substring-matching the
+ * message, which used to swallow real server faults (an S3 "Failed to upload
+ * image…" surfaced as a 400 blaming the user's file). Named for its first
+ * caller; it now marks every invalid-image rejection from this service.
+ * Declared here — not in flyerAssetService — because that service imports
+ * this one, and it re-exports the class for its controller.
+ */
+export class FlyerAssetError extends Error {}
+
 export type FlyerAssetKind = 'bodyBackground' | 'headerBackground' | 'footerBackground' | 'logo';
 
 class ImageService {
@@ -77,12 +89,12 @@ class ImageService {
 	async processAvatar(buffer: Buffer, contentType: string): Promise<ProcessedImage> {
 		// Validate buffer size
 		if (buffer.length > this.MAX_FILE_SIZE) {
-			throw new Error('File size exceeds maximum (2MB)');
+			throw new FlyerAssetError('File size exceeds maximum (2MB)');
 		}
 
 		// Verify magic bytes
 		if (!this.verifyMagicBytes(buffer, contentType)) {
-			throw new Error('File content does not match declared MIME type');
+			throw new FlyerAssetError('File content does not match declared MIME type');
 		}
 
 		let image = sharp(buffer);
@@ -92,14 +104,14 @@ class ImageService {
 			const metadata = await image.metadata();
 
 			if (!metadata.format) {
-				throw new Error('Unable to determine image format');
+				throw new FlyerAssetError('Unable to determine image format');
 			}
 
 			// Verify format matches content type
 			const expectedFormat = this.contentTypeToFormat(contentType);
 			if (metadata.format !== expectedFormat && expectedFormat !== 'jpeg') {
 				if (!(metadata.format === 'jpg' && expectedFormat === 'jpeg')) {
-					throw new Error(
+					throw new FlyerAssetError(
 						`Image format mismatch: expected ${expectedFormat}, got ${metadata.format}`,
 					);
 				}
@@ -123,7 +135,10 @@ class ImageService {
 				height: metadata.height || 0,
 			};
 		} catch (error) {
-			throw new Error(`Invalid image file: ${error.message}`);
+			// Keep the typed rejections above typed — the wrap is for sharp's own
+			// failures (an undecodable buffer), which are the caller's fault too.
+			if (error instanceof FlyerAssetError) throw error;
+			throw new FlyerAssetError(`Invalid image file: ${error.message}`);
 		}
 	}
 
@@ -140,11 +155,11 @@ class ImageService {
 		kind: FlyerAssetKind,
 	): Promise<ProcessedImage> {
 		if (buffer.length > this.MAX_FILE_SIZE) {
-			throw new Error('File size exceeds maximum (2MB)');
+			throw new FlyerAssetError('File size exceeds maximum (2MB)');
 		}
 
 		if (!this.verifyMagicBytes(buffer, contentType)) {
-			throw new Error('File content does not match declared MIME type');
+			throw new FlyerAssetError('File content does not match declared MIME type');
 		}
 
 		const maxSide = kind === 'logo' ? this.MAX_SIZE : this.MAX_FLYER_BACKGROUND_SIZE;
@@ -154,7 +169,7 @@ class ImageService {
 			const metadata = await image.metadata();
 
 			if (!metadata.format) {
-				throw new Error('Unable to determine image format');
+				throw new FlyerAssetError('Unable to determine image format');
 			}
 
 			const processed = await image
@@ -171,27 +186,28 @@ class ImageService {
 				height: processedMetadata.height || 0,
 			};
 		} catch (error) {
-			throw new Error(`Invalid image file: ${error.message}`);
+			if (error instanceof FlyerAssetError) throw error;
+			throw new FlyerAssetError(`Invalid image file: ${error.message}`);
 		}
 	}
 
 	base64ToBuffer(base64: string): { buffer: Buffer; contentType: string } {
 		const matches = base64.match(/^data:image\/(\w+);base64,(.+)$/);
 		if (!matches) {
-			throw new Error('Invalid base64 image format');
+			throw new FlyerAssetError('Invalid base64 image format');
 		}
 
 		const contentType = `image/${matches[1]}`;
 
 		if (!this.isValidImage(contentType)) {
-			throw new Error('Unsupported image type');
+			throw new FlyerAssetError('Unsupported image type');
 		}
 
 		const buffer = Buffer.from(matches[2], 'base64');
 
 		// Enforce size limit
 		if (buffer.length > this.MAX_FILE_SIZE) {
-			throw new Error('Image size exceeds maximum (2MB)');
+			throw new FlyerAssetError('Image size exceeds maximum (2MB)');
 		}
 
 		return { buffer, contentType };
