@@ -105,9 +105,16 @@ router.post(
 router.get('/:id', requireCommunityAccess(), (req, res) =>
 	CommunityController.getCommunityById(req, res),
 );
-// SECURITY: editar metadata de la community es owner-only
-router.put('/:id', requireCommunityOwner(), validateRequest(updateCommunitySchema), (req, res) =>
-	CommunityController.updateCommunity(req, res),
+// SECURITY: editar metadata de la community es owner-only. assignParsedBody:
+// updateCommunitySchema omite la identidad del flyer (fondos/opacidad/diseño
+// viajan por sus endpoints dedicados), pero validateRequest solo VALIDA — sin
+// asignar el body parseado, las keys omitidas llegan crudas al controller y el
+// omit es decorativo.
+router.put(
+	'/:id',
+	requireCommunityOwner(),
+	validateRequest(updateCommunitySchema, { assignParsedBody: true }),
+	(req, res) => CommunityController.updateCommunity(req, res),
 );
 router.delete('/:id', requirePermission('community:delete'), (req, res) =>
 	CommunityController.deleteCommunity(req, res),

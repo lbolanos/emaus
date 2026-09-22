@@ -330,6 +330,32 @@ Dos detalles que muerden al escribirlo:
 - El guard del punto de uso se escribe en positivo (`/^https?:\/\//i`), no como lista negra
   (`!v.startsWith('javascript:')`): una lista negra de esquemas siempre se queda corta.
 
+## Un `.omit()` en un write schema no protege nada si el middleware solo valida
+
+Zod descarta las keys no declaradas **solo en el resultado del parseo**. `validateRequest` de
+este repo hace `safeParse` y llama `next()` sin tocar `req.body`: el body crudo —keys omitidas
+incluidas— llega entero al controller, y de ahí al `repo.update(...)` que hace spread del patch.
+El omit queda decorativo: cambia qué se valida, no qué viaja.
+
+Caso real (2026-09-21): el fix de code-review que omitía `flyerBackgroundUrl` /
+`flyerCardOpacity` / `flyerOptions` de `updateCommunitySchema` dejó el bypass **vivo** — un
+community owner seguía podido persistir un `flyerBackgroundUrl` arbitrario (fuga de IP/UA vía el
+volante público) por el PUT genérico. El test de schema (que parsea el schema importado) daba
+verde; lo cazó el test de RUTA (`communityUpdateRoutes.simple.test.ts`), cuya primera corrida
+recibió el controller con las 3 keys en el body.
+
+Patrón:
+
+- Si el omit del write schema es un límite de seguridad, la ruta debe recibir el body **parseado**:
+  `validateRequest(schema, { assignParsedBody: true })` — el middleware asigna
+  `req.body = parsed.body` y las keys omitidas se descartan de verdad. Es opt-in a propósito:
+  asignar globalmente cambiaría qué ven todas las rutas (defaults, coerciones).
+- Un test de schema NO basta para afirmar que un campo no persiste: hace falta uno de endpoint
+  que capture el body con el que llega el controller (patrón del test de rutas de arriba:
+  router real + middleware stubbeado + controller mockeado).
+- Ojo con los demás `.omit({ id: true, ... })` del repo: ninguno está protegiendo nada por sí
+  mismo; el body crudo puede llevar `id`/`createdAt` al repo.update.
+
 ## Escapar en el punto de salida, no solo donde parece que entra el dato
 
 Un endpoint público que arma HTML por concatenación tiene que escapar **todos** los valores que

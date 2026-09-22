@@ -2,7 +2,11 @@ import { Request, Response, NextFunction } from 'express';
 import { AnyZodObject, ZodError } from 'zod';
 
 export const validateRequest =
-	(schema: AnyZodObject) => (req: Request, res: Response, next: NextFunction) => {
+	(
+		schema: AnyZodObject,
+		options: { assignParsedBody?: boolean } = {},
+	) =>
+	(req: Request, res: Response, next: NextFunction) => {
 		// Try the wrapped {body, query, params} format first (standard for schemas with body/params)
 		const wrappedResult = schema.safeParse({
 			body: req.body,
@@ -11,6 +15,18 @@ export const validateRequest =
 		});
 
 		if (wrappedResult.success) {
+			// Zod drops every key the schema doesn't declare (that's how an update
+			// schema's .omit takes a field out of circulation) — but only in the
+			// PARSED output. By default we only validate: the raw body keeps
+			// carrying the omitted keys to the controller. For schemas whose omit
+			// is a security boundary (community update vs its dedicated flyer
+			// endpoints), pass assignParsedBody so the stripped body is what the
+			// controller sees. The 2026-09-21 flyer-identity bypass survived its
+			// own schema fix exactly this way — caught by
+			// communityUpdateRoutes.simple.test.ts.
+			if (options.assignParsedBody && wrappedResult.data.body !== undefined) {
+				req.body = wrappedResult.data.body;
+			}
 			return next();
 		}
 
