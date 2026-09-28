@@ -163,3 +163,51 @@ Cambios (directo sobre master):
   caso de mezcla); vitest 31 → 38 (bloque del universo + badge responsive).
 - Sin migración, sin endpoint nuevo, sin cambio en `@repo/types` (`shirts` ya era array
   sin mínimo).
+
+## Evolución post-merge (2026-09-28): botón de envío desde el reporte
+
+Petición de Leonardo: un botón por fila para **enviar** el mensaje de confirmación, sin salir
+del reporte (antes había que ir a ParticipantList, buscar al servidor y usar su botón de
+mensaje).
+
+Cambios (directo sobre master), solo web:
+
+- **Web** `ShirtsReportView.vue`: botón `Send` por fila que abre el dialog central
+  `MessageDialog.vue` con `forceTemplateType="SERVER_SHIRT_CONFIRMATION"` — cero cambios de
+  API. El dialog va **montado desde el arranque** (sin `v-if`): el watcher que preselecciona
+  la plantilla solo dispara si ya está montado cuando se abre (patrón
+  `CommunityDashboardView`). La plantilla no está en `MANUAL_HIDDEN_TEMPLATE_TYPES`, así que
+  el coordinador puede cambiarla (p. ej. al `_REMINDER`) antes de enviar.
+- **Hidratación de la ficha**: `participantStore.fetchParticipants()` (listado del retiro con
+  `includePayments`), NO `GET /participants/:id` — la plantilla usa
+  `{participant.paymentRemaining}` y ese getter solo es correcto con payments/debts/
+  shirtSizes cargados (`findParticipantById` no carga `shirtSizes` → saldo sin cargo de
+  prendas). Misma razón que `hydrateParticipantForTemplateVariables` en el motor de
+  secuencias. Guard anti doble-tap por `sendingStates`; participante no encontrado (403
+  silencioso del store o baja) → toast destructive y el dialog no abre.
+- **Specs**: vitest 38 → 42 (botón por fila incluso sin teléfono, click → `api.get
+  '/participants'` con `includePayments` + dialog con plantilla/retiro/participante
+  correctos, no encontrado → toast, disabled durante la carga). MessageDialog mockeado entero
+  (patrón `FollowUpView.test`); el toggle de confirmación pasó a seleccionarse por `title`
+  (helper `toggleButtons`) porque la celda ahora tiene dos `<button>`.
+- Declarado fuera: envío masivo a "todos los sin confirmar" (patrón `WhatsAppSendQueue`) —
+  follow-up natural si se pide.
+
+**Code-review del cierre (misma fecha)** — 3 hallazgos arreglados sobre `openMessageDialog`,
+premisas verificadas contra el código antes de tocar:
+
+- **Filtros heredados (M2)**: `participantStore.filters` es estado compartido entre vistas y
+  `AssignLeaderModal` (línea 80) deja `type='server'` sin limpiar al cerrar; la hidratación
+  viajaba con esa clave y excluía al participante (angelitos al 100%). Ahora se resetean las
+  claves antes del fetch — el mismo reset que hace `ParticipantList` (línea 252).
+- **Carrera con el cambio de retiro (M1)**: abrir el dialog tras un cambio de retiro en el
+  sidebar mezclaba la ficha del retiro viejo con el `retreatId` nuevo (el binding era
+  `currentRetreatId` vivo) → la comunicación se registraba bajo el retiro equivocado. Ahora
+  el retreatId se captura al click (`messageRetreatId` alimenta el dialog) y hay guard
+  post-await que aborta la apertura.
+- **Catch ausente (m1)**: la rejection del fetch (el store rethrowea los non-403 tras su
+  propio toast) escapaba al errorHandler global; ahora queda en `console.error` local.
+
+Specs 42 → 45 (request sin claves heredadas + dialog abre para el angelito, retiro cambiado
+durante la carga → dialog no abre ni toast, fetch rechazado → guard liberado). Descartado con
+motivo: cambiar de retiro con el dialog ya abierto — inalcanzable, el modal bloquea el sidebar.

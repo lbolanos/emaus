@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRetreatStore } from '@/stores/retreatStore'
+import { useParticipantStore } from '@/stores/participantStore'
 import { Input, useToast } from '@repo/ui'
 import { formatCurrency } from '@repo/utils'
 import { getShirtReport, updateShirtOrderConfirmation } from '@/services/api'
 import { buildWhatsAppChatLink } from '@/utils/phone'
-import type { ShirtReportResponse, ShirtReportParticipant } from '@repo/types'
+import MessageDialog from '@/components/MessageDialog.vue'
+import type { Participant, ShirtReportResponse, ShirtReportParticipant } from '@repo/types'
 import {
   Shirt,
   Printer,
@@ -17,9 +19,11 @@ import {
   PackageCheck,
   Wallet,
   MessageSquare,
+  Send,
 } from 'lucide-vue-next'
 
 const retreatStore = useRetreatStore()
+const participantStore = useParticipantStore()
 const { toast } = useToast()
 
 const loading = ref(false)
@@ -32,6 +36,14 @@ const onlyRequiring = ref(false)
 const currentRetreatId = ref<string | null>(null)
 // Guard anti doble-tap por participante (patrón toggleAttendance).
 const savingStates = ref<Record<string, boolean>>({})
+// Botón "enviar mensaje": guard anti doble-tap mientras se hidrata la ficha.
+const sendingStates = ref<Record<string, boolean>>({})
+const messageDialogOpen = ref(false)
+const messageParticipant = ref<Participant | null>(null)
+// Captured at click time: if the retreat changes while the participant list
+// loads, the dialog must not open mixing the old retreat's participant with
+// the new retreat's id.
+const messageRetreatId = ref<string | null>(null)
 
 const sortedShirtTypes = computed(() => report.value?.shirtTypes ?? [])
 
@@ -116,6 +128,50 @@ async function toggleConfirmation(participant: ShirtReportParticipant) {
     })
   } finally {
     savingStates.value[participant.participantId] = false
+  }
+}
+
+// Abre el dialog central de mensajería con la plantilla de confirmación de
+// prendas preseleccionada. La ficha se hidrata desde el listado del retiro
+// (participantStore, includePayments) porque {participant.paymentRemaining}
+// solo es correcto con payments/debts/shirtSizes cargados — el mismo objeto
+// con el que ParticipantList abre este dialog. GET /participants/:id no carga
+// shirtSizes y el saldo saldría sin el cargo de prendas.
+async function openMessageDialog(participant: ShirtReportParticipant) {
+  const retreatId = currentRetreatId.value
+  if (!retreatId || sendingStates.value[participant.participantId]) return
+
+  sendingStates.value[participant.participantId] = true
+  try {
+    // Clear filters inherited from other views (e.g. type='server' left by
+    // the leader-assignment modal): they travel in the same query and would
+    // exclude the participant. Same reset ParticipantList does before fetching.
+    Object.keys(participantStore.filters).forEach((key) => {
+      delete participantStore.filters[key]
+    })
+    participantStore.filters.retreatId = retreatId
+    await participantStore.fetchParticipants()
+    // The retreat may have changed while loading: opening here would mix the
+    // old retreat's participant with the new retreat's id.
+    if (currentRetreatId.value !== retreatId) return
+    const found = participantStore.participants.find(
+      (p) => p.id === participant.participantId,
+    )
+    if (!found) {
+      toast({
+        title: 'Error',
+        description: `No se pudo cargar la ficha de ${participant.firstName}`,
+        variant: 'destructive',
+      })
+      return
+    }
+    messageParticipant.value = found
+    messageRetreatId.value = retreatId
+    messageDialogOpen.value = true
+  } catch (e) {
+    console.error('Error loading participant for message dialog:', e)
+  } finally {
+    sendingStates.value[participant.participantId] = false
   }
 }
 
@@ -383,6 +439,15 @@ watch(
                   >
                     <MessageSquare class="w-4 h-4" />
                   </a>
+                  <button
+                    type="button"
+                    class="inline-flex items-center justify-center w-7 h-7 rounded-full text-indigo-600 hover:bg-indigo-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    :disabled="sendingStates[participant.participantId]"
+                    title="Enviar mensaje de confirmación"
+                    @click="openMessageDialog(participant)"
+                  >
+                    <Send class="w-4 h-4" />
+                  </button>
                 </div>
               </td>
               <td class="print-only px-3 py-2.5 text-center">
@@ -462,6 +527,17 @@ watch(
         </span>
       </div>
     </div>
+
+    <!-- Dialog central de mensajería. Montado desde el arranque (sin v-if):
+         el watcher de forceTemplateType solo dispara si ya está montado
+         cuando se abre (patrón CommunityDashboardView). -->
+    <MessageDialog
+      v-model:open="messageDialogOpen"
+      context="retreat"
+      :retreat-id="messageRetreatId ?? undefined"
+      :participant="messageParticipant"
+      force-template-type="SERVER_SHIRT_CONFIRMATION"
+    />
   </div>
 </template>
 

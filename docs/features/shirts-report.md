@@ -100,6 +100,7 @@ Piezas:
 
 - **Badge clicable** en la columna Confirmado: clic marca (timestamp `new Date()` server-side), otro clic desmarca (`NULL`). En pantallas angostas (celular) la leyenda se oculta y queda solo el glifo (`✓`/`●` en un `span hidden sm:inline`). Toggle optimista con rollback + toast destructivo si falla el guardado; guard anti doble-tap por participante (`savingStates`); sin refetch del reporte tras el toggle. Escribir en pantalla NO envía ningún mensaje — el chulo es manual, tras leer la respuesta del servidor.
 - **Botón de WhatsApp** (ícono `MessageSquare`, junto al badge): abre `https://api.whatsapp.com/send?phone=…` con la lada resuelta del país del participante (`buildWhatsAppChatLink(cellPhone, country)` de `apps/web/src/utils/phone.ts`), en pestaña nueva. Sin texto precargado: abre la **conversación real**, donde viven las respuestas (la app solo registra lo que ella envía). Si el participante no tiene teléfono, el botón no se renderiza.
+- **Botón "Enviar mensaje de confirmación"** (ícono `Send`, último de la celda): abre el dialog central de mensajería (`MessageDialog.vue`) con la plantilla `SERVER_SHIRT_CONFIRMATION` preseleccionada (`forceTemplateType`) y el pedido resuelto — mismo flujo que el botón de mensaje de ParticipantList. El coordinador puede editar el texto (o cambiar de plantilla, p. ej. al `_REMINDER`) antes de enviar; el envío es deep-link asistido + clipboard y queda registrado en el historial de comunicaciones del participante. Visible en toda fila, incluso sin teléfono (el dialog permite email). Antes de hidratar limpia los filtros heredados del `participantStore` (otra vista puede haber dejado `type='server'`, que excluiría a los angelitos de la query), y si el retiro cambia en el sidebar mientras carga la ficha, el dialog no abre — evita mezclar la ficha de un retiro con el id de otro.
 - **Filtro "Solo sin confirmar"**: chip en el toolbar que deja la lista en pendientes. Compone **AND** con la búsqueda; el contador del chip siempre cuenta sobre el total del reporte.
 
 **Permisos**: ver el reporte requiere `participant:read` + acceso al retiro (`requireRetreatAccess`); dar/quitar el chulo requiere `participant:update` + acceso al retiro. El teléfono/país viajan en la respuesta del reporte bajo esos mismos permisos.
@@ -250,16 +251,18 @@ packages/types/src/index.ts (sección "Shirt Report")
 
 ```
 apps/web/src/views/ShirtsReportView.vue
+apps/web/src/components/MessageDialog.vue  (reuso — botón "Enviar mensaje")
 apps/web/src/services/api.ts  (getShirtReport + updateShirtOrderConfirmation)
 apps/web/src/utils/phone.ts   (buildWhatsAppChatLink)
 ```
 
 - Vue 3 Composition API con `<script setup>`.
-- Estado local: `loading`, `report`, `searchQuery`, `onlyRequiring`, `onlyUnconfirmed`, `savingStates`, `currentRetreatId`.
-- Stores: `useRetreatStore` (para obtener `selectedRetreatId`); `useToast` para el rollback del toggle.
+- Estado local: `loading`, `report`, `searchQuery`, `onlyRequiring`, `onlyUnconfirmed`, `savingStates`, `currentRetreatId`; para el botón de envío, `sendingStates`, `messageDialogOpen`, `messageParticipant` y `messageRetreatId`.
+- Stores: `useRetreatStore` (para obtener `selectedRetreatId`); `useParticipantStore` (hidrata la ficha del botón de envío); `useToast` para el rollback del toggle.
 - Llama `getShirtReport(retreatId)` en `onMounted` (guarda `currentRetreatId` para el toggle) y **recarga al cambiar de retiro** (watcher de `retreatStore.selectedRetreatId`, patrón `AngelitosView`): sin él, el toggle escribiría contra el retiro del montaje.
 - Computed: `filteredParticipants` (búsqueda AND requieren-camiseta AND solo-sin-confirmar), `totals` (incluye `confirmed` y `requiring`), `sortedShirtTypes`.
 - `toggleConfirmation`: patrón `CommunityAttendanceView.toggleAttendance` — guard por `savingStates[participantId]`, flip optimista del objeto local, await PATCH, catch → rollback + toast, finally limpia el guard. Sin refetch.
+- `openMessageDialog`: guard por `sendingStates[participantId]`, hidrata la ficha vía `participantStore.fetchParticipants()` (ver decisión de diseño abajo) y abre el `MessageDialog` montado desde el arranque (sin `v-if`, para que el watcher de `forceTemplateType` dispare al abrir). Resetea `participantStore.filters` antes del fetch (claves heredadas de otras vistas viajan en la misma query y excluyen al participante), captura el `retreatId` al click (`messageRetreatId` alimenta el dialog, no el valor vivo) y aborta si el retiro cambió durante la carga; el `catch` evita que la rejection del fetch escape al errorHandler global.
 - Sin Pinia store dedicado — el reporte se recarga cada vez que entras a la vista.
 
 ### Base de datos
@@ -312,7 +315,9 @@ pnpm --filter api test src/tests/routes/shirtOrderConfirmation.routes.simple.tes
 apps/web/src/views/__tests__/ShirtsReportView.test.ts
 ```
 
-38 casos: carga inicial, header con totales (incluye "Confirmados X/Y"), columnas dinámicas, render de tallas y `—`, búsqueda por nombre/número/talla, estado vacío, footer con conteos, impresión, el bloque de confirmación (badges por estado y leyenda responsive del badge, toggle optimista con args correctos y sin refetch, rollback con toast, doble-tap con un solo PATCH, **recarga + toggle contra el retiro nuevo al cambiar de retiro en el sidebar**, filtro "Solo sin confirmar" + composición AND con búsqueda, link wa.me con la lada resuelta por país y ausente sin teléfono, columna ✓ print con estado real), y el bloque del universo: todo el equipo listado con X/Y sobre el total, chip "Requieren camiseta" (estrecha, compone AND con el otro chip y con la búsqueda, badge con conteo, mensaje "Nadie coincide con los filtros activos" con Quitar filtros) y el chulo sobre una fila sin prendas.
+42→45 casos: carga inicial, header con totales (incluye "Confirmados X/Y"), columnas dinámicas, render de tallas y `—`, búsqueda por nombre/número/talla, estado vacío, footer con conteos, impresión, el bloque de confirmación (badges por estado y leyenda responsive del badge, toggle optimista con args correctos y sin refetch, rollback con toast, doble-tap con un solo PATCH, **recarga + toggle contra el retiro nuevo al cambiar de retiro en el sidebar**, filtro "Solo sin confirmar" + composición AND con búsqueda, link wa.me con la lada resuelta por país y ausente sin teléfono, columna ✓ print con estado real), el bloque del universo (todo el equipo listado con X/Y sobre el total, chip "Requieren camiseta" que estrecha, compone AND con el otro chip y con la búsqueda, badge con conteo, mensaje "Nadie coincide con los filtros activos" con Quitar filtros, y el chulo sobre una fila sin prendas), y el bloque de envío (botón por fila incluso sin teléfono, click que hidrata la ficha desde el listado del retiro y abre el dialog con `SERVER_SHIRT_CONFIRMATION`, participante no encontrado → toast destructive + dialog cerrado, disabled mientras carga, filtros heredados del store limpiados en el request, retiro cambiado durante la carga → dialog no abre ni toast, fetch rechazado → guard liberado y dialog cerrado).
+
+El dialog se mockea entero (patrón `FollowUpView.test`): el real arrastra stores e íconos fuera de la allowlist del archivo, y al stub le basta exponer las props como `data-*` para assertar sobre ellas. El toggle de confirmación se selecciona por su `title` (helper `toggleButtons`), no por índice en `findAll('tbody button')` — la celda ahora también contiene el botón de envío.
 
 ```bash
 pnpm --filter web test src/views/__tests__/ShirtsReportView.test.ts
@@ -342,6 +347,12 @@ La secuencia `SERVER_SHIRT_CONFIRMATION` enrola a **todos** los servidores y ang
 ### ¿Por qué el chulo es manual y no se parsea la respuesta de WhatsApp?
 
 El mensaje de la secuencia pide al servidor confirmar tallas y cargo; la respuesta llega al WhatsApp **del coordinador** (número personal, no uno conectado a la app). La app no puede leerla — el chulo lo estampa la persona que leyó la respuesta. El botón de WhatsApp por fila existe justo para acortar ese paso: abrir la conversación, leer, dar el chulo.
+
+### ¿Por qué el botón de envío reusa MessageDialog y no envía directo?
+
+En esta app WhatsApp **nunca lo envía el backend**: es deep-link asistido (abre el WhatsApp del coordinador con el texto listo + clipboard) seguido del registro en `participant_communications`. `MessageDialog.vue` ya implementa todo ese flujo (plantillas, selector de contacto, texto editable, variables resueltas, historial) — un envío "directo" desde el reporte duplicaría ese código. Con `forceTemplateType="SERVER_SHIRT_CONFIRMATION"` la plantilla llega preseleccionada y el coordinador puede editar o cambiarla antes de enviar.
+
+**Y la ficha se hidrata desde el listado del retiro** (`participantStore.fetchParticipants()`), no de `GET /participants/:id`: la plantilla usa `{participant.paymentRemaining}`, y ese getter solo es correcto con `payments`, `debts` y `shirtSizes` cargados — `findParticipantById` no carga `shirtSizes` y el saldo saldría sin el cargo de prendas. Es la misma razón por la que el motor de secuencias tiene `hydrateParticipantForTemplateVariables`: el mismo objeto con el que ParticipantList abre este dialog.
 
 ### ¿Por qué `shirtOrderConfirmedAt` datetime y no un boolean?
 

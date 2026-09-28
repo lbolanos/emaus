@@ -60,8 +60,28 @@ vi.mock('lucide-vue-next', () => {
     PackageCheck: icon('package-check'),
     Wallet: icon('wallet'),
     MessageSquare: icon('message-square'),
+    Send: icon('send'),
   };
 });
+
+// El dialog real arrastra stores, íconos y componentes fuera de la allowlist
+// de este archivo (patrón FollowUpView.test). El stub expone las props que
+// importan como data-attributes para poder assertar sobre ellas.
+vi.mock('@/components/MessageDialog.vue', () => ({
+  default: {
+    name: 'MessageDialog',
+    props: ['open', 'context', 'retreatId', 'participant', 'forceTemplateType'],
+    template: `
+      <div
+        data-testid="message-dialog"
+        :data-open="open ? 'true' : 'false'"
+        :data-retreat="retreatId ?? ''"
+        :data-template="forceTemplateType ?? ''"
+        :data-participant="participant?.id ?? ''"
+      />
+    `,
+  },
+}));
 
 const mockToast = vi.fn();
 vi.mock('@repo/ui', () => ({
@@ -80,6 +100,8 @@ vi.mock('@repo/ui', () => ({
 
 import ShirtsReportView from '../ShirtsReportView.vue';
 import { useRetreatStore } from '@/stores/retreatStore';
+import { useParticipantStore } from '@/stores/participantStore';
+import { api } from '@/services/api';
 
 const RETREAT_ID = 'retreat-shirts-test';
 
@@ -141,6 +163,13 @@ function mountView(report: { shirtTypes: any[]; participants: any[] } | null = n
       stubs: { teleport: { template: '<div><slot /></div>' } },
     },
   });
+}
+
+// El badge de confirmación se selecciona por su title ("...clic..."): la celda
+// también contiene el botón de enviar mensaje, así que el índice crudo en
+// findAll('tbody button') ya no identifica al toggle.
+function toggleButtons(w: ReturnType<typeof mountView>) {
+  return w.findAll('tbody button').filter((b) => (b.attributes('title') ?? '').includes('clic'));
 }
 
 // ── Tests ────────────────────────────────────────────────────────────────────
@@ -495,7 +524,7 @@ describe('ShirtsReportView', () => {
     it('el badge refleja el estado de cada fila', async () => {
       const w = mountView(makeConfirmedReport());
       await flushPromises();
-      const badges = w.findAll('tbody button').map((b) => badgeLabel(b));
+      const badges = toggleButtons(w).map((b) => badgeLabel(b));
       // Orden de filas: Ya Confirmado, Todavía No, Angel Confirmado
       expect(badges[0]).toBe('✓Confirmado');
       expect(badges[1]).toBe('●Sinconfirmar');
@@ -505,7 +534,7 @@ describe('ShirtsReportView', () => {
     it('la leyenda del badge vive en un span ocultable (hidden sm:inline) para móvil', async () => {
       const w = mountView(makeConfirmedReport());
       await flushPromises();
-      const badge = w.findAll('tbody button')[0];
+      const badge = toggleButtons(w)[0];
       // Glifo siempre visible...
       expect(badge.text().trim()).toContain('✓');
       // ...y la leyenda completa solo a partir del breakpoint sm.
@@ -522,7 +551,7 @@ describe('ShirtsReportView', () => {
       await flushPromises();
       mockUpdateShirtOrderConfirmation.mockResolvedValueOnce(undefined);
       const pending = report.participants[1];
-      const badge = w.findAll('tbody button')[1];
+      const badge = toggleButtons(w)[1];
 
       await badge.trigger('click');
       // Flush ANTES de asertar: un refetch agregado tras el await del PATCH
@@ -534,7 +563,7 @@ describe('ShirtsReportView', () => {
         pending.participantId,
         true,
       );
-      expect(badgeLabel(w.findAll('tbody button')[1])).toBe('✓Confirmado');
+      expect(badgeLabel(toggleButtons(w)[1])).toBe('✓Confirmado');
       expect(w.text()).toContain('3/3');
       // Sin refetch del reporte tras el toggle.
       expect(mockGetShirtReport).toHaveBeenCalledTimes(1);
@@ -556,7 +585,7 @@ describe('ShirtsReportView', () => {
 
       // El toggle debe escribir contra el retiro activo, no el del montaje.
       const confirmed = report.participants[0];
-      await w.findAll('tbody button')[0].trigger('click');
+      await toggleButtons(w)[0].trigger('click');
       await flushPromises();
       expect(mockUpdateShirtOrderConfirmation).toHaveBeenCalledWith(
         'retreat-nuevo',
@@ -572,7 +601,7 @@ describe('ShirtsReportView', () => {
       mockUpdateShirtOrderConfirmation.mockResolvedValueOnce(undefined);
       const confirmed = report.participants[0];
 
-      await w.findAll('tbody button')[0].trigger('click');
+      await toggleButtons(w)[0].trigger('click');
       await flushPromises();
 
       expect(mockUpdateShirtOrderConfirmation).toHaveBeenCalledWith(
@@ -580,7 +609,7 @@ describe('ShirtsReportView', () => {
         confirmed.participantId,
         false,
       );
-      expect(badgeLabel(w.findAll('tbody button')[0])).toBe('●Sinconfirmar');
+      expect(badgeLabel(toggleButtons(w)[0])).toBe('●Sinconfirmar');
       expect(w.text()).toContain('1/3');
     });
 
@@ -589,12 +618,12 @@ describe('ShirtsReportView', () => {
       const w = mountView(report);
       await flushPromises();
       mockUpdateShirtOrderConfirmation.mockRejectedValueOnce(new Error('network'));
-      const badge = w.findAll('tbody button')[1];
+      const badge = toggleButtons(w)[1];
 
       await badge.trigger('click');
       await flushPromises();
 
-      expect(badgeLabel(w.findAll('tbody button')[1])).toBe('●Sinconfirmar');
+      expect(badgeLabel(toggleButtons(w)[1])).toBe('●Sinconfirmar');
       expect(w.text()).toContain('2/3');
       expect(mockToast).toHaveBeenCalledWith(
         expect.objectContaining({ variant: 'destructive' }),
@@ -610,13 +639,13 @@ describe('ShirtsReportView', () => {
         () => new Promise<void>((r) => (resolveToggle = r)),
       );
 
-      await w.findAll('tbody button')[1].trigger('click');
-      await w.findAll('tbody button')[1].trigger('click');
+      await toggleButtons(w)[1].trigger('click');
+      await toggleButtons(w)[1].trigger('click');
 
       expect(mockUpdateShirtOrderConfirmation).toHaveBeenCalledTimes(1);
       resolveToggle();
       await flushPromises();
-      expect(badgeLabel(w.findAll('tbody button')[1])).toBe('✓Confirmado');
+      expect(badgeLabel(toggleButtons(w)[1])).toBe('✓Confirmado');
     });
 
     it('"Solo sin confirmar" deja la lista en pendientes y compone AND con la búsqueda', async () => {
@@ -840,7 +869,7 @@ describe('ShirtsReportView', () => {
       mockUpdateShirtOrderConfirmation.mockResolvedValueOnce(undefined);
       const noGarment = report.participants[2]; // NoNecesita Nada
       // Orden de filas = orden de la fixture → el badge 2 es el del sin-prendas.
-      const badge = w.findAll('tbody button')[2];
+      const badge = toggleButtons(w)[2];
 
       await badge.trigger('click');
       await flushPromises();
@@ -851,6 +880,194 @@ describe('ShirtsReportView', () => {
         true,
       );
       expect(w.text()).toContain('3/4');
+    });
+  });
+
+  // ── Enviar mensaje de confirmación ───────────────────────────────────────
+
+  describe('envío de mensaje de confirmación', () => {
+    function sendButton(w: ReturnType<typeof mountView>) {
+      return w.find('[title="Enviar mensaje de confirmación"]');
+    }
+
+    function dialogStub(w: ReturnType<typeof mountView>) {
+      return w.find('[data-testid="message-dialog"]');
+    }
+
+    it('renderiza el botón de envío en cada fila (independiente del teléfono)', async () => {
+      const w = mountView({
+        shirtTypes: [PLAYERA_TYPE],
+        participants: [
+          makeServer({
+            cellPhone: '5551234567',
+            country: 'MX',
+            shirts: [makeShirt(PLAYERA_TYPE.id, 'Playera', 'M')],
+          }),
+          makeServer({ firstName: 'Sin', cellPhone: null, shirts: [] }),
+        ],
+      });
+      await flushPromises();
+
+      const buttons = w.findAll('[title="Enviar mensaje de confirmación"]');
+      expect(buttons).toHaveLength(2);
+    });
+
+    it('el click hidrata la ficha desde el listado del retiro y abre el dialog con la plantilla de confirmación', async () => {
+      const report = {
+        shirtTypes: [PLAYERA_TYPE],
+        participants: [
+          makeServer({ shirts: [makeShirt(PLAYERA_TYPE.id, 'Playera', 'M')] }),
+        ],
+      };
+      const target = report.participants[0];
+      const w = mountView(report);
+      await flushPromises();
+
+      // El participante completo sale del listado del retiro (includePayments):
+      // {participant.paymentRemaining} solo es correcto con payments/debts/
+      // shirtSizes cargados.
+      vi.mocked(api.get).mockResolvedValueOnce({
+        data: [{ id: target.participantId, firstName: 'Ana', lastName: 'López' }],
+      });
+
+      await sendButton(w).trigger('click');
+      await flushPromises();
+
+      expect(api.get).toHaveBeenCalledWith(
+        '/participants',
+        expect.objectContaining({
+          params: expect.objectContaining({ retreatId: RETREAT_ID, includePayments: true }),
+        }),
+      );
+      const dialog = dialogStub(w);
+      expect(dialog.attributes('data-open')).toBe('true');
+      expect(dialog.attributes('data-participant')).toBe(target.participantId);
+      expect(dialog.attributes('data-template')).toBe('SERVER_SHIRT_CONFIRMATION');
+      expect(dialog.attributes('data-retreat')).toBe(RETREAT_ID);
+    });
+
+    it('si el participante no viene en el listado, toast destructive y el dialog queda cerrado', async () => {
+      const w = mountView({
+        shirtTypes: [PLAYERA_TYPE],
+        participants: [makeServer({ shirts: [makeShirt(PLAYERA_TYPE.id, 'Playera', 'M')] })],
+      });
+      await flushPromises();
+
+      vi.mocked(api.get).mockResolvedValueOnce({ data: [] });
+
+      await sendButton(w).trigger('click');
+      await flushPromises();
+
+      expect(dialogStub(w).attributes('data-open')).toBe('false');
+      expect(mockToast).toHaveBeenCalledWith(
+        expect.objectContaining({ variant: 'destructive' }),
+      );
+    });
+
+    it('el botón queda disabled mientras carga la ficha (guard anti doble-tap)', async () => {
+      const w = mountView({
+        shirtTypes: [PLAYERA_TYPE],
+        participants: [makeServer({ shirts: [makeShirt(PLAYERA_TYPE.id, 'Playera', 'M')] })],
+      });
+      await flushPromises();
+
+      let resolveFetch!: (value: unknown) => void;
+      vi.mocked(api.get).mockImplementationOnce(
+        () => new Promise((r) => (resolveFetch = r)),
+      );
+
+      await sendButton(w).trigger('click');
+      expect(sendButton(w).attributes('disabled')).toBeDefined();
+
+      resolveFetch({ data: [] });
+      await flushPromises();
+      expect(sendButton(w).attributes('disabled')).toBeUndefined();
+    });
+
+    it('limpia los filtros heredados del store antes de hidratar (type residual excluiría al angelito)', async () => {
+      const report = {
+        shirtTypes: [PLAYERA_TYPE],
+        participants: [makeAngelito({ shirts: [makeShirt(PLAYERA_TYPE.id, 'Playera', 'S')] })],
+      };
+      const target = report.participants[0];
+      const w = mountView(report);
+      await flushPromises();
+
+      // Filtro residual de otra vista (AssignLeaderModal deja type='server'
+      // sin limpiar): viaja en la misma query y excluiría al angelito.
+      const participantStore = useParticipantStore();
+      participantStore.filters.type = 'server';
+
+      vi.mocked(api.get).mockResolvedValueOnce({
+        data: [{ id: target.participantId, firstName: 'Beto', lastName: 'Pérez' }],
+      });
+
+      await sendButton(w).trigger('click');
+      await flushPromises();
+
+      expect(api.get).toHaveBeenCalledWith(
+        '/participants',
+        expect.objectContaining({
+          params: expect.objectContaining({ retreatId: RETREAT_ID, includePayments: true }),
+        }),
+      );
+      expect(api.get).toHaveBeenCalledWith(
+        '/participants',
+        expect.objectContaining({
+          params: expect.not.objectContaining({ type: expect.anything() }),
+        }),
+      );
+      expect(dialogStub(w).attributes('data-open')).toBe('true');
+      expect(dialogStub(w).attributes('data-participant')).toBe(target.participantId);
+    });
+
+    it('si el retiro cambia mientras carga la ficha, el dialog no abre (sin mezclar retiros)', async () => {
+      const report = {
+        shirtTypes: [PLAYERA_TYPE],
+        participants: [makeServer({ shirts: [makeShirt(PLAYERA_TYPE.id, 'Playera', 'M')] })],
+      };
+      const target = report.participants[0];
+      const w = mountView(report);
+      await flushPromises();
+
+      let resolveFetch!: (value: unknown) => void;
+      vi.mocked(api.get).mockImplementationOnce(
+        () => new Promise((r) => (resolveFetch = r)),
+      );
+      await sendButton(w).trigger('click');
+
+      // Cambio de retiro en el sidebar mientras el fetch está pendiente: el
+      // watcher recarga el reporte contra el retiro nuevo.
+      mockGetShirtReport.mockResolvedValueOnce(report);
+      const retreatStore = useRetreatStore();
+      retreatStore.selectedRetreatId = 'retreat-nuevo';
+      await flushPromises();
+
+      // El fetch resuelve con el participante del retiro viejo: abrir aquí
+      // mezclaría esa ficha con el retreatId nuevo.
+      resolveFetch({ data: [{ id: target.participantId, firstName: 'Ana', lastName: 'López' }] });
+      await flushPromises();
+
+      expect(dialogStub(w).attributes('data-open')).toBe('false');
+      expect(dialogStub(w).attributes('data-retreat')).toBe('');
+      expect(mockToast).not.toHaveBeenCalled();
+      expect(sendButton(w).attributes('disabled')).toBeUndefined();
+    });
+
+    it('si el fetch de la ficha falla, el guard se libera y el dialog queda cerrado', async () => {
+      const w = mountView({
+        shirtTypes: [PLAYERA_TYPE],
+        participants: [makeServer({ shirts: [makeShirt(PLAYERA_TYPE.id, 'Playera', 'M')] })],
+      });
+      await flushPromises();
+
+      vi.mocked(api.get).mockRejectedValueOnce(new Error('network'));
+
+      await sendButton(w).trigger('click');
+      await flushPromises();
+
+      expect(dialogStub(w).attributes('data-open')).toBe('false');
+      expect(sendButton(w).attributes('disabled')).toBeUndefined();
     });
   });
 

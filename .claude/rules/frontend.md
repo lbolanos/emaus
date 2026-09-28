@@ -89,6 +89,26 @@ compartidos.
 Guard: `apps/web/src/test/repoUiToggleApi.test.ts`. Detalle y trampas al tocar el wrapper:
 skill `troubleshooting` #4.
 
+## Abrir `MessageDialog` desde una vista: hidratar del listado y montar sin `v-if`
+
+Dos reglas al reusar `apps/web/src/components/MessageDialog.vue` (botón "enviar mensaje" en
+cualquier vista, patrón `ShirtsReportView` / `ParticipantList` / `CommunityDashboardView`):
+
+1. **El participante sale de `participantStore.fetchParticipants()`** (listado del retiro, que
+   trae `includePayments`), nunca de `GET /participants/:id`. Las plantillas usan
+   `{participant.paymentRemaining}` y ese getter solo es correcto con `payments`, `debts` y
+   `shirtSizes` cargadas — `findParticipantById` no carga `shirtSizes`, así que el saldo sale
+   sin el cargo de prendas y nadie lo nota (el mensaje se ve bien). Es la misma razón por la
+   que el motor de secuencias tiene `hydrateParticipantForTemplateVariables`.
+2. **El dialog va montado desde el arranque, sin `v-if`** (abrirlo seteando un `ref` de
+   `open`): el watcher que aplica `forceTemplateType` solo dispara si el componente ya estaba
+   montado cuando `open` pasa a `true`. Con `v-if` la plantilla preseleccionada no se aplica.
+3. **Reseteá `participantStore.filters` antes del fetch de hidratación** (y capturá el
+   `retreatId` al click): `filters` es estado compartido entre vistas y otras dejan claves
+   sin limpiar (`AssignLeaderModal` deja `type='server'`) — viajan en la misma query y
+   excluyen al participante que buscás. Si la vista permite cambiar de retiro, un guard
+   post-await evita abrir el dialog con la ficha de un retiro y el id de otro.
+
 ## El bug de reka-ui que se repite
 
 Cuando un `<DropdownMenuItem>` abre un `Dialog` / `AlertDialog` / `Sheet` / `Drawer` de
