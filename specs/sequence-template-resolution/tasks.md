@@ -15,11 +15,13 @@ milestone correspondiente.
 
 ## M1 — cirugía de datos en prod
 
-- [ ] Migration `20261001120000_FixBuenDespachoShirtConfirmationSequence.ts` (4 pasos
+- [x] Migration `20261001120000_FixBuenDespachoShirtConfirmationSequence.ts` (4 pasos
       idempotentes: pausar → purgar 28 queued → borrar plantilla vieja → offsetDays 20→5)
-- [ ] Test `fixBuenDespachoShirtConfirmationSequence.simple.test.ts` (up ×2 idempotente,
-      invariantes)
-- [ ] Prueba en dev (auto-run al guardar) + verificación por dato
+- [x] Test `fixBuenDespachoShirtConfirmationSequence.simple.test.ts` (up ×2 idempotente,
+      invariantes) — 5/5 verde
+- [x] Prueba en dev (auto-run al arrancar el API sobre copia aislada) + verificación por dato:
+      pre 28 queued + 1 sent → post 0 queued + 1 sent; única plantilla del tipo = `62fec9ab`;
+      `isActive=0`; `offsetDays=5`; fila en `migrations`
 - [ ] Commit + push + deploy (con OK explícito de Leonardo)
 - [ ] Verificación por dato en prod (readonly vía SSH)
 
