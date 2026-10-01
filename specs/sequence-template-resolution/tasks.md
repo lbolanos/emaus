@@ -118,7 +118,7 @@ milestone correspondiente.
 ## Cierre
 
 - [x] E2E del área (ver abajo)
-- [ ] Demo manual en dev (re-enrol "Ultimo Prendas", bandeja, preview)
+- [x] Demo manual en dev (ver abajo: retiro sintético, cero PII para el video)
 - [ ] Deploy M2-M4 + verificación en prod
 - [ ] Merge a master
 
@@ -145,3 +145,36 @@ los 18 e2e del área.
 
 Nota operativa: `sqlite3 -readonly <archivo>` falla con CANTOPEN sobre una DB WAL cuyo `-shm`
 no existe (checkpoint limpio); abrir en modo normal crea el shm y lee sin problema.
+
+### Demo (2026-10-01)
+
+Sembrado un retiro **sintético** ("Demo Secuencias (video)", `6f2cd1d0`, inicio +20 d) sobre el
+stack del worktree (API 3002 + web 5174) para grabar el video **sin PII real**: 3 participantes
+fake (2 caminantes + 1 servidor), 3 plantillas `SERVER_SHIRT_CONFIRMATION`/`GENERAL` del retiro
+(incluida una 2ª del MISMO tipo, el escenario del incidente). Scripts en `/tmp/emaus-demo/`
+(no versionados: llevan credenciales locales por default).
+
+Alternativa al plan original (re-enrolar "Ultimo Prendas" real de Buen Despacho): ese retiro
+tiene participantes reales y sus snapshots de bandeja expondrían teléfonos en el video. El
+retiro sintético ejercita exactamente los mismos caminos.
+
+Verificado por dato Y visualmente en el navegador (`/app/settings/message-sequences`):
+
+- **M3**: secuencia "Demo M3" con el paso fijando por `templateId` la plantilla "Último aviso de
+  prendas (demo B)" — 2ª de su tipo; hay 4 `SERVER_SHIRT_CONFIRMATION` en el retiro (la global
+  copiada "Confirmación de prendas" ganaba siempre antes del fix). Bandeja muestra
+  "Servidor Demo · Último aviso de prendas (demo B) · 1 oct, 9:00 a.m. GMT-6" y el snapshot usa
+  el texto de la B ("última llamada"). Editor: el select del paso lista las 4 por nombre con la
+  B seleccionada (captura `demo-m3-editor-select.png`).
+- **M4**: secuencia "Demo M4" (GENERAL sin fijar → fallback "Mensaje General" con la frase
+  neutral post-migración): los 2 caminantes caen en Problemas como "Omitido" con el error
+  accionable "plantilla con {custom_message} (mensaje manual): edítala antes de usarla en
+  secuencias" — el guard atrapó la frase NEUTRAL (plantilla migrada nunca personalizada), no
+  sólo el marcador crudo. `previewStep` devuelve content vacío + warning del hueco.
+- **M2**: el editor muestra la fecha del paso sin ámbar (retiro futuro, offset 0 = hoy); para
+  el video, subir `offsetDays` a un valor que cruce `startDate` y el preview pinta la fecha en
+  ámbar con la key `sequences.stepDatePast`.
+
+Alta de participantes: `POST /participants/new` exige `isPublic` en el retiro (se activó por
+PUT tras crearlo con false) y el schema completo (`acceptedPrivacyNotice`, dirección,
+sacramentos, contacto de emergencia en caminantes).
