@@ -35,7 +35,15 @@ vi.mock('@/stores/globalMessageTemplateStore', () => ({
 	useGlobalMessageTemplateStore: () => ({ create: vi.fn(), update: vi.fn() }),
 }));
 vi.mock('@/stores/messageTemplateStore', () => ({
-	useMessageTemplateStore: () => ({ createTemplate: vi.fn(), updateTemplate: vi.fn() }),
+	// M3: el modal hace storeToRefs(store) y destructura `templates` para el
+	// aviso de tipo duplicado — sin la key, el ref sale undefined y revienta
+	// el computed al montar.
+	useMessageTemplateStore: () => ({
+		createTemplate: vi.fn(),
+		updateTemplate: vi.fn(),
+		fetchTemplates: vi.fn(),
+		templates: [],
+	}),
 }));
 vi.mock('@/stores/retreatStore', () => ({
 	useRetreatStore: () => ({ selectedRetreat: null, selectedRetreatId: null }),

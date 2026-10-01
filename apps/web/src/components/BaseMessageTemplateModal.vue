@@ -35,6 +35,13 @@
                 {{ t ? t('messageTemplates.audience.label') : 'Audiencia' }}:
                 <span class="font-medium">{{ audienceLabel(formData.type) }}</span>
               </p>
+              <!-- M3: tipo ya usado en el retiro — informativo, no bloquea. -->
+              <p
+                v-if="duplicateTypeTemplates.length"
+                class="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded p-1.5"
+              >
+                {{ t ? t('messageTemplates.dialog.duplicateTypeWarning', { names: duplicateTypeNames }) : 'Ya existe otra plantilla de este tipo en el retiro' }}
+              </p>
             </div>
 
             <!-- Active Status (only for global templates and when editing) -->
@@ -632,6 +639,27 @@ const typeLabels = computed(() => {
 
 const isEditing = computed(() => !!props.template);
 
+// M3: plantillas del retiro que YA usan el tipo elegido (excluida la que se
+// edita). El duplicado de tipo es legítimo — es el caso de uso que motivó
+// templateId: varias plantillas del mismo tipo — pero quien crea la 2ª tiene
+// que saber que los pasos de secuencia SIN plantilla fija seguirán
+// resolviendo la más antigua (createdAt ASC). Sólo aviso informativo: no se
+// excluye el tipo del dropdown ni se bloquea el POST.
+const duplicateTypeTemplates = computed(() => {
+  if (props.isGlobal || isCommunityScope.value) return [];
+  const type = formData.value.type;
+  if (!type) return [];
+  // Sin storeToRefs: leer directo del store dentro del computed es igual de
+  // reactivo (el store de pinia ya lo es) y tolera los mocks planos de tests.
+  return ((messageTemplateStore.templates as any[]) || []).filter(
+    (tpl: any) => tpl.type === type && tpl.id !== (props.template as any)?.id,
+  );
+});
+const duplicateTypeNames = computed(() => {
+  const names = duplicateTypeTemplates.value.map((tpl: any) => tpl.name).filter(Boolean);
+  return names.length > 3 ? `${names.slice(0, 3).join(', ')}…` : names.join(', ');
+});
+
 const isFormValid = computed(() => {
   const hasName = formData.value.name.trim();
   const hasType = formData.value.type;
@@ -1107,6 +1135,13 @@ watch(
       if (!props.isGlobal && props.participants && props.participants.length > 0) {
         const firstWalker = walkers.value[0];
         selectedParticipant.value = firstWalker ? firstWalker.id : '';
+      }
+      // M3: el aviso de tipo duplicado necesita las plantillas del retiro; la
+      // vista que abre el modal puede no tenerlas cargadas (MessageDialog,
+      // ShirtsReportView…). Fetch silencioso en cada apertura para que el
+      // aviso refleje el estado real, no un listado vacío.
+      if (!props.isGlobal && !isCommunityScope.value && retreatStore.selectedRetreatId) {
+        messageTemplateStore.fetchTemplates(retreatStore.selectedRetreatId).catch(() => {});
       }
     }
   }

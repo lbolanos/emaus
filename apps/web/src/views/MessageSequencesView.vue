@@ -132,7 +132,12 @@ function onAudienceChange() {
 		if (!aud) continue;
 		if (audienceMatches(getMessageTemplateAudience(step.templateType), aud)) continue;
 		const first = pickTemplateForAudience(usableTemplates.value, aud);
-		if (first) step.templateType = first.type;
+		if (first) {
+			// M3: id + tipo juntos — el select elige por id y el tipo sigue
+			// viajando como clave de audiencia/fallback.
+			step.templateType = first.type;
+			step.templateId = first.id ?? null;
+		}
 	}
 }
 // Al cambiar el disparador (acción del usuario), corrige la audiencia si quedó
@@ -160,8 +165,22 @@ const recipientOptions = computed<string[]>(() => {
 
 // Plantillas mostradas para un paso: las de la audiencia del destinatario + general
 // + la actualmente seleccionada (para no perderla al editar). 'all' (null) = todas.
-function templatesForStep(step: { recipientTarget: string; templateType: string }) {
+function templatesForStep(step: { recipientTarget: string; templateType: string; templateId?: string | null }) {
 	return templatesForStepAudience(usableTemplates.value, step, draft.value.audience);
+}
+
+/**
+ * M3: el select de plantilla elige por ID (antes era por tipo — con dos
+ * plantillas del mismo tipo ambas opciones valían lo mismo y la nueva era
+ * inalcanzable: incidente "Ultimo Prendas"). `templateType` se sincroniza
+ * desde la plantilla elegida porque sigue viajando al backend como clave de
+ * audiencia y fallback.
+ */
+function onStepTemplateChange(step: StepDraft, e: Event) {
+	const id = (e.target as HTMLSelectElement).value || null;
+	step.templateId = id;
+	const tpl = usableTemplates.value.find((x: any) => x.id === id);
+	if (tpl) step.templateType = tpl.type;
 }
 
 interface SequenceDraft {
@@ -240,6 +259,9 @@ function openEdit(seq: any) {
 			offsetDays: s.offsetDays,
 			sendHour: s.sendHour,
 			templateType: s.templateType,
+			// M3: la plantilla concreta del paso (viene del backend tras el
+			// backfill); null → el motor resuelve por tipo.
+			templateId: s.templateId ?? null,
 			channel: s.channel,
 			recipientTarget: s.recipientTarget || 'participant',
 			recipientResponsibility: s.recipientResponsibility || '',
@@ -251,10 +273,12 @@ function openEdit(seq: any) {
 }
 
 function addStep() {
+	const first = usableTemplates.value[0];
 	draft.value.steps.push({
 		offsetDays: 0,
 		sendHour: 9,
-		templateType: usableTemplates.value[0]?.type || '',
+		templateType: first?.type || '',
+		templateId: first?.id ?? null,
 		channel: 'whatsapp',
 		recipientTarget: 'participant',
 		recipientResponsibility: '',
@@ -263,10 +287,24 @@ function addStep() {
 	});
 }
 
-// Pasos cuyo tipo de plantilla no existe en el retiro (aviso al guardar).
+// Pasos sin plantilla utilizable: ni su id existe ya en el retiro (plantilla
+// borrada) ni su tipo (aviso al guardar).
 const stepsWithMissingTemplate = computed(() =>
 	draft.value.steps.filter(
-		(s) => !usableTemplates.value.some((tpl: any) => tpl.type === s.templateType),
+		(s) =>
+			!(s.templateId && usableTemplates.value.some((tpl: any) => tpl.id === s.templateId)) &&
+			!usableTemplates.value.some((tpl: any) => tpl.type === s.templateType),
+	),
+);
+
+// M3: pasos que van por fallback de tipo teniendo MÁS de una plantilla de ese
+// tipo en el retiro — el motor enviaría la más antigua, que puede no ser la
+// que el coordinador quiere. Ámbar en el editor para que fije una explícita.
+const stepsWithDuplicateType = computed(() =>
+	draft.value.steps.filter(
+		(s) =>
+			!s.templateId &&
+			usableTemplates.value.filter((tpl: any) => tpl.type === s.templateType).length > 1,
 	),
 );
 
@@ -302,6 +340,8 @@ async function openStepPreview(index: number) {
 			retreatId: retreatId.value,
 			participantId: participant.id,
 			templateType: step.templateType,
+			// M3: si el paso ya fijó plantilla concreta, el preview usa ESA.
+			templateId: step.templateId || null,
 			channel: step.channel,
 			recipientTarget: step.recipientTarget,
 			recipientResponsibility: step.recipientResponsibility || null,
@@ -412,6 +452,7 @@ async function saveDraft() {
 			offsetDays: s.offsetDays,
 			sendHour: s.sendHour,
 			templateType: s.templateType,
+			templateId: s.templateId ?? null,
 			channel: s.channel,
 			recipientTarget: s.recipientTarget,
 			recipientResponsibility:
@@ -516,6 +557,7 @@ async function duplicateSequence(seq: any) {
 				offsetDays: s.offsetDays,
 				sendHour: s.sendHour,
 				templateType: s.templateType,
+				templateId: s.templateId ?? null,
 				channel: s.channel,
 				recipientTarget: s.recipientTarget || 'participant',
 				recipientResponsibility: s.recipientResponsibility || null,
@@ -753,6 +795,12 @@ function templateLabel(type: string | null | undefined): string {
 	if (!type) return '';
 	return templates.value.find((tpl: any) => tpl.type === type)?.name || type;
 }
+// M3: el nombre de la plantilla lo resuelve el SERVER (id del paso gana sobre
+// el tipo) y viaja como `templateName` en bandeja/programados/detalle. El
+// fallback por tipo cubre ítems legacy o con plantilla borrada.
+function itemTemplateName(it: { templateName?: string | null; templateType: string | null | undefined }): string {
+	return it.templateName || templateLabel(it.templateType);
+}
 
 // --------------------------------------------------------------------------
 // Fechas en la TZ del retiro (A3). La zona la resuelve el SERVER (viene en la
@@ -932,6 +980,7 @@ const filteredIssues = computed(() => {
 				it.participant?.lastName,
 				it.templateType,
 				templateLabel(it.templateType),
+				it.templateName,
 				it.error,
 				it.recipientName,
 			]
@@ -1085,7 +1134,11 @@ function buildWhatsappLink(item: any): { phone: string; country: string | null; 
 	let rawPhone: string | undefined = item.resolvedContact || undefined;
 	let text = item.resolvedContent ? convertHtmlToWhatsApp(item.resolvedContent) : '';
 	if (!rawPhone || !text) {
-		const tpl = templates.value.find((x: any) => x.type === item.templateType);
+		// M3: el paso trae su plantilla concreta (sm.step cargado por la bandeja);
+		// por id primero, fallback por tipo para ítems legacy.
+		const tpl =
+			templates.value.find((x: any) => x.id === item.step?.templateId) ||
+			templates.value.find((x: any) => x.type === item.templateType);
 		const participant = item.participant;
 		const target = item.recipientTarget || 'participant';
 		let contactKey: string | undefined;
@@ -1542,7 +1595,7 @@ async function toggleDoNotContact() {
 								{{ it.participantName }}
 							</button>
 							<div class="text-xs text-gray-500 truncate">
-								{{ templateLabel(it.templateType) }}
+								{{ itemTemplateName(it) }}
 								<span v-if="it.stepOrder != null">· {{ t('sequences.stepN', { n: it.stepOrder + 1 }) }}</span>
 								<span
 									v-if="it.recipientTarget && it.recipientTarget !== 'participant'"
@@ -1581,7 +1634,7 @@ async function toggleDoNotContact() {
 									class="h-6 px-1.5 text-[11px]"
 									@click="openReschedule(
 										it.stepId,
-										[seqName(it.sequenceId), templateLabel(it.templateType)].filter(Boolean).join(' · '),
+										[seqName(it.sequenceId), itemTemplateName(it)].filter(Boolean).join(' · '),
 										it.scheduledFor,
 									)"
 								>
@@ -1757,7 +1810,7 @@ async function toggleDoNotContact() {
 							</span>
 						</div>
 						<div class="text-xs text-gray-500">
-							{{ templateLabel(item.templateType) }}
+							{{ itemTemplateName(item) }}
 							<span v-if="item.scheduledFor">· {{ fmtScheduled(item.scheduledFor) }}</span>
 							<span
 								v-if="item.recipientTarget && item.recipientTarget !== 'participant'"
@@ -1921,7 +1974,7 @@ async function toggleDoNotContact() {
 							>
 								{{ it.participant?.firstName }} {{ it.participant?.lastName }}
 							</button>
-							· {{ templateLabel(it.templateType) }}
+							· {{ itemTemplateName(it) }}
 						</div>
 						<div class="text-xs text-red-600 break-words">{{ it.error }}</div>
 						<div v-if="remediationFor(it)" class="text-xs text-gray-600 mt-0.5 flex gap-1">
@@ -2086,12 +2139,30 @@ async function toggleDoNotContact() {
 										</Button>
 									</div>
 								</div>
-								<!-- Plantilla (filtrada por la audiencia del destinatario) -->
+								<!-- Plantilla (filtrada por la audiencia del destinatario).
+								     M3: se elige por ID — con dos plantillas del mismo tipo,
+								     el select por tipo las hacía indistinguibles y la nueva
+								     era inalcanzable (incidente "Ultimo Prendas"). -->
 								<div>
 									<label class="text-xs text-gray-500">{{ t('sequences.template') }}</label>
-									<select v-model="step.templateType" class="w-full mt-1 p-2 border rounded-md text-sm">
-										<option v-for="tpl in templatesForStep(step)" :key="tpl.id" :value="tpl.type">{{ tpl.name }}</option>
+									<select
+										:value="step.templateId ?? null"
+										class="w-full mt-1 p-2 border rounded-md text-sm"
+										@change="onStepTemplateChange(step, $event)"
+									>
+										<option v-if="!step.templateId" :value="null" disabled>
+											{{ t('sequences.templateByType') }} ({{ step.templateType }})
+										</option>
+										<option v-for="tpl in templatesForStep(step)" :key="tpl.id" :value="tpl.id">{{ tpl.name }}</option>
 									</select>
+									<!-- M3: sin plantilla fija y con 2+ del mismo tipo, el motor
+									     enviaría la más antigua — avisar para fijar una explícita. -->
+									<p
+										v-if="stepsWithDuplicateType.includes(step)"
+										class="text-xs text-amber-600 mt-1"
+									>
+										{{ t('sequences.duplicateTemplateType') }}
+									</p>
 								</div>
 								<div class="grid grid-cols-2 md:grid-cols-6 gap-3">
 									<div class="md:col-span-1">
@@ -2385,7 +2456,7 @@ async function toggleDoNotContact() {
 						<div>
 							<div class="text-xs font-medium text-gray-500 mb-1">
 								{{ t('sequences.messageToSend') }}
-								<span class="text-gray-400">· {{ templateLabel(detail.message.templateType) }}</span>
+								<span class="text-gray-400">· {{ itemTemplateName(detail.message) }}</span>
 								<span v-if="detail.message.scheduledFor" class="text-gray-400">
 									· {{ fmtScheduled(detail.message.scheduledFor) }}
 								</span>

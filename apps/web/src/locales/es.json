@@ -755,6 +755,7 @@
       "click": "Clic",
       "save": "Guardar",
       "selectRetreatFirst": "Por favor selecciona un retiro primero",
+      "duplicateTypeWarning": "Ya existe otra plantilla de este tipo en el retiro: {names}. Los pasos de secuencia que no fijen una plantilla concreta enviarán la primera creada.",
       "variablesTitle": "Variables Disponibles",
       "categories": {
         "participant": "Variables del Participante",
@@ -3403,6 +3404,8 @@
     "stepNoDate": "sin fecha (falta dato del disparador)",
     "stepDateHint": "Fecha en que se enviaría este paso para el participante de muestra (hora del retiro)",
     "stepDatePast": "la fecha ya pasó: al activar, este paso no se programa",
+    "templateByType": "Por tipo de plantilla (automático)",
+    "duplicateTemplateType": "Este paso no tiene plantilla fija y hay varias del mismo tipo: se enviará la más antigua. Elige una concreta.",
     "scheduledTzHint": "Fechas en hora de {tz}",
     "clearFilter": "Quitar filtro",
     "reschedule": "Reprogramar",

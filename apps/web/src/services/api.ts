@@ -3929,6 +3929,9 @@ export interface ScheduledMessageQueueItem {
   retreatId: string;
   channel: "email" | "whatsapp";
   templateType: string;
+  // M3: nombre resuelto por el servidor (templateId del paso gana sobre el
+  // tipo); el cliente usa este con fallback al label por tipo.
+  templateName?: string | null;
   recipientTarget?: "participant" | "emergencyContact1" | "emergencyContact2";
   scheduledFor: string;
   status: string;
@@ -3953,7 +3956,7 @@ export interface ScheduledMessageQueueItem {
     emergencyContact2Name?: string;
     emergencyContact2CellPhone?: string;
   };
-  step?: { id: string; templateType: string; channel: string };
+  step?: { id: string; templateType: string; templateId?: string | null; channel: string };
 }
 
 export interface SequenceStatsResponse {
@@ -4020,6 +4023,8 @@ export interface ScheduledMessageListItem {
   participantId: string;
   participantName: string;
   templateType: string;
+  /** M3: nombre de la plantilla resuelto por el servidor (id del paso gana). */
+  templateName: string | null;
   channel: 'email' | 'whatsapp';
   recipientTarget: string;
   recipientName: string | null;
@@ -4108,6 +4113,8 @@ export interface ScheduledMessageDetail {
   message: {
     id: string;
     templateType: string;
+    /** M3: nombre de la plantilla resuelto por el servidor (id del paso gana). */
+    templateName: string | null;
     recipientTarget: string;
     recipientName: string | null;
     resolvedContent: string | null;
@@ -4334,6 +4341,8 @@ export const previewSequenceStep = async (data: {
   retreatId: string;
   participantId: string;
   templateType: string;
+  /** M3: plantilla concreta del paso — el preview la usa (id gana sobre el tipo). */
+  templateId?: string | null;
   channel: "email" | "whatsapp";
   recipientTarget: string;
   recipientResponsibility?: string | null;

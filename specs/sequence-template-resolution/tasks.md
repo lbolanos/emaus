@@ -60,21 +60,37 @@ milestone correspondiente.
 
 ## M3 — templateId estructural
 
-- [ ] Migration `20261002120000_SequenceStepTemplateId.ts` (ADD COLUMN + backfill
+- [x] Migration `20261002120000_SequenceStepTemplateId.ts` (ADD COLUMN + backfill
       determinista + guard PRAGMA)
-- [ ] Entities: `SequenceStep.templateId`, `MessageTemplate.type` tipado (sin `as any`)
-- [ ] Helper `resolveTemplateForStep` aplicado en los 5 sitios del motor
-- [ ] `copyToRetreat` resuelve `templateId` local
-- [ ] `packages/types/src/sequence.ts`: templateId en schemas + `syncSteps`/`stepPayloadChanged`
-- [ ] Editor: select por id, `StepDraft.templateId`, warning duplicado (`duplicateTemplateType`
+- [x] Entities: `SequenceStep.templateId`, `MessageTemplate.type` tipado (sin `as any`)
+- [x] Helper `resolveTemplateForStep` aplicado en los 5 sitios del motor
+- [x] `copyToRetreat` resuelve `templateId` local
+- [x] `packages/types/src/sequence.ts`: templateId en schemas + `syncSteps`/`stepPayloadChanged`
+- [x] Editor: select por id, `StepDraft.templateId`, warning duplicado (`duplicateTemplateType`
       es+en)
-- [ ] `BaseMessageTemplateModal`: aviso informativo de type duplicado (sin 409)
-- [ ] `templateName` server-side en bandeja/detalle (getQueue/getScheduled/getQueueItemDetail)
-- [ ] Tests: `messageSequenceTemplateResolution.test.ts`,
-      `sequenceStepTemplateIdBackfill.simple.test.ts`, web modal + editor shared
-- [ ] `pnpm --filter api build`, build web, commit
+- [x] `BaseMessageTemplateModal`: aviso informativo de type duplicado (sin 409)
+- [x] `templateName` server-side en bandeja/detalle (getQueue/getScheduled/getQueueItemDetail)
+- [x] Tests: `messageSequenceTemplateResolution.test.ts` (6/6),
+      `sequenceStepTemplateIdBackfill.simple.test.ts` (7/7), web modal (4/4) + editor shared (7/7)
+- [x] `pnpm --filter api build`, build web, commit
 
-**Done**: —
+**Done** (2026-10-01):
+- Resolution semantics fijadas por tests: id del paso gana; id de otro retiro → fallback
+  `(retreatId, type)` con `createdAt ASC` (mismo criterio del backfill); batch de `processDue`
+  resuelve todo en memoria (spy de `findOne` en 0); `previewStep` acepta `templateId`.
+- Suites en verde: motor 134/134 (baseline + M1/M2 intactas), `messageVariables` 36/36,
+  `MessageSequencesView` 26/26, `BaseMessageTemplateModal.editorMode` 6/6. Builds api+ui+web ✓.
+
+**Desviaciones** (2026-10-01):
+- El modal lee `messageTemplateStore.templates` directo dentro del computed en vez de
+  `storeToRefs`: misma reactividad con el store real de pinia, y los mocks planos de tests
+  siguen funcionando (storeToRefs sobre objeto no-store no produce la ref y el mount revienta).
+- La aserción original del test de fallback legacy en `sequenceEditorShared.templateId.test.ts`
+  esperaba SOLO la plantilla del tipo; el comportamiento implementado (y correcto) lista todas
+  las de la audiencia del destinatario MÁS la fijada por tipo/id — corregida la aserción, no el
+  código.
+- El mock de `@repo/ui` del test nuevo del modal exporta `useToast` (lo usa `retreatStore`
+  real); el de `editorMode.test.ts` ganó `templates: []`/`fetchTemplates` en su mock plano.
 
 ## M4 — `{custom_message}` accionable
 

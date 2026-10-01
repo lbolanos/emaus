@@ -59,6 +59,9 @@ type StepSyncInput = {
 	offsetDays?: number;
 	sendHour?: number;
 	templateType: string;
+	// M3: plantilla específica del paso (gana sobre templateType). Opcional para
+	// no romper llamadores que siguen mandando solo el tipo (globales, API vieja).
+	templateId?: string | null;
 	channel: MessageChannel;
 	recipientTarget?: MessageRecipientTarget;
 	recipientResponsibility?: string | null;
@@ -71,6 +74,7 @@ type StepWriteData = {
 	offsetDays: number;
 	sendHour: number;
 	templateType: string;
+	templateId: string | null;
 	channel: MessageChannel;
 	recipientTarget: MessageRecipientTarget;
 	recipientResponsibility: string | null;
@@ -98,6 +102,7 @@ function stepPayloadChanged(current: SequenceStep, data: StepWriteData): boolean
 		current.offsetDays !== data.offsetDays ||
 		current.sendHour !== data.sendHour ||
 		current.templateType !== data.templateType ||
+		(current.templateId ?? null) !== data.templateId ||
 		current.channel !== data.channel ||
 		(current.recipientTarget ?? 'participant') !== data.recipientTarget ||
 		(current.recipientResponsibility ?? null) !== data.recipientResponsibility ||
@@ -190,6 +195,62 @@ export class MessageSequenceService {
 
 	private resolveTz(retreat: Retreat | undefined | null): string {
 		return retreat?.timezone || (retreat as any)?.house?.timezone || DEFAULT_TZ;
+	}
+
+	/**
+	 * M3: plantilla que corresponde a un paso. `step.templateId` gana SIEMPRE
+	 * que apunte a una plantilla del retiro correcto; si no (ausente, borrada o
+	 * de otro retiro), fallback por (retreatId, templateType) con `createdAt`
+	 * ASC — determinista, el mismo criterio del backfill de la migración y del
+	 * batch de processDue. Esa doble validación es la que vuelve alcanzable una
+	 * plantilla nueva que comparte tipo con una vieja (incidente "Ultimo
+	 * Prendas", 2026-10-01) sin romper pasos históricos cuyo tipo ya no existe.
+	 */
+	private async resolveTemplateForStep(
+		retreatId: string,
+		step: Pick<SequenceStep, 'templateId' | 'templateType'> | null | undefined,
+	): Promise<MessageTemplate | null> {
+		if (step?.templateId) {
+			const byId = await AppDataSource.getRepository(MessageTemplate).findOne({
+				where: { id: step.templateId, retreatId },
+			});
+			if (byId) return byId;
+		}
+		if (!step?.templateType) return null;
+		return AppDataSource.getRepository(MessageTemplate).findOne({
+			where: { retreatId, type: step.templateType as MessageTemplate['type'] },
+			order: { createdAt: 'ASC' },
+		});
+	}
+
+	/**
+	 * M3: resolución de `templateName` en LOTE para listados (bandeja,
+	 * programados) — misma semántica que `resolveTemplateForStep` pero con una
+	 * sola consulta por retiro: id del paso gana, fallback por tipo con
+	 * `createdAt` ASC (la primera fila insertada con esa clave de mapa).
+	 */
+	private async buildTemplateNameMaps(
+		retreatId: string,
+	): Promise<{
+		resolve: (step: SequenceStep | null | undefined, templateType: string) => string | null;
+	}> {
+		// createdAt ASC: al poblar el map por tipo, la PRIMERA plantilla del tipo
+		// es la que gana (misma determinación que el fallback individual).
+		const templates = await AppDataSource.getRepository(MessageTemplate).find({
+			where: { retreatId },
+			order: { createdAt: 'ASC' },
+		});
+		const nameById = new Map(templates.map((t) => [t.id, t.name]));
+		const firstNameByType = new Map<string, string>();
+		for (const t of templates) {
+			if (!firstNameByType.has(t.type)) firstNameByType.set(t.type, t.name);
+		}
+		return {
+			resolve: (step, templateType) =>
+				(step?.templateId ? nameById.get(step.templateId) : undefined) ??
+				firstNameByType.get(templateType) ??
+				null,
+		};
 	}
 
 	/**
@@ -902,14 +963,21 @@ export class MessageSequenceService {
 		// follow-up del participante) se precargan en una query por lote. Con
 		// el tope de `limit` mensajes, eso son 3 queries fijas en vez de 3·N.
 		const batchRetreatIds = [...new Set(due.map((sm) => sm.retreatId))];
-		const templates = new Map<string, MessageTemplate>();
+		// M3: dos índices por lote. `templatesByType` conserva el fallback
+		// determinista de siempre (primera fila por createdAt ASC); la ordenación
+		// explícita reemplaza el "gana la de menor rowid" implícito. `templatesById`
+		// resuelve el templateId del PASO, que gana sobre el tipo.
+		const templatesByType = new Map<string, MessageTemplate>();
+		const templatesById = new Map<string, MessageTemplate>();
 		if (batchRetreatIds.length) {
 			const rows = await AppDataSource.getRepository(MessageTemplate).find({
 				where: { retreatId: In(batchRetreatIds) },
+				order: { createdAt: 'ASC' },
 			});
 			for (const t of rows) {
 				const key = `${t.retreatId}:${t.type}`;
-				if (!templates.has(key)) templates.set(key, t);
+				if (!templatesByType.has(key)) templatesByType.set(key, t);
+				templatesById.set(`${t.retreatId}:${t.id}`, t);
 			}
 		}
 		const cancelledRp = new Set<string>();
@@ -1040,8 +1108,14 @@ export class MessageSequenceService {
 				}
 
 				// Plantilla precargada por corrida (#6): una query por lote en vez
-				// de una por mensaje.
-				const template = templates.get(`${sm.retreatId}:${sm.templateType}`);
+				// de una por mensaje. M3: la plantilla del PASO (templateId) gana;
+				// si su id no está en el lote (borrada / de otro retiro) cae al
+				// fallback por tipo.
+				const template =
+					(sm.step?.templateId
+						? templatesById.get(`${sm.retreatId}:${sm.step.templateId}`)
+						: undefined) ??
+					templatesByType.get(`${sm.retreatId}:${sm.templateType}`);
 				if (!template) {
 					sm.status = 'skipped';
 					sm.error = `sin plantilla ${sm.templateType} en el retiro`;
@@ -1287,18 +1361,19 @@ export class MessageSequenceService {
 	 * patrón try/catch sin propagar — un fallo de historial no debe deshacer
 	 * la marca de enviado.
 	 *
-	 * La plantilla se resuelve por (retreatId, templateType) como el detalle de
-	 * la bandeja; si ya no existe, la fila se registra igual (el envío ocurrió),
-	 * sólo sin templateId/templateName.
+	 * M3: la plantilla se resuelve como en el motor (templateId del paso
+	 * primero, fallback por tipo); si ya no existe, la fila se registra igual
+	 * (el envío ocurrió), sólo sin templateId/templateName.
 	 */
 	private async recordWhatsappCommunication(
 		sm: ScheduledMessage,
 		userId?: string | null,
 	): Promise<void> {
 		try {
-			const template = await AppDataSource.getRepository(MessageTemplate).findOne({
-				where: { retreatId: sm.retreatId, type: sm.templateType as any },
-			});
+			const step = sm.step ?? (sm.stepId
+				? await AppDataSource.getRepository(SequenceStep).findOne({ where: { id: sm.stepId } })
+				: null);
+			const template = await this.resolveTemplateForStep(sm.retreatId, step ?? undefined);
 			const repo = AppDataSource.getRepository(ParticipantCommunication);
 			await repo.save(
 				repo.create({
@@ -1478,6 +1553,10 @@ export class MessageSequenceService {
 				offsetDays: s.offsetDays ?? 0,
 				sendHour: s.sendHour ?? 9,
 				templateType: s.templateType,
+				// M3: plantilla específica. Los llamadores legacy que aún mandan
+				// solo templateType dejan NULL → fallback por tipo (compat hacia
+				// atrás con el editor viejo desplegado).
+				templateId: s.templateId ?? null,
 				channel: s.channel,
 				recipientTarget: s.recipientTarget ?? 'participant',
 				recipientResponsibility: s.recipientResponsibility ?? null,
@@ -1523,12 +1602,15 @@ export class MessageSequenceService {
 
 	/**
 	 * Bandeja de pendientes de WhatsApp (status queued) de un retiro. Cada ítem se
-	 * enriquece con `followUpStatus` (estado de seguimiento del participante) para
-	 * dar contexto al coordinador antes de enviar.
+	 * enriquece con `followUpStatus` (estado de seguimiento del participante) y
+	 * `templateName` (M3: nombre de la plantilla resuelto server-side, id del paso
+	 * gana sobre el tipo) para dar contexto al coordinador antes de enviar.
 	 */
 	async listQueued(
 		retreatId: string,
-	): Promise<Array<ScheduledMessage & { followUpStatus?: string | null }>> {
+	): Promise<
+		Array<ScheduledMessage & { followUpStatus?: string | null; templateName?: string | null }>
+	> {
 		const items = await AppDataSource.getRepository(ScheduledMessage).find({
 			where: { retreatId, status: 'queued', channel: 'whatsapp' },
 			relations: ['participant', 'step'],
@@ -1539,8 +1621,12 @@ export class MessageSequenceService {
 			where: { retreatId },
 		});
 		const statusByParticipant = new Map(followUps.map((f) => [f.participantId, f.status]));
+		const names = await this.buildTemplateNameMaps(retreatId);
 		return items.map((it) =>
-			Object.assign(it, { followUpStatus: statusByParticipant.get(it.participantId) ?? null }),
+			Object.assign(it, {
+				followUpStatus: statusByParticipant.get(it.participantId) ?? null,
+				templateName: names.resolve(it.step, it.templateType),
+			}),
 		);
 	}
 
@@ -1573,6 +1659,7 @@ export class MessageSequenceService {
 			participantId: string;
 			participantName: string;
 			templateType: string;
+			templateName: string | null;
 			channel: MessageChannel;
 			recipientTarget: string;
 			recipientName: string | null;
@@ -1630,6 +1717,8 @@ export class MessageSequenceService {
 			where: { id: retreatId },
 			relations: ['house'],
 		});
+		// Sólo si hay filas: en página vacía la consulta sería en vano.
+		const names = rows.length ? await this.buildTemplateNameMaps(retreatId) : null;
 		return {
 			items: rows.map((sm) => ({
 				id: sm.id,
@@ -1640,6 +1729,7 @@ export class MessageSequenceService {
 					? `${sm.participant.firstName || ''} ${sm.participant.lastName || ''}`.trim()
 					: '',
 				templateType: sm.templateType,
+				templateName: names ? names.resolve(sm.step, sm.templateType) : null,
 				channel: sm.channel,
 				recipientTarget: sm.recipientTarget,
 				recipientName: sm.recipientName ?? null,
@@ -1764,6 +1854,9 @@ export class MessageSequenceService {
 		retreatId: string;
 		participantId: string;
 		templateType: string;
+		// M3: plantilla específica del paso (la que el editor tiene seleccionada);
+		// si no llega o no es del retiro, fallback por tipo como siempre.
+		templateId?: string | null;
 		channel: MessageChannel;
 		recipientTarget: MessageRecipientTarget;
 		recipientResponsibility?: string | null;
@@ -1777,8 +1870,9 @@ export class MessageSequenceService {
 		const [participant, retreat, template] = await Promise.all([
 			AppDataSource.getRepository(Participant).findOne({ where: { id: input.participantId } }),
 			AppDataSource.getRepository(Retreat).findOne({ where: { id: input.retreatId } }),
-			AppDataSource.getRepository(MessageTemplate).findOne({
-				where: { retreatId: input.retreatId, type: input.templateType as any },
+			this.resolveTemplateForStep(input.retreatId, {
+				templateId: input.templateId ?? null,
+				templateType: input.templateType,
 			}),
 		]);
 		if (!participant || !retreat) return null;
@@ -1880,6 +1974,9 @@ export class MessageSequenceService {
 		message: {
 			id: string;
 			templateType: string;
+			// M3: nombre resuelto server-side (templateId del paso primero,
+			// fallback por tipo) — la bandeja no adivina desde el tipo crudo.
+			templateName: string | null;
 			recipientTarget: string;
 			recipientName: string | null;
 			resolvedContent: string | null;
@@ -1918,12 +2015,11 @@ export class MessageSequenceService {
 		const p = sm.participant;
 
 		// Vista previa: usa el snapshot si existe; si no (pendientes encolados antes
-		// de tener snapshot), la resuelve al vuelo desde la plantilla del retiro.
+		// de tener snapshot), la resuelve al vuelo desde la plantilla del paso
+		// (templateId primero, fallback por tipo — misma resolución que el motor).
 		let preview = sm.resolvedContent ?? null;
 		if (!preview && sm.retreat) {
-			const template = await AppDataSource.getRepository(MessageTemplate).findOne({
-				where: { retreatId: sm.retreatId, type: sm.templateType as any },
-			});
+			const template = await this.resolveTemplateForStep(sm.retreatId, sm.step ?? undefined);
 			if (template) {
 				const recipient = await this.resolveRecipient(
 					p,
@@ -1956,6 +2052,7 @@ export class MessageSequenceService {
 			message: {
 				id: sm.id,
 				templateType: sm.templateType,
+				templateName: (await this.resolveTemplateForStep(sm.retreatId, sm.step ?? undefined))?.name ?? null,
 				recipientTarget: sm.recipientTarget || 'participant',
 				recipientName: sm.recipientName ?? null,
 				resolvedContent: preview,
@@ -2224,9 +2321,7 @@ export class MessageSequenceService {
 				skipped++;
 				continue;
 			}
-			const template = await AppDataSource.getRepository(MessageTemplate).findOne({
-				where: { retreatId, type: sm.templateType as any },
-			});
+			const template = await this.resolveTemplateForStep(retreatId, sm.step ?? undefined);
 			if (!template) {
 				skipped++;
 				continue;

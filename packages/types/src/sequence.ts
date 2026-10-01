@@ -63,6 +63,9 @@ export const sequenceStepSchema = z.object({
 	offsetDays: z.number().int(),
 	sendHour: z.number().int().min(0).max(23).default(9),
 	templateType: z.string().min(1),
+	// M3: plantilla específica del paso. Gana sobre templateType en la
+	// resolución del motor; null → fallback por (retreatId, templateType).
+	templateId: idSchema.nullish(),
 	channel: messageChannel,
 	recipientTarget: messageRecipientTarget.default('participant'),
 	recipientResponsibility: z.string().nullish(),
@@ -100,6 +103,9 @@ const stepInputSchema = z.object({
 	offsetDays: z.number().int().min(0).default(0),
 	sendHour: z.number().int().min(0).max(23).default(9),
 	templateType: z.string().min(1),
+	// M3: opcional para no romper llamadores legacy que aún mandan solo el
+	// tipo (editor viejo desplegado). El motor resuelve null por tipo.
+	templateId: idSchema.nullish(),
 	channel: messageChannel,
 	recipientTarget: messageRecipientTarget.default('participant'),
 	recipientResponsibility: z.string().nullish(),
@@ -214,6 +220,9 @@ export const previewSequenceStepSchema = z.object({
 		retreatId: z.string().uuid(),
 		participantId: z.string().uuid(),
 		templateType: z.string().min(1).max(60),
+		// M3: cuando el editor ya fijó una plantilla concreta, el preview la usa
+		// (id gana sobre el tipo); nullish para clientes que sólo mandan tipo.
+		templateId: idSchema.nullish(),
 		channel: messageChannel,
 		recipientTarget: messageRecipientTarget.default('participant'),
 		recipientResponsibility: z.string().max(150).nullish(),

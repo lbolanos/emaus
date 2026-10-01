@@ -712,6 +712,7 @@
       "usedVariables": "Used Variables",
       "save": "Save",
       "selectRetreatFirst": "Please select a retreat first",
+      "duplicateTypeWarning": "Another template of this type already exists in this retreat: {names}. Sequence steps without a specific template will send the first one created.",
       "variablesTitle": "Available Variables",
       "categories": {
         "participant": "Participant Variables",
@@ -3079,6 +3080,8 @@
     "stepNoDate": "no date (missing trigger data)",
     "stepDateHint": "When this step would be sent for the sample participant (retreat time)",
     "stepDatePast": "date already passed: this step won't be scheduled on activate",
+    "templateByType": "By template type (automatic)",
+    "duplicateTemplateType": "This step has no fixed template and several share its type: the oldest one will be sent. Pick a specific one.",
     "scheduledTzHint": "Times shown in {tz}",
     "clearFilter": "Clear filter",
     "reschedule": "Reschedule",
