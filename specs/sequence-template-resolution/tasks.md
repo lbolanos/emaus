@@ -117,8 +117,31 @@ milestone correspondiente.
 
 ## Cierre
 
+- [x] E2E del área (ver abajo)
 - [ ] Demo manual en dev (re-enrol "Ultimo Prendas", bandeja, preview)
 - [ ] Deploy M2-M4 + verificación en prod
 - [ ] Merge a master
 
 **Done**: —
+
+### E2E (2026-10-01)
+
+Corridos sobre el stack del worktree (API 3002 + web 5174, DB copiada del main con M1-M4
+auto-aplicadas):
+
+- `sequences-inbox.spec.ts` — 2/2 ✓ (login real en navegador, cumple la regla del skill de que
+  al menos un spec monte el frontend)
+- `template-preview-newlines.spec.ts` — 6/6 ✓ (creds locales por fallback `E2E_LOCAL_*`)
+- `sequence-targeting.spec.ts` — 5/5 ✓ y `global-message-sequences.spec.ts` — 5/5 ✓: specs de
+  autorización que exigen el fixture `@test.local`. Sembrado a mano en la DB del worktree con el
+  API detenida (SQL fiel a `20260516200000_SeedE2ETestUsers`: 4 usuarios + 2 comunidades + 3
+  links + member) y API arrancada MANUAL — el script de arranque re-copia la DB y se lleva la
+  siembra (limitación conocida del skill worktree-testing).
+
+No se corrió la suite e2e completa (40 specs): los restantes no tocan secuencias/plantillas y
+varios dependen de fixtures de casa/retiros e2e (`E2E_HOUSE_ID`) ausentes en la DB copiada del
+main. La cobertura funcional de M1-M4 quedó en las suites de integración (191 tests del motor) +
+los 18 e2e del área.
+
+Nota operativa: `sqlite3 -readonly <archivo>` falla con CANTOPEN sobre una DB WAL cuyo `-shm`
+no existe (checkpoint limpio); abrir en modo normal crea el shm y lee sin problema.
