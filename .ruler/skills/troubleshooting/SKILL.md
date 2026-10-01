@@ -1041,6 +1041,29 @@ Y si la parroquia mezcló tipos en algunas habitaciones, la excepción va en `re
 —que tiene su propio `defaultUsage`—, **no en la casa**: así la casa queda limpia y reutilizable
 para el siguiente retiro. Sin eso quedaban otras 32 camas inventadas.
 
+### 25.8 El correo del registro ya es de alguien del equipo
+
+**Síntoma**: el archivo trae N filas, el import responde bien, y los caminantes son N−1 sin ningún
+error. Nadie falta oficialmente: la persona **está** en el retiro, con otro sombrero.
+
+`importParticipants` busca por `LOWER(email)` dentro del retiro y, si encuentra, actualiza la
+ficha existente — pero le descuenta `type` al payload (`const { type, ...updateData }` en la rama
+de update), así que **jamás cambia el rol** de la relación existente. Cuando el correo del registro
+pertenece a alguien que ya está en el equipo (un servidor, un angelito `partial_server`), la fila
+importa sobre esa ficha y la persona sigue en su lista original. Y si el registro era de OTRA
+persona con el correo prestado (el angelito que llena el formulario de su invitado con su propio
+correo), los datos del caminante —nombre incluido— pisan la ficha del miembro del equipo: mismo
+patrón que el registro interno (ver `reference_email_is_global_participant_identity`).
+
+Caso real: Buen Despacho II (oct 2026) — un angelito que había caminado la edición anterior se
+registró de nuevo como caminante en el sitio de la parroquia; su fila importó sobre su propia
+ficha de `partial_server` y el conteo quedó en 9 caminantes para 10 filas.
+
+**Fix**: `check-import.py --before` bloquea cuando un correo del archivo ya está en el retiro con
+rol de equipo, y `--after` verifica el **tipo**, no solo la presencia. La decisión es humana:
+¿la misma persona cambiando de rol (importar y cambiar el tipo después) o un correo prestado
+(conseguir el correo real del caminante y editar el CSV antes de importar)?
+
 ### Orden que funciona
 
 1. Casa → 2. retiro (público) → 3. import → 4. `POST /retreats/:id/auto-assign-beds`.
@@ -1052,7 +1075,7 @@ sí es seguro: salta a quien ya tiene cama.
 ### Regla dura
 
 **Contá los participantes después de importar y compará contra las filas.** El importador informa
-lo que saltó, pero no lo grita, y las cuatro causas de arriba fallan en silencio.
+lo que saltó, pero no lo grita, y las causas de arriba fallan en silencio.
 
 **Auditar el repo**:
 

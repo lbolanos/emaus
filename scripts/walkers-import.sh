@@ -15,7 +15,11 @@
 set -euo pipefail
 
 DOWNLOADS="${HOME}/Downloads"
-CSV_OUT="inscripciones.csv"
+# Junto al Excel de origen: el CSV es material de la operación del retiro, no
+# del repo (trae PII), y así baja directo a donde el operador lo busca para
+# adjuntarlo o archivarlo. Absoluto, además, para que check/verify lo hallen
+# sin importar desde qué directorio se llamen.
+CSV_OUT="${HOME}/Downloads/inscripciones.csv"
 # Recuerda la última elección entre un comando y el siguiente, para no volver a
 # preguntar el retiro entre `check` y `verify`.
 STATE="/tmp/emaus-walkers.env"

@@ -18,6 +18,8 @@ make walkers-check     # elige el retiro y comprueba ANTES de importar
 make walkers-verify    # comprueba DESPUÉS que no faltó nadie
 ```
 
+`walkers-convert` deja el CSV en `~/Downloads/inscripciones.csv`, junto al Excel de origen.
+
 Los tres eligen de una lista: el Excel entre los descargados hoy (o los más recientes si no hay
 ninguno de hoy) y el retiro entre los que están en curso o por empezar. Si sólo hay un candidato no
 preguntan. Nadie teclea rutas ni uuids — un uuid equivocado importa a los caminantes en otro retiro.
@@ -25,9 +27,9 @@ preguntan. Nadie teclea rutas ni uuids — un uuid equivocado importa a los cami
 Por debajo son estos dos scripts, por si hace falta llamarlos sueltos:
 
 ```bash
-python3 scripts/convert-parish-registrations.py <export.xlsx> inscripciones.csv
-python3 scripts/check-import.py --before inscripciones.csv --retreat <uuid>
-python3 scripts/check-import.py --after  inscripciones.csv --retreat <uuid>
+python3 scripts/convert-parish-registrations.py <export.xlsx> ~/Downloads/inscripciones.csv
+python3 scripts/check-import.py --before ~/Downloads/inscripciones.csv --retreat <uuid>
+python3 scripts/check-import.py --after  ~/Downloads/inscripciones.csv --retreat <uuid>
 ```
 
 Los pasos 2 y 4 salen con código 1 si algo va mal, así que se pueden encadenar. **El paso 4 no es
@@ -80,6 +82,12 @@ cancelación y su reinscripción.
 ## Precauciones al importar
 
 - **Con la app en reposo.** Queda una carrera conocida con escrituras concurrentes.
+- **Ojo cuando un correo del archivo ya es de alguien del equipo** (server o angelito): el import
+  actualiza esa ficha pero **no cambia el rol**, así que esa persona no aparece entre los
+  caminantes — y si el registro era de otra persona con el correo prestado, sus datos pisan la
+  ficha del miembro del equipo. `walkers-check` lo bloquea antes de importar y `walkers-verify`
+  lo detecta después; resolver el rol (¿la misma persona cambia de rol, o el correo era prestado?)
+  es decisión del operador, no del script.
 - **Con respaldo.** `make db-pull` deja una copia de producción de paso.
 - **Reimportar es seguro y es el flujo previsto**: el importador reconoce a la gente por correo,
   así que actualiza a quien ya estaba y añade a los nuevos, sin duplicar.

@@ -121,18 +121,37 @@ def check_before(db, rows, retreat_id):
 
     # §25.3 — the race only bites on an update followed by a create, so knowing
     # whether the sheet is mixed tells the operator how carefully to check after.
+    # §25.8 — an "update" is not always the same person re-registering: if the
+    # email belongs to someone already on the team (server/partial_server), the
+    # importer refreshes their record but never changes their role, so the walker
+    # never shows up among the walkers. And if the address was borrowed (an
+    # angelito registering his invitee with his own email), the walker's data —
+    # name included — overwrites the team member's record.
     existing = set()
+    team_collisions = []
     for row in rows:
         email = row.get("email", "").strip().lower()
-        if email and db.execute(
-            "SELECT 1 FROM participants p JOIN retreat_participants rp"
+        if not email:
+            continue
+        hit = db.execute(
+            "SELECT rp.type FROM participants p JOIN retreat_participants rp"
             "  ON rp.participantId = p.id AND rp.retreatId = ?"
             " WHERE LOWER(p.email) = ?",
             (retreat_id, email),
-        ).fetchone():
-            existing.add(email)
+        ).fetchone()
+        if not hit:
+            continue
+        existing.add(email)
+        if hit[0] in ("server", "partial_server"):
+            team_collisions.append(
+                f"{label(row)} ya está en el retiro como {hit[0]}: el import actualizará su "
+                "ficha pero NO aparecerá como caminante. Si es la misma persona cambiando de "
+                "rol, importá y cambiále el tipo después; si el correo era prestado de quien "
+                "llenó el registro, conseguí el real, editá el CSV y volvé a comprobar."
+            )
     updates, creates = len(existing), len(rows) - len(existing)
     print(f"  · {creates} altas nuevas y {updates} actualizaciones")
+    problems.extend(team_collisions)
     if updates and creates:
         print(
             "  ⚠️  hoja mixta: hay una carrera conocida en la transición actualización → alta\n"
@@ -150,13 +169,18 @@ def check_after(db, rows, retreat_id):
             missing.append((label(row), "no traía correo"))
             continue
         found = db.execute(
-            "SELECT 1 FROM participants p JOIN retreat_participants rp"
+            "SELECT rp.type FROM participants p JOIN retreat_participants rp"
             "  ON rp.participantId = p.id AND rp.retreatId = ?"
             " WHERE LOWER(p.email) = ?",
             (retreat_id, email),
         ).fetchone()
         if not found:
             missing.append((label(row), "no está en el retiro"))
+        elif found[0] != "walker":
+            # §25.8 — present but wearing the wrong hat: the row did import,
+            # onto a team member's existing record, whose role the importer
+            # never changes. They will not show up in the walker list.
+            missing.append((label(row), f"quedó como {found[0]}, no como caminante"))
 
     total = db.execute(
         "SELECT COUNT(*) FROM retreat_participants WHERE retreatId = ?", (retreat_id,)
@@ -172,7 +196,13 @@ def check_after(db, rows, retreat_id):
         print(f"\n❌ FALTAN {len(missing)} de {len(rows)}:")
         for who, why in missing:
             print(f"    {who} — {why}")
-        return [f"{len(missing)} filas del archivo no llegaron al retiro"]
+        n = len(missing)
+        plural = n != 1
+        return [
+            f"{n} fila{'s' if plural else ''} del archivo no "
+            f"{'llegaron' if plural else 'llegó'} al retiro como "
+            f"caminante{'s' if plural else ''}"
+        ]
 
     print(f"\n✅ las {len(rows)} filas del archivo están en el retiro")
     return []
