@@ -3078,6 +3078,7 @@
     "scheduledNoDate": "no date",
     "stepNoDate": "no date (missing trigger data)",
     "stepDateHint": "When this step would be sent for the sample participant (retreat time)",
+    "stepDatePast": "date already passed: this step won't be scheduled on activate",
     "scheduledTzHint": "Times shown in {tz}",
     "clearFilter": "Clear filter",
     "reschedule": "Reschedule",

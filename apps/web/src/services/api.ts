@@ -4071,14 +4071,15 @@ export const fetchScheduledMessages = async (
 /**
  * Fechas TZ que tendrá cada paso para un participante real (timeline del
  * editor). El servidor loopéa computeScheduledFor — el cliente no duplica
- * triggers/TZ. `null` = falta el dato del disparador.
+ * triggers/TZ. `null` = falta el dato del disparador. `past` marca los pasos
+ * cuya fecha ya pasó (guard anti-retroactivo: el motor no los materializa).
  */
 export const previewSequenceSchedule = async (
   retreatId: string,
   participantId: string,
   trigger: string,
   steps: Array<{ offsetDays?: number; sendHour?: number }>,
-): Promise<{ dates: Array<string | null>; timezone: string }> => {
+): Promise<{ dates: Array<string | null>; past: boolean[]; timezone: string }> => {
   const r = await api.post('/message-sequences/schedule-preview', {
     retreatId,
     participantId,

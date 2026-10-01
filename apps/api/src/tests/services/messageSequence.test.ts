@@ -44,6 +44,19 @@ describe('MessageSequenceService', () => {
 		return repo.save(repo.create({ name: type, type: type as any, message, retreatId, scope: 'retreat' }));
 	}
 
+	/**
+	 * startDate futuro fijado a mediodía UTC (el día calendario sobrevive el
+	 * shift del DateTimeTransformer al persistir). Desde M2 el guard
+	 * anti-retroactivo suprime pasos con fecha pasada, así que los tests de
+	 * audiencia/enrol que antes contaban con el startDate default ("ahora")
+	 * deben fechar el retiro en el futuro.
+	 */
+	function futureStart(days: number): Date {
+		const d = new Date(Date.now() + days * 86400000);
+		d.setUTCHours(12, 0, 0, 0);
+		return d;
+	}
+
 	describe('computeScheduledFor (TZ-aware)', () => {
 		it('days_before_retreat: 7 días antes a las 9:00 CDMX → 15:00 UTC', () => {
 			const retreat = {
@@ -106,8 +119,10 @@ describe('MessageSequenceService', () => {
 
 	describe('enrollSequence', () => {
 		it('enrola solo la audiencia indicada y es idempotente', async () => {
+			// Retiro futuro: con startDate en el pasado el guard M2 suprimiría
+			// el paso y este test dejaría de probar lo suyo (la audiencia).
 			const retreat = await TestDataFactory.createTestRetreat({
-				startDate: new Date('2026-09-10T00:00:00.000Z'),
+				startDate: new Date(Date.now() + 30 * 86400000),
 				timezone: 'America/Mexico_City',
 			});
 			await TestDataFactory.createTestParticipant(retreat.id, {
@@ -173,8 +188,12 @@ describe('MessageSequenceService', () => {
 			expect(total).toBe(0);
 		});
 
-		it('catch-up legítimo: SÍ enrola un retiro aún futuro aunque el paso ya venció', async () => {
-			// Registro tardío: retiro en 3 días (futuro), paso "10 días antes" ya pasó.
+		it('M2: retiro futuro con paso ya vencido NO enrola (guard anti-retroactivo)', async () => {
+			// Antes de M2 esto enrolaba como "catch-up legítimo". Pero para
+			// triggers anclados al retiro la fecha es la MISMA para todos los
+			// participantes: materializarla en pasado es el backfill masivo de
+			// los incidentes de palancas (2026-09-13) y prendas (2026-10-01).
+			// Ahora se suprime sin dejar filas; el editor marca el paso en ámbar.
 			const retreat = await TestDataFactory.createTestRetreat({
 				startDate: new Date(Date.now() + 3 * 86400000),
 				endDate: new Date(Date.now() + 5 * 86400000),
@@ -194,7 +213,25 @@ describe('MessageSequenceService', () => {
 			});
 
 			const created = await svc.enrollSequence(seq);
-			expect(created).toBe(1); // el retiro no ha cerrado → se enrola normal
+			expect(created).toBe(0); // fecha pasada → suprimida
+
+			// Sin filas de NINGÚN status — en particular sin `skipped`: la UQ
+			// (stepId, participantId, occurrenceYear) las volvería permanentes
+			// y bloquearía el re-enrol tras corregir el offset.
+			const smRepo = AppDataSource.getRepository(ScheduledMessage);
+			expect(await smRepo.count({ where: { sequenceId: seq.id } })).toBe(0);
+
+			// Corregir el offset y re-enrolar SÍ materializa.
+			await AppDataSource.getRepository(SequenceStep).update(
+				{ sequenceId: seq.id },
+				{ offsetDays: 1 },
+			);
+			const { MessageSequence } = await import('@/entities/messageSequence.entity');
+			const seqWithSteps = await AppDataSource.getRepository(MessageSequence).findOne({
+				where: { id: seq.id },
+				relations: ['steps'],
+			});
+			expect(await svc.enrollSequence(seqWithSteps!)).toBe(1);
 		});
 	});
 
@@ -634,7 +671,9 @@ describe('MessageSequenceService', () => {
 
 	describe('audiencia table_leaders', () => {
 		it('enrola solo a los líderes/colíderes de mesa del retiro', async () => {
-			const retreat = await TestDataFactory.createTestRetreat();
+			const retreat = await TestDataFactory.createTestRetreat({
+				startDate: futureStart(30),
+			});
 			const lider = await TestDataFactory.createTestParticipant(retreat.id, {
 				type: 'server',
 				email: 'lider@example.com',
@@ -657,7 +696,8 @@ describe('MessageSequenceService', () => {
 				audience: 'table_leaders',
 				steps: [{ stepOrder: 0, offsetDays: 3, sendHour: 9, templateType: 'GENERAL', channel: 'email' } as any],
 			});
-			// startDate por defecto es "ahora"; basta con que enrole 1 (el líder).
+			// Retiro futuro (M2): con startDate "hoy" y offset 3, el guard
+			// anti-retroactivo suprimiría el paso y no probaríamos la audiencia.
 			const created = await svc.enrollSequence(seq);
 			expect(created).toBe(1);
 
@@ -678,6 +718,7 @@ describe('MessageSequenceService', () => {
 			const community = await TestDataFactory.createTestCommunity(user.id);
 			const retreat = await TestDataFactory.createTestRetreat({
 				timezone: 'America/Mexico_City',
+				startDate: futureStart(60),
 			});
 			await AppDataSource.getRepository(Retreat).update(retreat.id, {
 				communityId: community.id,
@@ -731,6 +772,7 @@ describe('MessageSequenceService', () => {
 			const community = await TestDataFactory.createTestCommunity(user.id);
 			const retreat = await TestDataFactory.createTestRetreat({
 				timezone: 'America/Mexico_City',
+				startDate: futureStart(60),
 			});
 			// El padrón existe, pero el retiro NO apunta a la comunidad.
 			await addRosterMember(community.id, retreat.id, { cellPhone: '5511111111' });
@@ -783,10 +825,16 @@ describe('MessageSequenceService', () => {
 
 			const seq = await convocationSeq(retreat.id);
 			await svc.enrollSequence(seq);
-			// No se mueve el reloj: con `offsetDays: 45` sobre un retiro que empieza
-			// "hoy", el mensaje ya vence. Adelantar `now` un año dispararía el guard
-			// anti-backfill (`isRetreatClosed`) y el mensaje saldría `skipped` — que
-			// es precisamente lo que ese guard debe hacer.
+			// El retiro arranca en el futuro, así que la fila sale con fecha futura
+			// (M2: el enrol ya no materializa pasos vencidos). Vencerla a mano — sin
+			// mover el reloj — ejercita el camino real: un mensaje cuya fecha llegó.
+			// Adelantar `now` un año dispararía el guard anti-backfill
+			// (`isRetreatClosed`) y saldría `skipped`, que es justo lo que ese guard
+			// debe hacer.
+			await AppDataSource.getRepository(ScheduledMessage).update(
+				{ sequenceId: seq.id },
+				{ scheduledFor: new Date(Date.now() - 3600_000) } as any,
+			);
 			await svc.processDue();
 
 			const scheduled = await AppDataSource.getRepository(ScheduledMessage).find({
@@ -997,7 +1045,10 @@ describe('MessageSequenceService', () => {
 		});
 
 		it('R2: editar una secuencia conservando el id del paso no re-enrola', async () => {
-			const retreat = await TestDataFactory.createTestRetreat({ timezone: 'America/Mexico_City' });
+			const retreat = await TestDataFactory.createTestRetreat({
+				timezone: 'America/Mexico_City',
+				startDate: futureStart(30),
+			});
 			await TestDataFactory.createTestParticipant(retreat.id, { type: 'walker', email: 'w@example.com' } as any);
 			await createTemplate(retreat.id, 'WALKER_WELCOME', 'Hola');
 			const seq = await svc.createSequence({

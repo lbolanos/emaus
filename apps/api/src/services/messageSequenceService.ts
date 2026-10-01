@@ -289,6 +289,47 @@ export class MessageSequenceService {
 		return makeDateInTimezone(shifted.y, shifted.m0, shifted.d, step.sendHour, 0, tz);
 	}
 
+	/**
+	 * Guard anti-retroactivo del ENROLAMIENTO (M2): ¿materializaría este paso
+	 * con una fecha que ya pasó? A diferencia de `isRetreatClosed` (que mira
+	 * la ventana completa del retiro), esto opera por-fila sobre la fecha
+	 * calculada, en la TZ del retiro.
+	 *
+	 * - `days_before_retreat` / `days_after_retreat`: el ancla es el retiro →
+	 *   la fecha es LA MISMA para todos los participantes. Una fecha pasada al
+	 *   materializar no es catch-up de nadie: es la secuencia activándose
+	 *   tarde o con un offset roto, y encolarla en masa repite los incidentes
+	 *   de palancas (2026-09-13) y prendas (2026-10-01). Se suprime todo lo
+	 *   anterior a hoy; "hoy" sí materializa.
+	 * - `participant_created`: el ancla es el alta de CADA participante, así
+	 *   que una fecha pasada SÍ puede ser catch-up legítimo de inscripción
+	 *   tardía. Se toleran hasta 2 días de rezago.
+	 * - `birthday`: nunca — `computeScheduledFor` ya elige la próxima
+	 *   ocurrencia futura.
+	 */
+	public isRetroactiveAtEnroll(
+		trigger: MessageSequence['trigger'],
+		scheduledFor: Date,
+		now: Date,
+		tz: string,
+	): boolean {
+		const today = ymdInTz(now, tz);
+		switch (trigger) {
+			case 'days_before_retreat':
+			case 'days_after_retreat': {
+				const startOfToday = makeDateInTimezone(today.y, today.m0, today.d, 0, 0, tz);
+				return scheduledFor.getTime() < startOfToday.getTime();
+			}
+			case 'participant_created': {
+				const cutoff = addDays(today.y, today.m0, today.d, -2);
+				const cutoffAt = makeDateInTimezone(cutoff.y, cutoff.m0, cutoff.d, 0, 0, tz);
+				return scheduledFor.getTime() < cutoffAt.getTime();
+			}
+			default:
+				return false;
+		}
+	}
+
 	/** Enrola participantes elegibles en todas las secuencias activas. */
 	public async enrollAll(now: Date = new Date()): Promise<number> {
 		const sequences = await AppDataSource.getRepository(MessageSequence).find({
@@ -375,10 +416,20 @@ export class MessageSequenceService {
 
 		const repo = AppDataSource.getRepository(ScheduledMessage);
 		const toCreate: ScheduledMessage[] = [];
+		let suppressed = 0;
 		for (const participant of participants) {
 			for (const step of steps) {
 				const scheduledFor = this.computeScheduledFor(seq.trigger, step, participant, retreat);
 				if (!scheduledFor) continue;
+				// M2: guard anti-retroactivo. SIN filas `skipped` a propósito:
+				// la UQ (stepId, participantId, occurrenceYear) las volvería
+				// permanentes y bloquearía el re-enrol tras corregir el offset
+				// (misma razón del DELETE de `updateSequence`). La visibilidad
+				// la da el editor (fecha del paso en ámbar).
+				if (this.isRetroactiveAtEnroll(seq.trigger, scheduledFor, now, tz)) {
+					suppressed++;
+					continue;
+				}
 				// Año de la ocurrencia EN LA TZ DEL RETIRO (la misma en la que
 				// computeScheduledFor construyó la fecha): es la parte de la
 				// clave que habilita un envío por cumpleaños.
@@ -404,6 +455,11 @@ export class MessageSequenceService {
 			}
 		}
 		if (toCreate.length) await repo.save(toCreate);
+		if (suppressed) {
+			console.warn(
+				`⏭️ Sequences: ${suppressed} mensaje(s) retroactivo(s) suprimido(s) al enrolar "${seq.name}" (${seq.id}) — fecha de paso en el pasado; el editor la marca en ámbar.`,
+			);
+		}
 		return toCreate.length;
 	}
 
@@ -1614,7 +1670,7 @@ export class MessageSequenceService {
 		participantId: string;
 		trigger: MessageSequence['trigger'];
 		steps: Array<{ offsetDays?: number; sendHour?: number }>;
-	}): Promise<{ dates: Array<Date | null>; timezone: string } | null> {
+	}): Promise<{ dates: Array<Date | null>; past: boolean[]; timezone: string } | null> {
 		const [participant, retreat] = await Promise.all([
 			AppDataSource.getRepository(Participant).findOne({ where: { id: input.participantId } }),
 			AppDataSource.getRepository(Retreat).findOne({
@@ -1623,6 +1679,7 @@ export class MessageSequenceService {
 			}),
 		]);
 		if (!participant || !retreat) return null;
+		const tz = this.resolveTz(retreat);
 		const dates = input.steps.map((s) =>
 			this.computeScheduledFor(
 				input.trigger,
@@ -1631,7 +1688,12 @@ export class MessageSequenceService {
 				retreat,
 			),
 		);
-		return { dates, timezone: this.resolveTz(retreat) };
+		// M2: misma definición de retroactividad que el enrolamiento, para que
+		// el ámbar del editor coincida exactamente con lo que el motor hará al
+		// activar. Paso sin fecha (falta el dato del disparador) → false.
+		const now = new Date();
+		const past = dates.map((d) => (d ? this.isRetroactiveAtEnroll(input.trigger, d, now, tz) : false));
+		return { dates, past, timezone: tz };
 	}
 
 	/** Paso con su secuencia (para que el controller valide el retiro correcto). */

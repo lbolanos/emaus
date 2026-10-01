@@ -3402,6 +3402,7 @@
     "scheduledNoDate": "sin fecha",
     "stepNoDate": "sin fecha (falta dato del disparador)",
     "stepDateHint": "Fecha en que se enviaría este paso para el participante de muestra (hora del retiro)",
+    "stepDatePast": "la fecha ya pasó: al activar, este paso no se programa",
     "scheduledTzHint": "Fechas en hora de {tz}",
     "clearFilter": "Quitar filtro",
     "reschedule": "Reprogramar",

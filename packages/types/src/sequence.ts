@@ -256,6 +256,8 @@ export type PreviewSequenceSchedule = z.infer<typeof previewSequenceScheduleSche
 /** Respuesta de schedule-preview: fecha por paso (null = falta dato del disparador). */
 export interface SequenceSchedulePreview {
 	dates: Array<string | null>;
+	/** M2: por paso, ¿la fecha ya pasó para el guard anti-retroactivo del enrolamiento? */
+	past: boolean[];
 	timezone: string;
 }
 

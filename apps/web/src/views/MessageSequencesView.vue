@@ -340,6 +340,8 @@ watch(previewParticipantId, () => {
 // el participante de muestra, con debounce para no spamear el endpoint.
 // --------------------------------------------------------------------------
 const stepDates = ref<Array<string | null>>([]);
+// M2: pasos cuya fecha ya pasó — el motor los suprime al enrolar (ámbar).
+const stepDatesPast = ref<boolean[]>([]);
 const stepDatesLoading = ref(false);
 
 const stepsSignature = computed(() =>
@@ -353,6 +355,7 @@ async function refreshStepDates() {
 	// Sin participante no hay fechas; el template muestra sólo el paso.
 	if (!isEditorOpen.value || !retreatId.value || !previewParticipant.value) {
 		stepDates.value = [];
+		stepDatesPast.value = [];
 		return;
 	}
 	stepDatesLoading.value = true;
@@ -364,8 +367,10 @@ async function refreshStepDates() {
 			draft.value.steps.map((s) => ({ offsetDays: s.offsetDays, sendHour: s.sendHour })),
 		);
 		stepDates.value = res.dates;
+		stepDatesPast.value = res.past ?? [];
 	} catch {
 		stepDates.value = []; // el header muestra la fecha vacía, no rompe el editor
+		stepDatesPast.value = [];
 	} finally {
 		stepDatesLoading.value = false;
 	}
@@ -2052,14 +2057,16 @@ async function toggleDoNotContact() {
 									<div class="flex items-baseline gap-2 min-w-0">
 										<span class="text-sm font-semibold text-gray-700 shrink-0">{{ t('sequences.stepN', { n: i + 1 }) }}</span>
 										<!-- A4: fecha que tendría este paso para el participante de muestra,
-										     en la TZ del retiro (resuelta por el servidor). -->
+										     en la TZ del retiro (resuelta por el servidor). En ámbar (M2) si la
+										     fecha ya pasó: el motor la suprime al enrolar (guard anti-retroactivo). -->
 										<span v-if="stepDatesLoading" class="text-xs text-gray-400">…</span>
 										<span
 											v-else-if="stepDates.length"
-											class="text-xs text-gray-500 truncate"
-											:title="t('sequences.stepDateHint')"
+											class="text-xs truncate"
+											:class="stepDatesPast[i] ? 'text-amber-600 font-medium' : 'text-gray-500'"
+											:title="stepDatesPast[i] ? t('sequences.stepDatePast') : t('sequences.stepDateHint')"
 										>
-											→ {{ fmtStepDate(stepDates[i]) }}
+											→ {{ fmtStepDate(stepDates[i]) }}<template v-if="stepDatesPast[i]"> · {{ t('sequences.stepDatePast') }}</template>
 										</span>
 									</div>
 									<div class="flex items-center gap-1 shrink-0">
