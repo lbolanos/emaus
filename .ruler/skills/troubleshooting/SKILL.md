@@ -1419,6 +1419,13 @@ Guards: `apps/api/src/tests/services/palancasMilestone.test.ts` (el helper),
 coincidan sobre las mismas fichas),
 `apps/api/src/tests/migrations/addPalancasCountAndThreshold.test.ts` (el backfill no pierde nada).
 
+**Casos**:
+- 2026-10-01 — el roster del retiro "no cuadraba" entre entornos: 42 por SQL crudo y 37 por el
+  API, con la misma base debajo. `GET /participants` excluye `isCancelled = 1` y
+  `dataDeletedAt IS NOT NULL`; un `SELECT COUNT(*)` sin esos filtros los cuenta. Los 4 de la
+  diferencia: 3 servers cancelados (idénticos en ambos entornos) y 1 angelito cancelado esa
+  misma tarde directo en prod, que la dev clonada antes no conocía. Contar rosters por SQL
+  exige los mismos filtros que el API, o el diff entre entornos inventa divergencias.
 
 ## 33. El hover deja el item "seleccionado": focus compartido entre mouse y teclado
 
