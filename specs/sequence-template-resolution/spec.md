@@ -77,7 +77,14 @@ ACTIVA, **28 mensajes `queued` vencidos** en la bandeja de despacho WhatsApp, 1 
   bandeja/detalle (`templateName` server-side).
 - R5: Duplicados de type PERMITIDOS (sin 409 ni exclusión de types) — con aviso informativo.
 - R6: Guard de `{custom_message}` en `processDue`/`regenerateQueuedForRetreat`/`previewStep` +
-  migration de limpieza en plantillas `GENERAL`.
+  migration de limpieza. Decisiones (2026-10-01):
+  - La migración reemplaza el placeholder en **todas** las plantillas que lo tengan, sin filtrar
+    por type: hoy solo lo tienen las `GENERAL` "Mensaje General" (7 retreat + 2 community), pero el
+    incidente fue una `SERVER_SHIRT_CONFIRMATION` — filtrar por type dejaría el hueco abierto.
+  - Frase neutral de reemplazo: `«Escribe aquí tu mensaje personalizado»` — se lee como
+    instrucción en el flujo manual (donde el texto se edita antes de enviar), no como texto roto.
+  - El guard detecta **ambos marcadores** (`{custom_message}` y la frase neutral): sin esto, una
+    plantilla migrada usada en una secuencia despacharía la frase literal al caminante.
 
 ## Criterios de aceptación
 
@@ -89,8 +96,9 @@ ACTIVA, **28 mensajes `queued` vencidos** en la bandeja de despacho WhatsApp, 1 
   usan esa.
 - CA5: crear una secuencia con paso en fecha pasada y activarla → 0 filas materializadas
   retroactivas; el editor muestra el paso en ámbar.
-- CA6: plantilla con `{custom_message}` en una secuencia → mensaje `skipped` con error que dice
-  qué editar; en `GENERAL` existentes el placeholder queda reemplazado.
+- CA6: plantilla con `{custom_message}` (o la frase neutral de reemplazo) en una secuencia →
+  mensaje `skipped` con error que dice qué editar; en las plantillas existentes el placeholder
+  queda reemplazado.
 
 ## Fuera de alcance
 

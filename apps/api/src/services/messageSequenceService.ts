@@ -52,6 +52,26 @@ type ShirtOrderContext = { shirtOrderSummary: string; shirtCharge: number };
  */
 const AFTER_RETREAT_GRACE_DAYS = Number(process.env.SEQUENCE_AFTER_RETREAT_GRACE_DAYS) || 30;
 
+/**
+ * M4: `{custom_message}` no es una variable del motor — es un hueco del flujo
+ * manual (quien envía rellena el texto en el dialog antes de mandarlo). La
+ * bandeja de WhatsApp no tiene paso de edición, así que despacharlo desde una
+ * secuencia manda el marcador LITERAL (2026-10-01: un mensaje real salió con
+ * "{custom_message}" en el cuerpo). La migración 20261003120000 reemplazó el
+ * placeholder existente por una frase neutral — el guard detecta AMBOS
+ * marcadores para que una plantilla migrada pero nunca personalizada tampoco
+ * salga con la frase literal.
+ */
+const CUSTOM_MESSAGE_PLACEHOLDER = '{custom_message}';
+const CUSTOM_MESSAGE_NEUTRAL_PHRASE = '«Escribe aquí tu mensaje personalizado»';
+const CUSTOM_MESSAGE_SKIP_ERROR = `plantilla con ${CUSTOM_MESSAGE_PLACEHOLDER} (mensaje manual): edítala antes de usarla en secuencias`;
+
+function hasManualPlaceholder(message: string): boolean {
+	return (
+		message.includes(CUSTOM_MESSAGE_PLACEHOLDER) || message.includes(CUSTOM_MESSAGE_NEUTRAL_PHRASE)
+	);
+}
+
 /** Paso recibido al crear/editar; `id` presente ⇒ paso existente (se conserva). */
 type StepSyncInput = {
 	id?: string;
@@ -1122,6 +1142,14 @@ export class MessageSequenceService {
 					await repo.save(sm);
 					continue;
 				}
+				// M4: hueco de envío manual en una secuencia — la bandeja no
+				// edita el texto, sin esto el marcador saldría literal.
+				if (hasManualPlaceholder(template.message)) {
+					sm.status = 'skipped';
+					sm.error = CUSTOM_MESSAGE_SKIP_ERROR;
+					await repo.save(sm);
+					continue;
+				}
 
 				// Variables basadas en getters ({participant.paymentRemaining}): el
 				// participante del join viene sin relations ni overlay per-retiro.
@@ -1885,6 +1913,19 @@ export class MessageSequenceService {
 				warning: `El retiro no tiene una plantilla de tipo ${input.templateType}`,
 			};
 		}
+		// M4: mismo canal que el de plantilla faltante — el paso NO despachará
+		// (el motor lo salta), el preview no debe pintar un contenido que no
+		// va a salir.
+		if (hasManualPlaceholder(template.message)) {
+			return {
+				content: '',
+				recipientName: null,
+				recipientContact: null,
+				emptyVariables: [],
+				warning:
+					'La plantilla tiene un hueco de envío manual ({custom_message}): edítala antes de usarla en una secuencia',
+			};
+		}
 
 		// Variables basadas en getters ({participant.paymentRemaining}): el
 		// findOne de arriba viene sin relations ni overlay per-retiro.
@@ -2323,6 +2364,13 @@ export class MessageSequenceService {
 			}
 			const template = await this.resolveTemplateForStep(retreatId, sm.step ?? undefined);
 			if (!template) {
+				skipped++;
+				continue;
+			}
+			// M4: hueco de envío manual — "renovar" el snapshot con el marcador
+			// literal es peor que conservar el viejo; quien lo corrige edita la
+			// plantilla (el motor ya no la despacha con el hueco).
+			if (hasManualPlaceholder(template.message)) {
 				skipped++;
 				continue;
 			}

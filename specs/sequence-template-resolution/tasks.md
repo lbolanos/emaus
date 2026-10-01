@@ -94,14 +94,26 @@ milestone correspondiente.
 
 ## M4 — `{custom_message}` accionable
 
-- [ ] Migration `20261003120000_CleanCustomMessagePlaceholder.ts` (frase neutral a fijar)
-- [ ] Guard en `processDue` (skipped accionable) + `regenerateQueuedForRetreat` (skipped++) +
+- [x] Migration `20261003120000_CleanCustomMessagePlaceholder.ts` (frase neutral:
+      `«Escribe aquí tu mensaje personalizado»`)
+- [x] Guard en `processDue` (skipped accionable) + `regenerateQueuedForRetreat` (skipped++) +
       warning en `previewStep`
-- [ ] Tests: `messageSequenceCustomMessageGuard.test.ts`,
-      `cleanCustomMessagePlaceholder.simple.test.ts`
-- [ ] Build api+web, commit
+- [x] Tests: `messageSequenceCustomMessageGuard.test.ts` (4/4),
+      `cleanCustomMessagePlaceholder.simple.test.ts` (4/4)
+- [x] Build api, commit
 
-**Done**: —
+**Done** (2026-10-01):
+- Datos verificados antes de codear (copia readonly de dev): 8 plantillas con el placeholder, todas
+  `GENERAL` "Mensaje General" (7 retreat + 2 community), ninguna de otro type HOY.
+- Suites en verde: motor completo 191/191 en 13 suites (M1-M4 juntas). Build api ✓.
+
+**Desviaciones** (2026-10-01):
+- La migración limpia TODAS las plantillas con el placeholder, sin el `WHERE type = 'GENERAL'`
+  del plan: el incidente mismo fue una `SERVER_SHIRT_CONFIRMATION` con el hueco; filtrar por
+  type dejaría el caso del incidente sin cubrir. (Fijado en spec.md R6.)
+- El guard detecta el placeholder crudo Y la frase neutral: sin esto, una plantilla migrada pero
+  nunca personalizada usada en una secuencia despacharía la frase neutral literal — mismo
+  síntoma, texto más bonito. (Fijado en spec.md R6/CA6.)
 
 ## Cierre
 
