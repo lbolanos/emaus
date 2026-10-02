@@ -178,3 +178,25 @@ Verificado por dato Y visualmente en el navegador (`/app/settings/message-sequen
 Alta de participantes: `POST /participants/new` exige `isPublic` en el retiro (se activó por
 PUT tras crearlo con false) y el schema completo (`acceptedPrivacyNotice`, dirección,
 sacramentos, contacto de emergencia en caminantes).
+
+#### Video (2026-10-01)
+
+`apps/web/e2e/demo/record-sequence-fixes.mjs` → `sequence-fixes-demo.mp4` (1:42, es-MX,
+capítulos YouTube en el `meta.json`). Grabado sobre el stack del worktree con el retiro
+sintético: cero PII, sin `maskRoute` (rompería la coherencia de los participantes fake), y
+bloqueo de exportes CSV/Excel por route.
+
+- **Toma 2 definitiva.** La 1ª se descartó por un bug del propio script: el fill de `offsetDays`
+  fue a parar al primer `input[type=number]` del modal, que es `maxOverdueDays` de la secuencia
+  ("No enviar si venció hace (días)") — el offset quedó en 0 y el beat M2 mostró la fecha sin
+  ámbar mientras la narración lo prometía. Fix: locator por label "Días" (regex anclada, dentro
+  del dialog) + sanidad por dato (`waitFor('la fecha ya pasó')` ANTES de narrar, con log ✓/⚠).
+  Patrón para futuros scripts: la sanidad DOM va antes del `nar.say()`, no en un cue con
+  `catch {}`.
+- **Verificación**: beats m2_amber (frames 47/51/55: fecha 26 sep en ámbar + input 25 +
+  disparador "Días antes del retiro"), queue, m4_dup, m4_issues, m3_select y outro confirmados
+  por análisis de frames + sanidad DOM en el log. Copia final en `~/Desktop`.
+- **Limitación conocida (no regrabar por esto)**: el dropdown nativo de `<select>` en macOS es
+  una ventana del sistema fuera del render de la página — la grabación de Playwright JAMÁS lo
+  captura. El beat m3_select se cubre con el select cerrado mostrando la plantilla B
+  seleccionada + navegación por teclado (que sí se ve en el valor).
