@@ -624,7 +624,7 @@ function onTablistKeydown(e: KeyboardEvent) {
 }
 const QUEUE_PAGE_SIZE = 10;
 const queuePage = ref(1);
-const queueSort = ref<'scheduled' | 'name' | 'template' | 'recent' | 'sequence'>('scheduled');
+const queueSort = ref<'scheduled' | 'name' | 'template' | 'recent' | 'sequence' | 'palanquero'>('scheduled');
 const queueSearch = ref('');
 // 'active' (default): la bandeja es la lista de trabajo y los pausados (secuencia
 // desactivada) no se van a enviar — se ocultan. 'paused' los aísla para revisarlos;
@@ -646,6 +646,18 @@ const sortedQueue = computed(() => {
 		return items.sort(
 			(a, b) => seqName(a.sequenceId).localeCompare(seqName(b.sequenceId), 'es') || time(a) - time(b),
 		);
+	// 'palanquero': agrupa el trabajo por el palanquero del caminante; los ítems
+	// sin palanquero (servidores, caminantes sin asignar) van SIEMPRE al final,
+	// sin importar su fecha.
+	if (queueSort.value === 'palanquero')
+		return items.sort((a, b) => {
+			const ac = a.palancasCoordinator || null;
+			const bc = b.palancasCoordinator || null;
+			if (!ac && !bc) return time(a) - time(b);
+			if (!ac) return 1;
+			if (!bc) return -1;
+			return ac.localeCompare(bc, 'es') || time(a) - time(b);
+		});
 	if (queueSort.value === 'recent') return items.sort((a, b) => time(b) - time(a));
 	return items.sort((a, b) => time(a) - time(b)); // 'scheduled': por fecha programada
 });
@@ -800,6 +812,15 @@ function templateLabel(type: string | null | undefined): string {
 // fallback por tipo cubre ítems legacy o con plantilla borrada.
 function itemTemplateName(it: { templateName?: string | null; templateType: string | null | undefined }): string {
 	return it.templateName || templateLabel(it.templateType);
+}
+// "Palanquero 1 (Ana Rodríguez)" — the walker's assigned palanquero
+// responsibility and its holder, both resolved server-side in the queue
+// payload. Null when unassigned: the row shows nothing and the 'palanquero'
+// sort sends it to the end.
+function palanqueroLabel(it: { palancasCoordinator?: string | null; palanqueroName?: string | null }): string | null {
+	const coordinator = it.palancasCoordinator;
+	if (!coordinator) return null;
+	return it.palanqueroName ? `${coordinator} (${it.palanqueroName})` : coordinator;
 }
 
 // --------------------------------------------------------------------------
@@ -1710,6 +1731,7 @@ async function toggleDoNotContact() {
 									<option value="name">{{ t('sequences.sort.name') }}</option>
 									<option value="template">{{ t('sequences.sort.template') }}</option>
 									<option value="sequence">{{ t('sequences.sort.sequence') }}</option>
+								<option value="palanquero">{{ t('sequences.sort.palanquero') }}</option>
 								</select>
 							</label>
 							<label class="block text-sm text-gray-700">
@@ -1757,6 +1779,7 @@ async function toggleDoNotContact() {
 							<option value="name">{{ t('sequences.sort.name') }}</option>
 							<option value="template">{{ t('sequences.sort.template') }}</option>
 							<option value="sequence">{{ t('sequences.sort.sequence') }}</option>
+						<option value="palanquero">{{ t('sequences.sort.palanquero') }}</option>
 						</select>
 					</label>
 					<label class="flex items-center gap-1.5 text-xs text-gray-600">
@@ -1819,6 +1842,7 @@ async function toggleDoNotContact() {
 								· → {{ item.recipientName || t('sequences.recipients.' + item.recipientTarget) }}
 							</span>
 							<span v-if="seqName(item.sequenceId)">· {{ seqName(item.sequenceId) }}</span>
+							<span v-if="palanqueroLabel(item)" class="text-violet-600">· {{ palanqueroLabel(item) }}</span>
 							<span v-if="item.assignedTo === myUserId" class="text-green-600">· {{ t('sequences.mine') }}</span>
 							<span v-else-if="item.assignedTo" class="text-gray-400">· {{ t('sequences.assigned') }}</span>
 						</div>

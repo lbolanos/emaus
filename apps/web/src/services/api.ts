@@ -3937,6 +3937,10 @@ export interface ScheduledMessageQueueItem {
   status: string;
   // Estado de seguimiento del participante (solo en la bandeja), para dar contexto.
   followUpStatus?: string | null;
+  // Palanquero asignado al caminante (solo en la bandeja): nombre de la
+  // responsabilidad ('Palanquero 1') y nombre de su titular ('Ana Rodríguez').
+  palancasCoordinator?: string | null;
+  palanqueroName?: string | null;
   error?: string | null;
   // Snapshot resuelto al encolar/procesar (la bandeja despacha sin recalcular).
   resolvedContent?: string | null;

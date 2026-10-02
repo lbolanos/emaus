@@ -20,6 +20,7 @@ import { Community } from '@/entities/community.entity';
 import { Retreat } from '@/entities/retreat.entity';
 import { Payment } from '@/entities/payment.entity';
 import { SequenceStep } from '@/entities/sequenceStep.entity';
+import { Responsability } from '@/entities/responsability.entity';
 import { formatCurrency } from '@repo/utils';
 import { getMessageTemplateAudience } from '@repo/types';
 
@@ -2222,6 +2223,105 @@ describe('MessageSequenceService', () => {
 			expect(after.id).toBe(before.id);
 			expect(after.status).toBe('pending');
 			expect(after.scheduledFor.getTime()).toBe(before.scheduledFor.getTime());
+		});
+	});
+
+	describe('queue: palanquero enrichment (palancasCoordinator + palanqueroName)', () => {
+		it('resolves the walker assignment and its holder; unassigned/empty stay null', async () => {
+			const retreat = await TestDataFactory.createTestRetreat({ timezone: 'America/Mexico_City' });
+			await createTemplate(retreat.id, 'PALANCA_REQUEST', 'Hola {participant.firstName}');
+
+			// Holder of the 'Palanquero 1' responsibility; 'Palanquero 2' exists but has no holder.
+			const holder = await TestDataFactory.createTestParticipant(retreat.id, {
+				firstName: 'Ana',
+				lastName: 'Rodríguez',
+			} as any);
+			const respRepo = AppDataSource.getRepository(Responsability);
+			await respRepo.save(
+				respRepo.create([
+					{ retreatId: retreat.id, name: 'Palanquero 1', participantId: holder.id },
+					{ retreatId: retreat.id, name: 'Palanquero 2' },
+				]),
+			);
+
+			const assigned = await TestDataFactory.createTestParticipant(retreat.id, { type: 'walker' } as any);
+			const server = await TestDataFactory.createTestParticipant(retreat.id, { type: 'server' } as any);
+			const assignedNoHolder = await TestDataFactory.createTestParticipant(retreat.id, { type: 'walker' } as any);
+			const emptyCoordinator = await TestDataFactory.createTestParticipant(retreat.id, { type: 'walker' } as any);
+			const rpRepo = AppDataSource.getRepository(RetreatParticipant);
+			await rpRepo.update(
+				{ participantId: assigned.id, retreatId: retreat.id },
+				{ palancasCoordinator: 'Palanquero 1' },
+			);
+			await rpRepo.update(
+				{ participantId: assignedNoHolder.id, retreatId: retreat.id },
+				{ palancasCoordinator: 'Palanquero 2' },
+			);
+			await rpRepo.update(
+				{ participantId: emptyCoordinator.id, retreatId: retreat.id },
+				{ palancasCoordinator: '' },
+			);
+
+			// Queued rows saved directly: listQueued must enrich them from
+			// retreat_participants + the retreat's palanquero responsibilities.
+			const seq = await svc.createSequence({
+				name: 'Palanquero queue',
+				retreatId: retreat.id,
+				trigger: 'participant_created',
+				audience: 'walker',
+				steps: [
+					{
+						stepOrder: 0,
+						offsetDays: 0,
+						sendHour: 9,
+						templateType: 'PALANCA_REQUEST',
+						channel: 'whatsapp',
+						recipientTarget: 'participant',
+					} as any,
+				],
+			});
+			const step = seq.steps![0];
+			const smRepo = AppDataSource.getRepository(ScheduledMessage);
+			for (const p of [assigned, server, assignedNoHolder, emptyCoordinator]) {
+				await smRepo.save(
+					smRepo.create({
+						sequenceId: seq.id,
+						stepId: step.id,
+						participantId: p.id,
+						retreatId: retreat.id,
+						channel: 'whatsapp',
+						templateType: 'PALANCA_REQUEST',
+						recipientTarget: 'participant',
+						scheduledFor: new Date(Date.now() - 3600_000),
+						status: 'queued',
+						resolvedContent: 'x',
+						resolvedContact: '5512345678',
+					} as any),
+				);
+			}
+
+			const queue = await svc.listQueued(retreat.id);
+			expect(queue).toHaveLength(4);
+			const byParticipant = new Map(queue.map((it) => [it.participantId, it]));
+			expect(byParticipant.get(assigned.id)).toMatchObject({
+				palancasCoordinator: 'Palanquero 1',
+				palanqueroName: 'Ana Rodríguez',
+			});
+			// No assignment (server or walker): both null.
+			expect(byParticipant.get(server.id)).toMatchObject({
+				palancasCoordinator: null,
+				palanqueroName: null,
+			});
+			// Responsibility exists but has no holder: coordinator only.
+			expect(byParticipant.get(assignedNoHolder.id)).toMatchObject({
+				palancasCoordinator: 'Palanquero 2',
+				palanqueroName: null,
+			});
+			// Legacy empty string normalizes to null.
+			expect(byParticipant.get(emptyCoordinator.id)).toMatchObject({
+				palancasCoordinator: null,
+				palanqueroName: null,
+			});
 		});
 	});
 });

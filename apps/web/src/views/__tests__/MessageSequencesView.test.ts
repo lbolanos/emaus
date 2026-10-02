@@ -146,14 +146,14 @@ const QUEUE_ITEM = {
 	participant: { id: 'p1', firstName: 'Beto', lastName: 'M3' },
 };
 
-async function mountView(): Promise<VueWrapper<any>> {
+async function mountView(queue: any[] = [QUEUE_ITEM]): Promise<VueWrapper<any>> {
 	setActivePinia(createPinia());
 	// Locale fijada en es para poder afirmar sobre textos reales del locale.
 	localStorage.setItem('preferred-locale', 'es');
 
 	const apiMod: any = await import('@/services/api');
 	apiMod.getRetreatSequences.mockResolvedValue([SEQ]);
-	apiMod.getSequenceQueue.mockResolvedValue([QUEUE_ITEM]);
+	apiMod.getSequenceQueue.mockResolvedValue(queue);
 	apiMod.getSequenceStats.mockResolvedValue({ stats: { 'seq-1': { pending: 2 } }, issues: [] });
 	apiMod.fetchScheduledMessages.mockResolvedValue(SCHED_PAGE);
 	apiMod.previewSequenceSchedule.mockResolvedValue({
@@ -739,5 +739,64 @@ describe('MessageSequencesView — import de plantilla global con preview (#10)'
 		expect(wrapper.text()).toContain('el día del inicio del retiro');
 		// El retiro (mock) no tiene estas plantillas → aviso accionable.
 		expect(wrapper.text()).toContain('sin plantilla en este retiro');
+	});
+});
+
+describe('MessageSequencesView — bandeja por palanquero', () => {
+	// Fixture: P2 vence ANTES que P1 (el orden por palanquero no es el
+	// cronológico) y el ítem sin asignación tiene fecha intermedia — igual
+	// va al final.
+	const palanqueroQueue = () => [
+		{
+			...QUEUE_ITEM,
+			id: 'q-p2',
+			participantId: 'p2',
+			participant: { id: 'p2', firstName: 'Lupita', lastName: 'Gómez' },
+			scheduledFor: '2026-10-01T15:00:00.000Z', // la más temprana
+			palancasCoordinator: 'Palanquero 2',
+			palanqueroName: 'Marta López',
+		},
+		{
+			...QUEUE_ITEM,
+			id: 'q-p1',
+			participantId: 'p3',
+			participant: { id: 'p3', firstName: 'Carlos', lastName: 'Díaz' },
+			scheduledFor: '2026-10-05T15:00:00.000Z', // la más tardía
+			palancasCoordinator: 'Palanquero 1',
+			palanqueroName: 'Ana Rodríguez',
+		},
+		{
+			...QUEUE_ITEM,
+			id: 'q-none',
+			participantId: 'p4',
+			participant: { id: 'p4', firstName: 'Servidor', lastName: 'Nuñez' },
+			scheduledFor: '2026-10-03T15:00:00.000Z', // intermedia, y aun así al final
+			palancasCoordinator: null,
+			palanqueroName: null,
+		},
+	];
+
+	it('la fila muestra "Palanquero 1 (Ana Rodríguez)"; sin asignación no pinta nada', async () => {
+		const wrapper = await mountView(palanqueroQueue());
+		expect(wrapper.text()).toContain('Palanquero 1 (Ana Rodríguez)');
+		expect(wrapper.text()).toContain('Palanquero 2 (Marta López)');
+		// La fila sin asignación no gana etiqueta: sólo su nombre.
+		const row = wrapper.find('#seq-panel-pending');
+		const buttons = row.findAll('button[title="Ver detalle del participante"]');
+		expect(buttons.map((b) => b.text())).toContain('Servidor Nuñez');
+		expect(wrapper.text()).not.toContain('Palanquero 1 ()');
+	});
+
+	it('orden por palanquero: P1 → P2 → sin asignar (nulls al final pese a la fecha)', async () => {
+		const wrapper = await mountView(palanqueroQueue());
+		wrapper.vm.queueSort = 'palanquero';
+		await flushPromises();
+
+		const names = wrapper
+			.find('#seq-panel-pending')
+			.findAll('button[title="Ver detalle del participante"]')
+			.map((b) => b.text());
+		// P1 (fecha más tardía) gana a P2 (más temprana): agrupa por palanquero.
+		expect(names).toEqual(['Carlos Díaz', 'Lupita Gómez', 'Servidor Nuñez']);
 	});
 });

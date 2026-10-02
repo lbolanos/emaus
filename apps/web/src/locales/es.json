@@ -3444,6 +3444,7 @@
       "name": "Nombre",
       "template": "Tipo de mensaje",
       "sequence": "Secuencia",
+      "palanquero": "Palanquero",
       "status": "Estado"
     },
     "searchPlaceholder": "Buscar por nombre, plantilla o destinatario…",

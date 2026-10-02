@@ -3120,6 +3120,7 @@
       "name": "Name",
       "template": "Message type",
       "sequence": "Sequence",
+      "palanquero": "Palanquero",
       "status": "Status"
     },
     "searchPlaceholder": "Search by name, template or recipient…",

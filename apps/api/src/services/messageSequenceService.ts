@@ -32,6 +32,7 @@ import { Community } from '../entities/community.entity';
 import { EMAIL_SILENT_STATES } from './communityService';
 import { getParticipantShirtOrderSummary } from './shirtReportService';
 import { emitSequenceQueueChanged } from '../realtime';
+import { findPalanqueroAssignments } from './responsabilityService';
 
 const DEFAULT_TZ = process.env.APP_TIMEZONE || 'America/Mexico_City';
 /** Máximo de reintentos de envío de email ante fallo (SMTP transitorio). */
@@ -1630,14 +1631,23 @@ export class MessageSequenceService {
 
 	/**
 	 * Bandeja de pendientes de WhatsApp (status queued) de un retiro. Cada ítem se
-	 * enriquece con `followUpStatus` (estado de seguimiento del participante) y
+	 * enriquece con `followUpStatus` (estado de seguimiento del participante),
 	 * `templateName` (M3: nombre de la plantilla resuelto server-side, id del paso
-	 * gana sobre el tipo) para dar contexto al coordinador antes de enviar.
+	 * gana sobre el tipo) y `palancasCoordinator`/`palanqueroName` (el palanquero
+	 * asignado al caminante: nombre de la responsabilidad y su titular) para dar
+	 * contexto al coordinador antes de enviar.
 	 */
 	async listQueued(
 		retreatId: string,
 	): Promise<
-		Array<ScheduledMessage & { followUpStatus?: string | null; templateName?: string | null }>
+		Array<
+			ScheduledMessage & {
+				followUpStatus?: string | null;
+				templateName?: string | null;
+				palancasCoordinator?: string | null;
+				palanqueroName?: string | null;
+			}
+		>
 	> {
 		const items = await AppDataSource.getRepository(ScheduledMessage).find({
 			where: { retreatId, status: 'queued', channel: 'whatsapp' },
@@ -1649,13 +1659,34 @@ export class MessageSequenceService {
 			where: { retreatId },
 		});
 		const statusByParticipant = new Map(followUps.map((f) => [f.participantId, f.status]));
+		// Palanquero assignment lives in retreat_participants.palancasCoordinator as
+		// the responsibility NAME ('Palanquero 1'…), not an id — resolve the holder
+		// with the same name-match as /responsibilities/palanquero-options.
+		const retreatParticipants = await AppDataSource.getRepository(RetreatParticipant).find({
+			where: { retreatId, participantId: In([...new Set(items.map((i) => i.participantId))]) },
+			select: ['participantId', 'palancasCoordinator'],
+		});
+		const coordinatorByParticipant = new Map(
+			retreatParticipants.map((rp) => [rp.participantId, rp.palancasCoordinator || null]),
+		);
+		const holderByName = new Map(
+			(await findPalanqueroAssignments(retreatId))
+				.filter((r) => r.participant)
+				.map((r) => [
+					r.name,
+					`${r.participant!.firstName ?? ''} ${r.participant!.lastName ?? ''}`.trim(),
+				]),
+		);
 		const names = await this.buildTemplateNameMaps(retreatId);
-		return items.map((it) =>
-			Object.assign(it, {
+		return items.map((it) => {
+			const coordinator = coordinatorByParticipant.get(it.participantId) ?? null;
+			return Object.assign(it, {
 				followUpStatus: statusByParticipant.get(it.participantId) ?? null,
 				templateName: names.resolve(it.step, it.templateType),
-			}),
-		);
+				palancasCoordinator: coordinator,
+				palanqueroName: coordinator ? holderByName.get(coordinator) ?? null : null,
+			});
+		});
 	}
 
 	/**
