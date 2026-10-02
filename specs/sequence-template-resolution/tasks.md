@@ -277,3 +277,7 @@ bloqueo de exportes CSV/Excel por route.
   el frame siguiente). Subida a YouTube como unlisted NUEVO:
   https://youtu.be/0D2bKZRogRw (el previo `SBu73SOvp3U`, toma 2, se da de baja en Studio).
   Copia local: `~/Desktop/sequence-fixes-demo.mp4`.
+- **Reemplazada 2026-10-02 por la toma con M5/M6** (Ejecutar pregunta el paso vencido, detalle
+  por paso, aviso con la predeterminada): https://youtu.be/AUxhUHiOF4w — unlisted, en la playlist
+  "Emaús Retiros — Tutoriales" en la posición 11 (tras `KpYW_kWYdMk`), enlazada en
+  `docs/{es,en}/crm.md`. `0D2bKZRogRw` borrado por API (oEmbed 404); `SBu73SOvp3U` ya no existía.

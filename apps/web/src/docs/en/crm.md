@@ -2,6 +2,8 @@
 
 📺 **[Watch the tutorial: templates and sequences](https://youtu.be/KpYW_kWYdMk)** (Spanish)
 
+📺 **[Watch the tutorial: sequences, from template to send](https://youtu.be/AUxhUHiOF4w)** (Spanish — per-step template, the default, overdue steps and per-step detail)
+
 📺 **[Watch the tutorial: walker follow-up](https://youtu.be/Xmxa8K-lg-E)** (Spanish)
 
 This section explains how to communicate with participants more efficiently: send group messages over WhatsApp, automate reminders and follow-ups, and keep track of who you've already contacted.
