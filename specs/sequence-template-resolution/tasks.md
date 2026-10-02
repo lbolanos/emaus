@@ -181,12 +181,12 @@ sacramentos, contacto de emergencia en caminantes).
 
 #### Video (2026-10-01)
 
-`apps/web/e2e/demo/record-sequence-fixes.mjs` → `sequence-fixes-demo.mp4` (1:42, es-MX,
+`apps/web/e2e/demo/record-sequence-fixes.mjs` → `sequence-fixes-demo.mp4` (2:27, es-MX,
 capítulos YouTube en el `meta.json`). Grabado sobre el stack del worktree con el retiro
 sintético: cero PII, sin `maskRoute` (rompería la coherencia de los participantes fake), y
 bloqueo de exportes CSV/Excel por route.
 
-- **Toma 2 definitiva.** La 1ª se descartó por un bug del propio script: el fill de `offsetDays`
+- **Toma 2 (intermedia).** La 1ª se descartó por un bug del propio script: el fill de `offsetDays`
   fue a parar al primer `input[type=number]` del modal, que es `maxOverdueDays` de la secuencia
   ("No enviar si venció hace (días)") — el offset quedó en 0 y el beat M2 mostró la fecha sin
   ámbar mientras la narración lo prometía. Fix: locator por label "Días" (regex anclada, dentro
@@ -200,3 +200,14 @@ bloqueo de exportes CSV/Excel por route.
   una ventana del sistema fuera del render de la página — la grabación de Playwright JAMÁS lo
   captura. El beat m3_select se cubre con el select cerrado mostrando la plantilla B
   seleccionada + navegación por teclado (que sí se ve en el valor).
+- **Toma 5 (definitiva, 2026-10-01).** Guion ampliado a pedido de Leonardo ("desde la creación
+  de plantilla, pasar por creación de secuencia, modificación y envío de mensajes", con pausa
+  tras cada "Agregar paso" para ver el paso aparecer vacío y luego completo): 9 beats narrados
+  (sidebar → plantilla con aviso de tipo duplicado → creación de secuencia con 2 pasos →
+  edición → Ejecutar ahora → Encolar ya → bandeja/detalle/envío WhatsApp → M4 → Problemas).
+  Las pausas de ritmo: `sleep` 1.2s tras cada "Agregar paso" + 1.1s con el paso 1 completo
+  antes de agregar el 2º. Verificación: 13/13 checks por dato en el log de la toma + 11/11
+  frames en 3 tandas (el frame del switch a Programados cayó temprano; el mismo check lo cubre
+  el frame siguiente). Subida a YouTube como unlisted NUEVO:
+  https://youtu.be/0D2bKZRogRw (el previo `SBu73SOvp3U`, toma 2, se da de baja en Studio).
+  Copia local: `~/Desktop/sequence-fixes-demo.mp4`.

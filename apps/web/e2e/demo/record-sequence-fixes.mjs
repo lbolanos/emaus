@@ -1,20 +1,20 @@
-// Video-demo narrado: arreglos al motor de secuencias (sequence-template-resolution).
+// Video-demo narrado: flujo COMPLETO de secuencias + fixes M2-M4.
 //
-// Tres fixes sobre el retiro sintético "Demo Secuencias (video)" (cero PII):
-//   M3 — el paso de secuencia fija su plantilla por id (select por nombre en el
-//        editor; la bandeja muestra la plantilla resuelta) y avisa en ámbar cuando
-//        un paso va por tipo habiendo varias del mismo tipo.
-//   M2 — la fecha del paso se pinta en ámbar cuando quedaría en el pasado: al
-//        activar, ese paso no se programa (fin de los envíos retroactivos).
-//   M4 — una plantilla con el hueco {custom_message} ya no se despacha literal:
-//        cae a Problemas como omitida, con la razón.
+// Guion de punta a punta sobre el retiro sintético "Demo Secuencias (video)"
+// (cero PII): crear plantilla (con aviso de tipo duplicado) → crear secuencia
+// (paso fija plantilla por id; paso retroactivo en ámbar) → modificar →
+// "Ejecutar ahora" (guard anti-retroactivo: el paso pasado NO se materializa)
+// → "Encolar ya" → bandeja → detalle con variables resueltas → "Abrir
+// WhatsApp" (marca enviado) → preview/plantilla con {custom_message} cae a
+// Problemas como omitida.
 //
 //   cd apps/web && DEMO_BASE_URL=http://localhost:5174 node e2e/demo/record-sequence-fixes.mjs
 //
-// Requiere el retiro demo sembrado (scripts no versionados en /tmp/emaus-demo/:
-// seed-demo.mjs + seed-participants.mjs) sobre el stack del worktree (API 3002,
-// web 5174). Vista de ADMIN → login por storageState. NO muta: los cambios del
-// editor se CANCELAN y nunca se clican "Ejecutar ahora"/"Encolar ya".
+// Requiere el retiro demo sembrado (scripts no versionados en /tmp/emaus-demo/)
+// sobre el stack del worktree (API 3002, web 5174). La toma MUTA datos
+// sintéticos (plantilla "Demo flujo (C)" + secuencia "Demo flujo completo"):
+// al arrancar se limpian por API los restos de una toma anterior, y el envío
+// despacha UN mensaje al Servidor Demo (número fake 555…, link wa.me).
 //
 // Nota de PII: no se registra maskRoute a propósito — todos los datos visibles
 // son sintéticos y maskRoute renombraría a los participantes fake, rompiendo la
@@ -34,34 +34,37 @@ const SYNC_OFFSET_MS = 0;
 const OVERLAY = OVERLAY_INIT.replace('✝ Emaús · Tareas Pre-Retiro', '✝ Emaús · Comunicaciones');
 
 const DEMO_RETREAT_PARISH = 'Demo Secuencias (video)';
+const TPL_C = 'Demo flujo — recordatorio prendas (C)';
 const TPL_B = 'Último aviso de prendas (demo B)';
-const SEQ_M3 = 'Demo M3 — paso fija plantilla por id';
+const SEQ_FLOW = 'Demo flujo completo — recordatorio de prendas';
 const SEQ_M4 = 'Demo M4 — plantilla con hueco manual';
 
 const LINES = [
   { id: 'sidebar', text: '¿Dónde vive? En el menú de la izquierda, abre Comunicaciones y entra a Secuencias automáticas.' },
-  { id: 'ctx', text: 'Este retiro de prueba tiene dos plantillas de prendas del mismo tipo. Antes, el motor enviaba siempre la más antigua y la nueva nunca salía. Ya no: cada paso recuerda la plantilla exacta que elegiste.' },
-  { id: 'm3_select', text: 'Al editar la secuencia, el paso elige su plantilla por nombre, una por una. Este paso quedó fijado en el último aviso, aunque haya más del mismo tipo.' },
-  { id: 'm2_amber', text: 'Y si el disparador empuja el envío a una fecha que ya pasó, la fecha del paso se marca en ámbar: al activar, ese paso no se programa. Se acabaron los mensajes retroactivos.' },
-  { id: 'queue', text: 'En la bandeja de WhatsApp, el pendiente sale con la plantilla correcta y con su texto: el último aviso de prendas.' },
-  { id: 'm4_dup', text: 'Esta otra secuencia va solo por tipo, sin plantilla fija: el aviso ámbar te pide elegir una concreta.' },
-  { id: 'm4_issues', text: 'Y si la plantilla trae el hueco de mensaje personalizado, ya no se manda tal cual: el mensaje cae a Problemas, omitido, con la razón para corregirla.' },
-  { id: 'outro', text: 'Plantilla fijada por paso, fechas retroactivas avisadas y huecos manuales protegidos. Las secuencias ahora hacen lo que ves.' },
+  { id: 'tpl_dup', text: 'Primero la plantilla. En Plantillas de mensajes creo una nueva del mismo tipo que ya existía, confirmación de camisetas. El sistema me avisa que hay más del mismo tipo, y que los pasos que no fijen una concreta enviarán la primera. La creo para el segundo recordatorio.' },
+  { id: 'seq_create', text: 'Ahora la secuencia: para servidores, disparada por días antes del retiro. El paso uno usa la plantilla que acabo de crear, a tres días del retiro. El paso dos, a veinticinco días, cae en una fecha que ya pasó: el aviso ámbar me lo dice. Al activarse, ese paso no se programa.' },
+  { id: 'seq_edit', text: '¿Y si algo cambia? Abro la secuencia, ajusto la hora del paso y guardo: las fechas se recalculan al momento.' },
+  { id: 'run', text: 'Ejecuto ahora. Del paso futuro quedó un mensaje programado para el dieciocho de octubre. ¿Y el retroactivo? No existe: el motor lo suprimió. Cero mensajes al pasado.' },
+  { id: 'enqueue', text: 'Cuando llega el momento, o si quiero adelantarlo, lo encolo ya: cae a la bandeja de WhatsApp con la plantilla correcta.' },
+  { id: 'send', text: 'Abro el detalle: el mensaje ya salió con sus variables resueltas. Al abrirlo en WhatsApp queda marcado como enviado y sale de la bandeja.' },
+  { id: 'm4', text: 'Una última protección. Esta plantilla trae un hueco de mensaje personalizado: la vista previa me avisa, y si una secuencia la intenta enviar, el mensaje cae a Problemas, omitido, con la razón para corregirla.' },
+  { id: 'outro', text: 'De la plantilla al envío: plantilla fijada por paso, fechas retroactivas bloqueadas y huecos manuales protegidos. Las secuencias ahora hacen lo que ves.' },
 ];
 
-const YT_TITLE = 'Secuencias automáticas: plantilla por paso y mensajes protegidos';
+const YT_TITLE = 'Secuencias automáticas: de la plantilla al envío';
 const YT_DESCRIPTION =
-  'Arreglos al motor de secuencias automáticas de Emaús, mostrados sobre un retiro de ' +
-  'prueba con datos ficticios. El paso de secuencia ahora fija su plantilla concreta (con ' +
-  'aviso cuando un paso va por tipo y hay varias), la fecha de un paso que caería en el ' +
-  'pasado se marca en ámbar y no se programa al activar, y una plantilla con el hueco de ' +
-  'mensaje personalizado ya no se envía literal: cae a Problemas con la razón. Los datos ' +
-  'del demo son ficticios.';
+  'Flujo completo del motor de secuencias automáticas de Emaús sobre un retiro de ' +
+  'prueba con datos ficticios: crear una plantilla (con aviso cuando ya hay otra del ' +
+  'mismo tipo), armar la secuencia fijando la plantilla concreta de cada paso, editarla, ' +
+  'ejecutarla (los pasos con fecha pasada no se programan), encolar y enviar por WhatsApp, ' +
+  'y la protección para plantillas con hueco de mensaje personalizado. Los datos del demo ' +
+  'son ficticios.';
 const YT_TAGS = ['Emaús', 'retiro', 'secuencias', 'plantillas', 'mensajes', 'WhatsApp', 'tutorial'];
 const CHAPTER_LABELS = {
-  sidebar: 'Dónde está en el menú', ctx: 'El problema', m3_select: 'Plantilla por paso (fijada)',
-  m2_amber: 'Fecha pasada en ámbar', queue: 'Bandeja de WhatsApp', m4_dup: 'Aviso de tipo duplicado',
-  m4_issues: 'Hueco manual protegido', outro: 'Resumen',
+  sidebar: 'Dónde está en el menú', tpl_dup: 'Crear plantilla (tipo duplicado)',
+  seq_create: 'Crear la secuencia (fecha pasada en ámbar)', seq_edit: 'Modificar la secuencia',
+  run: 'Ejecutar: el paso retroactivo no se crea', enqueue: 'Encolar ya',
+  send: 'Enviar por WhatsApp', m4: 'Hueco manual protegido', outro: 'Resumen',
 };
 
 const log = (...a) => console.log(...a);
@@ -72,6 +75,16 @@ async function cueBox(nar, loc) {
     const b = await loc.boundingBox();
     if (b) await nar.cueAt(b.x + b.width / 2, b.y + b.height / 2);
   } catch {}
+}
+// Sanidad por dato ANTES de narrar: si la pantalla no muestra lo que la
+// narración promete, el log lo dice en la toma (lección de la toma 1).
+function assertShown(page, text, label, timeout = 8000) {
+  return page
+    .getByText(text)
+    .first()
+    .waitFor({ timeout })
+    .then(() => log(`   ✓ ${label}`))
+    .catch(() => log(`   ⚠ ${label} — NO apareció, revisar esta toma`));
 }
 
 async function main() {
@@ -124,8 +137,36 @@ async function main() {
   await ctx.addInitScript((rid) => {
     localStorage.setItem('preferred-locale', 'es');
     localStorage.setItem('selectedRetreatId', rid);
+    // Bandeja: "Abrir WhatsApp" marca el envío y saca el ítem de una vez.
+    localStorage.setItem('seq.autoConfirmSend', '1');
   }, demo.id);
   await ctx.addInitScript(OVERLAY);
+
+  // ── Limpieza de tomas anteriores (la toma muta: plantilla C + secuencia) ──
+  // Rutas verificadas en vivo: GET /message-sequences/retreat/:rid (array) y
+  // DELETE /message-sequences/:id borra steps+mensajes en cascada (sin huérfanos).
+  const csrfResp = await ctx.request.get(cfg.baseUrl + '/api/csrf-token');
+  const { csrfToken } = await csrfResp.json();
+  // HDR, no H: un const H local dejaría al H global (viewport height) en TDZ
+  // dentro de todo main() — el login lo lee antes de esta línea.
+  const HDR = { 'X-CSRF-Token': csrfToken };
+  const clean = async (listUrl, matchName, delUrl) => {
+    const resp = await ctx.request.get(`${cfg.baseUrl}${listUrl}`);
+    if (!resp.ok()) throw new Error(`limpieza: GET ${listUrl} → ${resp.status()}`);
+    const list = await resp.json();
+    const rest = Array.isArray(list) ? list : list.data || [];
+    for (const x of rest.filter((y) => y.name === matchName)) {
+      const del = await ctx.request.delete(`${cfg.baseUrl}${delUrl(x.id)}`, { headers: HDR });
+      log(`   limpieza "${matchName}" (${x.id}): ${del.status()}`);
+    }
+  };
+  await clean(`/api/message-sequences/retreat/${demo.id}`, SEQ_FLOW, (id) => `/api/message-sequences/${id}`);
+  await clean(`/api/message-templates?retreatId=${demo.id}`, TPL_C, (id) => `/api/message-templates/${id}`);
+  // Fatal si quedaron restos: grabar encima de una toma vieja rompe el guion.
+  const recheck = await (await ctx.request.get(`${cfg.baseUrl}/api/message-sequences/retreat/${demo.id}`)).json();
+  if ((Array.isArray(recheck) ? recheck : []).some((s) => s.name === SEQ_FLOW)) {
+    throw new Error('limpieza: la secuencia del flujo sigue existiendo tras el DELETE');
+  }
 
   const page = await ctx.newPage();
   page.setDefaultTimeout(6000);
@@ -150,16 +191,6 @@ async function main() {
 
   const rowOf = (name) => page.locator('div.p-3', { hasText: name }).first();
   const editBtnOf = (name) => rowOf(name).getByRole('button', { name: 'Editar', exact: true });
-  const tplSelect = page.locator('select').filter({ has: page.locator('option', { hasText: TPL_B }) }).first();
-  const triggerSelect = page.locator('select').filter({ has: page.locator('option', { hasText: 'Días antes del retiro' }) }).first();
-  // El input de días del PASO va por su label "Días" (regex anclada, dentro del
-  // dialog): el primer input number del modal es maxOverdueDays de la secuencia
-  // ("No enviar si venció hace (días)") y en la 1ª toma se llevó el fill.
-  const offsetInput = page
-    .getByRole('dialog')
-    .locator('label.text-xs.text-gray-500', { hasText: /^Días$/ })
-    .locator('xpath=following-sibling::input')
-    .first();
 
   try {
     // ── Sidebar ──
@@ -178,68 +209,159 @@ async function main() {
     await sleep(page, 1200);
     await nar.say(clips.sidebar);
 
-    // ── El problema + fila M3 ──
-    await cueBox(nar, rowOf(SEQ_M3));
-    await nar.say(clips.ctx);
-
-    // ── M3: editor, select por id ──
-    await editBtnOf(SEQ_M3).click();
-    await page.getByText('Editar secuencia').first().waitFor({ timeout: 6000 });
+    // ── Plantillas: crear la C con tipo duplicado → aviso en vivo ──
+    const tplLink = page.getByRole('link', { name: 'Plantillas de Mensajes' }).first();
+    await cueBox(nar, tplLink);
+    await tplLink.click({ timeout: 5000 }).catch(() => page.goto(`${cfg.baseUrl}/app/settings/message-templates`));
+    await page.waitForURL(/message-templates/, { timeout: 15000 });
+    await page.getByRole('button', { name: 'Agregar Nueva Plantilla' }).first().waitFor({ timeout: 8000 });
     await sleep(page, 900);
-    await cueBox(nar, tplSelect);
-    await tplSelect.click(); // dropdown nativo abierto durante la narración
+    await page.getByRole('button', { name: 'Agregar Nueva Plantilla' }).first().click();
+    const tplModal = page.getByRole('dialog');
+    await tplModal.getByText('Nueva Plantilla').first().waitFor({ timeout: 6000 });
     await sleep(page, 600);
-    await nar.say(clips.m3_select);
-    await page.keyboard.press('ArrowDown');
+    await tplModal.getByRole('textbox', { name: 'Nombre' }).fill(TPL_C);
+    await sleep(page, 400);
+    // Tipo: combobox reka-ui (dropdown capturable) → opción duplicada → aviso.
+    // Nombre completo: "Recordatorio de Confirmación de Camisetas" también
+    // contiene el prefijo y con match parcial elegiría la opción equivocada.
+    await tplModal.getByRole('combobox').filter({ hasText: 'Selecciona un tipo' }).click();
+    await page.getByRole('option', { name: 'Confirmación de Camisetas (Servidores)' }).click();
+    await sleep(page, 600);
+    await assertShown(page, 'Ya existe otra plantilla de este tipo', 'aviso tipo duplicado');
+    await cueBox(nar, page.getByText('Ya existe otra plantilla de este tipo').first());
+    await nar.say(clips.tpl_dup);
+    await tplModal.getByRole('textbox', { name: 'Mensaje' }).fill(
+      'Hola {participant.firstName}, por favor confirma tu talla de playera antes del viernes. Pedido: {participant.shirtOrderSummary}. — Coordinación Emaús',
+    );
     await sleep(page, 500);
-    await page.keyboard.press('ArrowUp');
-    await sleep(page, 400);
-    await page.keyboard.press('Enter');
-    await sleep(page, 400);
-    // Sanidad: la B sigue seleccionada; si el teclado no clavó, fijarla en silencio.
-    const picked = await tplSelect.evaluate((el) => el.selectedOptions[0]?.textContent || '');
-    if (!picked.includes('demo B')) await tplSelect.selectOption({ label: TPL_B });
+    await tplModal.getByRole('button', { name: 'Guardar' }).click();
+    await sleep(page, 1200);
+    await assertShown(page, TPL_C, 'plantilla C creada (fila en tabla)');
 
-    // ── M2: trigger días-antes + desfase que cruza el inicio → fecha en ámbar ──
-    await triggerSelect.selectOption({ label: 'Días antes del retiro' });
-    await sleep(page, 700);
-    await offsetInput.fill('25'); // retiro a ~20 días → paso el 26 sep (pasado)
-    await sleep(page, 1800); // debounce 400ms + fetch + render
-    // Sanidad del beat: el ámbar debe existir ANTES de narrarlo (si no, la
-    // narración promete algo que la pantalla no muestra — le pasó a la 1ª toma).
-    await page
-      .getByText('la fecha ya pasó')
-      .first()
-      .waitFor({ timeout: 8000 })
-      .then(() => log('   ✓ M2: fecha del paso en ámbar'))
-      .catch(() => log('   ⚠ M2: el ámbar NO apareció — revisar esta toma'));
+    // ── Secuencia: crear con 2 pasos (futuro + retroactivo) ──
+    const seqLink = page.getByRole('link', { name: 'Secuencias Automáticas' }).first();
+    await seqLink.click({ timeout: 5000 }).catch(() => page.goto(`${cfg.baseUrl}/app/settings/message-sequences`));
+    await page.waitForURL(/message-sequences/, { timeout: 15000 });
+    await page.getByRole('button', { name: 'Nueva secuencia' }).first().waitFor({ timeout: 8000 });
+    await sleep(page, 800);
+    await page.getByRole('button', { name: 'Nueva secuencia' }).first().click();
+    const dlg = page.getByRole('dialog');
+    await dlg.getByText('Nueva secuencia').first().waitFor({ timeout: 6000 });
+    await sleep(page, 600);
+    await dlg.getByRole('textbox').first().fill(SEQ_FLOW);
+    await dlg.locator('select').filter({ has: page.locator('option', { hasText: 'Servidores' }) }).first()
+      .selectOption({ label: 'Servidores' });
+    await dlg.locator('select').filter({ has: page.locator('option', { hasText: 'Servidor Demo' }) }).first()
+      .selectOption({ label: 'Servidor Demo' });
+    await sleep(page, 500);
+    // Paso 1: plantilla C a 3 días (futuro: 18 oct). La pausa tras cada
+    // "Agregar paso" deja ver el paso vacío aparecer antes de llenarlo.
+    await dlg.getByRole('button', { name: 'Agregar paso' }).click();
+    await sleep(page, 1200);
+    const stepSel = (n) => dlg.locator('select').filter({ has: page.locator('option', { hasText: TPL_C }) }).nth(n);
+    const daysInput = (n) => dlg
+      .locator('label.text-xs.text-gray-500', { hasText: /^Días$/ })
+      .locator('xpath=following-sibling::input')
+      .nth(n);
+    const hourInput = (n) => dlg
+      .locator('label.text-xs.text-gray-500', { hasText: /^Hora$/ })
+      .locator('xpath=following-sibling::input')
+      .nth(n);
+    await stepSel(0).selectOption({ label: TPL_C });
+    await daysInput(0).fill('3');
+    await sleep(page, 900); // debounce 400ms + fetch + render
+    await assertShown(page, '18 oct', 'paso 1 → 18 oct (futuro)');
+    await sleep(page, 1100); // el paso 1 completo queda en cámara antes de agregar el 2
+    // Paso 2: plantilla B a 25 días (26 sep, pasado) → ámbar.
+    await dlg.getByRole('button', { name: 'Agregar paso' }).click();
+    await sleep(page, 1200);
+    const tplBSel = dlg.locator('select').filter({ has: page.locator('option', { hasText: TPL_B }) }).nth(1);
+    await tplBSel.selectOption({ label: TPL_B });
+    await daysInput(1).fill('25');
+    await sleep(page, 1800);
+    await assertShown(page, 'la fecha ya pasó', 'paso 2 en ámbar (retroactivo)');
     await cueBox(nar, page.getByText('la fecha ya pasó').first());
-    await nar.say(clips.m2_amber);
-    await page.getByRole('button', { name: 'Cancelar' }).first().click().catch(() => page.keyboard.press('Escape'));
-    await sleep(page, 700);
+    await nar.say(clips.seq_create);
+    await dlg.getByRole('button', { name: 'Guardar' }).click();
+    await sleep(page, 1200);
+    await assertShown(page, SEQ_FLOW, 'secuencia creada (fila)');
 
-    // ── M3 en la bandeja ──
+    // ── Modificación: reabrir, hora 9→10, fechas se recalculan ──
+    await editBtnOf(SEQ_FLOW).click();
+    await dlg.getByText('Editar secuencia').first().waitFor({ timeout: 6000 });
+    await sleep(page, 800);
+    await hourInput(0).fill('10');
+    await sleep(page, 1200);
+    await assertShown(page, '18 oct, 10:00', 'hora recalculada (18 oct 10:00)');
+    await cueBox(nar, page.getByText('18 oct, 10:00').first());
+    await nar.say(clips.seq_edit);
+    await dlg.getByRole('button', { name: 'Guardar' }).click();
+    await sleep(page, 1000);
+
+    // ── Ejecutar ahora: futuro programado, retroactivo SUPRIMIDO ──
+    await page.getByRole('button', { name: 'Ejecutar ahora' }).first().click();
+    await sleep(page, 2000); // enroll + processDue + toasts
+    await page.getByRole('tab', { name: 'Programados' }).click();
+    await sleep(page, 900);
+    await assertShown(page, '18 oct', 'paso futuro programado (18 oct)');
+    const retroCount = await page.getByText('26 sep').count();
+    log(retroCount === 0 ? '   ✓ paso retroactivo (26 sep) NO existe' : `   ⚠ hay ${retroCount} fila(s) con 26 sep — revisar`);
+    await cueBox(nar, page.getByText('18 oct').first());
+    await nar.say(clips.run);
+
+    // ── Encolar ya → bandeja con plantilla resuelta ──
+    await page.getByRole('button', { name: 'Encolar ya' }).first().click();
+    await sleep(page, 1800);
     await page.getByRole('tab', { name: 'Bandeja WhatsApp' }).click();
     await sleep(page, 900);
-    await cueBox(nar, page.getByText(TPL_B).first());
-    await nar.say(clips.queue);
+    await assertShown(page, TPL_C, 'bandeja: ítem con plantilla C');
+    await cueBox(nar, page.getByText(TPL_C).first());
+    await nar.say(clips.enqueue);
 
-    // ── M3 bis: warning de tipo duplicado en el editor de la M4 ──
-    await page.getByRole('tab', { name: 'Secuencias', exact: true }).click();
+    // ── Envío: detalle resuelto → Abrir WhatsApp → marcado enviado ──
+    // La tab Secuencias sigue montada (oculta) y su fila también matchea
+    // SEQ_FLOW: hay que filtrar la fila que CONTIENE el botón del participante
+    // (con .first() a secas gana la fila de Secuencias y el click no resuelve).
+    const flowRow = page.locator('div.p-3').filter({
+      hasText: SEQ_FLOW,
+      has: page.getByRole('button', { name: 'Servidor Demo' }),
+    }).first();
+    await flowRow.getByRole('button', { name: 'Servidor Demo' }).click();
+    await sleep(page, 900);
+    await assertShown(page, 'Hola Servidor', 'detalle: mensaje con variables resueltas');
+    await cueBox(nar, page.getByText('Hola Servidor').first());
+    await nar.say(clips.send);
+    await page.getByRole('dialog').getByRole('button', { name: 'Abrir WhatsApp' }).click();
+    await sleep(page, 1500); // dispatch + window.open(wa.me) en otra pestaña
+    // La pestaña de WhatsApp no se graba (y no hace falta): cerrarla.
+    for (const p of ctx.pages()) if (p !== page) await p.close().catch(() => {});
+    await sleep(page, 600);
+    const stillQueued = await page.getByText(TPL_C).count();
+    log(stillQueued === 0 ? '   ✓ envío: ítem salió de la bandeja' : `   ⚠ el ítem C sigue visible (${stillQueued}) — revisar`);
+
+    // ── M4: preview con hueco + Problemas omitido ──
+    // (tabs sin exact: el badge contador se concatena al nombre accesible)
+    await page.getByRole('tab', { name: 'Secuencias' }).click();
     await sleep(page, 600);
     await editBtnOf(SEQ_M4).click();
     await page.getByText('Editar secuencia').first().waitFor({ timeout: 6000 });
     await sleep(page, 900);
-    await cueBox(nar, page.getByText('varias del mismo tipo').first());
-    await nar.say(clips.m4_dup);
-    await page.getByRole('button', { name: 'Cancelar' }).first().click().catch(() => page.keyboard.press('Escape'));
-    await sleep(page, 700);
-
-    // ── M4: Problemas con el error accionable ──
+    await assertShown(page, 'varias del mismo tipo', 'aviso de tipo duplicado (M4)');
+    await dlg.getByRole('button', { name: 'Ver vista previa de este paso' }).first().click();
+    await sleep(page, 900);
+    await assertShown(page, 'hueco de envío manual', 'preview: warning del hueco');
+    await cueBox(nar, page.getByText('hueco de envío manual').first());
+    await nar.say(clips.m4);
+    await sleep(page, 4000); // mitad de la narración sobre el warning…
+    // Cerrar preview y editor (Escape apila en reka-ui), luego Problemas.
+    await page.keyboard.press('Escape').catch(() => {});
+    await sleep(page, 500);
+    if (await page.getByRole('dialog').count()) await page.keyboard.press('Escape').catch(() => {});
+    await sleep(page, 500);
     await page.getByRole('tab', { name: 'Problemas' }).click();
     await sleep(page, 900);
-    await cueBox(nar, page.locator('.text-red-600').first());
-    await nar.say(clips.m4_issues);
+    await page.locator('.text-red-600').first().waitFor({ timeout: 6000 }).catch(() => {});
 
     await nar.clearCue();
     await nar.say(clips.outro);
