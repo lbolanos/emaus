@@ -671,6 +671,9 @@
     "title": "Message Templates",
     "addNew": "Add New Template",
     "loading": "Loading...",
+    "defaultBadge": "Default",
+    "defaultHint": "The one the system uses when it picks by type alone: quick-send buttons and new sequences.",
+    "makeDefault": "Make it the default of its type",
     "audience": {
       "label": "Audience",
       "all": "All",
@@ -712,7 +715,10 @@
       "usedVariables": "Used Variables",
       "save": "Save",
       "selectRetreatFirst": "Please select a retreat first",
-      "duplicateTypeWarning": "Another template of this type already exists in this retreat: {names}. Sequence steps without a specific template will send the first one created.",
+      "duplicateTypeWarning": "This retreat already has other templates of this type: {names}. Each sequence step sends the one it has chosen. Wherever the system picks by type alone (quick-send buttons and new sequences) it uses the default: «{defaultName}».",
+      "makeDefault": "Use this one as the default of its type",
+      "thisTemplate": "this template",
+      "andMore": "and {n} more",
       "variablesTitle": "Available Variables",
       "categories": {
         "participant": "Participant Variables",

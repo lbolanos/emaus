@@ -18,6 +18,7 @@ import type { MessageTemplate } from '@repo/types';
 import { getMessageTemplateAudience } from '@repo/types';
 import BaseMessageTemplateModal from '@/components/BaseMessageTemplateModal.vue';
 import { createLocaleComparator } from '@/utils/sort';
+import { effectiveDefaultTemplate } from '@/utils/templateDefault';
 
 const { t } = useI18n();
 const store = useMessageTemplateStore();
@@ -223,6 +224,30 @@ const handleDelete = async (id: string) => {
   }
 };
 
+// M6: for each type with 2+ templates, the one the system sends when it picks
+// by type alone (quick-send buttons, new sequences): the flagged default, else
+// the oldest — the same order the server uses. Single-template types need no
+// badge: there is nothing to choose.
+const effectiveDefaultIdByType = computed(() => {
+  const byType: Record<string, any[]> = {};
+  for (const tpl of (templates.value as any[]) || []) (byType[tpl.type] ||= []).push(tpl);
+  const out: Record<string, string> = {};
+  for (const [type, list] of Object.entries(byType)) {
+    if (list.length < 2) continue;
+    out[type] = effectiveDefaultTemplate(list)!.id;
+  }
+  return out;
+});
+const isEffectiveDefault = (tpl: MessageTemplate) => effectiveDefaultIdByType.value[tpl.type] === tpl.id;
+const canMakeDefault = (tpl: MessageTemplate) =>
+  tpl.type in effectiveDefaultIdByType.value && !isEffectiveDefault(tpl);
+
+const makeDefault = async (tpl: MessageTemplate) => {
+  await store.updateTemplate(tpl.id, { isDefault: true });
+  // The server cleared the flag from the sibling: refetch so its badge goes.
+  if (retreatStore.selectedRetreatId) await store.fetchTemplates(retreatStore.selectedRetreatId);
+};
+
 const handleTemplateSaved = () => {
   isDialogOpen.value = false;
   // Refresh templates if needed
@@ -340,6 +365,13 @@ const handleTemplateSaved = () => {
                     <Badge variant="outline" class="text-xs">
                       {{ t(`messageTemplates.audience.${getMessageTemplateAudience(template.type)}`) }}
                     </Badge>
+                    <span
+                      v-if="isEffectiveDefault(template)"
+                      class="text-xs rounded px-1.5 py-0.5 bg-amber-100 text-amber-800"
+                      :title="t('messageTemplates.defaultHint')"
+                    >
+                      ★ {{ t('messageTemplates.defaultBadge') }}
+                    </span>
                   </div>
                 </TableCell>
                 <TableCell class="max-w-xs">
@@ -376,6 +408,17 @@ const handleTemplateSaved = () => {
                 </TableCell>
                 <TableCell class="text-right">
                   <div class="flex items-center justify-end gap-1">
+                    <Button
+                      v-if="canMakeDefault(template)"
+                      variant="ghost"
+                      size="sm"
+                      @click="makeDefault(template)"
+                      class="h-8 w-8 p-0 text-amber-600 hover:text-amber-700"
+                      :title="t('messageTemplates.makeDefault')"
+                      :aria-label="t('messageTemplates.makeDefault')"
+                    >
+                      ☆
+                    </Button>
                     <Button
                       variant="ghost"
                       size="sm"

@@ -14,7 +14,8 @@ import BaseMessageTemplateModal from '../BaseMessageTemplateModal.vue';
  *     puede no tener las plantillas del retiro cargadas;
  *   - el aviso con el nombre interpolado (i18n REAL: el mock global de
  *     vue-i18n pintaría la clave cruda);
- *   - la exclusión de la propia plantilla y el corte a 3 nombres con "…";
+ *   - la exclusión de la propia plantilla y el corte a 3 nombres con "y N más";
+ *   - M6: el nombre de la predeterminada y la casilla que la toma;
  *   - el guard de scope (isGlobal no consulta plantillas de retiro).
  */
 
@@ -167,10 +168,45 @@ describe('BaseMessageTemplateModal — aviso de tipo duplicado (M3)', () => {
 			expect.stringContaining(`/message-templates?retreatId=${RETREAT_ID}`),
 		);
 		const text = warning(wrapper).text();
-		expect(text).toContain('Ya existe otra plantilla de este tipo en el retiro');
+		expect(text).toContain('Hay otras plantillas de este tipo en el retiro');
 		expect(text).toContain('Confirmación de prendas');
 		// La propia plantilla editada no se lista a sí misma.
 		expect(text).not.toContain('Reconfirmar');
+	});
+
+	// M6: the warning names the template the system will use when it picks by
+	// type (flagged default, else the oldest), and the checkbox takes it over.
+	const OLD_AT = '2026-01-01T10:00:00.000Z';
+	const NEW_AT = '2026-01-05T10:00:00.000Z';
+	const editing = { ...NEW_TEMPLATE, createdAt: NEW_AT };
+
+	it('M6: without a flagged default it names the oldest of the type', async () => {
+		const wrapper = await mountModal({ template: editing }, [
+			editing,
+			{ id: 'tpl-old', name: 'Confirmación de prendas', type: 'SERVER_SHIRT_CONFIRMATION', message: 'x', createdAt: OLD_AT },
+		]);
+		await openAndWait(wrapper);
+
+		expect(warning(wrapper).text()).toContain('usa la predeterminada: «Confirmación de prendas»');
+	});
+
+	it('M6: names a flagged sibling, and checking the box names this one and saves isDefault', async () => {
+		const wrapper = await mountModal({ template: editing }, [
+			editing,
+			{ id: 'tpl-old', name: 'Confirmación de prendas', type: 'SERVER_SHIRT_CONFIRMATION', message: 'x', createdAt: OLD_AT },
+			{ id: 'tpl-b', name: 'Último aviso (B)', type: 'SERVER_SHIRT_CONFIRMATION', message: 'x', createdAt: NEW_AT, isDefault: true },
+		]);
+		await openAndWait(wrapper);
+		expect(warning(wrapper).text()).toContain('«Último aviso (B)»');
+
+		await wrapper.find('input[type="checkbox"]').setValue(true);
+		expect(warning(wrapper).text()).toContain('«Reconfirmar Prendas»');
+
+		const { useMessageTemplateStore } = await import('@/stores/messageTemplateStore');
+		const update = vi.spyOn(useMessageTemplateStore(), 'updateTemplate').mockResolvedValue(undefined as any);
+		await wrapper.find('form').trigger('submit');
+		await flushPromises();
+		expect(update).toHaveBeenCalledWith('tpl-new', expect.objectContaining({ isDefault: true }));
 	});
 
 	it('sin duplicados del tipo en el retiro no muestra el aviso', async () => {
@@ -185,7 +221,7 @@ describe('BaseMessageTemplateModal — aviso de tipo duplicado (M3)', () => {
 		expect(warning(wrapper).exists()).toBe(false);
 	});
 
-	it('con más de 3 duplicados corta la lista de nombres con "…"', async () => {
+	it('con más de 3 duplicados corta la lista de nombres con "y N más"', async () => {
 		const dups = [1, 2, 3, 4].map((n) => ({
 			id: `tpl-dup-${n}`,
 			name: `Duplicada ${n}`,
@@ -198,7 +234,7 @@ describe('BaseMessageTemplateModal — aviso de tipo duplicado (M3)', () => {
 
 		const text = warning(wrapper).text();
 		expect(text).toContain('Duplicada 3');
-		expect(text).toContain('…');
+		expect(text).toContain('Duplicada 3 y 1 más.');
 		expect(text).not.toContain('Duplicada 4');
 	});
 

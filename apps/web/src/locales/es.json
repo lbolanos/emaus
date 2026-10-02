@@ -713,6 +713,9 @@
     "title": "Plantillas de Mensajes",
     "addNew": "Agregar Nueva Plantilla",
     "loading": "Cargando...",
+    "defaultBadge": "Predeterminada",
+    "defaultHint": "Es la que el sistema usa cuando elige solo por el tipo: botones de envío rápido y secuencias nuevas.",
+    "makeDefault": "Hacer predeterminada de su tipo",
     "audience": {
       "label": "Audiencia",
       "all": "Todos",
@@ -755,7 +758,10 @@
       "click": "Clic",
       "save": "Guardar",
       "selectRetreatFirst": "Por favor selecciona un retiro primero",
-      "duplicateTypeWarning": "Ya existe otra plantilla de este tipo en el retiro: {names}. Los pasos de secuencia que no fijen una plantilla concreta enviarán la primera creada.",
+      "duplicateTypeWarning": "Hay otras plantillas de este tipo en el retiro: {names}. Cada paso de secuencia envía la que tenga elegida. Donde el sistema elige solo por el tipo (botones de envío rápido y secuencias nuevas) usa la predeterminada: «{defaultName}».",
+      "makeDefault": "Usar esta como predeterminada de este tipo",
+      "thisTemplate": "esta plantilla",
+      "andMore": "y {n} más",
       "variablesTitle": "Variables Disponibles",
       "categories": {
         "participant": "Variables del Participante",

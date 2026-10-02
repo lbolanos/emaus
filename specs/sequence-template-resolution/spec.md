@@ -50,6 +50,15 @@ ACTIVA, **28 mensajes `queued` vencidos** en la bandeja de despacho WhatsApp, 1 
    Decisión ("si, dale a todo"): el cron y la activación siguen sin catch-up (los incidentes de
    R2 no vuelven), pero el *Ejecutar* manual informa los pasos vencidos y el coordinador elige
    cuáles enviar ya. Y la bandeja deja de verse vacía cuando solo tiene pausados.
+6. **Plantilla predeterminada por tipo** (2026-10-02, M6). Leonardo preguntó qué significaba el
+   aviso de tipo duplicado ("los pasos que no fijen una plantilla concreta enviarán la primera
+   creada") y cómo mejorarlo. Verificado por dato: lo que aún elegía por tipo eran (a) las
+   secuencias que siembra cada retiro nuevo, que nacían sin plantilla fijada (8 pasos en el demo;
+   Buen Despacho quedó fijado por el backfill de M3) y (b) los botones de envío rápido
+   (`MessageDialog` con `forceTemplateType`, p. ej. el reporte de camisetas), que tomaban la
+   primera de la lista. Decisión ("ok" a las tres): la siembra nace fijada; una predeterminada
+   explícita por (retiro, tipo) reemplaza a "la primera creada"; y el aviso dice el efecto
+   concreto, nombrando a la predeterminada.
 
 ## Objetivo
 
@@ -97,6 +106,11 @@ ACTIVA, **28 mensajes `queued` vencidos** en la bandeja de despacho WhatsApp, 1 
   canal, fecha vencida, personas sin fila) y acepta `sendNowStepIds`: esos pasos se materializan
   con `scheduledFor = ahora` y se procesan en el mismo run. `isRetreatClosed` sigue mandando
   (un retiro cerrado no se pone al día ni confirmado). El cron (`enrollAll`) no cambia.
+- R9 (M6): `message_templates.isDefault` (máx. 1 por retiro+tipo, lo mantiene el servicio).
+  Orden único de elección por tipo, server y UI: predeterminada → más antigua
+  (`DEFAULT_TEMPLATE_ORDER` / `effectiveDefaultTemplate`). Lo usan el fallback del motor, la
+  siembra (que fija `templateId`), la importación global y `MessageDialog`. Migración
+  `20261004120000` fija los pasos vivos sin plantilla con ese mismo orden (cero cambios de envío).
 - R8 (M5): la UI pregunta tras *Ejecutar* (preseleccionado solo el paso vencido más reciente de
   cada secuencia) y avisa lo omitido; la bandeja muestra cuántos mensajes oculta por estar en
   secuencias pausadas, con acceso directo al filtro *Pausados*.
@@ -124,6 +138,9 @@ ACTIVA, **28 mensajes `queued` vencidos** en la bandeja de despacho WhatsApp, 1 
   Un chip explícito (secuencia o participante) los incluye. Los `sent`/`queued` de una secuencia
   apagada siguen visibles (historial). Pregunta de Leonardo: "¿los programados deberían verse si
   está desactivado?" → no por defecto (OK 2026-10-02).
+- CA10 (M6): con 2+ plantillas de un tipo, la tabla marca "★ Predeterminada" en la que se usa al
+  elegir por tipo y "☆" la pasa a otra; el aviso del modal la nombra y su casilla la toma; un retiro
+  nuevo siembra sus secuencias con la plantilla fijada; un paso sin fijar envía la predeterminada.
 
 ## Fuera de alcance
 

@@ -34,6 +34,7 @@ import { EMAIL_SILENT_STATES } from './communityService';
 import { getParticipantShirtOrderSummary } from './shirtReportService';
 import { emitSequenceQueueChanged } from '../realtime';
 import { findPalanqueroAssignments } from './responsabilityService';
+import { DEFAULT_TEMPLATE_ORDER, findDefaultTemplateForType } from './messageTemplateService';
 
 const DEFAULT_TZ = process.env.APP_TIMEZONE || 'America/Mexico_City';
 /** Máximo de reintentos de envío de email ante fallo (SMTP transitorio). */
@@ -239,10 +240,8 @@ export class MessageSequenceService {
 			if (byId) return byId;
 		}
 		if (!step?.templateType) return null;
-		return AppDataSource.getRepository(MessageTemplate).findOne({
-			where: { retreatId, type: step.templateType as MessageTemplate['type'] },
-			order: { createdAt: 'ASC' },
-		});
+		// M6: the type's "predeterminada" first, else the oldest.
+		return findDefaultTemplateForType(retreatId, step.templateType);
 	}
 
 	/**
@@ -258,9 +257,10 @@ export class MessageSequenceService {
 	}> {
 		// createdAt ASC: al poblar el map por tipo, la PRIMERA plantilla del tipo
 		// es la que gana (misma determinación que el fallback individual).
+		// M6: the default goes first, so it wins the per-type slot.
 		const templates = await AppDataSource.getRepository(MessageTemplate).find({
 			where: { retreatId },
-			order: { createdAt: 'ASC' },
+			order: DEFAULT_TEMPLATE_ORDER,
 		});
 		const nameById = new Map(templates.map((t) => [t.id, t.name]));
 		const firstNameByType = new Map<string, string>();
@@ -1035,9 +1035,10 @@ export class MessageSequenceService {
 		const templatesByType = new Map<string, MessageTemplate>();
 		const templatesById = new Map<string, MessageTemplate>();
 		if (batchRetreatIds.length) {
+			// M6: default first, so it takes the per-type slot of the batch map.
 			const rows = await AppDataSource.getRepository(MessageTemplate).find({
 				where: { retreatId: In(batchRetreatIds) },
-				order: { createdAt: 'ASC' },
+				order: DEFAULT_TEMPLATE_ORDER,
 			});
 			for (const t of rows) {
 				const key = `${t.retreatId}:${t.type}`;
@@ -2693,15 +2694,27 @@ export class MessageSequenceService {
 			select: ['name'],
 		});
 		const have = new Set(existing.map((e) => e.name));
+		// M6: seeded steps are born pinned to the type's default template (the
+		// retreat's templates are copied before this runs), so adding another
+		// template of the same type later never changes what they send.
+		const templateIdByType = new Map<string, string | null>();
+		const pinnedTemplateId = async (type: string) => {
+			if (!templateIdByType.has(type)) {
+				templateIdByType.set(type, (await findDefaultTemplateForType(retreat.id, type))?.id ?? null);
+			}
+			return templateIdByType.get(type) ?? null;
+		};
 		for (const d of defs) {
 			if (have.has(d.name)) continue;
+			const steps: StepSyncInput[] = [];
+			for (const s of d.steps) steps.push({ ...s, templateId: await pinnedTemplateId(s.templateType) });
 			await this.createSequence({
 				name: d.name,
 				retreatId: retreat.id,
 				trigger: 'participant_created',
 				audience: d.audience,
 				isActive: d.isActive,
-				steps: d.steps,
+				steps,
 			});
 		}
 	}

@@ -8,6 +8,10 @@ Las plantillas son textos reutilizables (bienvenidas, recordatorios de pago, sol
 
 Pulsa **Agregar nueva** para crear una plantilla, o el ícono de lápiz para editar una existente. Puedes buscar por nombre o contenido y filtrar por tipo. En la tabla, cada plantilla muestra una vista previa del mensaje que se despliega para leerlo completo.
 
+## Varias plantillas del mismo tipo: la predeterminada
+
+Puedes tener varias plantillas del mismo tipo (por ejemplo, tres recordatorios de prendas). Cada **paso de secuencia** envía la plantilla que tenga elegida en su selector, así que ahí no hay confusión. Donde el sistema elige **solo por el tipo** —los botones de envío rápido, como "Enviar mensaje de confirmación" del reporte de camisetas, y las secuencias que se crean solas en un retiro nuevo— usa la **predeterminada** del tipo, marcada con **★ Predeterminada** en la tabla. Para cambiarla, pulsa **☆** en otra plantilla del mismo tipo, o marca "Usar esta como predeterminada de este tipo" al crearla o editarla. Si nunca elegiste una, la predeterminada es la más antigua del tipo.
+
 ## Variables {scope.var}
 
 Dentro del texto puedes insertar variables que se rellenan solas al enviar, con la forma `{ámbito.dato}`:

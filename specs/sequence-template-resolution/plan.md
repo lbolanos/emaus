@@ -133,6 +133,20 @@ Migración data-only
 - Tests: 5 de integración en `messageSequenceRetroactiveEnrollGuard.test.ts`, 5 de vista en
   `MessageSequencesView.test.ts`.
 
+## M6 — plantilla predeterminada por tipo (2026-10-02, rama `sequence-past-steps`)
+
+- Migración `20261004120000_MessageTemplateDefaultAndPinSteps.ts`: ADD COLUMN `isDefault`
+  (guard PRAGMA) + backfill de `sequence_steps.templateId` NULL con `isDefault DESC, createdAt
+  ASC, rowid ASC` (lo que el motor ya resolvía). Escrita entera de una vez: el API dev la aplica
+  al guardar.
+- `messageTemplateService`: `DEFAULT_TEMPLATE_ORDER`, `findDefaultTemplateForType`,
+  `clearOtherDefaults` en create/createForRetreat/update (solo scope retiro).
+- Motor: fallback de `resolveTemplateForStep`, `buildTemplateNameMaps` y el lote de `processDue`
+  con el orden nuevo; la siembra fija `templateId`; `copyToRetreat` usa el helper.
+- Web: helper puro `utils/templateDefault.ts` (mismo orden) para el modal, la tabla y
+  `MessageDialog`; casilla en el modal; "★ Predeterminada" / "☆" en la tabla; aviso reescrito
+  ("y N más" en vez de "…"). Ayuda `docs/{es,en}/message-templates.md`.
+
 ## Demo manual en dev al cierre (post-M4)
 
 Re-enrolar "Ultimo Prendas" → única plantilla `SERVER_SHIRT_CONFIRMATION` alcanzable, bandeja

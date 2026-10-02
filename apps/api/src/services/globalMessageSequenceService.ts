@@ -2,9 +2,9 @@ import { AppDataSource } from '../data-source';
 import { GlobalMessageSequence } from '../entities/globalMessageSequence.entity';
 import { GlobalSequenceStep } from '../entities/globalSequenceStep.entity';
 import { MessageSequence } from '../entities/messageSequence.entity';
-import { MessageTemplate } from '../entities/messageTemplate.entity';
 import type { MessageChannel, MessageRecipientTarget } from '../entities/sequenceStep.entity';
 import { messageSequenceService } from './messageSequenceService';
+import { findDefaultTemplateForType } from './messageTemplateService';
 
 /** Paso recibido al crear/editar una plantilla global. */
 type GlobalStepInput = {
@@ -140,13 +140,10 @@ export class GlobalMessageSequenceService {
 		// que al aterrizar en el retiro se fijan a la plantilla local de su tipo
 		// (createdAt ASC, el mismo fallback del motor) — el clon queda explícito
 		// y sobrevive a que después se creen más plantillas de ese tipo.
-		const templateRepo = AppDataSource.getRepository(MessageTemplate);
+		// M6: the local template is the type's "predeterminada", else the oldest.
 		const localTemplateByType = new Map<string, string>();
 		for (const type of new Set((global.steps ?? []).map((s) => s.templateType))) {
-			const local = await templateRepo.findOne({
-				where: { retreatId, type: type as MessageTemplate['type'] },
-				order: { createdAt: 'ASC' },
-			});
+			const local = await findDefaultTemplateForType(retreatId, type);
 			if (local) localTemplateByType.set(type, local.id);
 		}
 		const steps = (global.steps ?? [])

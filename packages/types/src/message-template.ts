@@ -134,6 +134,8 @@ export const MessageTemplateSchema = z.object({
 	type: messageTemplateTypes,
 	scope: messageTemplateScope.default('retreat'),
 	message: z.string().min(1, 'Message is required'),
+	// M6: "predeterminada" of its type in the retreat (see messageTemplateService).
+	isDefault: z.boolean().optional(),
 	retreatId: idSchema.optional(),
 	communityId: idSchema.optional(),
 	createdAt: z.date(),

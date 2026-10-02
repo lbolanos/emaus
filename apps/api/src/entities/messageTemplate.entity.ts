@@ -38,6 +38,12 @@ export class MessageTemplate implements IMessageTemplate {
 	@Column({ type: 'text' })
 	message!: string;
 
+	// M6: the template chosen for its type wherever the system picks by type
+	// (quick-send buttons, unpinned or newly seeded sequence steps). At most one
+	// per (retreat, type), kept by messageTemplateService; none → the oldest.
+	@Column({ type: 'boolean', default: false })
+	isDefault!: boolean;
+
 	@Column({ type: 'uuid', nullable: true })
 	retreatId?: string;
 

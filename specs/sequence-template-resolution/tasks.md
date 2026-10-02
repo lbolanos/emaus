@@ -159,6 +159,28 @@ milestone correspondiente.
 - Datos de dev (no prod): se borró "Ultimo Prendas (copia)" `9c9bcaa9` y se reactivó la original
   `a41ad6fb` (28 queued + 1 sent + 29 pending al 11-oct). OK de Leonardo.
 
+## M6 — plantilla predeterminada por tipo
+
+- [x] Migración `20261004120000` (ADD COLUMN `isDefault` + fijar pasos sin plantilla)
+- [x] Servicio: una predeterminada por retiro+tipo; helper de elección por tipo
+- [x] Motor (3 puntos), siembra fijada, importación global
+- [x] Web: modal (aviso con la predeterminada + casilla), tabla (★/☆), `MessageDialog`
+- [x] Ayuda in-app es+en
+- [x] Tests: API `messageTemplateDefault.test.ts` 5/5; suites motor+plantillas 349/349, retiros
+      334/334; web modal 12/12 (3 nuevos), helper 4/4, MessageDialog + reporte en verde;
+      `vue-tsc` limpio; `tsc` API sin errores nuevos (143 previos)
+- [x] Por dato en dev: tras la migración 0 pasos sin fijar (Buen Despacho 23, demo 12). Vivo en
+      el demo: "★ Predeterminada" en la más antigua de cada tipo repetido; "☆" la movió a "Último
+      aviso (demo B)"; el modal nombró «Último aviso de prendas (demo B)» y ofreció la casilla;
+      consola sin errores. Marca de prueba revertida por API (0 predeterminadas explícitas).
+
+**Desviaciones** (2026-10-02):
+- El aviso corta los nombres con "y N más" en lugar de "…": con el punto del texto quedaba
+  "(demo A)…. Cada". El test del corte se actualizó.
+- La regla del orden vive en un helper puro del web (`effectiveDefaultTemplate`) en lugar de
+  repetirse en modal, tabla y `MessageDialog`; el test de `MessageDialog` fija su lista en el
+  mock, así que la elección se prueba sobre el helper.
+
 ## Cierre
 
 - [x] E2E del área (ver abajo)
