@@ -59,6 +59,10 @@ export const useMessageSequenceStore = defineStore('message-sequence', () => {
 	// Retiro del último fetch: alimenta el fallback de TZ y los refresh de stats
 	// fire-and-forget (sin andar pasando el retreatId por todos lados).
 	let currentRetreatId: string | null = null;
+	// Last Programados query (with the view's filters), so a realtime event can
+	// refresh the page on screen; the counter guards against stale responses.
+	let lastScheduledQuery: { retreatId: string; opts: FetchScheduledMessagesOptions } | null = null;
+	let scheduledReqId = 0;
 
 	// Realtime (bandeja en vivo, patrón receptionStore).
 	const realtimeConnected = ref(false);
@@ -118,11 +122,21 @@ export const useMessageSequenceStore = defineStore('message-sequence', () => {
 	 * expone como `scheduledTimezone` para pintar fechas y como fallback del
 	 * resto de la vista (bandeja/detalle).
 	 */
-	const fetchScheduled = async (retreatId: string, opts: FetchScheduledMessagesOptions = {}) => {
-		scheduledLoading.value = true;
+	const fetchScheduled = async (
+		retreatId: string,
+		opts: FetchScheduledMessagesOptions = {},
+		{ silent = false }: { silent?: boolean } = {},
+	) => {
+		// `silent` (realtime refresh): no loading state, so the list doesn't
+		// flash "Cargando…" every time the cron moves something to the queue.
+		if (!silent) scheduledLoading.value = true;
 		currentRetreatId = retreatId;
+		lastScheduledQuery = { retreatId, opts };
+		const reqId = ++scheduledReqId;
 		try {
 			const res: ScheduledMessagesPage = await fetchScheduledMessages(retreatId, opts);
+			// A newer request (the user changed a filter meanwhile) wins.
+			if (reqId !== scheduledReqId) return;
 			scheduled.value = res.items;
 			scheduledTotal.value = res.total;
 			scheduledPage.value = res.page;
@@ -132,7 +146,9 @@ export const useMessageSequenceStore = defineStore('message-sequence', () => {
 		} catch (e: any) {
 			error.value = e?.message || 'Failed to fetch scheduled messages';
 		} finally {
-			scheduledLoading.value = false;
+			// Only the latest request clears loading: a superseded one must not,
+			// and a silent one that superseded a loading request must.
+			if (reqId === scheduledReqId) scheduledLoading.value = false;
 		}
 	};
 
@@ -298,6 +314,12 @@ export const useMessageSequenceStore = defineStore('message-sequence', () => {
 			if (!active || e.retreatId !== active) return;
 			fetchQueue(active).catch(() => {});
 			fetchStats(active).catch(() => {});
+			// Programados too: when the hourly cron queues pending rows, the list
+			// otherwise keeps showing them as "Pendiente" (with "Encolar ya")
+			// while the tab counters already moved.
+			if (lastScheduledQuery?.retreatId === active) {
+				fetchScheduled(active, lastScheduledQuery.opts, { silent: true }).catch(() => {});
+			}
 		};
 
 		socket.on('sequences:queue-changed', listener);

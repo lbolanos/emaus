@@ -142,6 +142,15 @@ milestone correspondiente.
       Tests: API 171/171 (1 nuevo), vista 2 nuevos. Vivo en Buen Despacho (solo lectura):
       "Paso 1 · 21 sep → 28 en cola, 1 enviados" / "Paso 2 · 11 oct → 29 en pausa"; Palancas
       pasos 1-3 "la fecha ya pasó", 4-6 "sin mensajes todavía".
+- [x] Programados se refresca en vivo cuando el cron encola. Hallazgo de la revisión "¿cómo pasan
+      de programados a bandeja?" (2026-10-02): con el cron REAL de las 15:00Z, 3 pending de prueba
+      pasaron a queued ("processed 3") y los contadores se movieron, pero la lista siguió
+      mostrándolos "Pendiente" con "Encolar ya". Fix en el store: el aviso realtime refetch-ea la
+      última consulta de Programados (sus filtros), en silencio, con descarte de respuestas
+      viejas. Tests store 3 nuevos. Vivo: "Encolar ya" desde curl (mismo processDue + aviso que
+      el cron) con el navegador en Programados → las filas salieron solas, pestañas 4→1 / 3→6.
+      Nota de la revisión: en dev el cron solo corre con la Mac despierta (durmió hasta 8:23 y no
+      hubo corridas de madrugada); prod es 1 instancia fork que no duerme.
 
 **Desviaciones** (2026-10-02):
 - El texto de la bandeja para pausados dice que **se pueden enviar a mano**, no que "no se
