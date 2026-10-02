@@ -3264,6 +3264,9 @@
     "queuePausedOnly": "Hay {count} mensaje de una secuencia pausada: este filtro lo oculta, pero se puede enviar a mano. | Hay {count} mensajes de secuencias pausadas: este filtro los oculta, pero se pueden enviar a mano.",
     "queuePausedHidden": "{count} mensaje más en una secuencia pausada (oculto). | {count} mensajes más en secuencias pausadas (ocultos).",
     "queueShowPaused": "Ver pausados",
+    "schedPausedHidden": "{count} programado más de una secuencia pausada (oculto): no sale mientras siga apagada. | {count} programados más de secuencias pausadas (ocultos): no salen mientras sigan apagadas.",
+    "schedPausedShown": "Incluye {count} programado de una secuencia pausada. | Incluye {count} programados de secuencias pausadas.",
+    "schedHidePaused": "Ocultar pausados",
     "queueFilterEmpty": "Ningún mensaje coincide con el filtro.",
     "pastStepsTitle": "Pasos con fecha pasada",
     "pastStepsHint": "Estos pasos ya debieron enviarse y no se programaron. Elige cuáles enviar ahora: los de WhatsApp entran a la bandeja y los de correo salen de inmediato.",
@@ -3506,6 +3509,8 @@
       "skipped": "{n} omitidos",
       "failed": "{n} fallidos",
       "scheduledHint": "Ver los programados de esta secuencia",
+      "pausedPending": "{n} en pausa",
+      "pausedPendingHint": "La secuencia está apagada: estos mensajes no se envían mientras siga así; al reactivarla vuelven a programarse. Clic para verlos.",
       "issuesHint": "Ver los problemas de esta secuencia"
     },
     "issuesTitle": "Mensajes con problema",

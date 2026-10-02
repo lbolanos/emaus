@@ -60,6 +60,7 @@ const responsibilityNames = computed(() => {
 const { sequences, queue, stats, issues, issuesTotal, detail, detailLoading } = storeToRefs(sequenceStore);
 const {
 	scheduled, scheduledTotal, scheduledTotalPages, scheduledTimezone, scheduledLoading,
+	scheduledPausedCount,
 } = storeToRefs(sequenceStore);
 
 const { templates } = storeToRefs(templateStore);
@@ -225,8 +226,9 @@ async function load() {
 		sequenceStore.fetchQueue(retreatId.value),
 		sequenceStore.fetchStats(retreatId.value),
 		// Pestaña Programados: primera página lista al abrirla y, de paso, la TZ
-		// del retiro (fallback para pintar fechas de bandeja/detalle).
-		sequenceStore.fetchScheduled(retreatId.value),
+		// del retiro (fallback para pintar fechas de bandeja/detalle). Through
+		// loadScheduled so the first page already hides paused rows.
+		loadScheduled(),
 		templateStore.fetchTemplates(retreatId.value),
 		participantStore.fetchParticipants().catch(() => {}),
 		responsabilityStore.fetchResponsibilities(retreatId.value, { silent: true }).catch(() => {}),
@@ -791,6 +793,13 @@ const schedSequenceFilter = ref<string | null>(null); // chip de secuencia (badg
 // en su nombre de una fila — el nombre llega en la propia fila (no carga el roster).
 const schedParticipantFilter = ref<{ id: string; name: string } | null>(null);
 const schedPage = ref(1);
+// Paused rows (pending of an inactive sequence) are hidden by default, like in
+// the queue: Programados lists what will actually go out. An explicit chip
+// (sequence or participant) shows everything — the user is asking for it.
+const schedShowPaused = ref(false);
+const schedPausedMode = computed<'include' | 'hide'>(() =>
+	schedShowPaused.value || schedSequenceFilter.value || schedParticipantFilter.value ? 'include' : 'hide',
+);
 let schedSearchTimer: number | undefined;
 
 watch(schedSearch, (v) => {
@@ -800,10 +809,12 @@ watch(schedSearch, (v) => {
 
 // Contador del TAB: pending total del retiro, derivado de stats — igual fuente
 // que los badges por secuencia. Independiente de los filtros de la pestaña
-// (scheduledTotal cambia con el status elegido; este no).
+// (scheduledTotal cambia con el status elegido; este no). Paused sequences
+// don't count: their pending rows won't go out while they stay off.
 const scheduledTabCount = computed(() =>
-	Object.values(stats.value || {}).reduce(
-		(n: number, byStatus) => n + ((byStatus as Record<string, number>).pending || 0),
+	Object.entries(stats.value || {}).reduce(
+		(n: number, [sequenceId, byStatus]) =>
+			pausedSequence({ sequenceId }) ? n : n + ((byStatus as Record<string, number>).pending || 0),
 		0,
 	),
 );
@@ -817,11 +828,12 @@ async function loadScheduled() {
 		search: schedSearchDebounced.value.trim() || undefined,
 		page: schedPage.value,
 		order: schedOrder.value,
+		paused: schedPausedMode.value,
 	});
 }
 
 // Refetch al cambiar cualquier control; los filtros además vuelven a página 1.
-watch([schedSearchDebounced, schedStatus, schedOrder, schedSequenceFilter, schedParticipantFilter], () => {
+watch([schedSearchDebounced, schedStatus, schedOrder, schedSequenceFilter, schedParticipantFilter, schedShowPaused], () => {
 	schedPage.value = 1;
 	loadScheduled();
 });
@@ -1523,14 +1535,21 @@ async function toggleDoNotContact() {
 					<div class="flex flex-wrap gap-1.5 mt-1.5 text-[11px]">
 						<!-- programados = status 'pending' del API: mensajes materializados con
 						     fecha futura; el cron los pasa a 'queued' el día que vencen. -->
+						<!-- Paused sequence: its pending rows won't go out while it stays
+						     off, so the badge says "en pausa" (gray) instead of "programados". -->
 						<button
 							v-if="statusCount(seq.id, 'pending')"
 							type="button"
-							class="bg-blue-100 text-blue-700 rounded px-1.5 py-0.5 hover:bg-blue-200 transition-colors cursor-pointer"
-							:title="t('sequences.stat.scheduledHint')"
+							class="rounded px-1.5 py-0.5 transition-colors cursor-pointer"
+							:class="seq.isActive ? 'bg-blue-100 text-blue-700 hover:bg-blue-200' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'"
+							:title="seq.isActive ? t('sequences.stat.scheduledHint') : t('sequences.stat.pausedPendingHint')"
 							@click="openScheduledForSequence(seq)"
 						>
-							{{ t('sequences.stat.scheduled', { n: statusCount(seq.id, 'pending') }) }}
+							{{
+								seq.isActive
+									? t('sequences.stat.scheduled', { n: statusCount(seq.id, 'pending') })
+									: t('sequences.stat.pausedPending', { n: statusCount(seq.id, 'pending') })
+							}}
 						</button>
 						<span v-if="statusCount(seq.id, 'sent')" class="bg-green-100 text-green-700 rounded px-1.5 py-0.5">
 							{{ t('sequences.stat.sent', { n: statusCount(seq.id, 'sent') }) }}
@@ -1662,6 +1681,22 @@ async function toggleDoNotContact() {
 				</div>
 				<p v-if="scheduledTimezone" class="text-[11px] text-gray-400 mb-2">
 					{{ t('sequences.scheduledTzHint', { tz: scheduledTimezone }) }}
+				</p>
+				<!-- Paused rows are hidden by default: say how many and let them be shown. -->
+				<p v-if="scheduledPausedCount && schedPausedMode === 'hide'" class="text-xs text-gray-500 mb-2">
+					{{ t('sequences.schedPausedHidden', { count: scheduledPausedCount }, scheduledPausedCount) }}
+					<button type="button" class="text-blue-600 hover:underline" @click="schedShowPaused = true">
+						{{ t('sequences.queueShowPaused') }}
+					</button>
+				</p>
+				<p
+					v-else-if="scheduledPausedCount && schedShowPaused && !schedSequenceFilter && !schedParticipantFilter"
+					class="text-xs text-gray-500 mb-2"
+				>
+					{{ t('sequences.schedPausedShown', { count: scheduledPausedCount }, scheduledPausedCount) }}
+					<button type="button" class="text-blue-600 hover:underline" @click="schedShowPaused = false">
+						{{ t('sequences.schedHidePaused') }}
+					</button>
 				</p>
 
 				<div v-if="scheduledLoading" class="text-sm text-gray-500 border rounded-md p-4 text-center">

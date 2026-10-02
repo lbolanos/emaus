@@ -837,6 +837,70 @@ describe('MessageSequencesView — past-dated steps on "Ejecutar" (M5)', () => {
 	});
 });
 
+describe('MessageSequencesView — Programados hides paused sequences by default', () => {
+	const SEQ_OFF = { ...SEQ, id: 'seq-off', name: 'Ultimo Prendas', isActive: false };
+
+	it('fetches with paused=hide, and an explicit sequence chip includes them', async () => {
+		const wrapper = await mountView();
+		const apiMod: any = await import('@/services/api');
+		const calls = apiMod.fetchScheduledMessages.mock.calls;
+		expect(calls[calls.length - 1][1].paused).toBe('hide');
+
+		apiMod.fetchScheduledMessages.mockClear();
+		wrapper.vm.openScheduledForSequence(SEQ_OFF);
+		await flushPromises();
+		const after = apiMod.fetchScheduledMessages.mock.calls;
+		expect(after[after.length - 1][1]).toMatchObject({ sequenceId: 'seq-off', paused: 'include' });
+	});
+
+	it('the tab counter leaves out pending rows of inactive sequences', async () => {
+		const wrapper = await mountView();
+		const { useMessageSequenceStore } = await import('@/stores/messageSequenceStore');
+		const store = useMessageSequenceStore();
+		store.sequences = [SEQ, SEQ_OFF] as any;
+		store.stats = { 'seq-1': { pending: 2 }, 'seq-off': { pending: 29 } } as any;
+		await flushPromises();
+
+		const tab = wrapper.findAll('button').find((b) => b.text().includes('Programados'));
+		expect(tab!.text()).toContain('2');
+		expect(tab!.text()).not.toContain('31');
+	});
+
+	it('says how many are hidden, and "Ver pausados" refetches including them', async () => {
+		const apiMod: any = await import('@/services/api');
+		const wrapper = await mountView();
+		apiMod.fetchScheduledMessages.mockResolvedValue({ ...SCHED_PAGE, pausedCount: 29 });
+		wrapper.vm.activeTab = 'scheduled';
+		await flushPromises();
+
+		const panel = wrapper.find('#seq-panel-scheduled');
+		expect(panel.text()).toContain('29 programados más de secuencias pausadas (ocultos)');
+
+		apiMod.fetchScheduledMessages.mockClear();
+		const show = panel.findAll('button').find((b) => b.text().includes('Ver pausados'));
+		await show!.trigger('click');
+		await flushPromises();
+
+		const calls = apiMod.fetchScheduledMessages.mock.calls;
+		expect(calls[calls.length - 1][1].paused).toBe('include');
+		expect(panel.text()).toContain('Incluye 29 programados de secuencias pausadas');
+		apiMod.fetchScheduledMessages.mockResolvedValue(SCHED_PAGE);
+	});
+
+	it('the card of an inactive sequence says "en pausa", not "programados"', async () => {
+		const wrapper = await mountView();
+		const { useMessageSequenceStore } = await import('@/stores/messageSequenceStore');
+		const store = useMessageSequenceStore();
+		store.sequences = [SEQ_OFF] as any;
+		store.stats = { 'seq-off': { pending: 29 } } as any;
+		await flushPromises();
+
+		const panel = wrapper.find('#seq-panel-sequences');
+		expect(panel.text()).toContain('29 en pausa');
+		expect(panel.text()).not.toContain('29 programados');
+	});
+});
+
 describe('MessageSequencesView — queue holding only paused messages', () => {
 	it('says how many are paused instead of looking empty, and "Ver pausados" shows them', async () => {
 		const wrapper = await mountView();

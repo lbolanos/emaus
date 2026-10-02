@@ -1930,6 +1930,45 @@ describe('MessageSequenceService', () => {
 			expect(page2.items.map((i) => i.participantName)).toEqual(['C M3']);
 		});
 
+		it('listScheduled paused: hide/only/include over pending of an inactive sequence', async () => {
+			const { retreat, seq } = await seedList([
+				{ status: 'pending', scheduledFor: new Date('2026-10-09T15:00:00Z'), firstName: 'Ana' },
+				{ status: 'sent', scheduledFor: new Date('2026-09-20T15:00:00Z'), firstName: 'Beto' },
+			]);
+			// A second, active sequence with its own pending row.
+			const active = await svc.createSequence({
+				name: 'Activa', retreatId: retreat.id, trigger: 'participant_created', audience: 'walker',
+				steps: [{ stepOrder: 0, offsetDays: 5, sendHour: 9, templateType: 'WALKER_WELCOME', channel: 'whatsapp' } as any],
+			});
+			const p = await TestDataFactory.createTestParticipant(retreat.id, {
+				type: 'walker', firstName: 'Caro', lastName: 'M3', email: 'caro-m3@example.com',
+			} as any);
+			const repo = AppDataSource.getRepository(ScheduledMessage);
+			await repo.save(repo.create({
+				sequenceId: active.id, stepId: active.steps![0].id, participantId: p.id,
+				retreatId: retreat.id, channel: 'whatsapp', templateType: 'WALKER_WELCOME',
+				recipientTarget: 'participant', scheduledFor: new Date('2026-10-10T15:00:00Z'),
+				status: 'pending',
+			}));
+			await svc.updateSequence(seq.id, { isActive: false });
+			const names = (res: { items: Array<{ participantName: string }> }) =>
+				res.items.map((i) => i.participantName).sort();
+
+			const hidden = await svc.listScheduled(retreat.id, { statuses: ['pending', 'sent'], paused: 'hide' });
+			// Ana (pending, inactive seq) hidden; Beto's sent row of the same sequence stays.
+			expect(names(hidden)).toEqual(['Beto M3', 'Caro M3']);
+			expect(hidden.total).toBe(2);
+			expect(hidden.pausedCount).toBe(1);
+
+			const only = await svc.listScheduled(retreat.id, { statuses: ['pending', 'sent'], paused: 'only' });
+			expect(names(only)).toEqual(['Ana M3']);
+
+			// Default keeps the old contract: everything, with the count alongside.
+			const all = await svc.listScheduled(retreat.id, { statuses: ['pending', 'sent'] });
+			expect(names(all)).toEqual(['Ana M3', 'Beto M3', 'Caro M3']);
+			expect(all.pausedCount).toBe(1);
+		});
+
 		it('schedulePreview: loopéa computeScheduledFor — 9:00 CDMX = 15:00 UTC exacto', async () => {
 			const retreat = await TestDataFactory.createTestRetreat({
 				timezone: 'America/Mexico_City',

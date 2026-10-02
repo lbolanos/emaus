@@ -129,6 +129,12 @@ milestone correspondiente.
       3 filas `queued` con la hora del clic en la bandeja; apagada → "3 mensajes más en
       secuencias pausadas (ocultos) · Ver pausados" → los muestra. Secuencia borrada, 0 filas.
 - [x] Commit (rama `sequence-past-steps`, apilada sobre `queue-sort-palanquero`)
+- [x] CA9 — Programados oculta los pausados: `listScheduled({ paused })` + `pausedCount`; la
+      carga inicial ahora pasa por `loadScheduled` (antes pedía sin filtros y la primera vista
+      habría mostrado los pausados); contador de pestaña sin pausadas; badge "N en pausa".
+      Tests: API 170/170 (1 nuevo), vista 40/40 (4 nuevos). Verificación viva en el retiro demo:
+      apagar "Demo flujo completo" → pestaña 1→0, tarjeta "1 en pausa", aviso "1 programado más
+      de una secuencia pausada (oculto) · Ver pausados" → la fila con chip Pausado; reactivada.
 
 **Desviaciones** (2026-10-02):
 - El texto de la bandeja para pausados dice que **se pueden enviar a mano**, no que "no se

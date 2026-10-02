@@ -51,6 +51,8 @@ export const useMessageSequenceStore = defineStore('message-sequence', () => {
 	const scheduledPage = ref(1);
 	const scheduledTotalPages = ref(1);
 	const scheduledTimezone = ref<string | null>(null);
+	// Paused rows (pending of inactive sequences) matching the current Programados query.
+	const scheduledPausedCount = ref(0);
 	const scheduledLoading = ref(false);
 	// Retiro del último fetch: alimenta el fallback de TZ y los refresh de stats
 	// fire-and-forget (sin andar pasando el retreatId por todos lados).
@@ -123,6 +125,7 @@ export const useMessageSequenceStore = defineStore('message-sequence', () => {
 			scheduledPage.value = res.page;
 			scheduledTotalPages.value = res.totalPages;
 			scheduledTimezone.value = res.timezone;
+			scheduledPausedCount.value = res.pausedCount ?? 0;
 		} catch (e: any) {
 			error.value = e?.message || 'Failed to fetch scheduled messages';
 		} finally {
@@ -320,6 +323,7 @@ export const useMessageSequenceStore = defineStore('message-sequence', () => {
 		scheduledPage,
 		scheduledTotalPages,
 		scheduledTimezone,
+		scheduledPausedCount,
 		scheduledLoading,
 		realtimeConnected,
 		fetchSequences,

@@ -119,6 +119,11 @@ ACTIVA, **28 mensajes `queued` vencidos** en la bandeja de despacho WhatsApp, 1 
   mismo clic; *Omitir* no crea nada y lo vuelve a preguntar en el siguiente run.
 - CA8 (M5): bandeja con mensajes solo de secuencias apagadas → dice cuántos son y *Ver pausados*
   los muestra (no "Sin resultados para la búsqueda").
+- CA9 (M5): Programados oculta por defecto los `pending` de secuencias apagadas (servidor:
+  `paused=hide`, con `pausedCount`) y no los cuenta en la pestaña; la tarjeta dice "N en pausa".
+  Un chip explícito (secuencia o participante) los incluye. Los `sent`/`queued` de una secuencia
+  apagada siguen visibles (historial). Pregunta de Leonardo: "¿los programados deberían verse si
+  está desactivado?" → no por defecto (OK 2026-10-02).
 
 ## Fuera de alcance
 

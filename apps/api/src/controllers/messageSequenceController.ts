@@ -171,6 +171,7 @@ export class MessageSequenceController {
 				page: Math.max(1, Number(q.page) || 1),
 				limit: Math.min(200, Math.max(1, Number(q.limit) || 50)),
 				order: q.order === 'recent' ? 'recent' : 'scheduled',
+				paused: q.paused === 'hide' || q.paused === 'only' ? q.paused : 'include',
 			});
 			res.json(result);
 		} catch (error) {

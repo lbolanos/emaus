@@ -4048,6 +4048,8 @@ export interface ScheduledMessagesPage {
   page: number;
   totalPages: number;
   timezone: string;
+  /** Pending rows of inactive sequences matching the other filters (shown or not). */
+  pausedCount?: number;
 }
 
 /** Query de la pestaña "Programados" — TODO server-side (filtros, orden, página). */
@@ -4059,6 +4061,8 @@ export interface FetchScheduledMessagesOptions {
   page?: number;
   limit?: number;
   order?: 'scheduled' | 'recent';
+  /** Pending rows of inactive sequences: hide (tab default), only, or include. */
+  paused?: 'include' | 'hide' | 'only';
 }
 
 export const fetchScheduledMessages = async (
@@ -4073,6 +4077,7 @@ export const fetchScheduledMessages = async (
   if (opts.page) params.set('page', String(opts.page));
   if (opts.limit) params.set('limit', String(opts.limit));
   if (opts.order) params.set('order', opts.order);
+  if (opts.paused) params.set('paused', opts.paused);
   const qs = params.toString();
   const r = await api.get(`/message-sequences/retreat/${retreatId}/scheduled${qs ? `?${qs}` : ''}`);
   return r.data;

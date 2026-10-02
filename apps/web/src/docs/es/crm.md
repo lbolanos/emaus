@@ -96,7 +96,7 @@ Si haces **clic en el nombre** del participante (en Pendientes o en Problemas) s
 
 > **Registros tardíos** (pasos "al registrarse"): si el mensaje de alguien recién registrado va con hasta 2 días de retraso, se envía igual; con más retraso, se omite.
 
-> **Secuencias apagadas**: al desactivar una secuencia, lo que ya estaba en la bandeja se oculta (el filtro *Activos* no lo muestra y no cuenta en la pestaña), pero la bandeja te avisa cuántos hay y el botón **Ver pausados** los muestra; se pueden enviar a mano igual. Lo que estaba en *Programados* queda marcado **Pausado**: no se encola mientras la secuencia siga apagada, y vuelve a correr al reactivarla.
+> **Secuencias apagadas**: al desactivar una secuencia, lo que ya estaba en la bandeja se oculta (el filtro *Activos* no lo muestra y no cuenta en la pestaña), pero la bandeja te avisa cuántos hay y el botón **Ver pausados** los muestra; se pueden enviar a mano igual. Lo que estaba en *Programados* no se borra, pero tampoco se encola mientras la secuencia siga apagada: por eso se oculta de la lista y no cuenta en la pestaña, y la tarjeta de la secuencia dice **"N en pausa"** en vez de "N programados". **Ver pausados** los muestra (marcados **Pausado**), y al reactivar la secuencia vuelven a programarse tal como estaban.
 
 **Qué pasa en cada caso:**
 

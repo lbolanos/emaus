@@ -1753,6 +1753,10 @@ export class MessageSequenceService {
 			page?: number;
 			limit?: number;
 			order?: 'scheduled' | 'recent';
+			// A paused row = `pending` of an inactive sequence: it won't go out
+			// while the sequence stays off. 'hide' drops them (the tab's default),
+			// 'only' lists just them, 'include' (default) keeps the old contract.
+			paused?: 'include' | 'hide' | 'only';
 		} = {},
 	): Promise<{
 		items: Array<{
@@ -1778,6 +1782,8 @@ export class MessageSequenceService {
 		page: number;
 		totalPages: number;
 		timezone: string;
+		/** Paused rows matching the other filters, whatever `paused` mode was used. */
+		pausedCount: number;
 	}> {
 		const repo = AppDataSource.getRepository(ScheduledMessage);
 		// leftJoinAndSelect (no leftJoin plano): el DTO lee participant/step de la
@@ -1787,6 +1793,7 @@ export class MessageSequenceService {
 			.createQueryBuilder('sm')
 			.leftJoinAndSelect('sm.participant', 'participant')
 			.leftJoinAndSelect('sm.step', 'step')
+			.innerJoin('sm.sequence', 'seq')
 			.where('sm.retreatId = :retreatId', { retreatId });
 		const statuses = opts.statuses?.length ? opts.statuses : ['pending'];
 		qb.andWhere('sm.status IN (:...statuses)', { statuses });
@@ -1802,6 +1809,11 @@ export class MessageSequenceService {
 				{ q: `%${opts.search}%` },
 			);
 		}
+		const pausedWhere = "(sm.status = 'pending' AND seq.isActive = :seqActive)";
+		const pausedParams = { seqActive: false };
+		const pausedCount = await qb.clone().andWhere(pausedWhere, pausedParams).getCount();
+		if (opts.paused === 'hide') qb.andWhere(`NOT ${pausedWhere}`, pausedParams);
+		else if (opts.paused === 'only') qb.andWhere(pausedWhere, pausedParams);
 		const total = await qb.clone().getCount();
 		const page = Math.max(1, opts.page ?? 1);
 		const limit = Math.min(200, Math.max(1, opts.limit ?? 50));
@@ -1848,6 +1860,7 @@ export class MessageSequenceService {
 			page,
 			totalPages: Math.max(1, Math.ceil(total / limit)),
 			timezone: this.resolveTz(retreat),
+			pausedCount,
 		};
 	}
 

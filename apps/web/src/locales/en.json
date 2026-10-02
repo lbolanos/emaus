@@ -2940,6 +2940,9 @@
     "queuePausedOnly": "{count} message belongs to a paused sequence: this filter hides it, but it can still be sent by hand. | {count} messages belong to paused sequences: this filter hides them, but they can still be sent by hand.",
     "queuePausedHidden": "{count} more message in a paused sequence (hidden). | {count} more messages in paused sequences (hidden).",
     "queueShowPaused": "Show paused",
+    "schedPausedHidden": "{count} more scheduled message from a paused sequence (hidden): it won't go out while the sequence is off. | {count} more scheduled messages from paused sequences (hidden): they won't go out while those sequences are off.",
+    "schedPausedShown": "Includes {count} scheduled message from a paused sequence. | Includes {count} scheduled messages from paused sequences.",
+    "schedHidePaused": "Hide paused",
     "queueFilterEmpty": "No messages match the filter.",
     "pastStepsTitle": "Steps with a past date",
     "pastStepsHint": "These steps were due already and were not scheduled. Pick which ones to send now: WhatsApp ones go to the queue and email ones go out right away.",
@@ -3182,6 +3185,8 @@
       "skipped": "{n} skipped",
       "failed": "{n} failed",
       "scheduledHint": "View this sequence's scheduled messages",
+      "pausedPending": "{n} paused",
+      "pausedPendingHint": "The sequence is off: these messages won't be sent while it stays that way; reactivating it schedules them again. Click to view them.",
       "issuesHint": "View this sequence's issues"
     },
     "issuesTitle": "Messages with issues",
