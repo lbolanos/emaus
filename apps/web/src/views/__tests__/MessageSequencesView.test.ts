@@ -799,4 +799,31 @@ describe('MessageSequencesView — bandeja por palanquero', () => {
 		// P1 (fecha más tardía) gana a P2 (más temprana): agrupa por palanquero.
 		expect(names).toEqual(['Carlos Díaz', 'Lupita Gómez', 'Servidor Nuñez']);
 	});
+
+	it('coordinador sin titular: la fila pinta "Palanquero 2" a secas, sin paréntesis vacíos', async () => {
+		const wrapper = await mountView([
+			{
+				...QUEUE_ITEM,
+				palancasCoordinator: 'Palanquero 2',
+				palanqueroName: null, // la responsabilidad existe pero nadie la titulariza
+			},
+		]);
+		expect(wrapper.text()).toContain('Palanquero 2');
+		expect(wrapper.text()).not.toContain('Palanquero 2 (');
+		expect(wrapper.text()).not.toContain('Palanquero 2 ()');
+	});
+
+	it('la opción "Palanquero" existe en el combobox desktop y en el menú móvil', async () => {
+		const wrapper = await mountView(palanqueroQueue());
+
+		// Desktop: el combobox vive siempre en el header de la bandeja.
+		const desktopOptions = wrapper.findAll('select option[value="palanquero"]');
+		expect(desktopOptions).toHaveLength(1);
+		expect(desktopOptions[0].text()).toBe('Palanquero'); // label del locale es
+
+		// Móvil: el select del menú "⋯" sólo monta con el menú abierto.
+		wrapper.vm.queueMenuOpen = true;
+		await flushPromises();
+		expect(wrapper.findAll('select option[value="palanquero"]')).toHaveLength(2);
+	});
 });

@@ -1731,7 +1731,7 @@ async function toggleDoNotContact() {
 									<option value="name">{{ t('sequences.sort.name') }}</option>
 									<option value="template">{{ t('sequences.sort.template') }}</option>
 									<option value="sequence">{{ t('sequences.sort.sequence') }}</option>
-								<option value="palanquero">{{ t('sequences.sort.palanquero') }}</option>
+									<option value="palanquero">{{ t('sequences.sort.palanquero') }}</option>
 								</select>
 							</label>
 							<label class="block text-sm text-gray-700">
@@ -1779,7 +1779,7 @@ async function toggleDoNotContact() {
 							<option value="name">{{ t('sequences.sort.name') }}</option>
 							<option value="template">{{ t('sequences.sort.template') }}</option>
 							<option value="sequence">{{ t('sequences.sort.sequence') }}</option>
-						<option value="palanquero">{{ t('sequences.sort.palanquero') }}</option>
+							<option value="palanquero">{{ t('sequences.sort.palanquero') }}</option>
 						</select>
 					</label>
 					<label class="flex items-center gap-1.5 text-xs text-gray-600">

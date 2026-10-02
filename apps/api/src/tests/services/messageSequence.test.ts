@@ -2323,5 +2323,55 @@ describe('MessageSequenceService', () => {
 				palanqueroName: null,
 			});
 		});
+
+		it('holder with empty lastName resolves to the bare first name (no stray space)', async () => {
+			const retreat = await TestDataFactory.createTestRetreat({ timezone: 'America/Mexico_City' });
+			// Holder registered with a single name: lastName is NOT NULL in the
+			// schema, so the real edge case is '' → the composed name must trim
+			// to 'Sol', not 'Sol ' (which would break the row label).
+			const holder = await TestDataFactory.createTestParticipant(retreat.id, {
+				firstName: 'Sol',
+			} as any);
+			await AppDataSource.getRepository(Participant).update(holder.id, { lastName: '' } as any);
+			const respRepo = AppDataSource.getRepository(Responsability);
+			await respRepo.save(
+				respRepo.create({ retreatId: retreat.id, name: 'Palanquero 1', participantId: holder.id }),
+			);
+
+			const walker = await TestDataFactory.createTestParticipant(retreat.id, { type: 'walker' } as any);
+			await AppDataSource.getRepository(RetreatParticipant).update(
+				{ participantId: walker.id, retreatId: retreat.id },
+				{ palancasCoordinator: 'Palanquero 1' },
+			);
+
+			const seq = await svc.createSequence({
+				name: 'Palanquero bare name',
+				retreatId: retreat.id,
+				trigger: 'participant_created',
+				audience: 'walker',
+				steps: [{ stepOrder: 0, offsetDays: 0, sendHour: 9, templateType: 'PALANCA_REQUEST', channel: 'whatsapp' } as any],
+			});
+			const smRepo = AppDataSource.getRepository(ScheduledMessage);
+			await smRepo.save(
+				smRepo.create({
+					sequenceId: seq.id,
+					stepId: seq.steps![0].id,
+					participantId: walker.id,
+					retreatId: retreat.id,
+					channel: 'whatsapp',
+					templateType: 'PALANCA_REQUEST',
+					recipientTarget: 'participant',
+					scheduledFor: new Date(Date.now() - 3600_000),
+					status: 'queued',
+					resolvedContent: 'x',
+					resolvedContact: '5512345678',
+				} as any),
+			);
+
+			const queue = await svc.listQueued(retreat.id);
+			expect(queue).toHaveLength(1);
+			expect(queue[0].palancasCoordinator).toBe('Palanquero 1');
+			expect(queue[0].palanqueroName).toBe('Sol');
+		});
 	});
 });
