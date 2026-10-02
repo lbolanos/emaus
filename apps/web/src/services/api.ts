@@ -2419,6 +2419,7 @@ export async function getRetreatDeletionImpact(
 // ==================== RETREAT MEMORY GALLERY API ====================
 
 import type { RetreatMemoryPhoto, RetreatMemorySong } from "@repo/types";
+import type { SequenceRunResult } from "@repo/types";
 
 export interface RetreatMemories {
   photos: RetreatMemoryPhoto[];
@@ -4157,10 +4158,18 @@ export const getScheduledMessageDetail = async (
   return r.data;
 };
 
+/**
+ * "Ejecutar" of a retreat. `sendNowStepIds` = past-dated steps the coordinator
+ * confirmed to send now; the response's `pastSteps` lists the ones still skipped.
+ */
 export const runSequences = async (
   retreatId: string,
-): Promise<{ enrolled: number; processed: number }> => {
-  const r = await api.post(`/message-sequences/retreat/${retreatId}/run`);
+  sendNowStepIds?: string[],
+): Promise<SequenceRunResult> => {
+  const r = await api.post(
+    `/message-sequences/retreat/${retreatId}/run`,
+    sendNowStepIds?.length ? { sendNowStepIds } : undefined,
+  );
   return r.data;
 };
 

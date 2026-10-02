@@ -119,6 +119,20 @@ Migración data-only
 - Tests: `services/messageSequenceCustomMessageGuard.test.ts`,
   `migrations/cleanCustomMessagePlaceholder.simple.test.ts`.
 
+## M5 — pasos vencidos: preguntar en *Ejecutar* (2026-10-02, rama `sequence-past-steps`)
+
+- `enrollSequenceDetailed(seq, now, sendNowStepIds)`; `enrollSequence` delega y sigue devolviendo
+  `number` (el cron no cambia). En el loop, el `seen` se evalúa ANTES del guard: el conteo de
+  vencidos solo incluye a quien aún no tiene la fila (p. ej. no a Marco con su `sent`).
+- `runForRetreat(retreatId, { sendNowStepIds })` → `SequenceRunResult { enrolled, processed,
+  pastSteps }` (tipos y `runSequencesSchema` en `packages/types/src/sequence.ts`). Los ids de
+  otro retiro no matchean: el loop solo recorre las secuencias del retiro de la ruta.
+- Web: `runNow(sendNowStepIds?)`; diálogo `useModalA11y` con checkbox nativo por paso;
+  `pausedHiddenCount` + estados vacíos diferenciados en la bandeja. Keys es+en.
+- Ayuda in-app `docs/es/crm.md`: "Registros tardíos" estaba desactualizado desde M2.
+- Tests: 5 de integración en `messageSequenceRetroactiveEnrollGuard.test.ts`, 5 de vista en
+  `MessageSequencesView.test.ts`.
+
 ## Demo manual en dev al cierre (post-M4)
 
 Re-enrolar "Ultimo Prendas" → única plantilla `SERVER_SHIRT_CONFIRMATION` alcanzable, bandeja

@@ -42,6 +42,14 @@ ACTIVA, **28 mensajes `queued` vencidos** en la bandeja de despacho WhatsApp, 1 
 3. **Fecha del paso**: `offsetDays=5` → 11 oct (5 días antes del retiro 16-18 oct). La
    secuencia queda **pausada**; Leonardo la revisa y la activa.
 4. **`{custom_message}`**: dentro de este plan (hallazgo secundario, alcance chico).
+5. **Pasos vencidos: preguntar, no descartar** (2026-10-02, M5). Con R2 en uso, Leonardo
+   agregó a "Ultimo Prendas" un paso d25 (21-sep) para que saliera ya, pulsó *Ejecutar* y no
+   se creó nada: el guard lo descartó en silencio (el aviso del run no lo menciona y la única
+   pista era el ámbar del editor). Después duplicó la secuencia para reintentar y quedaron dos
+   copias con 58 programados y la bandeja "vacía" (las dos apagadas, pausados ocultos).
+   Decisión ("si, dale a todo"): el cron y la activación siguen sin catch-up (los incidentes de
+   R2 no vuelven), pero el *Ejecutar* manual informa los pasos vencidos y el coordinador elige
+   cuáles enviar ya. Y la bandeja deja de verse vacía cuando solo tiene pausados.
 
 ## Objetivo
 
@@ -85,6 +93,13 @@ ACTIVA, **28 mensajes `queued` vencidos** en la bandeja de despacho WhatsApp, 1 
     instrucción en el flujo manual (donde el texto se edita antes de enviar), no como texto roto.
   - El guard detecta **ambos marcadores** (`{custom_message}` y la frase neutral): sin esto, una
     plantilla migrada usada en una secuencia despacharía la frase literal al caminante.
+- R7 (M5): `POST /retreat/:id/run` devuelve `pastSteps` (por paso suprimido: secuencia, orden,
+  canal, fecha vencida, personas sin fila) y acepta `sendNowStepIds`: esos pasos se materializan
+  con `scheduledFor = ahora` y se procesan en el mismo run. `isRetreatClosed` sigue mandando
+  (un retiro cerrado no se pone al día ni confirmado). El cron (`enrollAll`) no cambia.
+- R8 (M5): la UI pregunta tras *Ejecutar* (preseleccionado solo el paso vencido más reciente de
+  cada secuencia) y avisa lo omitido; la bandeja muestra cuántos mensajes oculta por estar en
+  secuencias pausadas, con acceso directo al filtro *Pausados*.
 
 ## Criterios de aceptación
 
@@ -99,6 +114,11 @@ ACTIVA, **28 mensajes `queued` vencidos** en la bandeja de despacho WhatsApp, 1 
 - CA6: plantilla con `{custom_message}` (o la frase neutral de reemplazo) en una secuencia →
   mensaje `skipped` con error que dice qué editar; en las plantillas existentes el placeholder
   queda reemplazado.
+- CA7 (M5): secuencia activa con un paso vencido → *Ejecutar* abre "Pasos con fecha pasada" con
+  las personas que lo recibirían; *Enviar ahora* deja esas filas `queued` en la bandeja en el
+  mismo clic; *Omitir* no crea nada y lo vuelve a preguntar en el siguiente run.
+- CA8 (M5): bandeja con mensajes solo de secuencias apagadas → dice cuántos son y *Ver pausados*
+  los muestra (no "Sin resultados para la búsqueda").
 
 ## Fuera de alcance
 

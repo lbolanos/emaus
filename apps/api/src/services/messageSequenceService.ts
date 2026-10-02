@@ -26,6 +26,7 @@ import {
 	findEmptyVariables,
 } from '@repo/utils';
 import { getMessageTemplateAudience } from '@repo/types';
+import type { SequencePastStep, SequenceRunResult } from '@repo/types';
 import { savedSegmentService } from './savedSegmentService';
 import { CommunityMember } from '../entities/communityMember.entity';
 import { Community } from '../entities/community.entity';
@@ -427,6 +428,22 @@ export class MessageSequenceService {
 
 	/** Enrola los participantes elegibles de una secuencia (idempotente). */
 	public async enrollSequence(seq: MessageSequence, now: Date = new Date()): Promise<number> {
+		return (await this.enrollSequenceDetailed(seq, now)).created;
+	}
+
+	/**
+	 * `enrollSequence` plus M5: reports the past-dated steps the M2 guard left
+	 * unscheduled, so the manual "Ejecutar" can ask the coordinator instead of
+	 * dropping them silently. Steps listed in `sendNowStepIds` (the
+	 * coordinator's confirmation) are scheduled for `now` instead of skipped.
+	 * The hourly cron never passes it: automatic runs keep the guard intact.
+	 */
+	public async enrollSequenceDetailed(
+		seq: MessageSequence,
+		now: Date = new Date(),
+		sendNowStepIds: ReadonlySet<string> = new Set(),
+	): Promise<{ created: number; pastSteps: SequencePastStep[] }> {
+		const none = { created: 0, pastSteps: [] };
 		// Sólo pasos vivos: los archivados ya no enrolan (B4). El filtro cubre
 		// ambas vías — la carga fresca y unos `seq.steps` hidratados sin filtro.
 		const steps = (
@@ -436,18 +453,19 @@ export class MessageSequenceService {
 						where: { sequenceId: seq.id, isArchived: false },
 					})
 		).filter((s) => !s.isArchived);
-		if (!steps.length) return 0;
+		if (!steps.length) return none;
 
 		const retreat = await AppDataSource.getRepository(Retreat).findOne({
 			where: { id: seq.retreatId },
 			relations: ['house'],
 		});
-		if (!retreat) return 0;
+		if (!retreat) return none;
 
 		// Salvaguarda anti-backfill: si el retiro ya cerró su ventana para este
 		// trigger, no materializar nada. Evita que activar/desplegar una secuencia
 		// dispare mensajes (bienvenidas, recordatorios) de retiros ya terminados.
-		if (this.isRetreatClosed(retreat, seq.trigger, now)) return 0;
+		// Applies to confirmed steps too: a closed retreat is never caught up.
+		if (this.isRetreatClosed(retreat, seq.trigger, now)) return none;
 
 		// Participantes elegibles. Si la secuencia tiene un segmento, se evalúa en
 		// vivo (audiencia dinámica). Si no, se usa la audiencia base por type. La
@@ -476,7 +494,7 @@ export class MessageSequenceService {
 		}
 		// Opt-out: nunca enrolar a quien está en la lista de no-contacto.
 		participants = participants.filter((p) => !p.doNotContact);
-		if (!participants.length) return 0;
+		if (!participants.length) return none;
 
 		// Set de claves ya programadas → idempotencia. Para birthday la clave
 		// incluye el año agendado (#1): el mismo paso puede volver a disparar
@@ -499,19 +517,11 @@ export class MessageSequenceService {
 		const repo = AppDataSource.getRepository(ScheduledMessage);
 		const toCreate: ScheduledMessage[] = [];
 		let suppressed = 0;
+		const pastByStep = new Map<string, { step: SequenceStep; count: number; scheduledFor: Date }>();
 		for (const participant of participants) {
 			for (const step of steps) {
 				const scheduledFor = this.computeScheduledFor(seq.trigger, step, participant, retreat);
 				if (!scheduledFor) continue;
-				// M2: guard anti-retroactivo. SIN filas `skipped` a propósito:
-				// la UQ (stepId, participantId, occurrenceYear) las volvería
-				// permanentes y bloquearía el re-enrol tras corregir el offset
-				// (misma razón del DELETE de `updateSequence`). La visibilidad
-				// la da el editor (fecha del paso en ámbar).
-				if (this.isRetroactiveAtEnroll(seq.trigger, scheduledFor, now, tz)) {
-					suppressed++;
-					continue;
-				}
 				// Año de la ocurrencia EN LA TZ DEL RETIRO (la misma en la que
 				// computeScheduledFor construyó la fecha): es la parte de la
 				// clave que habilita un envío por cumpleaños.
@@ -519,7 +529,30 @@ export class MessageSequenceService {
 				const key = occurrenceYear
 					? `${step.id}:${participant.id}:${occurrenceYear}`
 					: `${step.id}:${participant.id}`;
+				// Checked before the guard so the past-step count only includes
+				// people who still lack the message (e.g. not an already-sent one).
 				if (seen.has(key)) continue;
+				let sendAt = scheduledFor;
+				// M2: guard anti-retroactivo. SIN filas `skipped` a propósito:
+				// la UQ (stepId, participantId, occurrenceYear) las volvería
+				// permanentes y bloquearía el re-enrol tras corregir el offset
+				// (misma razón del DELETE de `updateSequence`). La visibilidad
+				// la da el editor (fecha del paso en ámbar).
+				if (this.isRetroactiveAtEnroll(seq.trigger, scheduledFor, now, tz)) {
+					if (!sendNowStepIds.has(step.id)) {
+						suppressed++;
+						const past = pastByStep.get(step.id);
+						if (!past) pastByStep.set(step.id, { step, count: 1, scheduledFor });
+						else {
+							past.count++;
+							if (scheduledFor < past.scheduledFor) past.scheduledFor = scheduledFor;
+						}
+						continue;
+					}
+					// M5: confirmed by the coordinator from "Ejecutar" — send it
+					// now; its original date already passed.
+					sendAt = now;
+				}
 				toCreate.push(
 					repo.create({
 						sequenceId: seq.id,
@@ -529,7 +562,7 @@ export class MessageSequenceService {
 						channel: step.channel,
 						templateType: step.templateType,
 						recipientTarget: step.recipientTarget ?? "participant",
-						scheduledFor,
+						scheduledFor: sendAt,
 						occurrenceYear,
 						status: 'pending',
 					}),
@@ -542,7 +575,18 @@ export class MessageSequenceService {
 				`⏭️ Sequences: ${suppressed} mensaje(s) retroactivo(s) suprimido(s) al enrolar "${seq.name}" (${seq.id}) — fecha de paso en el pasado; el editor la marca en ámbar.`,
 			);
 		}
-		return toCreate.length;
+		const pastSteps: SequencePastStep[] = [...pastByStep.values()]
+			.sort((a, b) => a.step.stepOrder - b.step.stepOrder)
+			.map(({ step, count, scheduledFor }) => ({
+				sequenceId: seq.id,
+				sequenceName: seq.name,
+				stepId: step.id,
+				stepOrder: step.stepOrder,
+				channel: step.channel,
+				scheduledFor: scheduledFor.toISOString(),
+				count,
+			}));
+		return { created: toCreate.length, pastSteps };
 	}
 
 	/**
@@ -2516,16 +2560,26 @@ export class MessageSequenceService {
 	 * al cron horario) y el endpoint manual "Procesar ahora" del controller (#11:
 	 * una sola implementación, sin duplicar la rutina en el controller).
 	 */
-	async runForRetreat(retreatId: string): Promise<{ enrolled: number; processed: number }> {
+	async runForRetreat(
+		retreatId: string,
+		opts: { sendNowStepIds?: readonly string[] } = {},
+	): Promise<SequenceRunResult> {
 		const sequences = await this.findByRetreat(retreatId);
+		// Only this retreat's sequences are walked, so step ids from another
+		// retreat in `sendNowStepIds` have nothing to match and are ignored.
+		const sendNow = new Set(opts.sendNowStepIds ?? []);
 		let enrolled = 0;
+		const pastSteps: SequencePastStep[] = [];
 		for (const seq of sequences) {
-			if (seq.isActive) enrolled += await this.enrollSequence(seq);
+			if (!seq.isActive) continue;
+			const result = await this.enrollSequenceDetailed(seq, new Date(), sendNow);
+			enrolled += result.created;
+			pastSteps.push(...result.pastSteps);
 		}
 		// Scopeado a este retiro: el alta de un participante no debe disparar envíos
 		// de otros retiros.
 		const processed = await this.processDue(new Date(), undefined, retreatId);
-		return { enrolled, processed };
+		return { enrolled, processed, pastSteps };
 	}
 
 	/**

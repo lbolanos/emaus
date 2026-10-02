@@ -36,7 +36,7 @@ import {
 	filtersToCondition,
 	type StepDraft,
 } from './sequenceEditorShared';
-import type { SequenceStepPreview } from '@repo/types';
+import type { SequenceStepPreview, SequencePastStep } from '@repo/types';
 import { previewSequenceStep, previewSequenceSchedule } from '@/services/api';
 import { useModalA11y } from '@/composables/useModalA11y';
 
@@ -582,10 +582,10 @@ async function skipItem(item: any) {
 	}
 }
 
-async function runNow() {
+async function runNow(sendNowStepIds?: string[]) {
 	if (!retreatId.value) return;
 	try {
-		const res = await sequenceStore.run(retreatId.value);
+		const res = await sequenceStore.run(retreatId.value, sendNowStepIds);
 		// El run materializa filas que ningún evento de realtime cubre (solo
 		// hay evento cuando algo cae a `queued`): refrescar Programados para
 		// que la pestaña no muestre el conteo/lista previos al run.
@@ -593,9 +593,67 @@ async function runNow() {
 		toast({
 			title: t('sequences.runDone', { enrolled: res.enrolled, processed: res.processed }),
 		});
+		// M5: ask about the past-dated steps the guard skipped. Not after a
+		// confirmed run — the unselected ones were already reported as skipped.
+		if (!sendNowStepIds && res.pastSteps?.length) openPastStepsPrompt(res.pastSteps);
 	} catch {
 		toast({ title: t('sequences.runError'), variant: 'destructive' });
 	}
+}
+
+// M5: past-dated steps the last "Ejecutar" left unscheduled. They have no
+// rows, so skipping them is not remembered: the next run asks again.
+const pastStepsPrompt = ref<SequencePastStep[]>([]);
+const pastStepsSelected = ref<string[]>([]);
+const pastStepsModalOpen = computed(() => pastStepsPrompt.value.length > 0);
+const pastStepsModalRef = ref<HTMLElement | null>(null);
+useModalA11y(pastStepsModalOpen, skipPastSteps, pastStepsModalRef);
+// Messages the selected steps would send (sum of their head-counts).
+const pastStepsSelectedCount = computed(() =>
+	pastStepsPrompt.value
+		.filter((s) => pastStepsSelected.value.includes(s.stepId))
+		.reduce((n, s) => n + s.count, 0),
+);
+// A sequence with several overdue steps would send each person several
+// messages at once if all were picked: the dialog warns about it.
+const pastStepsHasMultiPerSequence = computed(
+	() => new Set(pastStepsPrompt.value.map((s) => s.sequenceId)).size < pastStepsPrompt.value.length,
+);
+
+function openPastStepsPrompt(steps: SequencePastStep[]) {
+	// Pre-select only the latest overdue step of each sequence.
+	const latest: Record<string, SequencePastStep> = {};
+	for (const s of steps) {
+		if (!latest[s.sequenceId] || s.stepOrder > latest[s.sequenceId].stepOrder) latest[s.sequenceId] = s;
+	}
+	pastStepsSelected.value = Object.values(latest).map((s) => s.stepId);
+	pastStepsPrompt.value = steps;
+}
+
+function togglePastStep(stepId: string) {
+	pastStepsSelected.value = pastStepsSelected.value.includes(stepId)
+		? pastStepsSelected.value.filter((id) => id !== stepId)
+		: [...pastStepsSelected.value, stepId];
+}
+
+function notifySkippedPastSteps(skipped: SequencePastStep[]) {
+	const count = skipped.reduce((n, s) => n + s.count, 0);
+	if (count) toast({ title: t('sequences.pastStepsSkipped', { count }, count) });
+}
+
+function skipPastSteps() {
+	const skipped = pastStepsPrompt.value;
+	pastStepsPrompt.value = [];
+	notifySkippedPastSteps(skipped);
+}
+
+async function sendPastSteps() {
+	const ids = pastStepsSelected.value.filter((id) => pastStepsPrompt.value.some((s) => s.stepId === id));
+	const skipped = pastStepsPrompt.value.filter((s) => !ids.includes(s.stepId));
+	// Close before the request (same rule as the other confirm dialogs).
+	pastStepsPrompt.value = [];
+	notifySkippedPastSteps(skipped);
+	if (ids.length) await runNow(ids);
 }
 
 // Preferencia: al abrir WhatsApp, marcar enviado automáticamente (salta el paso
@@ -698,6 +756,13 @@ const queueTotalPages = computed(() => Math.max(1, Math.ceil(filteredQueue.value
 // no cuentan (se ven dentro con el filtro "Pausados").
 const activeQueueCount = computed(
 	() => queue.value.filter((q: any) => !pausedSequence(q)).length,
+);
+// Queued items the current filter hides because their sequence is paused —
+// surfaced so the queue never looks empty while it holds messages.
+const pausedHiddenCount = computed(() =>
+	queueAssignFilter.value === 'paused' || queueAssignFilter.value === 'all'
+		? 0
+		: queue.value.length - activeQueueCount.value,
 );
 const pagedQueue = computed(() =>
 	filteredQueue.value.slice((queuePage.value - 1) * QUEUE_PAGE_SIZE, queuePage.value * QUEUE_PAGE_SIZE),
@@ -1414,7 +1479,7 @@ async function toggleDoNotContact() {
 					{{ t('sequences.sequencesCount', { n: sequences.length }) }}
 				</p>
 				<div class="grid grid-cols-3 gap-2 sm:flex sm:gap-2">
-					<Button variant="outline" size="sm" class="justify-center" @click="runNow">
+					<Button variant="outline" size="sm" class="justify-center" @click="runNow()">
 						<Play class="w-4 h-4 sm:mr-1" />
 						<span class="hidden sm:inline">{{ t('sequences.runNow') }}</span>
 						<span class="sm:hidden">{{ t('sequences.runShort') }}</span>
@@ -1804,6 +1869,12 @@ async function toggleDoNotContact() {
 						{{ t('sequences.openNext') }}
 					</Button>
 				</div>
+				<p v-if="pausedHiddenCount && filteredQueue.length" class="text-xs text-gray-500 mb-2">
+					{{ t('sequences.queuePausedHidden', { count: pausedHiddenCount }, pausedHiddenCount) }}
+					<button type="button" class="text-blue-600 hover:underline" @click="queueAssignFilter = 'paused'">
+						{{ t('sequences.queueShowPaused') }}
+					</button>
+				</p>
 				<div v-if="queue.length && filteredQueue.length" class="border rounded-md divide-y">
 					<div v-for="item in pagedQueue" :key="item.id" class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 p-3">
 					<div class="min-w-0">
@@ -1890,8 +1961,21 @@ async function toggleDoNotContact() {
 					</div>
 				</div>
 			</div>
-			<div v-else-if="queue.length" class="text-sm text-gray-500 border rounded-md p-4 text-center">
+			<div v-else-if="queue.length && queueSearch.trim()" class="text-sm text-gray-500 border rounded-md p-4 text-center">
 				{{ t('sequences.searchNoResults') }}
+			</div>
+			<!-- Everything left is paused: say so instead of looking empty. -->
+			<div
+				v-else-if="pausedHiddenCount && !activeQueueCount"
+				class="text-sm text-gray-600 border border-amber-200 bg-amber-50 rounded-md p-4 text-center"
+			>
+				{{ t('sequences.queuePausedOnly', { count: pausedHiddenCount }, pausedHiddenCount) }}
+				<Button size="sm" variant="outline" class="mt-2" @click="queueAssignFilter = 'paused'">
+					{{ t('sequences.queueShowPaused') }}
+				</Button>
+			</div>
+			<div v-else-if="queue.length" class="text-sm text-gray-500 border rounded-md p-4 text-center">
+				{{ t('sequences.queueFilterEmpty') }}
 			</div>
 			<div v-else class="text-sm text-gray-500 border rounded-md p-4 text-center">
 				{{ t('sequences.queueEmpty') }}
@@ -2590,6 +2674,59 @@ async function toggleDoNotContact() {
 				<div class="flex justify-end gap-2 mt-4">
 					<Button variant="outline" @click="seqToDelete = null">{{ t('common.actions.cancel') }}</Button>
 					<Button variant="destructive" @click="confirmDelete">{{ t('common.actions.delete') }}</Button>
+				</div>
+			</div>
+		</div>
+
+		<!-- M5: past-dated steps the last "Ejecutar" skipped: send now or skip -->
+		<div
+			v-if="pastStepsModalOpen"
+			class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+			@click.self="skipPastSteps"
+		>
+			<div
+				ref="pastStepsModalRef"
+				role="dialog"
+				aria-modal="true"
+				tabindex="-1"
+				:aria-label="t('sequences.pastStepsTitle')"
+				class="bg-white rounded-lg shadow-xl max-w-md w-full p-6 focus:outline-none"
+			>
+				<h2 class="text-lg font-semibold flex items-center gap-2">
+					<AlertTriangle class="w-5 h-5 text-amber-500 shrink-0" />
+					{{ t('sequences.pastStepsTitle') }}
+				</h2>
+				<p class="text-sm text-gray-600 mt-1">{{ t('sequences.pastStepsHint') }}</p>
+				<ul class="mt-4 space-y-3">
+					<li v-for="s in pastStepsPrompt" :key="s.stepId">
+						<label class="flex items-start gap-2 text-sm cursor-pointer">
+							<input
+								type="checkbox"
+								class="mt-1"
+								:checked="pastStepsSelected.includes(s.stepId)"
+								@change="togglePastStep(s.stepId)"
+							/>
+							<span>
+								<span class="font-medium">{{ s.sequenceName }}</span>
+								· {{ t('sequences.pastStepsStep', { n: s.stepOrder + 1 }) }}
+								<span class="block text-xs text-gray-500">
+									{{ t('sequences.pastStepsWas', { date: fmtStepDate(s.scheduledFor) }) }}
+									· {{ t('sequences.pastStepsPeople', { count: s.count }, s.count) }}
+									· {{ t('sequences.channels.' + s.channel) }}
+								</span>
+							</span>
+						</label>
+					</li>
+				</ul>
+				<p v-if="pastStepsHasMultiPerSequence" class="text-xs text-amber-600 mt-3 flex items-start gap-1">
+					<AlertTriangle class="w-3.5 h-3.5 shrink-0 mt-0.5" />
+					{{ t('sequences.pastStepsMultiHint') }}
+				</p>
+				<div class="flex justify-end gap-2 mt-4">
+					<Button variant="outline" @click="skipPastSteps">{{ t('sequences.pastStepsSkip') }}</Button>
+					<Button :disabled="!pastStepsSelectedCount" @click="sendPastSteps">
+						{{ t('sequences.pastStepsSend', { count: pastStepsSelectedCount }) }}
+					</Button>
 				</div>
 			</div>
 		</div>

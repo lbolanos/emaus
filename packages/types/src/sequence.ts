@@ -271,6 +271,38 @@ export interface SequenceSchedulePreview {
 }
 
 /**
+ * M5: manual "Ejecutar" of a retreat. `sendNowStepIds` lists the past-dated
+ * steps the coordinator confirmed to send NOW — without it the M2 guard skips
+ * them, and the response reports them in `pastSteps` so the UI can ask.
+ */
+export const runSequencesSchema = z.object({
+	body: z
+		.object({
+			sendNowStepIds: z.array(z.string().uuid()).max(200).optional(),
+		})
+		.optional(),
+});
+
+/** A step the M2 guard left unscheduled in a run because its date already passed. */
+export interface SequencePastStep {
+	sequenceId: string;
+	sequenceName: string;
+	stepId: string;
+	stepOrder: number;
+	channel: MessageChannel;
+	/** The (past) date the step was due, ISO. Earliest one for `participant_created`. */
+	scheduledFor: string;
+	/** People who would receive it (no row for that step yet). */
+	count: number;
+}
+
+export interface SequenceRunResult {
+	enrolled: number;
+	processed: number;
+	pastSteps: SequencePastStep[];
+}
+
+/**
  * Reprogramar un paso ya materializado: mueve TODOS sus mensajes `pending` a
  * una fecha absoluta interpretada EN LA TZ DEL RETIRO (o a "ahora" con
  * `immediate`, que además dispara el procesamiento del retiro para que caigan

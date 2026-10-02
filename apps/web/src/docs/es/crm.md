@@ -90,9 +90,13 @@ Si haces **clic en el nombre** del participante (en Pendientes o en Problemas) s
 
 > **Renovar con plantilla actual**: si editas una plantilla, los mensajes ya en la bandeja conservan el texto anterior (se "congela" al encolar). Este botón los actualiza con el texto vigente, sin cambiar a quién ni cuándo se envían.
 
-> El botón **Ejecutar ahora** procesa la secuencia en el momento, sin esperar al chequeo automático. Útil para probar.
+> El botón **Ejecutar ahora** procesa las secuencias activas en el momento, sin esperar al chequeo automático.
 
-> **Registros tardíos**: si alguien se registra *después* de la fecha de un paso "X días antes", ese mensaje se envía (o se encola) en cuanto se le enrola, aunque su fecha ideal ya haya pasado. Si la secuencia tiene varios pasos ya vencidos, el participante los recibirá **todos juntos**. Tenlo en cuenta al diseñar secuencias con varios recordatorios previos (por ejemplo, un mensaje que diga "faltan 10 días" puede llegarle a alguien a quien le faltan 3).
+> **Pasos con fecha ya pasada**: un paso "X días antes (o después) del retiro" cuya fecha ya pasó **no se programa solo**, ni al activar la secuencia ni en el chequeo automático. Así, una secuencia creada tarde o con los días mal puestos no manda mensajes viejos de golpe. En el editor, esa fecha aparece en ámbar. Si de verdad quieres enviarlo, pulsa **Ejecutar ahora**: te muestra los pasos vencidos con cuántas personas los recibirían, y eliges cuáles **enviar ahora** (los de WhatsApp entran a la bandeja; los de correo salen en ese momento) u **omitir**. Lo que omitas se te vuelve a preguntar la próxima vez que ejecutes. Si una secuencia tiene varios pasos vencidos, solo viene marcado el más reciente, para que a nadie le lleguen varios mensajes juntos.
+
+> **Registros tardíos** (pasos "al registrarse"): si el mensaje de alguien recién registrado va con hasta 2 días de retraso, se envía igual; con más retraso, se omite.
+
+> **Secuencias apagadas**: al desactivar una secuencia, lo que ya estaba en la bandeja se oculta (el filtro *Activos* no lo muestra y no cuenta en la pestaña), pero la bandeja te avisa cuántos hay y el botón **Ver pausados** los muestra; se pueden enviar a mano igual. Lo que estaba en *Programados* queda marcado **Pausado**: no se encola mientras la secuencia siga apagada, y vuelve a correr al reactivarla.
 
 **Qué pasa en cada caso:**
 

@@ -115,6 +115,28 @@ milestone correspondiente.
   nunca personalizada usada en una secuencia despacharía la frase neutral literal — mismo
   síntoma, texto más bonito. (Fijado en spec.md R6/CA6.)
 
+## M5 — pasos vencidos: preguntar en *Ejecutar* + bandeja con pausados visibles
+
+- [x] `enrollSequenceDetailed` + `runForRetreat` con `pastSteps`/`sendNowStepIds`
+- [x] `runSequencesSchema` + `SequencePastStep`/`SequenceRunResult` en packages/types; controller
+- [x] Web: diálogo "Pasos con fecha pasada", aviso de omitidos, bandeja con pausados ocultos
+      contados + "Ver pausados"; `stepDatePast` reescrito; keys es+en
+- [x] Ayuda in-app (`crm.md`): pasos vencidos, registros tardíos, secuencias apagadas
+- [x] Tests: API 17/17 en el archivo del guard (5 nuevos), motor 169/169 en 13 suites; vista
+      36/36 (5 nuevos), store 23/23; `vue-tsc` limpio; `tsc` del API sin errores en lo tocado
+- [x] Verificación viva (worktree 3002/5174, retiro demo `6f2cd1d0`): secuencia temporal con paso
+      d25 → *Ejecutar* mostró "Paso 1 · tocaba el 26 sep · 3 personas" → *Enviar ahora (3)* →
+      3 filas `queued` con la hora del clic en la bandeja; apagada → "3 mensajes más en
+      secuencias pausadas (ocultos) · Ver pausados" → los muestra. Secuencia borrada, 0 filas.
+- [x] Commit (rama `sequence-past-steps`, apilada sobre `queue-sort-palanquero`)
+
+**Desviaciones** (2026-10-02):
+- El texto de la bandeja para pausados dice que **se pueden enviar a mano**, no que "no se
+  envían": lo encolado de una secuencia apagada sigue despachable (tooltip `pausedQueuedHint`,
+  que ya existía). Lo que se congela es lo `pending` de Programados.
+- Datos de dev (no prod): se borró "Ultimo Prendas (copia)" `9c9bcaa9` y se reactivó la original
+  `a41ad6fb` (28 queued + 1 sent + 29 pending al 11-oct). OK de Leonardo.
+
 ## Cierre
 
 - [x] E2E del área (ver abajo)

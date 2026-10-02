@@ -755,7 +755,8 @@ describe('MessageSequencesView — refresco tras "Ejecutar"', () => {
 		await wrapper.vm.runNow();
 		await flushPromises();
 
-		expect(apiMod.runSequences).toHaveBeenCalledWith(RETREAT_ID);
+		// Sin pasos confirmados (2º arg undefined): el run normal, con el guard M2.
+		expect(apiMod.runSequences).toHaveBeenCalledWith(RETREAT_ID, undefined);
 		// Bandeja: los WhatsApp vencidos que el run encoló aparecen sin recargar.
 		expect(apiMod.getSequenceQueue).toHaveBeenCalledWith(RETREAT_ID);
 		// Stats: contador del tab Programados y badges por secuencia — sin esto
@@ -764,6 +765,111 @@ describe('MessageSequencesView — refresco tras "Ejecutar"', () => {
 		// Programados: las filas futuras que el run materializó.
 		const calls = apiMod.fetchScheduledMessages.mock.calls;
 		expect(calls[calls.length - 1][0]).toBe(RETREAT_ID);
+	});
+});
+
+describe('MessageSequencesView — past-dated steps on "Ejecutar" (M5)', () => {
+	// seq-1 has two overdue steps (only the latest gets preselected); seq-2 one.
+	const PAST_STEPS = [
+		{ sequenceId: 'seq-1', sequenceName: 'Palancas', stepId: 'st-a', stepOrder: 0, channel: 'whatsapp', scheduledFor: '2026-09-21T15:00:00.000Z', count: 29 },
+		{ sequenceId: 'seq-1', sequenceName: 'Palancas', stepId: 'st-b', stepOrder: 1, channel: 'whatsapp', scheduledFor: '2026-09-25T15:00:00.000Z', count: 29 },
+		{ sequenceId: 'seq-2', sequenceName: 'Ultimo Prendas', stepId: 'st-c', stepOrder: 0, channel: 'whatsapp', scheduledFor: '2026-09-21T15:00:00.000Z', count: 28 },
+	];
+	const findDialog = (wrapper: VueWrapper<any>) =>
+		wrapper.find('[role="dialog"][aria-label="Pasos con fecha pasada"]');
+
+	it('asks about the skipped steps and re-runs with the selected ones', async () => {
+		const wrapper = await mountView();
+		const apiMod: any = await import('@/services/api');
+		apiMod.runSequences.mockReset();
+		apiMod.runSequences.mockResolvedValueOnce({ enrolled: 0, processed: 0, pastSteps: PAST_STEPS });
+
+		await wrapper.vm.runNow();
+		await flushPromises();
+
+		const dialog = findDialog(wrapper);
+		expect(dialog.exists()).toBe(true);
+		expect(dialog.text()).toContain('Ultimo Prendas');
+		expect(dialog.text()).toContain('28 personas');
+		// Two overdue steps in one sequence → the "several messages" warning.
+		expect(dialog.text()).toContain('varios pasos vencidos');
+		const boxes = dialog.findAll('input[type="checkbox"]');
+		expect(boxes.map((b) => (b.element as HTMLInputElement).checked)).toEqual([false, true, true]);
+
+		apiMod.runSequences.mockResolvedValueOnce({ enrolled: 57, processed: 57, pastSteps: [PAST_STEPS[0]] });
+		const send = dialog.findAll('button').find((b) => b.text().includes('Enviar ahora'));
+		// 29 (Palancas step 2) + 28 (Ultimo Prendas) messages.
+		expect(send!.text()).toContain('57');
+		await send!.trigger('click');
+		await flushPromises();
+
+		expect(apiMod.runSequences).toHaveBeenLastCalledWith(RETREAT_ID, ['st-b', 'st-c']);
+		// The confirmed run does not reopen the dialog for the unselected step.
+		expect(findDialog(wrapper).exists()).toBe(false);
+	});
+
+	it('"Omitir" closes the dialog without running again', async () => {
+		const wrapper = await mountView();
+		const apiMod: any = await import('@/services/api');
+		apiMod.runSequences.mockReset();
+		apiMod.runSequences.mockResolvedValue({ enrolled: 0, processed: 0, pastSteps: [PAST_STEPS[2]] });
+
+		await wrapper.vm.runNow();
+		await flushPromises();
+		const skip = findDialog(wrapper).findAll('button').find((b) => b.text() === 'Omitir');
+		await skip!.trigger('click');
+		await flushPromises();
+
+		expect(findDialog(wrapper).exists()).toBe(false);
+		expect(apiMod.runSequences).toHaveBeenCalledTimes(1);
+	});
+
+	it('a run with no past steps opens nothing', async () => {
+		const wrapper = await mountView();
+		const apiMod: any = await import('@/services/api');
+		apiMod.runSequences.mockReset();
+		apiMod.runSequences.mockResolvedValue({ enrolled: 2, processed: 0, pastSteps: [] });
+
+		await wrapper.vm.runNow();
+		await flushPromises();
+
+		expect(findDialog(wrapper).exists()).toBe(false);
+	});
+});
+
+describe('MessageSequencesView — queue holding only paused messages', () => {
+	it('says how many are paused instead of looking empty, and "Ver pausados" shows them', async () => {
+		const wrapper = await mountView();
+		const { useMessageSequenceStore } = await import('@/stores/messageSequenceStore');
+		useMessageSequenceStore().sequences = [{ ...SEQ, isActive: false }] as any;
+		wrapper.vm.activeTab = 'pending';
+		await flushPromises();
+
+		const panel = wrapper.find('#seq-panel-pending');
+		expect(panel.text()).toContain('Hay 1 mensaje de una secuencia pausada');
+		expect(panel.text()).not.toContain('Sin resultados para la búsqueda');
+		expect(panel.text()).not.toContain('Beto M3');
+
+		const show = panel.findAll('button').find((b) => b.text().includes('Ver pausados'));
+		await show!.trigger('click');
+		await flushPromises();
+
+		expect(wrapper.vm.queueAssignFilter).toBe('paused');
+		expect(panel.text()).toContain('Beto M3');
+	});
+
+	it('with active work visible, hidden paused messages get a one-line hint', async () => {
+		const pausedItem = { ...QUEUE_ITEM, id: 'q-2', sequenceId: 'seq-off', participant: { id: 'p2', firstName: 'Caro', lastName: 'Off' } };
+		const wrapper = await mountView([QUEUE_ITEM, pausedItem]);
+		const { useMessageSequenceStore } = await import('@/stores/messageSequenceStore');
+		useMessageSequenceStore().sequences = [SEQ, { ...SEQ, id: 'seq-off', isActive: false }] as any;
+		wrapper.vm.activeTab = 'pending';
+		await flushPromises();
+
+		const panel = wrapper.find('#seq-panel-pending');
+		expect(panel.text()).toContain('Beto M3');
+		expect(panel.text()).not.toContain('Caro Off');
+		expect(panel.text()).toContain('1 mensaje más en una secuencia pausada');
 	});
 });
 

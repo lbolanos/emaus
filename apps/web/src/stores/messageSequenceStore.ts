@@ -172,8 +172,8 @@ export const useMessageSequenceStore = defineStore('message-sequence', () => {
 	 * que sin este refresco el contador de Programados y los badges por
 	 * secuencia quedan viejos hasta cambiar de pestaña.
 	 */
-	const run = async (retreatId: string) => {
-		const result = await runSequences(retreatId);
+	const run = async (retreatId: string, sendNowStepIds?: string[]) => {
+		const result = await runSequences(retreatId, sendNowStepIds);
 		await Promise.all([fetchQueue(retreatId), fetchStats(retreatId)]);
 		return result;
 	};

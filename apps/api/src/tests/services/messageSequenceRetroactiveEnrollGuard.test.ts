@@ -12,6 +12,7 @@ import { AppDataSource } from '@/data-source';
 import { ScheduledMessage } from '@/entities/scheduledMessage.entity';
 import { Retreat } from '@/entities/retreat.entity';
 import { Participant } from '@/entities/participant.entity';
+import { MessageTemplate } from '@/entities/messageTemplate.entity';
 import type { MessageSequence } from '@/entities/messageSequence.entity';
 
 /**
@@ -196,6 +197,140 @@ describe('MessageSequenceService — M2 retroactive enroll guard', () => {
 			});
 			expect(rows).toHaveLength(1);
 			expect((rows[0].participant as Participant).email).toBe('alta-ayer@example.com');
+		});
+	});
+
+	/**
+	 * M5 — the manual "Ejecutar" no longer drops past steps silently: it reports
+	 * them (`pastSteps`) and schedules them for now only when the coordinator
+	 * confirms them in `sendNowStepIds`. The cron path (`enrollSequence`) is
+	 * covered above and keeps suppressing.
+	 */
+	describe('M5 — runForRetreat with past-dated steps', () => {
+		const repo = () => AppDataSource.getRepository(ScheduledMessage);
+
+		async function seedPastStepSequence(opts: { walkers?: number; startInDays?: number } = {}) {
+			const startInDays = opts.startInDays ?? 3;
+			const retreat = await TestDataFactory.createTestRetreat({
+				startDate: new Date(Date.now() + startInDays * 86400000),
+				endDate: new Date(Date.now() + (startInDays + 2) * 86400000),
+				timezone: TZ,
+			});
+			const participants: Participant[] = [];
+			for (let i = 0; i < (opts.walkers ?? 2); i++) {
+				participants.push(
+					await TestDataFactory.createTestParticipant(retreat.id, {
+						type: 'walker',
+						email: `m5-${retreat.id.slice(0, 8)}-${i}@example.com`,
+					} as any),
+				);
+			}
+			const templates = AppDataSource.getRepository(MessageTemplate);
+			await templates.save(
+				templates.create({
+					name: 'Aviso',
+					type: 'GENERAL' as any,
+					message: 'Hola {participant.firstName}',
+					retreatId: retreat.id,
+					scope: 'retreat',
+				}),
+			);
+			const seq = await svc.createSequence({
+				name: 'Último aviso',
+				retreatId: retreat.id,
+				trigger: 'days_before_retreat',
+				audience: 'walker',
+				steps: [
+					// 20 days before a retreat a few days away: already past.
+					{ stepOrder: 0, offsetDays: 20, sendHour: 9, templateType: 'GENERAL', channel: 'whatsapp' } as any,
+					// 1 day before: still ahead.
+					{ stepOrder: 1, offsetDays: 1, sendHour: 9, templateType: 'GENERAL', channel: 'whatsapp' } as any,
+				],
+			});
+			const pastStep = seq.steps!.find((s) => s.stepOrder === 0)!;
+			return { retreat, participants, seq, pastStep };
+		}
+
+		it('without confirmation: reports the past step with its head-count and schedules nothing for it', async () => {
+			const { retreat, seq, pastStep } = await seedPastStepSequence();
+
+			const result = await svc.runForRetreat(retreat.id);
+
+			expect(result.pastSteps).toEqual([
+				expect.objectContaining({
+					sequenceId: seq.id,
+					sequenceName: 'Último aviso',
+					stepId: pastStep.id,
+					stepOrder: 0,
+					channel: 'whatsapp',
+					count: 2,
+				}),
+			]);
+			expect(new Date(result.pastSteps[0].scheduledFor).getTime()).toBeLessThan(Date.now());
+			const rows = await repo().find({ where: { sequenceId: seq.id } });
+			// Only the future step materialized, one row per walker.
+			expect(rows.filter((r) => r.stepId === pastStep.id)).toHaveLength(0);
+			expect(rows).toHaveLength(2);
+		});
+
+		it('with confirmation: schedules the past step for now and queues it in the same run', async () => {
+			const { retreat, seq, pastStep } = await seedPastStepSequence();
+
+			const result = await svc.runForRetreat(retreat.id, { sendNowStepIds: [pastStep.id] });
+
+			expect(result.pastSteps).toEqual([]);
+			expect(result.processed).toBe(2);
+			const rows = await repo().find({ where: { sequenceId: seq.id, stepId: pastStep.id } });
+			expect(rows).toHaveLength(2);
+			for (const row of rows) {
+				expect(row.status).toBe('queued');
+				// Due now, not on its original date (~17 days ago).
+				expect(new Date(row.scheduledFor).getTime()).toBeGreaterThan(Date.now() - 86400000);
+			}
+		});
+
+		it('people who already have the past step are neither counted nor duplicated', async () => {
+			const { retreat, participants, seq, pastStep } = await seedPastStepSequence();
+			await repo().save(
+				repo().create({
+					sequenceId: seq.id,
+					stepId: pastStep.id,
+					participantId: participants[0].id,
+					retreatId: retreat.id,
+					channel: 'whatsapp',
+					templateType: 'GENERAL',
+					scheduledFor: new Date(Date.now() - 5 * 86400000),
+					status: 'sent',
+				} as any),
+			);
+
+			const report = await svc.runForRetreat(retreat.id);
+			expect(report.pastSteps[0].count).toBe(1);
+
+			await svc.runForRetreat(retreat.id, { sendNowStepIds: [pastStep.id] });
+			const rows = await repo().find({ where: { stepId: pastStep.id } });
+			expect(rows).toHaveLength(2);
+			expect(rows.filter((r) => r.participantId === participants[0].id)).toHaveLength(1);
+		});
+
+		it('a confirmed step id from another retreat is ignored', async () => {
+			const a = await seedPastStepSequence({ walkers: 1 });
+			const b = await seedPastStepSequence({ walkers: 1 });
+
+			await svc.runForRetreat(a.retreat.id, { sendNowStepIds: [b.pastStep.id] });
+
+			expect(await repo().count({ where: { stepId: b.pastStep.id } })).toBe(0);
+			expect(await repo().count({ where: { stepId: a.pastStep.id } })).toBe(0);
+		});
+
+		it('a closed retreat is never caught up, even with confirmation', async () => {
+			// Ended 8 days ago: isRetreatClosed wins over the confirmation.
+			const { retreat, pastStep } = await seedPastStepSequence({ walkers: 1, startInDays: -10 });
+
+			const result = await svc.runForRetreat(retreat.id, { sendNowStepIds: [pastStep.id] });
+
+			expect(result.pastSteps).toEqual([]);
+			expect(await repo().count({ where: { stepId: pastStep.id } })).toBe(0);
 		});
 	});
 });
