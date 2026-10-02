@@ -586,6 +586,10 @@ async function runNow() {
 	if (!retreatId.value) return;
 	try {
 		const res = await sequenceStore.run(retreatId.value);
+		// El run materializa filas que ningún evento de realtime cubre (solo
+		// hay evento cuando algo cae a `queued`): refrescar Programados para
+		// que la pestaña no muestre el conteo/lista previos al run.
+		await loadScheduled();
 		toast({
 			title: t('sequences.runDone', { enrolled: res.enrolled, processed: res.processed }),
 		});

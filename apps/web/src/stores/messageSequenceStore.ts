@@ -165,9 +165,16 @@ export const useMessageSequenceStore = defineStore('message-sequence', () => {
 		sequences.value = sequences.value.filter((s) => s.id !== id);
 	};
 
+	/**
+	 * Ejecutar ahora: enrola audiencia y procesa vencidos. Refresca queue y
+	 * stats — un run que solo materializa filas futuras no emite evento de
+	 * realtime (`processDue` emite únicamente cuando algo cae a `queued`), así
+	 * que sin este refresco el contador de Programados y los badges por
+	 * secuencia quedan viejos hasta cambiar de pestaña.
+	 */
 	const run = async (retreatId: string) => {
 		const result = await runSequences(retreatId);
-		await fetchQueue(retreatId);
+		await Promise.all([fetchQueue(retreatId), fetchStats(retreatId)]);
 		return result;
 	};
 

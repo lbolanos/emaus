@@ -742,6 +742,31 @@ describe('MessageSequencesView — import de plantilla global con preview (#10)'
 	});
 });
 
+describe('MessageSequencesView — refresco tras "Ejecutar"', () => {
+	it('runNow refetch-ea bandeja, stats y Programados (un run que solo enrola no emite realtime)', async () => {
+		const wrapper = await mountView();
+		const apiMod: any = await import('@/services/api');
+		apiMod.runSequences.mockResolvedValue({ enrolled: 3, processed: 1 });
+		// El mount ya disparó sus fetches: limpiar para afirmar SOLO los del run.
+		apiMod.getSequenceQueue.mockClear();
+		apiMod.getSequenceStats.mockClear();
+		apiMod.fetchScheduledMessages.mockClear();
+
+		await wrapper.vm.runNow();
+		await flushPromises();
+
+		expect(apiMod.runSequences).toHaveBeenCalledWith(RETREAT_ID);
+		// Bandeja: los WhatsApp vencidos que el run encoló aparecen sin recargar.
+		expect(apiMod.getSequenceQueue).toHaveBeenCalledWith(RETREAT_ID);
+		// Stats: contador del tab Programados y badges por secuencia — sin esto
+		// quedan viejos (processDue no emite evento cuando nada cae a queued).
+		expect(apiMod.getSequenceStats).toHaveBeenCalledWith(RETREAT_ID);
+		// Programados: las filas futuras que el run materializó.
+		const calls = apiMod.fetchScheduledMessages.mock.calls;
+		expect(calls[calls.length - 1][0]).toBe(RETREAT_ID);
+	});
+});
+
 describe('MessageSequencesView — bandeja por palanquero', () => {
 	// Fixture: P2 vence ANTES que P1 (el orden por palanquero no es el
 	// cronológico) y el ítem sin asignación tiene fecha intermedia — igual
