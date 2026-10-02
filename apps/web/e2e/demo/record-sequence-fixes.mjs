@@ -1,12 +1,14 @@
-// Video-demo narrado: flujo COMPLETO de secuencias + fixes M2-M4.
+// Video-demo narrado: flujo COMPLETO de secuencias + fixes M2-M5.
 //
 // Guion de punta a punta sobre el retiro sintético "Demo Secuencias (video)"
 // (cero PII): crear plantilla (con aviso de tipo duplicado) → crear secuencia
-// (paso fija plantilla por id; paso retroactivo en ámbar) → modificar →
-// "Ejecutar ahora" (guard anti-retroactivo: el paso pasado NO se materializa)
-// → "Encolar ya" → bandeja → detalle con variables resueltas → "Abrir
-// WhatsApp" (marca enviado) → preview/plantilla con {custom_message} cae a
-// Problemas como omitida.
+// (paso fija plantilla por id; paso vencido en ámbar) → modificar →
+// "Ejecutar ahora" (M5: el paso vencido PREGUNTA antes de salir → "Enviar
+// ahora") → "Detalle por paso" (dónde está cada paso) → "Encolar ya" del paso
+// futuro → bandeja → detalle con variables resueltas → "Abrir WhatsApp" (marca
+// enviado) → preview/plantilla con {custom_message} cae a Problemas como
+// omitida. Toma 6 (2026-10-02): reemplaza la 5, que mostraba el paso vencido
+// descartándose en silencio.
 //
 //   cd apps/web && DEMO_BASE_URL=http://localhost:5174 node e2e/demo/record-sequence-fixes.mjs
 //
@@ -26,6 +28,7 @@ import path from 'node:path';
 import {
   loadEnv, ensureOutputDir, genTts, OVERLAY_INIT, Narrator, muxVideo,
   computeSyncScale, audioDuration, buildYoutubeChapters, writeVideoMeta, OUTPUT_DIR,
+  alignChapterTimeline,
 } from './demo-lib.mjs';
 
 const cfg = loadEnv();
@@ -41,14 +44,15 @@ const SEQ_M4 = 'Demo M4 — plantilla con hueco manual';
 
 const LINES = [
   { id: 'sidebar', text: '¿Dónde vive? En el menú de la izquierda, abre Comunicaciones y entra a Secuencias automáticas.' },
-  { id: 'tpl_dup', text: 'Primero la plantilla. En Plantillas de mensajes creo una nueva del mismo tipo que ya existía, confirmación de camisetas. El sistema me avisa que hay más del mismo tipo, y que los pasos que no fijen una concreta enviarán la primera. La creo para el segundo recordatorio.' },
-  { id: 'seq_create', text: 'Ahora la secuencia: para servidores, disparada por días antes del retiro. El paso uno usa la plantilla que acabo de crear, a tres días del retiro. El paso dos, a veinticinco días, cae en una fecha que ya pasó: el aviso ámbar me lo dice. Al activarse, ese paso no se programa.' },
+  { id: 'tpl_dup', text: 'Primero la plantilla. En Plantillas de mensajes creo una nueva del mismo tipo que ya existía, confirmación de camisetas. El sistema me avisa: cada paso de secuencia envía la que tenga elegida, y donde se elige solo por el tipo, va la predeterminada. La creo para el segundo recordatorio.' },
+  { id: 'seq_create', text: 'Ahora la secuencia: para servidores, disparada por días antes del retiro. El paso uno usa la plantilla que acabo de crear, a tres días del retiro. El paso dos, a veinticinco días, cae en una fecha que ya pasó: el aviso ámbar me lo dice. Ese paso no se programa solo.' },
   { id: 'seq_edit', text: '¿Y si algo cambia? Abro la secuencia, ajusto la hora del paso y guardo: las fechas se recalculan al momento.' },
-  { id: 'run', text: 'Ejecuto ahora. Del paso futuro quedó un mensaje programado para el dieciocho de octubre. ¿Y el retroactivo? No existe: el motor lo suprimió. Cero mensajes al pasado.' },
-  { id: 'enqueue', text: 'Cuando llega el momento, o si quiero adelantarlo, lo encolo ya: cae a la bandeja de WhatsApp con la plantilla correcta.' },
+  { id: 'run', text: 'Ejecuto ahora. Como el paso dos ya venció, el sistema me pregunta antes de mandarlo: lo envío ahora o lo omito. Esta vez quiero que salga, así que lo envío.' },
+  { id: 'steps', text: 'En el detalle por paso veo dónde está cada mensaje: el paso uno, programado para el dieciocho de octubre. El paso dos, ya en la cola de WhatsApp.' },
+  { id: 'enqueue', text: 'Si quiero adelantar el paso uno, desde sus programados lo encolo ya: cae a la bandeja de WhatsApp con la plantilla correcta.' },
   { id: 'send', text: 'Abro el detalle: el mensaje ya salió con sus variables resueltas. Al abrirlo en WhatsApp queda marcado como enviado y sale de la bandeja.' },
   { id: 'm4', text: 'Una última protección. Esta plantilla trae un hueco de mensaje personalizado: la vista previa me avisa, y si una secuencia la intenta enviar, el mensaje cae a Problemas, omitido, con la razón para corregirla.' },
-  { id: 'outro', text: 'De la plantilla al envío: plantilla fijada por paso, fechas retroactivas bloqueadas y huecos manuales protegidos. Las secuencias ahora hacen lo que ves.' },
+  { id: 'outro', text: 'De la plantilla al envío: plantilla fijada por paso, pasos vencidos que te preguntan antes de salir y huecos manuales protegidos. Las secuencias hacen lo que ves.' },
 ];
 
 const YT_TITLE = 'Secuencias automáticas: de la plantilla al envío';
@@ -56,14 +60,14 @@ const YT_DESCRIPTION =
   'Flujo completo del motor de secuencias automáticas de Emaús sobre un retiro de ' +
   'prueba con datos ficticios: crear una plantilla (con aviso cuando ya hay otra del ' +
   'mismo tipo), armar la secuencia fijando la plantilla concreta de cada paso, editarla, ' +
-  'ejecutarla (los pasos con fecha pasada no se programan), encolar y enviar por WhatsApp, ' +
-  'y la protección para plantillas con hueco de mensaje personalizado. Los datos del demo ' +
-  'son ficticios.';
+  'ejecutarla (si un paso ya venció, te pregunta si enviarlo ahora u omitirlo), ver el ' +
+  'detalle por paso, encolar y enviar por WhatsApp, y la protección para plantillas con ' +
+  'hueco de mensaje personalizado. Los datos del demo son ficticios.';
 const YT_TAGS = ['Emaús', 'retiro', 'secuencias', 'plantillas', 'mensajes', 'WhatsApp', 'tutorial'];
 const CHAPTER_LABELS = {
   sidebar: 'Dónde está en el menú', tpl_dup: 'Crear plantilla (tipo duplicado)',
   seq_create: 'Crear la secuencia (fecha pasada en ámbar)', seq_edit: 'Modificar la secuencia',
-  run: 'Ejecutar: el paso retroactivo no se crea', enqueue: 'Encolar ya',
+  run: 'Ejecutar: el paso vencido pregunta antes', steps: 'Detalle por paso', enqueue: 'Encolar ya',
   send: 'Enviar por WhatsApp', m4: 'Hueco manual protegido', outro: 'Resumen',
 };
 
@@ -78,8 +82,11 @@ async function cueBox(nar, loc) {
 }
 // Sanidad por dato ANTES de narrar: si la pantalla no muestra lo que la
 // narración promete, el log lo dice en la toma (lección de la toma 1).
-function assertShown(page, text, label, timeout = 8000) {
-  return page
+// `root` scopes the lookup to the visible tab panel: the hidden panels stay
+// mounted (v-show), and a first match inside one never becomes visible — the
+// wait then burns its whole timeout as dead air in the take (toma 6, try 1).
+function assertShown(page, text, label, timeout = 8000, root = page) {
+  return root
     .getByText(text)
     .first()
     .waitFor({ timeout })
@@ -228,8 +235,8 @@ async function main() {
     await tplModal.getByRole('combobox').filter({ hasText: 'Selecciona un tipo' }).click();
     await page.getByRole('option', { name: 'Confirmación de Camisetas (Servidores)' }).click();
     await sleep(page, 600);
-    await assertShown(page, 'Ya existe otra plantilla de este tipo', 'aviso tipo duplicado');
-    await cueBox(nar, page.getByText('Ya existe otra plantilla de este tipo').first());
+    await assertShown(page, 'Hay otras plantillas de este tipo', 'aviso tipo duplicado');
+    await cueBox(nar, page.getByText('usa la predeterminada').first());
     await nar.say(clips.tpl_dup);
     await tplModal.getByRole('textbox', { name: 'Mensaje' }).fill(
       'Hola {participant.firstName}, por favor confirma tu talla de playera antes del viernes. Pedido: {participant.shirtOrderSummary}. — Coordinación Emaús',
@@ -299,34 +306,61 @@ async function main() {
     await dlg.getByRole('button', { name: 'Guardar' }).click();
     await sleep(page, 1000);
 
-    // ── Ejecutar ahora: futuro programado, retroactivo SUPRIMIDO ──
+    // ── Ejecutar ahora: el paso vencido PREGUNTA (M5) → Enviar ahora ──
     await page.getByRole('button', { name: 'Ejecutar ahora' }).first().click();
-    await sleep(page, 2000); // enroll + processDue + toasts
-    await page.getByRole('tab', { name: 'Programados' }).click();
+    const pastDlg = page.getByRole('dialog', { name: 'Pasos con fecha pasada' });
+    await pastDlg.waitFor({ timeout: 8000 }).then(
+      () => log('   ✓ diálogo "Pasos con fecha pasada"'),
+      () => log('   ⚠ el diálogo de pasos vencidos NO apareció — revisar esta toma'),
+    );
     await sleep(page, 900);
-    await assertShown(page, '18 oct', 'paso futuro programado (18 oct)');
-    const retroCount = await page.getByText('26 sep').count();
-    log(retroCount === 0 ? '   ✓ paso retroactivo (26 sep) NO existe' : `   ⚠ hay ${retroCount} fila(s) con 26 sep — revisar`);
-    await cueBox(nar, page.getByText('18 oct').first());
+    await assertShown(page, 'tocaba el 26 sep', 'diálogo: paso 2 (26 sep) listado');
+    await cueBox(nar, pastDlg.getByText('tocaba el 26 sep').first());
     await nar.say(clips.run);
+    const sendNow = pastDlg.getByRole('button', { name: /Enviar ahora/ });
+    await cueBox(nar, sendNow);
+    await sleep(page, 700);
+    await sendNow.click();
+    await sleep(page, 2000); // re-run confirmado + processDue + toasts
 
-    // ── Encolar ya → bandeja con plantilla resuelta ──
-    await page.getByRole('button', { name: 'Encolar ya' }).first().click();
+    // ── Detalle por paso: dónde quedó cada uno ──
+    await nar.clearCue();
+    await rowOf(SEQ_FLOW).getByRole('button', { name: 'Detalle por paso' }).click();
+    await sleep(page, 1200); // schedule-preview de las fechas
+    await assertShown(page, 'Paso 2', 'detalle por paso desplegado');
+    await assertShown(page, '1 en cola', 'paso 2 en cola');
+    await cueBox(nar, rowOf(SEQ_FLOW).getByText('Paso 2').first());
+    await nar.say(clips.steps);
+
+    // ── Encolar ya del paso futuro (desde sus programados) → bandeja ──
+    // El badge "N programados" de la tarjeta abre Programados filtrado por
+    // ESTA secuencia: "Encolar ya" no puede tocar el paso de otra.
+    await nar.clearCue();
+    await rowOf(SEQ_FLOW).getByRole('button', { name: /programados/ }).first().click();
+    await sleep(page, 1200);
+    const schedPanel = page.locator('#seq-panel-scheduled');
+    await assertShown(page, '18 oct', 'paso 1 programado (18 oct)', 8000, schedPanel);
+    const enqueueBtn = schedPanel.locator('button:visible', { hasText: 'Encolar ya' }).first();
+    await cueBox(nar, enqueueBtn);
+    await nar.say(clips.enqueue);
+    await enqueueBtn.click();
     await sleep(page, 1800);
     await page.getByRole('tab', { name: 'Bandeja WhatsApp' }).click();
     await sleep(page, 900);
-    await assertShown(page, TPL_C, 'bandeja: ítem con plantilla C');
-    await cueBox(nar, page.getByText(TPL_C).first());
-    await nar.say(clips.enqueue);
-
-    // ── Envío: detalle resuelto → Abrir WhatsApp → marcado enviado ──
-    // La tab Secuencias sigue montada (oculta) y su fila también matchea
-    // SEQ_FLOW: hay que filtrar la fila que CONTIENE el botón del participante
-    // (con .first() a secas gana la fila de Secuencias y el click no resuelve).
-    const flowRow = page.locator('div.p-3').filter({
-      hasText: SEQ_FLOW,
+    // Bandeja: la fila del paso 1 (plantilla C, Servidor Demo). La tab
+    // Secuencias sigue montada (oculta) y su tarjeta también matchea
+    // SEQ_FLOW, y la bandeja trae además el paso 2 (plantilla B) del mismo
+    // servidor: acotar al panel + plantilla C + botón del participante.
+    const queuePanel = page.locator('#seq-panel-pending');
+    await assertShown(page, TPL_C, 'bandeja: ítem con plantilla C', 8000, queuePanel);
+    const flowRow = queuePanel.locator('div.p-3').filter({
+      hasText: TPL_C,
       has: page.getByRole('button', { name: 'Servidor Demo' }),
     }).first();
+    await cueBox(nar, flowRow);
+    await sleep(page, 1500);
+
+    // ── Envío: detalle resuelto → Abrir WhatsApp → marcado enviado ──
     await flowRow.getByRole('button', { name: 'Servidor Demo' }).click();
     await sleep(page, 900);
     await assertShown(page, 'Hola Servidor', 'detalle: mensaje con variables resueltas');
@@ -337,7 +371,7 @@ async function main() {
     // La pestaña de WhatsApp no se graba (y no hace falta): cerrarla.
     for (const p of ctx.pages()) if (p !== page) await p.close().catch(() => {});
     await sleep(page, 600);
-    const stillQueued = await page.getByText(TPL_C).count();
+    const stillQueued = await flowRow.count();
     log(stillQueued === 0 ? '   ✓ envío: ítem salió de la bandeja' : `   ⚠ el ítem C sigue visible (${stillQueued}) — revisar`);
 
     // ── M4: preview con hueco + Problemas omitido ──
@@ -347,21 +381,20 @@ async function main() {
     await editBtnOf(SEQ_M4).click();
     await page.getByText('Editar secuencia').first().waitFor({ timeout: 6000 });
     await sleep(page, 900);
-    await assertShown(page, 'varias del mismo tipo', 'aviso de tipo duplicado (M4)');
     await dlg.getByRole('button', { name: 'Ver vista previa de este paso' }).first().click();
     await sleep(page, 900);
     await assertShown(page, 'hueco de envío manual', 'preview: warning del hueco');
     await cueBox(nar, page.getByText('hueco de envío manual').first());
     await nar.say(clips.m4);
-    await sleep(page, 4000); // mitad de la narración sobre el warning…
-    // Cerrar preview y editor (Escape apila en reka-ui), luego Problemas.
+    await sleep(page, 1500);
+    // Cerrar preview y editor (Escape apila en reka-ui) y cerrar sobre la
+    // lista. No se abre Problemas: depende de que el demo conserve filas
+    // M4 omitidas, y un descarte masivo (2026-10-02) lo dejó vacío — un tab
+    // vacío contradice la narración. La protección se ve en la vista previa.
     await page.keyboard.press('Escape').catch(() => {});
     await sleep(page, 500);
     if (await page.getByRole('dialog').count()) await page.keyboard.press('Escape').catch(() => {});
-    await sleep(page, 500);
-    await page.getByRole('tab', { name: 'Problemas' }).click();
-    await sleep(page, 900);
-    await page.locator('.text-red-600').first().waitFor({ timeout: 6000 }).catch(() => {});
+    await sleep(page, 700);
 
     await nar.clearCue();
     await nar.say(clips.outro);
@@ -387,7 +420,12 @@ async function main() {
   log('🔊 Muxeando audio…');
   await muxVideo(cfg, { video: videoPath, timeline: nar.timeline, out, syncOffsetMs: SYNC_OFFSET_MS, syncScale });
 
-  const chapters = buildYoutubeChapters(nar.timeline, { labels: CHAPTER_LABELS });
+  // Chapters at the REAL mp4 position (clock offset × syncScale − lead trim);
+  // the raw clock timeline put them ~8 s early and merged close beats.
+  const chapters = buildYoutubeChapters(
+    alignChapterTimeline(nar.timeline, { syncScale, syncOffsetMs: SYNC_OFFSET_MS }),
+    { labels: CHAPTER_LABELS },
+  );
   writeVideoMeta(out, { title: YT_TITLE, description: YT_DESCRIPTION, tags: YT_TAGS, chapters });
   log('✅ Listo:', out);
   log('— Timeline —');

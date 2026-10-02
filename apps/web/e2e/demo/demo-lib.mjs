@@ -407,7 +407,10 @@ export function buildYoutubeChapters(timeline, { minGapSec = 10, labels = {} } =
     const sec = t.offsetMs / 1000;
     if (i === 0 || sec - lastSec >= minGapSec) {
       picked.push(t);
-      lastSec = sec;
+      // The first chapter is published as 0:00, so the gap to the second is
+      // measured from 0 — not from the first voice (~0.7 s in), which used to
+      // drop a beat that starts at 0:10.
+      lastSec = i === 0 ? 0 : sec;
     }
   });
   if (picked.length < 3) return [];

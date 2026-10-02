@@ -55,6 +55,18 @@ test('buildYoutubeChapters: primero en 0:00, respeta minGap, labels y formato mm
   assert.deepEqual(ch[2], { t: '1:05', label: 'Delta' });
 });
 
+test('buildYoutubeChapters: el gap al 2º capítulo se mide desde 0:00, no desde la 1ª voz', () => {
+  // Timeline ya alineado al mp4: la 1ª voz cae a 0.7 s (leadKeepMs) y el
+  // siguiente beat a 10.35 s → 10.35 s desde 0:00 (válido), aunque solo
+  // 9.65 s desde la voz. Antes se descartaba ("Crear plantilla", toma 2026-10-02).
+  const tl = [
+    { id: 'a', offsetMs: 700, text: 'A' },
+    { id: 'b', offsetMs: 10350, text: 'B' },
+    { id: 'c', offsetMs: 40000, text: 'C' },
+  ];
+  assert.deepEqual(buildYoutubeChapters(tl).map((c) => c.t), ['0:00', '0:10', '0:40']);
+});
+
 test('buildYoutubeChapters: minGapSec configurable', () => {
   const tl = [
     { id: 'a', offsetMs: 0, text: 'A' },
