@@ -57,7 +57,7 @@ const responsibilityNames = computed(() => {
 	return Array.from(new Set(names)) as string[];
 });
 
-const { sequences, queue, stats, issues, issuesTotal, detail, detailLoading } = storeToRefs(sequenceStore);
+const { sequences, queue, stats, stepStats, issues, issuesTotal, detail, detailLoading } = storeToRefs(sequenceStore);
 const {
 	scheduled, scheduledTotal, scheduledTotalPages, scheduledTimezone, scheduledLoading,
 	scheduledPausedCount,
@@ -75,6 +75,47 @@ const sampleParticipant = computed(() => participantStore.participants?.[0] || n
 
 function statusCount(seqId: string, status: string): number {
 	return stats.value?.[seqId]?.[status] || 0;
+}
+
+// Card "Detalle por paso": where each step's messages are, plus its date.
+const expandedSeqId = ref<string | null>(null);
+// Per-sequence step dates from schedule-preview (only for retreat-anchored
+// triggers, where the date is the same for everyone).
+const seqStepDates = ref<Record<string, { dates: Array<string | null>; past: boolean[] }>>({});
+
+function stepStatusCount(stepId: string, status: string): number {
+	return stepStats.value?.[stepId]?.[status] || 0;
+}
+function stepHasMessages(stepId: string): boolean {
+	return Object.values(stepStats.value?.[stepId] || {}).some((n) => n > 0);
+}
+function liveSteps(seq: any): any[] {
+	return (seq.steps || [])
+		.filter((s: any) => !s.isArchived)
+		.sort((a: any, b: any) => a.stepOrder - b.stepOrder);
+}
+function stepTemplateName(st: any): string {
+	return templates.value.find((tpl: any) => tpl.id === st.templateId)?.name || templateLabel(st.templateType);
+}
+async function toggleSeqSteps(seq: any) {
+	if (expandedSeqId.value === seq.id) {
+		expandedSeqId.value = null;
+		return;
+	}
+	expandedSeqId.value = seq.id;
+	const anchoredToRetreat = seq.trigger === 'days_before_retreat' || seq.trigger === 'days_after_retreat';
+	if (!anchoredToRetreat || !retreatId.value || !sampleParticipant.value) return;
+	try {
+		const res = await previewSequenceSchedule(
+			retreatId.value,
+			sampleParticipant.value.id,
+			seq.trigger,
+			liveSteps(seq).map((s) => ({ offsetDays: s.offsetDays, sendHour: s.sendHour })),
+		);
+		seqStepDates.value = { ...seqStepDates.value, [seq.id]: { dates: res.dates, past: res.past ?? [] } };
+	} catch {
+		// No date is fine: the row still shows the offset and the counts.
+	}
 }
 
 // Traduce el motivo crudo de un mensaje con problema a una guía accionable
@@ -1575,6 +1616,65 @@ async function toggleDoNotContact() {
 						>
 							{{ t('sequences.stat.failed', { n: statusCount(seq.id, 'failed') }) }}
 						</button>
+					</div>
+					<!-- Per-step breakdown: date and where each step's messages are. -->
+					<button
+						v-if="liveSteps(seq).length"
+						type="button"
+						class="mt-1.5 text-xs text-blue-600 hover:underline inline-flex items-center gap-1"
+						:aria-expanded="expandedSeqId === seq.id"
+						@click="toggleSeqSteps(seq)"
+					>
+						<ChevronDown class="w-3.5 h-3.5 transition-transform" :class="expandedSeqId === seq.id ? 'rotate-180' : ''" />
+						{{ expandedSeqId === seq.id ? t('sequences.stepsBreakdownHide') : t('sequences.stepsBreakdown') }}
+					</button>
+					<div v-if="expandedSeqId === seq.id" class="mt-1.5 border-t pt-2 space-y-2">
+						<div v-for="(st, i) in liveSteps(seq)" :key="st.id" class="text-xs text-gray-600">
+							<div class="flex flex-wrap items-baseline gap-x-1.5">
+								<span class="font-medium text-gray-700">{{ t('sequences.stepN', { n: st.stepOrder + 1 }) }}</span>
+								<span>· {{ importOffsetText(seq.trigger, st.offsetDays) }}</span>
+								<span
+									v-if="seqStepDates[seq.id]?.dates[i]"
+									:class="seqStepDates[seq.id]?.past[i] ? 'text-amber-600' : ''"
+								>
+									· {{ fmtStepDate(seqStepDates[seq.id]?.dates[i] ?? null) }}
+								</span>
+								<span>· {{ stepTemplateName(st) }}</span>
+								<span>· {{ t('sequences.channels.' + st.channel) }}</span>
+							</div>
+							<div class="flex flex-wrap gap-1.5 mt-0.5 text-[11px]">
+								<span
+									v-if="stepStatusCount(st.id, 'pending')"
+									class="rounded px-1.5 py-0.5"
+									:class="seq.isActive ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'"
+								>
+									{{
+										seq.isActive
+											? t('sequences.stat.scheduled', { n: stepStatusCount(st.id, 'pending') })
+											: t('sequences.stat.pausedPending', { n: stepStatusCount(st.id, 'pending') })
+									}}
+								</span>
+								<span v-if="stepStatusCount(st.id, 'queued')" class="bg-amber-100 text-amber-700 rounded px-1.5 py-0.5">
+									{{ t('sequences.stat.queued', { n: stepStatusCount(st.id, 'queued') }) }}
+								</span>
+								<span v-if="stepStatusCount(st.id, 'sent')" class="bg-green-100 text-green-700 rounded px-1.5 py-0.5">
+									{{ t('sequences.stat.sent', { n: stepStatusCount(st.id, 'sent') }) }}
+								</span>
+								<span v-if="stepStatusCount(st.id, 'skipped')" class="bg-gray-100 text-gray-600 rounded px-1.5 py-0.5">
+									{{ t('sequences.stat.skipped', { n: stepStatusCount(st.id, 'skipped') }) }}
+								</span>
+								<span v-if="stepStatusCount(st.id, 'failed')" class="bg-red-100 text-red-700 rounded px-1.5 py-0.5">
+									{{ t('sequences.stat.failed', { n: stepStatusCount(st.id, 'failed') }) }}
+								</span>
+								<!-- No rows: a past date means the guard skipped it (Ejecutar asks). -->
+								<span
+									v-if="!stepHasMessages(st.id)"
+									:class="seqStepDates[seq.id]?.past[i] ? 'text-amber-600' : 'text-gray-400'"
+								>
+									{{ seqStepDates[seq.id]?.past[i] ? t('sequences.stepNoMessagesPast') : t('sequences.stepNoMessages') }}
+								</span>
+							</div>
+						</div>
 					</div>
 				</div>
 				<div class="flex items-center gap-1 shrink-0 self-end sm:self-auto">

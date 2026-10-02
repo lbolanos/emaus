@@ -3966,6 +3966,8 @@ export interface ScheduledMessageQueueItem {
 
 export interface SequenceStatsResponse {
   stats: Record<string, Record<string, number>>;
+  /** Same counts per step: { [stepId]: { [status]: count } }. */
+  stepStats?: Record<string, Record<string, number>>;
   issues: ScheduledMessageQueueItem[];
   /** Conteo real de problemas del retiro, sin el cap de paginación. */
   issuesTotal: number;

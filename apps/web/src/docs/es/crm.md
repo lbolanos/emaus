@@ -101,6 +101,7 @@ Si haces **clic en el nombre** del participante (en Pendientes o en Problemas) s
 **Qué pasa en cada caso:**
 
 - Cada secuencia muestra un resumen: cuántos mensajes se **enviaron**, están **en cola**, se **omitieron** o **fallaron**.
+- **Detalle por paso** (en la tarjeta de la secuencia) despliega cada paso con su fecha, su plantilla y dónde están sus mensajes: por ejemplo *"Paso 1 · 21 sep → 28 en cola, 1 enviado"*. Si un paso no tiene mensajes y su fecha ya pasó, lo dice: es un paso que no se programó solo (*Ejecutar ahora* te pregunta si enviarlo).
 - Los mensajes que no se pudieron enviar aparecen en la pestaña **"Problemas"** con el motivo (por ejemplo, "sin plantilla en el retiro", "destinatario sin teléfono") y una línea **"Cómo corregir"** que te dice qué hacer. Por cada uno puedes **Reenviar** (re-encolar tras corregir el dato) o **Descartar** (quitarlo); y hay **"Reenviar todos" / "Descartar todos"** para resolver en bloque.
 - Si un mensaje no aplica porque el participante simplemente **no tiene ese vínculo** (p. ej. no registró invitador, o la responsabilidad no tiene titular), se **descarta solo** y **no aparece** en Problemas (no es un error que debas corregir). El apodo, si falta, se reemplaza por el **primer nombre** (el saludo nunca queda en blanco).
 - Si **desactivas** una secuencia, sus mensajes pendientes se pausan (no se envían hasta que la reactives).

@@ -135,6 +135,13 @@ milestone correspondiente.
       Tests: API 170/170 (1 nuevo), vista 40/40 (4 nuevos). Verificación viva en el retiro demo:
       apagar "Demo flujo completo" → pestaña 1→0, tarjeta "1 en pausa", aviso "1 programado más
       de una secuencia pausada (oculto) · Ver pausados" → la fila con chip Pausado; reactivada.
+- [x] Detalle por paso en la tarjeta (mejora #3 de "¿cómo podemos mejorar?"): `stepStats` en la
+      respuesta de stats (`getStepStatsByRetreat`), fecha por paso vía schedule-preview solo para
+      triggers anclados al retiro, "sin mensajes: la fecha ya pasó" para lo que el guard dejó
+      fuera. Botón "Detalle por paso" (no "Ver pasos": chocaba con el del import global).
+      Tests: API 171/171 (1 nuevo), vista 2 nuevos. Vivo en Buen Despacho (solo lectura):
+      "Paso 1 · 21 sep → 28 en cola, 1 enviados" / "Paso 2 · 11 oct → 29 en pausa"; Palancas
+      pasos 1-3 "la fecha ya pasó", 4-6 "sin mensajes todavía".
 
 **Desviaciones** (2026-10-02):
 - El texto de la bandeja para pausados dice que **se pueden enviar a mano**, no que "no se

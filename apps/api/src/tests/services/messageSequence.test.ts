@@ -1930,6 +1930,16 @@ describe('MessageSequenceService', () => {
 			expect(page2.items.map((i) => i.participantName)).toEqual(['C M3']);
 		});
 
+		it('getStepStatsByRetreat: counts per step and status', async () => {
+			const { retreat, seq } = await seedList([
+				{ status: 'queued', scheduledFor: new Date('2026-09-21T15:00:00Z'), firstName: 'Ana' },
+				{ status: 'queued', scheduledFor: new Date('2026-09-21T15:00:00Z'), firstName: 'Beto' },
+				{ status: 'sent', scheduledFor: new Date('2026-09-21T15:00:00Z'), firstName: 'Caro' },
+			]);
+			const stepStats = await svc.getStepStatsByRetreat(retreat.id);
+			expect(stepStats[seq.steps![0].id]).toEqual({ queued: 2, sent: 1 });
+		});
+
 		it('listScheduled paused: hide/only/include over pending of an inactive sequence', async () => {
 			const { retreat, seq } = await seedList([
 				{ status: 'pending', scheduledFor: new Date('2026-10-09T15:00:00Z'), firstName: 'Ana' },

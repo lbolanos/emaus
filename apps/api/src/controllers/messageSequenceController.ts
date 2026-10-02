@@ -110,14 +110,15 @@ export class MessageSequenceController {
 			const q = (req.query ?? {}) as Record<string, unknown>;
 			const issuesOffset = Math.max(0, Number(q.issuesOffset) || 0);
 			const issuesLimit = Math.min(500, Math.max(1, Number(q.issuesLimit) || 100));
-			const [stats, issues] = await Promise.all([
+			const [stats, stepStats, issues] = await Promise.all([
 				messageSequenceService.getStatsByRetreat(retreatId),
+				messageSequenceService.getStepStatsByRetreat(retreatId),
 				messageSequenceService.getIssuesByRetreat(retreatId, {
 					limit: issuesLimit,
 					offset: issuesOffset,
 				}),
 			]);
-			res.json({ stats, issues: issues.items, issuesTotal: issues.total });
+			res.json({ stats, stepStats, issues: issues.items, issuesTotal: issues.total });
 		} catch (error) {
 			console.error('Error fetching sequence stats:', error);
 			res.status(500).json({ error: 'Error al obtener las métricas de secuencias' });

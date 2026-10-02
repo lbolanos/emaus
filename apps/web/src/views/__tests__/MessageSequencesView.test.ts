@@ -901,6 +901,74 @@ describe('MessageSequencesView — Programados hides paused sequences by default
 	});
 });
 
+describe('MessageSequencesView — per-step detail in the sequence card', () => {
+	const SEQ_TWO_STEPS = {
+		...SEQ,
+		name: 'Ultimo Prendas',
+		steps: [
+			{ id: 'st-1', stepOrder: 0, offsetDays: 25, sendHour: 9, templateType: 'SHIRT_CONFIRMATION', channel: 'whatsapp' },
+			{ id: 'st-2', stepOrder: 1, offsetDays: 5, sendHour: 9, templateType: 'SHIRT_CONFIRMATION', channel: 'whatsapp' },
+			{ id: 'st-3', stepOrder: 2, offsetDays: 20, sendHour: 9, templateType: 'SHIRT_CONFIRMATION', channel: 'whatsapp' },
+		],
+	};
+
+	async function mountExpanded(stepStats: Record<string, Record<string, number>>, past: boolean[]) {
+		const wrapper = await mountView();
+		const apiMod: any = await import('@/services/api');
+		apiMod.previewSequenceSchedule.mockResolvedValueOnce({
+			dates: ['2026-09-21T15:00:00.000Z', '2026-10-11T15:00:00.000Z', '2026-09-26T15:00:00.000Z'],
+			past,
+			timezone: 'America/Mexico_City',
+		});
+		const { useMessageSequenceStore } = await import('@/stores/messageSequenceStore');
+		const store = useMessageSequenceStore();
+		store.sequences = [SEQ_TWO_STEPS] as any;
+		store.stepStats = stepStats as any;
+		await flushPromises();
+		const toggle = wrapper.findAll('button').find((b) => b.text().includes('Detalle por paso'));
+		await toggle!.trigger('click');
+		await flushPromises();
+		return { wrapper, apiMod };
+	}
+
+	it('shows each step with its date and where its messages are', async () => {
+		const { wrapper, apiMod } = await mountExpanded(
+			{ 'st-1': { queued: 28, sent: 1 }, 'st-2': { pending: 29 } },
+			[true, false, true],
+		);
+		// Dates come from schedule-preview (same for everyone: anchored to the retreat).
+		expect(apiMod.previewSequenceSchedule).toHaveBeenLastCalledWith(
+			RETREAT_ID,
+			'p1',
+			'days_before_retreat',
+			[
+				{ offsetDays: 25, sendHour: 9 },
+				{ offsetDays: 5, sendHour: 9 },
+				{ offsetDays: 20, sendHour: 9 },
+			],
+		);
+		const panel = wrapper.find('#seq-panel-sequences');
+		const text = panel.text();
+		expect(text).toContain('Paso 1');
+		expect(text).toContain('28 en cola');
+		expect(text).toContain('1 enviados');
+		expect(text).toMatch(/21 sep/);
+		expect(text).toContain('Paso 2');
+		expect(text).toContain('29 programados');
+		expect(text).toMatch(/11 oct/);
+		// Step 3 past with no rows: the guard skipped it — say so.
+		expect(text).toContain('sin mensajes: la fecha ya pasó');
+		expect(panel.find('button[aria-expanded="true"]').text()).toContain('Ocultar detalle');
+	});
+
+	it('a future step with no rows just says there are none yet', async () => {
+		const { wrapper } = await mountExpanded({}, [false, false, false]);
+		const text = wrapper.find('#seq-panel-sequences').text();
+		expect(text).toContain('sin mensajes todavía');
+		expect(text).not.toContain('la fecha ya pasó');
+	});
+});
+
 describe('MessageSequencesView — queue holding only paused messages', () => {
 	it('says how many are paused instead of looking empty, and "Ver pausados" shows them', async () => {
 		const wrapper = await mountView();

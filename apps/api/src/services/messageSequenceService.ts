@@ -2535,6 +2535,28 @@ export class MessageSequenceService {
 	}
 
 	/**
+	 * Same counts broken down by step → { [stepId]: { [status]: count } }, so a
+	 * sequence card can show where each step's messages are (e.g. "Paso 1: 28
+	 * en cola, 1 enviado") without querying Programados.
+	 */
+	async getStepStatsByRetreat(retreatId: string): Promise<Record<string, Record<string, number>>> {
+		const rows = await AppDataSource.getRepository(ScheduledMessage)
+			.createQueryBuilder('sm')
+			.select('sm.stepId', 'stepId')
+			.addSelect('sm.status', 'status')
+			.addSelect('COUNT(*)', 'count')
+			.where('sm.retreatId = :retreatId', { retreatId })
+			.groupBy('sm.stepId')
+			.addGroupBy('sm.status')
+			.getRawMany();
+		const out: Record<string, Record<string, number>> = {};
+		for (const r of rows) {
+			(out[r.stepId] ||= {})[r.status] = Number(r.count);
+		}
+		return out;
+	}
+
+	/**
 	 * Mensajes con problema (omitidos o fallidos) del retiro, con el participante
 	 * y el motivo (`error`), para que el coordinador sepa qué no salió y por qué.
 	 *

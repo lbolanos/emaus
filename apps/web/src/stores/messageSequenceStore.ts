@@ -36,6 +36,8 @@ export const useMessageSequenceStore = defineStore('message-sequence', () => {
 	const sequences = ref<MessageSequence[]>([]);
 	const queue = ref<ScheduledMessageQueueItem[]>([]);
 	const stats = ref<Record<string, Record<string, number>>>({});
+	// Same counts per step ({ [stepId]: { [status]: count } }) for the card's step list.
+	const stepStats = ref<Record<string, Record<string, number>>>({});
 	const issues = ref<ScheduledMessageQueueItem[]>([]);
 	// Conteo real de problemas (sin cap): el contador del tab y el botón
 	// "cargar más" se guían por éste, no por issues.length (que está capado).
@@ -87,6 +89,7 @@ export const useMessageSequenceStore = defineStore('message-sequence', () => {
 		try {
 			const res = await getSequenceStats(retreatId);
 			stats.value = res.stats;
+			stepStats.value = res.stepStats ?? {};
 			issues.value = res.issues;
 			issuesTotal.value = res.issuesTotal ?? res.issues.length;
 		} catch (e: any) {
@@ -312,6 +315,7 @@ export const useMessageSequenceStore = defineStore('message-sequence', () => {
 		sequences,
 		queue,
 		stats,
+		stepStats,
 		issues,
 		issuesTotal,
 		detail,
