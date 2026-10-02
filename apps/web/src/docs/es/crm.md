@@ -2,6 +2,8 @@
 
 📺 **[Ver video tutorial: plantillas y secuencias](https://youtu.be/KpYW_kWYdMk)**
 
+📺 **[Ver video tutorial: secuencias, de la plantilla al envío](https://youtu.be/AUxhUHiOF4w)** (plantilla por paso, la predeterminada, pasos vencidos y detalle por paso)
+
 📺 **[Ver video tutorial: seguimiento de caminantes](https://youtu.be/Xmxa8K-lg-E)**
 
 Esta sección explica cómo comunicarte con los participantes de forma más eficiente: enviar mensajes en grupo por WhatsApp, automatizar recordatorios y seguimientos, y llevar el control de a quién ya contactaste.
@@ -90,13 +92,18 @@ Si haces **clic en el nombre** del participante (en Pendientes o en Problemas) s
 
 > **Renovar con plantilla actual**: si editas una plantilla, los mensajes ya en la bandeja conservan el texto anterior (se "congela" al encolar). Este botón los actualiza con el texto vigente, sin cambiar a quién ni cuándo se envían.
 
-> El botón **Ejecutar ahora** procesa la secuencia en el momento, sin esperar al chequeo automático. Útil para probar.
+> El botón **Ejecutar ahora** procesa las secuencias activas en el momento, sin esperar al chequeo automático.
 
-> **Registros tardíos**: si alguien se registra *después* de la fecha de un paso "X días antes", ese mensaje se envía (o se encola) en cuanto se le enrola, aunque su fecha ideal ya haya pasado. Si la secuencia tiene varios pasos ya vencidos, el participante los recibirá **todos juntos**. Tenlo en cuenta al diseñar secuencias con varios recordatorios previos (por ejemplo, un mensaje que diga "faltan 10 días" puede llegarle a alguien a quien le faltan 3).
+> **Pasos con fecha ya pasada**: un paso "X días antes (o después) del retiro" cuya fecha ya pasó **no se programa solo**, ni al activar la secuencia ni en el chequeo automático. Así, una secuencia creada tarde o con los días mal puestos no manda mensajes viejos de golpe. En el editor, esa fecha aparece en ámbar. Si de verdad quieres enviarlo, pulsa **Ejecutar ahora**: te muestra los pasos vencidos con cuántas personas los recibirían, y eliges cuáles **enviar ahora** (los de WhatsApp entran a la bandeja; los de correo salen en ese momento) u **omitir**. Lo que omitas se te vuelve a preguntar la próxima vez que ejecutes. Si una secuencia tiene varios pasos vencidos, solo viene marcado el más reciente, para que a nadie le lleguen varios mensajes juntos.
+
+> **Registros tardíos** (pasos "al registrarse"): si el mensaje de alguien recién registrado va con hasta 2 días de retraso, se envía igual; con más retraso no se programa solo, y *Ejecutar ahora* también te lo pregunta.
+
+> **Secuencias apagadas**: al desactivar una secuencia, lo que ya estaba en la bandeja se oculta (el filtro *Activos* no lo muestra y no cuenta en la pestaña), pero la bandeja te avisa cuántos hay y el botón **Ver pausados** los muestra; se pueden enviar a mano igual. Lo que estaba en *Programados* no se borra, pero tampoco se encola mientras la secuencia siga apagada: por eso se oculta de la lista y no cuenta en la pestaña, y la tarjeta de la secuencia dice **"N en pausa"** en vez de "N programados". **Ver pausados** los muestra (marcados **Pausado**), y al reactivar la secuencia vuelven a programarse tal como estaban.
 
 **Qué pasa en cada caso:**
 
 - Cada secuencia muestra un resumen: cuántos mensajes se **enviaron**, están **en cola**, se **omitieron** o **fallaron**.
+- **Detalle por paso** (en la tarjeta de la secuencia) despliega cada paso con su fecha, su plantilla y dónde están sus mensajes: por ejemplo *"Paso 1 · 21 sep → 28 en cola, 1 enviado"*. Si un paso no tiene mensajes y su fecha ya pasó, lo dice: es un paso que no se programó solo (*Ejecutar ahora* te pregunta si enviarlo).
 - Los mensajes que no se pudieron enviar aparecen en la pestaña **"Problemas"** con el motivo (por ejemplo, "sin plantilla en el retiro", "destinatario sin teléfono") y una línea **"Cómo corregir"** que te dice qué hacer. Por cada uno puedes **Reenviar** (re-encolar tras corregir el dato) o **Descartar** (quitarlo); y hay **"Reenviar todos" / "Descartar todos"** para resolver en bloque.
 - Si un mensaje no aplica porque el participante simplemente **no tiene ese vínculo** (p. ej. no registró invitador, o la responsabilidad no tiene titular), se **descarta solo** y **no aparece** en Problemas (no es un error que debas corregir). El apodo, si falta, se reemplaza por el **primer nombre** (el saludo nunca queda en blanco).
 - Si **desactivas** una secuencia, sus mensajes pendientes se pausan (no se envían hasta que la reactives).

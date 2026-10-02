@@ -26,12 +26,15 @@ import {
 	findEmptyVariables,
 } from '@repo/utils';
 import { getMessageTemplateAudience } from '@repo/types';
+import type { SequencePastStep, SequenceRunResult } from '@repo/types';
 import { savedSegmentService } from './savedSegmentService';
 import { CommunityMember } from '../entities/communityMember.entity';
 import { Community } from '../entities/community.entity';
 import { EMAIL_SILENT_STATES } from './communityService';
 import { getParticipantShirtOrderSummary } from './shirtReportService';
 import { emitSequenceQueueChanged } from '../realtime';
+import { findPalanqueroAssignments } from './responsabilityService';
+import { DEFAULT_TEMPLATE_ORDER, findDefaultTemplateForType } from './messageTemplateService';
 
 const DEFAULT_TZ = process.env.APP_TIMEZONE || 'America/Mexico_City';
 /** Máximo de reintentos de envío de email ante fallo (SMTP transitorio). */
@@ -52,6 +55,26 @@ type ShirtOrderContext = { shirtOrderSummary: string; shirtCharge: number };
  */
 const AFTER_RETREAT_GRACE_DAYS = Number(process.env.SEQUENCE_AFTER_RETREAT_GRACE_DAYS) || 30;
 
+/**
+ * M4: `{custom_message}` no es una variable del motor — es un hueco del flujo
+ * manual (quien envía rellena el texto en el dialog antes de mandarlo). La
+ * bandeja de WhatsApp no tiene paso de edición, así que despacharlo desde una
+ * secuencia manda el marcador LITERAL (2026-10-01: un mensaje real salió con
+ * "{custom_message}" en el cuerpo). La migración 20261003120000 reemplazó el
+ * placeholder existente por una frase neutral — el guard detecta AMBOS
+ * marcadores para que una plantilla migrada pero nunca personalizada tampoco
+ * salga con la frase literal.
+ */
+const CUSTOM_MESSAGE_PLACEHOLDER = '{custom_message}';
+const CUSTOM_MESSAGE_NEUTRAL_PHRASE = '«Escribe aquí tu mensaje personalizado»';
+const CUSTOM_MESSAGE_SKIP_ERROR = `plantilla con ${CUSTOM_MESSAGE_PLACEHOLDER} (mensaje manual): edítala antes de usarla en secuencias`;
+
+function hasManualPlaceholder(message: string): boolean {
+	return (
+		message.includes(CUSTOM_MESSAGE_PLACEHOLDER) || message.includes(CUSTOM_MESSAGE_NEUTRAL_PHRASE)
+	);
+}
+
 /** Paso recibido al crear/editar; `id` presente ⇒ paso existente (se conserva). */
 type StepSyncInput = {
 	id?: string;
@@ -59,6 +82,9 @@ type StepSyncInput = {
 	offsetDays?: number;
 	sendHour?: number;
 	templateType: string;
+	// M3: plantilla específica del paso (gana sobre templateType). Opcional para
+	// no romper llamadores que siguen mandando solo el tipo (globales, API vieja).
+	templateId?: string | null;
 	channel: MessageChannel;
 	recipientTarget?: MessageRecipientTarget;
 	recipientResponsibility?: string | null;
@@ -71,6 +97,7 @@ type StepWriteData = {
 	offsetDays: number;
 	sendHour: number;
 	templateType: string;
+	templateId: string | null;
 	channel: MessageChannel;
 	recipientTarget: MessageRecipientTarget;
 	recipientResponsibility: string | null;
@@ -98,6 +125,7 @@ function stepPayloadChanged(current: SequenceStep, data: StepWriteData): boolean
 		current.offsetDays !== data.offsetDays ||
 		current.sendHour !== data.sendHour ||
 		current.templateType !== data.templateType ||
+		(current.templateId ?? null) !== data.templateId ||
 		current.channel !== data.channel ||
 		(current.recipientTarget ?? 'participant') !== data.recipientTarget ||
 		(current.recipientResponsibility ?? null) !== data.recipientResponsibility ||
@@ -190,6 +218,61 @@ export class MessageSequenceService {
 
 	private resolveTz(retreat: Retreat | undefined | null): string {
 		return retreat?.timezone || (retreat as any)?.house?.timezone || DEFAULT_TZ;
+	}
+
+	/**
+	 * M3: plantilla que corresponde a un paso. `step.templateId` gana SIEMPRE
+	 * que apunte a una plantilla del retiro correcto; si no (ausente, borrada o
+	 * de otro retiro), fallback por (retreatId, templateType) con `createdAt`
+	 * ASC — determinista, el mismo criterio del backfill de la migración y del
+	 * batch de processDue. Esa doble validación es la que vuelve alcanzable una
+	 * plantilla nueva que comparte tipo con una vieja (incidente "Ultimo
+	 * Prendas", 2026-10-01) sin romper pasos históricos cuyo tipo ya no existe.
+	 */
+	private async resolveTemplateForStep(
+		retreatId: string,
+		step: Pick<SequenceStep, 'templateId' | 'templateType'> | null | undefined,
+	): Promise<MessageTemplate | null> {
+		if (step?.templateId) {
+			const byId = await AppDataSource.getRepository(MessageTemplate).findOne({
+				where: { id: step.templateId, retreatId },
+			});
+			if (byId) return byId;
+		}
+		if (!step?.templateType) return null;
+		// M6: the type's "predeterminada" first, else the oldest.
+		return findDefaultTemplateForType(retreatId, step.templateType);
+	}
+
+	/**
+	 * M3: resolución de `templateName` en LOTE para listados (bandeja,
+	 * programados) — misma semántica que `resolveTemplateForStep` pero con una
+	 * sola consulta por retiro: id del paso gana, fallback por tipo con
+	 * `createdAt` ASC (la primera fila insertada con esa clave de mapa).
+	 */
+	private async buildTemplateNameMaps(
+		retreatId: string,
+	): Promise<{
+		resolve: (step: SequenceStep | null | undefined, templateType: string) => string | null;
+	}> {
+		// createdAt ASC: al poblar el map por tipo, la PRIMERA plantilla del tipo
+		// es la que gana (misma determinación que el fallback individual).
+		// M6: the default goes first, so it wins the per-type slot.
+		const templates = await AppDataSource.getRepository(MessageTemplate).find({
+			where: { retreatId },
+			order: DEFAULT_TEMPLATE_ORDER,
+		});
+		const nameById = new Map(templates.map((t) => [t.id, t.name]));
+		const firstNameByType = new Map<string, string>();
+		for (const t of templates) {
+			if (!firstNameByType.has(t.type)) firstNameByType.set(t.type, t.name);
+		}
+		return {
+			resolve: (step, templateType) =>
+				(step?.templateId ? nameById.get(step.templateId) : undefined) ??
+				firstNameByType.get(templateType) ??
+				null,
+		};
 	}
 
 	/**
@@ -289,6 +372,47 @@ export class MessageSequenceService {
 		return makeDateInTimezone(shifted.y, shifted.m0, shifted.d, step.sendHour, 0, tz);
 	}
 
+	/**
+	 * Guard anti-retroactivo del ENROLAMIENTO (M2): ¿materializaría este paso
+	 * con una fecha que ya pasó? A diferencia de `isRetreatClosed` (que mira
+	 * la ventana completa del retiro), esto opera por-fila sobre la fecha
+	 * calculada, en la TZ del retiro.
+	 *
+	 * - `days_before_retreat` / `days_after_retreat`: el ancla es el retiro →
+	 *   la fecha es LA MISMA para todos los participantes. Una fecha pasada al
+	 *   materializar no es catch-up de nadie: es la secuencia activándose
+	 *   tarde o con un offset roto, y encolarla en masa repite los incidentes
+	 *   de palancas (2026-09-13) y prendas (2026-10-01). Se suprime todo lo
+	 *   anterior a hoy; "hoy" sí materializa.
+	 * - `participant_created`: el ancla es el alta de CADA participante, así
+	 *   que una fecha pasada SÍ puede ser catch-up legítimo de inscripción
+	 *   tardía. Se toleran hasta 2 días de rezago.
+	 * - `birthday`: nunca — `computeScheduledFor` ya elige la próxima
+	 *   ocurrencia futura.
+	 */
+	public isRetroactiveAtEnroll(
+		trigger: MessageSequence['trigger'],
+		scheduledFor: Date,
+		now: Date,
+		tz: string,
+	): boolean {
+		const today = ymdInTz(now, tz);
+		switch (trigger) {
+			case 'days_before_retreat':
+			case 'days_after_retreat': {
+				const startOfToday = makeDateInTimezone(today.y, today.m0, today.d, 0, 0, tz);
+				return scheduledFor.getTime() < startOfToday.getTime();
+			}
+			case 'participant_created': {
+				const cutoff = addDays(today.y, today.m0, today.d, -2);
+				const cutoffAt = makeDateInTimezone(cutoff.y, cutoff.m0, cutoff.d, 0, 0, tz);
+				return scheduledFor.getTime() < cutoffAt.getTime();
+			}
+			default:
+				return false;
+		}
+	}
+
 	/** Enrola participantes elegibles en todas las secuencias activas. */
 	public async enrollAll(now: Date = new Date()): Promise<number> {
 		const sequences = await AppDataSource.getRepository(MessageSequence).find({
@@ -304,6 +428,22 @@ export class MessageSequenceService {
 
 	/** Enrola los participantes elegibles de una secuencia (idempotente). */
 	public async enrollSequence(seq: MessageSequence, now: Date = new Date()): Promise<number> {
+		return (await this.enrollSequenceDetailed(seq, now)).created;
+	}
+
+	/**
+	 * `enrollSequence` plus M5: reports the past-dated steps the M2 guard left
+	 * unscheduled, so the manual "Ejecutar" can ask the coordinator instead of
+	 * dropping them silently. Steps listed in `sendNowStepIds` (the
+	 * coordinator's confirmation) are scheduled for `now` instead of skipped.
+	 * The hourly cron never passes it: automatic runs keep the guard intact.
+	 */
+	public async enrollSequenceDetailed(
+		seq: MessageSequence,
+		now: Date = new Date(),
+		sendNowStepIds: ReadonlySet<string> = new Set(),
+	): Promise<{ created: number; pastSteps: SequencePastStep[] }> {
+		const none = { created: 0, pastSteps: [] };
 		// Sólo pasos vivos: los archivados ya no enrolan (B4). El filtro cubre
 		// ambas vías — la carga fresca y unos `seq.steps` hidratados sin filtro.
 		const steps = (
@@ -313,18 +453,19 @@ export class MessageSequenceService {
 						where: { sequenceId: seq.id, isArchived: false },
 					})
 		).filter((s) => !s.isArchived);
-		if (!steps.length) return 0;
+		if (!steps.length) return none;
 
 		const retreat = await AppDataSource.getRepository(Retreat).findOne({
 			where: { id: seq.retreatId },
 			relations: ['house'],
 		});
-		if (!retreat) return 0;
+		if (!retreat) return none;
 
 		// Salvaguarda anti-backfill: si el retiro ya cerró su ventana para este
 		// trigger, no materializar nada. Evita que activar/desplegar una secuencia
 		// dispare mensajes (bienvenidas, recordatorios) de retiros ya terminados.
-		if (this.isRetreatClosed(retreat, seq.trigger, now)) return 0;
+		// Applies to confirmed steps too: a closed retreat is never caught up.
+		if (this.isRetreatClosed(retreat, seq.trigger, now)) return none;
 
 		// Participantes elegibles. Si la secuencia tiene un segmento, se evalúa en
 		// vivo (audiencia dinámica). Si no, se usa la audiencia base por type. La
@@ -353,7 +494,7 @@ export class MessageSequenceService {
 		}
 		// Opt-out: nunca enrolar a quien está en la lista de no-contacto.
 		participants = participants.filter((p) => !p.doNotContact);
-		if (!participants.length) return 0;
+		if (!participants.length) return none;
 
 		// Set de claves ya programadas → idempotencia. Para birthday la clave
 		// incluye el año agendado (#1): el mismo paso puede volver a disparar
@@ -375,6 +516,8 @@ export class MessageSequenceService {
 
 		const repo = AppDataSource.getRepository(ScheduledMessage);
 		const toCreate: ScheduledMessage[] = [];
+		let suppressed = 0;
+		const pastByStep = new Map<string, { step: SequenceStep; count: number; scheduledFor: Date }>();
 		for (const participant of participants) {
 			for (const step of steps) {
 				const scheduledFor = this.computeScheduledFor(seq.trigger, step, participant, retreat);
@@ -386,7 +529,30 @@ export class MessageSequenceService {
 				const key = occurrenceYear
 					? `${step.id}:${participant.id}:${occurrenceYear}`
 					: `${step.id}:${participant.id}`;
+				// Checked before the guard so the past-step count only includes
+				// people who still lack the message (e.g. not an already-sent one).
 				if (seen.has(key)) continue;
+				let sendAt = scheduledFor;
+				// M2: guard anti-retroactivo. SIN filas `skipped` a propósito:
+				// la UQ (stepId, participantId, occurrenceYear) las volvería
+				// permanentes y bloquearía el re-enrol tras corregir el offset
+				// (misma razón del DELETE de `updateSequence`). La visibilidad
+				// la da el editor (fecha del paso en ámbar).
+				if (this.isRetroactiveAtEnroll(seq.trigger, scheduledFor, now, tz)) {
+					if (!sendNowStepIds.has(step.id)) {
+						suppressed++;
+						const past = pastByStep.get(step.id);
+						if (!past) pastByStep.set(step.id, { step, count: 1, scheduledFor });
+						else {
+							past.count++;
+							if (scheduledFor < past.scheduledFor) past.scheduledFor = scheduledFor;
+						}
+						continue;
+					}
+					// M5: confirmed by the coordinator from "Ejecutar" — send it
+					// now; its original date already passed.
+					sendAt = now;
+				}
 				toCreate.push(
 					repo.create({
 						sequenceId: seq.id,
@@ -396,7 +562,7 @@ export class MessageSequenceService {
 						channel: step.channel,
 						templateType: step.templateType,
 						recipientTarget: step.recipientTarget ?? "participant",
-						scheduledFor,
+						scheduledFor: sendAt,
 						occurrenceYear,
 						status: 'pending',
 					}),
@@ -404,7 +570,23 @@ export class MessageSequenceService {
 			}
 		}
 		if (toCreate.length) await repo.save(toCreate);
-		return toCreate.length;
+		if (suppressed) {
+			console.warn(
+				`⏭️ Sequences: ${suppressed} mensaje(s) retroactivo(s) suprimido(s) al enrolar "${seq.name}" (${seq.id}) — fecha de paso en el pasado; el editor la marca en ámbar.`,
+			);
+		}
+		const pastSteps: SequencePastStep[] = [...pastByStep.values()]
+			.sort((a, b) => a.step.stepOrder - b.step.stepOrder)
+			.map(({ step, count, scheduledFor }) => ({
+				sequenceId: seq.id,
+				sequenceName: seq.name,
+				stepId: step.id,
+				stepOrder: step.stepOrder,
+				channel: step.channel,
+				scheduledFor: scheduledFor.toISOString(),
+				count,
+			}));
+		return { created: toCreate.length, pastSteps };
 	}
 
 	/**
@@ -846,14 +1028,22 @@ export class MessageSequenceService {
 		// follow-up del participante) se precargan en una query por lote. Con
 		// el tope de `limit` mensajes, eso son 3 queries fijas en vez de 3·N.
 		const batchRetreatIds = [...new Set(due.map((sm) => sm.retreatId))];
-		const templates = new Map<string, MessageTemplate>();
+		// M3: dos índices por lote. `templatesByType` conserva el fallback
+		// determinista de siempre (primera fila por createdAt ASC); la ordenación
+		// explícita reemplaza el "gana la de menor rowid" implícito. `templatesById`
+		// resuelve el templateId del PASO, que gana sobre el tipo.
+		const templatesByType = new Map<string, MessageTemplate>();
+		const templatesById = new Map<string, MessageTemplate>();
 		if (batchRetreatIds.length) {
+			// M6: default first, so it takes the per-type slot of the batch map.
 			const rows = await AppDataSource.getRepository(MessageTemplate).find({
 				where: { retreatId: In(batchRetreatIds) },
+				order: DEFAULT_TEMPLATE_ORDER,
 			});
 			for (const t of rows) {
 				const key = `${t.retreatId}:${t.type}`;
-				if (!templates.has(key)) templates.set(key, t);
+				if (!templatesByType.has(key)) templatesByType.set(key, t);
+				templatesById.set(`${t.retreatId}:${t.id}`, t);
 			}
 		}
 		const cancelledRp = new Set<string>();
@@ -984,11 +1174,25 @@ export class MessageSequenceService {
 				}
 
 				// Plantilla precargada por corrida (#6): una query por lote en vez
-				// de una por mensaje.
-				const template = templates.get(`${sm.retreatId}:${sm.templateType}`);
+				// de una por mensaje. M3: la plantilla del PASO (templateId) gana;
+				// si su id no está en el lote (borrada / de otro retiro) cae al
+				// fallback por tipo.
+				const template =
+					(sm.step?.templateId
+						? templatesById.get(`${sm.retreatId}:${sm.step.templateId}`)
+						: undefined) ??
+					templatesByType.get(`${sm.retreatId}:${sm.templateType}`);
 				if (!template) {
 					sm.status = 'skipped';
 					sm.error = `sin plantilla ${sm.templateType} en el retiro`;
+					await repo.save(sm);
+					continue;
+				}
+				// M4: hueco de envío manual en una secuencia — la bandeja no
+				// edita el texto, sin esto el marcador saldría literal.
+				if (hasManualPlaceholder(template.message)) {
+					sm.status = 'skipped';
+					sm.error = CUSTOM_MESSAGE_SKIP_ERROR;
 					await repo.save(sm);
 					continue;
 				}
@@ -1231,18 +1435,19 @@ export class MessageSequenceService {
 	 * patrón try/catch sin propagar — un fallo de historial no debe deshacer
 	 * la marca de enviado.
 	 *
-	 * La plantilla se resuelve por (retreatId, templateType) como el detalle de
-	 * la bandeja; si ya no existe, la fila se registra igual (el envío ocurrió),
-	 * sólo sin templateId/templateName.
+	 * M3: la plantilla se resuelve como en el motor (templateId del paso
+	 * primero, fallback por tipo); si ya no existe, la fila se registra igual
+	 * (el envío ocurrió), sólo sin templateId/templateName.
 	 */
 	private async recordWhatsappCommunication(
 		sm: ScheduledMessage,
 		userId?: string | null,
 	): Promise<void> {
 		try {
-			const template = await AppDataSource.getRepository(MessageTemplate).findOne({
-				where: { retreatId: sm.retreatId, type: sm.templateType as any },
-			});
+			const step = sm.step ?? (sm.stepId
+				? await AppDataSource.getRepository(SequenceStep).findOne({ where: { id: sm.stepId } })
+				: null);
+			const template = await this.resolveTemplateForStep(sm.retreatId, step ?? undefined);
 			const repo = AppDataSource.getRepository(ParticipantCommunication);
 			await repo.save(
 				repo.create({
@@ -1422,6 +1627,10 @@ export class MessageSequenceService {
 				offsetDays: s.offsetDays ?? 0,
 				sendHour: s.sendHour ?? 9,
 				templateType: s.templateType,
+				// M3: plantilla específica. Los llamadores legacy que aún mandan
+				// solo templateType dejan NULL → fallback por tipo (compat hacia
+				// atrás con el editor viejo desplegado).
+				templateId: s.templateId ?? null,
 				channel: s.channel,
 				recipientTarget: s.recipientTarget ?? 'participant',
 				recipientResponsibility: s.recipientResponsibility ?? null,
@@ -1467,12 +1676,24 @@ export class MessageSequenceService {
 
 	/**
 	 * Bandeja de pendientes de WhatsApp (status queued) de un retiro. Cada ítem se
-	 * enriquece con `followUpStatus` (estado de seguimiento del participante) para
-	 * dar contexto al coordinador antes de enviar.
+	 * enriquece con `followUpStatus` (estado de seguimiento del participante),
+	 * `templateName` (M3: nombre de la plantilla resuelto server-side, id del paso
+	 * gana sobre el tipo) y `palancasCoordinator`/`palanqueroName` (el palanquero
+	 * asignado al caminante: nombre de la responsabilidad y su titular) para dar
+	 * contexto al coordinador antes de enviar.
 	 */
 	async listQueued(
 		retreatId: string,
-	): Promise<Array<ScheduledMessage & { followUpStatus?: string | null }>> {
+	): Promise<
+		Array<
+			ScheduledMessage & {
+				followUpStatus?: string | null;
+				templateName?: string | null;
+				palancasCoordinator?: string | null;
+				palanqueroName?: string | null;
+			}
+		>
+	> {
 		const items = await AppDataSource.getRepository(ScheduledMessage).find({
 			where: { retreatId, status: 'queued', channel: 'whatsapp' },
 			relations: ['participant', 'step'],
@@ -1483,9 +1704,34 @@ export class MessageSequenceService {
 			where: { retreatId },
 		});
 		const statusByParticipant = new Map(followUps.map((f) => [f.participantId, f.status]));
-		return items.map((it) =>
-			Object.assign(it, { followUpStatus: statusByParticipant.get(it.participantId) ?? null }),
+		// Palanquero assignment lives in retreat_participants.palancasCoordinator as
+		// the responsibility NAME ('Palanquero 1'…), not an id — resolve the holder
+		// with the same name-match as /responsibilities/palanquero-options.
+		const retreatParticipants = await AppDataSource.getRepository(RetreatParticipant).find({
+			where: { retreatId, participantId: In([...new Set(items.map((i) => i.participantId))]) },
+			select: ['participantId', 'palancasCoordinator'],
+		});
+		const coordinatorByParticipant = new Map(
+			retreatParticipants.map((rp) => [rp.participantId, rp.palancasCoordinator || null]),
 		);
+		const holderByName = new Map(
+			(await findPalanqueroAssignments(retreatId))
+				.filter((r) => r.participant)
+				.map((r) => [
+					r.name,
+					`${r.participant!.firstName ?? ''} ${r.participant!.lastName ?? ''}`.trim(),
+				]),
+		);
+		const names = await this.buildTemplateNameMaps(retreatId);
+		return items.map((it) => {
+			const coordinator = coordinatorByParticipant.get(it.participantId) ?? null;
+			return Object.assign(it, {
+				followUpStatus: statusByParticipant.get(it.participantId) ?? null,
+				templateName: names.resolve(it.step, it.templateType),
+				palancasCoordinator: coordinator,
+				palanqueroName: coordinator ? holderByName.get(coordinator) ?? null : null,
+			});
+		});
 	}
 
 	/**
@@ -1508,6 +1754,10 @@ export class MessageSequenceService {
 			page?: number;
 			limit?: number;
 			order?: 'scheduled' | 'recent';
+			// A paused row = `pending` of an inactive sequence: it won't go out
+			// while the sequence stays off. 'hide' drops them (the tab's default),
+			// 'only' lists just them, 'include' (default) keeps the old contract.
+			paused?: 'include' | 'hide' | 'only';
 		} = {},
 	): Promise<{
 		items: Array<{
@@ -1517,6 +1767,7 @@ export class MessageSequenceService {
 			participantId: string;
 			participantName: string;
 			templateType: string;
+			templateName: string | null;
 			channel: MessageChannel;
 			recipientTarget: string;
 			recipientName: string | null;
@@ -1532,6 +1783,8 @@ export class MessageSequenceService {
 		page: number;
 		totalPages: number;
 		timezone: string;
+		/** Paused rows matching the other filters, whatever `paused` mode was used. */
+		pausedCount: number;
 	}> {
 		const repo = AppDataSource.getRepository(ScheduledMessage);
 		// leftJoinAndSelect (no leftJoin plano): el DTO lee participant/step de la
@@ -1541,6 +1794,7 @@ export class MessageSequenceService {
 			.createQueryBuilder('sm')
 			.leftJoinAndSelect('sm.participant', 'participant')
 			.leftJoinAndSelect('sm.step', 'step')
+			.innerJoin('sm.sequence', 'seq')
 			.where('sm.retreatId = :retreatId', { retreatId });
 		const statuses = opts.statuses?.length ? opts.statuses : ['pending'];
 		qb.andWhere('sm.status IN (:...statuses)', { statuses });
@@ -1556,6 +1810,11 @@ export class MessageSequenceService {
 				{ q: `%${opts.search}%` },
 			);
 		}
+		const pausedWhere = "(sm.status = 'pending' AND seq.isActive = :seqActive)";
+		const pausedParams = { seqActive: false };
+		const pausedCount = await qb.clone().andWhere(pausedWhere, pausedParams).getCount();
+		if (opts.paused === 'hide') qb.andWhere(`NOT ${pausedWhere}`, pausedParams);
+		else if (opts.paused === 'only') qb.andWhere(pausedWhere, pausedParams);
 		const total = await qb.clone().getCount();
 		const page = Math.max(1, opts.page ?? 1);
 		const limit = Math.min(200, Math.max(1, opts.limit ?? 50));
@@ -1574,6 +1833,8 @@ export class MessageSequenceService {
 			where: { id: retreatId },
 			relations: ['house'],
 		});
+		// Sólo si hay filas: en página vacía la consulta sería en vano.
+		const names = rows.length ? await this.buildTemplateNameMaps(retreatId) : null;
 		return {
 			items: rows.map((sm) => ({
 				id: sm.id,
@@ -1584,6 +1845,7 @@ export class MessageSequenceService {
 					? `${sm.participant.firstName || ''} ${sm.participant.lastName || ''}`.trim()
 					: '',
 				templateType: sm.templateType,
+				templateName: names ? names.resolve(sm.step, sm.templateType) : null,
 				channel: sm.channel,
 				recipientTarget: sm.recipientTarget,
 				recipientName: sm.recipientName ?? null,
@@ -1599,6 +1861,7 @@ export class MessageSequenceService {
 			page,
 			totalPages: Math.max(1, Math.ceil(total / limit)),
 			timezone: this.resolveTz(retreat),
+			pausedCount,
 		};
 	}
 
@@ -1614,7 +1877,7 @@ export class MessageSequenceService {
 		participantId: string;
 		trigger: MessageSequence['trigger'];
 		steps: Array<{ offsetDays?: number; sendHour?: number }>;
-	}): Promise<{ dates: Array<Date | null>; timezone: string } | null> {
+	}): Promise<{ dates: Array<Date | null>; past: boolean[]; timezone: string } | null> {
 		const [participant, retreat] = await Promise.all([
 			AppDataSource.getRepository(Participant).findOne({ where: { id: input.participantId } }),
 			AppDataSource.getRepository(Retreat).findOne({
@@ -1623,6 +1886,7 @@ export class MessageSequenceService {
 			}),
 		]);
 		if (!participant || !retreat) return null;
+		const tz = this.resolveTz(retreat);
 		const dates = input.steps.map((s) =>
 			this.computeScheduledFor(
 				input.trigger,
@@ -1631,7 +1895,12 @@ export class MessageSequenceService {
 				retreat,
 			),
 		);
-		return { dates, timezone: this.resolveTz(retreat) };
+		// M2: misma definición de retroactividad que el enrolamiento, para que
+		// el ámbar del editor coincida exactamente con lo que el motor hará al
+		// activar. Paso sin fecha (falta el dato del disparador) → false.
+		const now = new Date();
+		const past = dates.map((d) => (d ? this.isRetroactiveAtEnroll(input.trigger, d, now, tz) : false));
+		return { dates, past, timezone: tz };
 	}
 
 	/** Paso con su secuencia (para que el controller valide el retiro correcto). */
@@ -1702,6 +1971,9 @@ export class MessageSequenceService {
 		retreatId: string;
 		participantId: string;
 		templateType: string;
+		// M3: plantilla específica del paso (la que el editor tiene seleccionada);
+		// si no llega o no es del retiro, fallback por tipo como siempre.
+		templateId?: string | null;
 		channel: MessageChannel;
 		recipientTarget: MessageRecipientTarget;
 		recipientResponsibility?: string | null;
@@ -1715,8 +1987,9 @@ export class MessageSequenceService {
 		const [participant, retreat, template] = await Promise.all([
 			AppDataSource.getRepository(Participant).findOne({ where: { id: input.participantId } }),
 			AppDataSource.getRepository(Retreat).findOne({ where: { id: input.retreatId } }),
-			AppDataSource.getRepository(MessageTemplate).findOne({
-				where: { retreatId: input.retreatId, type: input.templateType as any },
+			this.resolveTemplateForStep(input.retreatId, {
+				templateId: input.templateId ?? null,
+				templateType: input.templateType,
 			}),
 		]);
 		if (!participant || !retreat) return null;
@@ -1727,6 +2000,19 @@ export class MessageSequenceService {
 				recipientContact: null,
 				emptyVariables: [],
 				warning: `El retiro no tiene una plantilla de tipo ${input.templateType}`,
+			};
+		}
+		// M4: mismo canal que el de plantilla faltante — el paso NO despachará
+		// (el motor lo salta), el preview no debe pintar un contenido que no
+		// va a salir.
+		if (hasManualPlaceholder(template.message)) {
+			return {
+				content: '',
+				recipientName: null,
+				recipientContact: null,
+				emptyVariables: [],
+				warning:
+					'La plantilla tiene un hueco de envío manual ({custom_message}): edítala antes de usarla en una secuencia',
 			};
 		}
 
@@ -1818,6 +2104,9 @@ export class MessageSequenceService {
 		message: {
 			id: string;
 			templateType: string;
+			// M3: nombre resuelto server-side (templateId del paso primero,
+			// fallback por tipo) — la bandeja no adivina desde el tipo crudo.
+			templateName: string | null;
 			recipientTarget: string;
 			recipientName: string | null;
 			resolvedContent: string | null;
@@ -1856,12 +2145,11 @@ export class MessageSequenceService {
 		const p = sm.participant;
 
 		// Vista previa: usa el snapshot si existe; si no (pendientes encolados antes
-		// de tener snapshot), la resuelve al vuelo desde la plantilla del retiro.
+		// de tener snapshot), la resuelve al vuelo desde la plantilla del paso
+		// (templateId primero, fallback por tipo — misma resolución que el motor).
 		let preview = sm.resolvedContent ?? null;
 		if (!preview && sm.retreat) {
-			const template = await AppDataSource.getRepository(MessageTemplate).findOne({
-				where: { retreatId: sm.retreatId, type: sm.templateType as any },
-			});
+			const template = await this.resolveTemplateForStep(sm.retreatId, sm.step ?? undefined);
 			if (template) {
 				const recipient = await this.resolveRecipient(
 					p,
@@ -1894,6 +2182,7 @@ export class MessageSequenceService {
 			message: {
 				id: sm.id,
 				templateType: sm.templateType,
+				templateName: (await this.resolveTemplateForStep(sm.retreatId, sm.step ?? undefined))?.name ?? null,
 				recipientTarget: sm.recipientTarget || 'participant',
 				recipientName: sm.recipientName ?? null,
 				resolvedContent: preview,
@@ -2162,10 +2451,15 @@ export class MessageSequenceService {
 				skipped++;
 				continue;
 			}
-			const template = await AppDataSource.getRepository(MessageTemplate).findOne({
-				where: { retreatId, type: sm.templateType as any },
-			});
+			const template = await this.resolveTemplateForStep(retreatId, sm.step ?? undefined);
 			if (!template) {
+				skipped++;
+				continue;
+			}
+			// M4: hueco de envío manual — "renovar" el snapshot con el marcador
+			// literal es peor que conservar el viejo; quien lo corrige edita la
+			// plantilla (el motor ya no la despacha con el hueco).
+			if (hasManualPlaceholder(template.message)) {
 				skipped++;
 				continue;
 			}
@@ -2242,6 +2536,28 @@ export class MessageSequenceService {
 	}
 
 	/**
+	 * Same counts broken down by step → { [stepId]: { [status]: count } }, so a
+	 * sequence card can show where each step's messages are (e.g. "Paso 1: 28
+	 * en cola, 1 enviado") without querying Programados.
+	 */
+	async getStepStatsByRetreat(retreatId: string): Promise<Record<string, Record<string, number>>> {
+		const rows = await AppDataSource.getRepository(ScheduledMessage)
+			.createQueryBuilder('sm')
+			.select('sm.stepId', 'stepId')
+			.addSelect('sm.status', 'status')
+			.addSelect('COUNT(*)', 'count')
+			.where('sm.retreatId = :retreatId', { retreatId })
+			.groupBy('sm.stepId')
+			.addGroupBy('sm.status')
+			.getRawMany();
+		const out: Record<string, Record<string, number>> = {};
+		for (const r of rows) {
+			(out[r.stepId] ||= {})[r.status] = Number(r.count);
+		}
+		return out;
+	}
+
+	/**
 	 * Mensajes con problema (omitidos o fallidos) del retiro, con el participante
 	 * y el motivo (`error`), para que el coordinador sepa qué no salió y por qué.
 	 *
@@ -2280,16 +2596,26 @@ export class MessageSequenceService {
 	 * al cron horario) y el endpoint manual "Procesar ahora" del controller (#11:
 	 * una sola implementación, sin duplicar la rutina en el controller).
 	 */
-	async runForRetreat(retreatId: string): Promise<{ enrolled: number; processed: number }> {
+	async runForRetreat(
+		retreatId: string,
+		opts: { sendNowStepIds?: readonly string[] } = {},
+	): Promise<SequenceRunResult> {
 		const sequences = await this.findByRetreat(retreatId);
+		// Only this retreat's sequences are walked, so step ids from another
+		// retreat in `sendNowStepIds` have nothing to match and are ignored.
+		const sendNow = new Set(opts.sendNowStepIds ?? []);
 		let enrolled = 0;
+		const pastSteps: SequencePastStep[] = [];
 		for (const seq of sequences) {
-			if (seq.isActive) enrolled += await this.enrollSequence(seq);
+			if (!seq.isActive) continue;
+			const result = await this.enrollSequenceDetailed(seq, new Date(), sendNow);
+			enrolled += result.created;
+			pastSteps.push(...result.pastSteps);
 		}
 		// Scopeado a este retiro: el alta de un participante no debe disparar envíos
 		// de otros retiros.
 		const processed = await this.processDue(new Date(), undefined, retreatId);
-		return { enrolled, processed };
+		return { enrolled, processed, pastSteps };
 	}
 
 	/**
@@ -2368,15 +2694,27 @@ export class MessageSequenceService {
 			select: ['name'],
 		});
 		const have = new Set(existing.map((e) => e.name));
+		// M6: seeded steps are born pinned to the type's default template (the
+		// retreat's templates are copied before this runs), so adding another
+		// template of the same type later never changes what they send.
+		const templateIdByType = new Map<string, string | null>();
+		const pinnedTemplateId = async (type: string) => {
+			if (!templateIdByType.has(type)) {
+				templateIdByType.set(type, (await findDefaultTemplateForType(retreat.id, type))?.id ?? null);
+			}
+			return templateIdByType.get(type) ?? null;
+		};
 		for (const d of defs) {
 			if (have.has(d.name)) continue;
+			const steps: StepSyncInput[] = [];
+			for (const s of d.steps) steps.push({ ...s, templateId: await pinnedTemplateId(s.templateType) });
 			await this.createSequence({
 				name: d.name,
 				retreatId: retreat.id,
 				trigger: 'participant_created',
 				audience: d.audience,
 				isActive: d.isActive,
-				steps: d.steps,
+				steps,
 			});
 		}
 	}

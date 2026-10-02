@@ -7,6 +7,7 @@ import {
 	previewSequenceStepSchema,
 	previewSequenceScheduleSchema,
 	rescheduleStepSchema,
+	runSequencesSchema,
 } from '@repo/types';
 import { crmService } from '../services/crmService';
 
@@ -109,14 +110,15 @@ export class MessageSequenceController {
 			const q = (req.query ?? {}) as Record<string, unknown>;
 			const issuesOffset = Math.max(0, Number(q.issuesOffset) || 0);
 			const issuesLimit = Math.min(500, Math.max(1, Number(q.issuesLimit) || 100));
-			const [stats, issues] = await Promise.all([
+			const [stats, stepStats, issues] = await Promise.all([
 				messageSequenceService.getStatsByRetreat(retreatId),
+				messageSequenceService.getStepStatsByRetreat(retreatId),
 				messageSequenceService.getIssuesByRetreat(retreatId, {
 					limit: issuesLimit,
 					offset: issuesOffset,
 				}),
 			]);
-			res.json({ stats, issues: issues.items, issuesTotal: issues.total });
+			res.json({ stats, stepStats, issues: issues.items, issuesTotal: issues.total });
 		} catch (error) {
 			console.error('Error fetching sequence stats:', error);
 			res.status(500).json({ error: 'Error al obtener las métricas de secuencias' });
@@ -170,6 +172,7 @@ export class MessageSequenceController {
 				page: Math.max(1, Number(q.page) || 1),
 				limit: Math.min(200, Math.max(1, Number(q.limit) || 50)),
 				order: q.order === 'recent' ? 'recent' : 'scheduled',
+				paused: q.paused === 'hide' || q.paused === 'only' ? q.paused : 'include',
 			});
 			res.json(result);
 		} catch (error) {
@@ -394,11 +397,19 @@ export class MessageSequenceController {
 	runNow = async (req: Request, res: Response) => {
 		try {
 			const { retreatId } = req.params;
+			const parsed = runSequencesSchema.safeParse({ body: req.body });
+			if (!parsed.success) {
+				return res.status(400).json({ error: 'Datos inválidos', details: parsed.error.flatten() });
+			}
 			// Misma rutina que el alta de un participante (participantService):
 			// enrola las activas y procesa SÓLO este retiro — el disparo manual
 			// no debe enviar mensajes de otros (la ruta valida acceso a :retreatId).
-			const { enrolled, processed } = await messageSequenceService.runForRetreat(retreatId);
-			res.json({ enrolled, processed });
+			// M5: `pastSteps` lists what the M2 guard skipped; the UI asks and
+			// re-runs with the confirmed ones in `sendNowStepIds`.
+			const result = await messageSequenceService.runForRetreat(retreatId, {
+				sendNowStepIds: parsed.data.body?.sendNowStepIds,
+			});
+			res.json(result);
 		} catch (error) {
 			console.error('Error running sequences:', error);
 			res.status(500).json({ error: 'Error al ejecutar las secuencias' });

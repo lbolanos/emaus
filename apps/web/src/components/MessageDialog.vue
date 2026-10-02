@@ -480,6 +480,7 @@ import ParticipantMessageHistory from './ParticipantMessageHistory.vue';
 import CommunityMessageHistory from './CommunityMessageHistory.vue';
 import type { Participant, CommunityMember } from '@repo/types';
 import { getMessageTemplateAudience } from '@repo/types';
+import { effectiveDefaultTemplate } from '@/utils/templateDefault';
 
 // Constants
 const DRAFT_EXPIRY_MS = 24 * 60 * 60 * 1000; // 24 hours
@@ -1778,7 +1779,10 @@ watch(
 			// coordinador personalizó. Sin este desempate quedaba a merced del
 			// orden en que llegara la lista.
 			const candidates = list.filter((t: any) => t.type === props.forceTemplateType);
-			const forced = candidates.find((t: any) => t.communityId || t.retreatId) ?? candidates[0];
+			// M6: among the own ones, the type's "predeterminada", else the
+			// oldest — the same order the server uses (list order is arbitrary).
+			const forced =
+				effectiveDefaultTemplate(candidates.filter((t: any) => t.communityId || t.retreatId)) ?? candidates[0];
 			if (forced) {
 				selectedTemplate.value = forced.id;
 				pendingTemplateId.value = null;

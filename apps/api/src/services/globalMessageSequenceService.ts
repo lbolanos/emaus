@@ -4,6 +4,7 @@ import { GlobalSequenceStep } from '../entities/globalSequenceStep.entity';
 import { MessageSequence } from '../entities/messageSequence.entity';
 import type { MessageChannel, MessageRecipientTarget } from '../entities/sequenceStep.entity';
 import { messageSequenceService } from './messageSequenceService';
+import { findDefaultTemplateForType } from './messageTemplateService';
 
 /** Paso recibido al crear/editar una plantilla global. */
 type GlobalStepInput = {
@@ -135,6 +136,16 @@ export class GlobalMessageSequenceService {
 	): Promise<MessageSequence | null> {
 		const global = await this.getById(globalSequenceId);
 		if (!global) return null;
+		// M3: los pasos globales no tienen plantilla propia (son por tipo), así
+		// que al aterrizar en el retiro se fijan a la plantilla local de su tipo
+		// (createdAt ASC, el mismo fallback del motor) — el clon queda explícito
+		// y sobrevive a que después se creen más plantillas de ese tipo.
+		// M6: the local template is the type's "predeterminada", else the oldest.
+		const localTemplateByType = new Map<string, string>();
+		for (const type of new Set((global.steps ?? []).map((s) => s.templateType))) {
+			const local = await findDefaultTemplateForType(retreatId, type);
+			if (local) localTemplateByType.set(type, local.id);
+		}
 		const steps = (global.steps ?? [])
 			.slice()
 			.sort((a, b) => a.stepOrder - b.stepOrder)
@@ -143,6 +154,7 @@ export class GlobalMessageSequenceService {
 				offsetDays: s.offsetDays,
 				sendHour: s.sendHour,
 				templateType: s.templateType,
+				templateId: localTemplateByType.get(s.templateType) ?? null,
 				channel: s.channel,
 				recipientTarget: s.recipientTarget,
 				recipientResponsibility: s.recipientResponsibility ?? null,

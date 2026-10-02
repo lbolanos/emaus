@@ -2419,6 +2419,7 @@ export async function getRetreatDeletionImpact(
 // ==================== RETREAT MEMORY GALLERY API ====================
 
 import type { RetreatMemoryPhoto, RetreatMemorySong } from "@repo/types";
+import type { SequenceRunResult } from "@repo/types";
 
 export interface RetreatMemories {
   photos: RetreatMemoryPhoto[];
@@ -3929,11 +3930,18 @@ export interface ScheduledMessageQueueItem {
   retreatId: string;
   channel: "email" | "whatsapp";
   templateType: string;
+  // M3: nombre resuelto por el servidor (templateId del paso gana sobre el
+  // tipo); el cliente usa este con fallback al label por tipo.
+  templateName?: string | null;
   recipientTarget?: "participant" | "emergencyContact1" | "emergencyContact2";
   scheduledFor: string;
   status: string;
   // Estado de seguimiento del participante (solo en la bandeja), para dar contexto.
   followUpStatus?: string | null;
+  // Palanquero asignado al caminante (solo en la bandeja): nombre de la
+  // responsabilidad ('Palanquero 1') y nombre de su titular ('Ana Rodríguez').
+  palancasCoordinator?: string | null;
+  palanqueroName?: string | null;
   error?: string | null;
   // Snapshot resuelto al encolar/procesar (la bandeja despacha sin recalcular).
   resolvedContent?: string | null;
@@ -3953,11 +3961,13 @@ export interface ScheduledMessageQueueItem {
     emergencyContact2Name?: string;
     emergencyContact2CellPhone?: string;
   };
-  step?: { id: string; templateType: string; channel: string };
+  step?: { id: string; templateType: string; templateId?: string | null; channel: string };
 }
 
 export interface SequenceStatsResponse {
   stats: Record<string, Record<string, number>>;
+  /** Same counts per step: { [stepId]: { [status]: count } }. */
+  stepStats?: Record<string, Record<string, number>>;
   issues: ScheduledMessageQueueItem[];
   /** Conteo real de problemas del retiro, sin el cap de paginación. */
   issuesTotal: number;
@@ -4020,6 +4030,8 @@ export interface ScheduledMessageListItem {
   participantId: string;
   participantName: string;
   templateType: string;
+  /** M3: nombre de la plantilla resuelto por el servidor (id del paso gana). */
+  templateName: string | null;
   channel: 'email' | 'whatsapp';
   recipientTarget: string;
   recipientName: string | null;
@@ -4038,6 +4050,8 @@ export interface ScheduledMessagesPage {
   page: number;
   totalPages: number;
   timezone: string;
+  /** Pending rows of inactive sequences matching the other filters (shown or not). */
+  pausedCount?: number;
 }
 
 /** Query de la pestaña "Programados" — TODO server-side (filtros, orden, página). */
@@ -4049,6 +4063,8 @@ export interface FetchScheduledMessagesOptions {
   page?: number;
   limit?: number;
   order?: 'scheduled' | 'recent';
+  /** Pending rows of inactive sequences: hide (tab default), only, or include. */
+  paused?: 'include' | 'hide' | 'only';
 }
 
 export const fetchScheduledMessages = async (
@@ -4063,6 +4079,7 @@ export const fetchScheduledMessages = async (
   if (opts.page) params.set('page', String(opts.page));
   if (opts.limit) params.set('limit', String(opts.limit));
   if (opts.order) params.set('order', opts.order);
+  if (opts.paused) params.set('paused', opts.paused);
   const qs = params.toString();
   const r = await api.get(`/message-sequences/retreat/${retreatId}/scheduled${qs ? `?${qs}` : ''}`);
   return r.data;
@@ -4071,14 +4088,15 @@ export const fetchScheduledMessages = async (
 /**
  * Fechas TZ que tendrá cada paso para un participante real (timeline del
  * editor). El servidor loopéa computeScheduledFor — el cliente no duplica
- * triggers/TZ. `null` = falta el dato del disparador.
+ * triggers/TZ. `null` = falta el dato del disparador. `past` marca los pasos
+ * cuya fecha ya pasó (guard anti-retroactivo: el motor no los materializa).
  */
 export const previewSequenceSchedule = async (
   retreatId: string,
   participantId: string,
   trigger: string,
   steps: Array<{ offsetDays?: number; sendHour?: number }>,
-): Promise<{ dates: Array<string | null>; timezone: string }> => {
+): Promise<{ dates: Array<string | null>; past: boolean[]; timezone: string }> => {
   const r = await api.post('/message-sequences/schedule-preview', {
     retreatId,
     participantId,
@@ -4107,6 +4125,8 @@ export interface ScheduledMessageDetail {
   message: {
     id: string;
     templateType: string;
+    /** M3: nombre de la plantilla resuelto por el servidor (id del paso gana). */
+    templateName: string | null;
     recipientTarget: string;
     recipientName: string | null;
     resolvedContent: string | null;
@@ -4145,10 +4165,18 @@ export const getScheduledMessageDetail = async (
   return r.data;
 };
 
+/**
+ * "Ejecutar" of a retreat. `sendNowStepIds` = past-dated steps the coordinator
+ * confirmed to send now; the response's `pastSteps` lists the ones still skipped.
+ */
 export const runSequences = async (
   retreatId: string,
-): Promise<{ enrolled: number; processed: number }> => {
-  const r = await api.post(`/message-sequences/retreat/${retreatId}/run`);
+  sendNowStepIds?: string[],
+): Promise<SequenceRunResult> => {
+  const r = await api.post(
+    `/message-sequences/retreat/${retreatId}/run`,
+    sendNowStepIds?.length ? { sendNowStepIds } : undefined,
+  );
   return r.data;
 };
 
@@ -4333,6 +4361,8 @@ export const previewSequenceStep = async (data: {
   retreatId: string;
   participantId: string;
   templateType: string;
+  /** M3: plantilla concreta del paso — el preview la usa (id gana sobre el tipo). */
+  templateId?: string | null;
   channel: "email" | "whatsapp";
   recipientTarget: string;
   recipientResponsibility?: string | null;

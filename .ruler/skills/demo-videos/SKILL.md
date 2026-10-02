@@ -341,6 +341,28 @@ detalles que la hacen útil:
 
 Adaptarla a otro video es cambiar el retiro, la URL y los clics; el resto sirve igual.
 
+## Lecciones (sesión 2026-10-02, video de secuencias `record-sequence-fixes.mjs`)
+
+- **Un `getByText(x).first()` puede caer en un panel OCULTO y quemar su timeout como aire
+  muerto.** Las vistas con pestañas (`v-show`) dejan los paneles inactivos montados: el primer
+  "18 oct" del documento estaba en Programados oculto y el `waitFor` visible esperó 8 s, dos
+  veces seguidas → 20 s sin narración. Acotá el texto al panel visible (`#seq-panel-<tab>`) o
+  usá `button:visible`; el log de `assertShown` dice ⚠ pero el video ya salió con el hueco.
+- **Todo record script pasa el timeline por `alignChapterTimeline` antes de
+  `buildYoutubeChapters`.** Solo `record-tour.mjs` lo hacía; con el timeline de reloj crudo los
+  capítulos salen ~8 s adelantados. Y `buildYoutubeChapters` mide el gap al 2º capítulo desde
+  0:00 (YouTube exige ≥10 s por capítulo sobre los tiempos publicados): antes se descartaba un
+  beat a 0:10.
+- **El retiro demo cambia entre tomas.** Un descarte masivo dejó Problemas vacío y la escena
+  final narraba "cae a Problemas" sobre una pestaña vacía; una migración de datos (M6) fijó la
+  plantilla de un paso y desapareció el aviso que el guion esperaba. Tras cambios de esquema o de
+  datos, revisá los `assertShown` del guion y mirá por frame que la ÚLTIMA escena muestre lo que
+  se narra; no termines sobre datos que cualquiera puede borrar.
+- **Mostrá antes de subir** (memoria `feedback_confirm_before_video_upload`): `cp` del mp4 al
+  Escritorio + `open`, y subir solo con el OK. Al subir, agregarlo a la playlist en su posición
+  (`playlistItems.insert` con `snippet.position`, tras el video relacionado) y borrar la toma vieja
+  por API (`DELETE videos?id=`; verificar con oEmbed 404).
+
 ## Verificación (obligatoria antes de entregar)
 
 ```bash

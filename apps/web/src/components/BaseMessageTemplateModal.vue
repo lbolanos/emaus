@@ -35,6 +35,22 @@
                 {{ t ? t('messageTemplates.audience.label') : 'Audiencia' }}:
                 <span class="font-medium">{{ audienceLabel(formData.type) }}</span>
               </p>
+              <!-- M3: tipo ya usado en el retiro — informativo, no bloquea.
+                   M6: says what each path will send, and lets this one become
+                   the type's default. -->
+              <p
+                v-if="duplicateTypeTemplates.length"
+                class="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded p-1.5"
+              >
+                {{ t ? t('messageTemplates.dialog.duplicateTypeWarning', { names: duplicateTypeNames, defaultName: effectiveDefaultName }) : 'Hay otras plantillas de este tipo en el retiro' }}
+              </p>
+              <label
+                v-if="duplicateTypeTemplates.length"
+                class="flex items-center gap-2 text-xs text-gray-700 cursor-pointer"
+              >
+                <input v-model="makeDefault" type="checkbox" class="rounded border-gray-300" />
+                {{ t ? t('messageTemplates.dialog.makeDefault') : 'Usar esta como predeterminada de este tipo' }}
+              </label>
             </div>
 
             <!-- Active Status (only for global templates and when editing) -->
@@ -443,6 +459,7 @@ import { messageTemplateTypes, getMessageTemplateAudience } from '@repo/types';
 import { convertHtmlToWhatsApp, convertHtmlToEmail, detectEmailClient, copyRichTextToClipboard, testEmojiConversion, beautifyHtml, replaceAllVariables, buildServerRegistrationLink, HTML_TAG_RE, ParticipantData, RetreatData } from '@/utils/message';
 import { getParticipantNextMeeting, getParticipantShirtOrder } from '@/services/api';
 import { sanitizeHtml, sanitizeEmailHtml } from '@/utils/sanitize';
+import { effectiveDefaultTemplate } from '@/utils/templateDefault';
 
 interface Props {
   open: boolean;
@@ -631,6 +648,48 @@ const typeLabels = computed(() => {
 });
 
 const isEditing = computed(() => !!props.template);
+
+// M3: plantillas del retiro que YA usan el tipo elegido (excluida la que se
+// edita). El duplicado de tipo es legítimo — es el caso de uso que motivó
+// templateId: varias plantillas del mismo tipo — pero quien crea la 2ª tiene
+// que saber que los pasos de secuencia SIN plantilla fija seguirán
+// resolviendo la más antigua (createdAt ASC). Sólo aviso informativo: no se
+// excluye el tipo del dropdown ni se bloquea el POST.
+const duplicateTypeTemplates = computed(() => {
+  if (props.isGlobal || isCommunityScope.value) return [];
+  const type = formData.value.type;
+  if (!type) return [];
+  // Sin storeToRefs: leer directo del store dentro del computed es igual de
+  // reactivo (el store de pinia ya lo es) y tolera los mocks planos de tests.
+  return ((messageTemplateStore.templates as any[]) || []).filter(
+    (tpl: any) => tpl.type === type && tpl.id !== (props.template as any)?.id,
+  );
+});
+const duplicateTypeNames = computed(() => {
+  const names = duplicateTypeTemplates.value.map((tpl: any) => tpl.name).filter(Boolean);
+  // "a, b, c y 2 más" — not "a, b, c…": the warning's own period would follow
+  // the ellipsis ("c…. Cada…").
+  if (names.length <= 3) return names.join(', ');
+  const more = t ? t('messageTemplates.dialog.andMore', { n: names.length - 3 }) : `y ${names.length - 3} más`;
+  return `${names.slice(0, 3).join(', ')} ${more}`;
+});
+
+// M6: "predeterminada" of the type — what the system sends wherever it picks
+// by type alone (quick-send buttons, newly seeded sequence steps). The server
+// keeps a single one per type, so checking it here takes it from the sibling.
+const makeDefault = ref(false);
+// The template that will act as default once saved: this one if checked, else
+// the flagged sibling, else the oldest of the type (this one included when
+// editing) — the same order the server uses.
+const effectiveDefaultName = computed(() => {
+  const thisName = formData.value.name.trim() || (t ? t('messageTemplates.dialog.thisTemplate') : 'esta plantilla');
+  if (makeDefault.value) return thisName;
+  const current = props.template as any;
+  // This one competes unflagged: its checkbox is off.
+  const pool = [...duplicateTypeTemplates.value, ...(current ? [{ ...current, isDefault: false }] : [])];
+  const pick: any = effectiveDefaultTemplate(pool);
+  return pick && current && pick.id === current.id ? thisName : pick?.name ?? '';
+});
 
 const isFormValid = computed(() => {
   const hasName = formData.value.name.trim();
@@ -1064,6 +1123,7 @@ watch(
         message: (template as any).message || '',
         isActive: (template as any).isActive ?? true,
       };
+      makeDefault.value = !!(template as any).isDefault;
     } else {
       formData.value = {
         name: '',
@@ -1071,6 +1131,7 @@ watch(
         message: '',
         isActive: true,
       };
+      makeDefault.value = false;
     }
     // Freeze the editor mode for this session based on the loaded content.
     syncEditorModeToMessage();
@@ -1107,6 +1168,13 @@ watch(
       if (!props.isGlobal && props.participants && props.participants.length > 0) {
         const firstWalker = walkers.value[0];
         selectedParticipant.value = firstWalker ? firstWalker.id : '';
+      }
+      // M3: el aviso de tipo duplicado necesita las plantillas del retiro; la
+      // vista que abre el modal puede no tenerlas cargadas (MessageDialog,
+      // ShirtsReportView…). Fetch silencioso en cada apertura para que el
+      // aviso refleje el estado real, no un listado vacío.
+      if (!props.isGlobal && !isCommunityScope.value && retreatStore.selectedRetreatId) {
+        messageTemplateStore.fetchTemplates(retreatStore.selectedRetreatId).catch(() => {});
       }
     }
   }
@@ -1364,6 +1432,7 @@ const handleSubmit = async () => {
         type: formData.value.type,
         message: formData.value.message,
         retreatId: retreatStore.selectedRetreatId,
+        isDefault: makeDefault.value,
       };
 
       if (props.template && (props.template as any).id) {

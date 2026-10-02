@@ -23,33 +23,10 @@ export class MessageTemplate implements IMessageTemplate {
 		type: 'varchar',
 		enum: messageTemplateTypes.options,
 	})
-	type!:
-		| 'WALKER_WELCOME'
-		| 'SERVER_WELCOME'
-		| 'EMERGENCY_CONTACT_VALIDATION'
-		| 'PALANCA_REQUEST'
-		| 'PALANCA_REMINDER'
-		| 'PALANCA_DEFINITION'
-		| 'GENERAL'
-		| 'PRE_RETREAT_REMINDER'
-		| 'PAYMENT_REMINDER'
-		| 'POST_RETREAT_MESSAGE'
-		| 'CANCELLATION_CONFIRMATION'
-		| 'USER_INVITATION'
-		| 'PASSWORD_RESET'
-		| 'RETREAT_SHARED_NOTIFICATION'
-		| 'BIRTHDAY_MESSAGE'
-		| 'PRIVACY_DATA_DELETE'
-		// System templates (should not be used in retreat-specific templates)
-		| 'SYS_PASSWORD_RESET'
-		| 'SYS_USER_INVITATION'
-		| 'SYS_REGISTRATION_CONFIRMATION'
-		| 'SYS_EMAIL_VERIFICATION'
-		| 'SYS_ACCOUNT_LOCKED'
-		| 'SYS_ACCOUNT_UNLOCKED'
-		| 'SYS_ROLE_REQUESTED'
-		| 'SYS_ROLE_APPROVED'
-		| 'SYS_ROLE_REJECTED';
+	// Tipado derivado del enum runtime: la unión manual de antes quedaba
+	// desactualizada al añadir un tipo (SERVER_SHIRT_CONFIRMATION faltaba) y
+	// obligaba a `as any` en los find por tipo.
+	type!: (typeof messageTemplateTypes)['options'][number];
 
 	@Column({
 		type: 'varchar',
@@ -60,6 +37,12 @@ export class MessageTemplate implements IMessageTemplate {
 
 	@Column({ type: 'text' })
 	message!: string;
+
+	// M6: the template chosen for its type wherever the system picks by type
+	// (quick-send buttons, unpinned or newly seeded sequence steps). At most one
+	// per (retreat, type), kept by messageTemplateService; none → the oldest.
+	@Column({ type: 'boolean', default: false })
+	isDefault!: boolean;
 
 	@Column({ type: 'uuid', nullable: true })
 	retreatId?: string;

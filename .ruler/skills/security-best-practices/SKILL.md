@@ -356,6 +356,23 @@ Patrón:
 - Ojo con los demás `.omit({ id: true, ... })` del repo: ninguno está protegiendo nada por sí
   mismo; el body crudo puede llevar `id`/`createdAt` al repo.update.
 
+## Autorizar ANTES de escribir: un 403 tras el `update` llega tarde
+
+`updateMessageTemplate` hacía `service.update(id, body)` y **después** comprobaba el acceso al
+retiro de la plantilla: quien no tenía acceso recibía 403… con el cambio ya guardado. Encima, el
+`body` podía traer otro `retreatId` y mover la plantilla a un retiro ajeno. Se descubrió en el
+cierre de M6 (2026-10-02), cuando la escritura empezó a tener efectos laterales (quitar la
+predeterminada a las hermanas del tipo) y el 403 ya no deshacía nada.
+
+- El patrón correcto es el de `deleteMessageTemplate`: `findById` → acceso al recurso **existente**
+  → si el `body` lo mueve (`retreatId`/`communityId`/`scope`), acceso también al **destino** →
+  recién entonces escribir.
+- El test que lo fija tiene que mirar la base, no solo el status: `403` **y** el registro intacto
+  (`apps/api/src/tests/controllers/messageTemplate.update.authz.integration.test.ts`). Corrido
+  contra el controlador viejo, falla en esos dos casos: así se sabe que el test no pasa siempre.
+- Auditoría del 2026-10-02 de los demás `update(req.params.id, req.body)`: verifican antes
+  (tareas pre-retiro, preparaciones, agenda) o son plantillas globales; éste era el único.
+
 ## Escapar en el punto de salida, no solo donde parece que entra el dato
 
 Un endpoint público que arma HTML por concatenación tiene que escapar **todos** los valores que

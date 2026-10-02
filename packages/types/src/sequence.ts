@@ -63,6 +63,9 @@ export const sequenceStepSchema = z.object({
 	offsetDays: z.number().int(),
 	sendHour: z.number().int().min(0).max(23).default(9),
 	templateType: z.string().min(1),
+	// M3: plantilla específica del paso. Gana sobre templateType en la
+	// resolución del motor; null → fallback por (retreatId, templateType).
+	templateId: idSchema.nullish(),
 	channel: messageChannel,
 	recipientTarget: messageRecipientTarget.default('participant'),
 	recipientResponsibility: z.string().nullish(),
@@ -100,6 +103,9 @@ const stepInputSchema = z.object({
 	offsetDays: z.number().int().min(0).default(0),
 	sendHour: z.number().int().min(0).max(23).default(9),
 	templateType: z.string().min(1),
+	// M3: opcional para no romper llamadores legacy que aún mandan solo el
+	// tipo (editor viejo desplegado). El motor resuelve null por tipo.
+	templateId: idSchema.nullish(),
 	channel: messageChannel,
 	recipientTarget: messageRecipientTarget.default('participant'),
 	recipientResponsibility: z.string().nullish(),
@@ -214,6 +220,9 @@ export const previewSequenceStepSchema = z.object({
 		retreatId: z.string().uuid(),
 		participantId: z.string().uuid(),
 		templateType: z.string().min(1).max(60),
+		// M3: cuando el editor ya fijó una plantilla concreta, el preview la usa
+		// (id gana sobre el tipo); nullish para clientes que sólo mandan tipo.
+		templateId: idSchema.nullish(),
 		channel: messageChannel,
 		recipientTarget: messageRecipientTarget.default('participant'),
 		recipientResponsibility: z.string().max(150).nullish(),
@@ -256,7 +265,41 @@ export type PreviewSequenceSchedule = z.infer<typeof previewSequenceScheduleSche
 /** Respuesta de schedule-preview: fecha por paso (null = falta dato del disparador). */
 export interface SequenceSchedulePreview {
 	dates: Array<string | null>;
+	/** M2: por paso, ¿la fecha ya pasó para el guard anti-retroactivo del enrolamiento? */
+	past: boolean[];
 	timezone: string;
+}
+
+/**
+ * M5: manual "Ejecutar" of a retreat. `sendNowStepIds` lists the past-dated
+ * steps the coordinator confirmed to send NOW — without it the M2 guard skips
+ * them, and the response reports them in `pastSteps` so the UI can ask.
+ */
+export const runSequencesSchema = z.object({
+	body: z
+		.object({
+			sendNowStepIds: z.array(z.string().uuid()).max(200).optional(),
+		})
+		.optional(),
+});
+
+/** A step the M2 guard left unscheduled in a run because its date already passed. */
+export interface SequencePastStep {
+	sequenceId: string;
+	sequenceName: string;
+	stepId: string;
+	stepOrder: number;
+	channel: MessageChannel;
+	/** The (past) date the step was due, ISO. Earliest one for `participant_created`. */
+	scheduledFor: string;
+	/** People who would receive it (no row for that step yet). */
+	count: number;
+}
+
+export interface SequenceRunResult {
+	enrolled: number;
+	processed: number;
+	pastSteps: SequencePastStep[];
 }
 
 /**

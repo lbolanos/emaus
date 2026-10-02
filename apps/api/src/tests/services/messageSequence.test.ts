@@ -20,6 +20,7 @@ import { Community } from '@/entities/community.entity';
 import { Retreat } from '@/entities/retreat.entity';
 import { Payment } from '@/entities/payment.entity';
 import { SequenceStep } from '@/entities/sequenceStep.entity';
+import { Responsability } from '@/entities/responsability.entity';
 import { formatCurrency } from '@repo/utils';
 import { getMessageTemplateAudience } from '@repo/types';
 
@@ -42,6 +43,19 @@ describe('MessageSequenceService', () => {
 	async function createTemplate(retreatId: string, type: string, message: string) {
 		const repo = AppDataSource.getRepository(MessageTemplate);
 		return repo.save(repo.create({ name: type, type: type as any, message, retreatId, scope: 'retreat' }));
+	}
+
+	/**
+	 * startDate futuro fijado a mediodía UTC (el día calendario sobrevive el
+	 * shift del DateTimeTransformer al persistir). Desde M2 el guard
+	 * anti-retroactivo suprime pasos con fecha pasada, así que los tests de
+	 * audiencia/enrol que antes contaban con el startDate default ("ahora")
+	 * deben fechar el retiro en el futuro.
+	 */
+	function futureStart(days: number): Date {
+		const d = new Date(Date.now() + days * 86400000);
+		d.setUTCHours(12, 0, 0, 0);
+		return d;
 	}
 
 	describe('computeScheduledFor (TZ-aware)', () => {
@@ -106,8 +120,10 @@ describe('MessageSequenceService', () => {
 
 	describe('enrollSequence', () => {
 		it('enrola solo la audiencia indicada y es idempotente', async () => {
+			// Retiro futuro: con startDate en el pasado el guard M2 suprimiría
+			// el paso y este test dejaría de probar lo suyo (la audiencia).
 			const retreat = await TestDataFactory.createTestRetreat({
-				startDate: new Date('2026-09-10T00:00:00.000Z'),
+				startDate: new Date(Date.now() + 30 * 86400000),
 				timezone: 'America/Mexico_City',
 			});
 			await TestDataFactory.createTestParticipant(retreat.id, {
@@ -173,8 +189,12 @@ describe('MessageSequenceService', () => {
 			expect(total).toBe(0);
 		});
 
-		it('catch-up legítimo: SÍ enrola un retiro aún futuro aunque el paso ya venció', async () => {
-			// Registro tardío: retiro en 3 días (futuro), paso "10 días antes" ya pasó.
+		it('M2: retiro futuro con paso ya vencido NO enrola (guard anti-retroactivo)', async () => {
+			// Antes de M2 esto enrolaba como "catch-up legítimo". Pero para
+			// triggers anclados al retiro la fecha es la MISMA para todos los
+			// participantes: materializarla en pasado es el backfill masivo de
+			// los incidentes de palancas (2026-09-13) y prendas (2026-10-01).
+			// Ahora se suprime sin dejar filas; el editor marca el paso en ámbar.
 			const retreat = await TestDataFactory.createTestRetreat({
 				startDate: new Date(Date.now() + 3 * 86400000),
 				endDate: new Date(Date.now() + 5 * 86400000),
@@ -194,7 +214,25 @@ describe('MessageSequenceService', () => {
 			});
 
 			const created = await svc.enrollSequence(seq);
-			expect(created).toBe(1); // el retiro no ha cerrado → se enrola normal
+			expect(created).toBe(0); // fecha pasada → suprimida
+
+			// Sin filas de NINGÚN status — en particular sin `skipped`: la UQ
+			// (stepId, participantId, occurrenceYear) las volvería permanentes
+			// y bloquearía el re-enrol tras corregir el offset.
+			const smRepo = AppDataSource.getRepository(ScheduledMessage);
+			expect(await smRepo.count({ where: { sequenceId: seq.id } })).toBe(0);
+
+			// Corregir el offset y re-enrolar SÍ materializa.
+			await AppDataSource.getRepository(SequenceStep).update(
+				{ sequenceId: seq.id },
+				{ offsetDays: 1 },
+			);
+			const { MessageSequence } = await import('@/entities/messageSequence.entity');
+			const seqWithSteps = await AppDataSource.getRepository(MessageSequence).findOne({
+				where: { id: seq.id },
+				relations: ['steps'],
+			});
+			expect(await svc.enrollSequence(seqWithSteps!)).toBe(1);
 		});
 	});
 
@@ -634,7 +672,9 @@ describe('MessageSequenceService', () => {
 
 	describe('audiencia table_leaders', () => {
 		it('enrola solo a los líderes/colíderes de mesa del retiro', async () => {
-			const retreat = await TestDataFactory.createTestRetreat();
+			const retreat = await TestDataFactory.createTestRetreat({
+				startDate: futureStart(30),
+			});
 			const lider = await TestDataFactory.createTestParticipant(retreat.id, {
 				type: 'server',
 				email: 'lider@example.com',
@@ -657,7 +697,8 @@ describe('MessageSequenceService', () => {
 				audience: 'table_leaders',
 				steps: [{ stepOrder: 0, offsetDays: 3, sendHour: 9, templateType: 'GENERAL', channel: 'email' } as any],
 			});
-			// startDate por defecto es "ahora"; basta con que enrole 1 (el líder).
+			// Retiro futuro (M2): con startDate "hoy" y offset 3, el guard
+			// anti-retroactivo suprimiría el paso y no probaríamos la audiencia.
 			const created = await svc.enrollSequence(seq);
 			expect(created).toBe(1);
 
@@ -678,6 +719,7 @@ describe('MessageSequenceService', () => {
 			const community = await TestDataFactory.createTestCommunity(user.id);
 			const retreat = await TestDataFactory.createTestRetreat({
 				timezone: 'America/Mexico_City',
+				startDate: futureStart(60),
 			});
 			await AppDataSource.getRepository(Retreat).update(retreat.id, {
 				communityId: community.id,
@@ -731,6 +773,7 @@ describe('MessageSequenceService', () => {
 			const community = await TestDataFactory.createTestCommunity(user.id);
 			const retreat = await TestDataFactory.createTestRetreat({
 				timezone: 'America/Mexico_City',
+				startDate: futureStart(60),
 			});
 			// El padrón existe, pero el retiro NO apunta a la comunidad.
 			await addRosterMember(community.id, retreat.id, { cellPhone: '5511111111' });
@@ -783,10 +826,16 @@ describe('MessageSequenceService', () => {
 
 			const seq = await convocationSeq(retreat.id);
 			await svc.enrollSequence(seq);
-			// No se mueve el reloj: con `offsetDays: 45` sobre un retiro que empieza
-			// "hoy", el mensaje ya vence. Adelantar `now` un año dispararía el guard
-			// anti-backfill (`isRetreatClosed`) y el mensaje saldría `skipped` — que
-			// es precisamente lo que ese guard debe hacer.
+			// El retiro arranca en el futuro, así que la fila sale con fecha futura
+			// (M2: el enrol ya no materializa pasos vencidos). Vencerla a mano — sin
+			// mover el reloj — ejercita el camino real: un mensaje cuya fecha llegó.
+			// Adelantar `now` un año dispararía el guard anti-backfill
+			// (`isRetreatClosed`) y saldría `skipped`, que es justo lo que ese guard
+			// debe hacer.
+			await AppDataSource.getRepository(ScheduledMessage).update(
+				{ sequenceId: seq.id },
+				{ scheduledFor: new Date(Date.now() - 3600_000) } as any,
+			);
 			await svc.processDue();
 
 			const scheduled = await AppDataSource.getRepository(ScheduledMessage).find({
@@ -997,7 +1046,10 @@ describe('MessageSequenceService', () => {
 		});
 
 		it('R2: editar una secuencia conservando el id del paso no re-enrola', async () => {
-			const retreat = await TestDataFactory.createTestRetreat({ timezone: 'America/Mexico_City' });
+			const retreat = await TestDataFactory.createTestRetreat({
+				timezone: 'America/Mexico_City',
+				startDate: futureStart(30),
+			});
 			await TestDataFactory.createTestParticipant(retreat.id, { type: 'walker', email: 'w@example.com' } as any);
 			await createTemplate(retreat.id, 'WALKER_WELCOME', 'Hola');
 			const seq = await svc.createSequence({
@@ -1878,6 +1930,55 @@ describe('MessageSequenceService', () => {
 			expect(page2.items.map((i) => i.participantName)).toEqual(['C M3']);
 		});
 
+		it('getStepStatsByRetreat: counts per step and status', async () => {
+			const { retreat, seq } = await seedList([
+				{ status: 'queued', scheduledFor: new Date('2026-09-21T15:00:00Z'), firstName: 'Ana' },
+				{ status: 'queued', scheduledFor: new Date('2026-09-21T15:00:00Z'), firstName: 'Beto' },
+				{ status: 'sent', scheduledFor: new Date('2026-09-21T15:00:00Z'), firstName: 'Caro' },
+			]);
+			const stepStats = await svc.getStepStatsByRetreat(retreat.id);
+			expect(stepStats[seq.steps![0].id]).toEqual({ queued: 2, sent: 1 });
+		});
+
+		it('listScheduled paused: hide/only/include over pending of an inactive sequence', async () => {
+			const { retreat, seq } = await seedList([
+				{ status: 'pending', scheduledFor: new Date('2026-10-09T15:00:00Z'), firstName: 'Ana' },
+				{ status: 'sent', scheduledFor: new Date('2026-09-20T15:00:00Z'), firstName: 'Beto' },
+			]);
+			// A second, active sequence with its own pending row.
+			const active = await svc.createSequence({
+				name: 'Activa', retreatId: retreat.id, trigger: 'participant_created', audience: 'walker',
+				steps: [{ stepOrder: 0, offsetDays: 5, sendHour: 9, templateType: 'WALKER_WELCOME', channel: 'whatsapp' } as any],
+			});
+			const p = await TestDataFactory.createTestParticipant(retreat.id, {
+				type: 'walker', firstName: 'Caro', lastName: 'M3', email: 'caro-m3@example.com',
+			} as any);
+			const repo = AppDataSource.getRepository(ScheduledMessage);
+			await repo.save(repo.create({
+				sequenceId: active.id, stepId: active.steps![0].id, participantId: p.id,
+				retreatId: retreat.id, channel: 'whatsapp', templateType: 'WALKER_WELCOME',
+				recipientTarget: 'participant', scheduledFor: new Date('2026-10-10T15:00:00Z'),
+				status: 'pending',
+			}));
+			await svc.updateSequence(seq.id, { isActive: false });
+			const names = (res: { items: Array<{ participantName: string }> }) =>
+				res.items.map((i) => i.participantName).sort();
+
+			const hidden = await svc.listScheduled(retreat.id, { statuses: ['pending', 'sent'], paused: 'hide' });
+			// Ana (pending, inactive seq) hidden; Beto's sent row of the same sequence stays.
+			expect(names(hidden)).toEqual(['Beto M3', 'Caro M3']);
+			expect(hidden.total).toBe(2);
+			expect(hidden.pausedCount).toBe(1);
+
+			const only = await svc.listScheduled(retreat.id, { statuses: ['pending', 'sent'], paused: 'only' });
+			expect(names(only)).toEqual(['Ana M3']);
+
+			// Default keeps the old contract: everything, with the count alongside.
+			const all = await svc.listScheduled(retreat.id, { statuses: ['pending', 'sent'] });
+			expect(names(all)).toEqual(['Ana M3', 'Beto M3', 'Caro M3']);
+			expect(all.pausedCount).toBe(1);
+		});
+
 		it('schedulePreview: loopéa computeScheduledFor — 9:00 CDMX = 15:00 UTC exacto', async () => {
 			const retreat = await TestDataFactory.createTestRetreat({
 				timezone: 'America/Mexico_City',
@@ -2171,6 +2272,155 @@ describe('MessageSequenceService', () => {
 			expect(after.id).toBe(before.id);
 			expect(after.status).toBe('pending');
 			expect(after.scheduledFor.getTime()).toBe(before.scheduledFor.getTime());
+		});
+	});
+
+	describe('queue: palanquero enrichment (palancasCoordinator + palanqueroName)', () => {
+		it('resolves the walker assignment and its holder; unassigned/empty stay null', async () => {
+			const retreat = await TestDataFactory.createTestRetreat({ timezone: 'America/Mexico_City' });
+			await createTemplate(retreat.id, 'PALANCA_REQUEST', 'Hola {participant.firstName}');
+
+			// Holder of the 'Palanquero 1' responsibility; 'Palanquero 2' exists but has no holder.
+			const holder = await TestDataFactory.createTestParticipant(retreat.id, {
+				firstName: 'Ana',
+				lastName: 'Rodríguez',
+			} as any);
+			const respRepo = AppDataSource.getRepository(Responsability);
+			await respRepo.save(
+				respRepo.create([
+					{ retreatId: retreat.id, name: 'Palanquero 1', participantId: holder.id },
+					{ retreatId: retreat.id, name: 'Palanquero 2' },
+				]),
+			);
+
+			const assigned = await TestDataFactory.createTestParticipant(retreat.id, { type: 'walker' } as any);
+			const server = await TestDataFactory.createTestParticipant(retreat.id, { type: 'server' } as any);
+			const assignedNoHolder = await TestDataFactory.createTestParticipant(retreat.id, { type: 'walker' } as any);
+			const emptyCoordinator = await TestDataFactory.createTestParticipant(retreat.id, { type: 'walker' } as any);
+			const rpRepo = AppDataSource.getRepository(RetreatParticipant);
+			await rpRepo.update(
+				{ participantId: assigned.id, retreatId: retreat.id },
+				{ palancasCoordinator: 'Palanquero 1' },
+			);
+			await rpRepo.update(
+				{ participantId: assignedNoHolder.id, retreatId: retreat.id },
+				{ palancasCoordinator: 'Palanquero 2' },
+			);
+			await rpRepo.update(
+				{ participantId: emptyCoordinator.id, retreatId: retreat.id },
+				{ palancasCoordinator: '' },
+			);
+
+			// Queued rows saved directly: listQueued must enrich them from
+			// retreat_participants + the retreat's palanquero responsibilities.
+			const seq = await svc.createSequence({
+				name: 'Palanquero queue',
+				retreatId: retreat.id,
+				trigger: 'participant_created',
+				audience: 'walker',
+				steps: [
+					{
+						stepOrder: 0,
+						offsetDays: 0,
+						sendHour: 9,
+						templateType: 'PALANCA_REQUEST',
+						channel: 'whatsapp',
+						recipientTarget: 'participant',
+					} as any,
+				],
+			});
+			const step = seq.steps![0];
+			const smRepo = AppDataSource.getRepository(ScheduledMessage);
+			for (const p of [assigned, server, assignedNoHolder, emptyCoordinator]) {
+				await smRepo.save(
+					smRepo.create({
+						sequenceId: seq.id,
+						stepId: step.id,
+						participantId: p.id,
+						retreatId: retreat.id,
+						channel: 'whatsapp',
+						templateType: 'PALANCA_REQUEST',
+						recipientTarget: 'participant',
+						scheduledFor: new Date(Date.now() - 3600_000),
+						status: 'queued',
+						resolvedContent: 'x',
+						resolvedContact: '5512345678',
+					} as any),
+				);
+			}
+
+			const queue = await svc.listQueued(retreat.id);
+			expect(queue).toHaveLength(4);
+			const byParticipant = new Map(queue.map((it) => [it.participantId, it]));
+			expect(byParticipant.get(assigned.id)).toMatchObject({
+				palancasCoordinator: 'Palanquero 1',
+				palanqueroName: 'Ana Rodríguez',
+			});
+			// No assignment (server or walker): both null.
+			expect(byParticipant.get(server.id)).toMatchObject({
+				palancasCoordinator: null,
+				palanqueroName: null,
+			});
+			// Responsibility exists but has no holder: coordinator only.
+			expect(byParticipant.get(assignedNoHolder.id)).toMatchObject({
+				palancasCoordinator: 'Palanquero 2',
+				palanqueroName: null,
+			});
+			// Legacy empty string normalizes to null.
+			expect(byParticipant.get(emptyCoordinator.id)).toMatchObject({
+				palancasCoordinator: null,
+				palanqueroName: null,
+			});
+		});
+
+		it('holder with empty lastName resolves to the bare first name (no stray space)', async () => {
+			const retreat = await TestDataFactory.createTestRetreat({ timezone: 'America/Mexico_City' });
+			// Holder registered with a single name: lastName is NOT NULL in the
+			// schema, so the real edge case is '' → the composed name must trim
+			// to 'Sol', not 'Sol ' (which would break the row label).
+			const holder = await TestDataFactory.createTestParticipant(retreat.id, {
+				firstName: 'Sol',
+			} as any);
+			await AppDataSource.getRepository(Participant).update(holder.id, { lastName: '' } as any);
+			const respRepo = AppDataSource.getRepository(Responsability);
+			await respRepo.save(
+				respRepo.create({ retreatId: retreat.id, name: 'Palanquero 1', participantId: holder.id }),
+			);
+
+			const walker = await TestDataFactory.createTestParticipant(retreat.id, { type: 'walker' } as any);
+			await AppDataSource.getRepository(RetreatParticipant).update(
+				{ participantId: walker.id, retreatId: retreat.id },
+				{ palancasCoordinator: 'Palanquero 1' },
+			);
+
+			const seq = await svc.createSequence({
+				name: 'Palanquero bare name',
+				retreatId: retreat.id,
+				trigger: 'participant_created',
+				audience: 'walker',
+				steps: [{ stepOrder: 0, offsetDays: 0, sendHour: 9, templateType: 'PALANCA_REQUEST', channel: 'whatsapp' } as any],
+			});
+			const smRepo = AppDataSource.getRepository(ScheduledMessage);
+			await smRepo.save(
+				smRepo.create({
+					sequenceId: seq.id,
+					stepId: seq.steps![0].id,
+					participantId: walker.id,
+					retreatId: retreat.id,
+					channel: 'whatsapp',
+					templateType: 'PALANCA_REQUEST',
+					recipientTarget: 'participant',
+					scheduledFor: new Date(Date.now() - 3600_000),
+					status: 'queued',
+					resolvedContent: 'x',
+					resolvedContact: '5512345678',
+				} as any),
+			);
+
+			const queue = await svc.listQueued(retreat.id);
+			expect(queue).toHaveLength(1);
+			expect(queue[0].palancasCoordinator).toBe('Palanquero 1');
+			expect(queue[0].palanqueroName).toBe('Sol');
 		});
 	});
 });

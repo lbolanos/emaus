@@ -121,16 +121,24 @@ export function pickTemplateForAudience(usableTemplates: any[], aud: string): an
 	);
 }
 
-/** Plantillas mostradas para un paso: las de la audiencia del destinatario + la seleccionada. */
+/**
+ * Plantillas mostradas para un paso: las de la audiencia del destinatario + la
+ * seleccionada. Desde M3 la selección es por `templateId` (permite varias
+ * plantillas del mismo tipo), así que se conserva por id O por tipo — el
+ * fallback por tipo cubre pasos legacy y el editor global (que no fija id).
+ */
 export function templatesForStepAudience(
 	usableTemplates: any[],
-	step: { recipientTarget: string; templateType: string },
+	step: { recipientTarget: string; templateType: string; templateId?: string | null },
 	audience: string,
 ): any[] {
 	const aud = recipientAudienceFor(step.recipientTarget, audience);
 	if (!aud) return usableTemplates;
 	return usableTemplates.filter(
-		(tpl: any) => audienceMatches(getMessageTemplateAudience(tpl.type), aud) || tpl.type === step.templateType,
+		(tpl: any) =>
+			audienceMatches(getMessageTemplateAudience(tpl.type), aud) ||
+			tpl.type === step.templateType ||
+			tpl.id === step.templateId,
 	);
 }
 
@@ -149,6 +157,12 @@ export interface StepDraft {
 	offsetDays: number;
 	sendHour: number;
 	templateType: string;
+	/**
+	 * M3: plantilla concreta del paso (gana sobre templateType en el motor).
+	 * undefined/null → resolución por tipo; el editor global no la usa (sus
+	 * plantillas no son de un retiro concreto).
+	 */
+	templateId?: string | null;
 	channel: 'email' | 'whatsapp';
 	recipientTarget: RecipientTarget;
 	recipientResponsibility: string;

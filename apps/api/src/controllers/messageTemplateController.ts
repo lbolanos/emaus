@@ -94,24 +94,42 @@ export const createMessageTemplate = async (req: Request, res: Response) => {
 	res.status(201).json(newTemplate);
 };
 
+// Access by the template's scope (retreat or community); anything else is denied.
+const checkTemplateAccess = async (
+	req: Request,
+	tpl: { scope?: string; retreatId?: string | null; communityId?: string | null },
+): Promise<boolean> => {
+	if (tpl.scope === 'retreat' && tpl.retreatId) return checkRetreatAccess(req, tpl.retreatId);
+	if (tpl.scope === 'community' && tpl.communityId) return checkCommunityAccess(req, tpl.communityId);
+	return false;
+};
+
 export const updateMessageTemplate = async (req: Request, res: Response) => {
+	// Authorize BEFORE writing (same as delete). This used to update first and
+	// check after, so a 403 came back with the change already saved — and since
+	// M6 the update also clears the type's other defaults in that retreat.
+	const existing = await messageTemplateService.findById(req.params.id);
+	if (!existing) {
+		return res.status(404).json({ message: 'Template not found' });
+	}
+	const target = {
+		scope: req.body?.scope ?? existing.scope,
+		retreatId: req.body?.retreatId ?? existing.retreatId,
+		communityId: req.body?.communityId ?? existing.communityId,
+	};
+	const moved =
+		target.scope !== existing.scope ||
+		target.retreatId !== existing.retreatId ||
+		target.communityId !== existing.communityId;
+	// Moving it to another retreat/community needs access to the target too.
+	if (!(await checkTemplateAccess(req, existing)) || (moved && !(await checkTemplateAccess(req, target)))) {
+		return res.status(403).json({ message: 'Forbidden - No access to this template' });
+	}
+
 	const updatedTemplate = await messageTemplateService.update(req.params.id, req.body);
 	if (!updatedTemplate) {
 		return res.status(404).json({ message: 'Template not found' });
 	}
-
-	// Check access based on scope
-	let hasAccess = false;
-	if (updatedTemplate.scope === 'retreat' && updatedTemplate.retreatId) {
-		hasAccess = await checkRetreatAccess(req, updatedTemplate.retreatId);
-	} else if (updatedTemplate.scope === 'community' && updatedTemplate.communityId) {
-		hasAccess = await checkCommunityAccess(req, updatedTemplate.communityId);
-	}
-
-	if (!hasAccess) {
-		return res.status(403).json({ message: 'Forbidden - No access to this template' });
-	}
-
 	res.json(updatedTemplate);
 };
 

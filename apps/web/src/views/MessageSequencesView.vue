@@ -36,7 +36,7 @@ import {
 	filtersToCondition,
 	type StepDraft,
 } from './sequenceEditorShared';
-import type { SequenceStepPreview } from '@repo/types';
+import type { SequenceStepPreview, SequencePastStep } from '@repo/types';
 import { previewSequenceStep, previewSequenceSchedule } from '@/services/api';
 import { useModalA11y } from '@/composables/useModalA11y';
 
@@ -57,9 +57,10 @@ const responsibilityNames = computed(() => {
 	return Array.from(new Set(names)) as string[];
 });
 
-const { sequences, queue, stats, issues, issuesTotal, detail, detailLoading } = storeToRefs(sequenceStore);
+const { sequences, queue, stats, stepStats, issues, issuesTotal, detail, detailLoading } = storeToRefs(sequenceStore);
 const {
 	scheduled, scheduledTotal, scheduledTotalPages, scheduledTimezone, scheduledLoading,
+	scheduledPausedCount,
 } = storeToRefs(sequenceStore);
 
 const { templates } = storeToRefs(templateStore);
@@ -74,6 +75,47 @@ const sampleParticipant = computed(() => participantStore.participants?.[0] || n
 
 function statusCount(seqId: string, status: string): number {
 	return stats.value?.[seqId]?.[status] || 0;
+}
+
+// Card "Detalle por paso": where each step's messages are, plus its date.
+const expandedSeqId = ref<string | null>(null);
+// Per-sequence step dates from schedule-preview (only for retreat-anchored
+// triggers, where the date is the same for everyone).
+const seqStepDates = ref<Record<string, { dates: Array<string | null>; past: boolean[] }>>({});
+
+function stepStatusCount(stepId: string, status: string): number {
+	return stepStats.value?.[stepId]?.[status] || 0;
+}
+function stepHasMessages(stepId: string): boolean {
+	return Object.values(stepStats.value?.[stepId] || {}).some((n) => n > 0);
+}
+function liveSteps(seq: any): any[] {
+	return (seq.steps || [])
+		.filter((s: any) => !s.isArchived)
+		.sort((a: any, b: any) => a.stepOrder - b.stepOrder);
+}
+function stepTemplateName(st: any): string {
+	return templates.value.find((tpl: any) => tpl.id === st.templateId)?.name || templateLabel(st.templateType);
+}
+async function toggleSeqSteps(seq: any) {
+	if (expandedSeqId.value === seq.id) {
+		expandedSeqId.value = null;
+		return;
+	}
+	expandedSeqId.value = seq.id;
+	const anchoredToRetreat = seq.trigger === 'days_before_retreat' || seq.trigger === 'days_after_retreat';
+	if (!anchoredToRetreat || !retreatId.value || !sampleParticipant.value) return;
+	try {
+		const res = await previewSequenceSchedule(
+			retreatId.value,
+			sampleParticipant.value.id,
+			seq.trigger,
+			liveSteps(seq).map((s) => ({ offsetDays: s.offsetDays, sendHour: s.sendHour })),
+		);
+		seqStepDates.value = { ...seqStepDates.value, [seq.id]: { dates: res.dates, past: res.past ?? [] } };
+	} catch {
+		// No date is fine: the row still shows the offset and the counts.
+	}
 }
 
 // Traduce el motivo crudo de un mensaje con problema a una guía accionable
@@ -132,7 +174,12 @@ function onAudienceChange() {
 		if (!aud) continue;
 		if (audienceMatches(getMessageTemplateAudience(step.templateType), aud)) continue;
 		const first = pickTemplateForAudience(usableTemplates.value, aud);
-		if (first) step.templateType = first.type;
+		if (first) {
+			// M3: id + tipo juntos — el select elige por id y el tipo sigue
+			// viajando como clave de audiencia/fallback.
+			step.templateType = first.type;
+			step.templateId = first.id ?? null;
+		}
 	}
 }
 // Al cambiar el disparador (acción del usuario), corrige la audiencia si quedó
@@ -160,8 +207,22 @@ const recipientOptions = computed<string[]>(() => {
 
 // Plantillas mostradas para un paso: las de la audiencia del destinatario + general
 // + la actualmente seleccionada (para no perderla al editar). 'all' (null) = todas.
-function templatesForStep(step: { recipientTarget: string; templateType: string }) {
+function templatesForStep(step: { recipientTarget: string; templateType: string; templateId?: string | null }) {
 	return templatesForStepAudience(usableTemplates.value, step, draft.value.audience);
+}
+
+/**
+ * M3: el select de plantilla elige por ID (antes era por tipo — con dos
+ * plantillas del mismo tipo ambas opciones valían lo mismo y la nueva era
+ * inalcanzable: incidente "Ultimo Prendas"). `templateType` se sincroniza
+ * desde la plantilla elegida porque sigue viajando al backend como clave de
+ * audiencia y fallback.
+ */
+function onStepTemplateChange(step: StepDraft, e: Event) {
+	const id = (e.target as HTMLSelectElement).value || null;
+	step.templateId = id;
+	const tpl = usableTemplates.value.find((x: any) => x.id === id);
+	if (tpl) step.templateType = tpl.type;
 }
 
 interface SequenceDraft {
@@ -206,8 +267,9 @@ async function load() {
 		sequenceStore.fetchQueue(retreatId.value),
 		sequenceStore.fetchStats(retreatId.value),
 		// Pestaña Programados: primera página lista al abrirla y, de paso, la TZ
-		// del retiro (fallback para pintar fechas de bandeja/detalle).
-		sequenceStore.fetchScheduled(retreatId.value),
+		// del retiro (fallback para pintar fechas de bandeja/detalle). Through
+		// loadScheduled so the first page already hides paused rows.
+		loadScheduled(),
 		templateStore.fetchTemplates(retreatId.value),
 		participantStore.fetchParticipants().catch(() => {}),
 		responsabilityStore.fetchResponsibilities(retreatId.value, { silent: true }).catch(() => {}),
@@ -240,6 +302,9 @@ function openEdit(seq: any) {
 			offsetDays: s.offsetDays,
 			sendHour: s.sendHour,
 			templateType: s.templateType,
+			// M3: la plantilla concreta del paso (viene del backend tras el
+			// backfill); null → el motor resuelve por tipo.
+			templateId: s.templateId ?? null,
 			channel: s.channel,
 			recipientTarget: s.recipientTarget || 'participant',
 			recipientResponsibility: s.recipientResponsibility || '',
@@ -251,10 +316,12 @@ function openEdit(seq: any) {
 }
 
 function addStep() {
+	const first = usableTemplates.value[0];
 	draft.value.steps.push({
 		offsetDays: 0,
 		sendHour: 9,
-		templateType: usableTemplates.value[0]?.type || '',
+		templateType: first?.type || '',
+		templateId: first?.id ?? null,
 		channel: 'whatsapp',
 		recipientTarget: 'participant',
 		recipientResponsibility: '',
@@ -263,10 +330,24 @@ function addStep() {
 	});
 }
 
-// Pasos cuyo tipo de plantilla no existe en el retiro (aviso al guardar).
+// Pasos sin plantilla utilizable: ni su id existe ya en el retiro (plantilla
+// borrada) ni su tipo (aviso al guardar).
 const stepsWithMissingTemplate = computed(() =>
 	draft.value.steps.filter(
-		(s) => !usableTemplates.value.some((tpl: any) => tpl.type === s.templateType),
+		(s) =>
+			!(s.templateId && usableTemplates.value.some((tpl: any) => tpl.id === s.templateId)) &&
+			!usableTemplates.value.some((tpl: any) => tpl.type === s.templateType),
+	),
+);
+
+// M3: pasos que van por fallback de tipo teniendo MÁS de una plantilla de ese
+// tipo en el retiro — el motor enviaría la más antigua, que puede no ser la
+// que el coordinador quiere. Ámbar en el editor para que fije una explícita.
+const stepsWithDuplicateType = computed(() =>
+	draft.value.steps.filter(
+		(s) =>
+			!s.templateId &&
+			usableTemplates.value.filter((tpl: any) => tpl.type === s.templateType).length > 1,
 	),
 );
 
@@ -302,6 +383,8 @@ async function openStepPreview(index: number) {
 			retreatId: retreatId.value,
 			participantId: participant.id,
 			templateType: step.templateType,
+			// M3: si el paso ya fijó plantilla concreta, el preview usa ESA.
+			templateId: step.templateId || null,
 			channel: step.channel,
 			recipientTarget: step.recipientTarget,
 			recipientResponsibility: step.recipientResponsibility || null,
@@ -340,6 +423,8 @@ watch(previewParticipantId, () => {
 // el participante de muestra, con debounce para no spamear el endpoint.
 // --------------------------------------------------------------------------
 const stepDates = ref<Array<string | null>>([]);
+// M2: pasos cuya fecha ya pasó — el motor los suprime al enrolar (ámbar).
+const stepDatesPast = ref<boolean[]>([]);
 const stepDatesLoading = ref(false);
 
 const stepsSignature = computed(() =>
@@ -353,6 +438,7 @@ async function refreshStepDates() {
 	// Sin participante no hay fechas; el template muestra sólo el paso.
 	if (!isEditorOpen.value || !retreatId.value || !previewParticipant.value) {
 		stepDates.value = [];
+		stepDatesPast.value = [];
 		return;
 	}
 	stepDatesLoading.value = true;
@@ -364,8 +450,10 @@ async function refreshStepDates() {
 			draft.value.steps.map((s) => ({ offsetDays: s.offsetDays, sendHour: s.sendHour })),
 		);
 		stepDates.value = res.dates;
+		stepDatesPast.value = res.past ?? [];
 	} catch {
 		stepDates.value = []; // el header muestra la fecha vacía, no rompe el editor
+		stepDatesPast.value = [];
 	} finally {
 		stepDatesLoading.value = false;
 	}
@@ -407,6 +495,7 @@ async function saveDraft() {
 			offsetDays: s.offsetDays,
 			sendHour: s.sendHour,
 			templateType: s.templateType,
+			templateId: s.templateId ?? null,
 			channel: s.channel,
 			recipientTarget: s.recipientTarget,
 			recipientResponsibility:
@@ -511,6 +600,7 @@ async function duplicateSequence(seq: any) {
 				offsetDays: s.offsetDays,
 				sendHour: s.sendHour,
 				templateType: s.templateType,
+				templateId: s.templateId ?? null,
 				channel: s.channel,
 				recipientTarget: s.recipientTarget || 'participant',
 				recipientResponsibility: s.recipientResponsibility || null,
@@ -535,16 +625,78 @@ async function skipItem(item: any) {
 	}
 }
 
-async function runNow() {
+async function runNow(sendNowStepIds?: string[]) {
 	if (!retreatId.value) return;
 	try {
-		const res = await sequenceStore.run(retreatId.value);
+		const res = await sequenceStore.run(retreatId.value, sendNowStepIds);
+		// El run materializa filas que ningún evento de realtime cubre (solo
+		// hay evento cuando algo cae a `queued`): refrescar Programados para
+		// que la pestaña no muestre el conteo/lista previos al run.
+		await loadScheduled();
 		toast({
 			title: t('sequences.runDone', { enrolled: res.enrolled, processed: res.processed }),
 		});
+		// M5: ask about the past-dated steps the guard skipped. Not after a
+		// confirmed run — the unselected ones were already reported as skipped.
+		if (!sendNowStepIds && res.pastSteps?.length) openPastStepsPrompt(res.pastSteps);
 	} catch {
 		toast({ title: t('sequences.runError'), variant: 'destructive' });
 	}
+}
+
+// M5: past-dated steps the last "Ejecutar" left unscheduled. They have no
+// rows, so skipping them is not remembered: the next run asks again.
+const pastStepsPrompt = ref<SequencePastStep[]>([]);
+const pastStepsSelected = ref<string[]>([]);
+const pastStepsModalOpen = computed(() => pastStepsPrompt.value.length > 0);
+const pastStepsModalRef = ref<HTMLElement | null>(null);
+useModalA11y(pastStepsModalOpen, skipPastSteps, pastStepsModalRef);
+// Messages the selected steps would send (sum of their head-counts).
+const pastStepsSelectedCount = computed(() =>
+	pastStepsPrompt.value
+		.filter((s) => pastStepsSelected.value.includes(s.stepId))
+		.reduce((n, s) => n + s.count, 0),
+);
+// A sequence with several overdue steps would send each person several
+// messages at once if all were picked: the dialog warns about it.
+const pastStepsHasMultiPerSequence = computed(
+	() => new Set(pastStepsPrompt.value.map((s) => s.sequenceId)).size < pastStepsPrompt.value.length,
+);
+
+function openPastStepsPrompt(steps: SequencePastStep[]) {
+	// Pre-select only the latest overdue step of each sequence.
+	const latest: Record<string, SequencePastStep> = {};
+	for (const s of steps) {
+		if (!latest[s.sequenceId] || s.stepOrder > latest[s.sequenceId].stepOrder) latest[s.sequenceId] = s;
+	}
+	pastStepsSelected.value = Object.values(latest).map((s) => s.stepId);
+	pastStepsPrompt.value = steps;
+}
+
+function togglePastStep(stepId: string) {
+	pastStepsSelected.value = pastStepsSelected.value.includes(stepId)
+		? pastStepsSelected.value.filter((id) => id !== stepId)
+		: [...pastStepsSelected.value, stepId];
+}
+
+function notifySkippedPastSteps(skipped: SequencePastStep[]) {
+	const count = skipped.reduce((n, s) => n + s.count, 0);
+	if (count) toast({ title: t('sequences.pastStepsSkipped', { count }, count) });
+}
+
+function skipPastSteps() {
+	const skipped = pastStepsPrompt.value;
+	pastStepsPrompt.value = [];
+	notifySkippedPastSteps(skipped);
+}
+
+async function sendPastSteps() {
+	const ids = pastStepsSelected.value.filter((id) => pastStepsPrompt.value.some((s) => s.stepId === id));
+	const skipped = pastStepsPrompt.value.filter((s) => !ids.includes(s.stepId));
+	// Close before the request (same rule as the other confirm dialogs).
+	pastStepsPrompt.value = [];
+	notifySkippedPastSteps(skipped);
+	if (ids.length) await runNow(ids);
 }
 
 // Preferencia: al abrir WhatsApp, marcar enviado automáticamente (salta el paso
@@ -577,7 +729,7 @@ function onTablistKeydown(e: KeyboardEvent) {
 }
 const QUEUE_PAGE_SIZE = 10;
 const queuePage = ref(1);
-const queueSort = ref<'scheduled' | 'name' | 'template' | 'recent' | 'sequence'>('scheduled');
+const queueSort = ref<'scheduled' | 'name' | 'template' | 'recent' | 'sequence' | 'palanquero'>('scheduled');
 const queueSearch = ref('');
 // 'active' (default): la bandeja es la lista de trabajo y los pausados (secuencia
 // desactivada) no se van a enviar — se ocultan. 'paused' los aísla para revisarlos;
@@ -599,6 +751,18 @@ const sortedQueue = computed(() => {
 		return items.sort(
 			(a, b) => seqName(a.sequenceId).localeCompare(seqName(b.sequenceId), 'es') || time(a) - time(b),
 		);
+	// 'palanquero': agrupa el trabajo por el palanquero del caminante; los ítems
+	// sin palanquero (servidores, caminantes sin asignar) van SIEMPRE al final,
+	// sin importar su fecha.
+	if (queueSort.value === 'palanquero')
+		return items.sort((a, b) => {
+			const ac = a.palancasCoordinator || null;
+			const bc = b.palancasCoordinator || null;
+			if (!ac && !bc) return time(a) - time(b);
+			if (!ac) return 1;
+			if (!bc) return -1;
+			return ac.localeCompare(bc, 'es') || time(a) - time(b);
+		});
 	if (queueSort.value === 'recent') return items.sort((a, b) => time(b) - time(a));
 	return items.sort((a, b) => time(a) - time(b)); // 'scheduled': por fecha programada
 });
@@ -636,6 +800,13 @@ const queueTotalPages = computed(() => Math.max(1, Math.ceil(filteredQueue.value
 const activeQueueCount = computed(
 	() => queue.value.filter((q: any) => !pausedSequence(q)).length,
 );
+// Queued items the current filter hides because their sequence is paused —
+// surfaced so the queue never looks empty while it holds messages.
+const pausedHiddenCount = computed(() =>
+	queueAssignFilter.value === 'paused' || queueAssignFilter.value === 'all'
+		? 0
+		: queue.value.length - activeQueueCount.value,
+);
 const pagedQueue = computed(() =>
 	filteredQueue.value.slice((queuePage.value - 1) * QUEUE_PAGE_SIZE, queuePage.value * QUEUE_PAGE_SIZE),
 );
@@ -663,6 +834,13 @@ const schedSequenceFilter = ref<string | null>(null); // chip de secuencia (badg
 // en su nombre de una fila — el nombre llega en la propia fila (no carga el roster).
 const schedParticipantFilter = ref<{ id: string; name: string } | null>(null);
 const schedPage = ref(1);
+// Paused rows (pending of an inactive sequence) are hidden by default, like in
+// the queue: Programados lists what will actually go out. An explicit chip
+// (sequence or participant) shows everything — the user is asking for it.
+const schedShowPaused = ref(false);
+const schedPausedMode = computed<'include' | 'hide'>(() =>
+	schedShowPaused.value || schedSequenceFilter.value || schedParticipantFilter.value ? 'include' : 'hide',
+);
 let schedSearchTimer: number | undefined;
 
 watch(schedSearch, (v) => {
@@ -672,10 +850,12 @@ watch(schedSearch, (v) => {
 
 // Contador del TAB: pending total del retiro, derivado de stats — igual fuente
 // que los badges por secuencia. Independiente de los filtros de la pestaña
-// (scheduledTotal cambia con el status elegido; este no).
+// (scheduledTotal cambia con el status elegido; este no). Paused sequences
+// don't count: their pending rows won't go out while they stay off.
 const scheduledTabCount = computed(() =>
-	Object.values(stats.value || {}).reduce(
-		(n: number, byStatus) => n + ((byStatus as Record<string, number>).pending || 0),
+	Object.entries(stats.value || {}).reduce(
+		(n: number, [sequenceId, byStatus]) =>
+			pausedSequence({ sequenceId }) ? n : n + ((byStatus as Record<string, number>).pending || 0),
 		0,
 	),
 );
@@ -689,11 +869,12 @@ async function loadScheduled() {
 		search: schedSearchDebounced.value.trim() || undefined,
 		page: schedPage.value,
 		order: schedOrder.value,
+		paused: schedPausedMode.value,
 	});
 }
 
 // Refetch al cambiar cualquier control; los filtros además vuelven a página 1.
-watch([schedSearchDebounced, schedStatus, schedOrder, schedSequenceFilter, schedParticipantFilter], () => {
+watch([schedSearchDebounced, schedStatus, schedOrder, schedSequenceFilter, schedParticipantFilter, schedShowPaused], () => {
 	schedPage.value = 1;
 	loadScheduled();
 });
@@ -747,6 +928,21 @@ function isPausedPending(it: { sequenceId?: string | null; status: string }): bo
 function templateLabel(type: string | null | undefined): string {
 	if (!type) return '';
 	return templates.value.find((tpl: any) => tpl.type === type)?.name || type;
+}
+// M3: el nombre de la plantilla lo resuelve el SERVER (id del paso gana sobre
+// el tipo) y viaja como `templateName` en bandeja/programados/detalle. El
+// fallback por tipo cubre ítems legacy o con plantilla borrada.
+function itemTemplateName(it: { templateName?: string | null; templateType: string | null | undefined }): string {
+	return it.templateName || templateLabel(it.templateType);
+}
+// "Palanquero 1 (Ana Rodríguez)" — the walker's assigned palanquero
+// responsibility and its holder, both resolved server-side in the queue
+// payload. Null when unassigned: the row shows nothing and the 'palanquero'
+// sort sends it to the end.
+function palanqueroLabel(it: { palancasCoordinator?: string | null; palanqueroName?: string | null }): string | null {
+	const coordinator = it.palancasCoordinator;
+	if (!coordinator) return null;
+	return it.palanqueroName ? `${coordinator} (${it.palanqueroName})` : coordinator;
 }
 
 // --------------------------------------------------------------------------
@@ -927,6 +1123,7 @@ const filteredIssues = computed(() => {
 				it.participant?.lastName,
 				it.templateType,
 				templateLabel(it.templateType),
+				it.templateName,
 				it.error,
 				it.recipientName,
 			]
@@ -1080,7 +1277,11 @@ function buildWhatsappLink(item: any): { phone: string; country: string | null; 
 	let rawPhone: string | undefined = item.resolvedContact || undefined;
 	let text = item.resolvedContent ? convertHtmlToWhatsApp(item.resolvedContent) : '';
 	if (!rawPhone || !text) {
-		const tpl = templates.value.find((x: any) => x.type === item.templateType);
+		// M3: el paso trae su plantilla concreta (sm.step cargado por la bandeja);
+		// por id primero, fallback por tipo para ítems legacy.
+		const tpl =
+			templates.value.find((x: any) => x.id === item.step?.templateId) ||
+			templates.value.find((x: any) => x.type === item.templateType);
 		const participant = item.participant;
 		const target = item.recipientTarget || 'participant';
 		let contactKey: string | undefined;
@@ -1331,7 +1532,7 @@ async function toggleDoNotContact() {
 					{{ t('sequences.sequencesCount', { n: sequences.length }) }}
 				</p>
 				<div class="grid grid-cols-3 gap-2 sm:flex sm:gap-2">
-					<Button variant="outline" size="sm" class="justify-center" @click="runNow">
+					<Button variant="outline" size="sm" class="justify-center" @click="runNow()">
 						<Play class="w-4 h-4 sm:mr-1" />
 						<span class="hidden sm:inline">{{ t('sequences.runNow') }}</span>
 						<span class="sm:hidden">{{ t('sequences.runShort') }}</span>
@@ -1375,14 +1576,21 @@ async function toggleDoNotContact() {
 					<div class="flex flex-wrap gap-1.5 mt-1.5 text-[11px]">
 						<!-- programados = status 'pending' del API: mensajes materializados con
 						     fecha futura; el cron los pasa a 'queued' el día que vencen. -->
+						<!-- Paused sequence: its pending rows won't go out while it stays
+						     off, so the badge says "en pausa" (gray) instead of "programados". -->
 						<button
 							v-if="statusCount(seq.id, 'pending')"
 							type="button"
-							class="bg-blue-100 text-blue-700 rounded px-1.5 py-0.5 hover:bg-blue-200 transition-colors cursor-pointer"
-							:title="t('sequences.stat.scheduledHint')"
+							class="rounded px-1.5 py-0.5 transition-colors cursor-pointer"
+							:class="seq.isActive ? 'bg-blue-100 text-blue-700 hover:bg-blue-200' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'"
+							:title="seq.isActive ? t('sequences.stat.scheduledHint') : t('sequences.stat.pausedPendingHint')"
 							@click="openScheduledForSequence(seq)"
 						>
-							{{ t('sequences.stat.scheduled', { n: statusCount(seq.id, 'pending') }) }}
+							{{
+								seq.isActive
+									? t('sequences.stat.scheduled', { n: statusCount(seq.id, 'pending') })
+									: t('sequences.stat.pausedPending', { n: statusCount(seq.id, 'pending') })
+							}}
 						</button>
 						<span v-if="statusCount(seq.id, 'sent')" class="bg-green-100 text-green-700 rounded px-1.5 py-0.5">
 							{{ t('sequences.stat.sent', { n: statusCount(seq.id, 'sent') }) }}
@@ -1408,6 +1616,65 @@ async function toggleDoNotContact() {
 						>
 							{{ t('sequences.stat.failed', { n: statusCount(seq.id, 'failed') }) }}
 						</button>
+					</div>
+					<!-- Per-step breakdown: date and where each step's messages are. -->
+					<button
+						v-if="liveSteps(seq).length"
+						type="button"
+						class="mt-1.5 text-xs text-blue-600 hover:underline inline-flex items-center gap-1"
+						:aria-expanded="expandedSeqId === seq.id"
+						@click="toggleSeqSteps(seq)"
+					>
+						<ChevronDown class="w-3.5 h-3.5 transition-transform" :class="expandedSeqId === seq.id ? 'rotate-180' : ''" />
+						{{ expandedSeqId === seq.id ? t('sequences.stepsBreakdownHide') : t('sequences.stepsBreakdown') }}
+					</button>
+					<div v-if="expandedSeqId === seq.id" class="mt-1.5 border-t pt-2 space-y-2">
+						<div v-for="(st, i) in liveSteps(seq)" :key="st.id" class="text-xs text-gray-600">
+							<div class="flex flex-wrap items-baseline gap-x-1.5">
+								<span class="font-medium text-gray-700">{{ t('sequences.stepN', { n: st.stepOrder + 1 }) }}</span>
+								<span>· {{ importOffsetText(seq.trigger, st.offsetDays) }}</span>
+								<span
+									v-if="seqStepDates[seq.id]?.dates[i]"
+									:class="seqStepDates[seq.id]?.past[i] ? 'text-amber-600' : ''"
+								>
+									· {{ fmtStepDate(seqStepDates[seq.id]?.dates[i] ?? null) }}
+								</span>
+								<span>· {{ stepTemplateName(st) }}</span>
+								<span>· {{ t('sequences.channels.' + st.channel) }}</span>
+							</div>
+							<div class="flex flex-wrap gap-1.5 mt-0.5 text-[11px]">
+								<span
+									v-if="stepStatusCount(st.id, 'pending')"
+									class="rounded px-1.5 py-0.5"
+									:class="seq.isActive ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'"
+								>
+									{{
+										seq.isActive
+											? t('sequences.stat.scheduled', { n: stepStatusCount(st.id, 'pending') })
+											: t('sequences.stat.pausedPending', { n: stepStatusCount(st.id, 'pending') })
+									}}
+								</span>
+								<span v-if="stepStatusCount(st.id, 'queued')" class="bg-amber-100 text-amber-700 rounded px-1.5 py-0.5">
+									{{ t('sequences.stat.queued', { n: stepStatusCount(st.id, 'queued') }) }}
+								</span>
+								<span v-if="stepStatusCount(st.id, 'sent')" class="bg-green-100 text-green-700 rounded px-1.5 py-0.5">
+									{{ t('sequences.stat.sent', { n: stepStatusCount(st.id, 'sent') }) }}
+								</span>
+								<span v-if="stepStatusCount(st.id, 'skipped')" class="bg-gray-100 text-gray-600 rounded px-1.5 py-0.5">
+									{{ t('sequences.stat.skipped', { n: stepStatusCount(st.id, 'skipped') }) }}
+								</span>
+								<span v-if="stepStatusCount(st.id, 'failed')" class="bg-red-100 text-red-700 rounded px-1.5 py-0.5">
+									{{ t('sequences.stat.failed', { n: stepStatusCount(st.id, 'failed') }) }}
+								</span>
+								<!-- No rows: a past date means the guard skipped it (Ejecutar asks). -->
+								<span
+									v-if="!stepHasMessages(st.id)"
+									:class="seqStepDates[seq.id]?.past[i] ? 'text-amber-600' : 'text-gray-400'"
+								>
+									{{ seqStepDates[seq.id]?.past[i] ? t('sequences.stepNoMessagesPast') : t('sequences.stepNoMessages') }}
+								</span>
+							</div>
+						</div>
 					</div>
 				</div>
 				<div class="flex items-center gap-1 shrink-0 self-end sm:self-auto">
@@ -1515,6 +1782,22 @@ async function toggleDoNotContact() {
 				<p v-if="scheduledTimezone" class="text-[11px] text-gray-400 mb-2">
 					{{ t('sequences.scheduledTzHint', { tz: scheduledTimezone }) }}
 				</p>
+				<!-- Paused rows are hidden by default: say how many and let them be shown. -->
+				<p v-if="scheduledPausedCount && schedPausedMode === 'hide'" class="text-xs text-gray-500 mb-2">
+					{{ t('sequences.schedPausedHidden', { count: scheduledPausedCount }, scheduledPausedCount) }}
+					<button type="button" class="text-blue-600 hover:underline" @click="schedShowPaused = true">
+						{{ t('sequences.queueShowPaused') }}
+					</button>
+				</p>
+				<p
+					v-else-if="scheduledPausedCount && schedShowPaused && !schedSequenceFilter && !schedParticipantFilter"
+					class="text-xs text-gray-500 mb-2"
+				>
+					{{ t('sequences.schedPausedShown', { count: scheduledPausedCount }, scheduledPausedCount) }}
+					<button type="button" class="text-blue-600 hover:underline" @click="schedShowPaused = false">
+						{{ t('sequences.schedHidePaused') }}
+					</button>
+				</p>
 
 				<div v-if="scheduledLoading" class="text-sm text-gray-500 border rounded-md p-4 text-center">
 					{{ t('common.loading') }}
@@ -1537,7 +1820,7 @@ async function toggleDoNotContact() {
 								{{ it.participantName }}
 							</button>
 							<div class="text-xs text-gray-500 truncate">
-								{{ templateLabel(it.templateType) }}
+								{{ itemTemplateName(it) }}
 								<span v-if="it.stepOrder != null">· {{ t('sequences.stepN', { n: it.stepOrder + 1 }) }}</span>
 								<span
 									v-if="it.recipientTarget && it.recipientTarget !== 'participant'"
@@ -1576,7 +1859,7 @@ async function toggleDoNotContact() {
 									class="h-6 px-1.5 text-[11px]"
 									@click="openReschedule(
 										it.stepId,
-										[seqName(it.sequenceId), templateLabel(it.templateType)].filter(Boolean).join(' · '),
+										[seqName(it.sequenceId), itemTemplateName(it)].filter(Boolean).join(' · '),
 										it.scheduledFor,
 									)"
 								>
@@ -1652,6 +1935,7 @@ async function toggleDoNotContact() {
 									<option value="name">{{ t('sequences.sort.name') }}</option>
 									<option value="template">{{ t('sequences.sort.template') }}</option>
 									<option value="sequence">{{ t('sequences.sort.sequence') }}</option>
+									<option value="palanquero">{{ t('sequences.sort.palanquero') }}</option>
 								</select>
 							</label>
 							<label class="block text-sm text-gray-700">
@@ -1699,6 +1983,7 @@ async function toggleDoNotContact() {
 							<option value="name">{{ t('sequences.sort.name') }}</option>
 							<option value="template">{{ t('sequences.sort.template') }}</option>
 							<option value="sequence">{{ t('sequences.sort.sequence') }}</option>
+							<option value="palanquero">{{ t('sequences.sort.palanquero') }}</option>
 						</select>
 					</label>
 					<label class="flex items-center gap-1.5 text-xs text-gray-600">
@@ -1719,6 +2004,12 @@ async function toggleDoNotContact() {
 						{{ t('sequences.openNext') }}
 					</Button>
 				</div>
+				<p v-if="pausedHiddenCount && filteredQueue.length" class="text-xs text-gray-500 mb-2">
+					{{ t('sequences.queuePausedHidden', { count: pausedHiddenCount }, pausedHiddenCount) }}
+					<button type="button" class="text-blue-600 hover:underline" @click="queueAssignFilter = 'paused'">
+						{{ t('sequences.queueShowPaused') }}
+					</button>
+				</p>
 				<div v-if="queue.length && filteredQueue.length" class="border rounded-md divide-y">
 					<div v-for="item in pagedQueue" :key="item.id" class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 p-3">
 					<div class="min-w-0">
@@ -1752,7 +2043,7 @@ async function toggleDoNotContact() {
 							</span>
 						</div>
 						<div class="text-xs text-gray-500">
-							{{ templateLabel(item.templateType) }}
+							{{ itemTemplateName(item) }}
 							<span v-if="item.scheduledFor">· {{ fmtScheduled(item.scheduledFor) }}</span>
 							<span
 								v-if="item.recipientTarget && item.recipientTarget !== 'participant'"
@@ -1761,6 +2052,7 @@ async function toggleDoNotContact() {
 								· → {{ item.recipientName || t('sequences.recipients.' + item.recipientTarget) }}
 							</span>
 							<span v-if="seqName(item.sequenceId)">· {{ seqName(item.sequenceId) }}</span>
+							<span v-if="palanqueroLabel(item)" class="text-violet-600">· {{ palanqueroLabel(item) }}</span>
 							<span v-if="item.assignedTo === myUserId" class="text-green-600">· {{ t('sequences.mine') }}</span>
 							<span v-else-if="item.assignedTo" class="text-gray-400">· {{ t('sequences.assigned') }}</span>
 						</div>
@@ -1804,8 +2096,21 @@ async function toggleDoNotContact() {
 					</div>
 				</div>
 			</div>
-			<div v-else-if="queue.length" class="text-sm text-gray-500 border rounded-md p-4 text-center">
+			<div v-else-if="queue.length && queueSearch.trim()" class="text-sm text-gray-500 border rounded-md p-4 text-center">
 				{{ t('sequences.searchNoResults') }}
+			</div>
+			<!-- Everything left is paused: say so instead of looking empty. -->
+			<div
+				v-else-if="pausedHiddenCount && !activeQueueCount"
+				class="text-sm text-gray-600 border border-amber-200 bg-amber-50 rounded-md p-4 text-center"
+			>
+				{{ t('sequences.queuePausedOnly', { count: pausedHiddenCount }, pausedHiddenCount) }}
+				<Button size="sm" variant="outline" class="mt-2" @click="queueAssignFilter = 'paused'">
+					{{ t('sequences.queueShowPaused') }}
+				</Button>
+			</div>
+			<div v-else-if="queue.length" class="text-sm text-gray-500 border rounded-md p-4 text-center">
+				{{ t('sequences.queueFilterEmpty') }}
 			</div>
 			<div v-else class="text-sm text-gray-500 border rounded-md p-4 text-center">
 				{{ t('sequences.queueEmpty') }}
@@ -1916,7 +2221,7 @@ async function toggleDoNotContact() {
 							>
 								{{ it.participant?.firstName }} {{ it.participant?.lastName }}
 							</button>
-							· {{ templateLabel(it.templateType) }}
+							· {{ itemTemplateName(it) }}
 						</div>
 						<div class="text-xs text-red-600 break-words">{{ it.error }}</div>
 						<div v-if="remediationFor(it)" class="text-xs text-gray-600 mt-0.5 flex gap-1">
@@ -2052,14 +2357,16 @@ async function toggleDoNotContact() {
 									<div class="flex items-baseline gap-2 min-w-0">
 										<span class="text-sm font-semibold text-gray-700 shrink-0">{{ t('sequences.stepN', { n: i + 1 }) }}</span>
 										<!-- A4: fecha que tendría este paso para el participante de muestra,
-										     en la TZ del retiro (resuelta por el servidor). -->
+										     en la TZ del retiro (resuelta por el servidor). En ámbar (M2) si la
+										     fecha ya pasó: el motor la suprime al enrolar (guard anti-retroactivo). -->
 										<span v-if="stepDatesLoading" class="text-xs text-gray-400">…</span>
 										<span
 											v-else-if="stepDates.length"
-											class="text-xs text-gray-500 truncate"
-											:title="t('sequences.stepDateHint')"
+											class="text-xs truncate"
+											:class="stepDatesPast[i] ? 'text-amber-600 font-medium' : 'text-gray-500'"
+											:title="stepDatesPast[i] ? t('sequences.stepDatePast') : t('sequences.stepDateHint')"
 										>
-											→ {{ fmtStepDate(stepDates[i]) }}
+											→ {{ fmtStepDate(stepDates[i]) }}<template v-if="stepDatesPast[i]"> · {{ t('sequences.stepDatePast') }}</template>
 										</span>
 									</div>
 									<div class="flex items-center gap-1 shrink-0">
@@ -2079,12 +2386,30 @@ async function toggleDoNotContact() {
 										</Button>
 									</div>
 								</div>
-								<!-- Plantilla (filtrada por la audiencia del destinatario) -->
+								<!-- Plantilla (filtrada por la audiencia del destinatario).
+								     M3: se elige por ID — con dos plantillas del mismo tipo,
+								     el select por tipo las hacía indistinguibles y la nueva
+								     era inalcanzable (incidente "Ultimo Prendas"). -->
 								<div>
 									<label class="text-xs text-gray-500">{{ t('sequences.template') }}</label>
-									<select v-model="step.templateType" class="w-full mt-1 p-2 border rounded-md text-sm">
-										<option v-for="tpl in templatesForStep(step)" :key="tpl.id" :value="tpl.type">{{ tpl.name }}</option>
+									<select
+										:value="step.templateId ?? null"
+										class="w-full mt-1 p-2 border rounded-md text-sm"
+										@change="onStepTemplateChange(step, $event)"
+									>
+										<option v-if="!step.templateId" :value="null" disabled>
+											{{ t('sequences.templateByType') }} ({{ step.templateType }})
+										</option>
+										<option v-for="tpl in templatesForStep(step)" :key="tpl.id" :value="tpl.id">{{ tpl.name }}</option>
 									</select>
+									<!-- M3: sin plantilla fija y con 2+ del mismo tipo, el motor
+									     enviaría la más antigua — avisar para fijar una explícita. -->
+									<p
+										v-if="stepsWithDuplicateType.includes(step)"
+										class="text-xs text-amber-600 mt-1"
+									>
+										{{ t('sequences.duplicateTemplateType') }}
+									</p>
 								</div>
 								<div class="grid grid-cols-2 md:grid-cols-6 gap-3">
 									<div class="md:col-span-1">
@@ -2378,7 +2703,7 @@ async function toggleDoNotContact() {
 						<div>
 							<div class="text-xs font-medium text-gray-500 mb-1">
 								{{ t('sequences.messageToSend') }}
-								<span class="text-gray-400">· {{ templateLabel(detail.message.templateType) }}</span>
+								<span class="text-gray-400">· {{ itemTemplateName(detail.message) }}</span>
 								<span v-if="detail.message.scheduledFor" class="text-gray-400">
 									· {{ fmtScheduled(detail.message.scheduledFor) }}
 								</span>
@@ -2484,6 +2809,59 @@ async function toggleDoNotContact() {
 				<div class="flex justify-end gap-2 mt-4">
 					<Button variant="outline" @click="seqToDelete = null">{{ t('common.actions.cancel') }}</Button>
 					<Button variant="destructive" @click="confirmDelete">{{ t('common.actions.delete') }}</Button>
+				</div>
+			</div>
+		</div>
+
+		<!-- M5: past-dated steps the last "Ejecutar" skipped: send now or skip -->
+		<div
+			v-if="pastStepsModalOpen"
+			class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+			@click.self="skipPastSteps"
+		>
+			<div
+				ref="pastStepsModalRef"
+				role="dialog"
+				aria-modal="true"
+				tabindex="-1"
+				:aria-label="t('sequences.pastStepsTitle')"
+				class="bg-white rounded-lg shadow-xl max-w-md w-full p-6 focus:outline-none"
+			>
+				<h2 class="text-lg font-semibold flex items-center gap-2">
+					<AlertTriangle class="w-5 h-5 text-amber-500 shrink-0" />
+					{{ t('sequences.pastStepsTitle') }}
+				</h2>
+				<p class="text-sm text-gray-600 mt-1">{{ t('sequences.pastStepsHint') }}</p>
+				<ul class="mt-4 space-y-3">
+					<li v-for="s in pastStepsPrompt" :key="s.stepId">
+						<label class="flex items-start gap-2 text-sm cursor-pointer">
+							<input
+								type="checkbox"
+								class="mt-1"
+								:checked="pastStepsSelected.includes(s.stepId)"
+								@change="togglePastStep(s.stepId)"
+							/>
+							<span>
+								<span class="font-medium">{{ s.sequenceName }}</span>
+								· {{ t('sequences.pastStepsStep', { n: s.stepOrder + 1 }) }}
+								<span class="block text-xs text-gray-500">
+									{{ t('sequences.pastStepsWas', { date: fmtStepDate(s.scheduledFor) }) }}
+									· {{ t('sequences.pastStepsPeople', { count: s.count }, s.count) }}
+									· {{ t('sequences.channels.' + s.channel) }}
+								</span>
+							</span>
+						</label>
+					</li>
+				</ul>
+				<p v-if="pastStepsHasMultiPerSequence" class="text-xs text-amber-600 mt-3 flex items-start gap-1">
+					<AlertTriangle class="w-3.5 h-3.5 shrink-0 mt-0.5" />
+					{{ t('sequences.pastStepsMultiHint') }}
+				</p>
+				<div class="flex justify-end gap-2 mt-4">
+					<Button variant="outline" @click="skipPastSteps">{{ t('sequences.pastStepsSkip') }}</Button>
+					<Button :disabled="!pastStepsSelectedCount" @click="sendPastSteps">
+						{{ t('sequences.pastStepsSend', { count: pastStepsSelectedCount }) }}
+					</Button>
 				</div>
 			</div>
 		</div>

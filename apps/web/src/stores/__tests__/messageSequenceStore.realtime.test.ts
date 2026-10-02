@@ -21,20 +21,31 @@ vi.mock('@/services/realtime', () => ({
   getSocket: () => fakeSocket,
 }));
 
-// Mock the api service: only the two fetchers the realtime listener refetches.
+// Mock the api service: the fetchers the realtime listener refetches.
 vi.mock('@/services/api', () => ({
   getSequenceQueue: vi.fn().mockResolvedValue([]),
   getSequenceStats: vi
     .fn()
     .mockResolvedValue({ stats: {}, issues: [], issuesTotal: 0 }),
+  fetchScheduledMessages: vi.fn(),
 }));
 
 // Import after mocks so they are in effect.
 import { useMessageSequenceStore } from '../messageSequenceStore';
-import { getSequenceQueue, getSequenceStats } from '@/services/api';
+import { getSequenceQueue, getSequenceStats, fetchScheduledMessages } from '@/services/api';
 
 const queueMock = vi.mocked(getSequenceQueue);
 const statsMock = vi.mocked(getSequenceStats);
+const scheduledMock = vi.mocked(fetchScheduledMessages);
+
+const schedPage = (items: any[]) => ({
+  items,
+  total: items.length,
+  page: 1,
+  totalPages: 1,
+  timezone: 'America/Mexico_City',
+  pausedCount: 0,
+});
 
 describe('messageSequenceStore.subscribeRealtime', () => {
   beforeEach(() => {
@@ -44,6 +55,8 @@ describe('messageSequenceStore.subscribeRealtime', () => {
     offMock.mockClear();
     queueMock.mockClear();
     statsMock.mockClear();
+    scheduledMock.mockReset();
+    scheduledMock.mockResolvedValue(schedPage([]) as any);
     Object.keys(socketHandlers).forEach((k) => delete socketHandlers[k]);
     fakeSocket.connected = true;
   });
@@ -107,6 +120,68 @@ describe('messageSequenceStore.subscribeRealtime', () => {
 
     expect(queueMock).not.toHaveBeenCalled();
     expect(statsMock).not.toHaveBeenCalled();
+  });
+
+  // ─── Programados refresh (the cron moves pending → queued) ────────────────
+
+  it('refetches the Programados page on screen, with its filters, without a loading flash', async () => {
+    const store = useMessageSequenceStore();
+    const opts = { statuses: ['pending'], paused: 'hide' as const, page: 2 };
+    scheduledMock.mockResolvedValueOnce(schedPage([{ id: 'sm-1', status: 'pending' }]) as any);
+    await store.fetchScheduled('retreat-1', opts);
+    store.subscribeRealtime('retreat-1');
+
+    // The cron queued sm-1: the refreshed page no longer lists it as pending.
+    let resolveRefresh: (v: any) => void = () => {};
+    scheduledMock.mockReturnValueOnce(new Promise((r) => (resolveRefresh = r)) as any);
+    socketHandlers['sequences:queue-changed']?.({
+      retreatId: 'retreat-1',
+      action: 'enqueued',
+      scheduledMessageIds: ['sm-1'],
+    });
+
+    expect(scheduledMock).toHaveBeenLastCalledWith('retreat-1', opts);
+    // Silent: the list keeps its rows on screen while refreshing.
+    expect(store.scheduledLoading).toBe(false);
+    resolveRefresh(schedPage([]));
+    await vi.waitFor(() => expect(store.scheduled).toEqual([]));
+  });
+
+  it('does not touch Programados when it was never loaded for that retreat', () => {
+    const store = useMessageSequenceStore();
+    store.subscribeRealtime('retreat-1');
+
+    socketHandlers['sequences:queue-changed']?.({
+      retreatId: 'retreat-1',
+      action: 'enqueued',
+      scheduledMessageIds: ['sm-1'],
+    });
+
+    expect(scheduledMock).not.toHaveBeenCalled();
+  });
+
+  it('a stale refresh never overwrites a newer filtered fetch', async () => {
+    const store = useMessageSequenceStore();
+    await store.fetchScheduled('retreat-1', { statuses: ['pending'] });
+    store.subscribeRealtime('retreat-1');
+
+    // Realtime refresh in flight (old filters)…
+    let resolveStale: (v: any) => void = () => {};
+    scheduledMock.mockReturnValueOnce(new Promise((r) => (resolveStale = r)) as any);
+    socketHandlers['sequences:queue-changed']?.({
+      retreatId: 'retreat-1',
+      action: 'enqueued',
+      scheduledMessageIds: ['sm-1'],
+    });
+    // …then the user picks "sent": that newer request resolves first.
+    scheduledMock.mockResolvedValueOnce(schedPage([{ id: 'sm-sent', status: 'sent' }]) as any);
+    await store.fetchScheduled('retreat-1', { statuses: ['sent'] });
+    resolveStale(schedPage([{ id: 'sm-old', status: 'pending' }]));
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(store.scheduled.map((s: any) => s.id)).toEqual(['sm-sent']);
+    expect(store.scheduledLoading).toBe(false);
   });
 
   // ─── Unsubscribe ──────────────────────────────────────────────────────────

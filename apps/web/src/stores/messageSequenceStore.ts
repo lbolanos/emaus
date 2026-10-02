@@ -36,6 +36,8 @@ export const useMessageSequenceStore = defineStore('message-sequence', () => {
 	const sequences = ref<MessageSequence[]>([]);
 	const queue = ref<ScheduledMessageQueueItem[]>([]);
 	const stats = ref<Record<string, Record<string, number>>>({});
+	// Same counts per step ({ [stepId]: { [status]: count } }) for the card's step list.
+	const stepStats = ref<Record<string, Record<string, number>>>({});
 	const issues = ref<ScheduledMessageQueueItem[]>([]);
 	// Conteo real de problemas (sin cap): el contador del tab y el botón
 	// "cargar más" se guían por éste, no por issues.length (que está capado).
@@ -51,10 +53,16 @@ export const useMessageSequenceStore = defineStore('message-sequence', () => {
 	const scheduledPage = ref(1);
 	const scheduledTotalPages = ref(1);
 	const scheduledTimezone = ref<string | null>(null);
+	// Paused rows (pending of inactive sequences) matching the current Programados query.
+	const scheduledPausedCount = ref(0);
 	const scheduledLoading = ref(false);
 	// Retiro del último fetch: alimenta el fallback de TZ y los refresh de stats
 	// fire-and-forget (sin andar pasando el retreatId por todos lados).
 	let currentRetreatId: string | null = null;
+	// Last Programados query (with the view's filters), so a realtime event can
+	// refresh the page on screen; the counter guards against stale responses.
+	let lastScheduledQuery: { retreatId: string; opts: FetchScheduledMessagesOptions } | null = null;
+	let scheduledReqId = 0;
 
 	// Realtime (bandeja en vivo, patrón receptionStore).
 	const realtimeConnected = ref(false);
@@ -85,6 +93,7 @@ export const useMessageSequenceStore = defineStore('message-sequence', () => {
 		try {
 			const res = await getSequenceStats(retreatId);
 			stats.value = res.stats;
+			stepStats.value = res.stepStats ?? {};
 			issues.value = res.issues;
 			issuesTotal.value = res.issuesTotal ?? res.issues.length;
 		} catch (e: any) {
@@ -113,20 +122,33 @@ export const useMessageSequenceStore = defineStore('message-sequence', () => {
 	 * expone como `scheduledTimezone` para pintar fechas y como fallback del
 	 * resto de la vista (bandeja/detalle).
 	 */
-	const fetchScheduled = async (retreatId: string, opts: FetchScheduledMessagesOptions = {}) => {
-		scheduledLoading.value = true;
+	const fetchScheduled = async (
+		retreatId: string,
+		opts: FetchScheduledMessagesOptions = {},
+		{ silent = false }: { silent?: boolean } = {},
+	) => {
+		// `silent` (realtime refresh): no loading state, so the list doesn't
+		// flash "Cargando…" every time the cron moves something to the queue.
+		if (!silent) scheduledLoading.value = true;
 		currentRetreatId = retreatId;
+		lastScheduledQuery = { retreatId, opts };
+		const reqId = ++scheduledReqId;
 		try {
 			const res: ScheduledMessagesPage = await fetchScheduledMessages(retreatId, opts);
+			// A newer request (the user changed a filter meanwhile) wins.
+			if (reqId !== scheduledReqId) return;
 			scheduled.value = res.items;
 			scheduledTotal.value = res.total;
 			scheduledPage.value = res.page;
 			scheduledTotalPages.value = res.totalPages;
 			scheduledTimezone.value = res.timezone;
+			scheduledPausedCount.value = res.pausedCount ?? 0;
 		} catch (e: any) {
 			error.value = e?.message || 'Failed to fetch scheduled messages';
 		} finally {
-			scheduledLoading.value = false;
+			// Only the latest request clears loading: a superseded one must not,
+			// and a silent one that superseded a loading request must.
+			if (reqId === scheduledReqId) scheduledLoading.value = false;
 		}
 	};
 
@@ -165,9 +187,16 @@ export const useMessageSequenceStore = defineStore('message-sequence', () => {
 		sequences.value = sequences.value.filter((s) => s.id !== id);
 	};
 
-	const run = async (retreatId: string) => {
-		const result = await runSequences(retreatId);
-		await fetchQueue(retreatId);
+	/**
+	 * Ejecutar ahora: enrola audiencia y procesa vencidos. Refresca queue y
+	 * stats — un run que solo materializa filas futuras no emite evento de
+	 * realtime (`processDue` emite únicamente cuando algo cae a `queued`), así
+	 * que sin este refresco el contador de Programados y los badges por
+	 * secuencia quedan viejos hasta cambiar de pestaña.
+	 */
+	const run = async (retreatId: string, sendNowStepIds?: string[]) => {
+		const result = await runSequences(retreatId, sendNowStepIds);
+		await Promise.all([fetchQueue(retreatId), fetchStats(retreatId)]);
 		return result;
 	};
 
@@ -285,6 +314,12 @@ export const useMessageSequenceStore = defineStore('message-sequence', () => {
 			if (!active || e.retreatId !== active) return;
 			fetchQueue(active).catch(() => {});
 			fetchStats(active).catch(() => {});
+			// Programados too: when the hourly cron queues pending rows, the list
+			// otherwise keeps showing them as "Pendiente" (with "Encolar ya")
+			// while the tab counters already moved.
+			if (lastScheduledQuery?.retreatId === active) {
+				fetchScheduled(active, lastScheduledQuery.opts, { silent: true }).catch(() => {});
+			}
 		};
 
 		socket.on('sequences:queue-changed', listener);
@@ -302,6 +337,7 @@ export const useMessageSequenceStore = defineStore('message-sequence', () => {
 		sequences,
 		queue,
 		stats,
+		stepStats,
 		issues,
 		issuesTotal,
 		detail,
@@ -313,6 +349,7 @@ export const useMessageSequenceStore = defineStore('message-sequence', () => {
 		scheduledPage,
 		scheduledTotalPages,
 		scheduledTimezone,
+		scheduledPausedCount,
 		scheduledLoading,
 		realtimeConnected,
 		fetchSequences,

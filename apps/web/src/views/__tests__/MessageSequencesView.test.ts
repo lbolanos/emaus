@@ -146,14 +146,14 @@ const QUEUE_ITEM = {
 	participant: { id: 'p1', firstName: 'Beto', lastName: 'M3' },
 };
 
-async function mountView(): Promise<VueWrapper<any>> {
+async function mountView(queue: any[] = [QUEUE_ITEM]): Promise<VueWrapper<any>> {
 	setActivePinia(createPinia());
 	// Locale fijada en es para poder afirmar sobre textos reales del locale.
 	localStorage.setItem('preferred-locale', 'es');
 
 	const apiMod: any = await import('@/services/api');
 	apiMod.getRetreatSequences.mockResolvedValue([SEQ]);
-	apiMod.getSequenceQueue.mockResolvedValue([QUEUE_ITEM]);
+	apiMod.getSequenceQueue.mockResolvedValue(queue);
 	apiMod.getSequenceStats.mockResolvedValue({ stats: { 'seq-1': { pending: 2 } }, issues: [] });
 	apiMod.fetchScheduledMessages.mockResolvedValue(SCHED_PAGE);
 	apiMod.previewSequenceSchedule.mockResolvedValue({
@@ -739,5 +739,354 @@ describe('MessageSequencesView — import de plantilla global con preview (#10)'
 		expect(wrapper.text()).toContain('el día del inicio del retiro');
 		// El retiro (mock) no tiene estas plantillas → aviso accionable.
 		expect(wrapper.text()).toContain('sin plantilla en este retiro');
+	});
+});
+
+describe('MessageSequencesView — refresco tras "Ejecutar"', () => {
+	it('runNow refetch-ea bandeja, stats y Programados (un run que solo enrola no emite realtime)', async () => {
+		const wrapper = await mountView();
+		const apiMod: any = await import('@/services/api');
+		apiMod.runSequences.mockResolvedValue({ enrolled: 3, processed: 1 });
+		// El mount ya disparó sus fetches: limpiar para afirmar SOLO los del run.
+		apiMod.getSequenceQueue.mockClear();
+		apiMod.getSequenceStats.mockClear();
+		apiMod.fetchScheduledMessages.mockClear();
+
+		await wrapper.vm.runNow();
+		await flushPromises();
+
+		// Sin pasos confirmados (2º arg undefined): el run normal, con el guard M2.
+		expect(apiMod.runSequences).toHaveBeenCalledWith(RETREAT_ID, undefined);
+		// Bandeja: los WhatsApp vencidos que el run encoló aparecen sin recargar.
+		expect(apiMod.getSequenceQueue).toHaveBeenCalledWith(RETREAT_ID);
+		// Stats: contador del tab Programados y badges por secuencia — sin esto
+		// quedan viejos (processDue no emite evento cuando nada cae a queued).
+		expect(apiMod.getSequenceStats).toHaveBeenCalledWith(RETREAT_ID);
+		// Programados: las filas futuras que el run materializó.
+		const calls = apiMod.fetchScheduledMessages.mock.calls;
+		expect(calls[calls.length - 1][0]).toBe(RETREAT_ID);
+	});
+});
+
+describe('MessageSequencesView — past-dated steps on "Ejecutar" (M5)', () => {
+	// seq-1 has two overdue steps (only the latest gets preselected); seq-2 one.
+	const PAST_STEPS = [
+		{ sequenceId: 'seq-1', sequenceName: 'Palancas', stepId: 'st-a', stepOrder: 0, channel: 'whatsapp', scheduledFor: '2026-09-21T15:00:00.000Z', count: 29 },
+		{ sequenceId: 'seq-1', sequenceName: 'Palancas', stepId: 'st-b', stepOrder: 1, channel: 'whatsapp', scheduledFor: '2026-09-25T15:00:00.000Z', count: 29 },
+		{ sequenceId: 'seq-2', sequenceName: 'Ultimo Prendas', stepId: 'st-c', stepOrder: 0, channel: 'whatsapp', scheduledFor: '2026-09-21T15:00:00.000Z', count: 28 },
+	];
+	const findDialog = (wrapper: VueWrapper<any>) =>
+		wrapper.find('[role="dialog"][aria-label="Pasos con fecha pasada"]');
+
+	it('asks about the skipped steps and re-runs with the selected ones', async () => {
+		const wrapper = await mountView();
+		const apiMod: any = await import('@/services/api');
+		apiMod.runSequences.mockReset();
+		apiMod.runSequences.mockResolvedValueOnce({ enrolled: 0, processed: 0, pastSteps: PAST_STEPS });
+
+		await wrapper.vm.runNow();
+		await flushPromises();
+
+		const dialog = findDialog(wrapper);
+		expect(dialog.exists()).toBe(true);
+		expect(dialog.text()).toContain('Ultimo Prendas');
+		expect(dialog.text()).toContain('28 personas');
+		// Two overdue steps in one sequence → the "several messages" warning.
+		expect(dialog.text()).toContain('varios pasos vencidos');
+		const boxes = dialog.findAll('input[type="checkbox"]');
+		expect(boxes.map((b) => (b.element as HTMLInputElement).checked)).toEqual([false, true, true]);
+
+		apiMod.runSequences.mockResolvedValueOnce({ enrolled: 57, processed: 57, pastSteps: [PAST_STEPS[0]] });
+		const send = dialog.findAll('button').find((b) => b.text().includes('Enviar ahora'));
+		// 29 (Palancas step 2) + 28 (Ultimo Prendas) messages.
+		expect(send!.text()).toContain('57');
+		await send!.trigger('click');
+		await flushPromises();
+
+		expect(apiMod.runSequences).toHaveBeenLastCalledWith(RETREAT_ID, ['st-b', 'st-c']);
+		// The confirmed run does not reopen the dialog for the unselected step.
+		expect(findDialog(wrapper).exists()).toBe(false);
+	});
+
+	it('"Omitir" closes the dialog without running again', async () => {
+		const wrapper = await mountView();
+		const apiMod: any = await import('@/services/api');
+		apiMod.runSequences.mockReset();
+		apiMod.runSequences.mockResolvedValue({ enrolled: 0, processed: 0, pastSteps: [PAST_STEPS[2]] });
+
+		await wrapper.vm.runNow();
+		await flushPromises();
+		const skip = findDialog(wrapper).findAll('button').find((b) => b.text() === 'Omitir');
+		await skip!.trigger('click');
+		await flushPromises();
+
+		expect(findDialog(wrapper).exists()).toBe(false);
+		expect(apiMod.runSequences).toHaveBeenCalledTimes(1);
+	});
+
+	it('a run with no past steps opens nothing', async () => {
+		const wrapper = await mountView();
+		const apiMod: any = await import('@/services/api');
+		apiMod.runSequences.mockReset();
+		apiMod.runSequences.mockResolvedValue({ enrolled: 2, processed: 0, pastSteps: [] });
+
+		await wrapper.vm.runNow();
+		await flushPromises();
+
+		expect(findDialog(wrapper).exists()).toBe(false);
+	});
+});
+
+describe('MessageSequencesView — Programados hides paused sequences by default', () => {
+	const SEQ_OFF = { ...SEQ, id: 'seq-off', name: 'Ultimo Prendas', isActive: false };
+
+	it('fetches with paused=hide, and an explicit sequence chip includes them', async () => {
+		const wrapper = await mountView();
+		const apiMod: any = await import('@/services/api');
+		const calls = apiMod.fetchScheduledMessages.mock.calls;
+		expect(calls[calls.length - 1][1].paused).toBe('hide');
+
+		apiMod.fetchScheduledMessages.mockClear();
+		wrapper.vm.openScheduledForSequence(SEQ_OFF);
+		await flushPromises();
+		const after = apiMod.fetchScheduledMessages.mock.calls;
+		expect(after[after.length - 1][1]).toMatchObject({ sequenceId: 'seq-off', paused: 'include' });
+	});
+
+	it('the tab counter leaves out pending rows of inactive sequences', async () => {
+		const wrapper = await mountView();
+		const { useMessageSequenceStore } = await import('@/stores/messageSequenceStore');
+		const store = useMessageSequenceStore();
+		store.sequences = [SEQ, SEQ_OFF] as any;
+		store.stats = { 'seq-1': { pending: 2 }, 'seq-off': { pending: 29 } } as any;
+		await flushPromises();
+
+		const tab = wrapper.findAll('button').find((b) => b.text().includes('Programados'));
+		expect(tab!.text()).toContain('2');
+		expect(tab!.text()).not.toContain('31');
+	});
+
+	it('says how many are hidden, and "Ver pausados" refetches including them', async () => {
+		const apiMod: any = await import('@/services/api');
+		const wrapper = await mountView();
+		apiMod.fetchScheduledMessages.mockResolvedValue({ ...SCHED_PAGE, pausedCount: 29 });
+		wrapper.vm.activeTab = 'scheduled';
+		await flushPromises();
+
+		const panel = wrapper.find('#seq-panel-scheduled');
+		expect(panel.text()).toContain('29 programados más de secuencias pausadas (ocultos)');
+
+		apiMod.fetchScheduledMessages.mockClear();
+		const show = panel.findAll('button').find((b) => b.text().includes('Ver pausados'));
+		await show!.trigger('click');
+		await flushPromises();
+
+		const calls = apiMod.fetchScheduledMessages.mock.calls;
+		expect(calls[calls.length - 1][1].paused).toBe('include');
+		expect(panel.text()).toContain('Incluye 29 programados de secuencias pausadas');
+		apiMod.fetchScheduledMessages.mockResolvedValue(SCHED_PAGE);
+	});
+
+	it('the card of an inactive sequence says "en pausa", not "programados"', async () => {
+		const wrapper = await mountView();
+		const { useMessageSequenceStore } = await import('@/stores/messageSequenceStore');
+		const store = useMessageSequenceStore();
+		store.sequences = [SEQ_OFF] as any;
+		store.stats = { 'seq-off': { pending: 29 } } as any;
+		await flushPromises();
+
+		const panel = wrapper.find('#seq-panel-sequences');
+		expect(panel.text()).toContain('29 en pausa');
+		expect(panel.text()).not.toContain('29 programados');
+	});
+});
+
+describe('MessageSequencesView — per-step detail in the sequence card', () => {
+	const SEQ_TWO_STEPS = {
+		...SEQ,
+		name: 'Ultimo Prendas',
+		steps: [
+			{ id: 'st-1', stepOrder: 0, offsetDays: 25, sendHour: 9, templateType: 'SHIRT_CONFIRMATION', channel: 'whatsapp' },
+			{ id: 'st-2', stepOrder: 1, offsetDays: 5, sendHour: 9, templateType: 'SHIRT_CONFIRMATION', channel: 'whatsapp' },
+			{ id: 'st-3', stepOrder: 2, offsetDays: 20, sendHour: 9, templateType: 'SHIRT_CONFIRMATION', channel: 'whatsapp' },
+		],
+	};
+
+	async function mountExpanded(stepStats: Record<string, Record<string, number>>, past: boolean[]) {
+		const wrapper = await mountView();
+		const apiMod: any = await import('@/services/api');
+		apiMod.previewSequenceSchedule.mockResolvedValueOnce({
+			dates: ['2026-09-21T15:00:00.000Z', '2026-10-11T15:00:00.000Z', '2026-09-26T15:00:00.000Z'],
+			past,
+			timezone: 'America/Mexico_City',
+		});
+		const { useMessageSequenceStore } = await import('@/stores/messageSequenceStore');
+		const store = useMessageSequenceStore();
+		store.sequences = [SEQ_TWO_STEPS] as any;
+		store.stepStats = stepStats as any;
+		await flushPromises();
+		const toggle = wrapper.findAll('button').find((b) => b.text().includes('Detalle por paso'));
+		await toggle!.trigger('click');
+		await flushPromises();
+		return { wrapper, apiMod };
+	}
+
+	it('shows each step with its date and where its messages are', async () => {
+		const { wrapper, apiMod } = await mountExpanded(
+			{ 'st-1': { queued: 28, sent: 1 }, 'st-2': { pending: 29 } },
+			[true, false, true],
+		);
+		// Dates come from schedule-preview (same for everyone: anchored to the retreat).
+		expect(apiMod.previewSequenceSchedule).toHaveBeenLastCalledWith(
+			RETREAT_ID,
+			'p1',
+			'days_before_retreat',
+			[
+				{ offsetDays: 25, sendHour: 9 },
+				{ offsetDays: 5, sendHour: 9 },
+				{ offsetDays: 20, sendHour: 9 },
+			],
+		);
+		const panel = wrapper.find('#seq-panel-sequences');
+		const text = panel.text();
+		expect(text).toContain('Paso 1');
+		expect(text).toContain('28 en cola');
+		expect(text).toContain('1 enviados');
+		expect(text).toMatch(/21 sep/);
+		expect(text).toContain('Paso 2');
+		expect(text).toContain('29 programados');
+		expect(text).toMatch(/11 oct/);
+		// Step 3 past with no rows: the guard skipped it — say so.
+		expect(text).toContain('sin mensajes: la fecha ya pasó');
+		expect(panel.find('button[aria-expanded="true"]').text()).toContain('Ocultar detalle');
+	});
+
+	it('a future step with no rows just says there are none yet', async () => {
+		const { wrapper } = await mountExpanded({}, [false, false, false]);
+		const text = wrapper.find('#seq-panel-sequences').text();
+		expect(text).toContain('sin mensajes todavía');
+		expect(text).not.toContain('la fecha ya pasó');
+	});
+});
+
+describe('MessageSequencesView — queue holding only paused messages', () => {
+	it('says how many are paused instead of looking empty, and "Ver pausados" shows them', async () => {
+		const wrapper = await mountView();
+		const { useMessageSequenceStore } = await import('@/stores/messageSequenceStore');
+		useMessageSequenceStore().sequences = [{ ...SEQ, isActive: false }] as any;
+		wrapper.vm.activeTab = 'pending';
+		await flushPromises();
+
+		const panel = wrapper.find('#seq-panel-pending');
+		expect(panel.text()).toContain('Hay 1 mensaje de una secuencia pausada');
+		expect(panel.text()).not.toContain('Sin resultados para la búsqueda');
+		expect(panel.text()).not.toContain('Beto M3');
+
+		const show = panel.findAll('button').find((b) => b.text().includes('Ver pausados'));
+		await show!.trigger('click');
+		await flushPromises();
+
+		expect(wrapper.vm.queueAssignFilter).toBe('paused');
+		expect(panel.text()).toContain('Beto M3');
+	});
+
+	it('with active work visible, hidden paused messages get a one-line hint', async () => {
+		const pausedItem = { ...QUEUE_ITEM, id: 'q-2', sequenceId: 'seq-off', participant: { id: 'p2', firstName: 'Caro', lastName: 'Off' } };
+		const wrapper = await mountView([QUEUE_ITEM, pausedItem]);
+		const { useMessageSequenceStore } = await import('@/stores/messageSequenceStore');
+		useMessageSequenceStore().sequences = [SEQ, { ...SEQ, id: 'seq-off', isActive: false }] as any;
+		wrapper.vm.activeTab = 'pending';
+		await flushPromises();
+
+		const panel = wrapper.find('#seq-panel-pending');
+		expect(panel.text()).toContain('Beto M3');
+		expect(panel.text()).not.toContain('Caro Off');
+		expect(panel.text()).toContain('1 mensaje más en una secuencia pausada');
+	});
+});
+
+describe('MessageSequencesView — bandeja por palanquero', () => {
+	// Fixture: P2 vence ANTES que P1 (el orden por palanquero no es el
+	// cronológico) y el ítem sin asignación tiene fecha intermedia — igual
+	// va al final.
+	const palanqueroQueue = () => [
+		{
+			...QUEUE_ITEM,
+			id: 'q-p2',
+			participantId: 'p2',
+			participant: { id: 'p2', firstName: 'Lupita', lastName: 'Gómez' },
+			scheduledFor: '2026-10-01T15:00:00.000Z', // la más temprana
+			palancasCoordinator: 'Palanquero 2',
+			palanqueroName: 'Marta López',
+		},
+		{
+			...QUEUE_ITEM,
+			id: 'q-p1',
+			participantId: 'p3',
+			participant: { id: 'p3', firstName: 'Carlos', lastName: 'Díaz' },
+			scheduledFor: '2026-10-05T15:00:00.000Z', // la más tardía
+			palancasCoordinator: 'Palanquero 1',
+			palanqueroName: 'Ana Rodríguez',
+		},
+		{
+			...QUEUE_ITEM,
+			id: 'q-none',
+			participantId: 'p4',
+			participant: { id: 'p4', firstName: 'Servidor', lastName: 'Nuñez' },
+			scheduledFor: '2026-10-03T15:00:00.000Z', // intermedia, y aun así al final
+			palancasCoordinator: null,
+			palanqueroName: null,
+		},
+	];
+
+	it('la fila muestra "Palanquero 1 (Ana Rodríguez)"; sin asignación no pinta nada', async () => {
+		const wrapper = await mountView(palanqueroQueue());
+		expect(wrapper.text()).toContain('Palanquero 1 (Ana Rodríguez)');
+		expect(wrapper.text()).toContain('Palanquero 2 (Marta López)');
+		// La fila sin asignación no gana etiqueta: sólo su nombre.
+		const row = wrapper.find('#seq-panel-pending');
+		const buttons = row.findAll('button[title="Ver detalle del participante"]');
+		expect(buttons.map((b) => b.text())).toContain('Servidor Nuñez');
+		expect(wrapper.text()).not.toContain('Palanquero 1 ()');
+	});
+
+	it('orden por palanquero: P1 → P2 → sin asignar (nulls al final pese a la fecha)', async () => {
+		const wrapper = await mountView(palanqueroQueue());
+		wrapper.vm.queueSort = 'palanquero';
+		await flushPromises();
+
+		const names = wrapper
+			.find('#seq-panel-pending')
+			.findAll('button[title="Ver detalle del participante"]')
+			.map((b) => b.text());
+		// P1 (fecha más tardía) gana a P2 (más temprana): agrupa por palanquero.
+		expect(names).toEqual(['Carlos Díaz', 'Lupita Gómez', 'Servidor Nuñez']);
+	});
+
+	it('coordinador sin titular: la fila pinta "Palanquero 2" a secas, sin paréntesis vacíos', async () => {
+		const wrapper = await mountView([
+			{
+				...QUEUE_ITEM,
+				palancasCoordinator: 'Palanquero 2',
+				palanqueroName: null, // la responsabilidad existe pero nadie la titulariza
+			},
+		]);
+		expect(wrapper.text()).toContain('Palanquero 2');
+		expect(wrapper.text()).not.toContain('Palanquero 2 (');
+		expect(wrapper.text()).not.toContain('Palanquero 2 ()');
+	});
+
+	it('la opción "Palanquero" existe en el combobox desktop y en el menú móvil', async () => {
+		const wrapper = await mountView(palanqueroQueue());
+
+		// Desktop: el combobox vive siempre en el header de la bandeja.
+		const desktopOptions = wrapper.findAll('select option[value="palanquero"]');
+		expect(desktopOptions).toHaveLength(1);
+		expect(desktopOptions[0].text()).toBe('Palanquero'); // label del locale es
+
+		// Móvil: el select del menú "⋯" sólo monta con el menú abierto.
+		wrapper.vm.queueMenuOpen = true;
+		await flushPromises();
+		expect(wrapper.findAll('select option[value="palanquero"]')).toHaveLength(2);
 	});
 });

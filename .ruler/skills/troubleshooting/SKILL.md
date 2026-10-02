@@ -44,6 +44,7 @@ Cuando el usuario reporta un problema, primero ubicá el **síntoma** en la tabl
 | "Jest encountered an unexpected token" apuntando a un import nuestro, "Test suite failed to run" antes de correr nada, "este módulo no tiene ni un test" | [#31 Un módulo con `import.meta` es invisible para Jest](#31-un-módulo-con-importmeta-es-invisible-para-jest--y-su-lógica-nunca-se-prueba) |
 | "el contador de arriba no cuadra con la lista", "aquí dice recibidas y allá pendiente", "el total se come registros" | [#32 Un mismo campo con varios criterios](#32-un-mismo-campo-con-varios-criterios-que-se-contradicen) |
 | "en el sidebar el item queda marcado como seleccionado al pasar el mouse", "el hover se ve igual que el activo y no se quita al salir" | [#33 El hover deja el item "seleccionado": focus compartido entre mouse y teclado](#33-el-hover-deja-el-item-seleccionado-focus-compartido-entre-mouse-y-teclado) |
+| "al ejecutar no se crean los del primer paso", "el paso 1 debería tener 29 en cola", "si está apagada, ¿por qué veo programados?", "veo 58 en programados y ninguna en bandeja", "dupliqué la secuencia y ejecuté" | [#34 Secuencias: paso vencido, pausa y bandeja "vacía"](#34-secuencias-paso-vencido-pausa-y-bandeja-vacía) |
 
 ---
 
@@ -1459,3 +1460,36 @@ no el composable.
 **Caso**: 2026-09-12 — «al hacer mouseover un item queda igual que el que está seleccionado y queda
 seleccionado al salir del mouseover». Verificado en navegador: tras el fix, el único item con anillo
 es el activo.
+
+## 34. Secuencias: paso vencido, pausa y bandeja "vacía"
+
+**Síntoma**: "al ejecutar no se crean los del primer paso", "si está apagada, ¿por qué veo
+programados?", "veo 58 en Programados y 0 en la bandeja". Costó un día entero (2026-10-01/02, Buen
+Despacho, "Ultimo Prendas"): tres respuestas de "es así por diseño" mientras el coordinador
+duplicaba la secuencia para reintentar y terminaba con envíos dobles.
+
+**Lo que pasa en cada caso** (motor en `apps/api/src/services/messageSequenceService.ts`):
+
+| Lo que ve | Causa |
+| --- | --- |
+| Un paso "X días antes/después del retiro" sin mensajes | Su fecha ya pasó al enrolar: el guard M2 (`isRetroactiveAtEnroll`) no lo materializa solo, ni el cron ni la activación. Desde M5 "Ejecutar ahora" lo **pregunta** (diálogo "Pasos con fecha pasada") |
+| Programados con la secuencia apagada | Apagar = **pausa**, no cancela: las `pending` se quedan y vuelven a correr al reactivar. Desde `0285ae4c` Programados las oculta por defecto ("N en pausa" en la tarjeta, "Ver pausados") |
+| Bandeja en 0 con mensajes en cola | La bandeja oculta lo de secuencias apagadas (filtro *Activos*) y no lo cuenta en la pestaña; se puede despachar a mano igual. Desde M5 lo avisa |
+| "Dupliqué y ejecuté" | La copia tiene `stepId` nuevos: parte de cero, su paso vencido se suprime igual, y si ambas quedan activas **cada persona recibe todo dos veces**. Nunca duplicar para reintentar |
+
+**Verificar por el dato, no por el código**: "Detalle por paso" en la tarjeta (dónde está cada paso:
+en cola / enviados / programados / "la fecha ya pasó"), o por API
+`GET /message-sequences/retreat/:id/scheduled?sequenceId=…&status=pending,queued,sent`.
+En `schedule-preview` la supresión es `past[]`; un `null` en `dates` es que falta el ancla del
+disparador, no supresión.
+
+**Mandar ya un paso vencido SIN M5** (prod hasta desplegar la rama `sequence-past-steps`): offset
+temporal a futuro → `PUT` → `POST …/run` (materializa) → `POST /message-sequences/steps/:stepId/reschedule
+{"immediate": true}` (encola ya) → `PUT` restaurando el offset. La idempotencia (`stepId:participantId`
+sobre TODAS las filas, sent incluidas) evita duplicar a quien ya lo recibió.
+
+**De Programados a la bandeja**: el cron `0 * * * *` (`startScheduledTasks`) hace `enrollAll` +
+`processDue`; un paso a las 9:00 sale en la corrida de las 9:00 (una corrida perdida no pierde el
+mensaje: lo toma la siguiente). El WhatsApp entra con el texto **congelado** en ese momento
+("Renovar con plantilla actual" lo refresca). **En dev el cron solo corre con la Mac despierta**: si
+"no pasó nada a la hora", busca `⏰ Sequences` en el log del API antes de sospechar del código.

@@ -57,8 +57,16 @@ export class SequenceStep {
 	sendHour!: number;
 
 	// Tipo de plantilla a resolver contra el retiro (WALKER_WELCOME, etc.).
+	// Clave desnormalizada: sobrevive como fallback y para los filtros de
+	// audiencia / scheduled_messages, que siguen por tipo.
 	@Column({ type: 'varchar', length: 60 })
 	templateType!: string;
+
+	// Plantilla específica del paso (M3): gana sobre templateType en la
+	// resolución del motor. NULL → fallback por (retreatId, templateType) con
+	// createdAt ASC. Permite varias plantillas del mismo tipo en un retiro.
+	@Column({ type: 'varchar', length: 36, nullable: true })
+	templateId?: string | null;
 
 	@Column({ type: 'varchar', length: 20 })
 	channel!: MessageChannel;

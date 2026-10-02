@@ -66,7 +66,9 @@ async function main() {
   console.log('\n✅ Listo:');
   console.log(`   ${url}`);
   console.log(`   Studio: https://studio.youtube.com/video/${video.id}/edit`);
-  console.log(`\n   Pegá esta URL en apps/web/src/config/helpVideos.ts para el botón de ayuda.`);
+  // The floating HelpVideoButton/helpVideos.ts was dropped (2026-07-06): the
+  // video is linked from the help panel doc of its section instead.
+  console.log(`\n   Enlazala al inicio de apps/web/src/docs/{es,en}/<sección>.md (📺) y anotala en docs/features/video-tutorials-checklist.md.`);
 }
 
 main().catch((e) => {

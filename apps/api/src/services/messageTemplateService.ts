@@ -2,8 +2,41 @@ import { AppDataSource } from '../data-source';
 import { MessageTemplate } from '../entities/messageTemplate.entity';
 import { CreateMessageTemplate, UpdateMessageTemplate } from '@repo/types';
 
+/**
+ * M6: how the system picks the template of a type when nothing pins one — the
+ * retreat's "predeterminada" first, else the oldest (the historical fallback).
+ * Shared by the sequence engine, the seed and the global-sequence import.
+ */
+export const DEFAULT_TEMPLATE_ORDER = { isDefault: 'DESC', createdAt: 'ASC' } as const;
+
+/** Template used for `type` in a retreat when nothing pins one. */
+export function findDefaultTemplateForType(retreatId: string, type: string): Promise<MessageTemplate | null> {
+	return AppDataSource.getRepository(MessageTemplate).findOne({
+		where: { retreatId, type: type as MessageTemplate['type'] },
+		order: DEFAULT_TEMPLATE_ORDER,
+	});
+}
+
 export class MessageTemplateService {
 	private messageTemplateRepository = AppDataSource.getRepository(MessageTemplate);
+
+	/**
+	 * M6: a single default per (retreat, type). Saving one as default clears
+	 * the flag from its siblings; community/global templates are not affected.
+	 */
+	private async clearOtherDefaults(saved: MessageTemplate | null): Promise<void> {
+		if (!saved?.isDefault || !saved.retreatId) return;
+		await this.messageTemplateRepository
+			.createQueryBuilder()
+			.update(MessageTemplate)
+			.set({ isDefault: false })
+			.where('retreatId = :retreatId AND type = :type AND id != :id', {
+				retreatId: saved.retreatId,
+				type: saved.type,
+				id: saved.id,
+			})
+			.execute();
+	}
 
 	async findAll(retreatId: string): Promise<MessageTemplate[]> {
 		return this.messageTemplateRepository.find({ where: { retreatId, scope: 'retreat' } });
@@ -42,7 +75,9 @@ export class MessageTemplateService {
 
 	async create(data: CreateMessageTemplate['body']): Promise<MessageTemplate> {
 		const newMessageTemplate = this.messageTemplateRepository.create(data);
-		return this.messageTemplateRepository.save(newMessageTemplate);
+		const saved = await this.messageTemplateRepository.save(newMessageTemplate);
+		await this.clearOtherDefaults(saved);
+		return saved;
 	}
 
 	async createForRetreat(
@@ -54,7 +89,9 @@ export class MessageTemplateService {
 			retreatId,
 			scope: 'retreat',
 		});
-		return this.messageTemplateRepository.save(newMessageTemplate);
+		const saved = await this.messageTemplateRepository.save(newMessageTemplate);
+		await this.clearOtherDefaults(saved);
+		return saved;
 	}
 
 	async createForCommunity(
@@ -74,7 +111,9 @@ export class MessageTemplateService {
 		if (result.affected === null || result.affected === undefined || result.affected === 0) {
 			return null;
 		}
-		return this.findById(id);
+		const updated = await this.findById(id);
+		await this.clearOtherDefaults(updated);
+		return updated;
 	}
 
 	async remove(id: string): Promise<boolean> {
