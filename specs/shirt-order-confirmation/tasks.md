@@ -211,3 +211,63 @@ premisas verificadas contra el código antes de tocar:
 Specs 42 → 45 (request sin claves heredadas + dialog abre para el angelito, retiro cambiado
 durante la carga → dialog no abre ni toast, fetch rechazado → guard liberado). Descartado con
 motivo: cambiar de retiro con el dialog ya abierto — inalcanzable, el modal bloquea el sidebar.
+
+## Evolución post-merge (2026-10-02): resumen de pedido con caminantes y estimado
+
+Petición de Leonardo: el conteo por prenda × talla que se armó a mano sobre el reporte impreso
+para mandarle el pedido al proveedor, **dentro del reporte**; que incluya las camisetas de los
+**caminantes** y un **estimado** de los que faltan por inscribirse ("hay 10 caminantes pero se
+esperan 40").
+
+Decisiones (aprobadas): universo = equipo completo (ignora búsqueda/chips, como el header);
+tarjeta al final, imprimible; botón "Copiar resumen" para WhatsApp **sin precios**; estimado
+persistido por retiro.
+
+Cambios (directo sobre master):
+
+- **API**: `shirtReportService` devuelve `walkerCount`, `walkerShirts` (conteo por talla, sin
+  PII), `estimate` y, por tipo, `availableSizes` + `requiredForWalkers`. Endpoints
+  `PUT`/`DELETE /retreats/:retreatId/shirt-order-estimate` (`retreat:update` +
+  `requireRetreatAccess`, `validateRequest(..., { assignParsedBody: true })`, 404 sin retiro).
+  Columna `retreat.shirtOrderEstimate` (simple-json) por la migración
+  `20261005120000_AddShirtOrderEstimateToRetreat` (ADD COLUMN idempotente).
+- **Web**: tarjeta "Resumen de pedido" (secciones equipo / caminantes / estimado / total a
+  pedir), dialog "Estimar caminantes" con "Repartir los faltantes como los inscritos" (mayor
+  residuo) y "Copiar resumen".
+- **Specs**: service 27 → 35, rutas del estimado 17 nuevos, vista 45 → 62.
+
+Desviaciones respecto al plan:
+
+- **Talla del caminante con respaldo legacy**: el plan contaba solo `participant_shirt_size`.
+  En el smoke con Buen Despacho los 11 caminantes salieron con 0 piezas: llegaron por import de
+  Excel y solo traen `participants.tshirtSize` (la columna que lee el Reporte de Bolsas). La
+  talla es ahora `COALESCE(fila de participant_shirt_size de un tipo de este retiro,
+  tshirtSize legacy)`, una por caminante.
+- **Prenda del caminante**: el plan la mapeaba al tipo `requiredForWalkers` o al primero (la
+  regla del registro). En Buen Despacho ningún tipo está marcado, y "el primero" es "Blanca con
+  rosa", una prenda del equipo: el pedido habría sumado 11 caminantes a ella sin que nadie lo
+  notara. Sin tipo marcado, el caminante va en una fila propia "Camiseta de caminante" y la
+  tarjeta lo avisa; marcar el tipo la funde.
+- **Forma del estimado**: el plan lo anidaba por tipo (`{ tipo: { talla: piezas } }`); como el
+  caminante lleva una sola prenda, quedó plano (`{ talla: piezas }`), acotado a 30 tallas.
+  `walkerShirts` también quedó sin `shirtTypeId`.
+- **Rutas en `shirtTypeRoutes.ts`**, no en `retreatRoutes.ts`: viven junto al GET del reporte
+  (`/retreats/:retreatId/...`).
+- **Sin refetch tras guardar el estimado**: el estado local se actualiza con el payload (el
+  servidor guarda exactamente eso), sin el skeleton de la tabla.
+- **Write-protect agregado**: `retreatService.update` descarta `shirtOrderEstimate` — `PUT
+  /retreats/:id` hace `Object.assign` con el body crudo y el formulario del retiro reenvía el
+  DTO completo; una copia vieja revertía el estimado. No estaba en el plan.
+- **"Repartir los faltantes"** no estaba en el plan: es el atajo directo del ejemplo de
+  Leonardo (40 esperados − 11 inscritos = 29 en la proporción de los inscritos).
+- **Total a pedir**: además del total de piezas, un bloque con las fuentes sumadas por prenda ×
+  talla (lo que de verdad se compra), solo cuando hay más de una fuente.
+- **Migración aplicada por el dev ya levantado**: al empezar el smoke había un `pnpm dev`
+  corriendo que no levanté yo; nodemon recargó con el código nuevo y aplicó la migración antes
+  del respaldo. Es un `ADD COLUMN` sin pérdida posible, y existía un backup de un minuto antes
+  (`database.sqlite.backup-pre-import-guard-20261002`). Verificado por el dato (copia read-only:
+  columna presente y migración registrada).
+- **Fallo intermitente no reproducido**: una corrida en paralelo de los specs de rutas dio
+  403/404 en casos ajenos (había otro jest vivo de otra sesión). La causa NO es una SQLite
+  compartida — la DB de test es `:memory:` por worker —; en el cierre, tres corridas en
+  paralelo y una en serie salieron verdes. Causa no aislada.

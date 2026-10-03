@@ -2,6 +2,8 @@
 
 Vista de **confirmación uno-a-uno** de las prendas (playera, chamarra, etc.) del **equipo servidor completo** de un retiro — servidores y angelitos, **incluidos quienes no pidieron prendas** — con el **valor a cobrar** por cada una. Pensada para imprimirse y llevarse a la reunión semanal de preparación, donde el coordinador valida con cada persona qué pidió y de qué talla.
 
+Al final, un **resumen de pedido** junta lo que hay que comprarle al proveedor: las piezas por talla del equipo, las camisetas de los caminantes inscritos y un estimado de los caminantes que faltan por inscribirse — ver [Resumen de pedido](#8-resumen-de-pedido-al-proveedor).
+
 Cada tipo de prenda puede tener un `price` (configurable en `/app/settings/shirt-types`); ese valor se suma al saldo esperado de servidores y angelitos (`Participant.chargeBreakdown.shirts`) — el caminante no lo paga aparte, va incluido en la cuota del retiro. Detalle del cargo: [Confirmación de camisetas y precio por prenda](./shirt-pricing-and-confirmation.md).
 
 > No confundir con [Reporte de Bolsas](./bags-report.md) (sólo caminantes, una talla simple) ni con el [Inventario](../../apps/api/src/services/inventoryService.ts) (conteos agregados para compra).
@@ -139,8 +141,73 @@ Estilos `@media print` ocultan el toolbar, la cabecera del sidebar, los botones,
 
 - Header con totales (incluye el badge "Confirmados X/Y").
 - Tabla con bordes sólidos en cada celda y la columna `✓` con **estado real**: ✓ verde si ya confirmó en el sistema, cuadrito vacío para los pendientes (útil como lista de seguimiento en la reunión semanal).
+- La tarjeta **Resumen de pedido** completa (sin sus botones ni la nota de "ninguna prenda marcada para caminantes").
 
 Tipografía reducida en print (`11px`) para que quepa más por hoja.
+
+---
+
+### 8. Resumen de pedido al proveedor
+
+Tarjeta al final de la vista con las **piezas por talla** que hay que comprar. Nació de un conteo hecho a mano sobre el reporte impreso (2026-10-02) para mandarle el pedido al proveedor.
+
+Secciones (cada una con su subtotal; solo se muestran las que tienen algo):
+
+| Sección | De dónde sale |
+|---|---|
+| **Equipo servidor** | `participants[].shirts[]` — el **equipo completo**, como los contadores del header: ni la búsqueda ni los chips la mueven, porque es la lista que se compra. Nota: "N de M personas" (quienes pidieron ≥1 prenda) |
+| **Caminantes inscritos** | `walkerShirts` + `walkerCount`. Nota: "N inscritos" y, con estimado, "se esperan M" |
+| **Estimado de caminantes faltantes** | `estimate.estimatedShirts` (manual, ver abajo). Nota: "faltan ~(esperados − inscritos)" |
+| **Total a pedir** | Las anteriores sumadas por prenda × talla. Solo aparece cuando más de una sección tiene piezas (con una sola, repetiría lo mismo) |
+
+Pie: **Total del pedido: N piezas**. Las tallas de cada fila siguen el orden configurado del tipo (`availableSizes`; si no tiene, `S M G X 2`), no el orden de quien pidió primero.
+
+**La prenda del caminante.** Un caminante lleva una sola prenda: el tipo marcado `requiredForWalkers` en `/app/settings/shirt-types`. Si ninguno está marcado, sus piezas van en una fila propia, **"Camiseta de caminante"**, y la tarjeta lo avisa (la nota no se imprime): fundirlas con una prenda del equipo que quizás no es la suya haría que el pedido saliera mal sin que nadie lo notara. Marcar el tipo las suma a esa prenda.
+
+**La talla del caminante.** Una por caminante no cancelado: su fila de `participant_shirt_size` para un tipo de **este** retiro (el marcado para caminantes primero) o, si no tiene, la columna legacy `participants.tshirtSize`. Los caminantes importados de Excel solo traen la columna legacy (es la que lee el [Reporte de Bolsas](./bags-report.md)); sin ese respaldo, en Buen Despacho los 11 caminantes salían con 0 piezas.
+
+**Estimado de caminantes faltantes** — botón **Estimar caminantes** (visible con `retreat:update`), abre un dialog con:
+
+- **Caminantes esperados en total** (ej. 40) → muestra "Faltan ~29 por inscribirse" (esperados − inscritos).
+- Una casilla por talla de la prenda del caminante (más cualquier talla ya en uso por inscritos o guardada).
+- **Repartir los faltantes como los inscritos**: llena las casillas con los faltantes en la misma proporción de tallas de los inscritos (redondeo de mayor residuo: la suma da exacta). Deshabilitado sin esperados o sin inscritos con talla.
+- **Guardar** persiste el estimado del retiro; guardar sin nada escrito lo borra en vez de guardar uno vacío. **Quitar estimado** lo borra. Sin recargar el reporte: el estado local se actualiza con lo que se mandó.
+
+El estimado vive en `retreat.shirtOrderEstimate` (simple-json, `NULL` = sin estimado): `{ expectedWalkers: number | null, estimatedShirts: { [talla]: piezas } }`. Lo escriben **solo** sus endpoints:
+
+```
+PUT    /api/retreats/:retreatId/shirt-order-estimate   body: { expectedWalkers?, estimatedShirts? } → { ok: true }
+DELETE /api/retreats/:retreatId/shirt-order-estimate   → { ok: true }   (vuelve a NULL)
+Permiso: retreat:update + requireRetreatAccess('retreatId'); 404 si el retiro no existe
+Body: setShirtOrderEstimateSchema con assignParsedBody — el controller solo ve los dos
+campos; enteros ≥ 0, ≤ 30 tallas
+```
+
+`PUT /retreats/:id` (edición general del retiro) **ignora** `shirtOrderEstimate`: `retreatService.update` hace `Object.assign` con el body crudo, y el formulario del retiro reenvía el DTO completo — una copia vieja pisaría en silencio un estimado más nuevo guardado desde aquí.
+
+**Copiar resumen** deja el pedido en el portapapeles listo para WhatsApp (negrita con un asterisco, viñetas `-`, una sección por bloque con su emoji, y el bloque "Total a pedir"). **Sin precios**: al proveedor se le piden piezas; los precios son lo que se le cobra a cada servidor. Ejemplo real (Buen Despacho, con estimado de 40):
+
+```
+*Pedido de prendas — Buen Despacho* 👕
+
+👥 *Equipo servidor* (13 de 28 personas)
+- Blanca Emaus (12): M×5, G×3, X×2, 2×2
+- …
+
+🚶 *Caminantes inscritos* (11 inscritos, se esperan 40)
+- Camiseta de caminante (11): S×1, M×3, G×4, X×2, 2×1
+
+➕ *Estimado de caminantes faltantes* (faltan ~29)
+- Camiseta de caminante (29): S×3, M×8, G×10, X×5, 2×3
+
+📦 *Total a pedir*
+- …
+- Camiseta de caminante (40): S×4, M×11, G×14, X×7, 2×4
+
+*Total: 75 piezas*
+```
+
+La tarjeta no aparece si el retiro no tiene tipos de prenda; con tipos y sin nada pedido dice "Aún no hay prendas pedidas en este retiro" y deja estimar, pero no copiar.
 
 ---
 
@@ -195,6 +262,8 @@ Internamente hace:
 
    La query es cruda: SQLite devuelve `datetime`/`decimal` como **string** — `shirtOrderConfirmedAt`, `cellPhone` y `country` se tipan `string | null` en todo el pipeline (nunca `z.coerce.date()`).
 
+   Para el [resumen de pedido](#8-resumen-de-pedido-al-proveedor), dos queries más y una lectura: las tallas de los caminantes (`COALESCE` de su fila en `participant_shirt_size` de un tipo de este retiro y la columna legacy `participants.tshirtSize`, agrupado por talla — solo conteos, sin PII), el conteo de caminantes no cancelados, y `retreat.shirtOrderEstimate`.
+
 3. **Agrupar** las filas por `participantId` para producir el array `participants[].shirts[]` (la fila sin prendas crea la entrada y se salta el push — `shirtTypeId` NULL), sumando `shirtCharge` por persona y `totalCharge` global (redondeo a centavos en cada suma; SQLite devuelve `decimal` como string, siempre `Number(...)` antes de sumar).
 
 #### Controller y route
@@ -221,7 +290,8 @@ Devuelve `ShirtReportResponse`:
 
 ```ts
 {
-  shirtTypes: Array<{ id, name, color, sortOrder, price: number | null }>,
+  shirtTypes: Array<{ id, name, color, sortOrder, price: number | null,
+                      availableSizes: string[] | null, requiredForWalkers: boolean }>,
   participants: Array<{
     participantId, firstName, lastName, idOnRetreat,
     type: 'server' | 'partial_server',
@@ -232,6 +302,9 @@ Devuelve `ShirtReportResponse`:
     shirtCharge: number,
   }>,
   totalCharge: number,
+  walkerCount: number,                              // caminantes no cancelados
+  walkerShirts: Array<{ size: string, count: number }>,
+  estimate: { expectedWalkers?: number | null, estimatedShirts?: Record<string, number> } | null,
 }
 ```
 
@@ -246,6 +319,7 @@ packages/types/src/index.ts (sección "Shirt Report")
 - `shirtReportShirtTypeSchema` / `ShirtReportShirtType` — incluye `price: number | null`.
 - `shirtReportResponseSchema` / `ShirtReportResponse` — incluye `totalCharge: number`.
 - `setShirtOrderConfirmationSchema` / `SetShirtOrderConfirmation` — body del PATCH (`{ confirmed: boolean }`).
+- `shirtReportWalkerShirtSchema` (`{ size, count }`), `shirtOrderEstimateSchema` / `ShirtOrderEstimate` y `setShirtOrderEstimateSchema` (`{ body }`, para el PUT del estimado).
 
 ### Frontend
 
@@ -261,6 +335,7 @@ apps/web/src/utils/phone.ts   (buildWhatsAppChatLink)
 - Stores: `useRetreatStore` (para obtener `selectedRetreatId`); `useParticipantStore` (hidrata la ficha del botón de envío); `useToast` para el rollback del toggle.
 - Llama `getShirtReport(retreatId)` en `onMounted` (guarda `currentRetreatId` para el toggle) y **recarga al cambiar de retiro** (watcher de `retreatStore.selectedRetreatId`, patrón `AngelitosView`): sin él, el toggle escribiría contra el retiro del montaje.
 - Computed: `filteredParticipants` (búsqueda AND requieren-camiseta AND solo-sin-confirmar), `totals` (incluye `confirmed` y `requiring`), `sortedShirtTypes`.
+- Resumen de pedido: `serverCounts` / `walkerCounts` / `estimateCounts` (prenda → talla → piezas, objetos planos), `summarize()` (filas por prenda en orden de columnas, tallas por `availableSizes`), `orderSections`, `orderTotalRows`; `walkerGarment` resuelve la prenda del caminante (tipo marcado o la fila propia `__walker__`). Dialog del estimado montado desde el arranque, `can.update('retreat')` de `useAuthPermissions` para el botón.
 - `toggleConfirmation`: patrón `CommunityAttendanceView.toggleAttendance` — guard por `savingStates[participantId]`, flip optimista del objeto local, await PATCH, catch → rollback + toast, finally limpia el guard. Sin refetch.
 - `openMessageDialog`: guard por `sendingStates[participantId]`, hidrata la ficha vía `participantStore.fetchParticipants()` (ver decisión de diseño abajo) y abre el `MessageDialog` montado desde el arranque (sin `v-if`, para que el watcher de `forceTemplateType` dispare al abrir). Resetea `participantStore.filters` antes del fetch (claves heredadas de otras vistas viajan en la misma query y excluyen al participante), captura el `retreatId` al click (`messageRetreatId` alimenta el dialog, no el valor vivo) y aborta si el retiro cambió durante la carga; el `catch` evita que la rejection del fetch escape al errorHandler global.
 - Sin Pinia store dedicado — el reporte se recarga cada vez que entras a la vista.
@@ -273,6 +348,8 @@ Reusa las tablas existentes (no agrega ninguna):
 - `retreat_participants` — overlay por retiro (`type`, `isCancelled`, `idOnRetreat`). Columna `shirtOrderConfirmedAt` (datetime nullable) agregada por la migración `20260921220000_AddShirtOrderConfirmedAtToRetreatParticipants` — el estado de confirmación es **por retiro**.
 - `participant_shirt_size` — relación M:N persona ↔ tipo de playera + talla.
 - `retreat_shirt_type` — catálogo de tipos por retiro; columna `price` (nullable, `NULL`/`0` = sin cargo) agregada por la migración `ServerShirtPricingAndConfirmation`.
+- `retreat.shirtOrderEstimate` (text/simple-json, nullable) — el estimado de caminantes faltantes; migración `20261005120000_AddShirtOrderEstimateToRetreat` (`ADD COLUMN` idempotente, `down()` con `DROP COLUMN`).
+- `participants.tshirtSize` (legacy) — talla del caminante cuando no tiene fila en `participant_shirt_size` (importados).
 
 ---
 
@@ -286,7 +363,7 @@ apps/api/src/tests/routes/shirtOrderConfirmation.routes.simple.test.ts
 apps/api/src/tests/routes/shirtReport.routes.simple.test.ts
 ```
 
-27 casos en el spec del service (universo del equipo, filtrado de prendas, precios, totales, orden, y desde la feature de confirmación):
+35 casos en el spec del service (universo del equipo, filtrado de prendas, precios, totales, orden, desde la feature de confirmación, y desde el resumen de pedido: conteo de caminantes por talla fuera de `participants`, respaldo en `tshirtSize` legacy, una talla por caminante sin doble conteo, cancelados/placeholders/otro retiro fuera, `availableSizes` en los tipos, estimado null por defecto → ida y vuelta → null, retiro inexistente, estimado por retiro):
 
 - El universo es el equipo completo: quien no pidió prendas aparece con `shirts: []`, `shirtCharge: 0` y sus campos de confirmación/contacto (también un servidor cuyas únicas filas son de otro retiro).
 - `shirtOrderConfirmedAt` llega `null` por defecto, junto con `cellPhone`/`country`.
@@ -304,9 +381,17 @@ apps/api/src/tests/routes/shirtReport.routes.simple.test.ts
 
 - Wiring: 200 registra `requirePermission('participant:read')` + `requireRetreatAccess('retreatId')`; 401 sin sesión; 403 sin permiso; 403 sin acceso al retiro.
 
+17 casos en el spec de rutas del estimado (`shirtOrderEstimate.routes.simple.test.ts`, mismo molde):
+
+- Wiring: PUT y DELETE registran `requirePermission('retreat:update')` + `requireRetreatAccess('retreatId')`; 401/403/403 sin escribir nada.
+- Validación: 400 con esperados negativo o fraccionario, piezas no numéricas o negativas, la forma anidada por tipo, o más de 30 tallas.
+- Persistencia (query directa): el PUT guarda; solo los campos del schema llegan al JSON (`assignParsedBody`); body vacío guarda un estimado vacío; DELETE vuelve a NULL; 404 con retiro inexistente.
+- Write-protect: `retreatService.update` ignora `shirtOrderEstimate` en su payload y sí aplica el resto.
+
 ```bash
 pnpm --filter api test src/tests/services/shirtReportService.test.ts
 pnpm --filter api test src/tests/routes/shirtOrderConfirmation.routes.simple.test.ts src/tests/routes/shirtReport.routes.simple.test.ts
+pnpm --filter api test src/tests/routes/shirtOrderEstimate.routes.simple.test.ts
 ```
 
 ### Frontend (Vitest)
@@ -315,7 +400,7 @@ pnpm --filter api test src/tests/routes/shirtOrderConfirmation.routes.simple.tes
 apps/web/src/views/__tests__/ShirtsReportView.test.ts
 ```
 
-42→45 casos: carga inicial, header con totales (incluye "Confirmados X/Y"), columnas dinámicas, render de tallas y `—`, búsqueda por nombre/número/talla, estado vacío, footer con conteos, impresión, el bloque de confirmación (badges por estado y leyenda responsive del badge, toggle optimista con args correctos y sin refetch, rollback con toast, doble-tap con un solo PATCH, **recarga + toggle contra el retiro nuevo al cambiar de retiro en el sidebar**, filtro "Solo sin confirmar" + composición AND con búsqueda, link wa.me con la lada resuelta por país y ausente sin teléfono, columna ✓ print con estado real), el bloque del universo (todo el equipo listado con X/Y sobre el total, chip "Requieren camiseta" que estrecha, compone AND con el otro chip y con la búsqueda, badge con conteo, mensaje "Nadie coincide con los filtros activos" con Quitar filtros, y el chulo sobre una fila sin prendas), y el bloque de envío (botón por fila incluso sin teléfono, click que hidrata la ficha desde el listado del retiro y abre el dialog con `SERVER_SHIRT_CONFIRMATION`, participante no encontrado → toast destructive + dialog cerrado, disabled mientras carga, filtros heredados del store limpiados en el request, retiro cambiado durante la carga → dialog no abre ni toast, fetch rechazado → guard liberado y dialog cerrado).
+62 casos: carga inicial, header con totales (incluye "Confirmados X/Y"), columnas dinámicas, render de tallas y `—`, búsqueda por nombre/número/talla, estado vacío, footer con conteos, impresión, el bloque de confirmación (badges por estado y leyenda responsive del badge, toggle optimista con args correctos y sin refetch, rollback con toast, doble-tap con un solo PATCH, **recarga + toggle contra el retiro nuevo al cambiar de retiro en el sidebar**, filtro "Solo sin confirmar" + composición AND con búsqueda, link wa.me con la lada resuelta por país y ausente sin teléfono, columna ✓ print con estado real), el bloque del universo (todo el equipo listado con X/Y sobre el total, chip "Requieren camiseta" que estrecha, compone AND con el otro chip y con la búsqueda, badge con conteo, mensaje "Nadie coincide con los filtros activos" con Quitar filtros, y el chulo sobre una fila sin prendas), y el bloque de envío (botón por fila incluso sin teléfono, click que hidrata la ficha desde el listado del retiro y abre el dialog con `SERVER_SHIRT_CONFIRMATION`, participante no encontrado → toast destructive + dialog cerrado, disabled mientras carga, filtros heredados del store limpiados en el request, retiro cambiado durante la carga → dialog no abre ni toast, fetch rechazado → guard liberado y dialog cerrado), y el bloque del resumen de pedido (desglose del equipo con tallas en orden canónico, caminantes, fila propia "Camiseta de caminante" sin prenda marcada, "Total a pedir" sumado, estimado y su total, inmune a búsqueda y chips, tarjeta ausente sin tipos y "Aún no hay prendas" sin pedidos, texto copiado para WhatsApp sin precios, fallo del portapapeles, botón de estimar oculto sin `retreat:update`, y el dialog: casillas por talla, guardar sin recargar, repartir con mayor residuo, repartir deshabilitado, precarga + quitar, guardar vacío borra, fallo deja el dialog abierto).
 
 El dialog se mockea entero (patrón `FollowUpView.test`): el real arrastra stores e íconos fuera de la allowlist del archivo, y al stub le basta exponer las props como `data-*` para assertar sobre ellas. El toggle de confirmación se selecciona por su `title` (helper `toggleButtons`), no por índice en `findAll('tbody button')` — la celda ahora también contiene el botón de envío.
 

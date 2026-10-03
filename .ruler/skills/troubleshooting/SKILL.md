@@ -32,7 +32,7 @@ Cuando el usuario reporta un problema, primero ubicá el **síntoma** en la tabl
 | "el encabezado del PDF sale abajo", "la cabecera se monta encima del texto", "solo sale en la primera página" | [#19 Encabezado con `position: fixed` se pinta al pie](#19-el-encabezado-repetido-con-position-fixed-se-pinta-al-pie-y-tapa-el-texto) |
 | "en el PDF hay palabras pegadas", "sale un espacio antes del signo de interrogación", "SERVIR ?" | [#20 Texto con negritas: espacios perdidos o inventados](#20-texto-con-negritas-se-pierden-o-se-inventan-espacios) |
 | "la suite falla en tests distintos cada vez", "Maximum call stack size exceeded en un test", "Exceeded timeout of 10000 ms" | [#21 La suite de jest falla en suites distintas cada vez](#21-la-suite-de-jest-falla-en-suites-distintas-cada-vez-sin-tocar-ese-código) |
-| "elegí las tallas y el resumen dice que no elegí ninguna", "lo capturé y la pantalla lo muestra vacío", "el reporte sale en cero aunque hay datos" | [#22 La pantalla lee un campo legacy que el formulario ya no llena](#22-la-pantalla-lee-un-campo-legacy-que-el-formulario-ya-no-llena) |
+| "elegí las tallas y el resumen dice que no elegí ninguna", "lo capturé y la pantalla lo muestra vacío", "el reporte sale en cero aunque hay datos", "los caminantes salen con 0 camisetas" | [#22 La pantalla lee un campo legacy que el formulario ya no llena](#22-la-pantalla-lee-un-campo-legacy-que-el-formulario-ya-no-llena) |
 | "al dar clic en elegir foto no sale nada", "el botón de subir archivo no hace nada", "en local no funciona pero en prod sí" | [#23 El selector de archivos no abre: la ref quedó vieja por el hot-reload](#23-el-selector-de-archivos-no-abre-la-ref-quedó-vieja-por-el-hot-reload) |
 | "no me deja seleccionar el país", "se sale al inicio y pierdo el registro", "en el iPhone se cierra solo", "se queda en Cargando…" | [#24 Un paquete de datos entero en un selector tumba Safari iOS](#24-un-paquete-de-datos-entero-en-un-selector-tumba-safari-ios) |
 | "importé el Excel y faltan personas", "subí 140 y salen 108", "el retiro no está abierto para registro público", "cannot start a transaction within a transaction", "hay tres personas en una habitación de dos", "se perdieron las habitaciones que ya había asignado la parroquia" | [#25 La importación del Excel pierde gente en silencio](#25-la-importación-del-excel-pierde-gente-en-silencio) |
@@ -819,6 +819,31 @@ captura.
   esas mismas columnas: quedó inerte tras la migración `InventoryEnhancementsBundle` (los ítems
   están `isActive = 0` y las consultas filtran por activos), pero reactivar uno haría que el
   inventario pidiera cero playeras.
+
+**El espejo: la vista lee la tabla nueva y el dato vive en la columna legacy.** La talla del
+**caminante** tiene dos lugares: el registro web escribe `participant_shirt_size` (y también
+`participants.tshirtSize`), pero el **import de Excel solo llena `participants.tshirtSize`**. Un
+conteo de camisetas de caminantes que lea solo la tabla nueva sale en **cero** para los
+importados, sin error. Leer una talla por caminante: su fila de `participant_shirt_size` de un
+tipo del retiro y, si no tiene, `tshirtSize` (el Reporte de Bolsas lee solo la legacy).
+
+```bash
+# Por el dato, en una copia read-only de la DB (nunca la viva): caminantes con talla legacy
+# vs con fila en la tabla nueva, para un retiro.
+sqlite3 -readonly /ruta/copia.sqlite "SELECT COUNT(*) FROM retreat_participants rp
+  JOIN participants p ON p.id = rp.participantId
+  WHERE rp.retreatId = '<id>' AND rp.type = 'walker' AND p.tshirtSize IS NOT NULL"
+sqlite3 -readonly /ruta/copia.sqlite "SELECT COUNT(*) FROM participant_shirt_size pss
+  JOIN retreat_participants rp ON rp.participantId = pss.participantId
+  WHERE rp.retreatId = '<id>' AND rp.type = 'walker'"
+```
+
+- 2026-10-02 `shirtReportService.ts` — el resumen de pedido del Reporte de Camisetas mostraba
+  "11 inscritos, 0 piezas" en Buen Despacho (caminantes importados: 11 con `tshirtSize`, 0 filas
+  en la tabla). Fix: `COALESCE(fila de la tabla, tshirtSize)`.
+- Mismo hueco, **sin arreglar** al 2026-10-02: `inventoryService.syncShirtItemsForRetreat` cuenta
+  solo `participant_shirt_size`, así que la cantidad requerida de la prenda de caminantes queda
+  corta en retiros con caminantes importados.
 
 ---
 
