@@ -22,12 +22,22 @@ WHAT THIS CANNOT RECOVER
 """
 
 import csv
+import os
 import re
 import sys
 import zipfile
 import xml.etree.ElementTree as ET
 
 NS = "{http://schemas.openxmlformats.org/spreadsheetml/2006/main}"
+
+# Emails we correct on our side because the parish system keeps the wrong one
+# (troubleshooting §25.8): typically an angelito who registered their invitee
+# with their own address. Lives OUTSIDE the repo — it holds real people's
+# emails and the repo is public. Columns: folio, correo_del_registro,
+# correo_real, nota (nota is optional and lands in `notas`).
+EMAIL_CORRECTIONS = os.environ.get("EMAUS_EMAIL_CORRECTIONS") or os.path.expanduser(
+    "~/.config/emaus/parish-email-corrections.csv"
+)
 
 # Spanish marital status -> the single letter the entity stores.
 # Never derive this from the first letter: "Soltero" and "Separado-Divorciado"
@@ -204,6 +214,39 @@ def sanitize_for_csv(value):
         part.strip() for part in str(value or "").splitlines() if part.strip()
     )
     return flattened if flattened else " "
+
+
+def apply_email_corrections(records, path=EMAIL_CORRECTIONS):
+    """Swap borrowed registration emails for the real ones, in place.
+
+    A correction applies only while the row still carries the email it was
+    written for: if the parish fixes it, or the folio ends up with a different
+    address, applying it blindly could move one person's row onto another's
+    record. Those corrections are returned as stale so the operator sees them.
+    """
+    if not os.path.exists(path):
+        return [], []
+    with open(path, encoding="utf-8-sig", newline="") as handle:
+        corrections = {
+            row["folio"].strip(): row
+            for row in csv.DictReader(handle)
+            if row.get("folio", "").strip()
+        }
+
+    applied, stale = [], []
+    for record in records:
+        fix = corrections.get(record.get("Folio", "").strip())
+        if not fix:
+            continue
+        current = record.get("Correo", "").strip()
+        if current.lower() != fix["correo_del_registro"].strip().lower():
+            stale.append((record["Folio"], current, fix["correo_del_registro"].strip()))
+            continue
+        note = (fix.get("nota") or "").strip()
+        record["__correo_original"] = f"{current} ({note})" if note else current
+        record["Correo"] = fix["correo_real"].strip()
+        applied.append((record["Folio"], current, record["Correo"]))
+    return applied, stale
 
 
 def resolve_shared_emails(records):
@@ -384,6 +427,8 @@ def main():
         print("El archivo no tiene registros con datos.")
         sys.exit(1)
 
+    # Before the shared-email pass, so a corrected address takes part in it.
+    corrected_emails, stale_corrections = apply_email_corrections(records)
     resolved_emails = resolve_shared_emails(records)
     converted = [convert_row(record) for record in records]
 
@@ -396,6 +441,16 @@ def main():
     print(f"✓ {len(converted)} registros -> {output_path}")
     if padding:
         print(f"  ({padding} filas vacías del export descartadas)")
+
+    if corrected_emails:
+        print(f"\n✏️  CORREOS CORREGIDOS ({EMAIL_CORRECTIONS}):")
+        for folio, before, after in corrected_emails:
+            print(f"    {folio}: {before} -> {after}")
+    if stale_corrections:
+        # The row no longer carries the email the correction was written for.
+        print(f"\n⚠️  CORRECCIONES QUE YA NO APLICAN (revisá {EMAIL_CORRECTIONS}):")
+        for folio, current, expected in stale_corrections:
+            print(f"    {folio}: el export trae {current or '(vacío)'}, la corrección es para {expected}")
 
     # Dos filas con el mismo correo NO son dos personas para el importador: hace
     # upsert por email, así que la segunda pisa a la primera y una desaparece.

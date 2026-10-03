@@ -1073,9 +1073,11 @@ humana: ¿la misma persona cambiando de rol (cambiar el tipo a mano) o un correo
 **Un correo prestado vuelve en cada export**: el sistema de la parroquia sigue teniendo el
 prestado, así que la fila llega igual cada vez que se reimporta. Antes del guard del API, cada
 reimport volvía a pisar la ficha del miembro del equipo — pasó dos veces en prod con el mismo
-folio (1 y 2 oct 2026). Con el caminante ya dado de alta con su correo real, los scripts lo
-reconocen por nombre y no lo reportan como faltante; pero esa fila **ya no actualiza nada**,
-pagos incluidos. El arreglo de raíz es que la parroquia corrija el correo en su sistema.
+folio (1 y 2 oct 2026). Con el guard, esa fila se salta y **ya no actualiza nada**, pagos
+incluidos. La parroquia no corrige su sistema, así que la corrección es nuestra: una línea en
+`~/.config/emaus/parish-email-corrections.csv` (fuera del repo, lleva PII) que el conversor aplica
+en cada export, solo mientras la fila siga trayendo el correo prestado. Formato y reglas en
+`docs/features/parish-walker-import.md` § Correos prestados.
 
 ### Orden que funciona
 

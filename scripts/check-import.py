@@ -26,6 +26,9 @@ import sys
 
 DEFAULT_DB = os.environ.get("EMAUS_DB") or os.path.join("apps", "api", "database.sqlite")
 
+# Where convert-parish-registrations.py reads borrowed-email corrections from.
+CORRECTIONS_HINT = "~/.config/emaus/parish-email-corrections.csv"
+
 
 def open_db(path):
     """Open the SQLite file read-only. Never opens a write transaction."""
@@ -170,16 +173,18 @@ def check_before(db, rows, retreat_id):
                 # Already resolved: the API skips the row (importRoleConflict.ts),
                 # so it neither blocks the import nor touches the team member.
                 print(
-                    f"  · {label(row)}: el correo es de alguien del equipo ({hit[0]}), pero ya "
-                    f"está como caminante con {elsewhere}. El import saltará esta fila."
+                    f"  ⚠️  {label(row)}: el correo es de alguien del equipo ({hit[0]}), pero ya "
+                    f"está como caminante con {elsewhere}. El import saltará esta fila y no le\n"
+                    f"      actualizará nada (pagos incluidos). Agregá la corrección a\n"
+                    f"      {CORRECTIONS_HINT} y volvé a convertir."
                 )
                 continue
             team_collisions.append(
                 f"{label(row)} trae el correo de alguien que ya está en el retiro como "
                 f"{hit[0]}: el import saltará la fila y NO aparecerá como caminante. Si el "
-                "correo era prestado de quien llenó el registro, conseguí el real, editá el "
-                "CSV y volvé a comprobar; si es la misma persona cambiando de rol, cambiále "
-                "el tipo a mano."
+                "correo era prestado de quien llenó el registro, conseguí el real, agregalo a "
+                f"{CORRECTIONS_HINT}, volvé a convertir y a comprobar; si es la misma persona "
+                "cambiando de rol, cambiále el tipo a mano."
             )
     updates, creates = len(existing), len(rows) - len(existing)
     print(f"  · {creates} altas nuevas y {updates} actualizaciones")

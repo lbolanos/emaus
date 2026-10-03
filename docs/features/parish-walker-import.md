@@ -86,13 +86,32 @@ cancelación y su reinscripción.
   **salta esa fila** y lo dice en el resumen, para no pisar la ficha del miembro del equipo con
   los datos de otra persona (antes la pisaba; pasó dos veces en prod). `walkers-check` lo avisa
   antes de importar y `walkers-verify` lo detecta después; resolver el rol (¿la misma persona
-  cambia de rol, o el correo era prestado?) es decisión del operador, no del script. Si el
-  caminante ya entró con su correo real, los dos lo reconocen por nombre y no lo cuentan como
-  faltante — pero la fila de la parroquia ya no le actualiza nada (pagos incluidos) hasta que la
-  parroquia corrija el correo en su sistema.
+  cambia de rol, o el correo era prestado?) es decisión del operador, no del script. Un correo
+  prestado se corrige una sola vez en el archivo de correcciones (abajo).
 - **Con respaldo.** `make db-pull` deja una copia de producción de paso.
 - **Reimportar es seguro y es el flujo previsto**: el importador reconoce a la gente por correo,
   así que actualiza a quien ya estaba y añade a los nuevos, sin duplicar.
+
+## Correos prestados: el archivo de correcciones
+
+La parroquia no corrige su sistema, así que un correo prestado vuelve en **cada** export. Lo
+corregimos de nuestro lado: `convert-parish-registrations.py` lee
+`~/.config/emaus/parish-email-corrections.csv` (o la ruta de `EMAUS_EMAIL_CORRECTIONS`) y cambia
+el correo de la fila antes de escribir el CSV.
+
+```csv
+folio,correo_del_registro,correo_real,nota
+EH-0015,correo-prestado@ejemplo.com,correo-real@ejemplo.com,"el de su hermano, quien lo registró"
+```
+
+- Vive **fuera del repo**: lleva correos de personas reales y el repo es público.
+- La corrección aplica solo mientras la fila siga trayendo `correo_del_registro`. Si la parroquia
+  lo cambia, el conversor la reporta como «ya no aplica» en vez de aplicarla a ciegas.
+- El correo prestado queda en `notas` («Correo original: … (nota)»), así que no se pierde.
+- Sin la corrección, el API salta la fila: no pisa a nadie, pero tampoco le actualiza nada al
+  caminante, pagos incluidos. `walkers-check` lo avisa y sugiere agregar la corrección; si el
+  caminante ya entró con su correo real, `walkers-verify` lo reconoce por nombre y no lo cuenta
+  como faltante.
 
 ## Lo que este flujo NO trae
 
