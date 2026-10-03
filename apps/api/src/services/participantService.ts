@@ -28,6 +28,10 @@ import { crmService } from "./crmService";
 import { EmailService } from "./emailService";
 import { messageSequenceService } from "./messageSequenceService";
 import { hydrateParticipantRetreatContext } from "./participantRetreatHydration";
+import {
+  isImportRoleConflict,
+  importRoleConflictReason,
+} from "./importRoleConflict";
 
 // Campos de participante que vale la pena auditar (allowlist). Excluye datos médicos
 // y otros campos sensibles que no aportan al "quién hizo qué".
@@ -4587,6 +4591,34 @@ export const importParticipants = async (
 
       if (existingParticipant) {
         const { type, ...updateData } = mappedData;
+
+        // §25.8 — the email may belong to a team member who registered their
+        // invitee with it. Updating would overwrite that member's record
+        // (twice in prod, Buen Despacho II, Oct 2026), so skip and say why.
+        const existingRp = await AppDataSource.getRepository(
+          RetreatParticipant,
+        ).findOne({
+          where: { participantId: existingParticipant.id, retreatId },
+          select: ["type"],
+        });
+        const declaredType = String(participantRawData.tipousuario ?? "").trim()
+          ? type
+          : undefined;
+        if (isImportRoleConflict(existingRp?.type, declaredType)) {
+          const rowName =
+            `${String(participantRawData.nombre ?? "").trim()} ${String(participantRawData.apellidos ?? "").trim()}`.trim();
+          skippedDetails.push({
+            row: idx + 2,
+            reason: importRoleConflictReason(
+              `${existingParticipant.firstName} ${existingParticipant.lastName}`.trim(),
+              existingRp!.type,
+              declaredType!,
+            ),
+            name: rowName || mappedData.email,
+          });
+          skippedCount++;
+          continue;
+        }
 
         const updatedParticipant = await updateParticipant(
           existingParticipant.id,

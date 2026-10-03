@@ -1060,10 +1060,22 @@ Caso real: Buen Despacho II (oct 2026) — un angelito que había caminado la ed
 registró de nuevo como caminante en el sitio de la parroquia; su fila importó sobre su propia
 ficha de `partial_server` y el conteo quedó en 9 caminantes para 10 filas.
 
-**Fix**: `check-import.py --before` bloquea cuando un correo del archivo ya está en el retiro con
-rol de equipo, y `--after` verifica el **tipo**, no solo la presencia. La decisión es humana:
-¿la misma persona cambiando de rol (importar y cambiar el tipo después) o un correo prestado
-(conseguir el correo real del caminante y editar el CSV antes de importar)?
+**Fix**: desde 2026-10-02 **el API salta la fila** cuando el rol que declara (`tipousuario`) cae
+del otro lado de la línea caminante/equipo que el rol existente, y lo dice en el resumen del
+import ("Omitidos: Fila N: el correo ya es de …"). La regla es una función pura,
+`apps/api/src/services/importRoleConflict.ts`, con su test; `waiting`↔`walker` y
+`server`↔`partial_server` no cuentan como conflicto, y una fila sin `tipousuario` tampoco (el
+importador asume "server" por omisión, eso no es una declaración). `check-import.py --before`
+avisa antes y `--after` verifica el **tipo**, no solo la presencia. La decisión sigue siendo
+humana: ¿la misma persona cambiando de rol (cambiar el tipo a mano) o un correo prestado
+(conseguir el correo real del caminante y editar el CSV)?
+
+**Un correo prestado vuelve en cada export**: el sistema de la parroquia sigue teniendo el
+prestado, así que la fila llega igual cada vez que se reimporta. Antes del guard del API, cada
+reimport volvía a pisar la ficha del miembro del equipo — pasó dos veces en prod con el mismo
+folio (1 y 2 oct 2026). Con el caminante ya dado de alta con su correo real, los scripts lo
+reconocen por nombre y no lo reportan como faltante; pero esa fila **ya no actualiza nada**,
+pagos incluidos. El arreglo de raíz es que la parroquia corrija el correo en su sistema.
 
 ### Orden que funciona
 

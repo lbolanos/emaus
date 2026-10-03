@@ -52,6 +52,28 @@ def label(row):
     return f"{folio_of(row)} · {row.get('nombre', '').strip()} {row.get('apellidos', '').strip()}".strip()
 
 
+def walker_with_same_name(db, row, retreat_id):
+    """Email of an active walker in the retreat with this row's name, if any.
+
+    A borrowed email that was already resolved (§25.8: the walker re-entered
+    with their real address) keeps arriving in every parish export, because the
+    parish system still holds the borrowed one. Finding the walker by name tells
+    "already here under another email" apart from "missing".
+    """
+    hit = db.execute(
+        "SELECT p.email FROM participants p JOIN retreat_participants rp"
+        "  ON rp.participantId = p.id AND rp.retreatId = ?"
+        " WHERE rp.type = 'walker' AND rp.isCancelled = 0 AND p.dataDeletedAt IS NULL"
+        "   AND LOWER(TRIM(p.firstName)) = ? AND LOWER(TRIM(p.lastName)) = ?",
+        (
+            retreat_id,
+            row.get("nombre", "").strip().lower(),
+            row.get("apellidos", "").strip().lower(),
+        ),
+    ).fetchone()
+    return hit[0] if hit else None
+
+
 def check_before(db, rows, retreat_id):
     problems = []
 
@@ -143,11 +165,21 @@ def check_before(db, rows, retreat_id):
             continue
         existing.add(email)
         if hit[0] in ("server", "partial_server"):
+            elsewhere = walker_with_same_name(db, row, retreat_id)
+            if elsewhere:
+                # Already resolved: the API skips the row (importRoleConflict.ts),
+                # so it neither blocks the import nor touches the team member.
+                print(
+                    f"  · {label(row)}: el correo es de alguien del equipo ({hit[0]}), pero ya "
+                    f"está como caminante con {elsewhere}. El import saltará esta fila."
+                )
+                continue
             team_collisions.append(
-                f"{label(row)} ya está en el retiro como {hit[0]}: el import actualizará su "
-                "ficha pero NO aparecerá como caminante. Si es la misma persona cambiando de "
-                "rol, importá y cambiále el tipo después; si el correo era prestado de quien "
-                "llenó el registro, conseguí el real, editá el CSV y volvé a comprobar."
+                f"{label(row)} trae el correo de alguien que ya está en el retiro como "
+                f"{hit[0]}: el import saltará la fila y NO aparecerá como caminante. Si el "
+                "correo era prestado de quien llenó el registro, conseguí el real, editá el "
+                "CSV y volvé a comprobar; si es la misma persona cambiando de rol, cambiále "
+                "el tipo a mano."
             )
     updates, creates = len(existing), len(rows) - len(existing)
     print(f"  · {creates} altas nuevas y {updates} actualizaciones")
@@ -177,10 +209,15 @@ def check_after(db, rows, retreat_id):
         if not found:
             missing.append((label(row), "no está en el retiro"))
         elif found[0] != "walker":
-            # §25.8 — present but wearing the wrong hat: the row did import,
-            # onto a team member's existing record, whose role the importer
-            # never changes. They will not show up in the walker list.
-            missing.append((label(row), f"quedó como {found[0]}, no como caminante"))
+            # §25.8 — the email belongs to a team member, so the API skipped the
+            # row. Fine if the walker is already here under their real email.
+            elsewhere = walker_with_same_name(db, row, retreat_id)
+            if elsewhere:
+                print(f"  · {label(row)}: correo prestado; ya está como caminante con {elsewhere}")
+            else:
+                missing.append(
+                    (label(row), f"su correo es de alguien del equipo ({found[0]}): fila saltada")
+                )
 
     total = db.execute(
         "SELECT COUNT(*) FROM retreat_participants WHERE retreatId = ?", (retreat_id,)

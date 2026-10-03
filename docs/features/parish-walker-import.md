@@ -83,11 +83,13 @@ cancelación y su reinscripción.
 
 - **Con la app en reposo.** Queda una carrera conocida con escrituras concurrentes.
 - **Ojo cuando un correo del archivo ya es de alguien del equipo** (server o angelito): el import
-  actualiza esa ficha pero **no cambia el rol**, así que esa persona no aparece entre los
-  caminantes — y si el registro era de otra persona con el correo prestado, sus datos pisan la
-  ficha del miembro del equipo. `walkers-check` lo bloquea antes de importar y `walkers-verify`
-  lo detecta después; resolver el rol (¿la misma persona cambia de rol, o el correo era prestado?)
-  es decisión del operador, no del script.
+  **salta esa fila** y lo dice en el resumen, para no pisar la ficha del miembro del equipo con
+  los datos de otra persona (antes la pisaba; pasó dos veces en prod). `walkers-check` lo avisa
+  antes de importar y `walkers-verify` lo detecta después; resolver el rol (¿la misma persona
+  cambia de rol, o el correo era prestado?) es decisión del operador, no del script. Si el
+  caminante ya entró con su correo real, los dos lo reconocen por nombre y no lo cuentan como
+  faltante — pero la fila de la parroquia ya no le actualiza nada (pagos incluidos) hasta que la
+  parroquia corrija el correo en su sistema.
 - **Con respaldo.** `make db-pull` deja una copia de producción de paso.
 - **Reimportar es seguro y es el flujo previsto**: el importador reconoce a la gente por correo,
   así que actualiza a quien ya estaba y añade a los nuevos, sin duplicar.
