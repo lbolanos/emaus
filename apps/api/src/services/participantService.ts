@@ -4601,18 +4601,23 @@ export const importParticipants = async (
           where: { participantId: existingParticipant.id, retreatId },
           select: ["type"],
         });
+        const existingType = existingRp?.type;
         const declaredType = String(participantRawData.tipousuario ?? "").trim()
           ? type
           : undefined;
-        if (isImportRoleConflict(existingRp?.type, declaredType)) {
+        if (
+          existingType &&
+          declaredType &&
+          isImportRoleConflict(existingType, declaredType)
+        ) {
           const rowName =
             `${String(participantRawData.nombre ?? "").trim()} ${String(participantRawData.apellidos ?? "").trim()}`.trim();
           skippedDetails.push({
             row: idx + 2,
             reason: importRoleConflictReason(
               `${existingParticipant.firstName} ${existingParticipant.lastName}`.trim(),
-              existingRp!.type,
-              declaredType!,
+              existingType,
+              declaredType,
             ),
             name: rowName || mappedData.email,
           });

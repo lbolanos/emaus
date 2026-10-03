@@ -208,6 +208,129 @@ test.describe('Import participants from CSV', () => {
 	});
 
 	/**
+	 * Guards the role-conflict skip (troubleshooting §25.8, 2026-10-02).
+	 *
+	 * An angelito registered their brother as a walker with their own email. The
+	 * import matched the row by email and overwrote the angelito's record with the
+	 * walker's data, on every re-import — twice in prod. The importer now skips a
+	 * row whose declared tipousuario sits on the other side of the walker/team line,
+	 * and still updates rows that declare the same side or declare nothing.
+	 */
+	test('skips a walker row whose email belongs to a team member', async ({ baseURL }) => {
+		test.skip(!fs.existsSync(CSV_PATH), `CSV fixture not found: ${CSV_PATH}`);
+		const session = await login(baseURL!);
+		test.skip(!session, 'no usable credentials (seed the e2e users or set E2E_LOCAL_*)');
+		const { ctx, csrfToken } = session!;
+
+		let retreatId: string | undefined;
+		try {
+			const housesRes = await ctx.get('/api/houses');
+			const housesBody = await housesRes.json();
+			const houses = Array.isArray(housesBody) ? housesBody : (housesBody.data ?? []);
+			const stamp = Date.now();
+			const createRes = await ctx.post('/api/retreats', {
+				headers: withCsrf(csrfToken),
+				data: {
+					parish: `E2E Role ${stamp}`,
+					startDate: '2030-07-08',
+					endDate: '2030-07-10',
+					houseId: houses[0]?.id,
+				},
+			});
+			expect(createRes.ok(), `create retreat: ${createRes.status()}`).toBeTruthy();
+			retreatId = (await createRes.json()).id;
+			const publishRes = await ctx.put(`/api/retreats/${retreatId}`, {
+				headers: withCsrf(csrfToken),
+				data: { isPublic: true },
+			});
+			expect(publishRes.ok(), `publish retreat: ${publishRes.status()}`).toBeTruthy();
+
+			// One template row; payment columns cleared so no payment noise.
+			const template = { ...parseCsv(fs.readFileSync(CSV_PATH, 'utf8'))[0], montopago: null, fechapago: null };
+			const row = (tipousuario: string | null, nombre: string, email: string) => ({
+				...template,
+				tipousuario,
+				nombre,
+				apellidos: 'E2E ROL',
+				email,
+			});
+			const angelitoEmail = `e2e-role-${stamp}-angelito@test.local`;
+			const serverEmail = `e2e-role-${stamp}-server@test.local`;
+			const walkerEmail = `e2e-role-${stamp}-walker@test.local`;
+
+			const importRows = async (rows: unknown[]) => {
+				const res = await ctx.post(`/api/participants/import/${retreatId}`, {
+					headers: withCsrf(csrfToken),
+					data: { participants: rows },
+				});
+				const raw = await res.text();
+				expect(res.ok(), `import failed (${res.status()}): ${raw}`).toBeTruthy();
+				return JSON.parse(raw);
+			};
+			const roster = async () => {
+				const res = await ctx.get(`/api/participants?retreatId=${retreatId}`);
+				expect(res.ok(), `list participants: ${res.status()}`).toBeTruthy();
+				const body = await res.json();
+				const list: Array<{ email: string; firstName: string; type: string }> = Array.isArray(body)
+					? body
+					: (body.data ?? []);
+				return new Map(list.map((p) => [p.email.toLowerCase(), p]));
+			};
+
+			const seeded = await importRows([
+				row('5', 'ANGELITO', angelitoEmail),
+				row('0', 'SERVIDOR', serverEmail),
+				row('3', 'CAMINANTE', walkerEmail),
+			]);
+			expect(seeded.importedCount, JSON.stringify(seeded)).toBe(3);
+			const before = await roster();
+			expect(before.get(angelitoEmail)?.type).toBe('partial_server');
+			expect(before.get(serverEmail)?.type).toBe('server');
+			expect(before.get(walkerEmail)?.type).toBe('walker');
+
+			const result = await importRows([
+				// Borrowed emails: a walker row carrying a team member's address.
+				row('3', 'INVITADO', angelitoEmail),
+				row('3', 'OTRO INVITADO', serverEmail),
+				// Same side of the line: a plain update.
+				row('3', 'CAMINANTE EDITADO', walkerEmail),
+			]);
+			expect(result.skippedCount, JSON.stringify(result)).toBe(2);
+			expect(result.updatedCount, JSON.stringify(result)).toBe(1);
+			const reasons = (result.skippedDetails as Array<{ reason: string; name?: string }>)
+				.map((d) => `${d.name}: ${d.reason}`)
+				.join('\n');
+			expect(reasons).toContain('ANGELITO E2E ROL');
+			expect(reasons).toContain('angelito');
+			expect(reasons).toContain('SERVIDOR E2E ROL');
+
+			// The point of the test: the team members' records were not overwritten.
+			const after = await roster();
+			expect(after.get(angelitoEmail)?.firstName).toBe('ANGELITO');
+			expect(after.get(angelitoEmail)?.type).toBe('partial_server');
+			expect(after.get(serverEmail)?.firstName).toBe('SERVIDOR');
+			expect(after.get(serverEmail)?.type).toBe('server');
+			expect(after.get(walkerEmail)?.firstName).toBe('CAMINANTE EDITADO');
+
+			// A row without tipousuario declares no role (the importer only defaults
+			// it to "server"), so it must keep updating, not trip the guard.
+			const undeclared = await importRows([row(null, 'CAMINANTE SIN TIPO', walkerEmail)]);
+			expect(undeclared.skippedCount ?? 0, JSON.stringify(undeclared)).toBe(0);
+			expect(undeclared.updatedCount, JSON.stringify(undeclared)).toBe(1);
+			const last = await roster();
+			expect(last.get(walkerEmail)?.firstName).toBe('CAMINANTE SIN TIPO');
+			expect(last.get(walkerEmail)?.type).toBe('walker');
+		} finally {
+			if (retreatId) {
+				await ctx
+					.delete(`/api/retreats/${retreatId}`, { headers: withCsrf(csrfToken) })
+					.catch(() => undefined);
+			}
+			await session!.dispose();
+		}
+	});
+
+	/**
 	 * Guards the fix for the transaction race (2026-08-25).
 	 *
 	 * With the asynchronous `sqlite` driver, TypeORM drove SQLite over a single shared
