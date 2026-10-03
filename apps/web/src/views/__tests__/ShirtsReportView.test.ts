@@ -40,11 +40,21 @@ vi.mock('@/services/telemetryService', () => ({
 
 const mockGetShirtReport = vi.fn();
 const mockUpdateShirtOrderConfirmation = vi.fn();
+const mockSetShirtOrderEstimate = vi.fn();
 vi.mock('@/services/api', () => ({
   api: { get: vi.fn(), post: vi.fn(), put: vi.fn(), patch: vi.fn(), delete: vi.fn() },
   getShirtReport: (...args: any[]) => mockGetShirtReport(...args),
   updateShirtOrderConfirmation: (...args: any[]) =>
     mockUpdateShirtOrderConfirmation(...args),
+  setShirtOrderEstimate: (...args: any[]) => mockSetShirtOrderEstimate(...args),
+}));
+
+// "Estimar caminantes" is gated by retreat:update; each test can flip it.
+const perms = vi.hoisted(() => ({ updateRetreat: true }));
+vi.mock('@/composables/useAuthPermissions', () => ({
+  useAuthPermissions: () => ({
+    can: { update: (resource: string) => resource === 'retreat' && perms.updateRetreat },
+  }),
 }));
 
 vi.mock('lucide-vue-next', () => {
@@ -61,6 +71,8 @@ vi.mock('lucide-vue-next', () => {
     Wallet: icon('wallet'),
     MessageSquare: icon('message-square'),
     Send: icon('send'),
+    Copy: icon('copy'),
+    Calculator: icon('calculator'),
   };
 });
 
@@ -93,6 +105,19 @@ vi.mock('@repo/ui', () => ({
   },
   Button: { name: 'Button', template: '<button><slot /></button>' },
   Badge: { name: 'Badge', template: '<span><slot /></span>' },
+  // Renders only while open (unlike the global mock): the closed estimate
+  // dialog must not add inputs ahead of the search box tests look up first.
+  Dialog: {
+    name: 'Dialog',
+    props: ['open'],
+    emits: ['update:open'],
+    template: '<div v-if="open" data-testid="estimate-dialog"><slot /></div>',
+  },
+  DialogContent: { name: 'DialogContent', template: '<div><slot /></div>' },
+  DialogHeader: { name: 'DialogHeader', template: '<div><slot /></div>' },
+  DialogTitle: { name: 'DialogTitle', template: '<h2><slot /></h2>' },
+  DialogDescription: { name: 'DialogDescription', template: '<p><slot /></p>' },
+  DialogFooter: { name: 'DialogFooter', template: '<div><slot /></div>' },
   useToast: () => ({ toast: mockToast }),
 }));
 
@@ -147,7 +172,7 @@ function mountView(report: { shirtTypes: any[]; participants: any[] } | null = n
   setActivePinia(pinia);
 
   const retreatStore = useRetreatStore(pinia);
-  retreatStore.retreats = [{ id: RETREAT_ID, name: 'Retiro Test' } as any];
+  retreatStore.retreats = [{ id: RETREAT_ID, name: 'Retiro Test', parish: 'Parroquia Test' } as any];
   retreatStore.selectedRetreatId = RETREAT_ID;
   retreatStore.fetchRetreats = vi.fn().mockResolvedValue([]);
 
@@ -178,7 +203,9 @@ describe('ShirtsReportView', () => {
   beforeEach(() => {
     mockGetShirtReport.mockReset();
     mockUpdateShirtOrderConfirmation.mockReset();
+    mockSetShirtOrderEstimate.mockReset();
     mockToast.mockReset();
+    perms.updateRetreat = true;
   });
 
   afterEach(() => {
@@ -1068,6 +1095,314 @@ describe('ShirtsReportView', () => {
 
       expect(dialogStub(w).attributes('data-open')).toBe('false');
       expect(sendButton(w).attributes('disabled')).toBeUndefined();
+    });
+  });
+
+  // ── Resumen de pedido (servidores + caminantes + estimado) ───────────────
+
+  describe('resumen de pedido', () => {
+    const PLAYERA_WALKER = {
+      ...PLAYERA_TYPE,
+      availableSizes: ['S', 'M', 'G', 'X', '2'],
+      requiredForWalkers: true,
+    };
+
+    // Servers order Playera G, M, M (G first on purpose: the summary must
+    // still list M before G) and one Chamarra M; one server ordered nothing.
+    function makeOrderReport(overrides: Record<string, any> = {}) {
+      return {
+        shirtTypes: [PLAYERA_WALKER, CHAMARRA_TYPE],
+        participants: [
+          makeServer({
+            firstName: 'Uno',
+            shirts: [
+              makeShirt(PLAYERA_TYPE.id, 'Playera', 'G'),
+              makeShirt(CHAMARRA_TYPE.id, 'Chamarra', 'M', 2),
+            ],
+          }),
+          makeServer({ firstName: 'Dos', shirts: [makeShirt(PLAYERA_TYPE.id, 'Playera', 'M')] }),
+          makeAngelito({ firstName: 'Tres', shirts: [makeShirt(PLAYERA_TYPE.id, 'Playera', 'M')] }),
+          makeServer({ firstName: 'Cuatro', shirts: [] }),
+        ],
+        walkerCount: 10,
+        walkerShirts: [
+          { size: 'G', count: 6 },
+          { size: 'M', count: 4 },
+        ],
+        estimate: null,
+        ...overrides,
+      };
+    }
+
+    const compact = (t: string) => t.replace(/\s+/g, '');
+    const section = (w: ReturnType<typeof mountView>, key: string) =>
+      w.find(`[data-testid="order-section-${key}"]`);
+    const totalLine = (w: ReturnType<typeof mountView>) =>
+      w.find('[data-testid="order-total"]').text();
+    const buttonByText = (w: ReturnType<typeof mountView>, text: string) =>
+      w.findAll('button').find((b) => b.text().includes(text));
+
+    let writeText: ReturnType<typeof vi.fn>;
+    beforeEach(() => {
+      // happy-dom ships no clipboard.
+      writeText = vi.fn().mockResolvedValue(undefined);
+      Object.defineProperty(navigator, 'clipboard', {
+        value: { writeText },
+        configurable: true,
+      });
+    });
+
+    it('servidores: piezas por prenda con las tallas en orden canónico (M antes que G)', async () => {
+      const w = mountView(makeOrderReport());
+      await flushPromises();
+
+      const servers = compact(section(w, 'servers').text());
+      expect(servers).toContain('3de4personas');
+      expect(servers).toContain('Playera3piezasM×2G×1');
+      expect(servers).toContain('Chamarra1piezaM×1');
+    });
+
+    it('sin prenda marcada para caminantes: su camiseta va en fila propia, no en una del equipo', async () => {
+      const w = mountView(
+        makeOrderReport({ shirtTypes: [PLAYERA_TYPE, CHAMARRA_TYPE] }),
+      );
+      await flushPromises();
+
+      const walkers = compact(section(w, 'walkers').text());
+      expect(walkers).toContain('Camisetadecaminante10piezasM×4G×6');
+      expect(section(w, 'walkers').text()).toContain('Ninguna prenda está marcada para caminantes');
+      // The merged total keeps it apart from the servers' Playera.
+      const total = compact(section(w, 'total').text());
+      expect(total).toContain('Playera3piezasM×2G×1');
+      expect(total).toContain('Camisetadecaminante10piezasM×4G×6');
+    });
+
+    it('caminantes: conteo de inscritos y sus tallas agregadas', async () => {
+      const w = mountView(makeOrderReport());
+      await flushPromises();
+
+      const walkers = compact(section(w, 'walkers').text());
+      expect(walkers).toContain('10inscritos');
+      expect(walkers).toContain('Playera10piezasM×4G×6');
+      // Without an estimate there is no estimate section.
+      expect(section(w, 'estimate').exists()).toBe(false);
+    });
+
+    it('"Total a pedir" suma las fuentes por prenda × talla', async () => {
+      const w = mountView(makeOrderReport());
+      await flushPromises();
+
+      const total = compact(section(w, 'total').text());
+      expect(total).toContain('Playera13piezasM×6G×7');
+      expect(total).toContain('Chamarra1piezaM×1');
+      expect(totalLine(w)).toContain('Total del pedido: 14 piezas');
+    });
+
+    it('con estimado guardado: sección de faltantes y entra al total', async () => {
+      const w = mountView(
+        makeOrderReport({
+          estimate: { expectedWalkers: 40, estimatedShirts: { M: 12, G: 18 } },
+        }),
+      );
+      await flushPromises();
+
+      expect(compact(section(w, 'walkers').text())).toContain('seesperan40');
+      const estimate = compact(section(w, 'estimate').text());
+      expect(estimate).toContain('faltan~30');
+      expect(estimate).toContain('Playera30piezasM×12G×18');
+      expect(totalLine(w)).toContain('Total del pedido: 44 piezas');
+    });
+
+    it('cuenta sobre el equipo completo: búsqueda y chips no lo mueven', async () => {
+      const w = mountView(makeOrderReport());
+      await flushPromises();
+      const before = w.find('[data-testid="order-summary"]').text();
+
+      await w.find('input').setValue('uno');
+      await buttonByText(w, 'Requieren camiseta')!.trigger('click');
+      await buttonByText(w, 'Solo sin confirmar')!.trigger('click');
+      await nextTick();
+
+      expect(w.find('[data-testid="order-summary"]').text()).toBe(before);
+    });
+
+    it('sin tipos de prenda no hay tarjeta; con tipos y sin pedidos avisa y no deja copiar', async () => {
+      const none = mountView({ shirtTypes: [], participants: [makeServer()] });
+      await flushPromises();
+      expect(none.find('[data-testid="order-summary"]').exists()).toBe(false);
+
+      const empty = mountView({ shirtTypes: [PLAYERA_TYPE], participants: [makeServer()] });
+      await flushPromises();
+      expect(empty.text()).toContain('Aún no hay prendas pedidas en este retiro');
+      expect(buttonByText(empty, 'Copiar resumen')!.attributes('disabled')).toBeDefined();
+    });
+
+    it('"Copiar resumen" deja el pedido listo para WhatsApp (sin precios) y avisa', async () => {
+      const w = mountView(makeOrderReport());
+      await flushPromises();
+
+      await buttonByText(w, 'Copiar resumen')!.trigger('click');
+      await flushPromises();
+
+      const text: string = writeText.mock.calls[0][0];
+      expect(text.split('\n')[0]).toBe('*Pedido de prendas — Parroquia Test* 👕');
+      expect(text).toContain('👥 *Equipo servidor* (3 de 4 personas)');
+      expect(text).toContain('- Playera (3): M×2, G×1');
+      expect(text).toContain('🚶 *Caminantes inscritos* (10 inscritos)');
+      expect(text).toContain('📦 *Total a pedir*');
+      expect(text).toContain('- Playera (13): M×6, G×7');
+      expect(text.trim().split('\n').at(-1)).toBe('*Total: 14 piezas*');
+      // WhatsApp, not Markdown: no double asterisks, and no prices for the supplier.
+      expect(text).not.toContain('**');
+      expect(text).not.toContain('$');
+      expect(mockToast).toHaveBeenCalledWith(expect.objectContaining({ title: 'Resumen copiado' }));
+    });
+
+    it('si el portapapeles falla, toast destructive', async () => {
+      writeText.mockRejectedValueOnce(new Error('denied'));
+      const w = mountView(makeOrderReport());
+      await flushPromises();
+
+      await buttonByText(w, 'Copiar resumen')!.trigger('click');
+      await flushPromises();
+
+      expect(mockToast).toHaveBeenCalledWith(expect.objectContaining({ variant: 'destructive' }));
+    });
+
+    it('"Estimar caminantes" solo aparece con permiso retreat:update', async () => {
+      perms.updateRetreat = false;
+      const w = mountView(makeOrderReport());
+      await flushPromises();
+      expect(buttonByText(w, 'Estimar caminantes')).toBeUndefined();
+    });
+
+    describe('dialog del estimado', () => {
+      async function openDialog(w: ReturnType<typeof mountView>) {
+        await buttonByText(w, 'Estimar caminantes')!.trigger('click');
+        await nextTick();
+        return w.find('[data-testid="estimate-dialog"]');
+      }
+      const input = (w: ReturnType<typeof mountView>, testid: string) =>
+        w.find(`[data-testid="${testid}"]`);
+
+      it('muestra la prenda de los caminantes con una casilla por talla', async () => {
+        const w = mountView(makeOrderReport());
+        await flushPromises();
+        const dialog = await openDialog(w);
+
+        expect(dialog.exists()).toBe(true);
+        expect(dialog.text()).toContain('Playera');
+        expect(dialog.text()).not.toContain('Chamarra');
+        for (const size of ['S', 'M', 'G', 'X', '2']) {
+          expect(input(w, `estimate-size-${size}`).exists()).toBe(true);
+        }
+      });
+
+      it('guardar envía el estimado y actualiza el resumen sin recargar el reporte', async () => {
+        mockSetShirtOrderEstimate.mockResolvedValueOnce(undefined);
+        const w = mountView(makeOrderReport());
+        await flushPromises();
+        await openDialog(w);
+
+        await input(w, 'estimate-expected').setValue('40');
+        await input(w, `estimate-size-M`).setValue('12');
+        await input(w, `estimate-size-G`).setValue('18');
+        await buttonByText(w, 'Guardar')!.trigger('click');
+        await flushPromises();
+
+        expect(mockSetShirtOrderEstimate).toHaveBeenCalledWith(RETREAT_ID, {
+          expectedWalkers: 40,
+          estimatedShirts: { M: 12, G: 18 },
+        });
+        expect(w.find('[data-testid="estimate-dialog"]').exists()).toBe(false);
+        expect(compact(section(w, 'estimate').text())).toContain('Playera30piezasM×12G×18');
+        expect(totalLine(w)).toContain('Total del pedido: 44 piezas');
+        expect(mockGetShirtReport).toHaveBeenCalledTimes(1);
+      });
+
+      it('"Repartir" distribuye los faltantes con la proporción de los inscritos', async () => {
+        const w = mountView(
+          makeOrderReport({
+            walkerCount: 3,
+            walkerShirts: [
+              { size: 'M', count: 1 },
+              { size: 'G', count: 1 },
+              { size: 'X', count: 1 },
+            ],
+          }),
+        );
+        await flushPromises();
+        await openDialog(w);
+
+        // 13 expected − 3 registered = 10 missing over three equal sizes:
+        // 3.33 each → the leftover piece goes to one of them, never lost.
+        await input(w, 'estimate-expected').setValue('13');
+        await buttonByText(w, 'Repartir los faltantes')!.trigger('click');
+        await nextTick();
+
+        const value = (size: string) =>
+          Number((input(w, `estimate-size-${size}`).element as HTMLInputElement).value || 0);
+        expect(value('M') + value('G') + value('X')).toBe(10);
+        expect([value('M'), value('G'), value('X')].sort()).toEqual([3, 3, 4]);
+        expect(value('S')).toBe(0);
+      });
+
+      it('sin caminantes esperados, "Repartir" queda deshabilitado', async () => {
+        const w = mountView(makeOrderReport());
+        await flushPromises();
+        await openDialog(w);
+
+        expect(buttonByText(w, 'Repartir los faltantes')!.attributes('disabled')).toBeDefined();
+      });
+
+      it('abre con el estimado guardado y "Quitar estimado" lo borra', async () => {
+        mockSetShirtOrderEstimate.mockResolvedValueOnce(undefined);
+        const w = mountView(
+          makeOrderReport({
+            estimate: { expectedWalkers: 40, estimatedShirts: { M: 12 } },
+          }),
+        );
+        await flushPromises();
+        await openDialog(w);
+
+        expect((input(w, 'estimate-expected').element as HTMLInputElement).value).toBe('40');
+        expect(
+          (input(w, `estimate-size-M`).element as HTMLInputElement).value,
+        ).toBe('12');
+
+        await buttonByText(w, 'Quitar estimado')!.trigger('click');
+        await flushPromises();
+
+        expect(mockSetShirtOrderEstimate).toHaveBeenCalledWith(RETREAT_ID, null);
+        expect(section(w, 'estimate').exists()).toBe(false);
+      });
+
+      it('guardar sin nada escrito borra en vez de guardar un estimado vacío', async () => {
+        mockSetShirtOrderEstimate.mockResolvedValueOnce(undefined);
+        const w = mountView(makeOrderReport());
+        await flushPromises();
+        await openDialog(w);
+
+        await buttonByText(w, 'Guardar')!.trigger('click');
+        await flushPromises();
+
+        expect(mockSetShirtOrderEstimate).toHaveBeenCalledWith(RETREAT_ID, null);
+      });
+
+      it('si el guardado falla: toast destructive y el dialog sigue abierto', async () => {
+        mockSetShirtOrderEstimate.mockRejectedValueOnce(new Error('network'));
+        const w = mountView(makeOrderReport());
+        await flushPromises();
+        await openDialog(w);
+
+        await input(w, 'estimate-expected').setValue('40');
+        await buttonByText(w, 'Guardar')!.trigger('click');
+        await flushPromises();
+
+        expect(mockToast).toHaveBeenCalledWith(expect.objectContaining({ variant: 'destructive' }));
+        expect(w.find('[data-testid="estimate-dialog"]').exists()).toBe(true);
+        expect(section(w, 'estimate').exists()).toBe(false);
+      });
     });
   });
 

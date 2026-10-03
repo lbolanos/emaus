@@ -2,12 +2,33 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRetreatStore } from '@/stores/retreatStore'
 import { useParticipantStore } from '@/stores/participantStore'
-import { Input, useToast } from '@repo/ui'
+import {
+  Input,
+  Button,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+  useToast,
+} from '@repo/ui'
 import { formatCurrency } from '@repo/utils'
-import { getShirtReport, updateShirtOrderConfirmation } from '@/services/api'
+import {
+  getShirtReport,
+  updateShirtOrderConfirmation,
+  setShirtOrderEstimate,
+} from '@/services/api'
 import { buildWhatsAppChatLink } from '@/utils/phone'
+import { useAuthPermissions } from '@/composables/useAuthPermissions'
 import MessageDialog from '@/components/MessageDialog.vue'
-import type { Participant, ShirtReportResponse, ShirtReportParticipant } from '@repo/types'
+import type {
+  Participant,
+  ShirtReportResponse,
+  ShirtReportParticipant,
+  ShirtReportShirtType,
+  ShirtOrderEstimate,
+} from '@repo/types'
 import {
   Shirt,
   Printer,
@@ -20,11 +41,14 @@ import {
   Wallet,
   MessageSquare,
   Send,
+  Copy,
+  Calculator,
 } from 'lucide-vue-next'
 
 const retreatStore = useRetreatStore()
 const participantStore = useParticipantStore()
 const { toast } = useToast()
+const { can } = useAuthPermissions()
 
 const loading = ref(false)
 const report = ref<ShirtReportResponse | null>(null)
@@ -84,6 +108,316 @@ const totals = computed(() => {
 })
 
 const totalCharge = computed(() => report.value?.totalCharge ?? 0)
+
+// ── Purchase summary (pedido al proveedor) ──────────────────────────────────
+// Counts over the WHOLE team like the header cards — search and chips never
+// move it: it is the list that gets bought.
+
+// Same fallback the walker registration uses when a type has no sizes set.
+const FALLBACK_SIZES = ['S', 'M', 'G', 'X', '2']
+
+/** shirtTypeId → size → pieces */
+type SizeCounts = Record<string, Record<string, number>>
+type SummaryRow = {
+  id: string
+  name: string
+  total: number
+  sizes: { size: string; count: number }[]
+}
+
+function sizesOf(type: ShirtReportShirtType): string[] {
+  return type.availableSizes?.length ? type.availableSizes : FALLBACK_SIZES
+}
+
+// A walker wears one garment: the type flagged requiredForWalkers. With none
+// flagged it gets a row of its own instead of being merged into a server
+// garment it may not be (the purchase would then be wrong without anyone
+// noticing); flagging the type in Tipos de camiseta merges it.
+const WALKER_SHIRT_ID = '__walker__'
+const walkerGarmentFlagged = computed(() =>
+  sortedShirtTypes.value.find((t) => t.requiredForWalkers),
+)
+const walkerGarment = computed<ShirtReportShirtType>(
+  () =>
+    walkerGarmentFlagged.value ?? {
+      id: WALKER_SHIRT_ID,
+      name: 'Camiseta de caminante',
+      color: null,
+      sortOrder: Number.MAX_SAFE_INTEGER,
+      price: null,
+      availableSizes: null,
+      requiredForWalkers: true,
+    },
+)
+const summaryTypes = computed(() =>
+  walkerGarmentFlagged.value
+    ? sortedShirtTypes.value
+    : [...sortedShirtTypes.value, walkerGarment.value],
+)
+
+function addCount(acc: SizeCounts, typeId: string, size: string, pieces: number) {
+  if (!pieces) return
+  if (!acc[typeId]) acc[typeId] = {}
+  acc[typeId][size] = (acc[typeId][size] ?? 0) + pieces
+}
+
+// One row per garment type (column order), sizes in the type's configured
+// order — not in the order of whoever happened to order first.
+function summarize(counts: SizeCounts): SummaryRow[] {
+  return summaryTypes.value.flatMap((type) => {
+    const bySize = counts[type.id]
+    if (!bySize) return []
+    const order = sizesOf(type)
+    const rank = (size: string) => {
+      const i = order.indexOf(size)
+      return i === -1 ? order.length : i
+    }
+    const sizes = Object.entries(bySize)
+      .filter(([, count]) => count > 0)
+      .map(([size, count]) => ({ size, count }))
+      .sort((a, b) => rank(a.size) - rank(b.size) || a.size.localeCompare(b.size))
+    const total = sizes.reduce((sum, s) => sum + s.count, 0)
+    return total > 0 ? [{ id: type.id, name: type.name, total, sizes }] : []
+  })
+}
+
+const serverCounts = computed<SizeCounts>(() => {
+  const acc: SizeCounts = {}
+  for (const p of report.value?.participants ?? []) {
+    for (const s of p.shirts) addCount(acc, s.shirtTypeId, s.size, 1)
+  }
+  return acc
+})
+
+const walkerCounts = computed<SizeCounts>(() => {
+  const acc: SizeCounts = {}
+  for (const w of report.value?.walkerShirts ?? []) {
+    addCount(acc, walkerGarment.value.id, w.size, w.count)
+  }
+  return acc
+})
+
+const estimateCounts = computed<SizeCounts>(() => {
+  const acc: SizeCounts = {}
+  const bySize = report.value?.estimate?.estimatedShirts ?? {}
+  for (const [size, pieces] of Object.entries(bySize)) {
+    addCount(acc, walkerGarment.value.id, size, pieces)
+  }
+  return acc
+})
+
+const walkerCount = computed(() => report.value?.walkerCount ?? 0)
+const expectedWalkers = computed(() => report.value?.estimate?.expectedWalkers ?? null)
+
+function piecesLabel(n: number): string {
+  return `${n} pieza${n === 1 ? '' : 's'}`
+}
+
+const orderSections = computed(() => {
+  const servers = summarize(serverCounts.value)
+  const walkers = summarize(walkerCounts.value)
+  const estimate = summarize(estimateCounts.value)
+  const missing =
+    expectedWalkers.value != null ? Math.max(expectedWalkers.value - walkerCount.value, 0) : null
+  const sections = [
+    {
+      key: 'servers',
+      emoji: '👥',
+      title: 'Equipo servidor',
+      note: `${totals.value.requiring} de ${totals.value.total} personas`,
+      rows: servers,
+      visible: servers.length > 0,
+    },
+    {
+      key: 'walkers',
+      emoji: '🚶',
+      title: 'Caminantes inscritos',
+      note:
+        `${walkerCount.value} inscritos` +
+        (expectedWalkers.value != null ? `, se esperan ${expectedWalkers.value}` : ''),
+      rows: walkers,
+      visible: walkers.length > 0 || walkerCount.value > 0,
+    },
+    {
+      key: 'estimate',
+      emoji: '➕',
+      title: 'Estimado de caminantes faltantes',
+      note: missing != null ? `faltan ~${missing}` : '',
+      rows: estimate,
+      visible: estimate.length > 0 || expectedWalkers.value != null,
+    },
+  ]
+  return sections.map((s) => ({ ...s, total: s.rows.reduce((sum, r) => sum + r.total, 0) }))
+})
+
+const visibleSections = computed(() => orderSections.value.filter((s) => s.visible))
+
+// What actually gets bought: the three sections merged per type × size.
+const orderTotalRows = computed(() => {
+  const merged: SizeCounts = {}
+  for (const counts of [serverCounts.value, walkerCounts.value, estimateCounts.value]) {
+    for (const [typeId, bySize] of Object.entries(counts)) {
+      for (const [size, pieces] of Object.entries(bySize)) addCount(merged, typeId, size, pieces)
+    }
+  }
+  return summarize(merged)
+})
+
+const orderTotalPieces = computed(() => orderTotalRows.value.reduce((sum, r) => sum + r.total, 0))
+
+// The merged block only adds information when more than one source has pieces.
+const showMergedTotal = computed(
+  () => orderSections.value.filter((s) => s.rows.length > 0).length > 1,
+)
+
+function summaryLine(row: SummaryRow): string {
+  return `- ${row.name} (${row.total}): ${row.sizes.map((s) => `${s.size}×${s.count}`).join(', ')}`
+}
+
+// WhatsApp text for the supplier: single-asterisk bold, "-" bullets, no prices
+// (the supplier is asked for pieces; prices are what servers get charged).
+function buildOrderSummaryText(): string {
+  const parish = retreatStore.retreats.find((r) => r.id === currentRetreatId.value)?.parish
+  const lines = [`*Pedido de prendas — ${parish || 'retiro'}* 👕`]
+  for (const section of orderSections.value) {
+    if (section.rows.length === 0) continue
+    lines.push('', `${section.emoji} *${section.title}* (${section.note || piecesLabel(section.total)})`)
+    lines.push(...section.rows.map(summaryLine))
+  }
+  if (showMergedTotal.value) {
+    lines.push('', '📦 *Total a pedir*', ...orderTotalRows.value.map(summaryLine))
+  }
+  lines.push('', `*Total: ${piecesLabel(orderTotalPieces.value)}*`)
+  return lines.join('\n')
+}
+
+async function copyOrderSummary() {
+  try {
+    await navigator.clipboard.writeText(buildOrderSummaryText())
+    toast({ title: 'Resumen copiado', description: 'Listo para pegar en WhatsApp' })
+  } catch (e) {
+    console.error('Error copying order summary:', e)
+    toast({
+      title: 'Error',
+      description: 'No se pudo copiar el resumen',
+      variant: 'destructive',
+    })
+  }
+}
+
+// ── Walker estimate dialog ──────────────────────────────────────────────────
+// "10 registered, 40 expected": the coordinator estimates the missing walkers'
+// sizes so the purchase covers them. Saved per retreat (survives reloads and
+// shows up on the printed report).
+
+const canEstimate = computed(() => can.update('retreat'))
+const estimateDialogOpen = ref(false)
+const savingEstimate = ref(false)
+// Inputs hold strings while typing; parsed on save.
+const estimateExpected = ref<string | number>('')
+const estimateDraft = ref<Record<string, string | number>>({})
+
+// The garment's sizes, plus any size already in use by registered walkers or a
+// saved estimate (legacy imports can carry sizes the type does not list).
+const estimateSizes = computed<string[]>(() => {
+  const sizes = [...sizesOf(walkerGarment.value)]
+  const seen = [
+    ...Object.keys(walkerCounts.value[walkerGarment.value.id] ?? {}),
+    ...Object.keys(report.value?.estimate?.estimatedShirts ?? {}),
+  ]
+  for (const size of seen) if (!sizes.includes(size)) sizes.push(size)
+  return sizes
+})
+
+function toCount(value: string | number | null | undefined): number {
+  const n = Number(value)
+  return Number.isFinite(n) && n > 0 ? Math.round(n) : 0
+}
+
+const draftMissing = computed(() => {
+  if (String(estimateExpected.value).trim() === '') return null
+  return Math.max(toCount(estimateExpected.value) - walkerCount.value, 0)
+})
+
+const draftPieces = computed(() =>
+  Object.values(estimateDraft.value).reduce<number>((sum, v) => sum + toCount(v), 0),
+)
+
+function openEstimateDialog() {
+  const saved = report.value?.estimate
+  estimateExpected.value = saved?.expectedWalkers ?? ''
+  const draft: Record<string, string | number> = {}
+  for (const size of estimateSizes.value) draft[size] = saved?.estimatedShirts?.[size] ?? ''
+  estimateDraft.value = draft
+  estimateDialogOpen.value = true
+}
+
+// Spreads the missing walkers over the sizes of those already registered
+// (largest-remainder rounding, so the pieces add up exactly to the missing).
+function distributeByRegistered() {
+  const missing = draftMissing.value
+  const base = walkerCounts.value[walkerGarment.value.id] ?? {}
+  const sizes = estimateSizes.value
+  const baseTotal = sizes.reduce((sum, size) => sum + (base[size] ?? 0), 0)
+  if (!missing || baseTotal === 0) return
+  const quotas = sizes.map((size) => {
+    const exact = (missing * (base[size] ?? 0)) / baseTotal
+    return { size, count: Math.floor(exact), rest: exact - Math.floor(exact) }
+  })
+  let left = missing - quotas.reduce((sum, q) => sum + q.count, 0)
+  for (const q of [...quotas].sort((a, b) => b.rest - a.rest)) {
+    if (left <= 0) break
+    q.count++
+    left--
+  }
+  for (const q of quotas) estimateDraft.value[q.size] = q.count || ''
+}
+
+const canDistribute = computed(
+  () =>
+    !!draftMissing.value &&
+    Object.values(walkerCounts.value[walkerGarment.value.id] ?? {}).some((n) => n > 0),
+)
+
+async function persistEstimate(estimate: ShirtOrderEstimate | null) {
+  const retreatId = currentRetreatId.value
+  if (!retreatId || savingEstimate.value) return
+  savingEstimate.value = true
+  try {
+    await setShirtOrderEstimate(retreatId, estimate)
+    // The server stores exactly this payload: update in place, no refetch
+    // (and no table skeleton flash). Skip if the retreat changed meanwhile.
+    if (report.value && currentRetreatId.value === retreatId) report.value.estimate = estimate
+    estimateDialogOpen.value = false
+    toast({ title: estimate ? 'Estimado guardado' : 'Estimado eliminado' })
+  } catch (e) {
+    console.error('Error saving shirt order estimate:', e)
+    toast({
+      title: 'Error',
+      description: 'No se pudo guardar el estimado',
+      variant: 'destructive',
+    })
+  } finally {
+    savingEstimate.value = false
+  }
+}
+
+function saveEstimate() {
+  const estimatedShirts: Record<string, number> = {}
+  for (const [size, value] of Object.entries(estimateDraft.value)) {
+    const pieces = toCount(value)
+    if (pieces) estimatedShirts[size] = pieces
+  }
+  const expected =
+    String(estimateExpected.value).trim() === '' ? null : toCount(estimateExpected.value)
+  // Nothing typed at all: clearing beats storing an empty estimate.
+  const isEmpty = expected == null && Object.keys(estimatedShirts).length === 0
+  void persistEstimate(isEmpty ? null : { expectedWalkers: expected, estimatedShirts })
+}
+
+function clearEstimate() {
+  void persistEstimate(null)
+}
 
 function clearSearch() {
   searchQuery.value = ''
@@ -527,6 +861,205 @@ watch(
         </span>
       </div>
     </div>
+
+    <!-- ── Purchase summary ───────────────────────────────── -->
+    <div
+      v-if="!loading && report && sortedShirtTypes.length > 0"
+      data-testid="order-summary"
+      class="bg-white border border-gray-200 rounded-xl shadow-sm p-4"
+    >
+      <div class="flex flex-col sm:flex-row sm:items-center gap-3">
+        <div class="flex items-center gap-3 min-w-0">
+          <div class="flex-shrink-0 flex items-center justify-center w-10 h-10 rounded-xl bg-indigo-100">
+            <Package class="w-5 h-5 text-indigo-600" />
+          </div>
+          <div class="min-w-0">
+            <h3 class="text-base font-semibold text-gray-900 leading-tight">Resumen de pedido</h3>
+            <p class="text-xs text-gray-500 mt-0.5">
+              Piezas por talla para el proveedor: equipo completo, caminantes y estimado
+            </p>
+          </div>
+        </div>
+        <div class="flex items-center gap-2 sm:ml-auto flex-wrap no-print">
+          <button
+            v-if="canEstimate"
+            type="button"
+            class="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg border text-xs font-medium bg-white border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors"
+            title="Estimar las tallas de los caminantes que faltan por inscribirse"
+            @click="openEstimateDialog"
+          >
+            <Calculator class="w-3.5 h-3.5" />
+            Estimar caminantes
+          </button>
+          <button
+            type="button"
+            class="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg border text-xs font-medium bg-white border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            :disabled="orderTotalPieces === 0"
+            title="Copiar el pedido listo para WhatsApp"
+            @click="copyOrderSummary"
+          >
+            <Copy class="w-3.5 h-3.5" />
+            Copiar resumen
+          </button>
+        </div>
+      </div>
+
+      <p v-if="visibleSections.length === 0" class="mt-4 text-sm text-gray-400">
+        Aún no hay prendas pedidas en este retiro.
+      </p>
+
+      <div v-else class="mt-4 space-y-4">
+        <section
+          v-for="section in visibleSections"
+          :key="section.key"
+          :data-testid="`order-section-${section.key}`"
+        >
+          <div class="flex items-baseline justify-between gap-2 border-b border-gray-100 pb-1 mb-2">
+            <h4 class="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">
+              {{ section.title }}
+              <span v-if="section.note" class="normal-case font-normal text-gray-400">· {{ section.note }}</span>
+            </h4>
+            <span class="text-xs font-medium text-gray-500 tabular-nums whitespace-nowrap">
+              {{ piecesLabel(section.total) }}
+            </span>
+          </div>
+          <p v-if="section.rows.length === 0" class="text-xs text-gray-400">
+            Sin tallas registradas todavía.
+          </p>
+          <p
+            v-if="section.key === 'walkers' && !walkerGarmentFlagged"
+            class="text-xs text-gray-400 mb-1 no-print"
+          >
+            Ninguna prenda está marcada para caminantes en Tipos de camiseta: su camiseta se cuenta aparte.
+          </p>
+          <div
+            v-for="row in section.rows"
+            :key="row.id"
+            data-testid="order-row"
+            class="flex flex-wrap items-center gap-x-3 gap-y-1 py-1"
+          >
+            <span class="text-sm font-medium text-gray-800 w-44 shrink-0">{{ row.name }}</span>
+            <span class="text-xs text-gray-500 tabular-nums w-16">{{ piecesLabel(row.total) }}</span>
+            <span class="flex flex-wrap gap-1.5">
+              <span
+                v-for="s in row.sizes"
+                :key="s.size"
+                class="inline-flex items-center gap-1 text-xs text-gray-700"
+              >
+                <span class="inline-flex items-center justify-center min-w-[1.75rem] h-6 px-1.5 rounded text-xs font-bold bg-indigo-100 text-indigo-700">{{ s.size }}</span>
+                <span class="font-semibold tabular-nums">×{{ s.count }}</span>
+              </span>
+            </span>
+          </div>
+        </section>
+
+        <section v-if="showMergedTotal" data-testid="order-section-total">
+          <div class="flex items-baseline justify-between gap-2 border-b border-gray-200 pb-1 mb-2">
+            <h4 class="text-[11px] font-semibold text-gray-700 uppercase tracking-wide">Total a pedir</h4>
+          </div>
+          <div
+            v-for="row in orderTotalRows"
+            :key="row.id"
+            data-testid="order-row"
+            class="flex flex-wrap items-center gap-x-3 gap-y-1 py-1"
+          >
+            <span class="text-sm font-semibold text-gray-900 w-44 shrink-0">{{ row.name }}</span>
+            <span class="text-xs text-gray-500 tabular-nums w-16">{{ piecesLabel(row.total) }}</span>
+            <span class="flex flex-wrap gap-1.5">
+              <span
+                v-for="s in row.sizes"
+                :key="s.size"
+                class="inline-flex items-center gap-1 text-xs text-gray-700"
+              >
+                <span class="inline-flex items-center justify-center min-w-[1.75rem] h-6 px-1.5 rounded text-xs font-bold bg-emerald-100 text-emerald-700">{{ s.size }}</span>
+                <span class="font-semibold tabular-nums">×{{ s.count }}</span>
+              </span>
+            </span>
+          </div>
+        </section>
+
+        <div
+          class="flex items-center justify-end border-t border-gray-200 pt-2 text-sm font-semibold text-gray-900"
+          data-testid="order-total"
+        >
+          Total del pedido: {{ piecesLabel(orderTotalPieces) }}
+        </div>
+      </div>
+    </div>
+
+    <!-- Walker estimate. Mounted from the start, opened through its ref. -->
+    <Dialog v-model:open="estimateDialogOpen">
+      <DialogContent class="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Estimar caminantes faltantes</DialogTitle>
+          <DialogDescription>
+            Piezas extra a pedir por talla, para los caminantes que aún no se inscriben.
+            Hay {{ walkerCount }} inscritos.
+          </DialogDescription>
+        </DialogHeader>
+        <div class="space-y-4 py-1">
+          <div>
+            <label class="text-sm font-medium text-gray-700" for="estimate-expected">
+              Caminantes esperados en total
+            </label>
+            <Input
+              id="estimate-expected"
+              v-model="estimateExpected"
+              type="number"
+              min="0"
+              step="1"
+              placeholder="Ej. 40"
+              data-testid="estimate-expected"
+            />
+            <p v-if="draftMissing != null" class="text-xs text-gray-500 mt-1">
+              Faltan ~{{ draftMissing }} por inscribirse.
+            </p>
+          </div>
+
+          <div class="space-y-2">
+            <div class="flex items-baseline justify-between">
+              <span class="text-sm font-medium text-gray-700">{{ walkerGarment.name }}</span>
+              <span class="text-xs text-gray-500 tabular-nums">{{ piecesLabel(draftPieces) }}</span>
+            </div>
+            <div class="grid grid-cols-5 gap-2">
+              <div v-for="size in estimateSizes" :key="size" class="text-center">
+                <div class="text-xs font-bold text-indigo-700 mb-1">{{ size }}</div>
+                <Input
+                  v-model="estimateDraft[size]"
+                  type="number"
+                  min="0"
+                  step="1"
+                  class="h-8 text-center px-1"
+                  :data-testid="`estimate-size-${size}`"
+                />
+              </div>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            class="text-xs text-indigo-600 hover:text-indigo-800 underline disabled:opacity-40 disabled:no-underline disabled:cursor-not-allowed"
+            :disabled="!canDistribute"
+            title="Reparte los faltantes con la misma proporción de tallas que los inscritos"
+            @click="distributeByRegistered"
+          >
+            Repartir los faltantes como los inscritos
+          </button>
+        </div>
+        <DialogFooter class="gap-2">
+          <Button
+            v-if="report?.estimate"
+            variant="outline"
+            :disabled="savingEstimate"
+            @click="clearEstimate"
+          >
+            Quitar estimado
+          </Button>
+          <Button variant="outline" @click="estimateDialogOpen = false">Cancelar</Button>
+          <Button :disabled="savingEstimate" @click="saveEstimate">Guardar</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
 
     <!-- Dialog central de mensajería. Montado desde el arranque (sin v-if):
          el watcher de forceTemplateType solo dispara si ya está montado

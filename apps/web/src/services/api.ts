@@ -917,7 +917,7 @@ export const getParticipantsByRetreat = async (
   return response.data;
 };
 
-import type { ShirtReportResponse } from "@repo/types";
+import type { ShirtReportResponse, ShirtOrderEstimate } from "@repo/types";
 
 export const getShirtReport = async (
   retreatId: string,
@@ -1016,6 +1016,19 @@ export async function updateShirtOrderConfirmation(
     `/history/retreat/${retreatId}/participant/${participantId}/shirt-order-confirmation`,
     { confirmed },
   );
+}
+
+/** Saves the walker estimate of the shirts purchase; `null` clears it. */
+export async function setShirtOrderEstimate(
+  retreatId: string,
+  estimate: ShirtOrderEstimate | null,
+): Promise<void> {
+  const url = `/retreats/${retreatId}/shirt-order-estimate`;
+  if (estimate === null) {
+    await api.delete(url);
+  } else {
+    await api.put(url, estimate);
+  }
 }
 
 /**
