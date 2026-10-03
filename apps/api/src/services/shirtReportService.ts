@@ -1,5 +1,6 @@
 import { AppDataSource } from '../data-source';
 import { RetreatShirtType } from '../entities/retreatShirtType.entity';
+import { Retreat } from '../entities/retreat.entity';
 import { formatCurrency } from '@repo/utils';
 
 export type ShirtReportShirt = {
@@ -36,12 +37,32 @@ export type ShirtReportShirtType = {
 	price: number | null;
 	/** Per-size overrides; a size's effective price is COALESCE(override, price, 0). */
 	sizePrices: { size: string; price: number }[];
+	/** Sizes the type offers; the walker estimate dialog renders one input each. */
+	availableSizes: string[] | null;
+	/** The garment walkers pick at registration (falls back to the first type). */
+	requiredForWalkers: boolean;
+};
+
+/** Walkers' shirt sizes — counts only, no PII. A walker wears a single garment. */
+export type ShirtReportWalkerShirt = {
+	size: string;
+	count: number;
+};
+
+export type ShirtOrderEstimate = {
+	expectedWalkers?: number | null;
+	/** Walker garment pieces to add, by size: { size: pieces }. */
+	estimatedShirts?: Record<string, number>;
 };
 
 export type ShirtReportResponse = {
 	shirtTypes: ShirtReportShirtType[];
 	participants: ShirtReportParticipant[];
 	totalCharge: number;
+	/** Non-cancelled walkers of the retreat (registered so far). */
+	walkerCount: number;
+	walkerShirts: ShirtReportWalkerShirt[];
+	estimate: ShirtOrderEstimate | null;
 };
 
 type Row = {
@@ -85,6 +106,8 @@ export const getShirtOrdersForRetreat = async (
 			size: sp.size,
 			price: Number(sp.price),
 		})),
+		availableSizes: t.availableSizes ?? null,
+		requiredForWalkers: !!t.requiredForWalkers,
 	}));
 
 	// Single query: join participants + retreat_participants + participant_shirt_size + retreat_shirt_type
@@ -179,11 +202,83 @@ export const getShirtOrdersForRetreat = async (
 	const participants = Array.from(byParticipant.values());
 	const totalCharge = Math.round(participants.reduce((sum, p) => sum + p.shirtCharge, 0) * 100) / 100;
 
+	// Walkers feed only the purchase summary: their garment is included in the
+	// retreat fee (never charged), so they are counted by size instead of
+	// listed. One size per walker: their participant_shirt_size row for a type
+	// of THIS retreat (the walker type first), else the legacy
+	// participants.tshirtSize — walkers imported from Excel only have the
+	// legacy column (the bags report reads it too), and skipping it left the
+	// whole walker side of the order empty.
+	const walkerRows: { size: string; count: number | string }[] = await AppDataSource.query(
+		`SELECT walkerSize AS size, COUNT(*) AS count
+		 FROM (
+		   SELECT COALESCE(
+		     (SELECT pss.size
+		      FROM participant_shirt_size pss
+		      INNER JOIN retreat_shirt_type rst
+		        ON rst.id = pss.shirtTypeId
+		        AND rst.retreatId = ?
+		      WHERE pss.participantId = rp.participantId
+		        AND pss.size IS NOT NULL
+		        AND pss.size != ''
+		        AND pss.size != 'null'
+		      ORDER BY rst.requiredForWalkers DESC, rst.sortOrder ASC
+		      LIMIT 1),
+		     CASE
+		       WHEN p.tshirtSize IS NOT NULL AND p.tshirtSize != '' AND p.tshirtSize != 'null'
+		       THEN p.tshirtSize
+		     END
+		   ) AS walkerSize
+		   FROM retreat_participants rp
+		   INNER JOIN participants p ON p.id = rp.participantId
+		   WHERE rp.retreatId = ?
+		     AND rp.type = 'walker'
+		     AND rp.isCancelled = 0
+		 ) w
+		 WHERE walkerSize IS NOT NULL
+		 GROUP BY walkerSize`,
+		[retreatId, retreatId],
+	);
+	const walkerShirts: ShirtReportWalkerShirt[] = walkerRows.map((r) => ({
+		size: r.size,
+		count: Number(r.count),
+	}));
+
+	const walkerCountRows: { count: number | string }[] = await AppDataSource.query(
+		`SELECT COUNT(*) AS count FROM retreat_participants
+		 WHERE retreatId = ? AND type = 'walker' AND isCancelled = 0`,
+		[retreatId],
+	);
+	const walkerCount = Number(walkerCountRows[0]?.count ?? 0);
+
+	const retreat = await AppDataSource.getRepository(Retreat).findOne({
+		where: { id: retreatId },
+		select: { id: true, shirtOrderEstimate: true },
+	});
+
 	return {
 		shirtTypes,
 		participants,
 		totalCharge,
+		walkerCount,
+		walkerShirts,
+		estimate: retreat?.shirtOrderEstimate ?? null,
 	};
+};
+
+/**
+ * Saves (or clears, with null) the walker estimate of a retreat. Returns false
+ * when the retreat does not exist.
+ */
+export const setShirtOrderEstimate = async (
+	retreatId: string,
+	estimate: ShirtOrderEstimate | null,
+): Promise<boolean> => {
+	const repo = AppDataSource.getRepository(Retreat);
+	const retreat = await repo.findOne({ where: { id: retreatId }, select: { id: true } });
+	if (!retreat) return false;
+	await repo.update({ id: retreatId }, { shirtOrderEstimate: estimate });
+	return true;
 };
 
 export type ParticipantShirtOrderSummary = {

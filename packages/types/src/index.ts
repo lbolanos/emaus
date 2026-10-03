@@ -701,13 +701,48 @@ export const shirtReportShirtTypeSchema = z.object({
 	sortOrder: z.number(),
 	price: z.number().nullable(),
 	sizePrices: z.array(shirtTypeSizePriceSchema).optional(),
+	// Sizes the type offers (retreat_shirt_type.availableSizes); the walker
+	// estimate dialog renders one input per size. Null = the type never set them.
+	availableSizes: z.array(z.string()).nullable().optional(),
+	// The garment walkers pick at registration (the first type when none is flagged).
+	requiredForWalkers: z.boolean().optional(),
 });
 export type ShirtReportShirtType = z.infer<typeof shirtReportShirtTypeSchema>;
+
+// Walkers' shirt sizes — counts only, no PII. A walker wears a single garment:
+// the type flagged requiredForWalkers, or a "walker shirt" of its own.
+export const shirtReportWalkerShirtSchema = z.object({
+	size: z.string(),
+	count: z.number(),
+});
+export type ShirtReportWalkerShirt = z.infer<typeof shirtReportWalkerShirtSchema>;
+
+// Manual estimate of the walkers still expected to register, so the purchase
+// covers them too ("10 registered, 40 expected"). Stored per retreat in
+// retreat.shirtOrderEstimate. estimatedShirts = walker garment pieces by size.
+export const shirtOrderEstimateSchema = z.object({
+	expectedWalkers: z.number().int().min(0).max(10000).nullable().optional(),
+	// Bounded: it is stored as-is in a JSON column and rendered on every report.
+	estimatedShirts: z
+		.record(z.string().min(1).max(20), z.number().int().min(0).max(9999))
+		.refine((sizes) => Object.keys(sizes).length <= 30, { message: 'Demasiadas tallas' })
+		.optional(),
+});
+export type ShirtOrderEstimate = z.infer<typeof shirtOrderEstimateSchema>;
+
+// PUT /retreats/:retreatId/shirt-order-estimate
+export const setShirtOrderEstimateSchema = z.object({
+	body: shirtOrderEstimateSchema,
+});
 
 export const shirtReportResponseSchema = z.object({
 	shirtTypes: z.array(shirtReportShirtTypeSchema),
 	participants: z.array(shirtReportParticipantSchema),
 	totalCharge: z.number(),
+	// Purchase summary inputs beyond the server team.
+	walkerCount: z.number().optional(),
+	walkerShirts: z.array(shirtReportWalkerShirtSchema).optional(),
+	estimate: shirtOrderEstimateSchema.nullable().optional(),
 });
 export type ShirtReportResponse = z.infer<typeof shirtReportResponseSchema>;
 

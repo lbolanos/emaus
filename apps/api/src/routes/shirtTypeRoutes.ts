@@ -1,8 +1,14 @@
 import { Router } from 'express';
 import { isAuthenticated } from '../middleware/isAuthenticated';
 import { requirePermission, requireRetreatAccess } from '../middleware/authorization';
+import { validateRequest } from '../middleware/validateRequest';
+import { setShirtOrderEstimateSchema } from '@repo/types';
 import { list, create, update, remove } from '../controllers/shirtTypeController';
-import { getShirtReport } from '../controllers/shirtReportController';
+import {
+	getShirtReport,
+	putShirtOrderEstimate,
+	deleteShirtOrderEstimate,
+} from '../controllers/shirtReportController';
 
 const router = Router();
 
@@ -22,6 +28,23 @@ router.get(
 	requirePermission('participant:read'),
 	requireRetreatAccess('retreatId'),
 	getShirtReport,
+);
+
+// Walker estimate for the purchase summary: it changes what the retreat buys,
+// so it takes retreat:update (not participant:*) plus access to the retreat.
+// assignParsedBody: the controller only ever sees the schema's two fields.
+router.put(
+	'/retreats/:retreatId/shirt-order-estimate',
+	requirePermission('retreat:update'),
+	requireRetreatAccess('retreatId'),
+	validateRequest(setShirtOrderEstimateSchema, { assignParsedBody: true }),
+	putShirtOrderEstimate,
+);
+router.delete(
+	'/retreats/:retreatId/shirt-order-estimate',
+	requirePermission('retreat:update'),
+	requireRetreatAccess('retreatId'),
+	deleteShirtOrderEstimate,
 );
 
 export default router;

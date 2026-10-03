@@ -3,7 +3,10 @@
  * y angelitos) del retiro con sus prendas pedidas, para el reporte semanal.
  *
  * Reglas cubiertas:
- *  - Walkers excluidos (aunque tengan prendas en `participant_shirt_size`).
+ *  - Walkers excluidos de `participants` (aunque tengan prendas en
+ *    `participant_shirt_size`): solo entran al resumen de compra, contados
+ *    por talla en `walkerShirts` (su fila de prenda o, si no tienen, la
+ *    columna legacy `tshirtSize` de los importados), junto al estimado.
  *  - Participantes cancelados excluidos.
  *  - Participantes sin prendas INCLUIDOS con `shirts: []` — la secuencia
  *    SERVER_SHIRT_CONFIRMATION enrola a todo el equipo y el "no necesito
@@ -23,7 +26,11 @@ import { RetreatParticipant } from '@/entities/retreatParticipant.entity';
 import { v4 as uuidv4 } from 'uuid';
 
 import { createShirtType } from '@/services/shirtTypeService';
-import { getShirtOrdersForRetreat, getParticipantShirtOrderSummary } from '@/services/shirtReportService';
+import {
+	getShirtOrdersForRetreat,
+	getParticipantShirtOrderSummary,
+	setShirtOrderEstimate,
+} from '@/services/shirtReportService';
 import { syncRetreatFields } from '@/services/retreatParticipantService';
 
 const getDS = () => TestDataFactory['testDataSource'];
@@ -522,6 +529,139 @@ describe('Shirt Report Service', () => {
 		const reportB = await getShirtOrdersForRetreat(retreatB);
 		expect(reportA.participants[0].shirtOrderConfirmedAt).not.toBeNull();
 		expect(reportB.participants[0].shirtOrderConfirmedAt).toBeNull();
+	});
+
+	// --- Purchase summary: walkers + estimate ---
+
+	it('counts walker sizes (counts only), leaving servers out of it', async () => {
+		const retreatId = await makeRetreat();
+		const playera = await createShirtType(retreatId, { name: 'Playera', sortOrder: 1 });
+
+		for (const size of ['M', 'M', 'G']) {
+			const walker = await TestDataFactory.createTestParticipant(retreatId, {
+				type: 'walker',
+			} as any);
+			await assignShirtSize(walker.id, playera.id, size);
+		}
+		const server = await TestDataFactory.createTestParticipant(retreatId, {
+			firstName: 'Server',
+			type: 'server',
+		} as any);
+		await assignShirtSize(server.id, playera.id, 'M');
+
+		const result = await getShirtOrdersForRetreat(retreatId);
+
+		const bySize = Object.fromEntries(result.walkerShirts.map((w) => [w.size, w.count]));
+		expect(bySize).toEqual({ M: 2, G: 1 });
+		// Counts arrive as numbers (raw SQLite COUNT), never strings.
+		expect(typeof result.walkerShirts[0].count).toBe('number');
+		expect(result.walkerCount).toBe(3);
+		// The server stays in participants and out of the walker counts.
+		expect(result.participants).toHaveLength(1);
+	});
+
+	it('falls back to the legacy participants.tshirtSize for walkers imported without a shirt row', async () => {
+		const retreatId = await makeRetreat();
+		await createShirtType(retreatId, { name: 'Playera' });
+
+		// Excel imports only fill the legacy column (the bags report reads it).
+		for (const size of ['G', 'G', 'S']) {
+			await TestDataFactory.createTestParticipant(retreatId, {
+				type: 'walker',
+				tshirtSize: size,
+			} as any);
+		}
+
+		const result = await getShirtOrdersForRetreat(retreatId);
+		const bySize = Object.fromEntries(result.walkerShirts.map((w) => [w.size, w.count]));
+		expect(bySize).toEqual({ G: 2, S: 1 });
+	});
+
+	it('one size per walker: the shirt row wins over the legacy column (no double count)', async () => {
+		const retreatId = await makeRetreat();
+		const playera = await createShirtType(retreatId, { name: 'Playera' });
+
+		const walker = await TestDataFactory.createTestParticipant(retreatId, {
+			type: 'walker',
+			tshirtSize: 'S',
+		} as any);
+		await assignShirtSize(walker.id, playera.id, 'X');
+
+		const result = await getShirtOrdersForRetreat(retreatId);
+		expect(result.walkerShirts).toEqual([{ size: 'X', count: 1 }]);
+	});
+
+	it('walker counts skip cancelled walkers, placeholder sizes and other retreats', async () => {
+		const retreatA = await makeRetreat();
+		const retreatB = await makeRetreat();
+		const shirtA = await createShirtType(retreatA, { name: 'Playera A' });
+		const shirtB = await createShirtType(retreatB, { name: 'Playera B' });
+
+		const walker = await TestDataFactory.createTestParticipant(retreatA, {
+			type: 'walker',
+		} as any);
+		await assignShirtSize(walker.id, shirtA.id, 'M');
+
+		// Only row is against ANOTHER retreat's type and no legacy size: must not
+		// leak in as that size.
+		const crossOnly = await TestDataFactory.createTestParticipant(retreatA, {
+			type: 'walker',
+		} as any);
+		await assignShirtSize(crossOnly.id, shirtB.id, 'G');
+
+		const cancelled = await TestDataFactory.createTestParticipant(retreatA, {
+			type: 'walker',
+			isCancelled: true,
+			tshirtSize: 'X',
+		} as any);
+		await assignShirtSize(cancelled.id, shirtA.id, 'X');
+
+		const noSize = await TestDataFactory.createTestParticipant(retreatA, {
+			type: 'walker',
+			tshirtSize: 'null',
+		} as any);
+		await assignShirtSize(noSize.id, shirtA.id, '');
+
+		const result = await getShirtOrdersForRetreat(retreatA);
+		expect(result.walkerShirts).toEqual([{ size: 'M', count: 1 }]);
+		// Registered walkers = non-cancelled, with or without a size.
+		expect(result.walkerCount).toBe(3);
+	});
+
+	it('shirtTypes carry availableSizes for the estimate dialog', async () => {
+		const retreatId = await makeRetreat();
+		await createShirtType(retreatId, { name: 'Playera', availableSizes: ['S', 'M', 'G'] } as any);
+		await createShirtType(retreatId, { name: 'Sin tallas', sortOrder: 2 });
+
+		const result = await getShirtOrdersForRetreat(retreatId);
+		expect(result.shirtTypes[0].availableSizes).toEqual(['S', 'M', 'G']);
+		expect(result.shirtTypes[1]).toHaveProperty('availableSizes');
+	});
+
+	it('estimate is null by default, round-trips once saved and clears back to null', async () => {
+		const retreatId = await makeRetreat();
+
+		expect((await getShirtOrdersForRetreat(retreatId)).estimate).toBeNull();
+
+		const estimate = { expectedWalkers: 40, estimatedShirts: { M: 10, G: 12 } };
+		expect(await setShirtOrderEstimate(retreatId, estimate)).toBe(true);
+		expect((await getShirtOrdersForRetreat(retreatId)).estimate).toEqual(estimate);
+
+		expect(await setShirtOrderEstimate(retreatId, null)).toBe(true);
+		expect((await getShirtOrdersForRetreat(retreatId)).estimate).toBeNull();
+	});
+
+	it('setShirtOrderEstimate reports a missing retreat instead of writing nothing silently', async () => {
+		expect(await setShirtOrderEstimate(uuidv4(), { expectedWalkers: 10 })).toBe(false);
+	});
+
+	it('the estimate is per-retreat', async () => {
+		const retreatA = await makeRetreat();
+		const retreatB = await makeRetreat();
+		await setShirtOrderEstimate(retreatA, { expectedWalkers: 40 });
+
+		expect((await getShirtOrdersForRetreat(retreatA)).estimate).toEqual({ expectedWalkers: 40 });
+		expect((await getShirtOrdersForRetreat(retreatB)).estimate).toBeNull();
 	});
 });
 

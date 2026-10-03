@@ -263,7 +263,13 @@ export const update = async (
 	const newStartMs = newStartRaw !== undefined ? toMs(newStartRaw) : null;
 
 	const oldSnapshot = { ...retreat };
-	Object.assign(retreat, retreatData);
+	// shirtOrderEstimate is written only by its dedicated endpoint: the raw body
+	// reaches here unparsed (validateRequest only validates), and the retreat
+	// edit form re-sends the whole DTO — a stale copy would silently revert a
+	// newer estimate saved from the shirts report.
+	const { shirtOrderEstimate: _writeProtected, ...writableData } =
+		retreatData as UpdateRetreat & { shirtOrderEstimate?: unknown };
+	Object.assign(retreat, writableData);
 	await retreatRepository.save(retreat);
 	void domainAuditService.logUpdate('retreat', id, oldSnapshot, retreat, {
 		retreatId: id,

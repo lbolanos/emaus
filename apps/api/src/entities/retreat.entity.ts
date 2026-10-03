@@ -144,6 +144,18 @@ export class Retreat {
 	@Column({ type: 'simple-json', nullable: true })
 	flyer_options?: Record<string, any>;
 
+	/**
+	 * Manual estimate of the walkers still expected to register, with their
+	 * garment pieces by size ({ expectedWalkers, estimatedShirts: { size:
+	 * pieces } }), so the shirt purchase covers them. Written only by
+	 * PUT/DELETE /retreats/:retreatId/shirt-order-estimate.
+	 */
+	@Column({ type: 'simple-json', nullable: true })
+	shirtOrderEstimate?: {
+		expectedWalkers?: number | null;
+		estimatedShirts?: Record<string, number>;
+	} | null;
+
 	@Column({ type: 'varchar', nullable: true, unique: true })
 	slug?: string;
 
