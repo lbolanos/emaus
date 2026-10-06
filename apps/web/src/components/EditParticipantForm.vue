@@ -5,6 +5,7 @@ import { formatCurrency, resolvePalancas } from '@repo/utils';
 import TagSelector from './TagSelector.vue';
 import AngelitoAvailabilityEditor from './AngelitoAvailabilityEditor.vue';
 import { getParticipantTags, assignTagToParticipant, removeTagFromParticipant, getPalanqueroOptions as fetchPalanqueroOptions, santisimoApi } from '@/services/api';
+import { PICKUP_LOCATIONS } from '@/constants/pickupLocations';
 import { useI18n } from 'vue-i18n';
 import { useToast } from '@repo/ui';
 import { useRetreatStore } from '@/stores/retreatStore';
@@ -787,14 +788,9 @@ const calculateAge = (birthDate: string | Date) => {
                   <SelectValue placeholder="Seleccionar Punto de Encuentro" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Parroquia">Parroquia</SelectItem>
-                  <SelectItem value="Polanco">Polanco</SelectItem>
-                  <SelectItem value="Bosques de las Lomas">Bosques de las Lomas</SelectItem>
-                  <SelectItem value="Llego por mi cuenta">Llega por su cuenta</SelectItem>
-                  <SelectItem value="Lilas">Lilas</SelectItem>
-                  <SelectItem value="Auditorio">Auditorio</SelectItem>
-                  <SelectItem value="Bas&iacute;lica">Bas&iacute;lica</SelectItem>
-                  <SelectItem value="Casa">Casa</SelectItem>
+                  <SelectItem v-for="opt in PICKUP_LOCATIONS" :key="opt.value" :value="opt.value">
+                    {{ opt.label }}
+                  </SelectItem>
                 </SelectContent>
               </Select>
               <TagSelector

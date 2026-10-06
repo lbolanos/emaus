@@ -8,18 +8,20 @@ import { Switch } from '@repo/ui';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@repo/ui';
 import { useToast } from '@repo/ui';
 import { useI18n } from 'vue-i18n';
+import { PICKUP_LOCATIONS } from '@/constants/pickupLocations';
 
 interface Props {
   isOpen: boolean;
   participants: any[];
   allColumns: { key: string; label: string }[];
+  palanqueroOptions?: { value: string; label: string }[];
 }
 
 interface EditFields {
   [key: string]: any;
 }
 
-const props = defineProps<Props>();
+const props = withDefaults(defineProps<Props>(), { palanqueroOptions: () => [] });
 const emit = defineEmits<{
   'update:isOpen': [value: boolean];
   save: [updatedParticipants: any[]];
@@ -59,7 +61,9 @@ const fieldCategories = {
   palancas: {
     label: $t('participants.bulkEdit.categories.palancas'),
     icon: '🙏',
-    fields: ['palancasCoordinator', 'palancasRequested', 'palancasReceived', 'palancasNotes']
+    // palancasReceivedCount (not the legacy `palancasReceived` prose): the numeric
+    // count is the field every hito/counter reads back.
+    fields: ['palancasCoordinator', 'palancasRequested', 'palancasReceivedCount', 'palancasNotes']
   }
 };
 
@@ -78,6 +82,15 @@ const maxBirthDate = computed(() => {
 
 const getFieldType = (key: string) => {
   if (key === 'type') return 'select';
+  // Select fed by GET /responsibilities/palanquero-options; free text here breaks
+  // the exact-match 'Palanquero N' lookups downstream (palanquero notifications).
+  // Falls back to text when the options fetch failed.
+  if (key === 'palancasCoordinator') return props.palanqueroOptions.length > 0 ? 'select' : 'text';
+  // Stored values come from the fixed pickup list (see PICKUP_LOCATIONS); free text
+  // here would produce values the individual form's select can never show back.
+  if (key === 'pickupLocation') return 'select';
+  // Numeric letter count — same control the individual form uses for this field.
+  if (key === 'palancasReceivedCount') return 'number';
   // tshirtSize is per-retreat free-text — admin enters whatever code their retreat uses (G, L, XL...).
   if (key === 'tshirtSize') return 'text';
   if (key === 'tableMesa.name') return 'text';
@@ -92,10 +105,19 @@ const getFieldType = (key: string) => {
 const getSelectOptions = (key: string) => {
   switch (key) {
     case 'type':
+      // Same four values the individual form offers and @repo/types allows
+      // ('waiting' and 'partial_server' were missing here: a participant moved to
+      // those states in bulk was impossible to select back out of it).
       return [
         { value: 'walker', label: $t('participants.types.walker') },
-        { value: 'server', label: $t('participants.types.server') }
+        { value: 'server', label: $t('participants.types.server') },
+        { value: 'waiting', label: $t('participants.types.waiting') },
+        { value: 'partial_server', label: $t('participants.types.partial_server') }
       ];
+    case 'palancasCoordinator':
+      return props.palanqueroOptions;
+    case 'pickupLocation':
+      return PICKUP_LOCATIONS;
     default:
       return [];
   }

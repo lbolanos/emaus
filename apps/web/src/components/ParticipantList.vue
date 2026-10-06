@@ -148,6 +148,8 @@ const cycleAttendance = (p: any) => {
 };
 
 const palanqueroDisplayMap = ref<Record<string, string>>({});
+// Raw options (value + label) kept for the bulk edit modal's Coord. Palancas select.
+const palanqueroOptions = ref<{ value: string; label: string }[]>([]);
 
 // Bulk email computed properties
 const participantsWithEmail = computed(() =>
@@ -457,7 +459,10 @@ const baseColumns = ref([
     { key: 'takesFridayMeal', label: 'participants.fields.takesFridayMeal' },
     { key: 'palancasCoordinator', label: 'participants.fields.palancasCoordinator' },
     { key: 'palancasRequested', label: 'participants.fields.palancasRequested' },
-    { key: 'palancasReceived', label: 'participants.fields.palancasReceived' },
+    // Count field (what the bulk modal and the individual form capture). The legacy
+    // `palancasReceived` prose column is gone from the list; formatCell still shows
+    // it as a fallback for fichas that were never migrated to a number.
+    { key: 'palancasReceivedCount', label: 'participants.fields.palancasReceivedCount' },
     { key: 'palancasNotes', label: 'participants.fields.palancasNotes' },
     { key: 'requestsSingleRoom', label: 'participants.fields.requestsSingleRoom' },
     { key: 'isCancelled', label: 'participants.fields.isCancelled' },
@@ -547,6 +552,7 @@ watch(selectedRetreatId, async (newId) => {
                 map[opt.value] = opt.label;
             }
             palanqueroDisplayMap.value = map;
+            palanqueroOptions.value = options;
         } catch (e) {
             console.error('Error loading palanquero options:', e);
         }
@@ -704,6 +710,16 @@ const formatCell = (participant: any, colKey: string) => {
         const amount = Number(raw);
         if (!Number.isFinite(amount)) return 'N/A';
         return formatCurrency(amount);
+    }
+
+    // Letters received: show the numeric count (what the forms capture and the
+    // hitos/counters read). The legacy prose stays as a fallback for fichas that
+    // were never migrated to a number, mirroring the individual form's hint
+    // ("estaba anotado como texto: …").
+    if (colKey === 'palancasReceivedCount') {
+        if (value !== null && value !== undefined && value !== '') return String(value);
+        const legacyProse = participant.palancasReceived;
+        return legacyProse ? legacyProse : 'N/A';
     }
 
     // Handle paymentStatus field - use computed property from API
@@ -2252,6 +2268,7 @@ const handleKeyboardShortcuts = (event: KeyboardEvent) => {
           v-model:isOpen="isBulkEditDialogOpen"
           :participants="bulkEditParticipants"
           :all-columns="allColumns"
+          :palanquero-options="palanqueroOptions"
           @save="handleBulkEditSave"
         />
 

@@ -956,6 +956,7 @@
       "palancasCoordinator": "Palancas Coord.",
       "palancasRequested": "Palancas Requested",
       "palancasReceived": "Palancas Received",
+      "palancasReceivedCount": "Letters Received",
       "palancasNotes": "Palancas Notes",
       "requestsSingleRoom": "Single Room?",
       "isCancelled": "Cancelled?",
@@ -1090,7 +1091,9 @@
     "selectionClearedDesc": "All participants have been deselected.",
     "types": {
       "walker": "Walker",
-      "server": "Server"
+      "server": "Server",
+      "waiting": "Waiting",
+      "partial_server": "Angelito"
     }
   },
   "rooms": {

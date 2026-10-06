@@ -1011,6 +1011,7 @@
       "palancasCoordinator": "Coord. Palancas",
       "palancasRequested": "Pal. Solicitadas",
       "palancasReceived": "Pal. Recibidas",
+      "palancasReceivedCount": "Cartas Recibidas",
       "palancasNotes": "Notas Palancas",
       "requestsSingleRoom": "Cuarto Individual?",
       "isCancelled": "Cancelado?",
@@ -1145,7 +1146,9 @@
     "selectionClearedDesc": "Se han deseleccionado todos los participantes.",
     "types": {
       "walker": "Caminante",
-      "server": "Servidor"
+      "server": "Servidor",
+      "waiting": "En espera",
+      "partial_server": "Angelito"
     }
   },
   "rooms": {
