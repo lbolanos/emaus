@@ -18,6 +18,7 @@ import WhatsAppSendQueue from './WhatsAppSendQueue.vue';
 import BulkEditParticipantsModal from './BulkEditParticipantsModal.vue';
 import { useSavedSegmentStore } from '@/stores/savedSegmentStore';
 import type { SavedSegment, SegmentFilters } from '@repo/types';
+import { SENSITIVE_HEALTH_FIELDS } from '@repo/types';
 import { useI18n } from 'vue-i18n';
 import ExcelJS from 'exceljs';
 import { createLocaleComparator } from '@/utils/sort';
@@ -383,17 +384,11 @@ const canViewScholarshipAmount = computed(() =>
 const canViewHealthData = computed(() => hasPermission('participant:health'));
 
 // Columnas de salud/contacto de emergencia — solo visibles/seleccionables con
-// participant:health (admin/treasurer/logistics/superadmin), no con el
-// participant:read general (hasta regular_server lo tiene). Mismo listado que
-// SENSITIVE_HEALTH_FIELDS en apps/api/src/controllers/participantController.ts.
-const HEALTH_COLUMN_KEYS = new Set([
-    'medicationDetails', 'medicationSchedule', 'dietaryRestrictionsDetails',
-    'disabilitySupport', 'notes',
-    'emergencyContact1Name', 'emergencyContact1Relation', 'emergencyContact1HomePhone',
-    'emergencyContact1WorkPhone', 'emergencyContact1CellPhone', 'emergencyContact1Email',
-    'emergencyContact2Name', 'emergencyContact2Relation', 'emergencyContact2HomePhone',
-    'emergencyContact2WorkPhone', 'emergencyContact2CellPhone', 'emergencyContact2Email',
-]);
+// participant:health (admin/treasurer/logistics/communications/superadmin), no
+// con el participant:read general (hasta regular_server lo tiene).
+// The list is shared with the API gate (@repo/types): if they drift, the form
+// shows a field whose save the API rejects with 403.
+const HEALTH_COLUMN_KEYS = new Set<string>(SENSITIVE_HEALTH_FIELDS);
 
 const baseColumns = ref([
     { key: 'id_on_retreat', label: 'participants.fields.id' },
@@ -476,14 +471,17 @@ const baseColumns = ref([
     { key: 'messageCount', label: 'participants.fields.messageCount' },
 ]);
 
-// Filter columns the current user is not allowed to see (e.g. scholarshipAmount).
-const allColumns = computed(() => {
-    return baseColumns.value.filter((c) => {
-        if (c.key === 'scholarshipAmount') return canViewScholarshipAmount.value;
-        if (HEALTH_COLUMN_KEYS.has(c.key)) return canViewHealthData.value;
-        return true;
-    });
-});
+// Whether the current user may see a column (e.g. scholarshipAmount, health).
+// The edit form applies it too: the view's own form columns
+// (columnsToShowInForm/columnsToEditInForm) skipped it and showed `notes` to
+// users without participant:health, whose save the API rejects with 403.
+const isColumnAllowed = (key: string) => {
+    if (key === 'scholarshipAmount') return canViewScholarshipAmount.value;
+    if (HEALTH_COLUMN_KEYS.has(key)) return canViewHealthData.value;
+    return true;
+};
+
+const allColumns = computed(() => baseColumns.value.filter((c) => isColumnAllowed(c.key)));
 
 const longTextColumns = new Set([
     'notes', 'palancasNotes', 'medicationDetails',
@@ -806,7 +804,7 @@ const getCellContent = (participant: any, colKey: string) => {
 
 const formColumnsToShow = computed(() => {
     const combined = new Set([...props.columnsToShowInForm, ...visibleColumns.value]);
-    return Array.from(combined);
+    return Array.from(combined).filter(isColumnAllowed);
 });
 
 const formColumnsToEdit = computed(() => {
@@ -815,7 +813,7 @@ const formColumnsToEdit = computed(() => {
         'id', 'id_on_retreat', 'email', 'registrationDate',
         'lastUpdatedDate', 'retreatId', 'tableId'
     ];
-    return Array.from(combined).filter(key => !nonEditableSystemKeys.includes(key));
+    return Array.from(combined).filter(key => !nonEditableSystemKeys.includes(key) && isColumnAllowed(key));
 });
 
 
@@ -1044,7 +1042,7 @@ const toggleFilterStatus = () => {
 
 // Deja constancia (best-effort, sin bloquear la descarga) cuando el archivo
 // exportado incluye columnas de salud/contacto de emergencia — ver
-// SENSITIVE_HEALTH_FIELDS en participantController.ts. La condición se cruza
+// SENSITIVE_HEALTH_FIELDS (@repo/types). La condición se cruza
 // contra allColumns (lo que la sesión puede exportar de verdad): una clave de
 // salud rancia del localStorage, de una columna que el usuario ya no puede ver,
 // hacía disparar la auditoría de un archivo que no traía esos datos.
@@ -1947,7 +1945,7 @@ const handleKeyboardShortcuts = (event: KeyboardEvent) => {
                                 <TooltipProvider>
                                     <Tooltip>
                                         <TooltipTrigger as-child>
-                                            <Button variant="ghost" size="icon" class="h-7 w-7 text-gray-500 hover:text-blue-600 hover:bg-blue-50" @click="openEditDialog(participant)"><Edit class="h-3.5 w-3.5" /></Button>
+                                            <Button variant="ghost" size="icon" class="h-7 w-7 text-gray-500 hover:text-blue-600 hover:bg-blue-50" :aria-label="$t('participants.editParticipant')" @click="openEditDialog(participant)"><Edit class="h-3.5 w-3.5" /></Button>
                                         </TooltipTrigger>
                                         <TooltipContent>{{ $t('participants.editParticipant') }}</TooltipContent>
                                     </Tooltip>

@@ -1214,6 +1214,57 @@ describe('ParticipantList Component', () => {
 			fresh.unmount();
 		});
 
+		it('keeps health keys out of the edit form even when the view lists them as form columns', async () => {
+			// CancellationAndNotesView / NotesAndMeetingPointsView pass `notes` in
+			// their form columns. Without participant:health the form used to show
+			// it, and the API now answers 403 to any save that carries it.
+			const fresh = mount(ParticipantList, {
+				props: {
+					type: 'walker',
+					columnsToShowInForm: ['firstName', 'notes', 'medicationDetails'],
+					columnsToEditInForm: ['firstName', 'notes', 'medicationDetails'],
+				},
+				global: {
+					plugins: [pinia],
+					stubs: { 'router-link': true, 'router-view': true, teleport: true },
+					mocks: {
+						$t: (key: string) => key,
+						$router: { push: vi.fn() },
+						$route: { name: 'walkers', params: {}, query: {} },
+					},
+				},
+			});
+			await flushPromises();
+
+			const setupState = (fresh.vm as any).$.setupState;
+			for (const formColumns of [setupState.formColumnsToShow, setupState.formColumnsToEdit]) {
+				expect(formColumns).toContain('firstName');
+				expect(formColumns).not.toContain('notes');
+				expect(formColumns).not.toContain('medicationDetails');
+			}
+
+			// Positive control: granting the permission brings them back.
+			const { useAuthStore: useAuthStoreImport } = await import('@/stores/authStore');
+			const authStore = useAuthStoreImport();
+			authStore.userProfile = {
+				...(authStore.userProfile as any),
+				roles: [
+					{
+						id: 'role-1',
+						role: { name: 'admin' },
+						retreats: [{ retreatId: 'test-retreat-id' }],
+						globalPermissions: [{ resource: 'participant', operation: 'health' }],
+					},
+				],
+			} as any;
+			await nextTick();
+
+			expect(setupState.formColumnsToShow).toContain('notes');
+			expect(setupState.formColumnsToEdit).toContain('medicationDetails');
+
+			fresh.unmount();
+		});
+
 		it('la auditoría de export no dispara con una clave de salud que la sesión no puede exportar', async () => {
 			// Fixture por defecto: sin participant:health → 'medicationDetails'
 			// no está en allColumns → no puede estar en el archivo exportado,
