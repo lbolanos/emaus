@@ -18,6 +18,12 @@ router.get(
 );
 router.get('/retreat/:retreatId/stats', requireRetreatAccess('retreatId'), controller.getStats);
 router.post('/retreat/:retreatId/run', requireRetreatAccess('retreatId'), controller.runNow);
+// Aviso de alta tardía: pasos vencidos suprimidos por el guard M2 (para la UI).
+router.post(
+	'/retreat/:retreatId/past-due',
+	requireRetreatAccess('retreatId'),
+	controller.pastDueSteps,
+);
 router.post(
 	'/retreat/:retreatId/regenerate-queue',
 	requireRetreatAccess('retreatId'),

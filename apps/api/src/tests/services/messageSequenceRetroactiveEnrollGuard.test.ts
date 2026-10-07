@@ -332,6 +332,55 @@ describe('MessageSequenceService — M2 retroactive enroll guard', () => {
 			expect(result.pastSteps).toEqual([]);
 			expect(await repo().count({ where: { stepId: pastStep.id } })).toBe(0);
 		});
+
+		/**
+		 * Aviso de alta tardía (mejora 1): `listPastDueSteps` alimenta el banner
+		 * de la UI. Mismo reporte que "Ejecutar", pero SIN `processDue`:
+		 * consultar no debe enviar ni encolar nada.
+		 */
+		it('listPastDueSteps reporta el paso suprimido y deja todo pending (no corre processDue)', async () => {
+			const { retreat, seq, pastStep } = await seedPastStepSequence();
+
+			const report = await svc.listPastDueSteps(retreat.id);
+
+			expect(report).toHaveLength(1);
+			expect(report[0]).toEqual(expect.objectContaining({ stepId: pastStep.id, count: 2 }));
+			const rows = await repo().find({ where: { sequenceId: seq.id } });
+			// El paso futuro se materializa (el mismo trabajo idempotente del
+			// cron), pero queda pending: el check no encola ni envía nada.
+			expect(rows).toHaveLength(2);
+			for (const row of rows) {
+				expect(row.stepId).not.toBe(pastStep.id);
+				expect(row.status).toBe('pending');
+			}
+		});
+
+		it('listPastDueSteps no reporta secuencias inactivas (sus pendientes están congelados, no en gap)', async () => {
+			const { retreat } = await seedPastStepSequence();
+			await svc.createSequence({
+				name: 'Pausada vencida',
+				retreatId: retreat.id,
+				trigger: 'days_before_retreat',
+				audience: 'walker',
+				isActive: false,
+				steps: [{ stepOrder: 0, offsetDays: 20, sendHour: 9, templateType: 'GENERAL', channel: 'whatsapp' } as any],
+			});
+
+			const report = await svc.listPastDueSteps(retreat.id);
+
+			// Sólo la secuencia activa del seed; la inactiva no reporta.
+			expect(report).toHaveLength(1);
+			expect(report[0].sequenceName).toBe('Último aviso');
+		});
+
+		it('listPastDueSteps deja de reportar en cuanto el coordinador ejecuta el paso', async () => {
+			const { retreat, pastStep } = await seedPastStepSequence();
+
+			await svc.runForRetreat(retreat.id, { sendNowStepIds: [pastStep.id] });
+			const report = await svc.listPastDueSteps(retreat.id);
+
+			expect(report).toEqual([]);
+		});
 	});
 });
 

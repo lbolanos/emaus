@@ -37,7 +37,7 @@ import {
 	type StepDraft,
 } from './sequenceEditorShared';
 import type { SequenceStepPreview, SequencePastStep } from '@repo/types';
-import { previewSequenceStep, previewSequenceSchedule } from '@/services/api';
+import { previewSequenceStep, previewSequenceSchedule, listPastDueSequenceSteps } from '@/services/api';
 import { useModalA11y } from '@/composables/useModalA11y';
 
 const { t } = useI18n();
@@ -273,6 +273,8 @@ async function load() {
 		templateStore.fetchTemplates(retreatId.value),
 		participantStore.fetchParticipants().catch(() => {}),
 		responsabilityStore.fetchResponsibilities(retreatId.value, { silent: true }).catch(() => {}),
+		// Aviso de alta tardía: nunca rechaza (catch interno).
+		refreshPastDue(),
 	]);
 }
 
@@ -639,6 +641,9 @@ async function runNow(sendNowStepIds?: string[]) {
 		// M5: ask about the past-dated steps the guard skipped. Not after a
 		// confirmed run — the unselected ones were already reported as skipped.
 		if (!sendNowStepIds && res.pastSteps?.length) openPastStepsPrompt(res.pastSteps);
+		// El run pudo haber materializado los pasos del banner: refrescarlo
+		// (keepDismissed para no reaparecer sobre un aviso ya cerrado).
+		await refreshPastDue(true);
 	} catch {
 		toast({ title: t('sequences.runError'), variant: 'destructive' });
 	}
@@ -697,6 +702,28 @@ async function sendPastSteps() {
 	pastStepsPrompt.value = [];
 	notifySkippedPastSteps(skipped);
 	if (ids.length) await runNow(ids);
+}
+
+// --------------------------------------------------------------------------
+// Aviso de alta tardía: pasos con fecha vencida que el guard M2 sigue
+// suprimiendo. La supresión es invisible en la bandeja (no hay filas) y así
+// fue como el incidente de palancas del 2026-10-06 pasó desapercibido hasta
+// que el coordinador extrañó los mensajes. El banner persiste mientras el gap
+// exista — a diferencia del prompt de "Ejecutar", que solo se ve si alguien
+// corre el motor a mano.
+// --------------------------------------------------------------------------
+const pastDueSteps = ref<SequencePastStep[]>([]);
+const pastDueDismissed = ref(false);
+const pastDueMessageCount = computed(() => pastDueSteps.value.reduce((n, s) => n + s.count, 0));
+
+async function refreshPastDue(keepDismissed = false) {
+	if (!retreatId.value) return;
+	try {
+		pastDueSteps.value = await listPastDueSequenceSteps(retreatId.value);
+		if (!keepDismissed) pastDueDismissed.value = false;
+	} catch {
+		// El banner es advisory: sin él la página funciona igual.
+	}
 }
 
 // Preferencia: al abrir WhatsApp, marcar enviado automáticamente (salta el paso
@@ -1449,6 +1476,32 @@ async function toggleDoNotContact() {
 		<div>
 			<h1 class="text-2xl font-semibold">{{ t('sequences.title') }}</h1>
 			<p class="text-gray-600 text-sm">{{ t('sequences.subtitle') }}</p>
+		</div>
+
+		<!-- Aviso de alta tardía: pasos vencidos que el motor suprime y no
+		     saldrán solos. "Revisar" abre el mismo diálogo M5 de "Ejecutar". -->
+		<div
+			v-if="pastDueSteps.length && !pastDueDismissed"
+			class="border border-amber-200 bg-amber-50 rounded-md p-3 flex items-start gap-2 text-sm text-amber-800"
+			role="status"
+		>
+			<AlertTriangle class="w-4 h-4 shrink-0 mt-0.5" />
+			<p class="flex-1 min-w-0">
+				{{ t('sequences.pastDueBanner', { count: pastDueMessageCount }, pastDueMessageCount) }}
+			</p>
+			<Button size="sm" class="h-7 shrink-0" @click="openPastStepsPrompt(pastDueSteps)">
+				{{ t('sequences.pastDueReview') }}
+			</Button>
+			<Button
+				variant="ghost"
+				size="icon"
+				class="h-7 w-7 shrink-0 text-amber-700"
+				:aria-label="t('sequences.pastDueDismiss')"
+				:title="t('sequences.pastDueDismiss')"
+				@click="pastDueDismissed = true"
+			>
+				<X class="w-4 h-4" />
+			</Button>
 		</div>
 
 		<!-- Tabs: Secuencias / Programados / Bandeja WhatsApp / Problemas -->
