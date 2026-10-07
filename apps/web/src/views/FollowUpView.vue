@@ -15,6 +15,7 @@ import {
 import { useRetreatStore } from '@/stores/retreatStore';
 import { useParticipantStore } from '@/stores/participantStore';
 import { useCrmStore } from '@/stores/crmStore';
+import { getPalanqueroOptions } from '@/services/api';
 import { useParticipantMessageDialog } from '@/composables/useParticipantMessageDialog';
 import MessageDialog from '@/components/MessageDialog.vue';
 import FollowUpCard from '@/components/crm/FollowUpCard.vue';
@@ -60,6 +61,11 @@ const search = ref('');
 // El tablero es de seguimiento de caminantes: abre ya filtrado a ellos.
 const typeFilter = ref<'all' | 'walker' | 'server'>('walker');
 const lettersFilter = ref<'all' | 'none' | 'below' | 'met' | 'unknown'>('all');
+// Palanquero asignado ('Palanquero 1'…'Palanquero 3' en palancasCoordinator),
+// 'none' (sin asignar) o 'all'.
+const palanqueroFilter = ref('all');
+/** Opciones del filtro: las mismas que ofrece la ficha al asignar. */
+const palanqueroOptions = ref<{ value: string; label: string }[]>([]);
 // Cuántas tarjetas se pintan por columna. Objeto plano, no Map: dentro de un
 // ref, Map y Set no son reactivos en este repo.
 const shown = ref<Record<string, number>>({});
@@ -85,6 +91,11 @@ async function load() {
 		crmStore.fetchFollowUps(retreatId.value),
 		crmStore.fetchTasks(retreatId.value),
 		participantStore.fetchParticipants(),
+		// Si falla, el filtro queda con sus dos opciones base (Todos / Sin
+		// asignar): no debe tumbar el tablero.
+		getPalanqueroOptions(retreatId.value)
+			.then((options) => (palanqueroOptions.value = options))
+			.catch(() => {}),
 	]);
 	shown.value = Object.fromEntries([...STATUSES, LETTERS_MET].map((s) => [s, PAGE]));
 }
@@ -121,6 +132,12 @@ const visibleParticipants = computed(() => {
 	const q = search.value.trim().toLowerCase();
 	return contactableParticipants.value.filter((p: any) => {
 		if (typeFilter.value !== 'all' && p.type !== typeFilter.value) return false;
+		if (palanqueroFilter.value !== 'all') {
+			const assigned = (p.palancasCoordinator ?? '').trim();
+			if (palanqueroFilter.value === 'none') {
+				if (assigned) return false;
+			} else if (assigned !== palanqueroFilter.value) return false;
+		}
 		if (q) {
 			const name = `${p.firstName ?? ''} ${p.lastName ?? ''}`.toLowerCase();
 			if (!name.includes(q)) return false;
@@ -185,6 +202,7 @@ function clearFilters() {
 	search.value = '';
 	typeFilter.value = 'all';
 	lettersFilter.value = 'all';
+	palanqueroFilter.value = 'all';
 }
 
 /** Etapa de quien tiene el panel abierto, para resaltarla en los botones. */
@@ -322,6 +340,16 @@ const lastActivityByParticipant = computed<Record<string, string>>(() => {
 					<option value="below">{{ t('followUp.lettersBelow') }}</option>
 					<option value="met">{{ t('followUp.lettersMet') }}</option>
 					<option value="unknown">{{ t('followUp.lettersUnknown') }}</option>
+				</select>
+			</label>
+			<label class="flex-1 sm:flex-none sm:min-w-[11rem]">
+				<span class="text-xs text-gray-500">{{ t('followUp.palanqueroFilter') }}</span>
+				<select v-model="palanqueroFilter" :class="SELECT_CLASS">
+					<option value="all">{{ t('followUp.allPalanqueros') }}</option>
+					<option value="none">{{ t('followUp.unassignedPalanquero') }}</option>
+					<option v-for="opt in palanqueroOptions" :key="opt.value" :value="opt.value">
+						{{ opt.label }}
+					</option>
 				</select>
 			</label>
 		</div>

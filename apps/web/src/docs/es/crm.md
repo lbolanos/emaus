@@ -166,7 +166,9 @@ recordatorios. Mover la tarjeta hacia atrás no deshace la confirmación.
 Cada tarjeta te dice de un vistazo cuántas **cartas** lleva (verde = llegó al mínimo del retiro,
 ámbar = le faltan, gris = ninguna), si confirmó asistencia, cuántos mensajes le hemos mandado, si
 está en la lista de no contactar y cuántas tareas abiertas tiene. Arriba puedes filtrar por nombre,
-por tipo y por cartas — **"por debajo del mínimo" responde de un clic a quién le falta palanca**.
+por tipo, por cartas y por el **palanquero asignado** (la opción trae el nombre de quien lo tiene;
+*Sin asignar* dice a quién todavía hay que asignarle) — **"por debajo del mínimo" responde de un
+clic a quién le falta palanca**.
 
 Las cartas se capturan en la ficha del caminante (sección **Palancas** → *Cartas Recibidas*): sólo
 el número. Lo que quieras contar —de quién vinieron, si falta alguna— va en las notas de palancas.

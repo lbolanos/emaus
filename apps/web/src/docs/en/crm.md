@@ -161,8 +161,9 @@ undo the confirmation.
 Each card shows at a glance how many **letters** the walker has (green = reached the retreat's
 minimum, amber = still short, grey = none), whether they confirmed attendance, how many messages we
 have sent, whether they are on the do-not-contact list, and how many open tasks they have. At the
-top you can filter by name, by type and by letters — **"below minimum" answers in one click who is
-still missing letters**.
+top you can filter by name, by type, by letters and by the **assigned palanquero** (the option shows
+who holds it; *Unassigned* tells you who still needs one) — **"below minimum" answers in one click
+who is still missing letters**.
 
 Letters are entered on the walker's record (**Palancas** section → *Cartas Recibidas*): the number
 only. Anything you want to note — who they came from, whether one is missing — goes in the palanca

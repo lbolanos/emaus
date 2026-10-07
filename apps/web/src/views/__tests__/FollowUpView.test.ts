@@ -5,11 +5,13 @@ import { createPinia, setActivePinia } from 'pinia';
 const upsertFollowUp = vi.fn();
 const getFollowUps = vi.fn();
 const getCrmTasks = vi.fn();
+const palanqueroOptionsMock = vi.fn();
 
 vi.mock('@/services/api', () => ({
 	getFollowUps: (...a: any[]) => getFollowUps(...a),
 	upsertFollowUp: (...a: any[]) => upsertFollowUp(...a),
 	getCrmTasks: (...a: any[]) => getCrmTasks(...a),
+	getPalanqueroOptions: (...a: any[]) => palanqueroOptionsMock(...a),
 	createCrmTask: vi.fn(),
 	updateCrmTask: vi.fn(),
 	deleteCrmTask: vi.fn(),
@@ -22,8 +24,8 @@ vi.mock('@/services/api', () => ({
 
 const fetchParticipants = vi.fn();
 const participants = [
-	{ id: 'p1', firstName: 'Omar', lastName: 'Ojeda', type: 'walker', palancasReceivedCount: 0 },
-	{ id: 'p2', firstName: 'Luz Ma', lastName: 'Ibarra', type: 'walker', palancasReceivedCount: 4 },
+	{ id: 'p1', firstName: 'Omar', lastName: 'Ojeda', type: 'walker', palancasReceivedCount: 0, palancasCoordinator: 'Palanquero 1' },
+	{ id: 'p2', firstName: 'Luz Ma', lastName: 'Ibarra', type: 'walker', palancasReceivedCount: 4, palancasCoordinator: 'Palanquero 2' },
 	{ id: 'p3', firstName: 'Mario', lastName: 'Medina', type: 'server', palancasReceivedCount: 2 },
 	// Ejerció el derecho de borrado: anonimizado, no contactable.
 	{ id: 'p4', firstName: '(eliminado)', lastName: '', type: 'walker', dataDeletedAt: '2026-05-01T00:00:00.000Z' },
@@ -70,6 +72,10 @@ describe('FollowUpView (tablero de seguimiento)', () => {
 		]);
 		getCrmTasks.mockResolvedValue([]);
 		upsertFollowUp.mockResolvedValue({});
+		palanqueroOptionsMock.mockResolvedValue([
+			{ value: 'Palanquero 1', label: 'Palanquero 1 (Jorge Ruiz)' },
+			{ value: 'Palanquero 2', label: 'Palanquero 2' },
+		]);
 	});
 
 	const mountView = async () => {
@@ -243,6 +249,31 @@ describe('FollowUpView (tablero de seguimiento)', () => {
 		await w.findAll('select')[0].setValue('server');
 		await flushPromises();
 
+		expect(w.text()).toContain('Mario Medina');
+		expect(w.text()).not.toContain('Omar Ojeda');
+	});
+
+	it('filtra por el palanquero asignado a cada caminante', async () => {
+		const w = await mountView();
+		await w.findAll('select')[0].setValue('all'); // ver también servidores
+		await flushPromises();
+		expect(w.text()).toContain('Mario Medina');
+
+		// El tercer select es el de palanquero; la opción trae a quién lo tiene.
+		const palanqueroSelect = w.findAll('select')[2];
+		const optionTexts = [...palanqueroSelect.element.options].map((o) => o.text);
+		expect(optionTexts).toContain('Palanquero 1 (Jorge Ruiz)');
+
+		await palanqueroSelect.setValue('Palanquero 1');
+		await flushPromises();
+		// Omar es de Palanquero 1; Luz Ma del 2 y Mario no tiene.
+		expect(w.text()).toContain('Omar Ojeda');
+		expect(w.text()).not.toContain('Luz Ma Ibarra');
+		expect(w.text()).not.toContain('Mario Medina');
+
+		// «Sin asignar»: quién todavía no tiene palanquero.
+		await palanqueroSelect.setValue('none');
+		await flushPromises();
 		expect(w.text()).toContain('Mario Medina');
 		expect(w.text()).not.toContain('Omar Ojeda');
 	});
