@@ -307,6 +307,57 @@ vulnerable**. En tests: flush con `waitForLogs` antes de abrir la transacción (
 - Las acciones `copy_from_retreat`, `import` y `resync_docs` quedaron instrumentadas y
   cubiertas por locales/keystone, pero sin caso de test propio (flujos derivados mayores).
 
+## Revisión formal y arreglos post-PR (2026-10-07)
+
+El PR #5 (43 archivos, +5.422/−116) pasó por code-review formal + CI. El CI destapó un bug
+latente de 8 meses: **este PR fue el primero que corrió CI desde el 2026-02-09** (el último
+verde de master es de esa fecha), y el runner usa `node-version: '20'`.
+
+### El bug de la regex data:URL (fallo de CI)
+
+`RangeError: Maximum call stack size exceeded` en el test pre-existente "rechaza archivo >
+10MB" de `responsabilityAttachment.simple.test.ts`: `/^data:([^;]+);base64,(.+)$/.exec()`
+sobre un payload de ~14MB revienta el stack del V8 de **Node 20 en Linux** (en Node 24/25 y
+macOS pasa — por eso nunca se vio local). El test y el servicio compartían la regex. Fix:
+string slicing (`indexOf(';base64,')` + `slice`) en `responsabilityAttachmentService.parseDataUrl`
+(lanza `AttachmentValidationError`) y en el helper del test (devuelve null). La misma regex
+vive en **5 archivos más** — quedan como follow-up (ver abajo).
+
+### Hallazgos de la revisión (0 HIGH, 5 MED, 6 LOW) y su destino
+
+| Hallazgo | Severidad | Destino |
+|---|---|---|
+| `description` de la secuencia entra al diff del update | MED (privacidad) | **Arreglado**: fuera del allowlist; `descriptionChars` + `descriptionChanged` en metadata (mismo patrón que attachments/inventario) |
+| `description` del attachment entra al diff | MED (privacidad) | **Arreglado**: fuera de `ATT_AUDIT_FIELDS`; `descriptionChars` (+ `descriptionChanged` en update) en metadata |
+| `intention` del slot de Santísimo entra al diff | MED (privacidad pastoral) | **Arreglado**: fuera de `SLOT_AUDIT_FIELDS`; helper renombrado a `slotTextMetadata` emite `notesChars` e `intentionChars` |
+| `run_now` sin actividad genera fila por alta de participante | MED (ruido) | **Arreglado**: `runForRetreat` toma `trigger: 'manual' \| 'participant_create'`; manual SIEMPRE loguea (registra intención), auto sólo con actividad; `metadata.trigger` siempre |
+| Semilla de retiro genera N filas `copy_to_retreat` | MED (ruido) | **Arreglado**: `copyToRetreat` toma `options.audit` (default true); `copyAllActiveTemplatesToRetreat` pasa `{audit: false}` — el `retreat.create` de la semilla ya cubre el evento |
+| `removeMember` loguea aunque no hubiera membresía | LOW | **Arreglado**: log sólo si `(removed.affected ?? 0) > 0` |
+| LOWs 6, 8–11 | LOW | **Follow-up** (ver abajo) |
+
+### Verificación de los arreglos
+
+- 7 suites afectadas: **111/111** (messageSequenceAudit 15 —incluye test nuevo del
+  discriminador trigger—, santisimoAudit, serviceTeamsAudit, globalMessagingAudit,
+  responsabilityAttachment.simple, messageSequenceProcessScope, globalMessageTemplateService).
+- `pnpm --filter api build` OK, `grep -c __dirname dist/index.js` = 2.
+- Nota: `tsc --noEmit` pelado del api falla con cientos de errores pre-existentes en archivos
+  no tocados (authController, tableMesaService, …) — el gate real es el build de Vite/Rollup
+  (lo que corre el CI); ningún error cae en los archivos/rangos editados.
+
+### Follow-ups abiertos
+
+1. **Réplicas de la regex data:URL** en `retreatScheduleService.ts`, `imageService.ts`,
+   `retreatPreparationService.ts:100`, `aiChatService.ts`,
+   `bundleS3Streaming.simple.test.ts`: mismo fix de string slicing. No explotan hoy (payloads
+   chicos o rutas sin >10MB), pero es la misma trampa.
+2. **LOWs de la revisión** (6, 8–11): detalles de consistencia de metadata menores que no
+   bloquean el merge.
+3. **Skill `troubleshooting` §nueva**: la trampa "regex sobre payloads de MBs explota el stack
+   en Node 20/Linux pero no en Node 24/macOS" — documentar cuando se haga el siguiente pase.
+4. **CI desatendido 8 meses**: considerar un workflow `schedule` semanal sobre master para que
+   el próximo PR no herede 8 meses de deuda silenciosa.
+
 ## Reproducir el diagnóstico forense de hoy
 
 ```bash

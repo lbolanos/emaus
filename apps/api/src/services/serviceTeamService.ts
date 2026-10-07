@@ -153,18 +153,22 @@ export const removeMember = async (
 		await syncTeamToResponsibility(team.teamType, team.retreatId, null, dataSource);
 	}
 
-	await repos.serviceTeamMember.delete({
+	const removed = await repos.serviceTeamMember.delete({
 		serviceTeamId: teamId,
 		participantId,
 	});
-	void domainAuditService.log({
-		action: DomainAuditAction.SERVICE_TEAM_REMOVE_MEMBER,
-		resourceType: 'service_team',
-		resourceId: teamId,
-		retreatId: team?.retreatId ?? null,
-		oldValues: { participantId },
-		metadata: team?.leaderId === participantId ? { wasLeader: true } : undefined,
-	});
+	// Repeat clicks (or removing a non-member) must not fabricate history:
+	// only log when a membership row actually went away.
+	if ((removed.affected ?? 0) > 0) {
+		void domainAuditService.log({
+			action: DomainAuditAction.SERVICE_TEAM_REMOVE_MEMBER,
+			resourceType: 'service_team',
+			resourceId: teamId,
+			retreatId: team?.retreatId ?? null,
+			oldValues: { participantId },
+			metadata: team?.leaderId === participantId ? { wasLeader: true } : undefined,
+		});
+	}
 	return findTeamById(teamId, dataSource);
 };
 

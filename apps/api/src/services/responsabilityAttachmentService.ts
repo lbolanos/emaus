@@ -11,13 +11,14 @@ import { DomainAuditAction } from '@repo/types';
 
 // `storageUrl` (data:URL de hasta 10MB) y `content` (markdown hasta 200KB)
 // NUNCA entran al log — sizeBytes ya informa el tamaño.
+// `description` is free text from the request body: it stays out of the diff
+// and travels as `descriptionChars` in metadata, like every other long text.
 const ATT_AUDIT_FIELDS = [
 	'responsabilityName',
 	'kind',
 	'fileName',
 	'mimeType',
 	'sizeBytes',
-	'description',
 	'sortOrder',
 ];
 
@@ -53,9 +54,15 @@ interface MarkdownInput {
 }
 
 function parseDataUrl(dataUrl: string): { buffer: Buffer; mimeType: string } {
-	const match = /^data:([^;]+);base64,(.+)$/.exec(dataUrl);
-	if (!match) throw new AttachmentValidationError('Invalid data URL');
-	return { mimeType: match[1], buffer: Buffer.from(match[2], 'base64') };
+	// Plain string slicing, never a regex: the payload can reach ~14MB and
+	// RegExp.exec blows the call stack on Node 20 (the CI runner's V8) at
+	// that size — a >10MB upload would 500 instead of being rejected cleanly.
+	const marker = ';base64,';
+	const markerIndex = dataUrl.indexOf(marker);
+	const mimeType = dataUrl.startsWith('data:') ? dataUrl.slice('data:'.length, markerIndex) : '';
+	const base64Payload = markerIndex === -1 ? '' : dataUrl.slice(markerIndex + marker.length);
+	if (!mimeType || !base64Payload) throw new AttachmentValidationError('Invalid data URL');
+	return { mimeType, buffer: Buffer.from(base64Payload, 'base64') };
 }
 
 function slugFileName(name: string): string {
@@ -274,7 +281,10 @@ class ResponsabilityAttachmentService {
 		// retiro: sin retreatId, como las plantillas globales.
 		void domainAuditService.logCreate('responsability_attachment', saved.id, saved, {
 			fields: ATT_AUDIT_FIELDS,
-			metadata: { storage: storageKey ? 's3' : 'inline' },
+			metadata: {
+				storage: storageKey ? 's3' : 'inline',
+				descriptionChars: saved.description?.length ?? 0,
+			},
 		});
 		emitScheduleAttachmentChanged({
 			responsabilityName: name,
@@ -329,6 +339,7 @@ class ResponsabilityAttachmentService {
 		const saved = await this.repo.save(entity);
 		void domainAuditService.logCreate('responsability_attachment', saved.id, saved, {
 			fields: ATT_AUDIT_FIELDS,
+			metadata: { descriptionChars: saved.description?.length ?? 0 },
 		});
 		emitScheduleAttachmentChanged({
 			responsabilityName: name,
@@ -351,6 +362,10 @@ class ResponsabilityAttachmentService {
 		const saved = await this.repo.save(existing);
 		void domainAuditService.logUpdate('responsability_attachment', attachmentId, before, saved, {
 			fields: ATT_AUDIT_FIELDS,
+			metadata: {
+				descriptionChars: saved.description?.length ?? 0,
+				descriptionChanged: before.description !== saved.description,
+			},
 		});
 		emitScheduleAttachmentChanged({
 			responsabilityName: saved.responsabilityName,

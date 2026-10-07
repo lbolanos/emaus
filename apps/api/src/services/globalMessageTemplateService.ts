@@ -151,6 +151,7 @@ export class GlobalMessageTemplateService {
 	async copyToRetreat(
 		globalTemplateId: string,
 		retreatId: string,
+		options: { audit?: boolean } = {},
 	): Promise<MessageTemplate | null> {
 		const globalTemplate = await this.globalMessageTemplateRepository.findOne({
 			where: { id: globalTemplateId },
@@ -188,17 +189,21 @@ export class GlobalMessageTemplateService {
 		}
 		// La copia escribe `message_templates` por repo directo (no pasa por
 		// messageTemplateService): un solo evento de copia, sin doble registro.
-		void domainAuditService.log({
-			action: DomainAuditAction.GLOBAL_MESSAGE_TEMPLATE_COPY_TO_RETREAT,
-			resourceType: 'global_message_template',
-			resourceId: globalTemplateId,
-			retreatId,
-			metadata: {
-				targetTemplateId: saved.id,
-				updatedExisting: Boolean(existingRetreatTemplate),
-				name: globalTemplate.name,
-			},
-		});
+		// La semilla de createRetreat la llama con audit: false — las semillas
+		// del retiro están exentas, como las responsabilidades y equipos.
+		if (options.audit !== false) {
+			void domainAuditService.log({
+				action: DomainAuditAction.GLOBAL_MESSAGE_TEMPLATE_COPY_TO_RETREAT,
+				resourceType: 'global_message_template',
+				resourceId: globalTemplateId,
+				retreatId,
+				metadata: {
+					targetTemplateId: saved.id,
+					updatedExisting: Boolean(existingRetreatTemplate),
+					name: globalTemplate.name,
+				},
+			});
+		}
 		return saved;
 	}
 
@@ -210,7 +215,11 @@ export class GlobalMessageTemplateService {
 		const newTemplates: MessageTemplate[] = [];
 
 		for (const globalTemplate of activeGlobalTemplates) {
-			const copiedTemplate = await this.copyToRetreat(globalTemplate.id, retreat.id);
+			// Seed path (createRetreat): N copies at once would flood the viewer with
+		// rows nobody performed by hand — one retreat_create row covers them.
+		const copiedTemplate = await this.copyToRetreat(globalTemplate.id, retreat.id, {
+			audit: false,
+		});
 			if (copiedTemplate) {
 				newTemplates.push(copiedTemplate);
 			}

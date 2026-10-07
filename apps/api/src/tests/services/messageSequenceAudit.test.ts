@@ -171,6 +171,9 @@ describe('MessageSequenceService — auditoría de dominio', () => {
 		expect(JSON.parse(row.oldValues!)).toEqual({ name: 'Audit', isActive: true });
 		expect(JSON.parse(row.newValues!)).toEqual({ name: 'Audit 2', isActive: false });
 		expect(meta(row)).toEqual({
+			// La descripción es texto libre: nunca entra al diff, sólo su tamaño.
+			descriptionChars: 0,
+			descriptionChanged: false,
 			archivedStepCount: 0,
 			archivedPendingCount: 0,
 			cancelledPendingCount: 0,
@@ -361,9 +364,35 @@ describe('MessageSequenceService — auditoría de dominio', () => {
 		expect(row.retreatId).toBe(retreat.id);
 		expect(row.actorUserId).toBe('actor-run');
 		expect(meta(row)).toEqual({
+			trigger: 'participant_create',
 			sendNowStepIds: [],
 			enrolled: 1,
 			processed: result.processed,
+			pastStepsCount: 0,
+		});
+	});
+
+	it('runForRetreat automático SIN actividad no deja run_now (ruido); manual sí aunque no haga nada', async () => {
+		// Auto sin actividad: retiro sin secuencias → nada que reportar.
+		const quiet = await TestDataFactory.createTestRetreat();
+		await svc.runForRetreat(quiet.id);
+		// El fire-and-forget de un eventual log tendría que aterrizar en este margen.
+		await new Promise((r) => setTimeout(r, 100));
+		let rows = await auditRepo().find();
+		expect(rowsOf(rows, 'message_sequence.run_now')).toHaveLength(0);
+
+		// Manual sin actividad: la fila SIEMPRE va — registra la intención.
+		await auditContext.run({ userId: 'actor-manual' }, () =>
+			svc.runForRetreat(quiet.id, { trigger: 'manual' }),
+		);
+		rows = await waitForLogs((r) => rowsOf(r, 'message_sequence.run_now').length > 0);
+		const row = rowsOf(rows, 'message_sequence.run_now')[0];
+		expect(row.actorUserId).toBe('actor-manual');
+		expect(meta(row)).toEqual({
+			trigger: 'manual',
+			sendNowStepIds: [],
+			enrolled: 0,
+			processed: 0,
 			pastStepsCount: 0,
 		});
 	});

@@ -11,18 +11,23 @@ export class SantisimoCapacityError extends Error {}
 export class SantisimoDisabledError extends Error {}
 export class SantisimoPastError extends Error {}
 
-// Diff allowlist del slot. `notes` (texto libre) queda fuera: solo su tamaño
-// en metadata, como las notas del minuto a minuto.
-const SLOT_AUDIT_FIELDS = ['startTime', 'endTime', 'capacity', 'isDisabled', 'intention'];
+// Diff allowlist del slot. `notes` e `intention` (texto libre/pastoral) quedan
+// fuera: solo sus tamaños en metadata, como las notas del minuto a minuto.
+const SLOT_AUDIT_FIELDS = ['startTime', 'endTime', 'capacity', 'isDisabled'];
 // PII mínima en el signup: teléfono y correo NO entran al log, solo banderas.
 const SIGNUP_AUDIT_FIELDS = ['slotId', 'name'];
 
-function slotNotesMetadata(slot?: SantisimoSlot | null, prev?: SantisimoSlot | null) {
+function slotTextMetadata(slot?: SantisimoSlot | null, prev?: SantisimoSlot | null) {
 	if (!slot) return undefined;
 	const size = (s: string | null | undefined) => (s ? s.length : 0);
-	const now = size(slot.notes);
-	const was = prev ? size(prev.notes) : 0;
-	return prev ? (now !== was ? { notesChars: now } : undefined) : now > 0 ? { notesChars: now } : undefined;
+	const meta: Record<string, number> = {};
+	const notesNow = size(slot.notes);
+	const notesWas = prev ? size(prev.notes) : 0;
+	if (prev ? notesNow !== notesWas : notesNow > 0) meta.notesChars = notesNow;
+	const intentionNow = size(slot.intention);
+	const intentionWas = prev ? size(prev.intention) : 0;
+	if (prev ? intentionNow !== intentionWas : intentionNow > 0) meta.intentionChars = intentionNow;
+	return Object.keys(meta).length ? meta : undefined;
 }
 
 export class SantisimoService {
@@ -63,7 +68,7 @@ export class SantisimoService {
 		void domainAuditService.logCreate('santisimo_slot', saved.id, saved, {
 			retreatId,
 			fields: SLOT_AUDIT_FIELDS,
-			metadata: slotNotesMetadata(saved),
+			metadata: slotTextMetadata(saved),
 		});
 		return saved;
 	}
@@ -83,7 +88,7 @@ export class SantisimoService {
 		void domainAuditService.logUpdate('santisimo_slot', id, before, after, {
 			retreatId: before.retreatId,
 			fields: SLOT_AUDIT_FIELDS,
-			metadata: slotNotesMetadata(after, before),
+			metadata: slotTextMetadata(after, before),
 		});
 		return after;
 	}
@@ -100,7 +105,7 @@ export class SantisimoService {
 				fields: SLOT_AUDIT_FIELDS,
 				metadata: {
 					cascadeSignups: before.signups?.length ?? 0,
-					...slotNotesMetadata(before),
+					...slotTextMetadata(before),
 				},
 			});
 		}

@@ -1669,10 +1669,14 @@ export class MessageSequenceService {
 		const updated = await this.findById(id);
 		void domainAuditService.logUpdate('message_sequence', id, beforeAudit, seq, {
 			retreatId: seq.retreatId,
-			fields: ['name', 'description', 'trigger', 'audience', 'segmentId', 'isActive', 'maxOverdueDays'],
+			// `description` is free text: out of the diff (like create/delete),
+			// only its size and whether it changed travel in metadata.
+			fields: ['name', 'trigger', 'audience', 'segmentId', 'isActive', 'maxOverdueDays'],
 			// Los cambios de pasos no son columnas de la secuencia: se resume lo
 			// que syncSteps/B3 le hicieron a las filas materializadas.
 			metadata: {
+				descriptionChars: seq.description?.length ?? 0,
+				descriptionChanged: beforeAudit.description !== seq.description,
 				archivedStepCount: archived.archivedSteps,
 				archivedPendingCount: archived.cancelledPending,
 				cancelledPendingCount,
@@ -2774,7 +2778,7 @@ export class MessageSequenceService {
 	 */
 	async runForRetreat(
 		retreatId: string,
-		opts: { sendNowStepIds?: readonly string[] } = {},
+		opts: { sendNowStepIds?: readonly string[]; trigger?: 'manual' | 'participant_create' } = {},
 	): Promise<SequenceRunResult> {
 		const sequences = await this.findByRetreat(retreatId);
 		// Only this retreat's sequences are walked, so step ids from another
@@ -2791,20 +2795,28 @@ export class MessageSequenceService {
 		// Scopeado a este retiro: el alta de un participante no debe disparar envíos
 		// de otros retiros.
 		const processed = await this.processDue(new Date(), undefined, retreatId);
-		void domainAuditService.log({
-			action: DomainAuditAction.MESSAGE_SEQUENCE_RUN_NOW,
-			resourceType: 'message_sequence',
-			resourceId: null,
-			retreatId,
-			// El actor sale del auditContext: "Ejecutar ahora" manual o el alta
-			// de participantes que dispara la corrida — ambos son personas.
-			metadata: {
-				sendNowStepIds: [...(opts.sendNowStepIds ?? [])],
-				enrolled,
-				processed,
-				pastStepsCount: pastSteps.length,
-			},
-		});
+		// Manual runs always leave a row — even a no-op one records the
+		// operator's intent, which is exactly what the incident post-mortem
+		// needed. Automatic runs (participant signup) only log when something
+		// actually happened: otherwise every signup adds an empty run_now row.
+		const trigger = opts.trigger ?? 'participant_create';
+		if (trigger === 'manual' || enrolled > 0 || processed > 0 || pastSteps.length > 0) {
+			void domainAuditService.log({
+				action: DomainAuditAction.MESSAGE_SEQUENCE_RUN_NOW,
+				resourceType: 'message_sequence',
+				resourceId: null,
+				retreatId,
+				// El actor sale del auditContext: "Ejecutar ahora" manual o el alta
+				// de participantes que dispara la corrida — ambos son personas.
+				metadata: {
+					trigger,
+					sendNowStepIds: [...(opts.sendNowStepIds ?? [])],
+					enrolled,
+					processed,
+					pastStepsCount: pastSteps.length,
+				},
+			});
+		}
 		return { enrolled, processed, pastSteps };
 	}
 
