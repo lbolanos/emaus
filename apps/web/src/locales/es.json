@@ -172,6 +172,54 @@
         "remove_member": "Miembro retirado del equipo",
         "assign_leader": "Líder asignado al equipo",
         "unassign_leader": "Líder retirado del equipo"
+      },
+      "inventory_category": {
+        "create": "Categoría de inventario creada"
+      },
+      "inventory_team": {
+        "create": "Equipo de inventario creado"
+      },
+      "inventory_item": {
+        "create": "Ítem de inventario creado",
+        "update": "Ítem de inventario editado"
+      },
+      "retreat_inventory": {
+        "create": "Ítem agregado al inventario del retiro",
+        "update": "Inventario del retiro editado",
+        "delete": "Ítem retirado del inventario del retiro",
+        "sync_catalog": "Ítems del catálogo sincronizados al retiro",
+        "recalculate": "Cantidades requeridas recalculadas",
+        "copy_from_retreat": "Inventario copiado de otro retiro",
+        "import": "Inventario importado desde Excel"
+      },
+      "shirt_type": {
+        "create": "Tipo de playera creado",
+        "update": "Tipo de playera editado",
+        "delete": "Tipo de playera eliminado"
+      },
+      "crm_follow_up": {
+        "update": "Etapa de seguimiento cambiada"
+      },
+      "crm_task": {
+        "create": "Tarea creada",
+        "update": "Tarea editada",
+        "delete": "Tarea eliminada"
+      },
+      "participant_note": {
+        "delete": "Nota del participante eliminada"
+      },
+      "retreat_preparation": {
+        "create": "Preparación creada",
+        "update": "Preparación editada",
+        "delete": "Preparación eliminada",
+        "generate": "Calendario de preparaciones generado",
+        "skip_holiday": "Sesión saltada por festivo",
+        "resync_docs": "Documentos de preparación resincronizados"
+      },
+      "retreat_preparation_document": {
+        "create": "Documento agregado a la preparación",
+        "update": "Documento de preparación editado",
+        "delete": "Documento de preparación eliminado"
       }
     },
     "resources": {
@@ -198,7 +246,17 @@
       "santisimo_signup": "Inscripción al Santísimo",
       "responsability": "Responsabilidad",
       "responsability_attachment": "Documento de responsabilidad",
-      "service_team": "Equipo de servicio"
+      "service_team": "Equipo de servicio",
+      "inventory_category": "Categoría de inventario",
+      "inventory_team": "Equipo de inventario",
+      "inventory_item": "Ítem del catálogo de inventario",
+      "retreat_inventory": "Inventario del retiro",
+      "shirt_type": "Tipo de playera",
+      "crm_follow_up": "Seguimiento",
+      "crm_task": "Tarea",
+      "participant_note": "Nota del participante",
+      "retreat_preparation": "Preparación",
+      "retreat_preparation_document": "Documento de preparación"
     },
     "ranges": {
       "1w": "1 semana",

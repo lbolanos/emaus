@@ -2,13 +2,32 @@ import { EntityManager } from 'typeorm';
 import { AppDataSource } from '../data-source';
 import { RetreatShirtType } from '../entities/retreatShirtType.entity';
 import { RetreatShirtTypeSizePrice } from '../entities/retreatShirtTypeSizePrice.entity';
+import { domainAuditService } from './domainAuditService';
 
 const repo = () => AppDataSource.getRepository(RetreatShirtType);
+
+// `availableSizes` (array) va como metadata `sizes`; los overrides de precio
+// por talla, como conteo — el detalle vive en la fila del tipo.
+const SHIRT_AUDIT_FIELDS = [
+	'name',
+	'color',
+	'requiredForWalkers',
+	'optionalForServers',
+	'sortOrder',
+	'price',
+];
+
+const sizePriceCount = (shirtTypeId: string) =>
+	AppDataSource.getRepository(RetreatShirtTypeSizePrice).count({
+		where: { shirtTypeId },
+	});
 
 /**
  * Sincroniza el inventario del retiro con los tipos de playera actuales.
  * Lazy import para evitar ciclos entre shirtTypeService ↔ inventoryService.
  * Si la sincronización falla, log warning y continúa (no rompe la op CRUD).
+ * NO se audita: consecuencia derivada del CRUD del tipo de playera que la
+ * disparó (el evento raíz ya quedó registrado).
  */
 const syncInventoryShirts = async (retreatId: string): Promise<void> => {
 	try {
@@ -131,12 +150,29 @@ export const createShirtType = async (retreatId: string, data: ShirtTypeInput) =
 	});
 	await syncInventoryShirts(retreatId);
 	// Re-fetch with overrides so the response carries them.
-	return repo().findOne({ where: { id: savedType.id }, relations: ['sizePrices'] });
+	const created = await repo().findOne({
+		where: { id: savedType.id },
+		relations: ['sizePrices'],
+	});
+	// Log DESPUÉS de cerrar la transacción (riesgo §25.3): fire-and-forget
+	// dentro de la ventana transaccional revienta el commit con better-sqlite3.
+	if (created) {
+		void domainAuditService.logCreate('shirt_type', created.id, created, {
+			retreatId,
+			fields: SHIRT_AUDIT_FIELDS,
+			metadata: {
+				sizes: created.availableSizes ?? [],
+				sizePrices: created.sizePrices?.length ?? 0,
+			},
+		});
+	}
+	return created;
 };
 
 export const updateShirtType = async (id: string, data: Partial<ShirtTypeInput>) => {
 	const existing = await repo().findOne({ where: { id } });
 	if (!existing) return null;
+	const pricesBefore = 'sizePrices' in data ? await sizePriceCount(id) : null;
 	// Build a clean updates object — only the fields the client actually sent.
 	// Avoids TypeORM change-detection issues with simple-json columns when entire
 	// entity is round-tripped (createdAt/updatedAt strings, etc).
@@ -163,17 +199,41 @@ export const updateShirtType = async (id: string, data: Partial<ShirtTypeInput>)
 		});
 	}
 	const updated = await repo().findOne({ where: { id }, relations: ['sizePrices'] });
-	if (updated) await syncInventoryShirts(updated.retreatId);
+	if (updated) {
+		void domainAuditService.logUpdate('shirt_type', id, existing, updated, {
+			retreatId: updated.retreatId,
+			fields: SHIRT_AUDIT_FIELDS,
+			metadata: {
+				sizes: updated.availableSizes ?? [],
+				...(pricesBefore !== null
+					? { sizePricesBefore: pricesBefore, sizePricesAfter: updated.sizePrices?.length ?? 0 }
+					: {}),
+			},
+		});
+		await syncInventoryShirts(updated.retreatId);
+	}
 	return updated;
 };
 
 export const deleteShirtType = async (id: string) => {
 	const target = await repo().findOne({ where: { id } });
+	// Contado ANTES: el delete explícito de abajo ya se llevó las filas.
+	const pricesBefore = target ? await sizePriceCount(id) : 0;
 	// Explicit delete of overrides before the type: defends environments where
 	// SQLite FK enforcement is off and CASCADE would not fire.
 	await AppDataSource.getRepository(RetreatShirtTypeSizePrice).delete({ shirtTypeId: id });
 	const result = await repo().delete({ id });
-	if (target) await syncInventoryShirts(target.retreatId);
+	if (target) {
+		void domainAuditService.logDelete('shirt_type', id, target, {
+			retreatId: target.retreatId,
+			fields: SHIRT_AUDIT_FIELDS,
+			metadata: {
+				sizes: target.availableSizes ?? [],
+				sizePrices: pricesBefore,
+			},
+		});
+		await syncInventoryShirts(target.retreatId);
+	}
 	return (result.affected ?? 0) > 0;
 };
 
@@ -193,6 +253,8 @@ export const validateSizesAgainstType = async (
 };
 
 // Default Mexican style shirt types seeded for new retreats.
+// NO se audita: es semilla automática al crear el retiro — la traza vive en
+// retreat.create (igual que las responsabilidades y equipos por defecto).
 const MEXICAN_DEFAULT_SHIRTS: ShirtTypeInput[] = [
 	{ name: 'Blanca con rosa', color: 'white', sortOrder: 1 },
 	{ name: 'Blanca Emaus', color: 'white', sortOrder: 2 },

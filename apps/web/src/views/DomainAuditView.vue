@@ -299,6 +299,16 @@ const badgeClass = (rt: string) => {
 		responsability: 'bg-sky-100 text-sky-800',
 		responsability_attachment: 'bg-violet-100 text-violet-800',
 		service_team: 'bg-emerald-100 text-emerald-800',
+		inventory_category: 'bg-slate-100 text-slate-800',
+		inventory_team: 'bg-slate-100 text-slate-800',
+		inventory_item: 'bg-slate-100 text-slate-800',
+		retreat_inventory: 'bg-lime-100 text-lime-800',
+		shirt_type: 'bg-fuchsia-100 text-fuchsia-800',
+		crm_follow_up: 'bg-blue-100 text-blue-800',
+		crm_task: 'bg-cyan-100 text-cyan-800',
+		participant_note: 'bg-purple-100 text-purple-800',
+		retreat_preparation: 'bg-teal-100 text-teal-800',
+		retreat_preparation_document: 'bg-orange-100 text-orange-800',
 	};
 	return map[rt] || 'bg-gray-100 text-gray-800';
 };

@@ -248,10 +248,64 @@ vulnerable**. En tests: flush con `waitForLogs` antes de abrir la transacción (
 - No determinismo cazado en la propia tanda: `publicSignup` devuelve los slots en orden de
   DB, no en el pedido — el assert de `slotIds` compara como conjunto.
 
-### Bloque C — pendiente
+### Bloque C — inventario, playeras, CRM y preparaciones (2026-10-07)
 
-`inventoryService`, `shirtTypeService`, `crmService`, `retreatPreparationService`. Mismo
-patrón.
+- **Inventario** (`inventoryService`): catálogo global (categorías, equipos e ítems) con
+  `retreatId` null — se comparte entre retiros; `description` viaja como `descriptionChars`.
+  Ciclo del retiro: `addItemToRetreat`/`updateRetreatInventory`/`removeItemFromRetreat` con
+  `itemName` + `source` (catalog/custom) en metadata, `notes`→`notesChars`, y
+  `historyRows` contado ANTES del delete (la FK del historial es CASCADE). Ad-hoc:
+  `addCustomItemToRetreat` marca `hasCustomCategory`. Agregados por retiro:
+  `sync_catalog` (`added`), `recalculate` (`calcBase`, `items`), `copy_from_retreat` e
+  `import`. `syncShirtItemsForRetreat` NO se audita: derivada del CRUD de playeras.
+- **Playeras** (`shirtTypeService`): CRUD del tipo. `availableSizes` nunca entra al diff —
+  viaja `sizes` en metadata; los precios por talla viajan como conteo
+  (`sizePricesBefore`/`sizePricesAfter`): montos son dato financiero del retiro y con el diff
+  de `name` basta el rastro. `seedDefaultShirtTypes` exenta (semilla del retiro).
+- **CRM de seguimiento** (`crmService` + `crmController`): `upsertFollowUp` loguea SOLO el
+  cambio de etapa (primer alta con `oldValues` vacío; repetir la etapa no deja fila) y
+  `attendanceSynced` registra si confirmed/declined escribió la asistencia. Tareas: CRUD con
+  `descriptionChars`. Notas: create/update exentos (trabajo vivo del equipo, como los drafts);
+  el delete sí deja fila con `participantId`/`authorId`/`bodyChars` — el cuerpo nunca entra al
+  log. `setDoNotContact` queda como `participant.update` con diff de `doNotContact` sólo al
+  cambiar.
+- **Preparaciones del equipo servidor** (`retreatPreparationService`): `generate` y
+  `skipForHoliday` dejan UN agregado por retiro (metadata `{weeks, firstDate, time, created,
+  cleared, clearedDocs, clearExisting}` y `{breakDate, reason, shiftedSessions,
+  breakEntryId}` respectivamente; ninguna fila por sesión). CRUD de sesión con
+  `descriptionChars` y `cascadeDocuments` contado ANTES (FK CASCADE). Documentos: el markdown
+  y la url (data:URL inline o S3) NUNCA entran al log — `sizeBytes`, `contentChars`,
+  `contentChanged`, `storage` informan tamaño y naturaleza. `resync_docs` agregado.
+
+#### Hallazgos de la tanda C
+
+- **§25.3 rompió una suite pre-existente**: `shirtTypeService.test.ts` ("with [] clears every
+  override") fallaba con `TransactionNotStartedError` — el `logCreate` fire-and-forget del
+  create aterrizaba en la ventana transaccional del update siguiente sobre la conexión única
+  better-sqlite3. Verificado empíricamente contra master (pasa) y con flush (pasa). Fix:
+  helper `awaitAuditRow` en la suite pre-existente antes de los updates con `sizePrices`.
+  Regla para futuras tandas: **al instrumentar un servicio, revisar las suites pre-existentes
+  que encadenan create→update-transaccional y añadir el flush.**
+- **Warning `EntityMetadataNotFound` de la sync de playeras: pre-existente.** Ocurre igual en
+  master (verificado: 2 apariciones) — en test-env `syncShirtItemsForRetreat` sin `dataSource`
+  explícito no resuelve la metadata y el catch de `syncInventoryShirts` lo traga desde siempre;
+  las suites existentes pasan `getTestDS()` explícito. No es regresión de esta tanda.
+- Nombres de tabla para el `beforeEach`: `participant_notes`, `participant_followups`,
+  `crm_tasks` (plurales irregulares — `clearTestData` no las cubre).
+
+#### Verificación de la tanda C
+
+- 4 suites de auditoría nuevas: **15/15** (inventario 3, playeras 3, CRM 4, preparaciones 5).
+  Total del proyecto: 14 suites, **70/70**.
+- Regresión de los servicios tocados: **164/164** — shirtTypeService 35, inventoryService 72,
+  crmService 21, retreatPreparationService.simple 20, crmNotesAuthz 11, crmParticipantScope 5.
+- Keystone `auditLocaleCoverage.test.ts` 6/6 con los 10 recursos nuevos; labels es+en y
+  badges en `DomainAuditView.vue`.
+- `pnpm --filter api build` + `grep __dirname dist/index.js` = 2 (shim legítimo);
+  `pnpm --filter web build` OK. Imports muertos de `DomainAuditAction` removidos
+  (shirtTypeService, crmService).
+- Las acciones `copy_from_retreat`, `import` y `resync_docs` quedaron instrumentadas y
+  cubiertas por locales/keystone, pero sin caso de test propio (flujos derivados mayores).
 
 ## Reproducir el diagnóstico forense de hoy
 

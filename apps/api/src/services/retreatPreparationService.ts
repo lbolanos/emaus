@@ -20,6 +20,13 @@ import {
 	loadDefaultDocsForWeek,
 	loadOriginalDocxForWeek,
 } from '../data/preparationDocSeeder';
+import { domainAuditService } from './domainAuditService';
+import { DomainAuditAction } from '@repo/types';
+
+// `description` (texto libre) y el `content` markdown quedan fuera del diff:
+// viaja su tamaño. `url` (data:URL/binario S3) NUNCA entra al log.
+const PREP_AUDIT_FIELDS = ['type', 'weekNumber', 'title', 'date', 'time', 'sortOrder'];
+const PREP_DOC_AUDIT_FIELDS = ['kind', 'fileName', 'mimeType', 'sizeBytes', 'sortOrder'];
 
 export class PreparationValidationError extends Error {}
 export class PreparationNotFoundError extends Error {}
@@ -248,6 +255,9 @@ class RetreatPreparationService {
 				'Ya existe un calendario de preparaciones. Usa "Reemplazar todo" para regenerarlo.',
 			);
 		}
+		// Contados ANTES del delete: las filas ya no estarán después.
+		const cleared = existing.length;
+		const clearedDocs = existing.reduce((n, p) => n + (p.documents?.length ?? 0), 0);
 		if (existing.length > 0 && input.clearExisting) {
 			for (const prep of existing) {
 				for (const doc of prep.documents ?? []) {
@@ -270,6 +280,27 @@ class RetreatPreparationService {
 			});
 			created.push(await this.repo.save(entity));
 		}
+
+		// Un evento agregado por retiro. Los documentos por defecto que se
+		// adjuntan abajo sí dejan sus filas individuales (son documentos
+		// reales que luego se editan/borran).
+		void domainAuditService.log({
+			action: DomainAuditAction.RETREAT_PREPARATION_GENERATE,
+			resourceType: 'retreat_preparation',
+			resourceId: retreatId,
+			retreatId,
+			metadata: {
+				weeks: input.weeks,
+				firstDate: input.firstDate,
+				time: input.time,
+				clearExisting: input.clearExisting === true,
+				cleared,
+				clearedDocs,
+				created: created.length,
+				includeDefaultDocs: input.includeDefaultDocs === true,
+				includeOriginalDocx: input.includeOriginalDocx === true,
+			},
+		});
 
 		if (input.includeDefaultDocs) {
 			for (const session of created) {
@@ -317,7 +348,13 @@ class RetreatPreparationService {
 			time: input.time ?? null,
 			sortOrder: input.sortOrder ?? 0,
 		});
-		return this.repo.save(entity);
+		const saved = await this.repo.save(entity);
+		void domainAuditService.logCreate('retreat_preparation', saved.id, saved, {
+			retreatId,
+			fields: PREP_AUDIT_FIELDS,
+			metadata: { descriptionChars: saved.description?.length ?? 0 },
+		});
+		return saved;
 	}
 
 	async update(
@@ -326,6 +363,8 @@ class RetreatPreparationService {
 	): Promise<RetreatPreparation | null> {
 		const existing = await this.repo.findOne({ where: { id } });
 		if (!existing) return null;
+		// Snapshot antes de mutar: `existing` se modifica in-place.
+		const before = { ...existing };
 		if (patch.type !== undefined) existing.type = patch.type;
 		if (patch.weekNumber !== undefined) existing.weekNumber = patch.weekNumber;
 		if (patch.title !== undefined) existing.title = patch.title;
@@ -334,16 +373,28 @@ class RetreatPreparationService {
 		if (patch.time !== undefined) existing.time = patch.time;
 		if (patch.sortOrder !== undefined) existing.sortOrder = patch.sortOrder;
 		await this.repo.save(existing);
+		void domainAuditService.logUpdate('retreat_preparation', id, before, existing, {
+			retreatId: existing.retreatId,
+			fields: PREP_AUDIT_FIELDS,
+			metadata: { descriptionChars: existing.description?.length ?? 0 },
+		});
 		return this.get(id);
 	}
 
 	async remove(id: string): Promise<boolean> {
 		const existing = await this.repo.findOne({ where: { id }, relations: ['documents'] });
 		if (!existing) return false;
+		// Contado ANTES: el FK CASCADE borra los documentos junto con la sesión.
+		const cascadeDocuments = existing.documents?.length ?? 0;
 		for (const doc of existing.documents ?? []) {
 			await this.deleteStoredFile(doc);
 		}
 		await this.repo.delete(id);
+		void domainAuditService.logDelete('retreat_preparation', id, existing, {
+			retreatId: existing.retreatId,
+			fields: PREP_AUDIT_FIELDS,
+			metadata: { cascadeDocuments, descriptionChars: existing.description?.length ?? 0 },
+		});
 		return true;
 	}
 
@@ -384,6 +435,16 @@ class RetreatPreparationService {
 			sortOrder: prep.sortOrder,
 		});
 		await this.repo.save(breakEntry);
+
+		// Masiva: un evento agregado (mueve N sesiones + crea el break).
+		void domainAuditService.log({
+			action: DomainAuditAction.RETREAT_PREPARATION_SKIP_HOLIDAY,
+			resourceType: 'retreat_preparation',
+			resourceId: prep.retreatId,
+			retreatId: prep.retreatId,
+			newValues: { breakDate: skippedDate, reason: breakEntry.title },
+			metadata: { shiftedSessions: toShift.length, breakEntryId: breakEntry.id },
+		});
 
 		return this.listForRetreat(prep.retreatId);
 	}
@@ -441,7 +502,14 @@ class RetreatPreparationService {
 			storageKey,
 			sortOrder: (existingCount + 1) * 10,
 		});
-		return this.docRepo.save(entity);
+		const saved = await this.docRepo.save(entity);
+		// La url (data:URL o binario S3) NUNCA entra al log.
+		void domainAuditService.logCreate('retreat_preparation_document', saved.id, saved, {
+			retreatId: prep.retreatId,
+			fields: PREP_DOC_AUDIT_FIELDS,
+			metadata: { storage: storageKey ? 's3' : 'inline' },
+		});
+		return saved;
 	}
 
 	/**
@@ -484,18 +552,33 @@ class RetreatPreparationService {
 			storageKey: null,
 			sortOrder: (existingCount + 1) * 10,
 		});
-		return this.docRepo.save(entity);
+		const saved = await this.docRepo.save(entity);
+		// El contenido markdown nunca entra al log: solo su tamaño.
+		void domainAuditService.logCreate('retreat_preparation_document', saved.id, saved, {
+			retreatId: prep.retreatId,
+			fields: PREP_DOC_AUDIT_FIELDS,
+			metadata: { contentChars: content.length },
+		});
+		return saved;
 	}
 
 	async updateMarkdownDocument(
 		docId: string,
 		patch: { title?: string; content?: string },
 	): Promise<RetreatPreparationDocument> {
-		const existing = await this.docRepo.findOne({ where: { id: docId } });
+		const existing = await this.docRepo.findOne({
+			where: { id: docId },
+			relations: ['preparation'],
+		});
 		if (!existing) throw new PreparationNotFoundError('Documento no encontrado');
 		if (existing.kind !== 'markdown') {
 			throw new PreparationValidationError('Este documento no es de texto');
 		}
+		// Snapshot antes de mutar (sólo los campos del diff).
+		const before = {
+			fileName: existing.fileName,
+			sizeBytes: existing.sizeBytes,
+		};
 		if (patch.title !== undefined) {
 			const title = patch.title.slice(0, 200).trim() || 'Documento';
 			existing.fileName = title.endsWith('.md') ? title : `${title}.md`;
@@ -509,7 +592,16 @@ class RetreatPreparationService {
 			existing.sizeBytes = sizeBytes;
 			existing.url = `data:text/markdown;charset=utf-8;base64,${Buffer.from(patch.content, 'utf-8').toString('base64')}`;
 		}
-		return this.docRepo.save(existing);
+		const saved = await this.docRepo.save(existing);
+		void domainAuditService.logUpdate('retreat_preparation_document', docId, before, saved, {
+			retreatId: existing.preparation?.retreatId ?? null,
+			fields: PREP_DOC_AUDIT_FIELDS,
+			metadata: {
+				contentChanged: patch.content !== undefined,
+				kind: 'markdown',
+			},
+		});
+		return saved;
 	}
 
 	async getDocument(docId: string): Promise<RetreatPreparationDocument | null> {
@@ -555,10 +647,18 @@ class RetreatPreparationService {
 	}
 
 	async removeDocument(docId: string): Promise<boolean> {
-		const existing = await this.docRepo.findOne({ where: { id: docId } });
+		const existing = await this.docRepo.findOne({
+			where: { id: docId },
+			relations: ['preparation'],
+		});
 		if (!existing) return false;
 		await this.deleteStoredFile(existing);
 		await this.docRepo.delete(docId);
+		void domainAuditService.logDelete('retreat_preparation_document', docId, existing, {
+			retreatId: existing.preparation?.retreatId ?? null,
+			fields: PREP_DOC_AUDIT_FIELDS,
+			metadata: { hadS3Asset: Boolean(existing.storageKey), kind: existing.kind },
+		});
 		return true;
 	}
 
@@ -626,6 +726,15 @@ class RetreatPreparationService {
 				}
 			}
 		}
+
+		// Un agregado; los add/removeDocument del loop ya dejaron sus filas.
+		void domainAuditService.log({
+			action: DomainAuditAction.RETREAT_PREPARATION_RESYNC_DOCS,
+			resourceType: 'retreat_preparation',
+			resourceId: retreatId,
+			retreatId,
+			metadata: { added, removed, skipped, removeLegacy: options.removeLegacy === true },
+		});
 
 		return { added, removed, skipped };
 	}

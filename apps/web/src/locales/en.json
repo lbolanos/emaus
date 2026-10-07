@@ -172,6 +172,54 @@
         "remove_member": "Member removed from team",
         "assign_leader": "Team leader assigned",
         "unassign_leader": "Team leader removed"
+      },
+      "inventory_category": {
+        "create": "Inventory category created"
+      },
+      "inventory_team": {
+        "create": "Inventory team created"
+      },
+      "inventory_item": {
+        "create": "Inventory item created",
+        "update": "Inventory item edited"
+      },
+      "retreat_inventory": {
+        "create": "Item added to retreat inventory",
+        "update": "Retreat inventory edited",
+        "delete": "Item removed from retreat inventory",
+        "sync_catalog": "Catalog items synced to retreat",
+        "recalculate": "Required quantities recalculated",
+        "copy_from_retreat": "Inventory copied from another retreat",
+        "import": "Inventory imported from Excel"
+      },
+      "shirt_type": {
+        "create": "Shirt type created",
+        "update": "Shirt type edited",
+        "delete": "Shirt type deleted"
+      },
+      "crm_follow_up": {
+        "update": "Follow-up stage changed"
+      },
+      "crm_task": {
+        "create": "Task created",
+        "update": "Task edited",
+        "delete": "Task deleted"
+      },
+      "participant_note": {
+        "delete": "Participant note deleted"
+      },
+      "retreat_preparation": {
+        "create": "Preparation created",
+        "update": "Preparation edited",
+        "delete": "Preparation deleted",
+        "generate": "Preparation calendar generated",
+        "skip_holiday": "Session skipped for a holiday",
+        "resync_docs": "Preparation documents resynced"
+      },
+      "retreat_preparation_document": {
+        "create": "Document added to preparation",
+        "update": "Preparation document edited",
+        "delete": "Preparation document deleted"
       }
     },
     "resources": {
@@ -198,7 +246,17 @@
       "santisimo_signup": "Santísimo signup",
       "responsability": "Responsibility",
       "responsability_attachment": "Responsibility document",
-      "service_team": "Service team"
+      "service_team": "Service team",
+      "inventory_category": "Inventory category",
+      "inventory_team": "Inventory team",
+      "inventory_item": "Inventory catalog item",
+      "retreat_inventory": "Retreat inventory",
+      "shirt_type": "Shirt type",
+      "crm_follow_up": "Follow-up",
+      "crm_task": "Task",
+      "participant_note": "Participant note",
+      "retreat_preparation": "Preparation",
+      "retreat_preparation_document": "Preparation document"
     },
     "ranges": {
       "1w": "1 week",

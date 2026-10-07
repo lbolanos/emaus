@@ -170,6 +170,54 @@ export const DomainAuditAction = {
 	SERVICE_TEAM_REMOVE_MEMBER: 'service_team.remove_member',
 	SERVICE_TEAM_ASSIGN_LEADER: 'service_team.assign_leader',
 	SERVICE_TEAM_UNASSIGN_LEADER: 'service_team.unassign_leader',
+	// Tanda P2, bloque C — catálogo global de inventario (categorías, equipos
+	// e ítems). No llevan retreatId: son compartidos por todos los retiros,
+	// como los documentos de responsabilidad.
+	INVENTORY_CATEGORY_CREATE: 'inventory_category.create',
+	INVENTORY_TEAM_CREATE: 'inventory_team.create',
+	INVENTORY_ITEM_CREATE: 'inventory_item.create',
+	INVENTORY_ITEM_UPDATE: 'inventory_item.update',
+	// Inventario de un retiro. `updateRetreatInventory` también escribe el
+	// historial por-campo (retreat_inventory_history): esa tabla sigue siendo
+	// el detalle por ítem; este evento es la traza forense unificada con actor
+	// implícito del auditContext e IP. Los bulk (update/remove) reusan los
+	// individuales en loop: cada fila deja su propio evento, sin agregado
+	// extra. `syncShirtItemsForRetreat` y `createDefaultInventoryForRetreat`
+	// NO se auditan (derivada del CRUD de playeras / semilla de retreat.create).
+	RETREAT_INVENTORY_CREATE: 'retreat_inventory.create',
+	RETREAT_INVENTORY_UPDATE: 'retreat_inventory.update',
+	RETREAT_INVENTORY_DELETE: 'retreat_inventory.delete',
+	RETREAT_INVENTORY_SYNC_CATALOG: 'retreat_inventory.sync_catalog',
+	RETREAT_INVENTORY_RECALCULATE: 'retreat_inventory.recalculate',
+	RETREAT_INVENTORY_COPY_FROM_RETREAT: 'retreat_inventory.copy_from_retreat',
+	RETREAT_INVENTORY_IMPORT: 'retreat_inventory.import',
+	// Tipos de playera del retiro. `seedDefaultShirtTypes` (semilla) y
+	// `syncInventoryShirts` (derivada del CRUD) NO se auditan.
+	SHIRT_TYPE_CREATE: 'shirt_type.create',
+	SHIRT_TYPE_UPDATE: 'shirt_type.update',
+	SHIRT_TYPE_DELETE: 'shirt_type.delete',
+	// Seguimiento CRM. Crear/editar NOTAS no se audita: la nota ES el registro
+	// (autor y fecha viven en su propia fila); borrarla sí, porque es pérdida
+	// de información sin rastro. El hito de palancas es derivado del conteo
+	// de cartas (la raíz es el participant.update que ya se audita).
+	CRM_FOLLOW_UP_UPDATE: 'crm_follow_up.update',
+	CRM_TASK_CREATE: 'crm_task.create',
+	CRM_TASK_UPDATE: 'crm_task.update',
+	CRM_TASK_DELETE: 'crm_task.delete',
+	PARTICIPANT_NOTE_DELETE: 'participant_note.delete',
+	// Preparaciones del equipo servidor. `generate` y `skip_holiday` son
+	// masivas: un evento agregado por retiro.
+	RETREAT_PREPARATION_CREATE: 'retreat_preparation.create',
+	RETREAT_PREPARATION_UPDATE: 'retreat_preparation.update',
+	RETREAT_PREPARATION_DELETE: 'retreat_preparation.delete',
+	RETREAT_PREPARATION_GENERATE: 'retreat_preparation.generate',
+	RETREAT_PREPARATION_SKIP_HOLIDAY: 'retreat_preparation.skip_holiday',
+	RETREAT_PREPARATION_RESYNC_DOCS: 'retreat_preparation.resync_docs',
+	// Documentos de preparación. `url` (data:URL/binario S3) y `content`
+	// (markdown) NUNCA entran al log — sizeBytes informa el tamaño.
+	RETREAT_PREPARATION_DOCUMENT_CREATE: 'retreat_preparation_document.create',
+	RETREAT_PREPARATION_DOCUMENT_UPDATE: 'retreat_preparation_document.update',
+	RETREAT_PREPARATION_DOCUMENT_DELETE: 'retreat_preparation_document.delete',
 } as const;
 
 export type DomainAuditActionType = (typeof DomainAuditAction)[keyof typeof DomainAuditAction];
@@ -199,6 +247,16 @@ export const DOMAIN_RESOURCE_TYPES = [
 	'responsability',
 	'responsability_attachment',
 	'service_team',
+	'inventory_category',
+	'inventory_team',
+	'inventory_item',
+	'retreat_inventory',
+	'shirt_type',
+	'crm_follow_up',
+	'crm_task',
+	'participant_note',
+	'retreat_preparation',
+	'retreat_preparation_document',
 ] as const;
 
 export type DomainResourceType = (typeof DOMAIN_RESOURCE_TYPES)[number];
