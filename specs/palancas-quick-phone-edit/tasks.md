@@ -29,9 +29,9 @@ milestone correspondiente.
       `''` EC2 → NULL, 404 cross-retreat)
 - [x] `pnpm --filter api exec tsc --noEmit` — 143 errores, todos preexistentes de master
       (baseline verificado al cerrar M1); ninguno en líneas nuevas
-- [ ] Commit `feat(api): ... (M1)`
+- [x] Commit `feat(api): ... (M1)` — d61d76dc
 
-**Done**: 2026-10-07 (commit pendiente de autorización).
+**Done**: 2026-10-07.
 
 ### Desviaciones 2026-10-07 (M1)
 
@@ -58,15 +58,34 @@ milestone correspondiente.
 
 ## M2 — editor + tabla
 
-- [ ] `updateParticipantPhones` en `apps/web/src/services/api.ts`
-- [ ] Action `updateParticipantPhones` en `participantStore.ts` (optimista + rollback + valores
+- [x] `updateParticipantPhones` en `apps/web/src/services/api.ts`
+- [x] Action `updateParticipantPhones` en `participantStore.ts` (optimista + rollback + valores
       canónicos)
-- [ ] `ParticipantQuickPhoneEditor.vue` (popover manual, 3 campos, validación país, payload
+- [x] `ParticipantQuickPhoneEditor.vue` (popover manual, 3 campos, validación país, payload
       cambios-only, gate permiso, `saved`/`close`)
-- [ ] Prop `inlinePhoneEdit` (withDefaults false) + celda cellPhone con ✏ en `ParticipantList.vue`
-- [ ] `PalancasView.vue`: columna `cellPhone` + `:inline-phone-edit="true"`
-- [ ] `pnpm --filter web exec vue-tsc --noEmit` limpio
+- [x] Prop `inlinePhoneEdit` (withDefaults false) + celda cellPhone con ✏ en `ParticipantList.vue`
+- [x] `PalancasView.vue`: columna `cellPhone` + `inline-phone-edit`
+- [x] `pnpm --filter web exec vue-tsc --noEmit` limpio
+- [x] Vitest de regresión: ParticipantList (65) + paridad campo/control + EditParticipantForm +
+      cobertura de locales — 85/85
 - [ ] Commit `feat(web): ... (M2)`
+
+**Done**: 2026-10-07 (commit pendiente).
+
+### Desviaciones 2026-10-07 (M2)
+
+1. **Claves i18n del editor adelantadas a M2** (el plan las tenía en M3): el componente las
+   necesita para renderizar; se agregaron `participants.quickPhones.*` en es.json Y en.json.
+2. **Mensajes de formato inválido en español directo** vía `phoneValidationMessage`
+   (`@repo/types`), no claves i18n por mensaje: es el mismo contrato que usa el wizard público
+   (ParticipantRegistrationView), que ya muestra esos mensajes en español. La única clave
+   propia nueva para errores es `requiredEmpty`.
+3. **`cellPhone` también en `nonEditableColumns` de PalancasView**: la columna entra a la
+   tabla con ✏, pero NO como campo editable del form del diálogo (evita que el PUT genérico
+   sin validación de teléfono la toque por esa vía; el diálogo la corrige el mini-editor de M3).
+4. **Tests de Vitest del editor/wiring corren en M3** como estaba planeado; en M2 se corrió la
+   suite de regresión existente (85/85) para confirmar que la prop y la columna no rompen
+   ParticipantList ni la paridad campo/control.
 
 ## M3 — diálogo + i18n + tests
 

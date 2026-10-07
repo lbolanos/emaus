@@ -52,6 +52,7 @@ import {
 } from '@repo/ui';
 import ColumnSelector from './ColumnSelector.vue';
 import EditParticipantForm from './EditParticipantForm.vue';
+import ParticipantQuickPhoneEditor from './ParticipantQuickPhoneEditor.vue';
 import FilterDialog from './FilterDialog.vue';
 import ImportParticipantsModal from './ImportParticipantsModal.vue';
 import ExportParticipantsModal from './ExportParticipantsModal.vue';
@@ -85,6 +86,13 @@ const props = withDefaults(defineProps<{
      * enciende PalancasView; en el resto de las listas estorbaba.
      */
     showAttendanceConfirmation?: boolean,
+    /**
+     * Muestra el ✏ de edición rápida de teléfonos junto al número de la columna
+     * cellPhone (celular del caminante + los dos de contactos de emergencia).
+     * Corrige en 2 clicks el "lo inscribió su esposa y quedó el teléfono de
+     * ella"; es flujo de palancas, así que solo lo enciende PalancasView.
+     */
+    inlinePhoneEdit?: boolean,
 }>(), {
     isCancelled: false,
     columnsToShowInTable: () => ['id_on_retreat', 'firstName', 'lastName', 'email', 'cellPhone', 'tableMesa.name'],
@@ -92,6 +100,7 @@ const props = withDefaults(defineProps<{
     columnsToEditInForm: () => [],
     defaultFilters: () => ({}),
     showAttendanceConfirmation: false,
+    inlinePhoneEdit: false,
 });
 
 const { toast } = useToast();
@@ -107,6 +116,13 @@ const { participants: allParticipants, loading, error } = storeToRefs(participan
 const retreatStore = useRetreatStore();
 const { selectedRetreatId, serverRegistrationLink, walkerRegistrationLink } = storeToRefs(retreatStore);
 const { tags } = storeToRefs(participantStore);
+
+// País de la casa del retiro seleccionado: valida los teléfonos del editor
+// rápido por país. GET /retreats manda la relation `house`, pero el tipo
+// Retreat de @repo/types solo declara houseId (mismo cast que useFlyerContent).
+const retreatCountry = computed<string | null>(
+    () => (retreatStore.selectedRetreat as any)?.house?.country ?? null,
+);
 const messageTemplateStore = useMessageTemplateStore();
 const { templates: allMessageTemplates } = storeToRefs(messageTemplateStore);
 const tableMesaStore = useTableMesaStore();
@@ -1908,6 +1924,18 @@ const handleKeyboardShortcuts = (event: KeyboardEvent) => {
                                     </Tooltip>
                                 </TooltipProvider>
                                 <span v-else>{{ getCellContent(participant, colKey).value }}</span>
+                            </div>
+                            <!-- Quick phone edit (palancas): number + inline ✏ that patches
+                                 the walker's cell and both emergency contacts in place. -->
+                            <div v-else-if="colKey === 'cellPhone' && props.inlinePhoneEdit" class="flex items-center gap-1">
+                                {{ getCellContent(participant, colKey).value }}
+                                <span v-if="getCellContent(participant, colKey).hasBirthday" class="text-yellow-600" :title="$t('participants.birthdayDuringRetreat')">
+                                    🎂
+                                </span>
+                                <ParticipantQuickPhoneEditor
+                                    :participant="participant"
+                                    :country="retreatCountry"
+                                />
                             </div>
                             <!-- Default cell rendering for other columns -->
                             <div v-else class="flex items-center gap-1">

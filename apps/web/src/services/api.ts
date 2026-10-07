@@ -3081,6 +3081,33 @@ export async function setAttendanceConfirmation(
   return r.data;
 }
 
+// Quick phone edit (palancas): only the changed fields travel; the server
+// validates against the retreat house's country and canonicalizes.
+export interface QuickPhonePatch {
+  cellPhone?: string;
+  emergencyContact1CellPhone?: string;
+  emergencyContact2CellPhone?: string;
+}
+
+export interface QuickPhoneResult {
+  id: string;
+  cellPhone: string;
+  emergencyContact1CellPhone: string;
+  emergencyContact2CellPhone: string | null;
+}
+
+export async function updateParticipantPhones(
+  participantId: string,
+  retreatId: string,
+  phones: QuickPhonePatch,
+): Promise<QuickPhoneResult> {
+  const r = await api.patch(`/participants/${participantId}/phones`, {
+    retreatId,
+    ...phones,
+  });
+  return r.data;
+}
+
 // ---------- Minuto a Minuto (schedule) ----------
 
 export interface ScheduleTemplateSetDTO {

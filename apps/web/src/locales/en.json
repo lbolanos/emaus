@@ -792,6 +792,14 @@
   },
   "participants": {
     "title": "Walkers",
+    "quickPhones": {
+      "edit": "Edit phone numbers",
+      "title": "Phone numbers",
+      "cellPhone": "Walker's cell phone",
+      "emergencyContact1": "Emergency contact 1 cell phone",
+      "emergencyContact2": "Emergency contact 2 cell phone",
+      "requiredEmpty": "This phone number cannot be empty."
+    },
     "addWalker": "Add Walker",
     "name": "Name",
     "email": "Email",

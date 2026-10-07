@@ -847,6 +847,14 @@
   },
   "participants": {
     "title": "Caminantes",
+    "quickPhones": {
+      "edit": "Editar teléfonos",
+      "title": "Teléfonos",
+      "cellPhone": "Celular del caminante",
+      "emergencyContact1": "Celular de emergencia 1",
+      "emergencyContact2": "Celular de emergencia 2",
+      "requiredEmpty": "Este teléfono no puede quedar vacío."
+    },
     "addWalker": "Agregar Caminante",
     "name": "Nombre",
     "email": "Correo Electrónico",

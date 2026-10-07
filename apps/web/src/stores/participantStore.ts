@@ -2,7 +2,7 @@ import { defineStore } from 'pinia';
 import { ref, reactive } from 'vue';
 import { useToast } from '@repo/ui';
 import type { Participant, CreateParticipant, Tag } from '@repo/types';
-import { api, setAttendanceConfirmation as apiSetAttendanceConfirmation, type AttendanceConfirmation } from '@/services/api';
+import { api, setAttendanceConfirmation as apiSetAttendanceConfirmation, updateParticipantPhones as apiUpdateParticipantPhones, type AttendanceConfirmation, type QuickPhonePatch, type QuickPhoneResult } from '@/services/api';
 import { apiErrorMessage } from '@/services/apiError';
 
 export const useParticipantStore = defineStore('participant', () => {
@@ -347,6 +347,36 @@ export const useParticipantStore = defineStore('participant', () => {
 		}
 	}
 
+	// Edición rápida de teléfonos (palancas): optimista con rollback; al
+	// confirmar, la fila queda con los valores canónicos que devolvió el
+	// servidor (número nacional, sin lada ni prefijos).
+	async function updateParticipantPhones(
+		participantId: string,
+		phones: QuickPhonePatch,
+	): Promise<QuickPhoneResult | undefined> {
+		const retreatId = filters.retreatId;
+		if (!retreatId) return;
+		const idx = participants.value.findIndex((p) => p.id === participantId);
+		const prev =
+			idx >= 0
+				? {
+						cellPhone: (participants.value[idx] as any).cellPhone,
+						emergencyContact1CellPhone: (participants.value[idx] as any).emergencyContact1CellPhone,
+						emergencyContact2CellPhone: (participants.value[idx] as any).emergencyContact2CellPhone,
+					}
+				: undefined;
+		if (idx >= 0) Object.assign(participants.value[idx], phones);
+		try {
+			const result = await apiUpdateParticipantPhones(participantId, retreatId, phones);
+			if (idx >= 0) Object.assign(participants.value[idx], result);
+			return result;
+		} catch (e) {
+			if (idx >= 0 && prev) Object.assign(participants.value[idx], prev);
+			toast({ title: 'Error', description: apiErrorMessage(e, 'No se pudieron guardar los teléfonos.'), variant: 'destructive' });
+			throw e;
+		}
+	}
+
 	return {
 		participants,
 		tags,
@@ -363,6 +393,7 @@ export const useParticipantStore = defineStore('participant', () => {
 		updateParticipant,
 		deleteParticipant,
 		setAttendanceConfirmation,
+		updateParticipantPhones,
 		saveColumnSelection,
 		loadColumnSelection,
 		getColumnSelection,
