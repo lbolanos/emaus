@@ -54,6 +54,46 @@
           "photo_upload": "Foto de recuerdo subida",
           "update": "Recuerdos del retiro editados"
         }
+      },
+      "message_sequence": {
+        "create": "Secuencia creada",
+        "update": "Secuencia editada",
+        "delete": "Secuencia eliminada",
+        "run_now": "Secuencias ejecutadas ahora",
+        "cron_run": "Corrida del motor (cron)",
+        "regenerate_queue": "Bandeja regenerada"
+      },
+      "sequence_step": {
+        "reschedule": "Paso reprogramado"
+      },
+      "scheduled_message": {
+        "dispatch": "Mensaje marcado como enviado",
+        "skip": "Mensaje omitido",
+        "retry": "Mensaje reencolado",
+        "discard": "Mensaje descartado",
+        "assign": "Responsable de envío asignado",
+        "bulk_resolve": "Acción masiva sobre mensajes con problema"
+      },
+      "message_template": {
+        "create": "Plantilla creada",
+        "update": "Plantilla editada",
+        "delete": "Plantilla eliminada"
+      },
+      "global_message_sequence": {
+        "create": "Plantilla global creada",
+        "update": "Plantilla global editada",
+        "delete": "Plantilla global eliminada",
+        "toggle_active": "Plantilla global activada/desactivada",
+        "copy_to_retreat": "Plantilla global importada a un retiro"
+      },
+      "global_message_template": {
+        "create": "Plantilla global de mensaje creada",
+        "update": "Plantilla global de mensaje editada",
+        "delete": "Plantilla global de mensaje eliminada",
+        "toggle_active": "Plantilla global de mensaje activada/desactivada",
+        "copy_to_retreat": "Plantilla global copiada a un retiro",
+        "copy_to_community": "Plantilla global copiada a una comunidad",
+        "copy_from_retreat": "Plantilla de retiro copiada a una comunidad"
       }
     },
     "resources": {
@@ -63,7 +103,13 @@
       "bed": "Cama",
       "house": "Casa",
       "payment": "Pago",
-      "retreat": "Retiro"
+      "retreat": "Retiro",
+      "message_sequence": "Secuencia de mensajes",
+      "sequence_step": "Paso de secuencia",
+      "scheduled_message": "Mensaje programado",
+      "message_template": "Plantilla de mensaje",
+      "global_message_sequence": "Secuencia global de mensajes",
+      "global_message_template": "Plantilla global de mensaje"
     },
     "ranges": {
       "1w": "1 semana",
@@ -75,7 +121,7 @@
     },
     "ui": {
       "title": "Auditoría",
-      "description": "Registro de quién creó, editó o borró participantes, mesas, camas, casas, pagos y datos del retiro.",
+      "description": "Registro de quién creó, editó o borró participantes, mesas, camas, casas, pagos, datos del retiro, secuencias y plantillas de mensajes.",
       "quickRange": "Rango rápido:",
       "area": "Área",
       "action": "Acción",

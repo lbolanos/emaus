@@ -282,6 +282,12 @@ const badgeClass = (rt: string) => {
 		house: 'bg-teal-100 text-teal-800',
 		payment: 'bg-green-100 text-green-800',
 		retreat: 'bg-slate-100 text-slate-800',
+		message_sequence: 'bg-indigo-100 text-indigo-800',
+		sequence_step: 'bg-cyan-100 text-cyan-800',
+		scheduled_message: 'bg-violet-100 text-violet-800',
+		message_template: 'bg-orange-100 text-orange-800',
+		global_message_sequence: 'bg-lime-100 text-lime-800',
+		global_message_template: 'bg-fuchsia-100 text-fuchsia-800',
 	};
 	return map[rt] || 'bg-gray-100 text-gray-800';
 };

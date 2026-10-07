@@ -54,6 +54,46 @@
           "photo_upload": "Memory photo uploaded",
           "update": "Retreat memories edited"
         }
+      },
+      "message_sequence": {
+        "create": "Sequence created",
+        "update": "Sequence edited",
+        "delete": "Sequence deleted",
+        "run_now": "Sequences run now",
+        "cron_run": "Engine run (cron)",
+        "regenerate_queue": "Queue regenerated"
+      },
+      "sequence_step": {
+        "reschedule": "Step rescheduled"
+      },
+      "scheduled_message": {
+        "dispatch": "Message marked as sent",
+        "skip": "Message skipped",
+        "retry": "Message requeued",
+        "discard": "Message discarded",
+        "assign": "Send assignee set",
+        "bulk_resolve": "Bulk action on problem messages"
+      },
+      "message_template": {
+        "create": "Template created",
+        "update": "Template edited",
+        "delete": "Template deleted"
+      },
+      "global_message_sequence": {
+        "create": "Global sequence created",
+        "update": "Global sequence edited",
+        "delete": "Global sequence deleted",
+        "toggle_active": "Global sequence activated/deactivated",
+        "copy_to_retreat": "Global sequence imported to a retreat"
+      },
+      "global_message_template": {
+        "create": "Global message template created",
+        "update": "Global message template edited",
+        "delete": "Global message template deleted",
+        "toggle_active": "Global message template activated/deactivated",
+        "copy_to_retreat": "Global template copied to a retreat",
+        "copy_to_community": "Global template copied to a community",
+        "copy_from_retreat": "Retreat template copied to a community"
       }
     },
     "resources": {
@@ -63,7 +103,13 @@
       "bed": "Bed",
       "house": "House",
       "payment": "Payment",
-      "retreat": "Retreat"
+      "retreat": "Retreat",
+      "message_sequence": "Message sequence",
+      "sequence_step": "Sequence step",
+      "scheduled_message": "Scheduled message",
+      "message_template": "Message template",
+      "global_message_sequence": "Global message sequence",
+      "global_message_template": "Global message template"
     },
     "ranges": {
       "1w": "1 week",
@@ -75,7 +121,7 @@
     },
     "ui": {
       "title": "Audit",
-      "description": "Record of who created, edited or deleted participants, tables, beds, houses, payments and retreat data.",
+      "description": "Record of who created, edited or deleted participants, tables, beds, houses, payments, retreat data, message sequences and templates.",
       "quickRange": "Quick range:",
       "area": "Area",
       "action": "Action",

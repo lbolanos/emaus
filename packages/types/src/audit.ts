@@ -55,6 +55,44 @@ export const DomainAuditAction = {
 	RETREAT_UPDATE: 'retreat.update',
 	RETREAT_MEMORY_PHOTO_UPLOAD: 'retreat.memory.photo_upload',
 	RETREAT_MEMORY_UPDATE: 'retreat.memory.update',
+	// Secuencias de mensajes (incidente Buen Despacho 2026-10-06: ningún cambio
+	// de secuencias tenía autor registrado). `run_now` = "Ejecutar ahora" manual
+	// (o el alta de un participante); `cron_run` = corrida horaria del motor,
+	// agregada por retiro tocado.
+	MESSAGE_SEQUENCE_CREATE: 'message_sequence.create',
+	MESSAGE_SEQUENCE_UPDATE: 'message_sequence.update',
+	MESSAGE_SEQUENCE_DELETE: 'message_sequence.delete',
+	MESSAGE_SEQUENCE_RUN_NOW: 'message_sequence.run_now',
+	MESSAGE_SEQUENCE_CRON_RUN: 'message_sequence.cron_run',
+	MESSAGE_SEQUENCE_REGENERATE_QUEUE: 'message_sequence.regenerate_queue',
+	// Pasos de secuencia (el "Ejecutar ahora"/reprogramar de un paso mueve
+	// TODOS sus pendientes: el recurso es el paso, el conteo va en metadata)
+	SEQUENCE_STEP_RESCHEDULE: 'sequence_step.reschedule',
+	// Mensajes programados — sólo transiciones manuales de la bandeja/programados
+	SCHEDULED_MESSAGE_DISPATCH: 'scheduled_message.dispatch',
+	SCHEDULED_MESSAGE_SKIP: 'scheduled_message.skip',
+	SCHEDULED_MESSAGE_RETRY: 'scheduled_message.retry',
+	SCHEDULED_MESSAGE_DISCARD: 'scheduled_message.discard',
+	SCHEDULED_MESSAGE_ASSIGN: 'scheduled_message.assign',
+	SCHEDULED_MESSAGE_BULK_RESOLVE: 'scheduled_message.bulk_resolve',
+	// Plantillas de mensaje (editar una plantilla cambia lo que se envía)
+	MESSAGE_TEMPLATE_CREATE: 'message_template.create',
+	MESSAGE_TEMPLATE_UPDATE: 'message_template.update',
+	MESSAGE_TEMPLATE_DELETE: 'message_template.delete',
+	// Plantillas globales de secuencias (sin retiro; `copy_to_retreat` sí lleva retreatId)
+	GLOBAL_MESSAGE_SEQUENCE_CREATE: 'global_message_sequence.create',
+	GLOBAL_MESSAGE_SEQUENCE_UPDATE: 'global_message_sequence.update',
+	GLOBAL_MESSAGE_SEQUENCE_DELETE: 'global_message_sequence.delete',
+	GLOBAL_MESSAGE_SEQUENCE_TOGGLE_ACTIVE: 'global_message_sequence.toggle_active',
+	GLOBAL_MESSAGE_SEQUENCE_COPY_TO_RETREAT: 'global_message_sequence.copy_to_retreat',
+	// Plantillas globales de mensaje (texto base que los retiros/comunidades copian)
+	GLOBAL_MESSAGE_TEMPLATE_CREATE: 'global_message_template.create',
+	GLOBAL_MESSAGE_TEMPLATE_UPDATE: 'global_message_template.update',
+	GLOBAL_MESSAGE_TEMPLATE_DELETE: 'global_message_template.delete',
+	GLOBAL_MESSAGE_TEMPLATE_TOGGLE_ACTIVE: 'global_message_template.toggle_active',
+	GLOBAL_MESSAGE_TEMPLATE_COPY_TO_RETREAT: 'global_message_template.copy_to_retreat',
+	GLOBAL_MESSAGE_TEMPLATE_COPY_TO_COMMUNITY: 'global_message_template.copy_to_community',
+	GLOBAL_MESSAGE_TEMPLATE_COPY_FROM_RETREAT: 'global_message_template.copy_from_retreat',
 } as const;
 
 export type DomainAuditActionType = (typeof DomainAuditAction)[keyof typeof DomainAuditAction];
@@ -67,6 +105,12 @@ export const DOMAIN_RESOURCE_TYPES = [
 	'house',
 	'payment',
 	'retreat',
+	'message_sequence',
+	'sequence_step',
+	'scheduled_message',
+	'message_template',
+	'global_message_sequence',
+	'global_message_template',
 ] as const;
 
 export type DomainResourceType = (typeof DOMAIN_RESOURCE_TYPES)[number];
