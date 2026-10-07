@@ -140,12 +140,19 @@ Un resumen rápido del retiro:
 
 ## Seguimiento de caminantes
 
-Un tablero con cinco columnas, una por etapa. **Arrastra la tarjeta** de una columna a otra (en el
-teléfono: toca la tarjeta y luego la columna). Todos los participantes empiezan en *Por contactar*,
+Un tablero con cinco columnas, una por etapa. Todos los participantes empiezan en *Por contactar*,
 no hay que dar de alta a nadie. El tablero abre filtrado a **caminantes**; usa el filtro de tipo si
 necesitas ver a los servidores.
 
 - **Por contactar** · **Contactado** · **Confirmó** · **Sin respuesta** · **Declinó**
+
+Para cambiar a alguien de etapa, **toca su tarjeta** y elige la etapa arriba de su historial — así
+puedes anotar en el mismo lugar lo que te dijo. En la computadora también puedes **arrastrar la
+tarjeta** de una columna a otra.
+
+La barra de etapas, arriba del tablero, muestra cuántas personas hay en cada una. En el teléfono
+elige qué columna se ve y cada etapa se muestra como ícono con su conteo (los botones de etapa del
+historial usan los mismos íconos); en la computadora te lleva hasta ella.
 
 La última columna, **Con sus cartas**, no es una etapa: se llena sola con quienes tienen al menos el
 mínimo de cartas del retiro (3 por defecto) y no se le arrastra nada — captura el número en la ficha

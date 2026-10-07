@@ -250,6 +250,10 @@ function when(at: string | Date | null | undefined): string {
 				</Button>
 			</header>
 
+			<!-- Controles del llamador (p. ej. la etapa en el tablero de seguimiento):
+			     el panel no sabe de etapas, sólo les deja el lugar. -->
+			<slot name="header-extra" />
+
 			<div class="flex-1 overflow-y-auto">
 				<!-- Barra de contactos: con quién hablamos -->
 				<section v-if="contacts.length" class="p-4 border-b bg-gray-50">

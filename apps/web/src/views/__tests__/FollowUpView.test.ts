@@ -178,6 +178,66 @@ describe('FollowUpView (tablero de seguimiento)', () => {
 		expect(w.findComponent({ name: 'ParticipantTimelinePanel' }).props('open')).toBe(true);
 	});
 
+	it('tocar una tarjeta abre su historial y la etapa se cambia desde ahí', async () => {
+		const w = await mountView();
+		// Antes el tap-assign se comía el click en el teléfono y el panel nunca abría.
+		await w.findAll('section')[0].findComponent({ name: 'FollowUpCard' }).trigger('click');
+		await flushPromises();
+		expect(w.findComponent({ name: 'ParticipantTimelinePanel' }).props('open')).toBe(true);
+
+		// Omar no tiene fila: su etapa actual es Por contactar.
+		expect(w.get('[data-testid="stage-chip-pending"]').attributes('aria-pressed')).toBe('true');
+		// En el celular el botón es sólo el ícono (el mismo de la barra); el
+		// nombre queda en aria-label/title y reaparece desde md.
+		const chip = w.get('[data-testid="stage-chip-pending"]');
+		expect(chip.find('svg').exists()).toBe(true);
+		expect(chip.find('span').classes()).toEqual(expect.arrayContaining(['hidden', 'md:inline']));
+		await w.get('[data-testid="stage-chip-contacted"]').trigger('click');
+		await flushPromises();
+
+		expect(upsertFollowUp).toHaveBeenCalledWith(
+			expect.objectContaining({ participantId: 'p1', retreatId: 'r1', status: 'contacted' }),
+		);
+		// El panel sigue abierto para anotar lo que dijo.
+		expect(w.findComponent({ name: 'ParticipantTimelinePanel' }).props('open')).toBe(true);
+	});
+
+	it('la barra de etapas elige la columna que se ve en el celular', async () => {
+		const w = await mountView();
+		expect(w.get('#stage-pending').classes()).not.toContain('hidden');
+		expect(w.get('#stage-contacted').classes()).toContain('hidden');
+		// Con su conteo: Luz Ma está en Contactado.
+		expect(w.get('[data-testid="stage-nav-contacted"]').text()).toContain('1');
+
+		await w.get('[data-testid="stage-nav-contacted"]').trigger('click');
+
+		expect(w.get('#stage-contacted').classes()).not.toContain('hidden');
+		expect(w.get('#stage-pending').classes()).toContain('hidden');
+		// En escritorio todas se ven: lo oculto es sólo bajo `md`.
+		expect(w.get('#stage-pending').classes()).toContain('md:flex');
+
+		// En el celular la pastilla es ícono + conteo, sin el nombre.
+		const pill = w.get('[data-testid="stage-nav-contacted"]');
+		expect(pill.find('svg').exists()).toBe(true);
+		expect(pill.find('span').classes()).toEqual(expect.arrayContaining(['hidden', 'md:inline']));
+	});
+
+	it('si los filtros no dejan a nadie lo dice, sin fingir un retiro vacío', async () => {
+		const w = await mountView();
+		await w.findComponent({ name: 'Input' }).setValue('zzz');
+		await flushPromises();
+
+		expect(w.text()).toContain('followUp.noMatches');
+		expect(w.text()).not.toContain('followUp.noParticipants');
+		expect(w.findAll('section')).toHaveLength(0);
+
+		await w.get('[data-testid="clear-filters"]').trigger('click');
+		await flushPromises();
+		// Limpiar abre todos los tipos: Mario (servidor) vuelve a aparecer.
+		expect(w.text()).toContain('Omar Ojeda');
+		expect(w.text()).toContain('Mario Medina');
+	});
+
 	it('el filtro por tipo separa caminantes de servidores', async () => {
 		const w = await mountView();
 		await w.findAll('select')[0].setValue('server');
