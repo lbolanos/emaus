@@ -441,11 +441,32 @@ describe('MessageSequencesView — calidad de vida (M6)', () => {
 		const wrapper = await mountView();
 		const apiMod: any = await import('@/services/api');
 		apiMod.updateMessageSequence.mockResolvedValue({ ...SEQ, isActive: false });
+		apiMod.updateMessageSequence.mockClear();
 
+		// Con mensajes vivos (stats del beforeEach: seq-1 pending 2) el toggle
+		// primero pide confirmación: nada sale hasta que el coordinador acepta.
 		await wrapper.vm.toggleActive(SEQ); // SEQ.isActive = true → apagar
+		expect(apiMod.updateMessageSequence).not.toHaveBeenCalled();
+		expect(wrapper.vm.seqToPause).toEqual(SEQ);
+
+		await wrapper.vm.confirmPause();
 		await flushPromises();
 
 		expect(apiMod.updateMessageSequence).toHaveBeenCalledWith('seq-1', { isActive: false });
+	});
+
+	it('D2b: sin mensajes vivos el toggle apaga directo (sin confirmación)', async () => {
+		const wrapper = await mountView();
+		const apiMod: any = await import('@/services/api');
+		apiMod.updateMessageSequence.mockResolvedValue({ ...SEQ, isActive: false });
+		const { useMessageSequenceStore } = await import('@/stores/messageSequenceStore');
+		useMessageSequenceStore().stats = {} as any;
+
+		await wrapper.vm.toggleActive(SEQ);
+		await flushPromises();
+
+		expect(apiMod.updateMessageSequence).toHaveBeenCalledWith('seq-1', { isActive: false });
+		expect(wrapper.vm.seqToPause).toBeNull();
 	});
 
 	it('D5: omitir pide confirmación y no omite si se cancela', async () => {

@@ -572,8 +572,24 @@ function notifyPausedScope(seqId: string) {
 	}
 }
 
-// M6-D2: activar/desactivar sin abrir el editor (mismo patrón que la vista global).
-async function toggleActive(seq: any) {
+// Confirmación antes de desactivar desde el listado cuando la secuencia tiene
+// mensajes vivos: la desactivación congela los pending (el cron no los encola)
+// y esconde los queued del filtro de la bandeja — así fue como el incidente de
+// palancas (2026-10-06) dejó 32 mensajes congelados sin que nadie lo notara.
+// Sin mensajes vivos no hay diálogo: no hay nada que cortar.
+// El editor no confirma (flujo deliberado con Guardar); ahí sigue siendo aviso.
+const seqToPause = ref<any>(null);
+const pauseModalOpen = computed(() => !!seqToPause.value);
+const pauseModalRef = ref<HTMLElement | null>(null);
+useModalA11y(pauseModalOpen, () => { seqToPause.value = null; }, pauseModalRef);
+const pausePendingCount = computed(() =>
+	seqToPause.value ? statusCount(seqToPause.value.id, 'pending') : 0,
+);
+const pauseQueuedCount = computed(() =>
+	seqToPause.value ? statusCount(seqToPause.value.id, 'queued') : 0,
+);
+
+async function applyToggle(seq: any) {
 	const wasActive = !!seq.isActive; // el update puede mutar la fila local
 	try {
 		await sequenceStore.update(seq.id, { isActive: !wasActive });
@@ -581,6 +597,21 @@ async function toggleActive(seq: any) {
 	} catch {
 		toast({ title: t('sequences.toggleError'), variant: 'destructive' });
 	}
+}
+
+// M6-D2: activar/desactivar sin abrir el editor (mismo patrón que la vista global).
+function toggleActive(seq: any) {
+	if (seq.isActive && (statusCount(seq.id, 'pending') || statusCount(seq.id, 'queued'))) {
+		seqToPause.value = seq;
+		return;
+	}
+	void applyToggle(seq);
+}
+
+async function confirmPause() {
+	const seq = seqToPause.value;
+	seqToPause.value = null;
+	if (seq) await applyToggle(seq);
 }
 
 // M6-D1: duplicar como copia INACTIVA con pasos nuevos (sin id) — no reenvía
@@ -2862,6 +2893,40 @@ async function toggleDoNotContact() {
 				<div class="flex justify-end gap-2 mt-4">
 					<Button variant="outline" @click="seqToDelete = null">{{ t('common.actions.cancel') }}</Button>
 					<Button variant="destructive" @click="confirmDelete">{{ t('common.actions.delete') }}</Button>
+				</div>
+			</div>
+		</div>
+
+		<!-- Confirmación de desactivación con mensajes vivos -->
+		<div
+			v-if="seqToPause"
+			class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+			@click.self="seqToPause = null"
+		>
+			<div
+				ref="pauseModalRef"
+				role="dialog"
+				aria-modal="true"
+				tabindex="-1"
+				:aria-label="t('sequences.pauseTitle', { name: seqToPause.name })"
+				class="bg-white rounded-lg shadow-xl max-w-sm w-full p-6 focus:outline-none"
+			>
+				<h2 class="text-lg font-semibold flex items-center gap-2">
+					<AlertTriangle class="w-5 h-5 text-amber-500 shrink-0" />
+					{{ t('sequences.pauseTitle', { name: seqToPause.name }) }}
+				</h2>
+				<ul class="text-sm text-gray-600 mt-2 space-y-1 list-disc pl-5">
+					<li v-if="pausePendingCount">
+						{{ t('sequences.pausePending', { n: pausePendingCount }, pausePendingCount) }}
+					</li>
+					<li v-if="pauseQueuedCount">
+						{{ t('sequences.pauseQueued', { n: pauseQueuedCount }, pauseQueuedCount) }}
+					</li>
+				</ul>
+				<p class="text-xs text-gray-500 mt-2">{{ t('sequences.pauseHint') }}</p>
+				<div class="flex justify-end gap-2 mt-4">
+					<Button variant="outline" @click="seqToPause = null">{{ t('sequences.pauseCancel') }}</Button>
+					<Button variant="destructive" @click="confirmPause">{{ t('sequences.pauseConfirm') }}</Button>
 				</div>
 			</div>
 		</div>
