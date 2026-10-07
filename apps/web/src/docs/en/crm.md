@@ -136,9 +136,15 @@ A quick summary of the retreat:
 ## Walker follow-up
 
 A board with five columns, one per stage. **Drag the card** from one column to another (on a phone:
-tap the card, then the column). Everyone starts in *To contact* — nothing to set up.
+tap the card, then the column). Everyone starts in *To contact* — nothing to set up. The board opens
+filtered to **walkers**; use the type filter if you need to see servers.
 
 - **To contact** · **Contacted** · **Confirmed** · **No answer** · **Declined**
+
+The last column, **With their letters**, is not a stage: it fills on its own with everyone who has
+at least the retreat's letter minimum (3 by default) and nothing is dragged onto it — enter the
+count on the participant's file and the card shows up there. Anyone in that column still appears in
+their contact stage.
 
 ⚠️ **Moving a card to Confirmed or Declined also records the attendance confirmation**, which is
 what makes sequences stop chasing that person. That is usually what you want, but keep it in mind:

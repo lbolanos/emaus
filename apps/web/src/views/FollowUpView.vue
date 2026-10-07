@@ -12,7 +12,7 @@ import { useParticipantMessageDialog } from '@/composables/useParticipantMessage
 import MessageDialog from '@/components/MessageDialog.vue';
 import FollowUpCard from '@/components/crm/FollowUpCard.vue';
 import ParticipantTimelinePanel from '@/components/crm/ParticipantTimelinePanel.vue';
-import { resolvePalancas } from '@repo/utils';
+import { resolvePalancas, effectiveMinPalancas } from '@repo/utils';
 import type { FollowUpStatus } from '@repo/types';
 
 const { t } = useI18n();
@@ -33,9 +33,12 @@ const minPalancas = computed(
 
 const STATUSES: FollowUpStatus[] = ['pending', 'contacted', 'confirmed', 'no_answer', 'declined'];
 const PAGE = 50;
+/** Clave del cubo «Con sus cartas» en el paginado `shown` (no es una etapa). */
+const LETTERS_MET = 'letters_met';
 
 const search = ref('');
-const typeFilter = ref<'all' | 'walker' | 'server'>('all');
+// El tablero es de seguimiento de caminantes: abre ya filtrado a ellos.
+const typeFilter = ref<'all' | 'walker' | 'server'>('walker');
 const lettersFilter = ref<'all' | 'none' | 'below' | 'met' | 'unknown'>('all');
 // Cuántas tarjetas se pintan por columna. Objeto plano, no Map: dentro de un
 // ref, Map y Set no son reactivos en este repo.
@@ -60,7 +63,7 @@ async function load() {
 		crmStore.fetchTasks(retreatId.value),
 		participantStore.fetchParticipants(),
 	]);
-	shown.value = Object.fromEntries(STATUSES.map((s) => [s, PAGE]));
+	shown.value = Object.fromEntries([...STATUSES, LETTERS_MET].map((s) => [s, PAGE]));
 }
 
 onMounted(load);
@@ -111,6 +114,20 @@ const columns = computed(() => {
 	}
 	return byStatus;
 });
+
+const lettersThreshold = computed(() => effectiveMinPalancas(minPalancas.value));
+
+/**
+ * Columna «Con sus cartas»: cubo DERIVADO del conteo de la ficha, no una etapa.
+ * Quien cumple el umbral aparece aquí y ADEMÁS en su etapa de contacto; no se
+ * arrastra hacia esta columna porque el conteo es la única verdad — una etapa
+ * manual acabaría contradiciendo a la ficha.
+ */
+const lettersMetParticipants = computed<any[]>(() =>
+	visibleParticipants.value.filter(
+		(p: any) => resolvePalancas(p, minPalancas.value).milestone === 'met',
+	),
+);
 
 async function moveTo(participant: any, status: FollowUpStatus) {
 	if (!participant?.id || !retreatId.value) return;
@@ -304,6 +321,47 @@ const lastActivityByParticipant = computed<Record<string, string>>(() => {
 						size="sm"
 						class="w-full text-xs"
 						@click.stop="showMore(status)"
+					>
+						{{ t('followUp.showMore') }}
+					</Button>
+				</div>
+			</section>
+
+			<!-- Cubo derivado «Con sus cartas»: sin zonas de arrastre ni tap
+			     porque no es una etapa — se llena sola desde el conteo de la
+			     ficha, y quien cumple sigue viviendo en su etapa de contacto. -->
+			<section class="shrink-0 w-64 rounded-md bg-green-50 border border-green-200">
+				<header class="px-3 py-2 border-b sticky top-0 bg-green-50 rounded-t-md">
+					<div class="text-xs font-semibold uppercase tracking-wide text-green-800">
+						{{ t('followUp.lettersColumnTitle') }}
+					</div>
+					<div class="text-[11px] text-green-700 leading-tight">
+						{{ t('followUp.lettersColumnHint', { threshold: lettersThreshold }) }}
+					</div>
+					<div class="text-xs text-gray-400">{{ lettersMetParticipants.length }}</div>
+				</header>
+
+				<div class="p-2 space-y-2">
+					<p v-if="!lettersMetParticipants.length" class="text-xs text-gray-400 text-center py-4">
+						{{ t('followUp.lettersColumnEmpty') }}
+					</p>
+					<FollowUpCard
+						v-for="p in lettersMetParticipants.slice(0, shown[LETTERS_MET] ?? PAGE)"
+						:key="`met-${p.id}`"
+						:participant="p"
+						:min-palancas="minPalancas"
+						:open-tasks="openTasksByParticipant[p.id]"
+						:last-activity-at="lastActivityByParticipant[p.id]"
+						:message-count="p.messageCount"
+						:selected="isSelected(p.id)"
+						@click="openPanel(p)"
+					/>
+					<Button
+						v-if="lettersMetParticipants.length > (shown[LETTERS_MET] ?? PAGE)"
+						variant="ghost"
+						size="sm"
+						class="w-full text-xs"
+						@click.stop="showMore(LETTERS_MET)"
 					>
 						{{ t('followUp.showMore') }}
 					</Button>

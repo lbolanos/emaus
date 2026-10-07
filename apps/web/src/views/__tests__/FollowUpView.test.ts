@@ -82,6 +82,9 @@ describe('FollowUpView (tablero de seguimiento)', () => {
 
 	it('pone en Por contactar a quien no tiene fila de seguimiento', async () => {
 		const w = await mountView();
+		// Con "Todos": el default caminantes excluiría a Mario (server).
+		await w.findAll('select')[0].setValue('all');
+		await flushPromises();
 		const columns = w.findAll('section');
 		// Omar y Mario no tienen follow-up; Luz Ma está en Contactado.
 		expect(columns[0].text()).toContain('Omar Ojeda');
@@ -133,10 +136,46 @@ describe('FollowUpView (tablero de seguimiento)', () => {
 
 	it('no lista a quien ejerció el derecho de borrado ni a los cancelados', async () => {
 		const w = await mountView();
+		await w.findAll('select')[0].setValue('all');
+		await flushPromises();
 		expect(w.text()).not.toContain('(eliminado)');
 		expect(w.text()).not.toContain('Cancelado Pérez');
-		// Sólo los tres contactables.
-		expect(w.findAllComponents({ name: 'FollowUpCard' })).toHaveLength(3);
+		// Los tres contactables: Omar y Mario en Por contactar, y Luz Ma DOS
+		// veces — su etapa (Contactado) y el cubo «Con sus cartas» (4 de 3).
+		expect(w.findAllComponents({ name: 'FollowUpCard' })).toHaveLength(4);
+	});
+
+	it('abre filtrado a caminantes por defecto', async () => {
+		const w = await mountView();
+		expect((w.findAll('select')[0].element as HTMLSelectElement).value).toBe('walker');
+		expect(w.text()).toContain('Omar Ojeda');
+		// Mario es servidor: no aparece hasta que se cambie el filtro.
+		expect(w.text()).not.toContain('Mario Medina');
+	});
+
+	it('«Con sus cartas» es un cubo derivado: duplica a quien cumple y no acepta arrastre', async () => {
+		const w = await mountView();
+		const sections = w.findAll('section');
+		// Cinco etapas + el cubo derivado al final.
+		expect(sections).toHaveLength(6);
+		const metColumn = sections[5];
+
+		// Luz Ma (4 de 3) entra al cubo Y sigue en su etapa Contactado;
+		// Omar (0 cartas) no entra.
+		expect(metColumn.text()).toContain('Luz Ma Ibarra');
+		expect(metColumn.text()).not.toContain('Omar Ojeda');
+		expect(sections[1].text()).toContain('Luz Ma Ibarra');
+
+		// Soltar una tarjeta sobre el cubo no guarda etapa: no es zona de drop.
+		const card = w.findAllComponents({ name: 'FollowUpCard' })[0];
+		await card.trigger('dragstart');
+		await metColumn.trigger('drop');
+		await flushPromises();
+		expect(upsertFollowUp).not.toHaveBeenCalled();
+
+		// La tarjeta del cubo abre el panel de historial como cualquier otra.
+		await metColumn.findComponent({ name: 'FollowUpCard' }).trigger('click');
+		expect(w.findComponent({ name: 'ParticipantTimelinePanel' }).props('open')).toBe(true);
 	});
 
 	it('el filtro por tipo separa caminantes de servidores', async () => {

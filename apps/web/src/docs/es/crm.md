@@ -142,9 +142,14 @@ Un resumen rápido del retiro:
 
 Un tablero con cinco columnas, una por etapa. **Arrastra la tarjeta** de una columna a otra (en el
 teléfono: toca la tarjeta y luego la columna). Todos los participantes empiezan en *Por contactar*,
-no hay que dar de alta a nadie.
+no hay que dar de alta a nadie. El tablero abre filtrado a **caminantes**; usa el filtro de tipo si
+necesitas ver a los servidores.
 
 - **Por contactar** · **Contactado** · **Confirmó** · **Sin respuesta** · **Declinó**
+
+La última columna, **Con sus cartas**, no es una etapa: se llena sola con quienes tienen al menos el
+mínimo de cartas del retiro (3 por defecto) y no se le arrastra nada — captura el número en la ficha
+y la tarjeta aparece ahí. Quien está en esa columna sigue apareciendo en su etapa de contacto.
 
 ⚠️ **Al mover una tarjeta a Confirmó o Declinó también se registra la confirmación de asistencia**,
 que es la que hace que las secuencias dejen de insistirle a esa persona. Es lo que normalmente
