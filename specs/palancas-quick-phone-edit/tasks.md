@@ -18,14 +18,43 @@ milestone correspondiente.
 
 ## M1 — backend `PATCH /participants/:id/phones`
 
-- [ ] `updateParticipantPhonesSchema` en `packages/types/src/index.ts`
-- [ ] Ruta PATCH con `participant:update` + `requireRetreatAccess` en `participantRoutes.ts`
-- [ ] `updateParticipantPhones` controller (validación por país, semántica de vacío, 404/400/403)
-- [ ] `updateParticipantPhones` service (canonización `toNationalPhone`, audit allowlist 3 campos)
-- [ ] Suite Jest: happy, `+52`/`044` canonizan, inválido 400 por campo, `''` EC1 400 / EC2 null,
-      403 permiso, 403 retreat ajeno, audit row
-- [ ] `pnpm --filter api exec tsc --noEmit` limpio
+- [x] `updateParticipantPhonesSchema` en `packages/types/src/index.ts`
+- [x] Ruta PATCH con `participant:update` + `requireRetreatAccess` en `participantRoutes.ts`
+- [x] `updateParticipantPhones` controller (validación por país, semántica de vacío, 404/400/403)
+- [x] `updateParticipantPhones` service (canonización `toNationalPhone`, audit allowlist 3 campos)
+- [x] Suite Jest: happy, `+52`/`044` canonizan, inválido 400 por campo, `''` EC1 400 / EC2 null,
+      403 permiso, 403 retreat ajeno, audit row — 27 tests en 3 archivos: controller (9, unitario
+      con mocks), service (6, unitario con mocks) y route wiring con supertest + DB de test (12:
+      401/403/403, strip de campos extra por `assignParsedBody`, canonización verificada en DB,
+      `''` EC2 → NULL, 404 cross-retreat)
+- [x] `pnpm --filter api exec tsc --noEmit` — 143 errores, todos preexistentes de master
+      (baseline verificado al cerrar M1); ninguno en líneas nuevas
 - [ ] Commit `feat(api): ... (M1)`
+
+**Done**: 2026-10-07 (commit pendiente de autorización).
+
+### Desviaciones 2026-10-07 (M1)
+
+1. **tsc con 143 errores preexistentes**: el plan pedía "tsc limpio"; master ya falla tsc con
+   esos 143 errores (baseline). Criterio aplicado: no sumar errores nuevos (verificado por
+   conteo y por archivo).
+2. **Import de `retreatService.findById` estático, no dinámico**: el controller resuelve el país
+   con import estático (como `shirtReportService`), no con `await import` (patrón de
+   `createParticipant`). Motivo: `jest.config.json` tiene `resetModules: true`; el import
+   dinámico dentro del handler re-carga `retreatService` después del reset y devuelve un
+   `AppDataSource` fresco que los tests de integración nunca swapearon a la DB de test →
+   `EntityMetadataNotFoundError`. Con import estático el binding pertenece al registry #1 que
+   `setupTestDatabase` sí swapea.
+3. **Service resuelve sus repos perezosamente** (`AppDataSource.getRepository(...)` dentro de la
+   función, no el `participantRepository` module-level): el repo module-level se crea antes del
+   swap de los tests de integración e hidrata con clases de otro registry ("Class constructor
+   Participant cannot be invoked without 'new'", misma limitación documentada en
+   `shirtOrderConfirmation.routes.simple.test.ts`). En prod no cambia nada (mismo
+   `AppDataSource`); el patrón ya existía en `syncRetreatFields`.
+4. **Test de wiring extra** (`participantPhones.routes.simple.test.ts`): el plan pedía solo la
+   suite del endpoint; se partió en 3 (controller/service/route) siguiendo la convención del
+   repo, y el route test validó de paso el strip de campos por `assignParsedBody` (CA del M2
+   adelantado a nivel backend).
 
 ## M2 — editor + tabla
 

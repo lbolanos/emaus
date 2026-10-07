@@ -13,6 +13,10 @@ import { Participant } from "../entities/participant.entity";
 import { participantAvailabilityService } from "../services/participantAvailabilityService";
 import { getParticipantShirtOrderSummary } from "../services/shirtReportService";
 import { domainAuditService, DomainAuditAction } from "../services/domainAuditService";
+// Static on purpose: a dynamic `await import` inside the handler re-loads the
+// module after jest's resetModules, which hands back a fresh AppDataSource the
+// integration tests never swapped to the test database.
+import { findById as findRetreatById } from "../services/retreatService";
 
 const recaptchaService = new RecaptchaService();
 
@@ -900,6 +904,59 @@ export const updateAttendanceConfirmation = async (
       id,
       retreatId,
       attendanceConfirmation,
+    );
+    res.json(result);
+  } catch (error) {
+    next(error);
+  }
+};
+
+// PATCH /participants/:id/phones — quick phone edit for the palancas view.
+// Country-aware validation mirrors the public registration (createParticipant):
+// validate against the retreat house's country, reject empty required phones
+// ('' cannot clear cellPhone/emergencyContact1CellPhone — both NOT NULL), and
+// let the service canonicalize to the national number before persisting.
+export const updateParticipantPhones = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const { id } = req.params;
+    const { retreatId, ...phones } = req.body;
+    if (!retreatId) {
+      return res.status(400).json({ message: "retreatId is required" });
+    }
+
+    const errors: string[] = [];
+    for (const required of ["cellPhone", "emergencyContact1CellPhone"] as const) {
+      if (phones[required] !== undefined && String(phones[required]).trim() === "") {
+        errors.push(
+          `${required}: required — this phone cannot be emptied (it is used for the palancas flow)`,
+        );
+      }
+    }
+    const retreat = await findRetreatById(retreatId);
+    const phoneErrors = validateParticipantPhones(
+      phones,
+      retreat?.house?.country,
+    );
+    if (phoneErrors.length > 0) {
+      errors.push(...phoneErrors.map((e) => `${e.field}: ${e.message}`));
+    }
+    if (errors.length > 0) {
+      return res.status(400).json({ message: "Validation failed", errors });
+    }
+
+    const result = await participantService.updateParticipantPhones(
+      id,
+      retreatId,
+      {
+        cellPhone: phones.cellPhone,
+        emergencyContact1CellPhone: phones.emergencyContact1CellPhone,
+        emergencyContact2CellPhone: phones.emergencyContact2CellPhone,
+      },
+      retreat?.house?.country,
     );
     res.json(result);
   } catch (error) {

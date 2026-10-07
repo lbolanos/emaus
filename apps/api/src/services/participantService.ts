@@ -16,6 +16,7 @@ import {
   CoupleSpouseInput,
   UpdateParticipant,
   normalizeParticipantPhones,
+  toNationalPhone,
 } from "@repo/types";
 import {
   rebalanceTablesForRetreat,
@@ -5232,6 +5233,86 @@ export const setAttendanceConfirmation = async (
     newValues: { attendanceConfirmation: status },
   });
   return { attendanceConfirmation: rp.attendanceConfirmation };
+};
+
+// --- Quick phone edit (palancas) --------------------------------------------
+// PATCH /participants/:id/phones: surgical update of the walker's cell phone
+// plus the two emergency-contact cell phones, for the case where whoever
+// filled the registration form left their own number in the walker's record.
+// Country-aware validation happens in the controller (same pattern as the
+// public registration); here we canonicalize to the national number and audit
+// the diff.
+const QUICK_PHONE_FIELDS = [
+  "cellPhone",
+  "emergencyContact1CellPhone",
+  "emergencyContact2CellPhone",
+] as const;
+export type QuickPhoneField = (typeof QUICK_PHONE_FIELDS)[number];
+
+export const updateParticipantPhones = async (
+  participantId: string,
+  retreatId: string,
+  fields: Partial<Record<QuickPhoneField, string>>,
+  country?: string | null,
+): Promise<{
+  id: string;
+  cellPhone: string;
+  emergencyContact1CellPhone: string;
+  emergencyContact2CellPhone: string | null;
+}> => {
+  // The three fields live on the global participant record, but the endpoint is
+  // scoped per retreat (access check + who is in this retreat), same as
+  // setAttendanceConfirmation.
+  // Repos are resolved lazily on purpose: the module-level participantRepository
+  // was created before the integration tests swap AppDataSource to the test
+  // database, and hydrating through it mixes registries ("Class constructor
+  // Participant cannot be invoked without 'new'"). Same note as
+  // syncRetreatFields.
+  const rpRepo = AppDataSource.getRepository(RetreatParticipant);
+  const rp = await rpRepo.findOne({ where: { participantId, retreatId } });
+  if (!rp) {
+    const err = new Error("Participant not found in retreat");
+    (err as any).status = 404;
+    throw err;
+  }
+  const repo = AppDataSource.getRepository(Participant);
+  const participant = await repo.findOneBy({ id: participantId });
+  if (!participant) {
+    const err = new Error("Participant not found");
+    (err as any).status = 404;
+    throw err;
+  }
+
+  const oldSnapshot = {
+    cellPhone: participant.cellPhone,
+    emergencyContact1CellPhone: participant.emergencyContact1CellPhone,
+    emergencyContact2CellPhone: participant.emergencyContact2CellPhone,
+  };
+  for (const field of QUICK_PHONE_FIELDS) {
+    const value = fields[field];
+    if (value === undefined) continue; // field not touched
+    // '' clears the field. Only emergencyContact2CellPhone is nullable; empty
+    // required phones are rejected by the controller before reaching here.
+    (participant as any)[field] =
+      value === "" ? null : toNationalPhone(value, country);
+  }
+  const updated = await repo.save(participant);
+
+  void domainAuditService.logUpdate("participant", participantId, oldSnapshot, {
+    cellPhone: updated.cellPhone,
+    emergencyContact1CellPhone: updated.emergencyContact1CellPhone,
+    emergencyContact2CellPhone: updated.emergencyContact2CellPhone,
+  }, {
+    retreatId,
+    fields: [...QUICK_PHONE_FIELDS],
+  });
+
+  return {
+    id: updated.id,
+    cellPhone: updated.cellPhone,
+    emergencyContact1CellPhone: updated.emergencyContact1CellPhone,
+    emergencyContact2CellPhone: updated.emergencyContact2CellPhone ?? null,
+  };
 };
 
 export const getReceptionStats = async (retreatId: string) => {

@@ -14,6 +14,7 @@ import {
 	confirmExistingParticipantEmail,
 	checkInParticipant,
 	updateAttendanceConfirmation,
+	updateParticipantPhones,
 	getReceptionStats,
 	getParticipantByDeleteToken,
 	deleteParticipantByDeleteToken,
@@ -24,6 +25,7 @@ import {
 	createParticipantSchema,
 	createCoupleParticipantSchema,
 	updateParticipantSchema,
+	updateParticipantPhonesSchema,
 	logHealthDataExportSchema,
 } from '@repo/types';
 import { isAuthenticated } from '../middleware/isAuthenticated';
@@ -91,6 +93,15 @@ router.patch(
 	requirePermission('participant:update'),
 	requireRetreatAccess('retreatId', 'body'),
 	updateAttendanceConfirmation,
+);
+// Quick phone edit (palancas): narrow schema also strips the body so the
+// controller never sees fields outside the three phones + retreatId.
+router.patch(
+	'/:id/phones',
+	validateRequest(updateParticipantPhonesSchema, { assignParsedBody: true }),
+	requirePermission('participant:update'),
+	requireRetreatAccess('retreatId', 'body'),
+	updateParticipantPhones,
 );
 router.put(
 	'/:id',
