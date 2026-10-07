@@ -11,6 +11,7 @@
         "checkin": "Check-in",
         "attendance_confirmation": "Confirmación de asistencia",
         "anonymize": "Datos anonimizados (GDPR)",
+        "merge": "Fichas fusionadas (duplicado absorbido)",
         "health_view": "Ficha de salud consultada",
         "health_export": "Ficha de salud exportada",
         "health_data_purged": "Datos de salud purgados automáticamente"

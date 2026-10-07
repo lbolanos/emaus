@@ -4,6 +4,7 @@ import { CommunityMember } from '../entities/communityMember.entity';
 import { CommunityAttendance } from '../entities/communityAttendance.entity';
 import { Retreat } from '../entities/retreat.entity';
 import { normalizePersonName, phoneFingerprint } from '@repo/utils';
+import { domainAuditService, DomainAuditAction } from './domainAuditService';
 
 /**
  * Fusión de `Participant` duplicados.
@@ -531,6 +532,14 @@ export const mergeParticipants = async (
 		);
 	}
 
+	// El retreatId del absorbido se pone a NULL en la fusión: capturarlo antes
+	// para anclar el evento de auditoría al retiro al que pertenecía.
+	const [absorbed] = await AppDataSource.query(
+		`SELECT "retreatId" FROM participants WHERE id = ?`,
+		[mergeId],
+	);
+	const absorbedRetreatId: string | null = absorbed?.retreatId ?? null;
+
 	await AppDataSource.transaction(async (manager) => {
 		for (const ref of PARTICIPANT_REFERENCES) {
 			if (ref.policy.kind === 'dedupe') {
@@ -638,6 +647,27 @@ export const mergeParticipants = async (
 			`UPDATE "participants" SET "mergedIntoParticipantId" = ?, "retreatId" = NULL WHERE id = ?`,
 			[keepId, mergeId],
 		);
+	});
+
+	// Auditoría DESPUÉS de cerrar la transacción (el fire-and-forget dentro de
+	// una transacción abierta revienta con better-sqlite3). El recurso es el
+	// absorbido —la ficha que desaparece de los listados— y el detalle de qué se
+	// movió va en metadata para poder reconstruir la fusión.
+	void domainAuditService.log({
+		action: DomainAuditAction.PARTICIPANT_MERGE,
+		resourceType: 'participant',
+		resourceId: mergeId,
+		retreatId: absorbedRetreatId,
+		oldValues: { mergedIntoParticipantId: null, retreatId: absorbedRetreatId },
+		newValues: { mergedIntoParticipantId: keepId, retreatId: null },
+		metadata: {
+			keepId,
+			keepLabel: preview.keepLabel,
+			mergeLabel: preview.mergeLabel,
+			attendanceMoved: preview.attendanceMoved,
+			attendanceMerged: preview.attendanceMerged,
+			moves: preview.moves,
+		},
 	});
 
 	return { ...preview, merged: true };

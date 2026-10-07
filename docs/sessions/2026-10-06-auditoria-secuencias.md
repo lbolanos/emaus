@@ -155,6 +155,30 @@ Además de las secuencias del plan original, se auditó:
 8. Deploy normal (sin migración de schema) + verificación en prod: hacer un cambio de prueba
    (activar/desactivar una secuencia) y comprobar la fila en `domain_audit_log`.
 
+## Tanda P1 — merge de duplicados y accesos (mismo día)
+
+Segunda ola, priorizada por riesgo (destructivas / acceso):
+
+- **`participantMergeService`**: el merge ejecutaba SQL crudo en transacción sin rastro
+  alguno. Ahora deja `participant.merge` en `domain_audit_log`, **después** de cerrar la
+  transacción (riesgo §25.3). Recurso = la ficha absorbida; `retreatId` del log = el retiro
+  del absorbido (capturado antes de que la fusión lo NULLee); old/new
+  `{mergedIntoParticipantId, retreatId}`; metadata `{keepId, keepLabel, mergeLabel,
+  attendanceMoved, attendanceMerged, moves[]}` — el detalle por tabla reconstruye la fusión.
+- **`retreatRoleService`**: invite/remove ya auditaban en `audit_logs`, pero
+  `approveRetreatInvitation`/`rejectRetreatInvitation` cambiaban el acceso sin registro.
+  Approve deja `role_invitation_approved` (acción nueva en el enum); reject reutiliza
+  `role_invitation_revoked` (lea la invitación pendiente antes de revocar para llevar
+  email+rol en la fila).
+- **Corrección del mapa de cobertura**: `permissionOverrideService` y `roleRequestService`
+  SÍ auditan (vía `AuditService`/`audit_logs`) — el barrido inicial solo buscaba
+  `domainAuditService` y los dio por descubiertos. Lección: el grep de cobertura tiene que
+  incluir ambos mecanismos.
+
+Verificación: 5 tests nuevos (2 merge + 3 invitaciones), 52 en las 9 suites de auditoría,
+26 en las suites de merge preexistentes, 7 RBAC, keystone de locales, builds web+api y
+`grep __dirname` limpio.
+
 ## Reproducir el diagnóstico forense de hoy
 
 ```bash

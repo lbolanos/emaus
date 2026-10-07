@@ -18,6 +18,7 @@ export const DomainAuditAction = {
 	PARTICIPANT_CHECKIN: 'participant.checkin',
 	PARTICIPANT_ATTENDANCE_CONFIRMATION: 'participant.attendance_confirmation',
 	PARTICIPANT_ANONYMIZE: 'participant.anonymize',
+	PARTICIPANT_MERGE: 'participant.merge',
 	// Lectura/exportación de datos sensibles de salud (participant:health) — a
 	// diferencia del resto de acciones de este catálogo (solo escrituras), estas
 	// dos registran acceso de LECTURA porque el dato es sensible bajo LFPDPPP art. 9.
