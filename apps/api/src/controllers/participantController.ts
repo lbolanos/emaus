@@ -707,7 +707,8 @@ export const updateParticipant = async (
     if (
       error instanceof Error &&
       (code === "SCHOLARSHIP_EXCEEDS_COST" ||
-        code === "MEAL_COUNT_EXCEEDS_RETREAT_MEALS")
+        code === "MEAL_COUNT_EXCEEDS_RETREAT_MEALS" ||
+        code === "INVALID_PALANQUERO_COORDINATOR")
     ) {
       return res.status(400).json({ message: error.message, code });
     }
