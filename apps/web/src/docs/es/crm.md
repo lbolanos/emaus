@@ -147,12 +147,13 @@ necesitas ver a los servidores.
 - **Por contactar** · **Contactado** · **Confirmó** · **Sin respuesta** · **Declinó**
 
 Para cambiar a alguien de etapa, **toca su tarjeta** y elige la etapa arriba de su historial — así
-puedes anotar en el mismo lugar lo que te dijo. En la computadora también puedes **arrastrar la
+puedes anotar en el mismo lugar lo que te dijo. En una ventana amplia también puedes **arrastrar la
 tarjeta** de una columna a otra.
 
-La barra de etapas, arriba del tablero, muestra cuántas personas hay en cada una. En el teléfono
-elige qué columna se ve y cada etapa se muestra como ícono con su conteo (los botones de etapa del
-historial usan los mismos íconos); en la computadora te lleva hasta ella.
+La barra de etapas, arriba del tablero, muestra cuántas personas hay en cada una. En el teléfono —o
+con la ventana a medias— elige qué columna se ve y cada etapa se muestra como ícono con su conteo
+(los botones de etapa del historial usan los mismos íconos); las seis caben en la pantalla, sin
+desplazar. Con espacio de sobra te lleva hasta ella.
 
 La última columna, **Con sus cartas**, no es una etapa: se llena sola con quienes tienen al menos el
 mínimo de cartas del retiro (3 por defecto) y no se le arrastra nada — captura el número en la ficha

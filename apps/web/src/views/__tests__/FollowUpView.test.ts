@@ -219,13 +219,16 @@ describe('FollowUpView (tablero de seguimiento)', () => {
 
 		expect(w.get('#stage-contacted').classes()).not.toContain('hidden');
 		expect(w.get('#stage-pending').classes()).toContain('hidden');
-		// En escritorio todas se ven: lo oculto es sólo bajo `md`.
-		expect(w.get('#stage-pending').classes()).toContain('md:flex');
+		// Desde lg todas se ven: lo oculto es sólo bajo `lg`.
+		expect(w.get('#stage-pending').classes()).toContain('lg:flex');
 
 		// En el celular la pastilla es ícono + conteo, sin el nombre.
 		const pill = w.get('[data-testid="stage-nav-contacted"]');
 		expect(pill.find('svg').exists()).toBe(true);
-		expect(pill.find('span').classes()).toEqual(expect.arrayContaining(['hidden', 'md:inline']));
+		expect(pill.find('span').classes()).toEqual(expect.arrayContaining(['hidden', 'lg:inline']));
+
+		// Las seis caben sin scroll en el teléfono: grid de 6 abajo de lg.
+		expect(w.get('nav').classes()).toEqual(expect.arrayContaining(['grid', 'grid-cols-6']));
 	});
 
 	it('si los filtros no dejan a nadie lo dice, sin fingir un retiro vacío', async () => {

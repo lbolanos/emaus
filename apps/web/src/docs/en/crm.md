@@ -141,12 +141,13 @@ board opens filtered to **walkers**; use the type filter if you need to see serv
 - **To contact** · **Contacted** · **Confirmed** · **No answer** · **Declined**
 
 To move someone to another stage, **tap their card** and pick the stage at the top of their history
-— that way you can note what they told you in the same place. On a computer you can also **drag the
-card** from one column to another.
+— that way you can note what they told you in the same place. On a wide window you can also **drag
+the card** from one column to another.
 
-The stage bar above the board shows how many people are in each stage. On a phone it picks which
-column you see, with each stage as an icon and its count (the history's stage buttons use the same
-icons); on a computer it takes you to it.
+The stage bar above the board shows how many people are in each stage. On a phone —or a half-size
+window— it picks which column you see, with each stage as an icon and its count (the history's
+stage buttons use the same icons); all six fit on the screen, no scrolling. With room to spare it
+takes you to it.
 
 The last column, **With their letters**, is not a stage: it fills on its own with everyone who has
 at least the retreat's letter minimum (3 by default) and nothing is dragged onto it — enter the

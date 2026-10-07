@@ -71,8 +71,8 @@ const palanqueroOptions = ref<{ value: string; label: string }[]>([]);
 const shown = ref<Record<string, number>>({});
 const dragging = ref<string | null>(null);
 const dragOverStatus = ref<string | null>(null);
-// Columna que se ve en el celular (ahí se pinta una sola) y a la que se lleva
-// el scroll en escritorio.
+// Columna que se ve en el celular o una ventana angosta (abajo de lg se pinta
+// una sola) y a la que se lleva el scroll desde lg.
 const activeStage = ref<string>(STATUSES[0]);
 
 const panelOpen = ref(false);
@@ -189,8 +189,8 @@ const stageNav = computed(() => [
 
 function selectStage(key: string) {
 	activeStage.value = key;
-	// En escritorio todas las columnas están a la vista y se lleva el scroll
-	// hasta la elegida; en el celular sólo se pinta la activa.
+	// Desde lg todas las columnas están a la vista y se lleva el scroll hasta
+	// la elegida; abajo sólo se pinta la activa.
 	nextTick(() =>
 		document
 			.getElementById(`stage-${key}`)
@@ -311,9 +311,13 @@ const lastActivityByParticipant = computed<Record<string, string>>(() => {
 			<p class="hidden sm:block text-gray-600 text-sm">{{ t('followUp.subtitle') }}</p>
 		</div>
 
-		<!-- Filtros -->
-		<div class="flex flex-wrap gap-2 items-end">
-			<div class="relative basis-full sm:basis-auto sm:flex-1 sm:min-w-[180px]">
+		<!-- Filtros. Desde md todos en una línea: la búsqueda toma el doble del
+		     espacio de cada select y éstos son flexibles — un select nativo se
+		     estira al texto de su opción más larga y, con ancho propio, el último
+		     salta de línea. El texto largo sólo se recorta en el control cerrado:
+		     el desplegable del sistema lo muestra completo. -->
+		<div class="flex flex-wrap gap-2 items-end md:flex-nowrap">
+			<div class="relative w-full sm:w-auto sm:flex-1 sm:min-w-[180px] md:flex-[2] md:min-w-[6rem]">
 				<Search
 					class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none"
 				/>
@@ -324,7 +328,7 @@ const lastActivityByParticipant = computed<Record<string, string>>(() => {
 					:aria-label="t('followUp.search')"
 				/>
 			</div>
-			<label class="flex-1 sm:flex-none sm:min-w-[9rem]">
+			<label class="flex-1 sm:flex-none sm:min-w-[9rem] md:flex-1 md:min-w-0">
 				<span class="text-xs text-gray-500">{{ t('followUp.showType') }}</span>
 				<select v-model="typeFilter" :class="SELECT_CLASS">
 					<option value="all">{{ t('followUp.allTypes') }}</option>
@@ -332,7 +336,7 @@ const lastActivityByParticipant = computed<Record<string, string>>(() => {
 					<option value="server">{{ t('followUp.servers') }}</option>
 				</select>
 			</label>
-			<label class="flex-1 sm:flex-none sm:min-w-[11rem]">
+			<label class="flex-1 sm:flex-none sm:min-w-[11rem] md:flex-1 md:min-w-0">
 				<span class="text-xs text-gray-500">{{ t('followUp.lettersFilter') }}</span>
 				<select v-model="lettersFilter" :class="SELECT_CLASS">
 					<option value="all">{{ t('followUp.lettersAll') }}</option>
@@ -342,7 +346,7 @@ const lastActivityByParticipant = computed<Record<string, string>>(() => {
 					<option value="unknown">{{ t('followUp.lettersUnknown') }}</option>
 				</select>
 			</label>
-			<label class="flex-1 sm:flex-none sm:min-w-[11rem]">
+			<label class="flex-1 sm:flex-none sm:min-w-[11rem] md:flex-1 md:min-w-0">
 				<span class="text-xs text-gray-500">{{ t('followUp.palanqueroFilter') }}</span>
 				<select v-model="palanqueroFilter" :class="SELECT_CLASS">
 					<option value="all">{{ t('followUp.allPalanqueros') }}</option>
@@ -371,11 +375,13 @@ const lastActivityByParticipant = computed<Record<string, string>>(() => {
 		</div>
 
 		<template v-else>
-			<!-- Índice del tablero: en el celular elige la columna que se ve; en
-			     escritorio lleva el scroll hasta ella. -->
+			<!-- Índice del tablero: en el celular o una ventana angosta (abajo de
+			     lg) elige la columna que se ve — las seis etapas van en un grid de
+			     6 para que quepan sin scroll; desde lg van en fila con su texto y
+			     llevan el scroll hasta ella. -->
 			<nav
 				:aria-label="t('followUp.stagesNav')"
-				class="flex gap-2 overflow-x-auto -mx-4 px-4 pb-1"
+				class="grid grid-cols-6 gap-1.5 overflow-x-auto -mx-4 px-4 lg:flex lg:gap-2 lg:mx-0 lg:px-0 lg:pb-1"
 			>
 				<button
 					v-for="s in stageNav"
@@ -385,7 +391,7 @@ const lastActivityByParticipant = computed<Record<string, string>>(() => {
 					:aria-current="activeStage === s.key ? 'true' : undefined"
 					:aria-label="`${s.label}: ${s.count}`"
 					:title="s.label"
-					class="shrink-0 inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm whitespace-nowrap transition-colors"
+					class="inline-flex w-full items-center justify-center gap-1 lg:w-auto lg:gap-1.5 rounded-full border px-1.5 lg:px-3 py-1.5 text-sm whitespace-nowrap transition-colors"
 					:class="
 						activeStage === s.key
 							? s.key === LETTERS_MET
@@ -397,12 +403,12 @@ const lastActivityByParticipant = computed<Record<string, string>>(() => {
 					"
 					@click="selectStage(s.key)"
 				>
-					<!-- En el celular la pastilla es ícono + conteo; el texto completo
-					     sólo desde md. -->
-					<component :is="STAGE_ICONS[s.key]" class="w-4 h-4 md:hidden" aria-hidden="true" />
-					<span class="hidden md:inline">{{ s.label }}</span>
+					<!-- En el celular o una ventana angosta la pastilla es ícono +
+					     conteo: el texto de seis etapas sólo cabe desde lg. -->
+					<component :is="STAGE_ICONS[s.key]" class="w-4 h-4 lg:hidden" aria-hidden="true" />
+					<span class="hidden lg:inline">{{ s.label }}</span>
 					<span
-						class="rounded-full px-1.5 text-xs tabular-nums"
+						class="rounded-full px-1 lg:px-1.5 text-xs tabular-nums"
 						:class="activeStage === s.key ? 'bg-white/20' : 'bg-gray-100 text-gray-600'"
 					>
 						{{ s.count }}
@@ -410,17 +416,18 @@ const lastActivityByParticipant = computed<Record<string, string>>(() => {
 				</button>
 			</nav>
 
-			<!-- Tablero. En el celular, una columna a la vez (la de la barra); en
-			     escritorio, todas en fila y cada lista con su propio scroll para que
-			     el encabezado y la barra horizontal no se pierdan. -->
-			<div class="flex flex-col md:flex-row gap-3 md:overflow-x-auto pb-20 md:pb-4">
+			<!-- Tablero. En el celular o una ventana angosta (abajo de lg), una
+			     columna a la vez (la de la barra): seis columnas fijas no caben sin
+			     scroll horizontal. Desde lg, todas en fila y cada lista con su
+			     propio scroll para que el encabezado y la barra no se pierdan. -->
+			<div class="flex flex-col lg:flex-row gap-3 lg:overflow-x-auto pb-20 lg:pb-4">
 				<section
 					v-for="status in STATUSES"
 					:id="`stage-${status}`"
 					:key="status"
-					class="w-full md:w-64 md:shrink-0 flex-col rounded-md bg-gray-50 border"
+					class="w-full lg:w-64 lg:shrink-0 flex-col rounded-md bg-gray-50 border"
 					:class="[
-						activeStage === status ? 'flex' : 'hidden md:flex',
+						activeStage === status ? 'flex' : 'hidden lg:flex',
 						dragOverStatus === status ? 'border-blue-500 bg-blue-50' : '',
 					]"
 					@dragover.prevent="dragOverStatus = status"
@@ -437,7 +444,7 @@ const lastActivityByParticipant = computed<Record<string, string>>(() => {
 					</header>
 
 					<div
-						class="p-2 space-y-2 min-h-24 md:max-h-[calc(100dvh-16rem)] md:overflow-y-auto"
+						class="p-2 space-y-2 min-h-24 lg:max-h-[calc(100dvh-16rem)] lg:overflow-y-auto"
 						:class="
 							dragging && !columns[status].length
 								? 'outline-2 outline-dashed outline-blue-300 -outline-offset-4 rounded-md'
@@ -456,7 +463,7 @@ const lastActivityByParticipant = computed<Record<string, string>>(() => {
 							:last-activity-at="lastActivityByParticipant[p.id]"
 							:message-count="p.messageCount"
 							:selected="isPanelFor(p.id)"
-							class="md:cursor-grab"
+							class="lg:cursor-grab"
 							draggable="true"
 							@dragstart="onDragStart(p)"
 							@dragend="onDragEnd"
@@ -479,8 +486,8 @@ const lastActivityByParticipant = computed<Record<string, string>>(() => {
 				     cumple sigue viviendo en su etapa de contacto. -->
 				<section
 					:id="`stage-${LETTERS_MET}`"
-					class="w-full md:w-64 md:shrink-0 flex-col rounded-md bg-green-50 border border-green-200 transition-opacity"
-					:class="[activeStage === LETTERS_MET ? 'flex' : 'hidden md:flex', dragging ? 'opacity-60' : '']"
+					class="w-full lg:w-64 lg:shrink-0 flex-col rounded-md bg-green-50 border border-green-200 transition-opacity"
+					:class="[activeStage === LETTERS_MET ? 'flex' : 'hidden lg:flex', dragging ? 'opacity-60' : '']"
 				>
 					<header class="px-3 py-2 border-b border-green-200">
 						<div class="flex items-center justify-between gap-2">
@@ -496,7 +503,7 @@ const lastActivityByParticipant = computed<Record<string, string>>(() => {
 						</div>
 					</header>
 
-					<div class="p-2 space-y-2 min-h-24 md:max-h-[calc(100dvh-16rem)] md:overflow-y-auto">
+					<div class="p-2 space-y-2 min-h-24 lg:max-h-[calc(100dvh-16rem)] lg:overflow-y-auto">
 						<p v-if="!lettersMetParticipants.length" class="text-xs text-gray-400 text-center py-4">
 							{{ t('followUp.lettersColumnEmpty') }}
 						</p>
