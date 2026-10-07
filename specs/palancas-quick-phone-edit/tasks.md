@@ -68,9 +68,9 @@ milestone correspondiente.
 - [x] `pnpm --filter web exec vue-tsc --noEmit` limpio
 - [x] Vitest de regresión: ParticipantList (65) + paridad campo/control + EditParticipantForm +
       cobertura de locales — 85/85
-- [ ] Commit `feat(web): ... (M2)`
+- [x] Commit `feat(web): ... (M2)` — c90d42fe
 
-**Done**: 2026-10-07 (commit pendiente).
+**Done**: 2026-10-07.
 
 ### Desviaciones 2026-10-07 (M2)
 
@@ -89,11 +89,35 @@ milestone correspondiente.
 
 ## M3 — diálogo + i18n + tests
 
-- [ ] ✏ en header palancas de `EditParticipantForm.vue` + `participant-patched`
-- [ ] Claves i18n es+en completas (labels, botones, errores, toasts)
-- [ ] Vitest editor: permiso, validación bloquea, payload cambios-only, rollback
-- [ ] Vitest wiring ParticipantList: default sin ✏ en vistas que no piden la prop
+- [x] ✏ en header palancas de `EditParticipantForm.vue` + `participant-patched`
+- [x] Claves i18n es+en completas (labels, botones, errores, toasts) — adelantadas a M2
+- [x] Vitest editor: permiso, validación bloquea, payload cambios-only, rollback — 8/8
+- [x] Vitest wiring EditParticipantForm (montaje palancas + re-emit `participant-patched`) — 10/10
+- [x] Vitest wiring ParticipantList: default sin ✏ + con prop abre seeded de la fila — 67/67
+- [x] `pnpm --filter web exec vue-tsc --noEmit` limpio
 - [ ] Commit `feat(web): ... (M3)`
+
+**Done**: 2026-10-07 (commit pendiente).
+
+### Desviaciones 2026-10-07 (M3)
+
+1. **Los tests cazaron 2 bugs reales del editor de M2** (ambos corregidos en el propio M3 antes
+   del commit):
+   - **Autofocus roto**: los string refs dentro de `v-for` se recogen en un array (Vue 3), así
+     que `firstInput.value` era `[input]` y `.focus()` lanzaba TypeError asincrónico en cada
+     apertura. Fix: function ref `setFirstInput`.
+   - **`validate()` nunca pasaba**: retornaba `Object.keys(errors).length === 0`, pero `errors`
+     es un Record con las 3 claves siempre presentes (string vacío = sin error) → el guardado
+     quedaba bloqueado para siempre (bug de M2 que el navegador habría cazado en M4). Fix:
+     `Object.values(errors).every(m => m === '')`.
+2. **Wiring de ParticipantList: `createTestWrapper` no sirve para probar props** — descarta las
+   options.props y además crea/activa SU propia pinia, así que los stores que siembra el test y
+   los que lee el componente (montado con otra pinia) son instancias distintas. Los tests de
+   wiring montan con `mount()` directo + `setActivePinia(pinia)` explícito (molde
+   "Control de confirmación de asistencia" del mismo archivo). Añadido `Pencil` al mock local
+   de lucide (el editor real lo importa; el mock local reemplaza al global).
+3. **Editor real (no stub) en el wiring de la tabla**: para validar de paso que la celda le
+   pasa fila y país correctos al abrir el popover (seed del input `#qp-cellPhone`).
 
 ## M4 — verificación + docs
 

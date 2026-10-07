@@ -146,6 +146,18 @@ vi.mock('../AngelitoAvailabilityEditor.vue', () => ({
 	default: { name: 'AngelitoAvailabilityEditor', template: '<div />', props: ['participant', 'retreatId'] },
 }));
 
+// Stub for the quick phone editor: emits `saved` on click so the wiring test
+// can verify the form re-emits the canonical result as `participant-patched`.
+vi.mock('../ParticipantQuickPhoneEditor.vue', () => ({
+	default: {
+		name: 'ParticipantQuickPhoneEditor',
+		template:
+			'<button class="quick-phone-stub" @click="$emit(\'saved\', { id: participant.id, cellPhone: \'5500000000\', emergencyContact1CellPhone: \'5587654321\', emergencyContact2CellPhone: null })">✏</button>',
+		props: ['participant', 'country'],
+		emits: ['saved'],
+	},
+}));
+
 // --------------------------------------------------------------------------
 // Helper data
 // --------------------------------------------------------------------------
@@ -383,6 +395,71 @@ describe('EditParticipantForm – shirt size tabs', () => {
 		const azulEntry = savedData.shirtSizes.find((s: any) => s.shirtTypeId === 'type-azul');
 		expect(azulEntry).toBeUndefined();
 
+		wrapper.unmount();
+	});
+});
+
+describe('EditParticipantForm – quick phone editor wiring (palancas layout)', () => {
+	afterEach(() => {
+		vi.clearAllMocks();
+	});
+
+	const PALANCAS_COLUMNS = [
+		'id_on_retreat',
+		'firstName',
+		'lastName',
+		'palancasCoordinator',
+		'palancasNotes',
+	];
+
+	it('does not mount the editor outside the palancas layout', async () => {
+		const wrapper = mountForm({
+			participant: makeParticipant({ type: 'walker' }),
+			columnsToShow: ['firstName', 'lastName'],
+			columnsToEdit: ['firstName', 'lastName'],
+		});
+		await nextTick();
+
+		expect(wrapper.findComponent({ name: 'ParticipantQuickPhoneEditor' }).exists()).toBe(false);
+		wrapper.unmount();
+	});
+
+	it('mounts the editor in the palancas header with the participant and country', async () => {
+		const wrapper = mountForm({
+			participant: makeParticipant({ type: 'walker', cellPhone: '5512345678' }),
+			columnsToShow: PALANCAS_COLUMNS,
+			columnsToEdit: ['palancasCoordinator', 'palancasNotes'],
+		});
+		await nextTick();
+
+		const editor = wrapper.findComponent({ name: 'ParticipantQuickPhoneEditor' });
+		expect(editor.exists()).toBe(true);
+		expect(editor.props('participant').id).toBe('p-1');
+		// No retreat loaded in the test store → country resolves to null.
+		expect(editor.props('country')).toBeNull();
+		wrapper.unmount();
+	});
+
+	it('re-emits the editor result as participant-patched', async () => {
+		const wrapper = mountForm({
+			participant: makeParticipant({ type: 'walker' }),
+			columnsToShow: PALANCAS_COLUMNS,
+			columnsToEdit: ['palancasCoordinator', 'palancasNotes'],
+		});
+		await nextTick();
+
+		await wrapper.find('.quick-phone-stub').trigger('click');
+
+		expect(wrapper.emitted('participant-patched')).toEqual([
+			[
+				{
+					id: 'p-1',
+					cellPhone: '5500000000',
+					emergencyContact1CellPhone: '5587654321',
+					emergencyContact2CellPhone: null,
+				},
+			],
+		]);
 		wrapper.unmount();
 	});
 });

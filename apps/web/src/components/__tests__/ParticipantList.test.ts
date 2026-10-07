@@ -141,6 +141,8 @@ vi.mock('lucide-vue-next', () => ({
 	RotateCcw: { template: '<span>rotate</span>' },
 	Send: { template: '<span>send</span>' },
 	Bookmark: { template: '<span>bookmark</span>' },
+	// Imported by the real ParticipantQuickPhoneEditor mounted in the wiring tests.
+	Pencil: { template: '<span>pencil</span>' },
 }));
 
 // Mock child components
@@ -1255,6 +1257,73 @@ describe('ParticipantList Component', () => {
 				3,
 				'csv',
 			);
+		});
+	});
+
+	describe('Quick phone edit wiring (inlinePhoneEdit prop)', () => {
+		// createTestWrapper discards props (and swaps the active pinia for a fresh
+		// one), so mount() directly and re-activate the outer pinia before touching
+		// stores — the component below mounts with `plugins: [pinia]` and must read
+		// the same store instances we seed. Same loading-flush mold as the
+		// 'Control de confirmación' describe.
+		const grantParticipantUpdate = async () => {
+			setActivePinia(pinia);
+			const { useAuthStore: useAuthStoreImport } = await import('@/stores/authStore');
+			const authStore = useAuthStoreImport();
+			authStore.userProfile = {
+				...(authStore.userProfile as any),
+				permissions: [{ resource: 'participant', operation: 'update' }],
+			} as any;
+		};
+
+		async function mountWithRows(props: Record<string, any>) {
+			setActivePinia(pinia);
+			const { useParticipantStore } = await import('@/stores/participantStore');
+			const participantStore = useParticipantStore();
+			const w = mount(ParticipantList, {
+				props: { type: 'walker', ...props },
+				global: {
+					plugins: [pinia],
+					stubs: { 'router-link': true, 'router-view': true, teleport: true },
+					mocks: {
+						$t: (key: string) => key,
+						$router: { push: vi.fn() },
+						$route: { name: 'walkers', params: {}, query: {} },
+					},
+				},
+			});
+			await flushPromises();
+			participantStore.loading = false;
+			// The mocked fetch resolved to [] and cleared the seeded rows.
+			participantStore.participants = [
+				createMockParticipant({ id: '1', firstName: 'John', lastName: 'Doe', type: 'walker' }),
+			];
+			await nextTick();
+			return w;
+		}
+
+		it('does not render the inline ✏ without the prop, even with permission', async () => {
+			await grantParticipantUpdate();
+			const newWrapper = await mountWithRows({});
+
+			expect(newWrapper.find('button[title="participants.quickPhones.edit"]').exists()).toBe(false);
+			// The cell still shows the number (createMockParticipant carries 5551234567).
+			expect(newWrapper.text()).toContain('5551234567');
+			newWrapper.unmount();
+		});
+
+		it('renders the inline ✏ with the prop and opens it seeded from the row', async () => {
+			await grantParticipantUpdate();
+			const newWrapper = await mountWithRows({ inlinePhoneEdit: true });
+
+			const pencil = newWrapper.find('button[title="participants.quickPhones.edit"]');
+			expect(pencil.exists()).toBe(true);
+			await pencil.trigger('click');
+
+			const cellInput = newWrapper.find('#qp-cellPhone');
+			expect(cellInput.exists()).toBe(true);
+			expect((cellInput.element as HTMLInputElement).value).toBe('5551234567');
+			newWrapper.unmount();
 		});
 	});
 });

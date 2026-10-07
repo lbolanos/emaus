@@ -47,6 +47,11 @@ const saving = ref(false);
 const root = ref<HTMLElement | null>(null);
 const panelEl = ref<HTMLElement | null>(null);
 const firstInput = ref<HTMLInputElement | null>(null);
+// String refs inside v-for collect into an array; this function ref keeps the
+// element itself so focus() works.
+const setFirstInput = (el: unknown) => {
+  firstInput.value = (el as HTMLInputElement) ?? null;
+};
 const cellPhone = ref('');
 const ec1Phone = ref('');
 const ec2Phone = ref('');
@@ -130,7 +135,9 @@ function validate(): boolean {
     const message = phoneValidationMessage(validatePhoneForCountry(value, props.country));
     if (message) errors.value[field.key] = message;
   }
-  return Object.keys(errors.value).length === 0;
+  // errors siempre tiene las 3 claves (string vacío = sin error); lo que
+  // bloquea el guardado es algún mensaje no vacío.
+  return Object.values(errors.value).every((message) => message === '');
 }
 
 async function save() {
@@ -192,7 +199,7 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocMouseDown))
           </label>
           <input
             :id="`qp-${field.key}`"
-            :ref="field.key === 'cellPhone' ? 'firstInput' : undefined"
+            :ref="field.key === 'cellPhone' ? setFirstInput : undefined"
             v-model="field.model.value"
             type="tel"
             inputmode="tel"

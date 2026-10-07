@@ -4,6 +4,7 @@ import { Button, Input, Label, Select, SelectContent, SelectItem, SelectTrigger,
 import { formatCurrency, resolvePalancas } from '@repo/utils';
 import TagSelector from './TagSelector.vue';
 import AngelitoAvailabilityEditor from './AngelitoAvailabilityEditor.vue';
+import ParticipantQuickPhoneEditor from './ParticipantQuickPhoneEditor.vue';
 import { getParticipantTags, assignTagToParticipant, removeTagFromParticipant, getPalanqueroOptions as fetchPalanqueroOptions, santisimoApi } from '@/services/api';
 import { PICKUP_LOCATIONS } from '@/constants/pickupLocations';
 import { inferFieldControl, PARTICIPANT_TYPE_OPTIONS } from '@/constants/participantFieldControls';
@@ -26,7 +27,7 @@ const props = defineProps<{
   shirtTypes?: ShirtType[];
 }>();
 
-const emit = defineEmits(['save', 'cancel']);
+const emit = defineEmits(['save', 'cancel', 'participant-patched']);
 
 const { toast } = useToast();
 const { t } = useI18n();
@@ -49,6 +50,18 @@ const participantRetreat = computed(() => {
   if (!rid) return null;
   return retreatStore.retreats.find((r: any) => r.id === rid) ?? null;
 });
+
+// País de la casa del retiro del participante: valida los teléfonos del editor
+// rápido por país (GET /retreats manda la relation `house`, pero el tipo
+// Retreat solo declara houseId).
+const participantCountry = computed<string | null>(
+  () => (participantRetreat.value as any)?.house?.country ?? null,
+);
+
+// El mini-editor ya actualizó la fila del store; se re-emite para que la vista
+// que hospeda el diálogo sincronice su copia (participantToEdit) con la
+// respuesta canónica del servidor.
+const onQuickPhonesSaved = (result: unknown) => emit('participant-patched', result);
 
 async function loadAvailability() {
   const retreatId = props.participant?.retreatId;
@@ -468,9 +481,14 @@ const calculateAge = (birthDate: string | Date) => {
               <div class="flex items-center gap-3 text-sm text-gray-500 mt-0.5">
                 <span>#{{ participant.id_on_retreat }}</span>
                 <span v-if="participant.birthDate">{{ calculateAge(participant.birthDate) }} a&ntilde;os</span>
-                <span v-if="participant.cellPhone" class="flex items-center gap-1">
-                  <Phone class="w-3 h-3" />
-                  {{ participant.cellPhone }}
+                <span class="flex items-center gap-1">
+                  <Phone v-if="participant.cellPhone" class="w-3 h-3" />
+                  <template v-if="participant.cellPhone">{{ participant.cellPhone }}</template>
+                  <ParticipantQuickPhoneEditor
+                    :participant="participant"
+                    :country="participantCountry"
+                    @saved="onQuickPhonesSaved"
+                  />
                 </span>
               </div>
             </div>

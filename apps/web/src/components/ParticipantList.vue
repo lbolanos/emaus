@@ -892,6 +892,20 @@ const reactivateParticipant = async (participant: any) => {
     }
 };
 
+// El mini-editor de teléfonos (tabla o diálogo) actualizó la fila vía el
+// store. Para walkers participantToEdit comparte referencia con la fila, así
+// que esto es defensa ante copias (servers abren el diálogo con un spread).
+const onParticipantPatched = (result: {
+    id: string;
+    cellPhone: string;
+    emergencyContact1CellPhone: string;
+    emergencyContact2CellPhone: string | null;
+}) => {
+    if (participantToEdit.value?.id === result.id) {
+        Object.assign(participantToEdit.value, result);
+    }
+};
+
 const openEditDialog = async (participant: any) => {
     participantToEdit.value = participant;
     isEditDialogOpen.value = true;
@@ -2057,6 +2071,7 @@ const handleKeyboardShortcuts = (event: KeyboardEvent) => {
                     :shirt-types="editShirtTypes"
                     @save="handleUpdateParticipant"
                     @cancel="isEditDialogOpen = false"
+                    @participant-patched="onParticipantPatched"
                 />
             </DialogContent>
         </Dialog>
