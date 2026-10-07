@@ -57,7 +57,9 @@ function stripScholarshipAmount<T>(data: T): T {
 
 /**
  * Campos de salud/contacto de emergencia que solo debe ver quien tiene
- * `participant:health` (admin, treasurer, logistics, superadmin). Deja fuera
+ * `participant:health` (admin, treasurer, logistics, superadmin,
+ * communications desde 2026-10-07: son quienes contactan a las familias y
+ * conocen los problemas de los caminantes). Deja fuera
  * a propósito `snores`/`hasMedication`/`hasDietaryRestrictions` (booleanos
  * usados por la asignación de camas, sin ruta protegida hoy) y `sacraments`
  * (dato religioso, no de salud) — solo el detalle libre y los contactos.
@@ -85,8 +87,8 @@ const SENSITIVE_HEALTH_FIELDS = [
 /**
  * Returns true when the request user can read the health/emergency-contact
  * fields of a participant. Permission: participant:health (admin, treasurer,
- * logistics, superadmin). If the request has no authenticated user, access
- * is denied.
+ * logistics, superadmin, communications). If the request has no authenticated
+ * user, access is denied.
  */
 export async function canViewHealthData(req: Request): Promise<boolean> {
 	const userId = (req as any).user?.id;
@@ -676,12 +678,23 @@ export const updateParticipant = async (
       // how other gated fields are handled in this controller.
       delete body.scholarshipAmount;
     }
+    // Mismo gate en escritura que en lectura: quien no tiene
+    // participant:health no puede escribir los campos que tampoco puede ver
+    // (un cliente podría mandarlos explícitamente en el body aunque el GET
+    // nunca se los devolvió).
+    const canSeeHealth = await canViewHealthData(req);
+    if (!canSeeHealth) {
+      for (const field of SENSITIVE_HEALTH_FIELDS) {
+        if (field in body) {
+          delete (body)[field];
+        }
+      }
+    }
     const updatedParticipant = await participantService.updateParticipant(
       req.params.id,
       body,
     );
     if (updatedParticipant) {
-      const canSeeHealth = await canViewHealthData(req);
       let result: unknown = updatedParticipant;
       if (!canSee) result = stripScholarshipAmount(result);
       if (!canSeeHealth) result = stripSensitiveHealthFields(result);
@@ -707,7 +720,8 @@ export const updateParticipant = async (
     if (
       error instanceof Error &&
       (code === "SCHOLARSHIP_EXCEEDS_COST" ||
-        code === "MEAL_COUNT_EXCEEDS_RETREAT_MEALS")
+        code === "MEAL_COUNT_EXCEEDS_RETREAT_MEALS" ||
+        code === "INVALID_PALANQUERO_COORDINATOR")
     ) {
       return res.status(400).json({ message: error.message, code });
     }

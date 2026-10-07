@@ -206,6 +206,15 @@ describe('ParticipantTimelinePanel', () => {
 		expect(w.text()).toContain('Cartas recibidas: 4 de 3');
 	});
 
+	it('deja al llamador poner sus controles bajo el encabezado', async () => {
+		const w = mount(ParticipantTimelinePanel, {
+			props: { open: true, retreatId: 'r1', participant: walker },
+			slots: { 'header-extra': '<div data-testid="extra">Etapa</div>' },
+		});
+		await flushPromises();
+		expect(w.find('[data-testid="extra"]').exists()).toBe(true);
+	});
+
 	it('avisa que las respuestas viven en WhatsApp, no en Emaús', async () => {
 		const w = await mountPanel();
 		expect(w.text()).toContain('participantThread.sentFromEmaus');

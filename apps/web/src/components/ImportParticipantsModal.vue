@@ -305,6 +305,7 @@ import {
   AlertTriangle,
   CheckCircle,
 } from 'lucide-vue-next';
+import { listPastDueSequenceSteps } from '@/services/api';
 
 interface DuplicateGroup {
   email: string;
@@ -925,6 +926,25 @@ const confirmImport = async () => {
       title: 'Import Complete',
       description: importSummary.value,
     });
+
+    // Late-enrollment heads-up: newly imported participants suppress past-dated
+    // sequence steps (M2 guard), and an emptier-than-expected queue later is how
+    // it went unnoticed (2026-10-06 palancas incident). Advisory only — the
+    // banner in the message-sequences view keeps reporting it until resolved.
+    if (totalImported > 0) {
+      try {
+        const pastDue = await listPastDueSequenceSteps(selectedRetreatId.value!);
+        if (pastDue.length) {
+          const count = pastDue.reduce((n, s) => n + s.count, 0);
+          toast({
+            title: $t('sequences.importPastDue', { count }, count),
+            description: $t('sequences.importPastDueHint'),
+          });
+        }
+      } catch {
+        /* advisory: the import itself already succeeded */
+      }
+    }
 
     importProgress.value = 100;
     importSuccess.value = true;

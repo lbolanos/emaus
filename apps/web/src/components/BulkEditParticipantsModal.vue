@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useToast } from '@repo/ui';
 import { useI18n } from 'vue-i18n';
 import { PICKUP_LOCATIONS } from '@/constants/pickupLocations';
+import { inferFieldControl, PARTICIPANT_TYPE_OPTIONS } from '@/constants/participantFieldControls';
 
 interface Props {
   isOpen: boolean;
@@ -80,41 +81,26 @@ const maxBirthDate = computed(() => {
   return d.toISOString().slice(0, 10)
 })
 
+// Control types come from the shared catalog (see participantFieldControls.ts) so this
+// modal and EditParticipantForm cannot drift apart again.
 const getFieldType = (key: string) => {
-  if (key === 'type') return 'select';
-  // Select fed by GET /responsibilities/palanquero-options; free text here breaks
-  // the exact-match 'Palanquero N' lookups downstream (palanquero notifications).
-  // Falls back to text when the options fetch failed.
-  if (key === 'palancasCoordinator') return props.palanqueroOptions.length > 0 ? 'select' : 'text';
-  // Stored values come from the fixed pickup list (see PICKUP_LOCATIONS); free text
-  // here would produce values the individual form's select can never show back.
-  if (key === 'pickupLocation') return 'select';
-  // Numeric letter count — same control the individual form uses for this field.
-  if (key === 'palancasReceivedCount') return 'number';
-  // tshirtSize is per-retreat free-text — admin enters whatever code their retreat uses (G, L, XL...).
-  if (key === 'tshirtSize') return 'text';
-  if (key === 'tableMesa.name') return 'text';
-  if (key.startsWith('is') || key.startsWith('has') || key.startsWith('requests') || key === 'arrivesOnOwn' || key === 'snores' || key === 'palancasRequested') return 'boolean';
-  if (key.toLowerCase().includes('notes') || key.toLowerCase().includes('details')) return 'textarea';
-  if (key.toLowerCase().includes('date')) return 'date';
-  if (key.toLowerCase().includes('amount')) return 'number';
-  return 'text';
+  const spec = inferFieldControl(key);
+  // Palanquero options come from GET /responsibilities/palanquero-options; when the
+  // fetch failed there is nothing to offer in a select — degrade to free text, which
+  // is what the field rendered before the catalog existed.
+  if (spec.control === 'select' && spec.options === 'palanquero' && props.palanqueroOptions.length === 0) {
+    return 'text';
+  }
+  return spec.control;
 };
 
 // Get select options for specific fields
 const getSelectOptions = (key: string) => {
-  switch (key) {
-    case 'type':
-      // Same four values the individual form offers and @repo/types allows
-      // ('waiting' and 'partial_server' were missing here: a participant moved to
-      // those states in bulk was impossible to select back out of it).
-      return [
-        { value: 'walker', label: $t('participants.types.walker') },
-        { value: 'server', label: $t('participants.types.server') },
-        { value: 'waiting', label: $t('participants.types.waiting') },
-        { value: 'partial_server', label: $t('participants.types.partial_server') }
-      ];
-    case 'palancasCoordinator':
+  switch (inferFieldControl(key).options) {
+    case 'participantType':
+      // Same four values the individual form offers and @repo/types allows.
+      return PARTICIPANT_TYPE_OPTIONS.map(o => ({ value: o.value, label: $t(o.labelKey) }));
+    case 'palanquero':
       return props.palanqueroOptions;
     case 'pickupLocation':
       return PICKUP_LOCATIONS;

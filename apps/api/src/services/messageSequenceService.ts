@@ -2809,6 +2809,26 @@ export class MessageSequenceService {
 	}
 
 	/**
+	 * Late-enrollment check for the UI: which past-dated steps is the M2 guard
+	 * currently suppressing for this retreat — only people who still lack the
+	 * message (sent/skipped rows don't count, so an executed or dismissed
+	 * "Ejecutar" stops reporting). Walks the real enrollment on purpose: same
+	 * audience/guard/closed-retreat rules as the engine, and it is idempotent
+	 * (the hourly cron does the same work). Unlike `runForRetreat` it never
+	 * calls `processDue`: checking must not send or queue anything.
+	 */
+	async listPastDueSteps(retreatId: string): Promise<SequencePastStep[]> {
+		const sequences = await this.findByRetreat(retreatId);
+		const pastSteps: SequencePastStep[] = [];
+		for (const seq of sequences) {
+			if (!seq.isActive) continue;
+			const result = await this.enrollSequenceDetailed(seq, new Date());
+			pastSteps.push(...result.pastSteps);
+		}
+		return pastSteps;
+	}
+
+	/**
 	 * Siembra las secuencias de "registro" de un retiro (las que reemplazan los
 	 * envíos automáticos del alta). Idempotente por nombre. Respeta los flags del
 	 * retiro: `notifyParticipant`/`notifyInviter` (false ⇒ se crean inactivas).

@@ -140,11 +140,24 @@ Un resumen rápido del retiro:
 
 ## Seguimiento de caminantes
 
-Un tablero con cinco columnas, una por etapa. **Arrastra la tarjeta** de una columna a otra (en el
-teléfono: toca la tarjeta y luego la columna). Todos los participantes empiezan en *Por contactar*,
-no hay que dar de alta a nadie.
+Un tablero con cinco columnas, una por etapa. Todos los participantes empiezan en *Por contactar*,
+no hay que dar de alta a nadie. El tablero abre filtrado a **caminantes**; usa el filtro de tipo si
+necesitas ver a los servidores.
 
 - **Por contactar** · **Contactado** · **Confirmó** · **Sin respuesta** · **Declinó**
+
+Para cambiar a alguien de etapa, **toca su tarjeta** y elige la etapa arriba de su historial — así
+puedes anotar en el mismo lugar lo que te dijo. En una ventana amplia también puedes **arrastrar la
+tarjeta** de una columna a otra.
+
+La barra de etapas, arriba del tablero, muestra cuántas personas hay en cada una. En el teléfono —o
+con la ventana a medias— elige qué columna se ve y cada etapa se muestra como ícono con su conteo
+(los botones de etapa del historial usan los mismos íconos); las seis caben en la pantalla, sin
+desplazar. Con espacio de sobra te lleva hasta ella.
+
+La última columna, **Con sus cartas**, no es una etapa: se llena sola con quienes tienen al menos el
+mínimo de cartas del retiro (3 por defecto) y no se le arrastra nada — captura el número en la ficha
+y la tarjeta aparece ahí. Quien está en esa columna sigue apareciendo en su etapa de contacto.
 
 ⚠️ **Al mover una tarjeta a Confirmó o Declinó también se registra la confirmación de asistencia**,
 que es la que hace que las secuencias dejen de insistirle a esa persona. Es lo que normalmente
@@ -154,7 +167,9 @@ recordatorios. Mover la tarjeta hacia atrás no deshace la confirmación.
 Cada tarjeta te dice de un vistazo cuántas **cartas** lleva (verde = llegó al mínimo del retiro,
 ámbar = le faltan, gris = ninguna), si confirmó asistencia, cuántos mensajes le hemos mandado, si
 está en la lista de no contactar y cuántas tareas abiertas tiene. Arriba puedes filtrar por nombre,
-por tipo y por cartas — **"por debajo del mínimo" responde de un clic a quién le falta palanca**.
+por tipo, por cartas y por el **palanquero asignado** (la opción trae el nombre de quien lo tiene;
+*Sin asignar* dice a quién todavía hay que asignarle) — **"por debajo del mínimo" responde de un
+clic a quién le falta palanca**.
 
 Las cartas se capturan en la ficha del caminante (sección **Palancas** → *Cartas Recibidas*): sólo
 el número. Lo que quieras contar —de quién vinieron, si falta alguna— va en las notas de palancas.

@@ -416,6 +416,21 @@ export class MessageSequenceController {
 		}
 	};
 
+	// POST /message-sequences/retreat/:retreatId/past-due — pasos vencidos que
+	// el guard M2 está suprimiendo (alta tardía): alimenta el aviso de la UI.
+	// POST, no GET, porque enrola al calcular (idempotente, mismo trabajo que el
+	// cron): un GET con escritura rompería reintentos y prefetch.
+	pastDueSteps = async (req: Request, res: Response) => {
+		try {
+			const { retreatId } = req.params;
+			const pastSteps = await messageSequenceService.listPastDueSteps(retreatId);
+			res.json({ pastSteps });
+		} catch (error) {
+			console.error('Error listing past-due steps:', error);
+			res.status(500).json({ error: 'Error al revisar los pasos vencidos' });
+		}
+	};
+
 	// POST /message-sequences/retreat/:retreatId/issues/bulk — reenviar/descartar
 	// en masa los mensajes con problema (failed/skipped) del retiro. `ids`
 	// opcional acota el bulk a las filas filtradas/visibles en la UI.

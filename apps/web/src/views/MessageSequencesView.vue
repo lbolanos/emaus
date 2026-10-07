@@ -37,7 +37,7 @@ import {
 	type StepDraft,
 } from './sequenceEditorShared';
 import type { SequenceStepPreview, SequencePastStep } from '@repo/types';
-import { previewSequenceStep, previewSequenceSchedule } from '@/services/api';
+import { previewSequenceStep, previewSequenceSchedule, listPastDueSequenceSteps } from '@/services/api';
 import { useModalA11y } from '@/composables/useModalA11y';
 
 const { t } = useI18n();
@@ -273,6 +273,8 @@ async function load() {
 		templateStore.fetchTemplates(retreatId.value),
 		participantStore.fetchParticipants().catch(() => {}),
 		responsabilityStore.fetchResponsibilities(retreatId.value, { silent: true }).catch(() => {}),
+		// Aviso de alta tardía: nunca rechaza (catch interno).
+		refreshPastDue(),
 	]);
 }
 
@@ -570,8 +572,24 @@ function notifyPausedScope(seqId: string) {
 	}
 }
 
-// M6-D2: activar/desactivar sin abrir el editor (mismo patrón que la vista global).
-async function toggleActive(seq: any) {
+// Confirmación antes de desactivar desde el listado cuando la secuencia tiene
+// mensajes vivos: la desactivación congela los pending (el cron no los encola)
+// y esconde los queued del filtro de la bandeja — así fue como el incidente de
+// palancas (2026-10-06) dejó 32 mensajes congelados sin que nadie lo notara.
+// Sin mensajes vivos no hay diálogo: no hay nada que cortar.
+// El editor no confirma (flujo deliberado con Guardar); ahí sigue siendo aviso.
+const seqToPause = ref<any>(null);
+const pauseModalOpen = computed(() => !!seqToPause.value);
+const pauseModalRef = ref<HTMLElement | null>(null);
+useModalA11y(pauseModalOpen, () => { seqToPause.value = null; }, pauseModalRef);
+const pausePendingCount = computed(() =>
+	seqToPause.value ? statusCount(seqToPause.value.id, 'pending') : 0,
+);
+const pauseQueuedCount = computed(() =>
+	seqToPause.value ? statusCount(seqToPause.value.id, 'queued') : 0,
+);
+
+async function applyToggle(seq: any) {
 	const wasActive = !!seq.isActive; // el update puede mutar la fila local
 	try {
 		await sequenceStore.update(seq.id, { isActive: !wasActive });
@@ -579,6 +597,21 @@ async function toggleActive(seq: any) {
 	} catch {
 		toast({ title: t('sequences.toggleError'), variant: 'destructive' });
 	}
+}
+
+// M6-D2: activar/desactivar sin abrir el editor (mismo patrón que la vista global).
+function toggleActive(seq: any) {
+	if (seq.isActive && (statusCount(seq.id, 'pending') || statusCount(seq.id, 'queued'))) {
+		seqToPause.value = seq;
+		return;
+	}
+	void applyToggle(seq);
+}
+
+async function confirmPause() {
+	const seq = seqToPause.value;
+	seqToPause.value = null;
+	if (seq) await applyToggle(seq);
 }
 
 // M6-D1: duplicar como copia INACTIVA con pasos nuevos (sin id) — no reenvía
@@ -641,6 +674,9 @@ async function runNow(sendNowStepIds?: string[]) {
 		// M5: ask about the past-dated steps the guard skipped. Not after a
 		// confirmed run — the unselected ones were already reported as skipped.
 		if (!sendNowStepIds && res.pastSteps?.length) openPastStepsPrompt(res.pastSteps);
+		// El run pudo haber materializado los pasos del banner: refrescarlo
+		// (keepDismissed para no reaparecer sobre un aviso ya cerrado).
+		await refreshPastDue(true);
 	} catch {
 		toast({ title: t('sequences.runError'), variant: 'destructive' });
 	}
@@ -699,6 +735,28 @@ async function sendPastSteps() {
 	pastStepsPrompt.value = [];
 	notifySkippedPastSteps(skipped);
 	if (ids.length) await runNow(ids);
+}
+
+// --------------------------------------------------------------------------
+// Aviso de alta tardía: pasos con fecha vencida que el guard M2 sigue
+// suprimiendo. La supresión es invisible en la bandeja (no hay filas) y así
+// fue como el incidente de palancas del 2026-10-06 pasó desapercibido hasta
+// que el coordinador extrañó los mensajes. El banner persiste mientras el gap
+// exista — a diferencia del prompt de "Ejecutar", que solo se ve si alguien
+// corre el motor a mano.
+// --------------------------------------------------------------------------
+const pastDueSteps = ref<SequencePastStep[]>([]);
+const pastDueDismissed = ref(false);
+const pastDueMessageCount = computed(() => pastDueSteps.value.reduce((n, s) => n + s.count, 0));
+
+async function refreshPastDue(keepDismissed = false) {
+	if (!retreatId.value) return;
+	try {
+		pastDueSteps.value = await listPastDueSequenceSteps(retreatId.value);
+		if (!keepDismissed) pastDueDismissed.value = false;
+	} catch {
+		// El banner es advisory: sin él la página funciona igual.
+	}
 }
 
 // Preferencia: al abrir WhatsApp, marcar enviado automáticamente (salta el paso
@@ -1451,6 +1509,32 @@ async function toggleDoNotContact() {
 		<div>
 			<h1 class="text-2xl font-semibold">{{ t('sequences.title') }}</h1>
 			<p class="text-gray-600 text-sm">{{ t('sequences.subtitle') }}</p>
+		</div>
+
+		<!-- Aviso de alta tardía: pasos vencidos que el motor suprime y no
+		     saldrán solos. "Revisar" abre el mismo diálogo M5 de "Ejecutar". -->
+		<div
+			v-if="pastDueSteps.length && !pastDueDismissed"
+			class="border border-amber-200 bg-amber-50 rounded-md p-3 flex items-start gap-2 text-sm text-amber-800"
+			role="status"
+		>
+			<AlertTriangle class="w-4 h-4 shrink-0 mt-0.5" />
+			<p class="flex-1 min-w-0">
+				{{ t('sequences.pastDueBanner', { count: pastDueMessageCount }, pastDueMessageCount) }}
+			</p>
+			<Button size="sm" class="h-7 shrink-0" @click="openPastStepsPrompt(pastDueSteps)">
+				{{ t('sequences.pastDueReview') }}
+			</Button>
+			<Button
+				variant="ghost"
+				size="icon"
+				class="h-7 w-7 shrink-0 text-amber-700"
+				:aria-label="t('sequences.pastDueDismiss')"
+				:title="t('sequences.pastDueDismiss')"
+				@click="pastDueDismissed = true"
+			>
+				<X class="w-4 h-4" />
+			</Button>
 		</div>
 
 		<!-- Tabs: Secuencias / Programados / Bandeja WhatsApp / Problemas -->
@@ -2811,6 +2895,40 @@ async function toggleDoNotContact() {
 				<div class="flex justify-end gap-2 mt-4">
 					<Button variant="outline" @click="seqToDelete = null">{{ t('common.actions.cancel') }}</Button>
 					<Button variant="destructive" @click="confirmDelete">{{ t('common.actions.delete') }}</Button>
+				</div>
+			</div>
+		</div>
+
+		<!-- Confirmación de desactivación con mensajes vivos -->
+		<div
+			v-if="seqToPause"
+			class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+			@click.self="seqToPause = null"
+		>
+			<div
+				ref="pauseModalRef"
+				role="dialog"
+				aria-modal="true"
+				tabindex="-1"
+				:aria-label="t('sequences.pauseTitle', { name: seqToPause.name })"
+				class="bg-white rounded-lg shadow-xl max-w-sm w-full p-6 focus:outline-none"
+			>
+				<h2 class="text-lg font-semibold flex items-center gap-2">
+					<AlertTriangle class="w-5 h-5 text-amber-500 shrink-0" />
+					{{ t('sequences.pauseTitle', { name: seqToPause.name }) }}
+				</h2>
+				<ul class="text-sm text-gray-600 mt-2 space-y-1 list-disc pl-5">
+					<li v-if="pausePendingCount">
+						{{ t('sequences.pausePending', { n: pausePendingCount }, pausePendingCount) }}
+					</li>
+					<li v-if="pauseQueuedCount">
+						{{ t('sequences.pauseQueued', { n: pauseQueuedCount }, pauseQueuedCount) }}
+					</li>
+				</ul>
+				<p class="text-xs text-gray-500 mt-2">{{ t('sequences.pauseHint') }}</p>
+				<div class="flex justify-end gap-2 mt-4">
+					<Button variant="outline" @click="seqToPause = null">{{ t('sequences.pauseCancel') }}</Button>
+					<Button variant="destructive" @click="confirmPause">{{ t('sequences.pauseConfirm') }}</Button>
 				</div>
 			</div>
 		</div>

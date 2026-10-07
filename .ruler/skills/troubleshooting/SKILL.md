@@ -45,6 +45,8 @@ Cuando el usuario reporta un problema, primero ubicá el **síntoma** en la tabl
 | "el contador de arriba no cuadra con la lista", "aquí dice recibidas y allá pendiente", "el total se come registros" | [#32 Un mismo campo con varios criterios](#32-un-mismo-campo-con-varios-criterios-que-se-contradicen) |
 | "en el sidebar el item queda marcado como seleccionado al pasar el mouse", "el hover se ve igual que el activo y no se quita al salir" | [#33 El hover deja el item "seleccionado": focus compartido entre mouse y teclado](#33-el-hover-deja-el-item-seleccionado-focus-compartido-entre-mouse-y-teclado) |
 | "al ejecutar no se crean los del primer paso", "el paso 1 debería tener 29 en cola", "si está apagada, ¿por qué veo programados?", "veo 58 en programados y ninguna en bandeja", "dupliqué la secuencia y ejecuté" | [#34 Secuencias: paso vencido, pausa y bandeja "vacía"](#34-secuencias-paso-vencido-pausa-y-bandeja-vacía) |
+| "el test dice que se llamó una función que este test no llama", "`not.toHaveBeenCalled()` falla con el código bien", "`toHaveBeenCalledTimes(n)` cuenta de más", "pasa aislado con `-t` pero falla en el archivo" (Vitest web) | [#35 Vitest no limpia los mocks entre tests](#35-vitest-no-limpia-los-mocks-entre-tests-not-tohavebeencalled-falla-con-llamadas-de-otro-test) |
+| "con mi rol no veo los contactos al editar", "a mí me faltan campos que otro usuario sí ve", "la sección de emergencia no aparece en la ficha", "el coordinador no ve el monto de la beca" | [#36 Un permiso RBAC recorta campos y el formulario oculta la sección](#36-un-permiso-rbac-recorta-campos-y-el-formulario-oculta-la-sección) |
 
 ---
 
@@ -1532,3 +1534,72 @@ sobre TODAS las filas, sent incluidas) evita duplicar a quien ya lo recibió.
 mensaje: lo toma la siguiente). El WhatsApp entra con el texto **congelado** en ese momento
 ("Renovar con plantilla actual" lo refresca). **En dev el cron solo corre con la Mac despierta**: si
 "no pasó nada a la hora", busca `⏰ Sequences` en el log del API antes de sospechar del código.
+
+## 35. Vitest no limpia los mocks entre tests: `not.toHaveBeenCalled()` falla con llamadas de otro test
+
+**Síntoma**: un assert `expect(fn).not.toHaveBeenCalled()` falla "demostrando" llamadas que el test
+no hizo, o `toHaveBeenCalledTimes(n)` cuenta de más. Corriendo el test aislado (`-t`) pasa; dentro
+del archivo completo falla — las llamadas que muestra son de un test previo del mismo archivo.
+
+**Causa**: la config de vitest del web **no activa `clearMocks`** (verificado: ni en
+`apps/web/vite.config.*` ni en `src/test/setup.ts` — a diferencia de Jest, donde las configs suelen
+traerla). Los `vi.fn()` de un `vi.mock` de módulo retienen su historial de llamadas entre tests del
+mismo archivo, y como el montaje inicial de la vista ya dispara fetches, el mock llega "sucio" al
+test que quiere afirmar ausencias.
+
+**Fix**: `mockClear()` manual justo antes del acto que se va a afirmar, no antes del mount:
+
+```ts
+apiMod.updateMessageSequence.mockClear();
+await wrapper.vm.toggleActive(SEQ); // el acto bajo prueba
+expect(apiMod.updateMessageSequence).not.toHaveBeenCalled();
+```
+
+Los tres sabores, para no confundirlos:
+
+- `mockClear()` — borra el historial de llamadas. El que va para asserts de ausencia.
+- `mockReset()` — además quita la implementación: el `mockResolvedValue` que puso un test previo
+  deja de valer y el siguiente que lo espere recibe `undefined`. Usar solo si eso se quiere.
+- `mockRestore()` — restaura un **spy** a la función original (ver la memoria de Jest:
+  `clearAllMocks()` NO restaura spies; para eso es `restoreAllMocks()`).
+
+**Por qué no activar `clearMocks: true` global de una vez**: movería el comportamiento de toda la
+suite en un solo paso y cualquier test que hoy cuente con el mock ya cargado por el mount cambiaría
+de resultado. Si se activa algún día, correr la suite completa antes.
+
+**Caso**: 2026-10-06, test D2 de `MessageSequencesView` — el toggle de desactivar con confirmación
+afirmaba que `updateMessageSequence` NO salía antes de aceptar el modal, y el mock traía la llamada
+del `saveDraft` de un test anterior.
+
+## 36. Un permiso RBAC recorta campos y el formulario oculta la sección
+
+**Síntoma**: un usuario con rol operativo (communications, coordinator…) reporta que al editar una
+ficha le falta una sección completa — contactos de emergencia, notas, medicación — que otro usuario
+sí ve. Sin error en consola ni en el log del servidor; el resto de la ficha funciona.
+
+**Causa**: el servidor recorta campos del payload según permisos y el frontend hace `v-if` sobre
+esos campos: la sección ni se renderiza. No es bug del formulario, es el gate server-side
+funcionando. Hoy hay dos gates de este tipo:
+
+- `participant:health` → `stripSensitiveHealthFields` (contactos de emergencia, notas, medicación,
+  dieta, discapacidad). `EditParticipantForm.vue` oculta "Datos de contacto y emergencia" cuando
+  `emergencyContact1*/2*` no vienen.
+- `participant:viewScholarshipAmount` → `stripScholarshipAmount`.
+
+**Diagnóstico**:
+
+1. Qué permiso cubre el campo que falta (`docs/features/participant-health-permissions.md`).
+2. Qué roles tiene el usuario — globales **y** del retiro: `getUserPermissions` combina ambos, un
+   rol retreat-scoped también resuelve permisos.
+3. Por el dato, no por `migration:show`: fila en `role_permissions` de una copia read-only de la
+   DB (nunca sqlite3 sobre la viva).
+
+**Fix**: si el rol lo necesita operativamente, migración data-only que conceda el permiso — ver
+`20261007100000_GrantParticipantHealthToCommunications.ts` (idempotente, `down()` selectivo, test
+del rango exacto de la concesión en `grantParticipantHealthToCommunications.simple.test.ts`). Al
+conceder lectura, revisar también el gate de escritura del mismo campo: antes del 2026-10-07
+quien no podía leer salud sí podía escribirlo si lo mandaba explícito en el body.
+
+**Caso**: 2026-10-07 — communications (retreat-scoped, Buen Despacho) no veía los contactos al
+editar en la vista Palancas; el diseño de 20260914 excluía al rol a propósito y la operación
+necesitaba lo contrario.

@@ -2432,7 +2432,7 @@ export async function getRetreatDeletionImpact(
 // ==================== RETREAT MEMORY GALLERY API ====================
 
 import type { RetreatMemoryPhoto, RetreatMemorySong } from "@repo/types";
-import type { SequenceRunResult } from "@repo/types";
+import type { SequenceRunResult, SequencePastStep } from "@repo/types";
 
 export interface RetreatMemories {
   photos: RetreatMemoryPhoto[];
@@ -4191,6 +4191,18 @@ export const runSequences = async (
     sendNowStepIds?.length ? { sendNowStepIds } : undefined,
   );
   return r.data;
+};
+
+/**
+ * Past-dated steps the M2 guard is suppressing for this retreat (late
+ * enrollments): feeds the "revisar" banner. Enrolls idempotently server-side
+ * but never sends or queues anything.
+ */
+export const listPastDueSequenceSteps = async (
+  retreatId: string,
+): Promise<SequencePastStep[]> => {
+  const r = await api.post(`/message-sequences/retreat/${retreatId}/past-due`);
+  return r.data.pastSteps ?? [];
 };
 
 /** Refresca el snapshot de los pendientes de la bandeja con la plantilla vigente. */

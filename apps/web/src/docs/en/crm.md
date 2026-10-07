@@ -135,10 +135,24 @@ A quick summary of the retreat:
 
 ## Walker follow-up
 
-A board with five columns, one per stage. **Drag the card** from one column to another (on a phone:
-tap the card, then the column). Everyone starts in *To contact* — nothing to set up.
+A board with five columns, one per stage. Everyone starts in *To contact* — nothing to set up. The
+board opens filtered to **walkers**; use the type filter if you need to see servers.
 
 - **To contact** · **Contacted** · **Confirmed** · **No answer** · **Declined**
+
+To move someone to another stage, **tap their card** and pick the stage at the top of their history
+— that way you can note what they told you in the same place. On a wide window you can also **drag
+the card** from one column to another.
+
+The stage bar above the board shows how many people are in each stage. On a phone —or a half-size
+window— it picks which column you see, with each stage as an icon and its count (the history's
+stage buttons use the same icons); all six fit on the screen, no scrolling. With room to spare it
+takes you to it.
+
+The last column, **With their letters**, is not a stage: it fills on its own with everyone who has
+at least the retreat's letter minimum (3 by default) and nothing is dragged onto it — enter the
+count on the participant's file and the card shows up there. Anyone in that column still appears in
+their contact stage.
 
 ⚠️ **Moving a card to Confirmed or Declined also records the attendance confirmation**, which is
 what makes sequences stop chasing that person. That is usually what you want, but keep it in mind:
@@ -148,8 +162,9 @@ undo the confirmation.
 Each card shows at a glance how many **letters** the walker has (green = reached the retreat's
 minimum, amber = still short, grey = none), whether they confirmed attendance, how many messages we
 have sent, whether they are on the do-not-contact list, and how many open tasks they have. At the
-top you can filter by name, by type and by letters — **"below minimum" answers in one click who is
-still missing letters**.
+top you can filter by name, by type, by letters and by the **assigned palanquero** (the option shows
+who holds it; *Unassigned* tells you who still needs one) — **"below minimum" answers in one click
+who is still missing letters**.
 
 Letters are entered on the walker's record (**Palancas** section → *Cartas Recibidas*): the number
 only. Anything you want to note — who they came from, whether one is missing — goes in the palanca

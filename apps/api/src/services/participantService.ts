@@ -2974,6 +2974,15 @@ export const validateCoupleParticipants = async (
   return { valid: true, warnings };
 };
 
+// The palancas coordinator is matched verbatim ('Palanquero 1|2|3') by
+// messageSequenceService (PALANQUERO_NEW_WALKER), so free text written by a
+// hand-rolled client silently breaks those notifications. The guard in
+// updateParticipant rejects NEW invalid values but keeps re-submitting the
+// stored legacy value working: the web client re-sends the whole DTO by
+// spread, and legacy rows already carry prose in this column. Excel imports
+// (free-text 'palancasencargado' column) are exempt via isImporting.
+const PALANQUERO_COORDINATOR_PATTERN = /^Palanquero [1-3]$/;
+
 export const updateParticipant = async (
   id: string,
   participantData: UpdateParticipant,
@@ -3055,6 +3064,25 @@ export const updateParticipant = async (
     });
   }
   const wasCancelled = currentRp?.isCancelled ?? false;
+
+  // Reject NEW garbage in palancasCoordinator (breaks the verbatim
+  // 'Palanquero N' match of the palanquero notifications). Re-sending the
+  // value already stored still passes — legacy rows carry prose and the
+  // client re-sends the whole DTO. Imports are exempt (see pattern above).
+  if (
+    !isImporting &&
+    palancasCoordinator !== undefined &&
+    palancasCoordinator !== null &&
+    palancasCoordinator !== "" &&
+    !PALANQUERO_COORDINATOR_PATTERN.test(palancasCoordinator) &&
+    palancasCoordinator !== (currentRp?.palancasCoordinator ?? null)
+  ) {
+    const err = new Error(
+      `El coordinador de palancas debe ser "Palanquero 1", "Palanquero 2" o "Palanquero 3" (se recibió: "${palancasCoordinator}").`,
+    );
+    (err as any).code = "INVALID_PALANQUERO_COORDINATOR";
+    throw err;
+  }
 
   // Validate scholarshipAmount does not exceed the retreat cost. Refuses
   // accidental over-allocations from the UI/API. retreat.cost is a free-form

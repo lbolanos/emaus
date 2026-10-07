@@ -23,8 +23,17 @@ crea el permiso y lo asigna a **superadmin, admin, treasurer y logistics** (idem
 `INSERT OR IGNORE` en `permissions` + chequeo por rol en `role_permissions`). Superadmin
 además bypasea el check del router web.
 
+Desde el 2026-10-07, **communications** también lo tiene
+(`20261007100000_GrantParticipantHealthToCommunications.ts`): el diseño
+original lo excluía ("no necesita la ficha médica"), pero en la operación el equipo de
+comunicaciones/palancas es quien contacta a las familias y quien conoce los problemas de los
+caminantes — sin contactos de emergencia no puede trabajar (reporte 2026-10-07, communications
+en Buen Despacho). `regular_server` sigue fuera, como en el diseño original.
+
 Quien solo tiene `participant:read` recibe la ficha sin las columnas de salud: el filtrado es
-**server-side** (`stripSensitiveHealthFields`), no una cortesía del frontend.
+**server-side** (`stripSensitiveHealthFields`), no una cortesía del frontend. Desde el mismo
+cambio el gate también aplica en **escritura**: `updateParticipant` dropea los campos de salud
+del body cuando el caller no tiene el permiso — quien no puede leer, no puede escribir.
 
 ## El set combinado global + rol del retiro
 
@@ -45,7 +54,7 @@ set combinado.
 
 | Superficie | Qué defiende |
 | --- | --- |
-| `controllers/participantController.ts` | Define `SENSITIVE_HEALTH_FIELDS` y exporta `canViewHealthData` + `stripSensitiveHealthFields`; listado y detalle filtran antes de responder |
+| `controllers/participantController.ts` | Define `SENSITIVE_HEALTH_FIELDS` y exporta `canViewHealthData` + `stripSensitiveHealthFields`; listado y detalle filtran antes de responder; `updateParticipant` dropea los campos de salud del body sin el permiso |
 | `controllers/retreatParticipantController.ts` | Reimporta ambos helpers: el listado por retiro embebe la misma forma de Participant (contactos de emergencia) |
 | `controllers/retreatBedController.ts` | El mapa de camas expone salud junto a cada cama — mismo gate |
 | `controllers/tableMesaController.ts` | Las mesas exponen restricciones dietéticas por integrante — mismo gate |
@@ -69,7 +78,8 @@ set combinado.
 | --- | --- |
 | `apps/api/src/tests/controllers/healthDataExposureGuards.test.ts` | Listado/detalle sin el permiso no exponen los campos |
 | `apps/api/src/tests/controllers/bedTableHealthGuards.test.ts` | Camas y mesas con el mismo gate |
-| `apps/api/src/tests/controllers/participantHealthAudit.test.ts` | Auditoría de vista/export de salud |
+| `apps/api/src/tests/controllers/participantHealthAudit.test.ts` | Auditoría de vista/export de salud; el gate de escritura del body (con y sin permiso) |
+| `apps/api/src/tests/migrations/grantParticipantHealthToCommunications.simple.test.ts` | La concesión a communications: solo ese rol, idempotente, `down()` selectivo |
 | `apps/web/src/router/__tests__/index.test.ts` | El guard: deny sin permiso, allow con permiso, fallback de destino, bypass superadmin |
 | `apps/web/src/components/__tests__/Sidebar.test.ts` (describe "Health data guard") | Los ítems solo aparecen con el permiso |
 | `apps/web/src/components/__tests__/ParticipantList.test.ts` (describe "Columnas de salud/contacto de emergencia") | Columnas condicionadas, sanitización del localStorage y beacon del export |
