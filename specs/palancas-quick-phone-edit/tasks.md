@@ -95,9 +95,9 @@ milestone correspondiente.
 - [x] Vitest wiring EditParticipantForm (montaje palancas + re-emit `participant-patched`) — 10/10
 - [x] Vitest wiring ParticipantList: default sin ✏ + con prop abre seeded de la fila — 67/67
 - [x] `pnpm --filter web exec vue-tsc --noEmit` limpio
-- [ ] Commit `feat(web): ... (M3)`
+- [x] Commit `feat(web): ... (M3)` — a102497b
 
-**Done**: 2026-10-07 (commit pendiente).
+**Done**: 2026-10-07.
 
 ### Desviaciones 2026-10-07 (M3)
 
@@ -121,12 +121,36 @@ milestone correspondiente.
 
 ## M4 — verificación + docs
 
-- [ ] tsc + vue-tsc + jest + vitest + `pnpm build` api/web
-- [ ] Correr `dist/index.js` del API (o grep `__dirname`)
-- [ ] Navegador: CA7-CA12 en worktree (puertos según ocupación; confirmar que sirve este worktree)
-- [ ] `docs/features/palancas-quick-phone-edit.md` (con limitación de snapshots)
-- [ ] Reconcile del spec a modo retroactivo
-- [ ] Commit `docs(features): ... (M4)`
+- [x] tsc + vue-tsc + jest + vitest + `pnpm build` api/web — tsc api: 143 errores, baseline
+      exacto de master (sin nuevos); vue-tsc limpio; jest M1 27/27 (una sola corrida); vitest
+      web completo: 210 archivos / 3161 passed | 2 skipped; builds de api y web OK (solo
+      warning preexistente de chunk size en web)
+- [x] Correr `dist/index.js` del API (o grep `__dirname`) — grep: 2 ocurrencias, ambas el
+      `const __dirname` local ESM derivado de `import.meta.url` (static serving preexistente
+      del web); sin el global CJS que crashea el bundle
+- [x] Navegador: CA7-CA12 en worktree — `API_PORT=3003 WEB_PORT=5175` (3002 ocupado por el
+      worktree de otra sesión); confirmado por curl que 5175 sirve ESTE worktree
+      (`inline-phone-edit` en PalancasView.vue servido). CA7 (columna + ✏), CA8 (corrección
+      sin recarga; flujo de guardado OK tras el fix de `validate()`), CA9 (diálogo + header y
+      colapsable EC refrescados en caliente por `participant-patched`; diálogo de Caminantes
+      sin ✏), CA10 (EC2 vacío→valor→vacío, persistido y seedeado al reabrir), CA11 (`+52
+      5644571015` canonizó a nacional en la fila; `123` bloqueado con mensaje, sin request)
+      verificados en navegador. CA12 cubierto por unit tests (ver desviaciones). Extras:
+      autofocus del primer input (fix `setFirstInput`), Guardar disabled sin cambios, consola
+      limpia (solo 403 telemetry + warning `DialogContent` preexistentes)
+- [x] `docs/features/palancas-quick-phone-edit.md` (con limitación de snapshots)
+- [x] Reconcile del spec a modo retroactivo (estado "implementado" + sección Reconcile)
+- [x] Commit `docs(features): ... (M4)`
+
+**Done**: 2026-10-07.
+
+### Desviaciones 2026-10-07 (M4)
+
+1. **CA12 verificado por unit tests, no en navegador**: la dev DB no tiene una cuenta con rol
+   sin `participant:update` (Leonardo es superadmin) y crear una solo para la verificación
+   tocaba datos de más. El gate del editor (Vitest M3: sin permiso no renderiza el ✏) y el
+   403 de la ruta (Jest M1) cubren el criterio por las dos capas. El plan ya contemplaba este
+   fallback («si no hay cuenta menor en dev, cubrir con los unit tests y documentarlo»).
 
 ## Cierre
 

@@ -1,7 +1,8 @@
 # Spec: edición rápida de teléfonos para Palancas
 
-**Estado**: en desarrollo · **Branch**: `palancas-quick-phone-edit` (worktree
-`.claude/worktrees/palancas-quick-phone-edit`) · **Fecha**: 2026-10-07
+**Estado**: implementado (merge a master pendiente de visto bueno) · **Branch**:
+`palancas-quick-phone-edit` (worktree `.claude/worktrees/palancas-quick-phone-edit`) ·
+**Fecha**: 2026-10-07
 
 ## Problema
 
@@ -129,3 +130,25 @@ emergencia».
   un campo "registrador".
 - Edición masiva (bulk) de teléfonos.
 - Edición dentro de la cola de WhatsApp (`WhatsAppSendQueue`).
+
+## Reconcile (2026-10-07)
+
+Implementado en M0-M4 (commits `61eecfc5`…M4). Verificación final contra los criterios:
+
+- **CA1-CA6 (backend)**: suite Jest 27/27 (controller/service/route con DB de test) —
+  canonización, semántica de vacío, 401/403 permiso y retiro ajeno, strip de campos extra,
+  persistencia canónica y audit row.
+- **CA7-CA11 (UI)**: verificados en navegador en el dev del worktree (retiro Buen Despacho,
+  usuario admin): columna con ✏ y corrección sin recarga, EC2 vacío→valor→vacío, `/app/walkers`
+  sin ✏ en tabla ni diálogo, ✏ del header del diálogo con refresco en caliente del colapsable
+  EC, `+52` canonizado en la fila e inválido bloqueado con mensaje sin enviar request.
+- **CA12**: cubierto por unit tests — el gate `participant:update` del editor (Vitest) y el
+  403 de la ruta (Jest). La dev no tiene cuenta `regular_server` para repetirlo en navegador.
+- **Desviaciones**: documentadas al cerrar cada milestone en `tasks.md` (M1: imports estáticos
+  y repos perezosos por el registry de jest, suite partida en 3; M2: claves i18n adelantadas,
+  mensajes de formato vía `phoneValidationMessage`, `cellPhone` no editable del form;
+  M3: 2 bugs de M2 cazados por los tests — refs en `v-for` y `validate()` que nunca pasaba —
+  y wiring de tabla con `mount()` directo por las limitaciones de `createTestWrapper`).
+
+Los puntos fuera de alcance se mantienen; la limitación de snapshots quedó documentada en
+`docs/features/palancas-quick-phone-edit.md`.
