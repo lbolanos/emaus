@@ -6,6 +6,7 @@ import TagSelector from './TagSelector.vue';
 import AngelitoAvailabilityEditor from './AngelitoAvailabilityEditor.vue';
 import { getParticipantTags, assignTagToParticipant, removeTagFromParticipant, getPalanqueroOptions as fetchPalanqueroOptions, santisimoApi } from '@/services/api';
 import { PICKUP_LOCATIONS } from '@/constants/pickupLocations';
+import { inferFieldControl, PARTICIPANT_TYPE_OPTIONS } from '@/constants/participantFieldControls';
 import { useI18n } from 'vue-i18n';
 import { useToast } from '@repo/ui';
 import { useRetreatStore } from '@/stores/retreatStore';
@@ -184,15 +185,12 @@ const maxBirthDate = computed(() => {
 const READ_ONLY_COMPUTED_FIELDS = ['totalPaid', 'paymentRemaining', 'paymentStatus', 'lastPaymentDate'];
 
 const getColumnType = (key: string) => {
+    // Caller-configured type wins (allColumns may carry a col.type override).
     const col = props.allColumns.find(c => c.key === key);
     if (col && col.type) return col.type;
-    if (key === 'tags') return 'tags';
-    if (key === 'scholarshipAmount' || key === 'mealCount') return 'number';
-    if (key === 'type' || key === 'palancasCoordinator' || key === 'pickupLocation') return 'select';
-    if (key.startsWith('is') || key.startsWith('has') || key.startsWith('requests') || key === 'arrivesOnOwn' || key === 'snores' || key === 'palancasRequested' || key === 'takesFridayMeal') return 'boolean';
-    if (key.toLowerCase().includes('notes') || key.toLowerCase().includes('details')) return 'textarea';
-    if (key.toLowerCase().includes('date')) return 'date';
-    return 'text';
+    // Everything else comes from the shared catalog so this form and the bulk edit
+    // modal cannot drift apart again (see participantFieldControls.ts).
+    return inferFieldControl(key).control;
 }
 
 const formatDateForInput = (date: string | Date | null | undefined) => {
@@ -759,10 +757,9 @@ const calculateAge = (birthDate: string | Date) => {
                   <SelectValue placeholder="Seleccionar tipo" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="walker">Caminante</SelectItem>
-                  <SelectItem value="server">Servidor</SelectItem>
-                  <SelectItem value="waiting">En espera</SelectItem>
-                  <SelectItem value="partial_server">Angelito</SelectItem>
+                  <SelectItem v-for="opt in PARTICIPANT_TYPE_OPTIONS" :key="opt.value" :value="opt.value">
+                    {{ t(opt.labelKey) }}
+                  </SelectItem>
                 </SelectContent>
               </Select>
               <Select
