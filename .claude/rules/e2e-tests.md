@@ -56,6 +56,19 @@ primero a que la pantalla esté, o el test es un falso verde.
   del flyer — patrón: `captureFlyerState`/`restoreFlyerState` + `mustOk` en
   `tests/e2e/helpers/communityFlyerState.ts`).
 
+- **Un login rechazado no siempre es un fixture sin sembrar.** El limitador de login cuenta los
+  fallos por IP + correo (10 cada 15 min) y responde 429, así que un spec con un fixture que no
+  existe se bloquea solo tras unas corridas. Decidí el skip por la respuesta de `/api/auth/login`
+  y poné su status y su `message` en el motivo; no por un `waitForURL` con timeout, que un dev
+  lento también agota y deja un skip «fixture no existe» con un usuario válido. En dev el
+  limitador solo se apaga con `NODE_ENV=development SKIP_RATE_LIMIT=true` en el API. Ejemplo:
+  `loginViaUi` en `participant-health-permission-guard.spec.ts`.
+- **Un permiso que ningún rol tiene se simula en el navegador, no se siembra.** `page.route` sobre
+  `/api/auth/status` y `/api/auth/login`, quitando el permiso del perfil. Solo cambia lo que cree
+  el frontend: lo que hace el API con ese caller va en un test de ruta
+  (`apps/api/src/tests/routes/*.simple.test.ts`). Ejemplo: `simulateMissingHealthPermission` en el
+  mismo spec.
+
 Y si el spec mide **peticiones de red**, dos cosas más:
 
 - **Filtrá por tipo de recurso, no por origen.** El ruido a excluir en dev son los módulos que

@@ -46,7 +46,7 @@ Cuando el usuario reporta un problema, primero ubicá el **síntoma** en la tabl
 | "en el sidebar el item queda marcado como seleccionado al pasar el mouse", "el hover se ve igual que el activo y no se quita al salir" | [#33 El hover deja el item "seleccionado": focus compartido entre mouse y teclado](#33-el-hover-deja-el-item-seleccionado-focus-compartido-entre-mouse-y-teclado) |
 | "al ejecutar no se crean los del primer paso", "el paso 1 debería tener 29 en cola", "si está apagada, ¿por qué veo programados?", "veo 58 en programados y ninguna en bandeja", "dupliqué la secuencia y ejecuté" | [#34 Secuencias: paso vencido, pausa y bandeja "vacía"](#34-secuencias-paso-vencido-pausa-y-bandeja-vacía) |
 | "el test dice que se llamó una función que este test no llama", "`not.toHaveBeenCalled()` falla con el código bien", "`toHaveBeenCalledTimes(n)` cuenta de más", "pasa aislado con `-t` pero falla en el archivo" (Vitest web) | [#35 Vitest no limpia los mocks entre tests](#35-vitest-no-limpia-los-mocks-entre-tests-not-tohavebeencalled-falla-con-llamadas-de-otro-test) |
-| "con mi rol no veo los contactos al editar", "a mí me faltan campos que otro usuario sí ve", "la sección de emergencia no aparece en la ficha", "el coordinador no ve el monto de la beca" | [#36 Un permiso RBAC recorta campos y el formulario oculta la sección](#36-un-permiso-rbac-recorta-campos-y-el-formulario-oculta-la-sección) |
+| "con mi rol no veo los contactos al editar", "a mí me faltan campos que otro usuario sí ve", "la sección de emergencia no aparece en la ficha", "el coordinador no ve el monto de la beca", "al guardar dice que no tengo permiso para modificar datos de salud" | [#36 Un permiso RBAC recorta campos y el formulario oculta la sección](#36-un-permiso-rbac-recorta-campos-y-el-formulario-oculta-la-sección) |
 
 ---
 
@@ -1583,7 +1583,8 @@ funcionando. Hoy hay dos gates de este tipo:
 
 - `participant:health` → `stripSensitiveHealthFields` (contactos de emergencia, notas, medicación,
   dieta, discapacidad). `EditParticipantForm.vue` oculta "Datos de contacto y emergencia" cuando
-  `emergencyContact1*/2*` no vienen.
+  `emergencyContact1*/2*` no vienen; los campos sueltos del formulario (`notes`, medicación) los
+  quita `isColumnAllowed` en `ParticipantList.vue`.
 - `participant:viewScholarshipAmount` → `stripScholarshipAmount`.
 
 **Diagnóstico**:
@@ -1599,6 +1600,16 @@ funcionando. Hoy hay dos gates de este tipo:
 del rango exacto de la concesión en `grantParticipantHealthToCommunications.simple.test.ts`). Al
 conceder lectura, revisar también el gate de escritura del mismo campo: antes del 2026-10-07
 quien no podía leer salud sí podía escribirlo si lo mandaba explícito en el body.
+
+**Variante — al guardar sale "No tienes permiso para modificar datos de salud ni contactos de
+emergencia"**: es el 403 de `updateParticipant`, que trae en `fields` los campos rechazados y no
+guarda nada. El usuario no tiene `participant:health` y alguna pantalla le dejó editar uno de esos
+campos. El fix va en esa pantalla (filtrar por permiso, como `isColumnAllowed`, o contra las
+columnas ya filtradas, como `BulkEditParticipantsModal`), no en el API. El
+caso original: `CancellationAndNotesView` y `NotesAndMeetingPointsView` pasaban `notes` en las
+columnas del formulario, que se saltaban el filtro; antes del 403 la nota se perdía con un 200.
+Un campo vacío (`null`/`''`) también dispara el 403, y está bien: en esa ruta `validateRequest`
+no reemplaza el body, el servicio recibe el `null` crudo y vaciaría la columna.
 
 **Caso**: 2026-10-07 — communications (retreat-scoped, Buen Despacho) no veía los contactos al
 editar en la vista Palancas; el diseño de 20260914 excluía al rol a propósito y la operación

@@ -350,6 +350,12 @@ Patrón:
   `validateRequest(schema, { assignParsedBody: true })` — el middleware asigna
   `req.body = parsed.body` y las keys omitidas se descartan de verdad. Es opt-in a propósito:
   asignar globalmente cambiaría qué ven todas las rutas (defaults, coerciones).
+- Lo mismo con los `z.preprocess`/`.transform` del schema: el `''`/`null` → `undefined` solo hace
+  pasar la validación. Sin `assignParsedBody` el controller recibe el `null` crudo, y un
+  `repo.merge` lo escribe como `NULL` (vacía la columna; `merge` solo ignora `undefined`). Caso
+  2026-10-07: un campo de salud vacío en `PUT /participants/:id` es una escritura destructiva, y
+  por eso el gate de `participant:health` también le responde 403
+  (`participantHealthWriteGate.simple.test.ts`).
 - Un test de schema NO basta para afirmar que un campo no persiste: hace falta uno de endpoint
   que capture el body con el que llega el controller (patrón del test de rutas de arriba:
   router real + middleware stubbeado + controller mockeado).
