@@ -205,6 +205,51 @@ describe('auditoría de lectura/exportación de datos de salud', () => {
 			const body = (res.json as jest.Mock).mock.calls[0][0];
 			expect(body).not.toHaveProperty('medicationDetails');
 		});
+
+		it('dropea los campos de salud del BODY sin participant:health (quien no puede leer, no escribe)', async () => {
+			jest.spyOn(authorizationService, 'hasPermission').mockResolvedValue(false);
+			mockUpdateParticipant.mockResolvedValue(participantWithHealth);
+
+			// Un cliente con participant:update pero sin health podría mandar
+			// estos campos explícitamente aunque el GET nunca se los devolvió.
+			const req = createMockReq({
+				params: { id: 'p-1' },
+				body: {
+					firstName: 'Ana',
+					emergencyContact1Name: 'Carlos Ruiz',
+					medicationDetails: 'Losartán',
+					notes: 'nota interna',
+				},
+			});
+			const res = createMockRes();
+			await updateParticipant(req, res, mockNext);
+
+			const sentBody = mockUpdateParticipant.mock.calls[0][1];
+			expect(sentBody).toHaveProperty('firstName', 'Ana');
+			expect(sentBody).not.toHaveProperty('emergencyContact1Name');
+			expect(sentBody).not.toHaveProperty('medicationDetails');
+			expect(sentBody).not.toHaveProperty('notes');
+		});
+
+		it('pasa los campos de salud del BODY intactos con participant:health', async () => {
+			jest.spyOn(authorizationService, 'hasPermission').mockResolvedValue(true);
+			mockUpdateParticipant.mockResolvedValue(participantWithHealth);
+
+			const req = createMockReq({
+				params: { id: 'p-1' },
+				body: {
+					firstName: 'Ana',
+					emergencyContact1Name: 'Carlos Ruiz',
+					medicationDetails: 'Losartán',
+				},
+			});
+			const res = createMockRes();
+			await updateParticipant(req, res, mockNext);
+
+			const sentBody = mockUpdateParticipant.mock.calls[0][1];
+			expect(sentBody).toHaveProperty('emergencyContact1Name', 'Carlos Ruiz');
+			expect(sentBody).toHaveProperty('medicationDetails', 'Losartán');
+		});
 	});
 
 	describe('logHealthDataExport (POST /participants/health-export-audit)', () => {
