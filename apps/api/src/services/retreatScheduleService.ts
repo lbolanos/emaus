@@ -23,10 +23,45 @@ import {
 	emitScheduleDelay,
 } from '../realtime';
 import { MoreThanOrEqual, In } from 'typeorm';
+import { domainAuditService } from './domainAuditService';
+import { DomainAuditAction } from '@repo/types';
 
 export class ScheduleNotFoundError extends Error {}
 
 type ResponsablePayload = { participantId: string; role?: string | null };
+
+// Campos del item con diff completo; las notas libres van como metadata de
+// tamaños (mismo criterio que las plantillas de mensaje).
+const SCHEDULE_ITEM_AUDIT_FIELDS = [
+	'name',
+	'type',
+	'day',
+	'startTime',
+	'endTime',
+	'durationMinutes',
+	'orderInDay',
+	'status',
+	'responsabilityId',
+	'location',
+	'blocksSantisimoAttendance',
+	'actualStartTime',
+	'actualEndTime',
+] as const;
+
+function scheduleNotesMetadata(
+	item?: RetreatScheduleItem | null,
+	prev?: RetreatScheduleItem | null,
+): Record<string, number> | undefined {
+	if (!item) return undefined;
+	const size = (s: string | null | undefined) => (s ? s.length : 0);
+	const meta: Record<string, number> = {};
+	for (const key of ['notes', 'musicTrackUrl', 'palanquitaNotes', 'planBNotes'] as const) {
+		const now = size(item[key]);
+		const was = prev ? size(prev[key]) : 0;
+		if (prev ? now !== was : now > 0) meta[`${key}Chars`] = now;
+	}
+	return Object.keys(meta).length ? meta : undefined;
+}
 
 export class RetreatScheduleService {
 	private itemRepo = AppDataSource.getRepository(RetreatScheduleItem);
@@ -187,6 +222,14 @@ export class RetreatScheduleService {
 		if (saved.blocksSantisimoAttendance) {
 			await this.resolveSantisimoConflicts(retreatId);
 		}
+		void domainAuditService.logCreate('schedule_item', saved.id, saved, {
+			retreatId,
+			fields: [...SCHEDULE_ITEM_AUDIT_FIELDS],
+			metadata: {
+				...scheduleNotesMetadata(saved),
+				responsableParticipantIds: data.responsableParticipantIds ?? [],
+			},
+		});
 		return (await this.get(saved.id))!;
 	}
 
@@ -275,6 +318,14 @@ export class RetreatScheduleService {
 			await this.resolveSantisimoConflicts(existing.retreatId);
 		}
 
+		if (after) {
+			void domainAuditService.logUpdate('schedule_item', id, existing, after, {
+				retreatId: existing.retreatId,
+				fields: [...SCHEDULE_ITEM_AUDIT_FIELDS],
+				metadata: scheduleNotesMetadata(after, existing),
+			});
+		}
+
 		return after;
 	}
 
@@ -285,6 +336,13 @@ export class RetreatScheduleService {
 		emitScheduleUpdated({ retreatId: item.retreatId, itemId: id });
 		if (item.blocksSantisimoAttendance) {
 			await this.resolveSantisimoConflicts(item.retreatId);
+		}
+		if ((r.affected ?? 0) > 0) {
+			void domainAuditService.logDelete('schedule_item', id, item, {
+				retreatId: item.retreatId,
+				fields: [...SCHEDULE_ITEM_AUDIT_FIELDS],
+				metadata: scheduleNotesMetadata(item),
+			});
 		}
 		return (r.affected ?? 0) > 0;
 	}
@@ -320,6 +378,8 @@ export class RetreatScheduleService {
 
 		let updated = 0;
 		let skipped = 0;
+		const applied: Array<{ itemId: string; responsabilityId?: string | null; supporters: number }> =
+			[];
 
 		for (const a of assignments) {
 			if (!validIds.has(a.itemId)) {
@@ -335,7 +395,23 @@ export class RetreatScheduleService {
 				await this.setResponsables(a.itemId, a.responsableParticipantIds);
 			}
 			emitScheduleUpdated({ retreatId, itemId: a.itemId });
+			applied.push({
+				itemId: a.itemId,
+				responsabilityId: a.responsabilityId,
+				supporters: a.responsableParticipantIds?.length ?? 0,
+			});
 			updated++;
+		}
+
+		// Evento agregado por la operación bulk (no una fila por item).
+		if (updated > 0) {
+			void domainAuditService.log({
+				action: DomainAuditAction.SCHEDULE_ITEM_BULK_ASSIGN,
+				resourceType: 'schedule_item',
+				resourceId: retreatId,
+				retreatId,
+				metadata: { updated, skipped, applied },
+			});
 		}
 
 		return { updated, skipped };
@@ -392,6 +468,16 @@ export class RetreatScheduleService {
 			await this.itemRepo.update(item.id, { responsabilityId: respId });
 			emitScheduleUpdated({ retreatId, itemId: item.id });
 			linked++;
+		}
+
+		if (linked > 0) {
+			void domainAuditService.log({
+				action: DomainAuditAction.SCHEDULE_ITEM_RELINK,
+				resourceType: 'schedule_item',
+				resourceId: retreatId,
+				retreatId,
+				metadata: { linked, alreadyLinked, noTemplate, noMatch, force },
+			});
 		}
 
 		return { linked, alreadyLinked, noTemplate, noMatch };
@@ -754,7 +840,9 @@ export class RetreatScheduleService {
 		});
 		if (!templates.length) return [];
 
+		let cleared = 0;
 		if (clearExisting) {
+			cleared = await this.itemRepo.count({ where: { retreatId } });
 			await this.itemRepo.delete({ retreatId });
 			// NO borramos `santisimo_slot` aquí: las inscripciones públicas
 			// (`santisimo_signup`) caerían por CASCADE y perderíamos data del
@@ -812,6 +900,21 @@ export class RetreatScheduleService {
 
 		await this.autoGenerateSantisimoSlotsFromItems(retreatId, created);
 		await this.resolveSantisimoConflicts(retreatId);
+		// Evento agregado por materialización (no una fila por item creado).
+		void domainAuditService.log({
+			action: DomainAuditAction.SCHEDULE_ITEM_MATERIALIZE,
+			resourceType: 'schedule_item',
+			resourceId: templateSetId ?? 'default-set',
+			retreatId,
+			metadata: {
+				mode: 'replace',
+				templateSetId: templateSetId ?? null,
+				baseDate: baseDate.toISOString(),
+				clearExisting,
+				cleared,
+				created: created.length,
+			},
+		});
 		return this.listForRetreat(retreatId);
 	}
 
@@ -896,6 +999,20 @@ export class RetreatScheduleService {
 			const all = await this.itemRepo.find({ where: { retreatId } });
 			await this.autoGenerateSantisimoSlotsFromItems(retreatId, all);
 			await this.resolveSantisimoConflicts(retreatId);
+			void domainAuditService.log({
+				action: DomainAuditAction.SCHEDULE_ITEM_MATERIALIZE,
+				resourceType: 'schedule_item',
+				resourceId: templateSetId ?? 'default-set',
+				retreatId,
+				metadata: {
+					mode: 'add_missing',
+					templateSetId: templateSetId ?? null,
+					baseDate: baseDate.toISOString(),
+					added,
+					skipped,
+					total: templates.length,
+				},
+			});
 		}
 
 		return { added, skipped, total: templates.length };
@@ -911,6 +1028,11 @@ export class RetreatScheduleService {
 			itemId: id,
 			actualStartTime: now.toISOString(),
 		});
+		void domainAuditService.logUpdate('schedule_item', id, item, { status: 'active', actualStartTime: now } as any, {
+			retreatId: item.retreatId,
+			fields: ['status', 'actualStartTime'],
+			action: DomainAuditAction.SCHEDULE_ITEM_START,
+		});
 		return this.get(id);
 	}
 
@@ -923,6 +1045,11 @@ export class RetreatScheduleService {
 			retreatId: item.retreatId,
 			itemId: id,
 			actualEndTime: now.toISOString(),
+		});
+		void domainAuditService.logUpdate('schedule_item', id, item, { status: 'completed', actualEndTime: now } as any, {
+			retreatId: item.retreatId,
+			fields: ['status', 'actualEndTime'],
+			action: DomainAuditAction.SCHEDULE_ITEM_COMPLETE,
 		});
 		return this.get(id);
 	}
@@ -955,6 +1082,14 @@ export class RetreatScheduleService {
 			}
 		});
 		await this.resolveSantisimoConflicts(retreatId);
+		// Log FUERA de la transacción (riesgo §25.3), con el alcance en metadata.
+		void domainAuditService.log({
+			action: DomainAuditAction.SCHEDULE_ITEM_SHIFT_DAY,
+			resourceType: 'schedule_item',
+			resourceId: retreatId,
+			retreatId,
+			metadata: { day, minutesDelta, itemsCount: items.length },
+		});
 		return this.listForRetreat(retreatId);
 	}
 
@@ -985,6 +1120,13 @@ export class RetreatScheduleService {
 			}
 		});
 		await this.resolveSantisimoConflicts(retreatId);
+		void domainAuditService.log({
+			action: DomainAuditAction.SCHEDULE_ITEM_SHIFT_ALL,
+			resourceType: 'schedule_item',
+			resourceId: retreatId,
+			retreatId,
+			metadata: { minutesDelta, itemsCount: items.length },
+		});
 		return this.listForRetreat(retreatId);
 	}
 
@@ -1043,6 +1185,13 @@ export class RetreatScheduleService {
 
 		emitScheduleUpdated({ retreatId, itemId: orderedItemIds[0] });
 		await this.resolveSantisimoConflicts(retreatId);
+		void domainAuditService.log({
+			action: DomainAuditAction.SCHEDULE_ITEM_REORDER_DAY,
+			resourceType: 'schedule_item',
+			resourceId: retreatId,
+			retreatId,
+			metadata: { day, itemsCount: orderedItemIds.length },
+		});
 		return this.listForRetreat(retreatId);
 	}
 
@@ -1091,6 +1240,13 @@ export class RetreatScheduleService {
 
 		emitScheduleDelay({ retreatId: item.retreatId, itemId: id, minutesDelta });
 		await this.resolveSantisimoConflicts(item.retreatId);
+		void domainAuditService.log({
+			action: DomainAuditAction.SCHEDULE_ITEM_SHIFT_DOWNSTREAM,
+			resourceType: 'schedule_item',
+			resourceId: id,
+			retreatId: item.retreatId,
+			metadata: { minutesDelta, propagate, affectedCount: affected.length },
+		});
 		return this.listForRetreat(item.retreatId);
 	}
 
@@ -1212,6 +1368,22 @@ export class RetreatScheduleService {
 		await this.resolveSantisimoConflicts(retreatId);
 
 		const after = await this.slotRepo.count({ where: { retreatId } });
+		// Acción destructiva (borra slots con inscripciones por CASCADE): la
+		// traza completa del reemplazo queda aquí, más el materialize que emite
+		// materializeFromTemplate por dentro.
+		void domainAuditService.log({
+			action: DomainAuditAction.SCHEDULE_ITEM_REGENERATE_SANTISIMO,
+			resourceType: 'schedule_item',
+			resourceId: retreatId,
+			retreatId,
+			metadata: {
+				deletedSlots: before,
+				createdSlots: after,
+				replacedItems,
+				removedTemplateItems,
+				templateSetId,
+			},
+		});
 		return { deleted: before, created: after, replacedItems, removedTemplateItems };
 	}
 

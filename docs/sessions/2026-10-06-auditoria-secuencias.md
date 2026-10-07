@@ -179,6 +179,80 @@ Verificación: 5 tests nuevos (2 merge + 3 invitaciones), 52 en las 9 suites de 
 26 en las suites de merge preexistentes, 7 RBAC, keystone de locales, builds web+api y
 `grep __dirname` limpio.
 
+## Tanda P2 — operación del retiro (13 servicios, en bloques)
+
+Tercera ola: la operación diaria del retiro (plantillas, minuto a minuto, Santísimo,
+responsabilidades, equipos) corría sin rastro. Mismo patrón que la mensajería: helpers del
+`domainAuditService`, actor implícito del `auditContext`, fire-and-forget **siempre fuera de
+transacciones abiertas**.
+
+### Bloque A — plantillas y operación instalada (commit pendiente)
+
+- **Plantillas globales** (`preRetreatTaskTemplateService`, `scheduleTemplateService`): CRUD de
+  sets e ítems con allowlist de campos; `cascadeItems`/`cascadeChildren` contados **antes** del
+  delete (el FK CASCADE ya se llevó las filas después). Textos largos (`description`,
+  `musicTrackUrl`, `palanquitaNotes`, `planBNotes`) fuera del diff: metadata `xxxChars`.
+- **Tareas pre-retiro del retiro** (`retreatPreRetreatTaskService`): CRUD + `set_status` +
+  `materialize` agregado (`{mode, createdRoots, createdChildren, clearExisting}`) +
+  `add_missing` solo si `added > 0`.
+- **Minuto a minuto** (`retreatScheduleService`): CRUD + transiciones manuales (`start`,
+  `complete` con `actualStartTime/EndTime`) + masivas agregadas (`bulk_assign`, `relink`,
+  `materialize`, `shift_day`, `shift_all`, `shift_downstream`, `reorder_day`,
+  `regenerate_santisimo`). `resolveSantisimoConflicts` y la auto-asignación de angelitos NO se
+  auditan: consecuencias derivadas que corren tras casi cada edición.
+
+### Bloque B — Santísimo, responsabilidades y equipos
+
+- **Santísimo** (`santisimoService`): CRUD de slots + `generate` agregado
+  (`{cleared, created, skippedExisting}`); signups con `admin_create`, `public_signup`
+  (agregado por request, **IP en el evento** — ruta pública sin `auditContext`), `delete` y
+  `cancel` (por token; el token es bearer secret y **nunca** entra al log). PII mínima:
+  `{slotId, name}` en newValues, `hasPhone`/`hasEmail` en metadata. El agregado de
+  `publicSignup` se emite en `finally`: el loop valida por slot y puede lanzar a mitad, y los
+  ya creados no deben quedar sin traza.
+- **Responsabilidades** (`responsabilityService`): CRUD + `assign`/`remove` (diff de
+  `participantId` viejo→nuevo, que captura la reasignación directa) + `create_speaker`
+  (distingue "asignó a alguien existente" de "creó charlista nuevo"; nombre sí, teléfono y
+  correo como banderas). `createDefaultResponsibilitiesForRetreat` y
+  `ensureCharlaResponsibilitiesFromTemplateSet` exentas: semilla del retiro / derivadas del
+  materialize.
+- **Documentos de responsabilidades** (`responsabilityAttachmentService`): create (archivo y
+  markdown) + update + `restore_version` (metadata `historyId`) + delete. `storageUrl`
+  (data:URL hasta 10MB) y `content` (markdown 200KB) **nunca** entran al log — `sizeBytes`
+  informa el tamaño; metadata `historySnapshot` señala que la edición guardó versión. Nota
+  hallada: el historial NO tiene FK/cascade — al borrar un attachment sus versiones quedan
+  huérfanas (comportamiento previo, documentado en el código).
+- **Equipos de servicio** (`serviceTeamService`): CRUD + `add_member`/`remove_member`/
+  `assign_leader`/`unassign_leader` con `movedFromTeamId`, `wasLeader`, `addedAsMember` en
+  metadata. `createDefaultServiceTeamsForRetreat` exenta (semilla); `leaderSyncService` no se
+  audita (sincronización derivada de las acciones manuales de ambos lados).
+
+### Hallazgo de la tanda — §25.3 confirmado empíricamente en tests
+
+`shiftDay` corre dentro de `AppDataSource.transaction`; los `void logCreate` de los creates
+previos (mismo tick) dejan microtasks pendientes que aterrizan dentro de la ventana
+transaccional y revientan el commit (`TransactionNotStartedError`) con better-sqlite3. En prod
+el request boundary HTTP da margen, pero **encadenar create+transacción en el mismo tick es
+vulnerable**. En tests: flush con `waitForLogs` antes de abrir la transacción (patrón ya en
+`scheduleAudit.test.ts`). Regla vigente: el log se dispara fuera de la transacción.
+
+### Verificación de la tanda P2
+
+- 10 suites de auditoría juntas: **55/55** (mensajería 29 + P1 5 + bloque A 10 + bloque B 11).
+- Regresión de los servicios tocados: 18 suites, **381/381** (lotes: 12 directas 170 + 6 con
+  fixtures 211).
+- Keystone `auditLocaleCoverage.test.ts` 6/6 con las 25 acciones y 5 recursos nuevos;
+  labels es+en y badges en `DomainAuditView.vue`.
+- `pnpm --filter api build` + `grep __dirname dist/index.js` = 2 (shim legítimo);
+  `pnpm --filter web build` OK.
+- No determinismo cazado en la propia tanda: `publicSignup` devuelve los slots en orden de
+  DB, no en el pedido — el assert de `slotIds` compara como conjunto.
+
+### Bloque C — pendiente
+
+`inventoryService`, `shirtTypeService`, `crmService`, `retreatPreparationService`. Mismo
+patrón.
+
 ## Reproducir el diagnóstico forense de hoy
 
 ```bash

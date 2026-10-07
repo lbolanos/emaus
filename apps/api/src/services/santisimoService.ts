@@ -3,11 +3,27 @@ import { AppDataSource } from '../data-source';
 import { SantisimoSlot } from '../entities/santisimoSlot.entity';
 import { SantisimoSignup } from '../entities/santisimoSignup.entity';
 import { Retreat } from '../entities/retreat.entity';
+import { domainAuditService } from './domainAuditService';
+import { DomainAuditAction } from '@repo/types';
 
 export class SantisimoNotFoundError extends Error {}
 export class SantisimoCapacityError extends Error {}
 export class SantisimoDisabledError extends Error {}
 export class SantisimoPastError extends Error {}
+
+// Diff allowlist del slot. `notes` (texto libre) queda fuera: solo su tamaño
+// en metadata, como las notas del minuto a minuto.
+const SLOT_AUDIT_FIELDS = ['startTime', 'endTime', 'capacity', 'isDisabled', 'intention'];
+// PII mínima en el signup: teléfono y correo NO entran al log, solo banderas.
+const SIGNUP_AUDIT_FIELDS = ['slotId', 'name'];
+
+function slotNotesMetadata(slot?: SantisimoSlot | null, prev?: SantisimoSlot | null) {
+	if (!slot) return undefined;
+	const size = (s: string | null | undefined) => (s ? s.length : 0);
+	const now = size(slot.notes);
+	const was = prev ? size(prev.notes) : 0;
+	return prev ? (now !== was ? { notesChars: now } : undefined) : now > 0 ? { notesChars: now } : undefined;
+}
 
 export class SantisimoService {
 	private slotRepo = AppDataSource.getRepository(SantisimoSlot);
@@ -43,10 +59,18 @@ export class SantisimoService {
 			intention: data.intention ?? null,
 			notes: data.notes ?? null,
 		});
-		return this.slotRepo.save(slot);
+		const saved = await this.slotRepo.save(slot);
+		void domainAuditService.logCreate('santisimo_slot', saved.id, saved, {
+			retreatId,
+			fields: SLOT_AUDIT_FIELDS,
+			metadata: slotNotesMetadata(saved),
+		});
+		return saved;
 	}
 
 	async updateSlot(id: string, data: Partial<SantisimoSlot>): Promise<SantisimoSlot | null> {
+		const before = await this.slotRepo.findOne({ where: { id } });
+		if (!before) return null;
 		const update: Partial<SantisimoSlot> = {};
 		if (data.startTime !== undefined) update.startTime = data.startTime;
 		if (data.endTime !== undefined) update.endTime = data.endTime;
@@ -55,12 +79,32 @@ export class SantisimoService {
 		if (data.intention !== undefined) update.intention = data.intention;
 		if (data.notes !== undefined) update.notes = data.notes;
 		await this.slotRepo.update(id, update);
-		return this.getSlot(id);
+		const after = await this.getSlot(id);
+		void domainAuditService.logUpdate('santisimo_slot', id, before, after, {
+			retreatId: before.retreatId,
+			fields: SLOT_AUDIT_FIELDS,
+			metadata: slotNotesMetadata(after, before),
+		});
+		return after;
 	}
 
 	async deleteSlot(id: string): Promise<boolean> {
+		// Count antes del delete: el FK es CASCADE y las inscripciones se van
+		// con el slot — contarlo después siempre daría 0.
+		const before = await this.slotRepo.findOne({ where: { id }, relations: ['signups'] });
 		const r = await this.slotRepo.delete(id);
-		return (r.affected ?? 0) > 0;
+		const deleted = (r.affected ?? 0) > 0;
+		if (deleted && before) {
+			void domainAuditService.logDelete('santisimo_slot', id, before, {
+				retreatId: before.retreatId,
+				fields: SLOT_AUDIT_FIELDS,
+				metadata: {
+					cascadeSignups: before.signups?.length ?? 0,
+					...slotNotesMetadata(before),
+				},
+			});
+		}
+		return deleted;
 	}
 
 	async generateSlots(
@@ -82,7 +126,9 @@ export class SantisimoService {
 			throw new Error('endDateTime must be after startDateTime');
 		}
 
+		let cleared = 0;
 		if (params.clearExisting) {
+			cleared = await this.slotRepo.count({ where: { retreatId } });
 			await this.slotRepo.delete({ retreatId });
 		}
 
@@ -105,17 +151,39 @@ export class SantisimoService {
 			);
 		}
 
+		let created = 0;
+		let skippedExisting = 0;
 		for (const slot of toInsert) {
 			try {
 				await this.slotRepo.save(slot);
+				created++;
 			} catch (err: any) {
 				if (err?.code === 'SQLITE_CONSTRAINT' || /UNIQUE/i.test(err?.message || '')) {
 					// slot already exists at this start time — skip
+					skippedExisting++;
 					continue;
 				}
 				throw err;
 			}
 		}
+
+		// Generación masiva → UN evento agregado (n inserts individuales = ruido).
+		void domainAuditService.log({
+			action: DomainAuditAction.SANTISIMO_SLOT_GENERATE,
+			resourceType: 'santisimo_slot',
+			resourceId: retreatId,
+			retreatId,
+			metadata: {
+				startDateTime: start.toISOString(),
+				endDateTime: end.toISOString(),
+				slotMinutes,
+				capacity,
+				clearExisting: !!params.clearExisting,
+				cleared,
+				created,
+				skippedExisting,
+			},
+		});
 
 		return this.listSlotsForRetreat(retreatId);
 	}
@@ -165,7 +233,14 @@ export class SantisimoService {
 			userId: data.userId || null,
 			cancelToken: null,
 		});
-		return this.signupRepo.save(signup);
+		const saved = await this.signupRepo.save(signup);
+		void domainAuditService.logCreate('santisimo_signup', saved.id, saved, {
+			retreatId,
+			fields: SIGNUP_AUDIT_FIELDS,
+			action: DomainAuditAction.SANTISIMO_SIGNUP_ADMIN_CREATE,
+			metadata: { hasPhone: !!saved.phone, hasEmail: !!saved.email },
+		});
+		return saved;
 	}
 
 	/**
@@ -194,38 +269,80 @@ export class SantisimoService {
 
 		const now = new Date();
 		const created: SantisimoSignup[] = [];
-		for (const slot of all) {
-			if (slot.isDisabled) throw new SantisimoDisabledError(`Slot ${slot.id} disabled`);
-			if (new Date(slot.endTime) < now)
-				throw new SantisimoPastError(`Slot ${slot.id} already passed`);
-			const current = slot.signups?.length ?? 0;
-			if (current >= slot.capacity)
-				throw new SantisimoCapacityError(`Slot ${slot.id} full`);
+		// El loop valida por slot y puede lanzar a mitad (slot lleno/pasado):
+		// el agregado se emite en finally para que los ya creados no queden
+		// sin traza aunque el request overall falle.
+		try {
+			for (const slot of all) {
+				if (slot.isDisabled) throw new SantisimoDisabledError(`Slot ${slot.id} disabled`);
+				if (new Date(slot.endTime) < now)
+					throw new SantisimoPastError(`Slot ${slot.id} already passed`);
+				const current = slot.signups?.length ?? 0;
+				if (current >= slot.capacity)
+					throw new SantisimoCapacityError(`Slot ${slot.id} full`);
 
-			const signup = this.signupRepo.create({
-				slotId: slot.id,
-				name: params.name.trim(),
-				phone: params.phone?.trim() || null,
-				email: params.email?.trim() || null,
-				userId: null,
-				cancelToken: crypto.randomBytes(24).toString('hex'),
-				ipAddress: params.ipAddress || null,
-			});
-			const saved = await this.signupRepo.save(signup);
-			created.push(saved);
+				const signup = this.signupRepo.create({
+					slotId: slot.id,
+					name: params.name.trim(),
+					phone: params.phone?.trim() || null,
+					email: params.email?.trim() || null,
+					userId: null,
+					cancelToken: crypto.randomBytes(24).toString('hex'),
+					ipAddress: params.ipAddress || null,
+				});
+				const saved = await this.signupRepo.save(signup);
+				created.push(saved);
+			}
+		} finally {
+			if (created.length) {
+				// Ruta pública sin sesión: la IP viene en params, no en auditContext.
+				void domainAuditService.log({
+					action: DomainAuditAction.SANTISIMO_SIGNUP_PUBLIC_SIGNUP,
+					resourceType: 'santisimo_signup',
+					resourceId: retreatId,
+					retreatId,
+					ipAddress: params.ipAddress || null,
+					metadata: {
+						slotsCount: created.length,
+						slotIds: created.map((s) => s.slotId),
+						name: params.name.trim(),
+						hasPhone: !!params.phone,
+						hasEmail: !!params.email,
+					},
+				});
+			}
 		}
 		return created;
 	}
 
 	async deleteSignup(id: string): Promise<boolean> {
+		const before = await this.signupRepo.findOne({ where: { id } });
 		const r = await this.signupRepo.delete(id);
-		return (r.affected ?? 0) > 0;
+		const deleted = (r.affected ?? 0) > 0;
+		if (deleted && before) {
+			// El signup no lleva retreatId: resolverlo vía su slot para que el
+			// evento aparezca en el visor del retiro.
+			const slot = await this.slotRepo.findOne({ where: { id: before.slotId } });
+			void domainAuditService.logDelete('santisimo_signup', id, before, {
+				retreatId: slot?.retreatId ?? null,
+				fields: SIGNUP_AUDIT_FIELDS,
+			});
+		}
+		return deleted;
 	}
 
 	async cancelByToken(token: string): Promise<boolean> {
 		const signup = await this.signupRepo.findOne({ where: { cancelToken: token } });
 		if (!signup) return false;
+		const slot = await this.slotRepo.findOne({ where: { id: signup.slotId } });
 		await this.signupRepo.delete(signup.id);
+		// El token es un bearer secret: NUNCA entra al log.
+		void domainAuditService.logDelete('santisimo_signup', signup.id, signup, {
+			retreatId: slot?.retreatId ?? null,
+			fields: SIGNUP_AUDIT_FIELDS,
+			action: DomainAuditAction.SANTISIMO_SIGNUP_CANCEL,
+			metadata: { via: 'cancel_token' },
+		});
 		return true;
 	}
 

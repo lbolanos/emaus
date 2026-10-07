@@ -95,6 +95,83 @@
         "copy_to_retreat": "Plantilla global copiada a un retiro",
         "copy_to_community": "Plantilla global copiada a una comunidad",
         "copy_from_retreat": "Plantilla de retiro copiada a una comunidad"
+      },
+      "pre_retreat_task_template_set": {
+        "create": "Conjunto de plantillas de tareas creado",
+        "update": "Conjunto de plantillas de tareas editado",
+        "delete": "Conjunto de plantillas de tareas eliminado"
+      },
+      "pre_retreat_task_template": {
+        "create": "Plantilla de tarea pre-retiro creada",
+        "update": "Plantilla de tarea pre-retiro editada",
+        "delete": "Plantilla de tarea pre-retiro eliminada"
+      },
+      "schedule_template_set": {
+        "create": "Conjunto de plantillas de minuto a minuto creado",
+        "update": "Conjunto de plantillas de minuto a minuto editado",
+        "delete": "Conjunto de plantillas de minuto a minuto eliminado"
+      },
+      "schedule_template": {
+        "create": "Plantilla de minuto a minuto creada",
+        "update": "Plantilla de minuto a minuto editada",
+        "delete": "Plantilla de minuto a minuto eliminada"
+      },
+      "pre_retreat_task": {
+        "create": "Tarea pre-retiro creada",
+        "update": "Tarea pre-retiro editada",
+        "delete": "Tarea pre-retiro eliminada",
+        "set_status": "Estado de tarea pre-retiro cambiado",
+        "materialize": "Plantilla de tareas instalada en el retiro"
+      },
+      "schedule_item": {
+        "create": "Actividad del minuto a minuto creada",
+        "update": "Actividad del minuto a minuto editada",
+        "delete": "Actividad del minuto a minuto eliminada",
+        "bulk_assign": "Asignación masiva de responsables",
+        "relink": "Responsabilidades re-vinculadas por nombre",
+        "materialize": "Plantilla de minuto a minuto instalada en el retiro",
+        "start": "Actividad iniciada",
+        "complete": "Actividad completada",
+        "shift_day": "Día completo desplazado en el tiempo",
+        "shift_all": "Agenda completa desplazada en el tiempo",
+        "shift_downstream": "Actividad (y siguientes) desplazadas en el tiempo",
+        "reorder_day": "Actividades del día reordenadas",
+        "regenerate_santisimo": "Slots del Santísimo regenerados desde la agenda"
+      },
+      "santisimo_slot": {
+        "create": "Turno del Santísimo creado",
+        "update": "Turno del Santísimo editado",
+        "delete": "Turno del Santísimo eliminado",
+        "generate": "Turnos del Santísimo generados"
+      },
+      "santisimo_signup": {
+        "admin_create": "Inscripción al Santísimo registrada por un servidor",
+        "public_signup": "Inscripción pública al Santísimo",
+        "delete": "Inscripción al Santísimo eliminada",
+        "cancel": "Inscripción al Santísimo cancelada por el participante"
+      },
+      "responsability": {
+        "create": "Responsabilidad creada",
+        "update": "Responsabilidad editada",
+        "delete": "Responsabilidad eliminada",
+        "assign": "Participante asignado a la responsabilidad",
+        "remove": "Participante retirado de la responsabilidad",
+        "create_speaker": "Charlista creado y asignado"
+      },
+      "responsability_attachment": {
+        "create": "Documento agregado a la responsabilidad",
+        "update": "Documento de la responsabilidad editado",
+        "restore_version": "Versión anterior de un documento restaurada",
+        "delete": "Documento de la responsabilidad eliminado"
+      },
+      "service_team": {
+        "create": "Equipo de servicio creado",
+        "update": "Equipo de servicio editado",
+        "delete": "Equipo de servicio eliminado",
+        "add_member": "Miembro agregado al equipo",
+        "remove_member": "Miembro retirado del equipo",
+        "assign_leader": "Líder asignado al equipo",
+        "unassign_leader": "Líder retirado del equipo"
       }
     },
     "resources": {
@@ -110,7 +187,18 @@
       "scheduled_message": "Mensaje programado",
       "message_template": "Plantilla de mensaje",
       "global_message_sequence": "Secuencia global de mensajes",
-      "global_message_template": "Plantilla global de mensaje"
+      "global_message_template": "Plantilla global de mensaje",
+      "pre_retreat_task_template_set": "Conjunto de plantillas de tareas",
+      "pre_retreat_task_template": "Plantilla de tarea pre-retiro",
+      "schedule_template_set": "Conjunto de plantillas de minuto a minuto",
+      "schedule_template": "Plantilla de minuto a minuto",
+      "pre_retreat_task": "Tarea pre-retiro",
+      "schedule_item": "Minuto a minuto",
+      "santisimo_slot": "Turno del Santísimo",
+      "santisimo_signup": "Inscripción al Santísimo",
+      "responsability": "Responsabilidad",
+      "responsability_attachment": "Documento de responsabilidad",
+      "service_team": "Equipo de servicio"
     },
     "ranges": {
       "1w": "1 semana",

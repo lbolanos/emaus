@@ -94,6 +94,82 @@ export const DomainAuditAction = {
 	GLOBAL_MESSAGE_TEMPLATE_COPY_TO_RETREAT: 'global_message_template.copy_to_retreat',
 	GLOBAL_MESSAGE_TEMPLATE_COPY_TO_COMMUNITY: 'global_message_template.copy_to_community',
 	GLOBAL_MESSAGE_TEMPLATE_COPY_FROM_RETREAT: 'global_message_template.copy_from_retreat',
+	// Tanda P2 — operación del retiro. Plantillas globales de tareas pre-retiro
+	PRE_RETREAT_TASK_TEMPLATE_SET_CREATE: 'pre_retreat_task_template_set.create',
+	PRE_RETREAT_TASK_TEMPLATE_SET_UPDATE: 'pre_retreat_task_template_set.update',
+	PRE_RETREAT_TASK_TEMPLATE_SET_DELETE: 'pre_retreat_task_template_set.delete',
+	PRE_RETREAT_TASK_TEMPLATE_CREATE: 'pre_retreat_task_template.create',
+	PRE_RETREAT_TASK_TEMPLATE_UPDATE: 'pre_retreat_task_template.update',
+	PRE_RETREAT_TASK_TEMPLATE_DELETE: 'pre_retreat_task_template.delete',
+	// Plantillas globales de minuto a minuto
+	SCHEDULE_TEMPLATE_SET_CREATE: 'schedule_template_set.create',
+	SCHEDULE_TEMPLATE_SET_UPDATE: 'schedule_template_set.update',
+	SCHEDULE_TEMPLATE_SET_DELETE: 'schedule_template_set.delete',
+	SCHEDULE_TEMPLATE_CREATE: 'schedule_template.create',
+	SCHEDULE_TEMPLATE_UPDATE: 'schedule_template.update',
+	SCHEDULE_TEMPLATE_DELETE: 'schedule_template.delete',
+	// Tareas pre-retiro de un retiro
+	PRE_RETREAT_TASK_CREATE: 'pre_retreat_task.create',
+	PRE_RETREAT_TASK_UPDATE: 'pre_retreat_task.update',
+	PRE_RETREAT_TASK_DELETE: 'pre_retreat_task.delete',
+	PRE_RETREAT_TASK_SET_STATUS: 'pre_retreat_task.set_status',
+	PRE_RETREAT_TASK_MATERIALIZE: 'pre_retreat_task.materialize',
+	// Minuto a minuto de un retiro. `resolveSantisimoConflicts` y la
+	// auto-asignación de angelitos NO se auditan: son consecuencias derivadas
+	// que corren tras casi cada edición (ruido); la traza queda en el evento
+	// de la acción manual que las disparó.
+	SCHEDULE_ITEM_CREATE: 'schedule_item.create',
+	SCHEDULE_ITEM_UPDATE: 'schedule_item.update',
+	SCHEDULE_ITEM_DELETE: 'schedule_item.delete',
+	SCHEDULE_ITEM_BULK_ASSIGN: 'schedule_item.bulk_assign',
+	SCHEDULE_ITEM_RELINK: 'schedule_item.relink',
+	SCHEDULE_ITEM_MATERIALIZE: 'schedule_item.materialize',
+	SCHEDULE_ITEM_START: 'schedule_item.start',
+	SCHEDULE_ITEM_COMPLETE: 'schedule_item.complete',
+	SCHEDULE_ITEM_SHIFT_DAY: 'schedule_item.shift_day',
+	SCHEDULE_ITEM_SHIFT_ALL: 'schedule_item.shift_all',
+	SCHEDULE_ITEM_SHIFT_DOWNSTREAM: 'schedule_item.shift_downstream',
+	SCHEDULE_ITEM_REORDER_DAY: 'schedule_item.reorder_day',
+	SCHEDULE_ITEM_REGENERATE_SANTISIMO: 'schedule_item.regenerate_santisimo',
+	// Tanda P2, bloque B — Santísimo. `generate` es la generación masiva de
+	// turnos (agregada: los conteos van en metadata).
+	SANTISIMO_SLOT_CREATE: 'santisimo_slot.create',
+	SANTISIMO_SLOT_UPDATE: 'santisimo_slot.update',
+	SANTISIMO_SLOT_DELETE: 'santisimo_slot.delete',
+	SANTISIMO_SLOT_GENERATE: 'santisimo_slot.generate',
+	// Inscripciones al Santísimo. `public_signup` sale de la ruta pública sin
+	// sesión: no hay actor del auditContext y la IP viaja en el propio evento.
+	SANTISIMO_SIGNUP_ADMIN_CREATE: 'santisimo_signup.admin_create',
+	SANTISIMO_SIGNUP_PUBLIC_SIGNUP: 'santisimo_signup.public_signup',
+	SANTISIMO_SIGNUP_DELETE: 'santisimo_signup.delete',
+	SANTISIMO_SIGNUP_CANCEL: 'santisimo_signup.cancel',
+	// Responsabilidades. `createDefaultResponsibilitiesForRetreat` y
+	// `ensureCharlaResponsibilitiesFromTemplateSet` NO se auditan: son semilla
+	// al crear el retiro / derivadas de materializar el minuto a minuto — la
+	// traza vive en retreat.create y schedule_item.materialize.
+	RESPONSABILITY_CREATE: 'responsability.create',
+	RESPONSABILITY_UPDATE: 'responsability.update',
+	RESPONSABILITY_DELETE: 'responsability.delete',
+	RESPONSABILITY_ASSIGN: 'responsability.assign',
+	RESPONSABILITY_REMOVE: 'responsability.remove',
+	RESPONSABILITY_CREATE_SPEAKER: 'responsability.create_speaker',
+	// Documentos de responsabilidades (archivos y markdown). `storageUrl`
+	// nunca entra al log (data:URL de hasta 10MB); `restore_version` vuelve a
+	// una entrada del historial de ediciones.
+	RESPONSABILITY_ATTACHMENT_CREATE: 'responsability_attachment.create',
+	RESPONSABILITY_ATTACHMENT_UPDATE: 'responsability_attachment.update',
+	RESPONSABILITY_ATTACHMENT_RESTORE_VERSION: 'responsability_attachment.restore_version',
+	RESPONSABILITY_ATTACHMENT_DELETE: 'responsability_attachment.delete',
+	// Equipos de servicio. `createDefaultServiceTeamsForRetreat` NO se audita
+	// (semilla de retreat.create) y la sincronización líder↔responsabilidad
+	// (leaderSyncService) es derivada de estas acciones manuales.
+	SERVICE_TEAM_CREATE: 'service_team.create',
+	SERVICE_TEAM_UPDATE: 'service_team.update',
+	SERVICE_TEAM_DELETE: 'service_team.delete',
+	SERVICE_TEAM_ADD_MEMBER: 'service_team.add_member',
+	SERVICE_TEAM_REMOVE_MEMBER: 'service_team.remove_member',
+	SERVICE_TEAM_ASSIGN_LEADER: 'service_team.assign_leader',
+	SERVICE_TEAM_UNASSIGN_LEADER: 'service_team.unassign_leader',
 } as const;
 
 export type DomainAuditActionType = (typeof DomainAuditAction)[keyof typeof DomainAuditAction];
@@ -112,6 +188,17 @@ export const DOMAIN_RESOURCE_TYPES = [
 	'message_template',
 	'global_message_sequence',
 	'global_message_template',
+	'pre_retreat_task_template_set',
+	'pre_retreat_task_template',
+	'schedule_template_set',
+	'schedule_template',
+	'pre_retreat_task',
+	'schedule_item',
+	'santisimo_slot',
+	'santisimo_signup',
+	'responsability',
+	'responsability_attachment',
+	'service_team',
 ] as const;
 
 export type DomainResourceType = (typeof DOMAIN_RESOURCE_TYPES)[number];

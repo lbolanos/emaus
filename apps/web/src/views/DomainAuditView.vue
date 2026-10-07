@@ -288,6 +288,17 @@ const badgeClass = (rt: string) => {
 		message_template: 'bg-orange-100 text-orange-800',
 		global_message_sequence: 'bg-lime-100 text-lime-800',
 		global_message_template: 'bg-fuchsia-100 text-fuchsia-800',
+		pre_retreat_task_template_set: 'bg-orange-100 text-orange-800',
+		pre_retreat_task_template: 'bg-orange-100 text-orange-800',
+		schedule_template_set: 'bg-cyan-100 text-cyan-800',
+		schedule_template: 'bg-cyan-100 text-cyan-800',
+		pre_retreat_task: 'bg-teal-100 text-teal-800',
+		schedule_item: 'bg-amber-100 text-amber-800',
+		santisimo_slot: 'bg-red-100 text-red-800',
+		santisimo_signup: 'bg-pink-100 text-pink-800',
+		responsability: 'bg-sky-100 text-sky-800',
+		responsability_attachment: 'bg-violet-100 text-violet-800',
+		service_team: 'bg-emerald-100 text-emerald-800',
 	};
 	return map[rt] || 'bg-gray-100 text-gray-800';
 };

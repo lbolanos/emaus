@@ -95,6 +95,83 @@
         "copy_to_retreat": "Global template copied to a retreat",
         "copy_to_community": "Global template copied to a community",
         "copy_from_retreat": "Retreat template copied to a community"
+      },
+      "pre_retreat_task_template_set": {
+        "create": "Task template set created",
+        "update": "Task template set edited",
+        "delete": "Task template set deleted"
+      },
+      "pre_retreat_task_template": {
+        "create": "Pre-retreat task template created",
+        "update": "Pre-retreat task template edited",
+        "delete": "Pre-retreat task template deleted"
+      },
+      "schedule_template_set": {
+        "create": "Schedule template set created",
+        "update": "Schedule template set edited",
+        "delete": "Schedule template set deleted"
+      },
+      "schedule_template": {
+        "create": "Schedule template created",
+        "update": "Schedule template edited",
+        "delete": "Schedule template deleted"
+      },
+      "pre_retreat_task": {
+        "create": "Pre-retreat task created",
+        "update": "Pre-retreat task edited",
+        "delete": "Pre-retreat task deleted",
+        "set_status": "Pre-retreat task status changed",
+        "materialize": "Task template installed into the retreat"
+      },
+      "schedule_item": {
+        "create": "Schedule item created",
+        "update": "Schedule item edited",
+        "delete": "Schedule item deleted",
+        "bulk_assign": "Bulk assignment of responsibles",
+        "relink": "Responsibilities relinked by name",
+        "materialize": "Schedule template installed into the retreat",
+        "start": "Schedule item started",
+        "complete": "Schedule item completed",
+        "shift_day": "Whole day shifted in time",
+        "shift_all": "Entire schedule shifted in time",
+        "shift_downstream": "Item (and following) shifted in time",
+        "reorder_day": "Day items reordered",
+        "regenerate_santisimo": "Santísimo slots regenerated from the schedule"
+      },
+      "santisimo_slot": {
+        "create": "Santísimo slot created",
+        "update": "Santísimo slot edited",
+        "delete": "Santísimo slot deleted",
+        "generate": "Santísimo slots generated"
+      },
+      "santisimo_signup": {
+        "admin_create": "Santísimo signup registered by a server",
+        "public_signup": "Public Santísimo signup",
+        "delete": "Santísimo signup deleted",
+        "cancel": "Santísimo signup cancelled by the participant"
+      },
+      "responsability": {
+        "create": "Responsibility created",
+        "update": "Responsibility edited",
+        "delete": "Responsibility deleted",
+        "assign": "Participant assigned to responsibility",
+        "remove": "Participant removed from responsibility",
+        "create_speaker": "Speaker created and assigned"
+      },
+      "responsability_attachment": {
+        "create": "Document added to responsibility",
+        "update": "Responsibility document edited",
+        "restore_version": "Previous document version restored",
+        "delete": "Responsibility document deleted"
+      },
+      "service_team": {
+        "create": "Service team created",
+        "update": "Service team edited",
+        "delete": "Service team deleted",
+        "add_member": "Member added to team",
+        "remove_member": "Member removed from team",
+        "assign_leader": "Team leader assigned",
+        "unassign_leader": "Team leader removed"
       }
     },
     "resources": {
@@ -110,7 +187,18 @@
       "scheduled_message": "Scheduled message",
       "message_template": "Message template",
       "global_message_sequence": "Global message sequence",
-      "global_message_template": "Global message template"
+      "global_message_template": "Global message template",
+      "pre_retreat_task_template_set": "Task template set",
+      "pre_retreat_task_template": "Pre-retreat task template",
+      "schedule_template_set": "Schedule template set",
+      "schedule_template": "Schedule template",
+      "pre_retreat_task": "Pre-retreat task",
+      "schedule_item": "Minute-by-minute schedule",
+      "santisimo_slot": "Santísimo slot",
+      "santisimo_signup": "Santísimo signup",
+      "responsability": "Responsibility",
+      "responsability_attachment": "Responsibility document",
+      "service_team": "Service team"
     },
     "ranges": {
       "1w": "1 week",

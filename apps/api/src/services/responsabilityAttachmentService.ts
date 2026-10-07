@@ -6,6 +6,20 @@ import { ResponsabilityAttachmentHistory } from '../entities/responsabilityAttac
 import { s3Service } from './s3Service';
 import { avatarStorageService } from './avatarStorageService';
 import { emitScheduleAttachmentChanged } from '../realtime';
+import { domainAuditService } from './domainAuditService';
+import { DomainAuditAction } from '@repo/types';
+
+// `storageUrl` (data:URL de hasta 10MB) y `content` (markdown hasta 200KB)
+// NUNCA entran al log — sizeBytes ya informa el tamaño.
+const ATT_AUDIT_FIELDS = [
+	'responsabilityName',
+	'kind',
+	'fileName',
+	'mimeType',
+	'sizeBytes',
+	'description',
+	'sortOrder',
+];
 
 export class AttachmentValidationError extends Error {}
 export class AttachmentNotFoundError extends Error {}
@@ -256,6 +270,12 @@ class ResponsabilityAttachmentService {
 			uploadedById: userId ?? null,
 		});
 		const saved = await this.repo.save(entity);
+		// Los attachments cuelgan del NOMBRE de la responsabilidad, no de un
+		// retiro: sin retreatId, como las plantillas globales.
+		void domainAuditService.logCreate('responsability_attachment', saved.id, saved, {
+			fields: ATT_AUDIT_FIELDS,
+			metadata: { storage: storageKey ? 's3' : 'inline' },
+		});
 		emitScheduleAttachmentChanged({
 			responsabilityName: name,
 			action: 'created',
@@ -307,6 +327,9 @@ class ResponsabilityAttachmentService {
 			uploadedById: userId ?? null,
 		});
 		const saved = await this.repo.save(entity);
+		void domainAuditService.logCreate('responsability_attachment', saved.id, saved, {
+			fields: ATT_AUDIT_FIELDS,
+		});
 		emitScheduleAttachmentChanged({
 			responsabilityName: name,
 			action: 'created',
@@ -322,9 +345,13 @@ class ResponsabilityAttachmentService {
 	): Promise<ResponsabilityAttachment> {
 		const existing = await this.repo.findOne({ where: { id: attachmentId } });
 		if (!existing) throw new AttachmentNotFoundError('attachment not found');
+		const before = { ...existing };
 		if (patch.description !== undefined) existing.description = patch.description;
 		if (patch.sortOrder !== undefined) existing.sortOrder = patch.sortOrder;
 		const saved = await this.repo.save(existing);
+		void domainAuditService.logUpdate('responsability_attachment', attachmentId, before, saved, {
+			fields: ATT_AUDIT_FIELDS,
+		});
 		emitScheduleAttachmentChanged({
 			responsabilityName: saved.responsabilityName,
 			action: 'updated',
@@ -384,6 +411,7 @@ class ResponsabilityAttachmentService {
 			await this.snapshotToHistory(existing, userId);
 		}
 
+		const before = { ...existing };
 		if (patch.title !== undefined) {
 			const title = patch.title.slice(0, 200).trim() || 'Documento';
 			existing.fileName = title.endsWith('.md') ? title : `${title}.md`;
@@ -399,6 +427,10 @@ class ResponsabilityAttachmentService {
 		}
 		if (patch.description !== undefined) existing.description = patch.description;
 		const saved = await this.repo.save(existing);
+		void domainAuditService.logUpdate('responsability_attachment', attachmentId, before, saved, {
+			fields: ATT_AUDIT_FIELDS,
+			metadata: { historySnapshot: willChangeContent },
+		});
 		emitScheduleAttachmentChanged({
 			responsabilityName: saved.responsabilityName,
 			action: 'updated',
@@ -463,6 +495,7 @@ class ResponsabilityAttachmentService {
 		// Snapshot current → history, then apply the version.
 		await this.snapshotToHistory(att, userId);
 
+		const before = { ...att };
 		const fileName = version.title.endsWith('.md') ? version.title : `${version.title}.md`;
 		att.fileName = fileName;
 		att.content = version.content;
@@ -470,6 +503,11 @@ class ResponsabilityAttachmentService {
 		att.description = version.description ?? null;
 		att.storageUrl = `data:text/markdown;charset=utf-8;base64,${Buffer.from(version.content, 'utf-8').toString('base64')}`;
 		const saved = await this.repo.save(att);
+		void domainAuditService.logUpdate('responsability_attachment', attachmentId, before, saved, {
+			fields: ATT_AUDIT_FIELDS,
+			action: DomainAuditAction.RESPONSABILITY_ATTACHMENT_RESTORE_VERSION,
+			metadata: { historyId },
+		});
 		emitScheduleAttachmentChanged({
 			responsabilityName: saved.responsabilityName,
 			action: 'updated',
@@ -490,6 +528,13 @@ class ResponsabilityAttachmentService {
 			}
 		}
 		await this.repo.delete(attachmentId);
+		void domainAuditService.logDelete('responsability_attachment', attachmentId, existing, {
+			fields: ATT_AUDIT_FIELDS,
+			// El historial de versiones NO tiene FK/cascade: sus filas quedan
+			// huérfanas (comportamiento previo, documentado aquí para no
+			// "descubrirlo" en una investigación futura).
+			metadata: { hadS3Asset: !!existing.storageKey, kind: existing.kind },
+		});
 		emitScheduleAttachmentChanged({
 			responsabilityName: existing.responsabilityName,
 			action: 'deleted',
