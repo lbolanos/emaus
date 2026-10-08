@@ -615,8 +615,10 @@ const filteredAndSortedParticipants = computed(() => {
 
                 // 'owing' no es un estado del getter: es saldo pendiente > 0
                 // (unpaid + partial) — mismo criterio que el backend (#32).
+                // getNestedProperty: el tipo del store no trae los getters del
+                // backend (paymentRemaining llega en el payload del listado).
                 if (key === 'paymentStatus' && value === 'owing') {
-                    return Number(p.paymentRemaining || 0) > 0;
+                    return Number(getNestedProperty(p, 'paymentRemaining') || 0) > 0;
                 }
 
                 // Handle text partial matching for city, parish, disabilitySupport
