@@ -3451,6 +3451,7 @@
     "stepDateHint": "Fecha en que se enviaría este paso para el participante de muestra (hora del retiro)",
     "stepDatePast": "la fecha ya pasó: no se programa solo; al ejecutar se pregunta si enviarlo ahora",
     "templateByType": "Por tipo de plantilla (automático)",
+    "defaultTemplateTag": "predeterminada",
     "duplicateTemplateType": "Este paso no tiene plantilla fija y hay varias del mismo tipo: se enviará la predeterminada del tipo. Elige una concreta.",
     "scheduledTzHint": "Fechas en hora de {tz}",
     "clearFilter": "Quitar filtro",
