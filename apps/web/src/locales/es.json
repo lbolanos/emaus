@@ -879,6 +879,7 @@
       "successDesc": "fue reactivado en el retiro exitosamente."
     },
     "import": {
+      "reusedFromElsewhere": "Ya estaban registrados fuera de este retiro (con el mismo nombre); su ficha se actualizó con los datos del archivo:",
       "title": "Importar Participantes",
       "description": "Importar Participantes desde un archivo Excel o CSV",
       "errorTitle": "Error de importación",

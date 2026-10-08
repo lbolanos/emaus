@@ -35,7 +35,7 @@ Cuando el usuario reporta un problema, primero ubicá el **síntoma** en la tabl
 | "elegí las tallas y el resumen dice que no elegí ninguna", "lo capturé y la pantalla lo muestra vacío", "el reporte sale en cero aunque hay datos", "los caminantes salen con 0 camisetas" | [#22 La pantalla lee un campo legacy que el formulario ya no llena](#22-la-pantalla-lee-un-campo-legacy-que-el-formulario-ya-no-llena) |
 | "al dar clic en elegir foto no sale nada", "el botón de subir archivo no hace nada", "en local no funciona pero en prod sí" | [#23 El selector de archivos no abre: la ref quedó vieja por el hot-reload](#23-el-selector-de-archivos-no-abre-la-ref-quedó-vieja-por-el-hot-reload) |
 | "no me deja seleccionar el país", "se sale al inicio y pierdo el registro", "en el iPhone se cierra solo", "se queda en Cargando…" | [#24 Un paquete de datos entero en un selector tumba Safari iOS](#24-un-paquete-de-datos-entero-en-un-selector-tumba-safari-ios) |
-| "importé el Excel y faltan personas", "subí 140 y salen 108", "el retiro no está abierto para registro público", "cannot start a transaction within a transaction", "hay tres personas en una habitación de dos", "se perdieron las habitaciones que ya había asignado la parroquia" | [#25 La importación del Excel pierde gente en silencio](#25-la-importación-del-excel-pierde-gente-en-silencio) |
+| "importé el Excel y faltan personas", "subí 140 y salen 108", "el retiro no está abierto para registro público", "cannot start a transaction within a transaction", "hay tres personas en una habitación de dos", "se perdieron las habitaciones que ya había asignado la parroquia", "después del import otra persona amaneció con otro nombre o con otra medicación", "Ya estaban registrados fuera de este retiro" | [#25 La importación del Excel pierde gente en silencio](#25-la-importación-del-excel-pierde-gente-en-silencio) |
 | "Cannot call trigger on an empty DOMWrapper", "el test no encuentra el thead/la fila", "el selector existe en la app pero no en el test", "el `mount()` me da la tabla vacía" (Vitest) | [#26 La vista montada sigue en el skeleton: falta `flushPromises`](#26-la-vista-montada-sigue-en-el-skeleton-falta-flushpromises) |
 | "el test que lee un archivo del repo revienta con ERR_INVALID_URL_SCHEME" | [#27 `import.meta.url` no es una URL file: bajo `src/test/`](#27-importmetaurl-no-es-una-url-file-bajo-srctest) |
 | "el PDF no trae las imágenes", "en el Word sí se ven y en el PDF no", "salen solo algunas fotos", "falta el dibujo de la charla" | [#28 El PDF pierde las imágenes que van pegadas al texto](#28-el-pdf-pierde-las-imágenes-que-van-pegadas-al-texto) |
@@ -1105,6 +1105,30 @@ incluidos. La parroquia no corrige su sistema, así que la corrección es nuestr
 `~/.config/emaus/parish-email-corrections.csv` (fuera del repo, lleva PII) que el conversor aplica
 en cada export, solo mientras la fila siga trayendo el correo prestado. Formato y reglas en
 `docs/features/parish-walker-import.md` § Correos prestados.
+
+### 25.9 El correo ya es de alguien registrado fuera de este retiro
+
+**Síntoma**: el import sale bien y una persona de **otro** retiro (o de la comunidad) aparece con
+otro nombre, otra medicación u otros contactos de emergencia, o movida al retiro que se importó.
+
+La rama de update de `importParticipants` solo busca el correo **dentro** del retiro. Si no lo
+encuentra, la fila va a `createParticipant`, que lo busca en **todos** lados (el correo es la
+identidad) y, si existe, hace `Object.assign` de todos los datos personales de la fila —salud y
+contactos incluidos— sobre esa ficha y le cambia el `retreatId` al del import. Un admin del retiro
+A pisaba la ficha médica de alguien del retiro B sin tener acceso a B, y la fila contaba como
+«importada». §25.8 no lo ve: compara roles dentro del mismo retiro.
+
+**Fix** (2026-10-07): antes de `createParticipant` el import hace la misma búsqueda global. Si la
+fila nombra a otra persona —primer nombre o primer apellido distinto, sin importar mayúsculas ni
+acentos (`isImportNameConflict` en `apps/api/src/services/importEmailReuse.ts`)— la salta con
+motivo («el correo ya es de X, registrado fuera de este retiro, y la fila es de Y…»). Si es la
+misma persona, la importa y la lista en el resumen bajo «Ya estaban registrados fuera de este
+retiro…» (`reusedDetails`), para que la actualización de su ficha no sea silenciosa.
+
+Falsos positivos esperables: apodos («Pepe» / «José») o nombre y apellido invertidos saltan la
+fila; se corrige el nombre en el archivo y se reimporta. Tests: `importEmailReuse.simple.test.ts`
+(la regla) e `importEmailReuseWiring.simple.test.ts` (el cableado en el loop, con el data source
+mockeado: la suite con base real de `participantService.test.ts` no puede llamar al servicio).
 
 ### Orden que funciona
 

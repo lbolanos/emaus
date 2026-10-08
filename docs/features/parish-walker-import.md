@@ -88,6 +88,13 @@ cancelación y su reinscripción.
   antes de importar y `walkers-verify` lo detecta después; resolver el rol (¿la misma persona
   cambia de rol, o el correo era prestado?) es decisión del operador, no del script. Un correo
   prestado se corrige una sola vez en el archivo de correcciones (abajo).
+- **Ojo cuando un correo del archivo ya es de alguien registrado fuera de este retiro** (otro
+  retiro o la comunidad): si la fila trae **otro nombre**, el import la salta y lo dice en el
+  resumen, porque importarla pisaría la ficha de esa persona, medicación y contactos de emergencia
+  incluidos. Si trae el mismo nombre, la importa y la lista en el resumen como «Ya estaban
+  registrados fuera de este retiro», porque su ficha se actualiza con los datos del archivo. Un
+  apodo o un nombre invertido también hacen saltar la fila: se corrige el nombre y se reimporta.
+  Detalle: skill `troubleshooting` §25.9.
 - **Con respaldo.** `make db-pull` deja una copia de producción de paso.
 - **Reimportar es seguro y es el flujo previsto**: el importador reconoce a la gente por correo,
   así que actualiza a quien ya estaba y añade a los nuevos, sin duplicar.

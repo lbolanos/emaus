@@ -32,6 +32,11 @@ import {
   isImportRoleConflict,
   importRoleConflictReason,
 } from "./importRoleConflict";
+import {
+  isImportNameConflict,
+  importNameConflictReason,
+  fullName,
+} from "./importEmailReuse";
 
 // Campos de participante que vale la pena auditar (allowlist). Excluye datos médicos
 // y otros campos sensibles que no aportan al "quién hizo qué".
@@ -4585,6 +4590,9 @@ export const importParticipants = async (
   // Second pass: Process participants and collect bed assignments
   const skippedDetails: Array<{ row: number; reason: string; name?: string }> =
     [];
+  // Rows whose email already belonged to someone registered outside this
+  // retreat: createParticipant updated that record with the row (§25.9).
+  const reusedDetails: Array<{ row: number; name: string }> = [];
 
   for (let idx = 0; idx < sortedParticipantsData.length; idx++) {
     const participantRawData = sortedParticipantsData[idx];
@@ -4692,6 +4700,29 @@ export const importParticipants = async (
           paymentsCreated++;
         }
       } else {
+        // §25.9 — the email may belong to someone registered outside this
+        // retreat. createParticipant would reuse that record and overwrite
+        // its personal and health data with this row: skip it when the row
+        // names someone else, report it when it is the same person. Same
+        // lookup as createParticipant, so both see the same record.
+        const reusedParticipant = await participantRepository
+          .createQueryBuilder("participant")
+          .where("LOWER(participant.email) = :email", {
+            email: importNormalizedEmail,
+          })
+          .orderBy("participant.registrationDate", "DESC")
+          .getOne();
+        const rowName = fullName(mappedData) || mappedData.email;
+        if (reusedParticipant && isImportNameConflict(reusedParticipant, mappedData)) {
+          skippedDetails.push({
+            row: idx + 2,
+            reason: importNameConflictReason(fullName(reusedParticipant), rowName),
+            name: rowName,
+          });
+          skippedCount++;
+          continue;
+        }
+
         const newParticipant = await createParticipant(
           { ...mappedData, retreatId } as CreateParticipant,
           false,
@@ -4701,6 +4732,9 @@ export const importParticipants = async (
         importedCount++;
         processedParticipantIds.push(newParticipant.id);
         participant = newParticipant;
+        if (reusedParticipant) {
+          reusedDetails.push({ row: idx + 2, name: rowName });
+        }
 
         // Create payment record if payment data exists in import
         const paymentResult = await createPaymentFromImport(
@@ -5161,6 +5195,7 @@ export const importParticipants = async (
     updatedCount,
     skippedCount,
     skippedDetails,
+    reusedDetails,
     tablesCreated,
     bedsCreated,
     paymentsCreated,

@@ -824,6 +824,7 @@
       "successDesc": "was successfully reactivated in the retreat."
     },
     "import": {
+      "reusedFromElsewhere": "Already registered outside this retreat (same name); their record was updated with the file data:",
       "title": "Import Participants",
       "description": "Import Participants from an Excel or CSV file",
       "errorTitle": "Import error",

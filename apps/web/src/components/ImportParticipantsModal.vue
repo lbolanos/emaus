@@ -872,6 +872,7 @@ const confirmImport = async () => {
     let totalBedsCreated = 0;
     let totalPaymentsCreated = 0;
     let allSkippedDetails: Array<{ row: number; reason: string; name?: string }> = [];
+    let allReusedDetails: Array<{ row: number; name: string }> = [];
 
     for (let i = 0; i < batches.length; i++) {
       const isLastBatch = i === batches.length - 1;
@@ -889,6 +890,9 @@ const confirmImport = async () => {
       totalPaymentsCreated += responseData.paymentsCreated || 0;
       if (responseData.skippedDetails?.length) {
         allSkippedDetails = allSkippedDetails.concat(responseData.skippedDetails);
+      }
+      if (responseData.reusedDetails?.length) {
+        allReusedDetails = allReusedDetails.concat(responseData.reusedDetails);
       }
 
       importProgress.value = Math.round(((i + 1) / batches.length) * 100);
@@ -917,6 +921,17 @@ const confirmImport = async () => {
         (d) => `Fila ${d.row}: ${d.reason}${d.name ? ` (${d.name})` : ''}`
       );
       description += (description ? '\n' : '') + 'Omitidos:\n' + skippedLines.join('\n');
+    }
+
+    // Rows that updated a person registered outside this retreat (same email,
+    // same name): imported, but their record changed with the file's data.
+    if (allReusedDetails.length > 0) {
+      const reusedLines = allReusedDetails.map((d) => `Fila ${d.row}: ${d.name}`);
+      description +=
+        (description ? '\n' : '') +
+        $t('participants.import.reusedFromElsewhere') +
+        '\n' +
+        reusedLines.join('\n');
     }
 
     importSummary.value = description || 'No changes made';
