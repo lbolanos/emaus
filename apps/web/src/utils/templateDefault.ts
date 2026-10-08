@@ -6,7 +6,13 @@
  */
 type Pickable = { isDefault?: boolean | null; createdAt?: string | Date | null };
 
-const time = (t: Pickable) => (t.createdAt ? new Date(t.createdAt).getTime() : Number.POSITIVE_INFINITY);
+// Un createdAt presente pero invalidable (serialización mala) daría NaN y un
+// comparador inconsistente (orden no determinista entre renders); lo mandamos
+// al final igual que los ausentes.
+const time = (t: Pickable) => {
+	const ms = t.createdAt ? new Date(t.createdAt).getTime() : Number.POSITIVE_INFINITY;
+	return Number.isNaN(ms) ? Number.POSITIVE_INFINITY : ms;
+};
 
 export function byDefaultFirst(a: Pickable, b: Pickable): number {
 	return Number(!!b.isDefault) - Number(!!a.isDefault) || time(a) - time(b);

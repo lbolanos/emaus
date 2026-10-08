@@ -9,6 +9,7 @@
  * necesita la comunidad vinculada al retiro— se parametriza con `scope`.
  */
 import { getMessageTemplateAudience } from '@repo/types';
+import { byDefaultFirst } from '@/utils/templateDefault';
 
 // --------------------------------------------------------------------------
 // Catálogos
@@ -120,6 +121,22 @@ export function pickTemplateForAudience(usableTemplates: any[], aud: string): an
 		(both && usableTemplates.find((t: any) => getMessageTemplateAudience(t.type) === 'participant')) ||
 		usableTemplates.find((t: any) => getMessageTemplateAudience(t.type) === 'general')
 	);
+}
+
+/**
+ * Ordena plantillas con la MISMA preferencia que el motor al resolver por tipo
+ * (`DEFAULT_TEMPLATE_ORDER`: isDefault DESC, createdAt ASC). Delega en
+ * `byDefaultFirst` (M6) — el comparador que ya usan MessageDialog/quick-send —
+ * para que editor y envío rápido nunca discrepen sobre cuál es "la
+ * predeterminada". Antes la lista venía en orden de inserción y
+ * `addStep`/`pickTemplateForAudience` fijaban la primera fila, predeterminada o
+ * no (incidente "Recoda Pago Servidor": el paso quedó fijado a la plantilla
+ * vieja del tipo).
+ */
+export function orderTemplatesByEnginePreference<
+	T extends { isDefault?: boolean | null; createdAt?: string | Date | null },
+>(templates: T[]): T[] {
+	return [...templates].sort(byDefaultFirst);
 }
 
 /**

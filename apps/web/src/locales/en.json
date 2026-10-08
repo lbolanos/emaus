@@ -3135,6 +3135,7 @@
     "stepDateHint": "When this step would be sent for the sample participant (retreat time)",
     "stepDatePast": "date already passed: not scheduled automatically; running asks whether to send it now",
     "templateByType": "By template type (automatic)",
+    "defaultTemplateTag": "default",
     "duplicateTemplateType": "This step has no fixed template and several share its type: the type's default will be sent. Pick a specific one.",
     "scheduledTzHint": "Times shown in {tz}",
     "clearFilter": "Clear filter",

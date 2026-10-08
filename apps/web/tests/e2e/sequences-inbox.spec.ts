@@ -19,6 +19,12 @@ test.use({ locale: 'es-MX' });
 
 const CSV_PATH = path.join(__dirname, 'fixtures', 'participant-import-sample.csv');
 
+/**
+ * Dispatch button of an inbox row. The long label only renders from `sm` up; the
+ * mobile projects (Pixel 5 / iPhone 12) see the short one, so match both.
+ */
+const MARK_SENT_LABEL = /^(Ya lo envié|Enviado)$/;
+
 /** Mirrors the CSV parsing the import modal does in the browser. */
 const parseCsv = (text: string): Record<string, string | null>[] => {
 	const lines = text.split('\n').filter((line) => line.trim() !== '');
@@ -291,7 +297,7 @@ test.describe.serial('Bandeja de Secuencias — realtime e historial', () => {
 			await expect(rowB).toBeVisible({ timeout: 15000 });
 
 			// Dispatch in A ("Ya lo envié" — avoids window.open to whatsapp.com).
-			await page.getByRole('button', { name: 'Ya lo envié' }).first().click();
+			await page.getByRole('button', { name: MARK_SENT_LABEL }).first().click();
 
 			// B refreshes on its own via sequences:queue-changed.
 			await expect(rowB).toBeHidden({ timeout: 10000 });
@@ -314,7 +320,7 @@ test.describe.serial('Bandeja de Secuencias — realtime e historial', () => {
 		await expect(row.first()).toBeVisible({ timeout: 15000 });
 
 		// Dispatch the first pending item.
-		await page.getByRole('button', { name: 'Ya lo envié' }).first().click();
+		await page.getByRole('button', { name: MARK_SENT_LABEL }).first().click();
 		await expect(row).toHaveCount(1, { timeout: 10000 });
 
 		// Open the detail of the remaining item; the "Mensajes enviados"
