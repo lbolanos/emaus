@@ -109,7 +109,7 @@ cerrado con **Done** + desviaciones. Commits `type(scope): descripción (MN)`.
   `grep __dirname dist/index.js`.
 - Navegador con `bash .ruler/skills/worktree-testing/scripts/start-worktree-dev.sh`
   (si `audit-secuencias` ocupa 3002/5174 → `API_PORT=3003 WEB_PORT=5175`), login dev
-  `leonardo.bolanos@gmail.com` / `123456`:
+  (`DEMO_EMAIL`/`DEMO_PASSWORD` de `apps/web/e2e/demo/.env`, ver `.env.example`):
   - CA7: columna Celular + ✏ corrige sin recargar;
   - CA8: agregar EC2; CA10: ✏ del diálogo refresca header;
   - CA2/CA11: `+52…` se canoniza; inválido muestra error y no guarda;
