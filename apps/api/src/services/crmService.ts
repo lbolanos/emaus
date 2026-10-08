@@ -71,13 +71,10 @@ export class CrmService {
 	}): Promise<ParticipantFollowUp> {
 		// Datos para el log, capturados DENTRO de la transacción pero emitidos
 		// FUERA (riesgo §25.3: fire-and-forget dentro de la ventana
-		// transaccional revienta el commit con better-sqlite3).
-		let audit: {
-			savedId: string;
-			previousStatus: string | null;
-			attendanceSynced: boolean;
-		} | null = null;
-		const saved = await AppDataSource.transaction(async (manager) => {
+		// transaccional revienta el commit con better-sqlite3). Se DEVUELVEN
+		// del callback: una variable asignada solo en el closure queda `null`
+		// para el control-flow de TS (TS2339 al leerla afuera).
+		const auditData = await AppDataSource.transaction(async (manager) => {
 			const repo = manager.getRepository(ParticipantFollowUp);
 			let row = await repo.findOne({
 				where: { retreatId: input.retreatId, participantId: input.participantId },
@@ -96,7 +93,7 @@ export class CrmService {
 
 			// Guardar el mismo estado dos veces no debe ensuciar el hilo.
 			const statusChanged = previousStatus !== input.status;
-			if (!statusChanged) return savedRow;
+			if (!statusChanged) return { savedRow, audit: null };
 
 			const attendanceSynced = await this.syncAttendanceFromFollowUp(
 				manager,
@@ -104,7 +101,7 @@ export class CrmService {
 				input.retreatId,
 				input.status,
 			);
-			audit = { savedId: savedRow.id, previousStatus, attendanceSynced };
+			const audit = { savedId: savedRow.id, previousStatus, attendanceSynced };
 
 			await manager.getRepository(ParticipantNote).save(
 				manager.getRepository(ParticipantNote).create({
@@ -122,8 +119,9 @@ export class CrmService {
 				}),
 			);
 
-			return savedRow;
+			return { savedRow, audit };
 		});
+		const { savedRow: saved, audit } = auditData;
 		if (audit) {
 			void domainAuditService.logUpdate(
 				'crm_follow_up',

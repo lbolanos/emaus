@@ -132,8 +132,12 @@ export class SantisimoService {
 		}
 
 		let cleared = 0;
+		let cascadeSignups = 0;
 		if (params.clearExisting) {
 			cleared = await this.slotRepo.count({ where: { retreatId } });
+			// Los signups públicos mueren en cascada con sus slots: contarlos
+			// ANTES (después ya no existen) — misma regla que deleteSlot.
+			cascadeSignups = await this.signupRepo.count({ where: { slot: { retreatId } } });
 			await this.slotRepo.delete({ retreatId });
 		}
 
@@ -185,6 +189,7 @@ export class SantisimoService {
 				capacity,
 				clearExisting: !!params.clearExisting,
 				cleared,
+				cascadeSignups,
 				created,
 				skippedExisting,
 			},

@@ -84,14 +84,20 @@ describe('Santísimo — auditoría de dominio', () => {
 		expect(JSON.parse(del.oldValues!)).toMatchObject({ capacity: 3 });
 	});
 
-	it('generateSlots deja UN evento agregado con cleared/created', async () => {
+	it('generateSlots deja UN evento agregado con cleared/cascadeSignups/created', async () => {
 		const retreat = await TestDataFactory.createTestRetreat();
-		await santisimo.createSlot(retreat.id, {
+		const slot = await santisimo.createSlot(retreat.id, {
 			startTime: inTwoHours(),
 			endTime: inThreeHours(),
 		});
 		// Flush del create antes de generar (clearExisting borra y recrea).
 		await waitForLogs((r) => rowsOf(r, 'santisimo_slot.create').length >= 1);
+		// El signup muere en cascada con su slot: si no se cuenta ANTES del
+		// delete, el agregado reportaría cascadeSignups 0 (la fila ya no existe).
+		await santisimo.adminCreateSignup(retreat.id, {
+			slotId: slot.id,
+			name: 'María López',
+		});
 
 		await santisimo.generateSlots(retreat.id, {
 			startDateTime: inTwoHours(),
@@ -112,6 +118,7 @@ describe('Santísimo — auditoría de dominio', () => {
 		});
 		expect(meta(row).created).toBe(2);
 		expect(meta(row).skippedExisting).toBe(0);
+		expect(meta(row).cascadeSignups).toBe(1);
 	});
 
 	it('adminCreateSignup registra slotId y name, sin teléfono ni correo', async () => {

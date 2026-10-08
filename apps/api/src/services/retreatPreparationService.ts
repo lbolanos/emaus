@@ -574,10 +574,15 @@ class RetreatPreparationService {
 		if (existing.kind !== 'markdown') {
 			throw new PreparationValidationError('Este documento no es de texto');
 		}
-		// Snapshot antes de mutar (sólo los campos del diff).
+		// Snapshot antes de mutar — TODOS los campos del allowlist: diffFields
+		// trata `undefined` como cambio, un snapshot parcial fabricaba diffs
+		// fantasma (kind/mimeType/sortOrder "cambiando" en cada edición).
 		const before = {
+			kind: existing.kind,
 			fileName: existing.fileName,
+			mimeType: existing.mimeType,
 			sizeBytes: existing.sizeBytes,
+			sortOrder: existing.sortOrder,
 		};
 		if (patch.title !== undefined) {
 			const title = patch.title.slice(0, 200).trim() || 'Documento';

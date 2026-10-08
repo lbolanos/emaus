@@ -378,6 +378,45 @@ falló 1 vez con `socket hang up` bajo una combinación específica de workers y
 supertest sin puerto fijo apunta a un singleton compartido entre suites vecinas del mismo worker
 (¿`AppDataSource` cerrado por un `afterAll` ajeno?). Flaky estructural pre-existente, no del PR.
 
+## Arreglos pre-merge de las revisiones (2026-10-08)
+
+Dos revisiones formales sobre el PR #5 (`/code-review` + una segunda) dieron 6 arreglos
+pre-merge. Los «menores» de ambas quedaron como follow-ups (abajo); los descartados con motivo:
+la doble fila de `copyToRetreat` es por diseño (el clon deja además su `message_sequence.create`
+con `clonedFrom`), el shard SÍ funciona (143 suites por shard) y `parseDataUrl` sí rechaza tipos
+con parámetros (`ALLOWED_MIMES` no hace match).
+
+| Hallazgo | Severidad | Resolución |
+| --- | --- | --- |
+| El motor no contaba envíos fallidos: un retiro con todos los envíos caídos no dejaba rastro en `cron_run`/`run_now` | MED (forense) | **Arreglado**: `failedPerRetreat` atraviesa `processDue`; metadata `failed` en ambos eventos; la corrida automática con SOLO fallos también deja `run_now` (`failed > 0` en la condición). 2 tests nuevos con mock de `sendEmail` compartido |
+| `updateShirtType`/`deleteShirtType` disparaban el log ANTES de `syncInventoryShirts` | MED (§25.3) | **Arreglado**: sync primero (`await`), log después — el INSERT fire-and-forget podía aterrizar en la ventana transaccional de la sync y el catch-all de ésta se lo tragaba (inventario desincronizado en silencio) |
+| Snapshot parcial del doc de preparación: `before` solo traía 2 de 5 campos del allowlist | MED (forense) | **Arreglado**: `diffFields` trata `undefined` como cambio → cada edición reportaba kind/mimeType/sortOrder "cambiando" (diffs fantasma). `before` cubre los 5 campos de `PREP_DOC_AUDIT_FIELDS` |
+| `crmService` TS2339 ×3: `audit` asignada solo en el closure de la transacción → TS la estrecha a `never` | MED (gate) | **Arreglado**: la transacción DEVUELVE `{ savedRow, audit }`. Funcionaba en runtime; el CI no lo veía porque no corre `tsc` sobre el api — el gate real es `pnpm --filter api build` |
+| `generateSlots` con `clearExisting` no contaba los signups públicos que mueren en cascada | MED | **Arreglado**: `cascadeSignups` contado ANTES del delete (misma regla que `deleteSlot`); test sembrando un signup en el slot preexistente |
+| Delete de plantilla global marcaba `messageChanged: true` (helper con `previous=null`) | LOW | **Arreglado**: metadata del delete = solo `messageChars`; nada "cambió" en un delete y la flag dejaría de filtrar |
+
+Verificación: 10 suites afectadas — **208/208** (messageSequenceAudit 17, incluye los 2 tests
+nuevos del conteo de fallos); `pnpm --filter api build` OK; `grep -c __dirname dist/index.js` = 2.
+
+### Follow-ups de la segunda revisión (menores, post-merge)
+
+- `clonedFrom` falseable desde el request (campo del create sin validar el origen)
+- `clearOtherDefaults` sin registro propio en el toggle de default
+- Nombres PII en metadata vs «PII mínima» declarada en el PR
+- iniciar/completar una preparación no-op deja fila de auditoría
+- copy-all a comunidad: 1 fila de log por plantilla
+- service team move sin registro si el miembro ya pertenecía al equipo
+- approve/reject esperan el log de auditoría → 500 si el INSERT falla
+- helper de tamaño de texto copiado ~6× (ya listado en LOWs de la primera revisión)
+- `doNotContact` es global del participante pero se loguea con el retreatId de donde se activó
+
+### Nota pre-merge
+
+El merge a master **despliega a producción automáticamente** (`deploy-production.yml` corre con
+cada push a master). Master trae 2 commits de health que esta rama no tiene — combinación que
+ningún CI ha probado aún; el deploy los junta. Tras el merge, el `git pull` del checkout
+principal puede chocar con `apps/web/src/locales/{en,es}.json` sin commitear de otra sesión.
+
 ## Reproducir el diagnóstico forense de hoy
 
 ```bash

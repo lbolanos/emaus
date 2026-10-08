@@ -200,6 +200,11 @@ export const updateShirtType = async (id: string, data: Partial<ShirtTypeInput>)
 	}
 	const updated = await repo().findOne({ where: { id }, relations: ['sizePrices'] });
 	if (updated) {
+		// La sync corre ANTES de disparar el log (riesgo §25.3): el INSERT
+		// fire-and-forget podía aterrizar dentro de una ventana transaccional
+		// de la sync y el catch-all de ésta se lo tragaba — inventario
+		// desincronizado en silencio.
+		await syncInventoryShirts(updated.retreatId);
 		void domainAuditService.logUpdate('shirt_type', id, existing, updated, {
 			retreatId: updated.retreatId,
 			fields: SHIRT_AUDIT_FIELDS,
@@ -210,7 +215,6 @@ export const updateShirtType = async (id: string, data: Partial<ShirtTypeInput>)
 					: {}),
 			},
 		});
-		await syncInventoryShirts(updated.retreatId);
 	}
 	return updated;
 };
@@ -224,6 +228,8 @@ export const deleteShirtType = async (id: string) => {
 	await AppDataSource.getRepository(RetreatShirtTypeSizePrice).delete({ shirtTypeId: id });
 	const result = await repo().delete({ id });
 	if (target) {
+		// La sync va primero, el log después — mismo orden §25.3 que el update.
+		await syncInventoryShirts(target.retreatId);
 		void domainAuditService.logDelete('shirt_type', id, target, {
 			retreatId: target.retreatId,
 			fields: SHIRT_AUDIT_FIELDS,
@@ -232,7 +238,6 @@ export const deleteShirtType = async (id: string) => {
 				sizePrices: pricesBefore,
 			},
 		});
-		await syncInventoryShirts(target.retreatId);
 	}
 	return (result.affected ?? 0) > 0;
 };

@@ -120,7 +120,9 @@ export class GlobalMessageTemplateService {
 		if (deleted) {
 			void domainAuditService.logDelete('global_message_template', id, existing, {
 				fields: GLOBAL_TEMPLATE_AUDIT_FIELDS,
-				metadata: templateBodyMetadata(null, existing),
+				// Sin `messageChanged`: nada "cambió" en un delete — el helper
+				// con previous=null marcaría true y la flag dejaría de filtrar.
+				metadata: { messageChars: existing.message.length },
 			});
 		}
 		return deleted;

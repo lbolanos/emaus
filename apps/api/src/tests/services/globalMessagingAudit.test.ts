@@ -188,6 +188,9 @@ describe('Global messaging — auditoría de dominio', () => {
 			);
 			row = rowsOf(rows, 'global_message_template.delete')[0];
 			expect(JSON.parse(row.oldValues!).name).toBe('Plantilla global v2');
+			// El delete no lleva `messageChanged`: nada "cambió", y el helper con
+			// previous=null siempre marcaría true — la flag dejaría de filtrar.
+			expect(meta(row)).toEqual({ messageChars: 12 });
 		});
 
 		it('toggleActive deja su acción propia', async () => {

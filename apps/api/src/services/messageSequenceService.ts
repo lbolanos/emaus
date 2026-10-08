@@ -423,12 +423,22 @@ export class MessageSequenceService {
 	public async runEngineCycle(now: Date = new Date()): Promise<void> {
 		const createdPerRetreat = new Map<string, number>();
 		const processedPerRetreat = new Map<string, number>();
+		const failedPerRetreat = new Map<string, number>();
 		const enrolled = await this.enrollAll(now, createdPerRetreat);
-		const processed = await this.processDue(now, undefined, undefined, processedPerRetreat);
+		const processed = await this.processDue(
+			now,
+			undefined,
+			undefined,
+			processedPerRetreat,
+			failedPerRetreat,
+		);
 		console.log(`⏰ Sequences: enrolled ${enrolled}, processed ${processed}`);
+		// Fallos también son actividad: un retiro cuyos 40 envíos revientan
+		// debe quedar en el registro — es justo la pregunta forense.
 		for (const retreatId of new Set([
 			...createdPerRetreat.keys(),
 			...processedPerRetreat.keys(),
+			...failedPerRetreat.keys(),
 		])) {
 			void domainAuditService.log({
 				action: DomainAuditAction.MESSAGE_SEQUENCE_CRON_RUN,
@@ -440,6 +450,7 @@ export class MessageSequenceService {
 					system: true,
 					enrolled: createdPerRetreat.get(retreatId) ?? 0,
 					processed: processedPerRetreat.get(retreatId) ?? 0,
+					failed: failedPerRetreat.get(retreatId) ?? 0,
 				},
 			});
 		}
@@ -1020,6 +1031,7 @@ export class MessageSequenceService {
 		limit = Number(process.env.SEQUENCE_PROCESS_LIMIT) || 200,
 		retreatId?: string,
 		processedPerRetreat?: Map<string, number>,
+		failedPerRetreat?: Map<string, number>,
 	): Promise<number> {
 		// Filas atascadas en `processing` (crash/restart a mitad de una corrida
 		// previa) vuelven a `pending` antes de leer candidatas.
@@ -1374,6 +1386,12 @@ export class MessageSequenceService {
 						sm.status = 'failed';
 						sm.error = 'envío SMTP falló';
 						await repo.save(sm);
+						if (failedPerRetreat) {
+							failedPerRetreat.set(
+								sm.retreatId,
+								(failedPerRetreat.get(sm.retreatId) ?? 0) + 1,
+							);
+						}
 						continue;
 					}
 					sm.status = 'sent';
@@ -1396,6 +1414,12 @@ export class MessageSequenceService {
 					sm.status = 'failed';
 					sm.error = err instanceof Error ? err.message : 'error desconocido';
 					await repo.save(sm);
+					if (failedPerRetreat) {
+						failedPerRetreat.set(
+							sm.retreatId,
+							(failedPerRetreat.get(sm.retreatId) ?? 0) + 1,
+						);
+					}
 				}
 			} catch (err) {
 				// Excepción inesperada post-claim: sin esto la fila quedaba `processing`
@@ -2794,13 +2818,21 @@ export class MessageSequenceService {
 		}
 		// Scopeado a este retiro: el alta de un participante no debe disparar envíos
 		// de otros retiros.
-		const processed = await this.processDue(new Date(), undefined, retreatId);
+		const failedPerRetreat = new Map<string, number>();
+		const processed = await this.processDue(
+			new Date(),
+			undefined,
+			retreatId,
+			undefined,
+			failedPerRetreat,
+		);
+		const failed = failedPerRetreat.get(retreatId) ?? 0;
 		// Manual runs always leave a row — even a no-op one records the
 		// operator's intent, which is exactly what the incident post-mortem
 		// needed. Automatic runs (participant signup) only log when something
 		// actually happened: otherwise every signup adds an empty run_now row.
 		const trigger = opts.trigger ?? 'participant_create';
-		if (trigger === 'manual' || enrolled > 0 || processed > 0 || pastSteps.length > 0) {
+		if (trigger === 'manual' || enrolled > 0 || processed > 0 || failed > 0 || pastSteps.length > 0) {
 			void domainAuditService.log({
 				action: DomainAuditAction.MESSAGE_SEQUENCE_RUN_NOW,
 				resourceType: 'message_sequence',
@@ -2813,6 +2845,7 @@ export class MessageSequenceService {
 					sendNowStepIds: [...(opts.sendNowStepIds ?? [])],
 					enrolled,
 					processed,
+					failed,
 					pastStepsCount: pastSteps.length,
 				},
 			});

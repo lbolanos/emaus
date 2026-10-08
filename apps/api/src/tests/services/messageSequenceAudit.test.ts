@@ -1,7 +1,10 @@
 // Mock del EmailService antes de importar el service (nada sale del sandbox).
+// `mockSendEmail` es COMPARTIDO por instancia: los tests de envío fallido lo
+// puentean con mockResolvedValueOnce(false) sin tocar el default (éxito).
+const mockSendEmail = jest.fn(async () => true);
 jest.mock('@/services/emailService', () => ({
 	EmailService: jest.fn(() => ({
-		sendEmail: jest.fn(async () => true),
+		sendEmail: mockSendEmail,
 	})),
 }));
 
@@ -82,7 +85,10 @@ describe('MessageSequenceService — auditoría de dominio', () => {
 	}
 
 	/** Secuencia activa de 1 paso GENERAL (whatsapp, manual: processDue encola). */
-	async function seedSequence(retreatId: string, opts: { sendHour?: number } = {}) {
+	async function seedSequence(
+		retreatId: string,
+		opts: { sendHour?: number; channel?: 'whatsapp' | 'email' } = {},
+	) {
 		return svc.createSequence({
 			name: 'Audit',
 			retreatId,
@@ -94,7 +100,7 @@ describe('MessageSequenceService — auditoría de dominio', () => {
 					offsetDays: 0,
 					sendHour: opts.sendHour ?? 9,
 					templateType: 'GENERAL',
-					channel: 'whatsapp',
+					channel: opts.channel ?? 'whatsapp',
 				},
 			] as any,
 		});
@@ -368,6 +374,7 @@ describe('MessageSequenceService — auditoría de dominio', () => {
 			sendNowStepIds: [],
 			enrolled: 1,
 			processed: result.processed,
+			failed: 0,
 			pastStepsCount: 0,
 		});
 	});
@@ -393,6 +400,7 @@ describe('MessageSequenceService — auditoría de dominio', () => {
 			sendNowStepIds: [],
 			enrolled: 0,
 			processed: 0,
+			failed: 0,
 			pastStepsCount: 0,
 		});
 	});
@@ -415,6 +423,64 @@ describe('MessageSequenceService — auditoría de dominio', () => {
 		expect(row.retreatId).toBe(retreatA.id);
 		expect(row.resourceId).toBeNull();
 		expect(row.actorUserId).toBeNull();
-		expect(meta(row)).toEqual({ system: true, enrolled: 1, processed: expect.any(Number) });
+		expect(meta(row)).toEqual({
+			system: true,
+			enrolled: 1,
+			processed: expect.any(Number),
+			failed: 0,
+		});
+	});
+
+	it('cron_run cuenta envíos fallidos: processed 0, failed 1 en el agregado', async () => {
+		const { retreat } = await seedRetreatWithWalker();
+		await createGeneralTemplate(retreat.id);
+		// Canal email: processDue lo ENVÍA (whatsapp sólo se encola) y con el
+		// mock en false cae en la rama de fallo SMTP.
+		await seedSequence(retreat.id, { sendHour: 0, channel: 'email' });
+		mockSendEmail.mockResolvedValueOnce(false);
+
+		await svc.runEngineCycle(new Date());
+
+		const rows = await waitForLogs((r) => rowsOf(r, 'message_sequence.cron_run').length > 0);
+		const row = rowsOf(rows, 'message_sequence.cron_run')[0];
+		// Sin el conteo, un retiro con todos los envíos caídos no dejaba rastro
+		// de la caída en el agregado del cron.
+		expect(meta(row)).toEqual({ system: true, enrolled: 1, processed: 0, failed: 1 });
+	});
+
+	it('runForRetreat automático deja run_now cuando lo único que hay son fallos', async () => {
+		const { retreat } = await seedRetreatWithWalker();
+		await createGeneralTemplate(retreat.id);
+		await seedSequence(retreat.id, { sendHour: 0, channel: 'email' });
+
+		// Primera corrida: el envío falla → la fila queda 'failed' con intentos.
+		mockSendEmail.mockResolvedValueOnce(false);
+		await svc.runForRetreat(retreat.id);
+		await waitForLogs((r) => rowsOf(r, 'message_sequence.run_now').length > 0);
+
+		// Segunda: sin enrolamiento nuevo ni enviados — la fila run_now automática
+		// sólo existe por el reintento fallido (failed > 0 en la condición).
+		mockSendEmail.mockResolvedValueOnce(false);
+		await svc.runForRetreat(retreat.id);
+
+		const rows = await waitForLogs(
+			(r) =>
+				rowsOf(r, 'message_sequence.run_now').filter((x) => x.retreatId === retreat.id)
+					.length >= 2,
+		);
+		const runs = rowsOf(rows, 'message_sequence.run_now').filter(
+			(x) => x.retreatId === retreat.id,
+		);
+		// find() no garantiza orden: la corrida con enrolled 0 es la segunda.
+		const onlyFailures = runs.find((r) => meta(r).enrolled === 0);
+		expect(onlyFailures).toBeDefined();
+		expect(meta(onlyFailures!)).toEqual({
+			trigger: 'participant_create',
+			sendNowStepIds: [],
+			enrolled: 0,
+			processed: 0,
+			failed: 1,
+			pastStepsCount: 0,
+		});
 	});
 });
