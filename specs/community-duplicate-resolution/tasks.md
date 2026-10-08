@@ -36,13 +36,32 @@
 
 ## M1 — Hint en attendance stats
 
-- [ ] `MergePairDialog.vue` nuevo + test (4 casos: sin preview deshabilitado; blocker;
-      cambio de superviviente invalida preview; merge con dirección correcta + `merged`)
-- [ ] `CommunityAttendanceStatsView.vue`: fetch one-shot de duplicados para owners,
+- [x] `MergePairDialog.vue` nuevo + test (4 casos: sin preview deshabilitado; blocker;
+      cambio de superviviente invalida preview; merge con dirección correcta + `merged`) —
+      quedaron 5: se añadió "al llegar un par nuevo se resetean elección y preview"
+- [x] `CommunityAttendanceStatsView.vue`: fetch one-shot de duplicados para owners,
       `duplicateHintByParticipantId`, badge + botón en desktop y móvil, `@merged` recarga
-- [ ] i18n es+en `community.attendanceStats.{duplicateHint,duplicateHintAction,duplicateMerged}`
-- [ ] Extender test de la vista: hint presente; fail-soft con fetch rechazado
-- [ ] `pnpm --filter web build`
+- [x] i18n es+en — ver desviación 1
+- [x] Extender test de la vista: hint presente; fail-soft con fetch rechazado — quedaron
+      3: se añadió co-admin sin fetch ni hint (lo pide FR1)
+- [x] `pnpm --filter web build`
+
+Desviaciones reales respecto a `plan.md` (2026-10-08):
+
+1. **i18n**: sólo se creó `community.attendanceStats.duplicateHint`. El botón del hint
+   reusa `community.duplicates.merge` ("Fusionar") y el toast de éxito vive en el dialog
+   (`community.duplicates.merged`, clave existente). Se añadieron además
+   `community.duplicates.pairTitle/pairDescription` para el diálogo de un par;
+   `duplicateHintAction`/`duplicateMerged` quedaron sin crear por redundantes.
+2. **E2E en navegador** (dev local): verificado el fetch one-shot (`/duplicates` 1 vez al
+   cargar, no se repite al cambiar filtros), la vista estable y la ausencia de badge
+   (correcta: ningún candidato cruza con los 2 pares vivos). El badge+diálogo con cruce
+   real no se pudo ver en navegador porque **ya no existe ningún cruce** en las 13
+   comunidades de la dev — el caso Marco (M0) era el único. Ese wiring queda cubierto por
+   los unit tests con el cruce fabricado.
+3. El test del dialog cazó un bug real en el componente nuevo: faltaba invalidar el
+   preview al cambiar de superviviente (el watch existe en el molde y no se copió).
+   Corregido antes de integrar.
 
 ## M2 — Badge de conteo
 

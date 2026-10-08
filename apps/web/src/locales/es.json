@@ -2717,7 +2717,8 @@
       "unenrolledTitle": "Asisten pero no se han inscrito al retiro",
       "unenrolledHint": "Miembros del padrón con al menos una asistencia a las reuniones de la comunidad (según los filtros de tipo y fechas) y sin inscripción activa en este retiro.",
       "unenrolledCount": "{count} candidatos",
-      "unenrolledEmpty": "Nadie: todos los miembros que han asistido ya tienen una inscripción activa en este retiro."
+      "unenrolledEmpty": "Nadie: todos los miembros que han asistido ya tienen una inscripción activa en este retiro.",
+      "duplicateHint": "Posible duplicado"
     },
     "convoke": {
       "action": "Convocar servidores",
@@ -2743,7 +2744,9 @@
       "merged": "Fichas fusionadas",
       "willMove": "Se moverán {count} registros a la ficha que se conserva.",
       "blocked": "No se puede fusionar todavía:",
-      "groupOf": "Grupo de {count} fichas: se fusionan de dos en dos"
+      "groupOf": "Grupo de {count} fichas: se fusionan de dos en dos",
+      "pairTitle": "Fusionar fichas duplicadas",
+      "pairDescription": "Elige cuál ficha se conserva; todo lo de la otra pasa a ella. Revisa qué se movería antes de fusionar."
     }
   },
   "dataDelete": {
