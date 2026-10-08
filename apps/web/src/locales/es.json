@@ -1043,7 +1043,8 @@
           "partial": "Parcial",
           "unpaid": "No pagado",
           "overpaid": "Sobrepagado",
-          "scholarship": "Becado"
+          "scholarship": "Becado",
+          "owing": "Con saldo pendiente"
         },
         "maritalStatus": {
           "single": "Soltero/a",
@@ -3351,7 +3352,8 @@
       "partial": "Parcial",
       "unpaid": "Sin pagar",
       "overpaid": "Sobrepagado",
-      "scholarship": "Beca"
+      "scholarship": "Beca",
+      "owing": "Con saldo pendiente"
     },
     "opened": "Abierto",
     "mine": "Mío",

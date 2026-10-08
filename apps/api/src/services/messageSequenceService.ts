@@ -951,7 +951,17 @@ export class MessageSequenceService {
 		if (!templateMessage.includes('{participant.paymentRemaining}')) return participant;
 		const hydrated = await AppDataSource.getRepository(Participant).findOne({
 			where: { id: participant.id },
-			relations: ['retreat', 'payments', 'debts', 'shirtSizes', 'shirtSizes.shirtType'],
+			// `sizePrices` incluida: totalShirtCharge da prioridad al sobreprecio
+			// por talla sobre el precio base del tipo. findAllParticipants también
+			// la carga; sin ella, el saldo de la plantilla diverge del de la app.
+			relations: [
+				'retreat',
+				'payments',
+				'debts',
+				'shirtSizes',
+				'shirtSizes.shirtType',
+				'shirtSizes.shirtType.sizePrices',
+			],
 		});
 		if (!hydrated) return participant;
 		await hydrateParticipantRetreatContext(hydrated, retreatId);

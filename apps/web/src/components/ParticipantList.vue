@@ -613,6 +613,12 @@ const filteredAndSortedParticipants = computed(() => {
                     return participantValue === null || participantValue === undefined || participantValue === '';
                 }
 
+                // 'owing' no es un estado del getter: es saldo pendiente > 0
+                // (unpaid + partial) — mismo criterio que el backend (#32).
+                if (key === 'paymentStatus' && value === 'owing') {
+                    return Number(p.paymentRemaining || 0) > 0;
+                }
+
                 // Handle text partial matching for city, parish, disabilitySupport
                 if (key === 'city' || key === 'parish' || key === 'disabilitySupport') {
                     const filterValue = String(value).toLowerCase();

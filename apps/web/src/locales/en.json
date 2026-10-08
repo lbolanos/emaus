@@ -988,7 +988,8 @@
           "partial": "Partial",
           "unpaid": "Unpaid",
           "overpaid": "Overpaid",
-          "scholarship": "Scholarship"
+          "scholarship": "Scholarship",
+          "owing": "Outstanding balance"
         },
         "maritalStatus": {
           "single": "Single",
@@ -3027,7 +3028,8 @@
       "partial": "Partial",
       "unpaid": "Unpaid",
       "overpaid": "Overpaid",
-      "scholarship": "Scholarship"
+      "scholarship": "Scholarship",
+      "owing": "Outstanding balance"
     },
     "opened": "Opened",
     "mine": "Mine",

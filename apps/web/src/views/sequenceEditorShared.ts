@@ -32,7 +32,8 @@ export const GLOBAL_AUDIENCES = ['all', 'walker', 'server', 'table_leaders', 're
 
 // Filtros disponibles para la condición de un paso (subconjunto de SegmentFilters).
 export const CONDITION_TYPES = ['walker', 'server', 'waiting', 'partial_server'] as const;
-export const CONDITION_PAYMENTS = ['paid', 'partial', 'unpaid', 'overpaid', 'scholarship'] as const;
+// 'owing' = saldo pendiente > 0 (unpaid + partial): "todos los que deban".
+export const CONDITION_PAYMENTS = ['paid', 'partial', 'unpaid', 'overpaid', 'scholarship', 'owing'] as const;
 export const CONDITION_ATTENDANCE = ['pending', 'confirmed', 'declined'] as const;
 
 // --------------------------------------------------------------------------
