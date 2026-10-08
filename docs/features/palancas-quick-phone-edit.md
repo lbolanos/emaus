@@ -33,7 +33,9 @@ Requiere permiso `participant:update`; sin él no se renderiza el ✏ (solo el n
   y mensajes que el registro público ([phone-validation-by-country.md](phone-validation-by-country.md)):
   tolera `+52`/`044` y separadores, y **canoniza al número nacional** antes de persistir.
 - **Payload cambios-only**: el request solo lleva los campos que cambiaron respecto de la
-  fila (el botón Guardar queda deshabilitado si no hay cambios).
+  fila (el botón Guardar queda deshabilitado si no hay cambios). La validación aplica
+  únicamente a esos campos: un valor legacy inválido que no se toca no bloquea corregir
+  otro (misma semántica que el server).
 - **Patch optimista**: la fila se actualiza al instante con los valores canónicos que
   devuelve el servidor; si el request falla, rollback + toast, y el popover queda abierto
   con lo tecleado para corregir.
@@ -49,6 +51,8 @@ que no valida teléfono y su preprocess `''→undefined` impide limpiar un campo
 - Permisos: `participant:update` + `requireRetreatAccess('retreatId', 'body')`.
 - Valida cada valor contra `retreat.house.country` (400 con mensaje que nombra el campo),
   canoniza con `toNationalPhone` y audita con allowlist propia de los 3 campos (DomainAudit).
+  Si el país de la casa (texto libre) no resuelve a ninguna regla, aplica un piso E.164
+  (6–15 dígitos) para no persistir un número absurdo con 200.
 - Respuesta angosta `{ id, cellPhone, emergencyContact1CellPhone, emergencyContact2CellPhone }`.
 
 ## Limitación conocida: mensajes ya encolados

@@ -6,6 +6,7 @@ import {
   createCoupleParticipantSchema,
   validateParticipantPhones,
   normalizeParticipantPhones,
+  resolveCountryToIso,
 } from "@repo/types";
 import { z } from "zod";
 import { authorizationService, ensureRetreatAccess } from "../middleware/authorization";
@@ -937,6 +938,22 @@ export const updateParticipantPhones = async (
       }
     }
     const retreat = await findRetreatById(retreatId);
+    // When the free-text house country resolves to no rule (e.g. "CDMX"),
+    // validateParticipantPhones only checks digits-only. This endpoint exists
+    // to FIX phones, so apply an E.164 floor (6–15 national digits) instead of
+    // persisting an absurd number with a 200.
+    if (!resolveCountryToIso(retreat?.house?.country)) {
+      for (const field of ["cellPhone", "emergencyContact1CellPhone", "emergencyContact2CellPhone"] as const) {
+        const value = phones[field];
+        if (value === undefined || String(value).trim() === "") continue;
+        const digits = String(value).replace(/\D/g, "");
+        if (digits.length < 6 || digits.length > 15) {
+          errors.push(
+            `${field}: phone must have 6-15 digits (the house country has no phone rule)`,
+          );
+        }
+      }
+    }
     const phoneErrors = validateParticipantPhones(
       phones,
       retreat?.house?.country,

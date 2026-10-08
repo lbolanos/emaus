@@ -463,3 +463,93 @@ describe('EditParticipantForm – quick phone editor wiring (palancas layout)', 
 		wrapper.unmount();
 	});
 });
+
+describe('EditParticipantForm – external patch while editing', () => {
+	afterEach(() => {
+		vi.clearAllMocks();
+	});
+
+	it('keeps unsaved edits when the same participant is patched externally (quick phone save)', async () => {
+		const participant = makeParticipant({
+			type: 'walker',
+			firstName: 'Ana',
+			cellPhone: '5511111111',
+		});
+		const wrapper = mountForm({
+			participant,
+			columnsToShow: ['firstName', 'cellPhone'],
+			columnsToEdit: ['firstName', 'cellPhone'],
+			allColumns: [
+				{ key: 'firstName', label: 'Nombre' },
+				{ key: 'cellPhone', label: 'Celular' },
+			],
+		});
+		await nextTick();
+
+		const inputWithValue = (value: string) =>
+			wrapper.findAll('input').find(
+				(i) => (i.element as HTMLInputElement).value === value,
+			)!;
+
+		// Unsaved edit in the form (only the name; the phone is untouched).
+		const firstName = inputWithValue('Ana');
+		await firstName.setValue('Ana María');
+
+		// The store patches the shared row with the canonical phone (same id).
+		await wrapper.setProps({
+			participant: { ...participant, cellPhone: '5500000000' },
+		});
+		await nextTick();
+
+		// The edit survived; the phone took the external canonical value.
+		expect((firstName.element as HTMLInputElement).value).toBe('Ana María');
+		expect(inputWithValue('5500000000')).toBeTruthy();
+		wrapper.unmount();
+	});
+
+	it('keeps the active tab when the same participant is patched externally', async () => {
+		const participant = makeParticipant({ type: 'walker', firstName: 'Ana' });
+		const wrapper = mountForm({
+			participant,
+			shirtTypes: MOCK_SHIRT_TYPES,
+			columnsToShow: ['firstName'],
+			columnsToEdit: ['firstName'],
+			allColumns: [{ key: 'firstName', label: 'Nombre' }],
+		});
+		await nextTick();
+
+		wrapper.vm.activeTab = 'camisetas';
+		await nextTick();
+
+		// Quick phone save on the same participant (same id, new cellPhone).
+		await wrapper.setProps({ participant: { ...participant, cellPhone: '5500000000' } });
+		await nextTick();
+
+		expect(wrapper.vm.activeTab).toBe('camisetas');
+		wrapper.unmount();
+	});
+
+	it('discards unsaved edits when the dialog switches to another participant', async () => {
+		const participant = makeParticipant({ type: 'walker', firstName: 'Ana' });
+		const wrapper = mountForm({
+			participant,
+			columnsToShow: ['firstName'],
+			columnsToEdit: ['firstName'],
+			allColumns: [{ key: 'firstName', label: 'Nombre' }],
+		});
+		await nextTick();
+
+		const firstName = wrapper.findAll('input').find(
+			(i) => (i.element as HTMLInputElement).value === 'Ana',
+		)!;
+		await firstName.setValue('Ana María');
+
+		await wrapper.setProps({
+			participant: makeParticipant({ id: 'p-2', firstName: 'Beto' }),
+		});
+		await nextTick();
+
+		expect((firstName.element as HTMLInputElement).value).toBe('Beto');
+		wrapper.unmount();
+	});
+});

@@ -1943,9 +1943,6 @@ const handleKeyboardShortcuts = (event: KeyboardEvent) => {
                                  the walker's cell and both emergency contacts in place. -->
                             <div v-else-if="colKey === 'cellPhone' && props.inlinePhoneEdit" class="flex items-center gap-1">
                                 {{ getCellContent(participant, colKey).value }}
-                                <span v-if="getCellContent(participant, colKey).hasBirthday" class="text-yellow-600" :title="$t('participants.birthdayDuringRetreat')">
-                                    🎂
-                                </span>
                                 <ParticipantQuickPhoneEditor
                                     :participant="participant"
                                     :country="retreatCountry"

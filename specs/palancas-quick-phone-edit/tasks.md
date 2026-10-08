@@ -152,6 +152,56 @@ milestone correspondiente.
    403 de la ruta (Jest M1) cubren el criterio por las dos capas. El plan ya contemplaba este
    fallback («si no hay cuenta menor en dev, cubrir con los unit tests y documentarlo»).
 
+### Fixes de code-review pre-merge (2026-10-08)
+
+Dos rondas: el review de cierre (10 hallazgos, 5 arreglos) y el `/code-review` sobre el
+branch completo (7 hallazgos, 3 arreglos). Verificación acumulada: vitest del área
+129/129 (8 tests nuevos), Jest phones 29/29 (2 nuevos), `tsc` api en el baseline 143 de
+master, `vue-tsc` 0, smoke e2e 17 aserciones verdes (3 corridas).
+
+Ronda 1 (review de cierre):
+
+1. Store: `filters.retreatId` ausente ya no es un no-op silencioso — throw + toast (el
+   editor cerraba el popover "como si" hubiera guardado).
+2. Store: el índice de fila se re-busca por id tras el `await` (un refetch a mitad de
+   petición escribía en la fila equivocada; el rollback igual).
+3. `EditParticipantForm`: un parche externo del MISMO participante (quick-save, edición
+   inline) ya no borra las ediciones sin guardar del diálogo — el watcher preserva los
+   campos sucios contra un snapshot de sincronización; participante distinto resetea.
+4. Controller: país de casa no resoluble (texto libre) aplica piso E.164 de 6–15 dígitos
+   en vez de aceptar cualquier cadena de dígitos con 200.
+5. `ParticipantList`: span 🎂 muerto fuera de la rama inline (`hasBirthday` solo se
+   computa para `birthDate`/`firstName`).
+
+Ronda 2 (`/code-review`):
+
+6. Editor: `validate()` solo valida los campos del payload (`changes`) — un valor legacy
+   inválido que no se toca ya no bloquea corregir otro campo; el cliente deja de ser más
+   estricto que el server (que solo valida lo enviado).
+7. `EditParticipantForm`: el reset de `activeTab` a 'datos' ocurre solo al cambiar de
+   participante; un quick-save del mismo participante ya no saca al usuario de la pestaña
+   que está leyendo (p. ej. camisetas).
+8. Editor: ref `panelEl` muerta eliminada (quedó del molde con panelShift, que no se
+   implementó).
+
+Descartados ronda 1: mensajes de validación en español del editor (decisión documentada
+M2, contrato del wizard público); audit row en PATCH sin campos (el editor nunca envía
+payload vacío — Guardar disabled); fallback `RETREAT_ID` de los scripts demo (convención
+del directorio); mock de canon del smoke (el contrato real lo cubren los Jest de M1).
+
+Descartados ronda 2: floor 6–15 global en `phone.ts` (superficie fuera del diff del
+feature, compartida con el registro público — deuda anotada); país `null` en el cliente →
+toast genérico en vez de error por campo (edge: retreat sin `house.country`; mejora UX
+post-merge); cast de `retreat.country` triplicado (refactor menor, no bug).
+
+Resuelto tras decisión de Leonardo («código en inglés», #7 de la ronda 2): todos los
+comentarios y descripciones de tests escritos para este feature fueron traducidos al inglés
+(regla global «lo nuevo va en inglés»). Quedan en español por diseño: strings de i18n,
+narración/carteles de los videos y salida ✅/❌ de los scripts demo (contenido legible, no
+código), y los comentarios españoles preexistentes de código ajeno (legacy: renombrarlos es
+un refactor aparte). Verificación tras la traducción: grep sin comentarios españoles
+residuales en los archivos del feature, vitest 129/129, Jest phones 29/29, `vue-tsc` 0.
+
 ## Cierre
 
 - [ ] Merge a `master` (tras visto bueno de Leonardo)

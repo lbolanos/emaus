@@ -1,15 +1,15 @@
 /**
- * Tests del service updateParticipantPhones — PATCH /participants/:id/phones
- * (edición rápida de teléfonos para Palancas, 2026-10-07).
+ * Tests for the updateParticipantPhones service — PATCH /participants/:id/phones
+ * (quick phone edit for Palancas, 2026-10-07).
  *
- * Cubre:
- *  - Canonización a número nacional (+52 / 044 / separadores) antes de persistir.
- *  - '' en emergencyContact2CellPhone persiste null (limpiar).
- *  - Campos ausentes no se tocan.
- *  - 404 si el participante no está en el retiro (scope por retreat).
- *  - Auditoría logUpdate con allowlist de los 3 campos y retreatId.
+ * Covers:
+ *  - Canonicalization to the national number (+52 / 044 / separators) before persisting.
+ *  - '' in emergencyContact2CellPhone persists null (clear).
+ *  - Absent fields are untouched.
+ *  - 404 when the participant is not in the retreat (per-retreat scope).
+ *  - logUpdate audit with the 3-field allowlist and the retreatId.
  *
- * Database-independent: mockea el repo/query builder.
+ * Database-independent: mocks the repo/query builder.
  */
 
 const mockRpFindOne = jest.fn();
@@ -19,9 +19,9 @@ const mockLogUpdate = jest.fn();
 
 jest.mock('../../data-source', () => ({
 	AppDataSource: {
-		// participantService crea participantRepository en module load con
-		// getRepository(Participant); updateParticipantPhones pide el de
-		// RetreatParticipant adentro de la función. Despacho por entidad.
+		// participantService creates participantRepository at module load via
+		// getRepository(Participant); updateParticipantPhones asks for the
+		// RetreatParticipant one inside the function. Dispatch by entity.
 		getRepository: jest.fn((entity: { name?: string }) =>
 			entity?.name === 'RetreatParticipant'
 				? { findOne: mockRpFindOne }
@@ -58,7 +58,7 @@ describe('updateParticipantPhones — service', () => {
 		mockParticipantSave.mockImplementation(async (p) => p);
 	});
 
-	it('canoniza +52 a número nacional antes de persistir y responde angosto', async () => {
+	it('canonicalizes +52 to the national number before persisting and answers narrow', async () => {
 		const result = await updateParticipantPhones(
 			PARTICIPANT_ID,
 			RETREAT_ID,
@@ -77,7 +77,7 @@ describe('updateParticipantPhones — service', () => {
 		});
 	});
 
-	it('canoniza el prefijo troncal legado 044 (MX)', async () => {
+	it('canonicalizes the legacy trunk prefix 044 (MX)', async () => {
 		await updateParticipantPhones(
 			PARTICIPANT_ID,
 			RETREAT_ID,
@@ -89,7 +89,7 @@ describe('updateParticipantPhones — service', () => {
 		expect(saved.emergencyContact1CellPhone).toBe('5598765432');
 	});
 
-	it("'' en emergencyContact2CellPhone persiste null (limpiar)", async () => {
+	it("'' in emergencyContact2CellPhone persists null (clear)", async () => {
 		mockParticipantFindOneBy.mockResolvedValue({
 			...makeParticipant(),
 			emergencyContact2CellPhone: '5522222222',
@@ -106,7 +106,7 @@ describe('updateParticipantPhones — service', () => {
 		expect(saved.emergencyContact2CellPhone).toBeNull();
 	});
 
-	it('los campos ausentes del payload no se tocan', async () => {
+	it('leaves payload fields that are absent untouched', async () => {
 		await updateParticipantPhones(
 			PARTICIPANT_ID,
 			RETREAT_ID,
@@ -119,7 +119,7 @@ describe('updateParticipantPhones — service', () => {
 		expect(saved.emergencyContact2CellPhone).toBeUndefined();
 	});
 
-	it('404 si el participante no está inscrito en el retiro', async () => {
+	it('404 when the participant is not enrolled in the retreat', async () => {
 		mockRpFindOne.mockResolvedValue(null);
 
 		await expect(
@@ -128,7 +128,7 @@ describe('updateParticipantPhones — service', () => {
 		expect(mockParticipantSave).not.toHaveBeenCalled();
 	});
 
-	it('audita el diff con allowlist de los 3 teléfonos y el retreatId', async () => {
+	it('audits the diff with the 3-phone allowlist and the retreatId', async () => {
 		await updateParticipantPhones(
 			PARTICIPANT_ID,
 			RETREAT_ID,

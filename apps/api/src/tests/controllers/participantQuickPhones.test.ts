@@ -1,20 +1,20 @@
 /**
- * Tests del PATCH /participants/:id/phones — edición rápida de teléfonos para
- * la vista Palancas (feature 2026-10-07).
+ * Tests for the PATCH /participants/:id/phones controller — quick phone edit
+ * for the Palancas view (2026-10-07 feature).
  *
  * Controller:
- *  - Valida contra el país de la CASA del retiro (resuelto por nombre, "México").
- *  - '' en cellPhone / emergencyContact1CellPhone → 400 (NOT NULL, críticos
- *    para las palancas). '' en EC2 pasa como "limpiar".
- *  - Sin retreatId → 400.
+ *  - Validates against the retreat HOUSE's country (resolved by name, "México").
+ *  - '' in cellPhone / emergencyContact1CellPhone → 400 (NOT NULL, critical
+ *    for the palancas flow). '' in EC2 passes through as "clear".
+ *  - No retreatId → 400.
  *
  * Service:
- *  - Canoniza a número nacional (+52 / 044 se recortan) antes de persistir.
- *  - '' en EC2 persiste null.
- *  - 404 si el participante no está en el retiro.
- *  - Auditoría logUpdate con allowlist de los 3 campos.
+ *  - Canonicalizes to the national number (+52 / 044 trimmed) before persisting.
+ *  - '' in EC2 persists null.
+ *  - 404 when the participant is not in the retreat.
+ *  - logUpdate audit with the 3-field allowlist.
  *
- * Database-independent: usa Jest mocks.
+ * Database-independent: Jest mocks.
  */
 
 const mockUpdatePhones = jest.fn();
@@ -62,7 +62,7 @@ describe('PATCH /participants/:id/phones — controller', () => {
 		});
 	});
 
-	it('400 sin retreatId en el body', async () => {
+	it('400 without retreatId in the body', async () => {
 		const req = createMockReq({ params: { id: PARTICIPANT_ID }, body: { cellPhone: '5512345678' } });
 		const res = createMockRes();
 
@@ -72,7 +72,7 @@ describe('PATCH /participants/:id/phones — controller', () => {
 		expect(mockUpdatePhones).not.toHaveBeenCalled();
 	});
 
-	it('400 con teléfono de longitud inválida (MX = 10 dígitos) y NO llama al service', async () => {
+	it('400 with a wrong-length phone (MX = 10 digits) and does NOT call the service', async () => {
 		const req = createMockReq({
 			params: { id: PARTICIPANT_ID },
 			body: { retreatId: RETREAT_ID, cellPhone: '123' },
@@ -86,7 +86,7 @@ describe('PATCH /participants/:id/phones — controller', () => {
 		expect(mockUpdatePhones).not.toHaveBeenCalled();
 	});
 
-	it('400 con letras en emergencyContact1CellPhone', async () => {
+	it('400 with letters in emergencyContact1CellPhone', async () => {
 		const req = createMockReq({
 			params: { id: PARTICIPANT_ID },
 			body: { retreatId: RETREAT_ID, emergencyContact1CellPhone: '55-ABC' },
@@ -100,7 +100,7 @@ describe('PATCH /participants/:id/phones — controller', () => {
 		expect(mockUpdatePhones).not.toHaveBeenCalled();
 	});
 
-	it("400 con '' en cellPhone (NOT NULL): no se puede vaciar", async () => {
+	it("400 with '' in cellPhone (NOT NULL): cannot be emptied", async () => {
 		const req = createMockReq({
 			params: { id: PARTICIPANT_ID },
 			body: { retreatId: RETREAT_ID, cellPhone: '' },
@@ -114,7 +114,7 @@ describe('PATCH /participants/:id/phones — controller', () => {
 		expect(mockUpdatePhones).not.toHaveBeenCalled();
 	});
 
-	it("400 con '' en emergencyContact1CellPhone (NOT NULL)", async () => {
+	it("400 with '' in emergencyContact1CellPhone (NOT NULL)", async () => {
 		const req = createMockReq({
 			params: { id: PARTICIPANT_ID },
 			body: { retreatId: RETREAT_ID, emergencyContact1CellPhone: '' },
@@ -128,7 +128,43 @@ describe('PATCH /participants/:id/phones — controller', () => {
 		expect(mockUpdatePhones).not.toHaveBeenCalled();
 	});
 
-	it("'' en emergencyContact2CellPhone (nullable) SÍ pasa al service como limpiar", async () => {
+	it('400 with an unresolvable house country and an absurdly short phone (6-15 digit floor)', async () => {
+		// house.country is free text: "CDMX" resolves to no country rule, so
+		// without this floor a 5-digit number would pass with a 200.
+		mockFindById.mockResolvedValue({ id: RETREAT_ID, house: { country: 'CDMX' } });
+		const req = createMockReq({
+			params: { id: PARTICIPANT_ID },
+			body: { retreatId: RETREAT_ID, cellPhone: '12345' },
+		});
+		const res = createMockRes();
+
+		await controllerHandler(req, res, mockNext);
+
+		expect(res.status).toHaveBeenCalledWith(400);
+		expect(getErrors(res).some((e) => /cellPhone:.*6-15/.test(e))).toBe(true);
+		expect(mockUpdatePhones).not.toHaveBeenCalled();
+	});
+
+	it('unresolvable house country: accepts 6-15 digits and passes the country as-is to the service', async () => {
+		mockFindById.mockResolvedValue({ id: RETREAT_ID, house: { country: 'CDMX' } });
+		const req = createMockReq({
+			params: { id: PARTICIPANT_ID },
+			body: { retreatId: RETREAT_ID, cellPhone: '5512345678' },
+		});
+		const res = createMockRes();
+
+		await controllerHandler(req, res, mockNext);
+
+		expect(res.status).not.toHaveBeenCalledWith(400);
+		expect(mockUpdatePhones).toHaveBeenCalledWith(
+			PARTICIPANT_ID,
+			RETREAT_ID,
+			expect.objectContaining({ cellPhone: '5512345678' }),
+			'CDMX',
+		);
+	});
+
+	it("'' in emergencyContact2CellPhone (nullable) DOES reach the service as a clear", async () => {
 		const req = createMockReq({
 			params: { id: PARTICIPANT_ID },
 			body: { retreatId: RETREAT_ID, emergencyContact2CellPhone: '' },
@@ -144,7 +180,7 @@ describe('PATCH /participants/:id/phones — controller', () => {
 		});
 	});
 
-	it('acepta separadores de formato y pasa el país de la casa al service', async () => {
+	it('accepts format separators and passes the house country to the service', async () => {
 		const req = createMockReq({
 			params: { id: PARTICIPANT_ID },
 			body: { retreatId: RETREAT_ID, cellPhone: '(55) 1234-5678' },
@@ -166,7 +202,7 @@ describe('PATCH /participants/:id/phones — controller', () => {
 		);
 	});
 
-	it('responde angosto: solo id + los 3 teléfonos', async () => {
+	it('answers narrow: only id + the 3 phones', async () => {
 		const req = createMockReq({
 			params: { id: PARTICIPANT_ID },
 			body: { retreatId: RETREAT_ID, cellPhone: '5512345678' },
@@ -183,7 +219,7 @@ describe('PATCH /participants/:id/phones — controller', () => {
 		});
 	});
 
-	it('propaga al error handler el 404 del service (participante fuera del retiro)', async () => {
+	it('propagates the service 404 to the error handler (participant outside the retreat)', async () => {
 		const notFound = new Error('Participant not found in retreat');
 		(notFound as Error & { status?: number }).status = 404;
 		mockUpdatePhones.mockRejectedValue(notFound);

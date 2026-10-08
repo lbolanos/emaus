@@ -9,15 +9,15 @@ import { useAuthPermissions } from '@/composables/useAuthPermissions';
 import type { QuickPhoneResult } from '@/services/api';
 
 /**
- * Edición rápida de los 3 teléfonos que usa el flujo de palancas (celular del
- * caminante + los dos de contactos de emergencia), para corregir en 2 clicks el
- * número de quien llenó el registro. Popover manual (molde
- * PreRetreatTaskAssignInline: el Popover de reka-ui no se exporta de @repo/ui).
+ * Quick edit of the 3 phones the palancas flow uses (walker's cell + both
+ * emergency-contact cells), to fix in 2 clicks the number of whoever filled
+ * the registration. Manual popover (PreRetreatTaskAssignInline mold: reka-ui's
+ * Popover is not exported from @repo/ui).
  *
- * El guardado va por participantStore.updateParticipantPhones (optimista +
- * rollback); al confirmar la fila ya quedó con los valores canónicos, así que
- * solo se emite `saved` para que la vista que lo hospeda refresque su copia
- * (p.ej. EditParticipantForm en M3).
+ * Saving goes through participantStore.updateParticipantPhones (optimistic +
+ * rollback); on success the row already holds the canonical values, so `saved`
+ * is only emitted for the hosting view to refresh its copy (e.g.
+ * EditParticipantForm in M3).
  */
 interface QuickPhoneParticipantLike {
   id: string;
@@ -39,13 +39,12 @@ const emit = defineEmits<{ saved: [result: QuickPhoneResult] }>();
 const { t } = useI18n();
 const participantStore = useParticipantStore();
 const { hasPermission } = useAuthPermissions();
-// Sin participant:update no se renderiza el lápiz (solo ven el número).
+// Without participant:update the pencil is not rendered (readers only see the number).
 const canEdit = computed(() => hasPermission('participant:update'));
 
 const open = ref(false);
 const saving = ref(false);
 const root = ref<HTMLElement | null>(null);
-const panelEl = ref<HTMLElement | null>(null);
 const firstInput = ref<HTMLInputElement | null>(null);
 // String refs inside v-for collect into an array; this function ref keeps the
 // element itself so focus() works.
@@ -55,7 +54,7 @@ const setFirstInput = (el: unknown) => {
 const cellPhone = ref('');
 const ec1Phone = ref('');
 const ec2Phone = ref('');
-// Errores por campo, calculados al intentar guardar (no en cada keystroke).
+// Per-field errors, computed on save (not on every keystroke).
 type PhoneFieldKey = 'cellPhone' | 'emergencyContact1CellPhone' | 'emergencyContact2CellPhone';
 const noErrors = (): Record<PhoneFieldKey, string> => ({
   cellPhone: '',
@@ -67,7 +66,7 @@ const errors = ref<Record<PhoneFieldKey, string>>(noErrors());
 function toggle() {
   open.value = !open.value;
   if (open.value) {
-    // Seed al abrir (no en mount): la fila puede haber cambiado desde afuera.
+    // Seed on open (not on mount): the row may have changed externally.
     cellPhone.value = props.participant.cellPhone ?? '';
     ec1Phone.value = props.participant.emergencyContact1CellPhone ?? '';
     ec2Phone.value = props.participant.emergencyContact2CellPhone ?? '';
@@ -101,7 +100,7 @@ const fields = computed(() => [
   },
 ]);
 
-/** Payload con SOLO los campos que cambian respecto de la fila. */
+/** Payload with ONLY the fields that changed relative to the row. */
 const changes = computed(() => {
   const payload: Record<string, string> = {};
   const current: Record<string, string> = {
@@ -123,10 +122,14 @@ const changes = computed(() => {
 function validate(): boolean {
   errors.value = noErrors();
   for (const field of fields.value) {
+    // Mirror the server: it only validates the fields the payload carries.
+    // An untouched value seeded from the row that fails today's country rule
+    // (legacy data) must not block saving a DIFFERENT field.
+    if (!(field.key in changes.value)) continue;
     const value = field.model.value.trim();
     if (value === '') {
-      // cellPhone y EC1 son NOT NULL y los usa el flujo de cartas: no se
-      // pueden vaciar. EC2 sí (se limpia).
+      // cellPhone and EC1 are NOT NULL and the letter flow uses them: they
+      // cannot be emptied. EC2 can (it clears).
       if (!field.clearable) {
         errors.value[field.key] = t('participants.quickPhones.requiredEmpty');
       }
@@ -135,8 +138,8 @@ function validate(): boolean {
     const message = phoneValidationMessage(validatePhoneForCountry(value, props.country));
     if (message) errors.value[field.key] = message;
   }
-  // errors siempre tiene las 3 claves (string vacío = sin error); lo que
-  // bloquea el guardado es algún mensaje no vacío.
+  // errors always holds the 3 keys (empty string = no error); what blocks
+  // saving is any non-empty message.
   return Object.values(errors.value).every((message) => message === '');
 }
 
@@ -149,12 +152,14 @@ async function save() {
   }
   saving.value = true;
   try {
+    // The store throws on any failure (missing retreat, API error), so
+    // reaching here means the row already holds the canonical values.
     const result = await participantStore.updateParticipantPhones(props.participant.id, changes.value);
-    if (result) emit('saved', result);
+    emit('saved', result);
     open.value = false;
   } catch {
-    // El store ya revirtió la fila y toast-eó el error; se deja el popover
-    // abierto con los valores ingresados para corregir.
+    // The store already rolled the row back and toasted the error; the popover
+    // stays open with the entered values for correction.
   } finally {
     saving.value = false;
   }
@@ -185,7 +190,6 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocMouseDown))
 
     <div
       v-if="open"
-      ref="panelEl"
       class="absolute left-0 top-full z-50 mt-1 w-72 max-w-[calc(100vw-1rem)] rounded-md border border-gray-200 bg-white p-3 text-left shadow-lg"
       @click.stop
     >

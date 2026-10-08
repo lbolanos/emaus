@@ -347,15 +347,24 @@ export const useParticipantStore = defineStore('participant', () => {
 		}
 	}
 
-	// Edición rápida de teléfonos (palancas): optimista con rollback; al
-	// confirmar, la fila queda con los valores canónicos que devolvió el
-	// servidor (número nacional, sin lada ni prefijos).
+	// Quick phone edit (palancas): optimistic with rollback; on success the
+	// row keeps the canonical values the server returned (national number,
+	// no area code or prefix).
 	async function updateParticipantPhones(
 		participantId: string,
 		phones: QuickPhonePatch,
-	): Promise<QuickPhoneResult | undefined> {
+	): Promise<QuickPhoneResult> {
 		const retreatId = filters.retreatId;
-		if (!retreatId) return;
+		if (!retreatId) {
+			// Fail loud: a silent return made the editor close its popover as
+			// if the save had succeeded.
+			toast({
+				title: 'Error',
+				description: 'No se pudo determinar el retiro activo para guardar los teléfonos.',
+				variant: 'destructive',
+			});
+			throw new Error('updateParticipantPhones: filters.retreatId is not set');
+		}
 		const idx = participants.value.findIndex((p) => p.id === participantId);
 		const prev =
 			idx >= 0
@@ -368,10 +377,15 @@ export const useParticipantStore = defineStore('participant', () => {
 		if (idx >= 0) Object.assign(participants.value[idx], phones);
 		try {
 			const result = await apiUpdateParticipantPhones(participantId, retreatId, phones);
-			if (idx >= 0) Object.assign(participants.value[idx], result);
+			// The list may have been refetched while the request was in flight;
+			// re-find the row so the canonical values (and the rollback below)
+			// land on the right participant, not on whatever now sits at `idx`.
+			const finalIdx = participants.value.findIndex((p) => p.id === participantId);
+			if (finalIdx >= 0) Object.assign(participants.value[finalIdx], result);
 			return result;
 		} catch (e) {
-			if (idx >= 0 && prev) Object.assign(participants.value[idx], prev);
+			const rollbackIdx = participants.value.findIndex((p) => p.id === participantId);
+			if (rollbackIdx >= 0 && prev) Object.assign(participants.value[rollbackIdx], prev);
 			toast({ title: 'Error', description: apiErrorMessage(e, 'No se pudieron guardar los teléfonos.'), variant: 'destructive' });
 			throw e;
 		}

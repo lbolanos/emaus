@@ -178,6 +178,29 @@ describe('ParticipantQuickPhoneEditor', () => {
 		expect(participantStore.updateParticipantPhones).not.toHaveBeenCalled();
 	});
 
+	it('lets an untouched legacy-invalid field through when saving another one', async () => {
+		participantStore.updateParticipantPhones.mockResolvedValue(CANONICAL_RESULT);
+		const w = await mountEditor({
+			participant: {
+				...PARTICIPANT,
+				// Legacy row value that fails today's MX rule. The user is only
+				// fixing EC2, so it must not block the save — the server only
+				// validates submitted fields.
+				emergencyContact1CellPhone: '5587',
+			},
+		});
+		await w.find('button[title="participants.quickPhones.edit"]').trigger('click');
+		await w.find('#qp-emergencyContact2CellPhone').setValue('5511112222');
+		await saveButton(w)!.trigger('click');
+		await flushPromises();
+
+		expect(w.text()).not.toContain('10 dígitos');
+		expect(participantStore.updateParticipantPhones).toHaveBeenCalledWith('p1', {
+			emergencyContact2CellPhone: '5511112222',
+		});
+		expect(w.emitted('saved')).toEqual([[CANONICAL_RESULT]]);
+	});
+
 	it('patches only the changed field and re-emits the canonical result', async () => {
 		participantStore.updateParticipantPhones.mockResolvedValue(CANONICAL_RESULT);
 		const w = await openPopover();

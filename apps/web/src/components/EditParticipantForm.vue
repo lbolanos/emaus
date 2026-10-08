@@ -32,6 +32,10 @@ const emit = defineEmits(['save', 'cancel', 'participant-patched']);
 const { toast } = useToast();
 const { t } = useI18n();
 const localParticipant = ref<any>({});
+// Last participant state synced into the form (formatted like the inputs).
+// The watcher diffs the form copy against it to tell user edits apart from
+// external patches, so a quick phone save never wipes unsaved form edits.
+const lastSyncedParticipant = ref<Record<string, any> | null>(null);
 const selectedTags = ref<Tag[]>([]);
 const showContactDetails = ref(false);
 const availabilityBlocks = ref<Array<{ id?: string; startTime: string; endTime: string }>>([]);
@@ -51,16 +55,16 @@ const participantRetreat = computed(() => {
   return retreatStore.retreats.find((r: any) => r.id === rid) ?? null;
 });
 
-// País de la casa del retiro del participante: valida los teléfonos del editor
-// rápido por país (GET /retreats manda la relation `house`, pero el tipo
-// Retreat solo declara houseId).
+// Country of the participant's retreat house: drives the quick editor's
+// per-country phone validation (GET /retreats ships the `house` relation, but
+// the Retreat type only declares houseId).
 const participantCountry = computed<string | null>(
   () => (participantRetreat.value as any)?.house?.country ?? null,
 );
 
-// El mini-editor ya actualizó la fila del store; se re-emite para que la vista
-// que hospeda el diálogo sincronice su copia (participantToEdit) con la
-// respuesta canónica del servidor.
+// The mini-editor already updated the store row; re-emit so the view hosting
+// the dialog syncs its copy (participantToEdit) with the server's canonical
+// response.
 const onQuickPhonesSaved = (result: unknown) => emit('participant-patched', result);
 
 async function loadAvailability() {
@@ -282,8 +286,21 @@ watch(() => props.participant, (newVal) => {
 
   if (!newVal) {
     localParticipant.value = {};
+    lastSyncedParticipant.value = null;
     return;
   }
+
+  // Fields the user edited but hasn't saved: an external patch of the SAME
+  // participant (quick phone save, inline table edit) must not wipe them.
+  // Keep diverging values over the incoming ones; a different participant
+  // resets the form wholesale.
+  const sameParticipant =
+    (newVal.id ?? null) === (lastSyncedParticipant.value?.id ?? null);
+  const dirtyKeys = sameParticipant
+    ? Object.keys(localParticipant.value ?? {}).filter(
+        (key) => localParticipant.value[key] !== lastSyncedParticipant.value?.[key],
+      )
+    : [];
 
   // Create a copy and format dates properly
   const formattedData = { ...newVal };
@@ -295,6 +312,8 @@ watch(() => props.participant, (newVal) => {
     }
   });
 
+  lastSyncedParticipant.value = { ...formattedData };
+  for (const key of dirtyKeys) formattedData[key] = localParticipant.value[key];
   localParticipant.value = formattedData;
 
   // Inicializar tallas de playera desde participant_shirt_size (si vienen en el participante)
@@ -304,7 +323,10 @@ watch(() => props.participant, (newVal) => {
     sizesMap[s.shirtTypeId] = s.size;
   }
   shirtSizesByType.value = sizesMap;
-  activeTab.value = 'datos';
+  // Only a DIFFERENT participant resets the tab: an external patch of the
+  // same one (quick phone save) must not yank the user off the tab they are
+  // reading (e.g. camisetas).
+  if (!sameParticipant) activeTab.value = 'datos';
 
   // Load tags for the participant
   loadParticipantTags();
