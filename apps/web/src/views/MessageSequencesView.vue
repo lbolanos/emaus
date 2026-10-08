@@ -31,6 +31,7 @@ import {
 	audienceMatches,
 	pickTemplateForAudience,
 	templatesForStepAudience,
+	orderTemplatesByEnginePreference,
 	hasCondition,
 	conditionToFilters,
 	filtersToCondition,
@@ -66,8 +67,13 @@ const {
 const { templates } = storeToRefs(templateStore);
 
 // Plantillas relevantes para una secuencia: del retiro, excluyendo system (SYS_).
+// Ordenadas con la preferencia del motor (predeterminada del tipo primero):
+// addStep y pickTemplateForAudience toman la primera de esta lista, y así
+// preseleccionan la misma plantilla que el motor resolvería por fallback.
 const usableTemplates = computed(() =>
-	(templates.value || []).filter((tpl: any) => !String(tpl.type || '').startsWith('SYS_')),
+	orderTemplatesByEnginePreference(
+		(templates.value || []).filter((tpl: any) => !String(tpl.type || '').startsWith('SYS_')),
+	),
 );
 
 // Participante de ejemplo para el preview del mensaje (el primero del retiro).
@@ -1536,76 +1542,81 @@ async function toggleDoNotContact() {
 		</div>
 
 		<!-- Tabs: Secuencias / Programados / Bandeja WhatsApp / Problemas -->
-		<div
-			class="flex items-stretch border-b overflow-x-auto"
-			role="tablist"
-			:aria-label="t('sequences.title')"
-			@keydown="onTablistKeydown"
-		>
-			<button
-				type="button"
-				role="tab"
-				id="seq-tab-sequences"
-				:aria-selected="activeTab === 'sequences'"
-				aria-controls="seq-panel-sequences"
-				:aria-label="t('sequences.tabSequences')"
-				:title="t('sequences.tabSequences')"
-				class="shrink-0 justify-start px-3 py-2 text-sm font-medium border-b-2 -mb-px flex items-center gap-1.5 whitespace-nowrap"
-				:class="activeTab === 'sequences' ? 'border-purple-500 text-purple-700' : 'border-transparent text-gray-500 hover:text-gray-700'"
-				@click="switchTab('sequences')"
+		<div class="border-b">
+			<!-- `-mb-px` lives on the scroll container, not on the tabs: a child with a negative
+			     bottom margin inside `overflow-x-auto` overflows 1px vertically, and browsers with
+			     always-visible scrollbars render a vertical scrollbar on the tab row. -->
+			<div
+				class="flex items-stretch overflow-x-auto -mb-px"
+				role="tablist"
+				:aria-label="t('sequences.title')"
+				@keydown="onTablistKeydown"
 			>
-				<Send class="w-4 h-4" />
-				<span class="hidden sm:inline">{{ t('sequences.tabSequences') }}</span>
-				<span class="text-xs bg-purple-100 text-purple-700 rounded-full px-1.5">{{ sequences.length }}</span>
-			</button>
-			<button
-				type="button"
-				role="tab"
-				id="seq-tab-scheduled"
-				:aria-selected="activeTab === 'scheduled'"
-				aria-controls="seq-panel-scheduled"
-				:aria-label="t('sequences.tabScheduled')"
-				:title="t('sequences.tabScheduled')"
-				class="shrink-0 justify-start px-3 py-2 text-sm font-medium border-b-2 -mb-px flex items-center gap-1.5 whitespace-nowrap"
-				:class="activeTab === 'scheduled' ? 'border-blue-500 text-blue-700' : 'border-transparent text-gray-500 hover:text-gray-700'"
-				@click="switchTab('scheduled')"
-			>
-				<CalendarDays class="w-4 h-4" />
-				<span class="hidden sm:inline">{{ t('sequences.tabScheduled') }}</span>
-				<span class="text-xs bg-blue-100 text-blue-700 rounded-full px-1.5">{{ scheduledTabCount }}</span>
-			</button>
-			<button
-				type="button"
-				role="tab"
-				id="seq-tab-pending"
-				:aria-selected="activeTab === 'pending'"
-				aria-controls="seq-panel-pending"
-				:aria-label="t('sequences.tabPending')"
-				:title="t('sequences.tabPending')"
-				class="shrink-0 justify-start px-3 py-2 text-sm font-medium border-b-2 -mb-px flex items-center gap-1.5 whitespace-nowrap"
-				:class="activeTab === 'pending' ? 'border-amber-500 text-amber-700' : 'border-transparent text-gray-500 hover:text-gray-700'"
-				@click="switchTab('pending')"
-			>
-				<MessageCircle class="w-4 h-4" />
-				<span class="hidden sm:inline">{{ t('sequences.tabPending') }}</span>
-				<span class="text-xs bg-amber-100 text-amber-700 rounded-full px-1.5">{{ activeQueueCount }}</span>
-			</button>
-			<button
-				type="button"
-				role="tab"
-				id="seq-tab-issues"
-				:aria-selected="activeTab === 'issues'"
-				aria-controls="seq-panel-issues"
-				:aria-label="t('sequences.tabIssues')"
-				:title="t('sequences.tabIssues')"
-				class="shrink-0 justify-start px-3 py-2 text-sm font-medium border-b-2 -mb-px flex items-center gap-1.5 whitespace-nowrap"
-				:class="activeTab === 'issues' ? 'border-red-500 text-red-700' : 'border-transparent text-gray-500 hover:text-gray-700'"
-				@click="switchTab('issues')"
-			>
-				<AlertTriangle class="w-4 h-4" />
-				<span class="hidden sm:inline">{{ t('sequences.tabIssues') }}</span>
-				<span v-if="issuesTotal" class="text-xs bg-red-100 text-red-700 rounded-full px-1.5">{{ issuesTotal }}</span>
-			</button>
+				<button
+					type="button"
+					role="tab"
+					id="seq-tab-sequences"
+					:aria-selected="activeTab === 'sequences'"
+					aria-controls="seq-panel-sequences"
+					:aria-label="t('sequences.tabSequences')"
+					:title="t('sequences.tabSequences')"
+					class="shrink-0 justify-start px-3 py-2 text-sm font-medium border-b-2 flex items-center gap-1.5 whitespace-nowrap"
+					:class="activeTab === 'sequences' ? 'border-purple-500 text-purple-700' : 'border-transparent text-gray-500 hover:text-gray-700'"
+					@click="switchTab('sequences')"
+				>
+					<Send class="w-4 h-4" />
+					<span class="hidden sm:inline">{{ t('sequences.tabSequences') }}</span>
+					<span class="text-xs bg-purple-100 text-purple-700 rounded-full px-1.5">{{ sequences.length }}</span>
+				</button>
+				<button
+					type="button"
+					role="tab"
+					id="seq-tab-scheduled"
+					:aria-selected="activeTab === 'scheduled'"
+					aria-controls="seq-panel-scheduled"
+					:aria-label="t('sequences.tabScheduled')"
+					:title="t('sequences.tabScheduled')"
+					class="shrink-0 justify-start px-3 py-2 text-sm font-medium border-b-2 flex items-center gap-1.5 whitespace-nowrap"
+					:class="activeTab === 'scheduled' ? 'border-blue-500 text-blue-700' : 'border-transparent text-gray-500 hover:text-gray-700'"
+					@click="switchTab('scheduled')"
+				>
+					<CalendarDays class="w-4 h-4" />
+					<span class="hidden sm:inline">{{ t('sequences.tabScheduled') }}</span>
+					<span class="text-xs bg-blue-100 text-blue-700 rounded-full px-1.5">{{ scheduledTabCount }}</span>
+				</button>
+				<button
+					type="button"
+					role="tab"
+					id="seq-tab-pending"
+					:aria-selected="activeTab === 'pending'"
+					aria-controls="seq-panel-pending"
+					:aria-label="t('sequences.tabPending')"
+					:title="t('sequences.tabPending')"
+					class="shrink-0 justify-start px-3 py-2 text-sm font-medium border-b-2 flex items-center gap-1.5 whitespace-nowrap"
+					:class="activeTab === 'pending' ? 'border-amber-500 text-amber-700' : 'border-transparent text-gray-500 hover:text-gray-700'"
+					@click="switchTab('pending')"
+				>
+					<MessageCircle class="w-4 h-4" />
+					<span class="hidden sm:inline">{{ t('sequences.tabPending') }}</span>
+					<span class="text-xs bg-amber-100 text-amber-700 rounded-full px-1.5">{{ activeQueueCount }}</span>
+				</button>
+				<button
+					type="button"
+					role="tab"
+					id="seq-tab-issues"
+					:aria-selected="activeTab === 'issues'"
+					aria-controls="seq-panel-issues"
+					:aria-label="t('sequences.tabIssues')"
+					:title="t('sequences.tabIssues')"
+					class="shrink-0 justify-start px-3 py-2 text-sm font-medium border-b-2 flex items-center gap-1.5 whitespace-nowrap"
+					:class="activeTab === 'issues' ? 'border-red-500 text-red-700' : 'border-transparent text-gray-500 hover:text-gray-700'"
+					@click="switchTab('issues')"
+				>
+					<AlertTriangle class="w-4 h-4" />
+					<span class="hidden sm:inline">{{ t('sequences.tabIssues') }}</span>
+					<span v-if="issuesTotal" class="text-xs bg-red-100 text-red-700 rounded-full px-1.5">{{ issuesTotal }}</span>
+				</button>
+			</div>
 		</div>
 
 		<!-- Tab: Secuencias -->
@@ -2484,7 +2495,13 @@ async function toggleDoNotContact() {
 										<option v-if="!step.templateId" :value="null" disabled>
 											{{ t('sequences.templateByType') }} ({{ step.templateType }})
 										</option>
-										<option v-for="tpl in templatesForStep(step)" :key="tpl.id" :value="tpl.id">{{ tpl.name }}</option>
+										<!-- El sufijo distingue la predeterminada cuando hay varias
+										     plantillas del mismo tipo: sin él, dos opciones del mismo
+										     tipo son solo dos nombres y es fácil fijar la que no se
+										     quiere (incidente "Recoda Pago Servidor"). -->
+										<option v-for="tpl in templatesForStep(step)" :key="tpl.id" :value="tpl.id">
+											{{ tpl.isDefault ? `${tpl.name} · ${t('sequences.defaultTemplateTag')}` : tpl.name }}
+										</option>
 									</select>
 									<!-- M3: sin plantilla fija y con 2+ del mismo tipo, el motor
 									     enviaría la más antigua — avisar para fijar una explícita. -->

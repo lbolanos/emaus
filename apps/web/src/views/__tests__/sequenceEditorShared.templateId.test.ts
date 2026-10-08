@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { templatesForStepAudience, StepDraft } from '../sequenceEditorShared';
+import {
+	templatesForStepAudience,
+	orderTemplatesByEnginePreference,
+	StepDraft,
+} from '../sequenceEditorShared';
 
 /**
  * M3: la plantilla de un paso se selecciona por `templateId` (permite varias
@@ -85,6 +89,36 @@ describe('templatesForStepAudience — M3 selección por templateId', () => {
 		);
 
 		expect(shown.map((t: any) => t.id)).toEqual(['tpl-shirt', 'tpl-general']);
+	});
+});
+
+describe('orderTemplatesByEnginePreference — mismo orden que el motor', () => {
+	it('la predeterminada del tipo gana sobre la más antigua (incidente "Recoda Pago Servidor")', () => {
+		// Orden de inserción: la plantilla vieja (julio) llega primero; la
+		// predeterminada se creó después (octubre). El editor debe ofrecer la
+		// predeterminada primero — igual que el fallback del motor.
+		const oldPayment = { id: 'tpl-old', isDefault: false, createdAt: '2026-07-16T00:45:44Z' };
+		const defaultPayment = { id: 'tpl-default', isDefault: true, createdAt: '2026-10-07T16:55:58Z' };
+
+		const ordered = orderTemplatesByEnginePreference([oldPayment, defaultPayment]);
+
+		expect(ordered.map((t) => t.id)).toEqual(['tpl-default', 'tpl-old']);
+	});
+
+	it('entre predeterminadas/iguales desempata createdAt ASC', () => {
+		const a = { id: 'a', isDefault: false, createdAt: '2026-05-01T00:00:00Z' };
+		const b = { id: 'b', isDefault: false, createdAt: '2026-04-01T00:00:00Z' };
+
+		expect(orderTemplatesByEnginePreference([a, b]).map((t) => t.id)).toEqual(['b', 'a']);
+	});
+
+	it('no muta la lista original y tolera isDefault/createdAt ausentes', () => {
+		const original = [{ id: 'x' }, { id: 'y' }];
+		const ordered = orderTemplatesByEnginePreference(original);
+
+		expect(ordered).not.toBe(original);
+		expect(original.map((t) => t.id)).toEqual(['x', 'y']);
+		expect(ordered.map((t) => t.id)).toEqual(['x', 'y']);
 	});
 });
 
