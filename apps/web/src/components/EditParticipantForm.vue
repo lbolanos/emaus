@@ -40,6 +40,12 @@ const selectedTags = ref<Tag[]>([]);
 const showContactDetails = ref(false);
 const availabilityBlocks = ref<Array<{ id?: string; startTime: string; endTime: string }>>([]);
 const shirtSizesByType = ref<Record<string, string>>({});
+// Sync snapshot of the shirt sizes the participant row carried at the last
+// watcher fire — same pattern as lastSyncedParticipant: a size the user picked
+// but hasn't saved lives ONLY in shirtSizesByType (outside localParticipant),
+// so it must survive an external patch of the SAME participant (each quick
+// phone save fires the watcher twice: optimistic + canonical).
+const lastSyncedSizes = ref<Record<string, string>>({});
 const activeTab = ref<'datos' | 'camisetas'>('datos');
 
 const selectedShirtCount = computed(() =>
@@ -316,13 +322,25 @@ watch(() => props.participant, (newVal) => {
   for (const key of dirtyKeys) formattedData[key] = localParticipant.value[key];
   localParticipant.value = formattedData;
 
-  // Inicializar tallas de playera desde participant_shirt_size (si vienen en el participante)
+  // Seed shirt sizes from participant_shirt_size (when the row carries them),
+  // preserving the dirty ones: the Camisetas tab edits live only in
+  // shirtSizesByType, so rebuilding wholesale on an external patch of the same
+  // participant would silently revert an unsaved pick right before Guardar.
   const sizesMap: Record<string, string> = {};
   const existingSizes: Array<{ shirtTypeId: string; size: string }> = newVal?.shirtSizes ?? [];
   for (const s of existingSizes) {
     sizesMap[s.shirtTypeId] = s.size;
   }
+  const sizeOf = (m: Record<string, string>, k: string) => m[k] ?? 'null';
+  const dirtySizes = sameParticipant
+    ? Object.keys(shirtSizesByType.value).filter(
+        (k) => sizeOf(shirtSizesByType.value, k) !== sizeOf(lastSyncedSizes.value, k),
+      )
+    : [];
+  const prevSizes = shirtSizesByType.value;
+  lastSyncedSizes.value = { ...sizesMap };
   shirtSizesByType.value = sizesMap;
+  for (const k of dirtySizes) shirtSizesByType.value[k] = prevSizes[k];
   // Only a DIFFERENT participant resets the tab: an external patch of the
   // same one (quick phone save) must not yank the user off the tab they are
   // reading (e.g. camisetas).

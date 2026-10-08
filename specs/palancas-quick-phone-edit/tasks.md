@@ -154,10 +154,12 @@ milestone correspondiente.
 
 ### Fixes de code-review pre-merge (2026-10-08)
 
-Dos rondas: el review de cierre (10 hallazgos, 5 arreglos) y el `/code-review` sobre el
-branch completo (7 hallazgos, 3 arreglos). Verificación acumulada: vitest del área
-129/129 (8 tests nuevos), Jest phones 29/29 (2 nuevos), `tsc` api en el baseline 143 de
-master, `vue-tsc` 0, smoke e2e 17 aserciones verdes (3 corridas).
+Tres rondas: el review de cierre (10 hallazgos, 5 arreglos), el `/code-review` sobre el
+branch completo (7 hallazgos, 3 arreglos) y una segunda pasada de `/code-review` (8
+hallazgos, 6 arreglos). Verificación acumulada tras la ronda 3: vitest del área 150/150
+(12 tests nuevos), Jest phones 28/28 (2 nuevos; 1 removido con el check muerto de
+retreatId), `tsc` api en el baseline 143 de master, `vue-tsc` 0, smoke e2e 17 aserciones
+verdes (3 corridas).
 
 Ronda 1 (review de cierre):
 
@@ -183,6 +185,33 @@ Ronda 2 (`/code-review`):
    que está leyendo (p. ej. camisetas).
 8. Editor: ref `panelEl` muerta eliminada (quedó del molde con panelShift, que no se
    implementó).
+
+Ronda 3 (segunda pasada de `/code-review`, 2026-10-08):
+
+9. **Bypass del PUT en el diálogo**: `formColumnsToEdit` une las columnas visibles de la
+   tabla, así que `cellPhone` (columna nueva de M2) aparecía en el diálogo como input
+   genérico editable que guardaba por el `PUT` sin validar. Prop nueva
+   `columnsExcludedFromFormEdit` (default `[]`, otras vistas intactas); `PalancasView`
+   excluye `cellPhone`.
+10. Toast 400 opaco: `firstZod` de `apiError.ts` ahora devuelve verbatim las entradas
+    string plano — el 400 del PATCH trae el detalle por campo como strings y el toast lo
+    colapsaba a "Validation failed".
+11. Piso 6–15 en el cliente: el editor aplica el piso E.164 cuando el país no resuelve
+    (espejo del fix 4 de la ronda 1) — antes la basura digitada con país no resoluble
+    pasaba el cliente y rebotaba con un 400 opaco.
+12. Tallas sin guardar: un parche externo del MISMO participante ya no revierte el pick
+    de la pestaña Camisetas (vive solo en `shirtSizesByType`, fuera de `dirtyKeys`;
+    snapshot `lastSyncedSizes`/`dirtySizes` con el mismo molde). Participante distinto
+    resetea como siempre.
+13. Contrato duplicado: `QuickPhoneResult` vive en `@repo/types`; `api.ts` aliasea
+    `QuickPhonePatch = QuickPhoneFields` en vez de re-declarar ambos.
+14. Controller: check manual de `retreatId` muerto eliminado — el schema de la ruta ya lo
+    exige (`participantPhones.routes.simple.test.ts:176`); su test se fue con él.
+
+Descartados ronda 3: doble guardado concurrente del mismo participante (carrera teórica
+de dos pestañas; el flujo es humano y uno-a-uno); `findById` con 3 relations por PATCH
+(joins locales de SQLite baratos en un flow de edición individual; optimización post-merge
+si aparece edición en lote).
 
 Descartados ronda 1: mensajes de validación en español del editor (decisión documentada
 M2, contrato del wizard público); audit row en PATCH sin campos (el editor nunca envía

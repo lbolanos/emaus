@@ -22,6 +22,18 @@ describe('apiErrorMessage', () => {
     expect(apiErrorMessage(err)).toBe('Validation error: attachments.0.storageUrl Required');
   });
 
+  it('uses a plain-string error entry as the detail', () => {
+    const err = {
+      response: {
+        data: {
+          message: 'Validation failed',
+          errors: ['cellPhone: El teléfono debe tener 10 dígitos'],
+        },
+      },
+    };
+    expect(apiErrorMessage(err)).toBe('Validation failed: cellPhone: El teléfono debe tener 10 dígitos');
+  });
+
   it('maneja el array Zod CRUDO en data (sin message)', () => {
     const err = {
       response: { data: [{ path: ['body', 'endTime'], message: 'Required' }] },

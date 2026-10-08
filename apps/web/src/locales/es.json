@@ -853,7 +853,8 @@
       "cellPhone": "Celular del caminante",
       "emergencyContact1": "Celular de emergencia 1",
       "emergencyContact2": "Celular de emergencia 2",
-      "requiredEmpty": "Este teléfono no puede quedar vacío."
+      "requiredEmpty": "Este teléfono no puede quedar vacío.",
+      "invalidFloor": "Debe tener entre 6 y 15 dígitos."
     },
     "addWalker": "Agregar Caminante",
     "name": "Nombre",

@@ -529,6 +529,34 @@ describe('EditParticipantForm – external patch while editing', () => {
 		wrapper.unmount();
 	});
 
+	it('keeps an unsaved shirt size when the same participant is patched externally', async () => {
+		const participant = makeParticipant({ type: 'walker', firstName: 'Ana' });
+		const wrapper = mountForm({
+			participant,
+			shirtTypes: MOCK_SHIRT_TYPES,
+			columnsToShow: ['firstName'],
+			columnsToEdit: ['firstName'],
+			allColumns: [{ key: 'firstName', label: 'Nombre' }],
+		});
+		await nextTick();
+
+		// Unsaved pick on the Camisetas tab: it lives only in
+		// shirtSizesByType (outside localParticipant / dirtyKeys).
+		wrapper.vm.shirtSizesByType['type-blanca'] = 'M';
+		await nextTick();
+
+		// Quick phone save fires the watcher (same id, new cellPhone).
+		await wrapper.setProps({ participant: { ...participant, cellPhone: '5500000000' } });
+		await nextTick();
+		expect(wrapper.vm.shirtSizesByType['type-blanca']).toBe('M');
+
+		// A DIFFERENT participant resets the sizes wholesale.
+		await wrapper.setProps({ participant: makeParticipant({ id: 'p-2', firstName: 'Luis' }) });
+		await nextTick();
+		expect(wrapper.vm.shirtSizesByType['type-blanca']).toBeUndefined();
+		wrapper.unmount();
+	});
+
 	it('discards unsaved edits when the dialog switches to another participant', async () => {
 		const participant = makeParticipant({ type: 'walker', firstName: 'Ana' });
 		const wrapper = mountForm({

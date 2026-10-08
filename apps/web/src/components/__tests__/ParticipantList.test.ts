@@ -440,6 +440,43 @@ describe('ParticipantList Component', () => {
 
 			newWrapper.unmount();
 		});
+
+		it('excludes columnsExcludedFromFormEdit from the dialog edit list', async () => {
+			// createTestWrapper discards props (see the M3 wiring tests): mount
+			// directly so the column props actually reach the component.
+			const pinia = createPinia();
+			setActivePinia(pinia);
+			const newWrapper = mount(ParticipantList, {
+				props: {
+					type: 'walker',
+					columnsToShowInTable: ['firstName', 'cellPhone', 'palancasNotes'],
+					columnsToEditInForm: ['palancasNotes'],
+					columnsExcludedFromFormEdit: ['cellPhone'],
+				},
+				global: {
+					plugins: [pinia],
+					stubs: { 'router-link': true, 'router-view': true, teleport: true },
+					mocks: {
+						$t: (key: string) => key,
+						$router: { push: vi.fn() },
+						$route: { name: 'palancas', params: {}, query: {} },
+					},
+				},
+			});
+			await flushPromises();
+			await nextTick();
+
+			const editColumns = newWrapper.vm.formColumnsToEdit as string[];
+			// Visible table columns still union into the dialog edit list…
+			expect(editColumns).toContain('firstName');
+			expect(editColumns).toContain('palancasNotes');
+			// …except the ones the caller excluded: cellPhone in Palancas is
+			// owned by the quick editor (per-country validation); the generic
+			// dialog input would save through the unvalidated PUT.
+			expect(editColumns).not.toContain('cellPhone');
+
+			newWrapper.unmount();
+		});
 	});
 
 	describe('Search Functionality', () => {

@@ -798,7 +798,8 @@
       "cellPhone": "Walker's cell phone",
       "emergencyContact1": "Emergency contact 1 cell phone",
       "emergencyContact2": "Emergency contact 2 cell phone",
-      "requiredEmpty": "This phone number cannot be empty."
+      "requiredEmpty": "This phone number cannot be empty.",
+      "invalidFloor": "Must have between 6 and 15 digits."
     },
     "addWalker": "Add Walker",
     "name": "Name",

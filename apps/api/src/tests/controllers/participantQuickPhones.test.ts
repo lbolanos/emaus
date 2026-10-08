@@ -6,7 +6,8 @@
  *  - Validates against the retreat HOUSE's country (resolved by name, "México").
  *  - '' in cellPhone / emergencyContact1CellPhone → 400 (NOT NULL, critical
  *    for the palancas flow). '' in EC2 passes through as "clear".
- *  - No retreatId → 400.
+ *  - retreatId is required by updateParticipantPhonesSchema at the route layer
+ *    (see participantPhones.routes.simple.test.ts) — not re-checked here.
  *
  * Service:
  *  - Canonicalizes to the national number (+52 / 044 trimmed) before persisting.
@@ -60,16 +61,6 @@ describe('PATCH /participants/:id/phones — controller', () => {
 			emergencyContact1CellPhone: '5598765432',
 			emergencyContact2CellPhone: null,
 		});
-	});
-
-	it('400 without retreatId in the body', async () => {
-		const req = createMockReq({ params: { id: PARTICIPANT_ID }, body: { cellPhone: '5512345678' } });
-		const res = createMockRes();
-
-		await controllerHandler(req, res, mockNext);
-
-		expect(res.status).toHaveBeenCalledWith(400);
-		expect(mockUpdatePhones).not.toHaveBeenCalled();
 	});
 
 	it('400 with a wrong-length phone (MX = 10 digits) and does NOT call the service', async () => {

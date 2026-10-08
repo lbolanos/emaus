@@ -178,6 +178,26 @@ describe('ParticipantQuickPhoneEditor', () => {
 		expect(participantStore.updateParticipantPhones).not.toHaveBeenCalled();
 	});
 
+	it('applies the 6-15 digit floor when the country is unresolvable (mirrors the server)', async () => {
+		participantStore.updateParticipantPhones.mockResolvedValue(CANONICAL_RESULT);
+		const w = mountEditor({ country: null });
+		await w.find('button[title="participants.quickPhones.edit"]').trigger('click');
+
+		await w.find('#qp-cellPhone').setValue('123');
+		await saveButton(w)!.trigger('click');
+		// Unresolvable country (retreat not loaded / free-text country): the
+		// shared validator only checks digits, so the editor mirrors the
+		// server's E.164 floor instead of letting garbage reach the API.
+		expect(w.text()).toContain('participants.quickPhones.invalidFloor');
+		expect(participantStore.updateParticipantPhones).not.toHaveBeenCalled();
+
+		// 7 digits pass the floor and reach the store.
+		await w.find('#qp-cellPhone').setValue('5500123');
+		await saveButton(w)!.trigger('click');
+		await flushPromises();
+		expect(participantStore.updateParticipantPhones).toHaveBeenCalledWith('p1', { cellPhone: '5500123' });
+	});
+
 	it('lets an untouched legacy-invalid field through when saving another one', async () => {
 		participantStore.updateParticipantPhones.mockResolvedValue(CANONICAL_RESULT);
 		const w = await mountEditor({

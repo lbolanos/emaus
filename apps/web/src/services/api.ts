@@ -3082,19 +3082,13 @@ export async function setAttendanceConfirmation(
 }
 
 // Quick phone edit (palancas): only the changed fields travel; the server
-// validates against the retreat house's country and canonicalizes.
-export interface QuickPhonePatch {
-  cellPhone?: string;
-  emergencyContact1CellPhone?: string;
-  emergencyContact2CellPhone?: string;
-}
+// validates against the retreat house's country and canonicalizes. The
+// contract lives in @repo/types (quickPhoneFieldsSchema) — one source of truth
+// for the payload and the narrow response.
+import type { QuickPhoneFields, QuickPhoneResult as QuickPhoneResultType } from '@repo/types';
 
-export interface QuickPhoneResult {
-  id: string;
-  cellPhone: string;
-  emergencyContact1CellPhone: string;
-  emergencyContact2CellPhone: string | null;
-}
+export type QuickPhonePatch = QuickPhoneFields;
+export type QuickPhoneResult = QuickPhoneResultType;
 
 export async function updateParticipantPhones(
   participantId: string,

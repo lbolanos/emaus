@@ -79,18 +79,26 @@ const props = withDefaults(defineProps<{
     columnsToShowInTable?: string[],
     columnsToShowInForm?: string[],
     columnsToEditInForm?: string[],
+    /**
+     * Table-visible columns that must NOT become editable in the dialog form.
+     * The dialog's edit list unions the table's visible columns, so a column
+     * that is visible for reading but owned by another surface needs to be
+     * excluded explicitly (cellPhone in Palancas: the quick editor validates
+     * it per country; the generic PUT does not).
+     */
+    columnsExcludedFromFormEdit?: string[],
     defaultFilters?: Record<string, any>,
     /**
-     * Muestra el control de confirmación de asistencia (el botón "Por contactar"
-     * de cada fila y su filtro). Es seguimiento de palancas, así que solo lo
-     * enciende PalancasView; en el resto de las listas estorbaba.
+     * Shows the attendance-confirmation control (the "Por contactar" button on
+     * each row and its filter). It is palancas follow-up, so only PalancasView
+     * turns it on; in the other lists it was in the way.
      */
     showAttendanceConfirmation?: boolean,
     /**
-     * Muestra el ✏ de edición rápida de teléfonos junto al número de la columna
-     * cellPhone (celular del caminante + los dos de contactos de emergencia).
-     * Corrige en 2 clicks el "lo inscribió su esposa y quedó el teléfono de
-     * ella"; es flujo de palancas, así que solo lo enciende PalancasView.
+     * Shows the quick phone-edit ✏ next to the number in the cellPhone column
+     * (walker's cell + both emergency-contact cells). Fixes in 2 clicks the
+     * "their spouse registered them and left her own number" case; it is a
+     * palancas flow, so only PalancasView turns it on.
      */
     inlinePhoneEdit?: boolean,
 }>(), {
@@ -98,6 +106,7 @@ const props = withDefaults(defineProps<{
     columnsToShowInTable: () => ['id_on_retreat', 'firstName', 'lastName', 'email', 'cellPhone', 'tableMesa.name'],
     columnsToShowInForm: () => [],
     columnsToEditInForm: () => [],
+    columnsExcludedFromFormEdit: () => [],
     defaultFilters: () => ({}),
     showAttendanceConfirmation: false,
     inlinePhoneEdit: false,
@@ -831,7 +840,9 @@ const formColumnsToEdit = computed(() => {
         'id', 'id_on_retreat', 'email', 'registrationDate',
         'lastUpdatedDate', 'retreatId', 'tableId'
     ];
-    return Array.from(combined).filter(key => !nonEditableSystemKeys.includes(key));
+    return Array.from(combined)
+        .filter(key => !nonEditableSystemKeys.includes(key))
+        .filter(key => !props.columnsExcludedFromFormEdit.includes(key));
 });
 
 

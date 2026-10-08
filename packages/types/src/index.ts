@@ -934,6 +934,15 @@ export const quickPhoneFieldsSchema = z.object({
 });
 export type QuickPhoneFields = z.infer<typeof quickPhoneFieldsSchema>;
 
+// Narrow response of PATCH /participants/:id/phones: id plus the canonical
+// phones (EC2 is nullable server-side — '' persists as null).
+export interface QuickPhoneResult {
+	id: string;
+	cellPhone: string;
+	emergencyContact1CellPhone: string;
+	emergencyContact2CellPhone: string | null;
+}
+
 // PATCH /participants/:id/phones — unlike updateParticipantSchema, empty
 // strings are NOT coerced to undefined: '' must fail as 400 for the NOT NULL
 // phones (cellPhone, emergencyContact1CellPhone) and means "clear" for the

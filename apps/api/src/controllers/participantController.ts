@@ -925,9 +925,6 @@ export const updateParticipantPhones = async (
   try {
     const { id } = req.params;
     const { retreatId, ...phones } = req.body;
-    if (!retreatId) {
-      return res.status(400).json({ message: "retreatId is required" });
-    }
 
     const errors: string[] = [];
     for (const required of ["cellPhone", "emergencyContact1CellPhone"] as const) {

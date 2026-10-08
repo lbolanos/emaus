@@ -66,9 +66,11 @@ que cancelar/reencolar ese envío.
 
 ## Otras reglas
 
-- `cellPhone` entró a la tabla de Palancas **con ✏ pero como no-editable** del form del
-  diálogo (`nonEditableColumns` de `PalancasView`): el PUT genérico no valida teléfono, así
-  que la única vía de edición es el mini-editor.
+- `cellPhone` entró a la tabla de Palancas **con ✏ pero sin edición genérica** en el
+  diálogo: el PUT genérico no valida teléfono, así que la única vía de edición es el
+  mini-editor. Como la lista de edición del diálogo une las columnas visibles de la tabla,
+  la exclusión es explícita (`columnsExcludedFromFormEdit` de `ParticipantList`, que
+  `PalancasView` usa para `cellPhone`).
 - Las selecciones de columnas se persisten por vista (`participant-columns-palancas`); el
   merge de defaults agrega la columna nueva automáticamente sin tocar otras vistas.
 - i18n: claves `participants.quickPhones.*` en `es.json` y `en.json`; los mensajes de
@@ -78,9 +80,10 @@ que cancelar/reencolar ese envío.
 ## Tests
 
 - **API** (`apps/api/src/tests/{controllers,services,routes}/participant*Phones*.test.ts`,
-  27 tests): validación por campo, canonización `+52`/`044`, semántica de vacío, 401/403
+  28 tests): validación por campo, canonización `+52`/`044`, semántica de vacío, 401/403
   (permiso y retiro ajeno), strip de campos extra, persistencia canónica en DB, audit row.
-- **Web**: editor (permiso, validación bloquea, payload cambios-only, rollback — 8),
-  wiring del diálogo (montaje solo en layout palancas, re-emit `participant-patched` — 10),
-  wiring de la tabla (default sin ✏, con prop abre seedeado de la fila — dentro de la suite
-  de `ParticipantList`).
+- **Web**: editor (permiso, validación bloquea, piso 6–15 con país no resoluble, payload
+  cambios-only, rollback — 10), formulario (montaje solo en layout palancas, re-emit
+  `participant-patched`, preservación de ediciones y tallas sucias — 14), wiring de la
+  tabla (default sin ✏, con prop abre seedeado de la fila, exclusión del diálogo —
+  dentro de la suite de `ParticipantList`).

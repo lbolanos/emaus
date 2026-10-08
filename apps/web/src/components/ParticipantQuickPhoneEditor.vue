@@ -3,7 +3,7 @@ import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { Pencil } from 'lucide-vue-next';
 import { Button } from '@repo/ui';
-import { validatePhoneForCountry, phoneValidationMessage } from '@repo/types';
+import { validatePhoneForCountry, phoneValidationMessage, resolveCountryToIso } from '@repo/types';
 import { useParticipantStore } from '@/stores/participantStore';
 import { useAuthPermissions } from '@/composables/useAuthPermissions';
 import type { QuickPhoneResult } from '@/services/api';
@@ -30,7 +30,7 @@ interface QuickPhoneParticipantLike {
 
 const props = defineProps<{
   participant: QuickPhoneParticipantLike;
-  /** País de la casa del retiro ("México", "Colombia", …) para validar por país. */
+  /** Retreat house's country ("México", "Colombia", …) to validate per country. */
   country?: string | null;
 }>();
 
@@ -135,7 +135,17 @@ function validate(): boolean {
       }
       continue;
     }
-    const message = phoneValidationMessage(validatePhoneForCountry(value, props.country));
+    let message = phoneValidationMessage(validatePhoneForCountry(value, props.country));
+    // Mirror the server's E.164 floor: when the free-text house country
+    // resolves to no rule (or the retreat is not loaded yet), the shared
+    // validator only checks digits — garbage would sail to the API and come
+    // back as an opaque 400.
+    if (!message && !resolveCountryToIso(props.country)) {
+      const digits = value.replace(/\D/g, '');
+      if (digits.length < 6 || digits.length > 15) {
+        message = t('participants.quickPhones.invalidFloor');
+      }
+    }
     if (message) errors.value[field.key] = message;
   }
   // errors always holds the 3 keys (empty string = no error); what blocks
