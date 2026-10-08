@@ -2603,7 +2603,8 @@
       "unenrolledTitle": "Attending but not enrolled in the retreat",
       "unenrolledHint": "Roster members with at least one attendance in the community's meetings (per the type and date filters) and no active enrollment in this retreat.",
       "unenrolledCount": "{count} candidates",
-      "unenrolledEmpty": "Nobody: every member who attended already has an active enrollment in this retreat."
+      "unenrolledEmpty": "Nobody: every member who attended already has an active enrollment in this retreat.",
+      "duplicateHint": "Possible duplicate"
     },
     "convoke": {
       "action": "Call for servers",
@@ -2629,7 +2630,9 @@
       "merged": "Records merged",
       "willMove": "{count} records will move to the record being kept.",
       "blocked": "Cannot merge yet:",
-      "groupOf": "Group of {count} records: merged two at a time"
+      "groupOf": "Group of {count} records: merged two at a time",
+      "pairTitle": "Merge duplicate records",
+      "pairDescription": "Choose which record keeps the data; everything from the other moves into it. Review what would move before merging."
     }
   },
   "dataDelete": {

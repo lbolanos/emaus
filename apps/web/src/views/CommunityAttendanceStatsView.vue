@@ -333,7 +333,22 @@
               </TableHeader>
               <TableBody>
                 <TableRow v-for="member in unenrolledCandidates" :key="member.memberId">
-                  <TableCell class="font-medium">{{ member.firstName }} {{ member.lastName }}</TableCell>
+                  <TableCell class="font-medium">
+                    <div class="flex flex-col gap-1">
+                      <span>{{ member.firstName }} {{ member.lastName }}</span>
+                      <div
+                        v-if="duplicateHintByParticipantId.has(member.participantId)"
+                        class="flex items-center gap-2"
+                      >
+                        <Badge variant="warning">
+                          {{ $t('community.attendanceStats.duplicateHint') }}
+                        </Badge>
+                        <Button variant="outline" size="sm" @click="openMergePair(member)">
+                          {{ $t('community.duplicates.merge') }}
+                        </Button>
+                      </div>
+                    </div>
+                  </TableCell>
                   <TableCell class="text-muted-foreground text-sm">
                     {{ $t(`community.memberStates.${member.state}`) }}
                   </TableCell>
@@ -362,6 +377,17 @@
                   ·
                   {{ $t('community.attendanceStats.retreatsServedShort', { count: member.retreatsServed }) }}
                 </p>
+                <div
+                  v-if="duplicateHintByParticipantId.has(member.participantId)"
+                  class="flex items-center gap-2 mt-1"
+                >
+                  <Badge variant="warning">
+                    {{ $t('community.attendanceStats.duplicateHint') }}
+                  </Badge>
+                  <Button variant="outline" size="sm" @click="openMergePair(member)">
+                    {{ $t('community.duplicates.merge') }}
+                  </Button>
+                </div>
               </div>
               <Badge :variant="frequencyVariant(member.frequency)" class="shrink-0">
                 {{ Math.round(member.ratePercent) }}% · {{ member.attended }}/{{ member.total }}
@@ -375,6 +401,15 @@
         </CardContent>
       </Card>
     </template>
+
+    <!-- Fusión de un par desde el hint. Montado sin v-if: el watch de reset del
+         dialog necesita ver la transición closed→open con el par ya asignado. -->
+    <MergePairDialog
+      v-model:open="pairDialogOpen"
+      :community-id="id"
+      :pair="activePair"
+      @merged="onPairMerged"
+    />
   </div>
 </template>
 
@@ -397,9 +432,12 @@ import {
   CategoryScale, Chart as ChartJS, Legend, LineElement, LinearScale, PointElement, Title, Tooltip,
 } from 'chart.js';
 import { formatDateInCommunityTimezone } from '@repo/utils';
-import { getCommunityAttendanceStats } from '@/services/api';
+import { getCommunityAttendanceStats, getCommunityDuplicates } from '@/services/api';
+import MergePairDialog from '@/components/community/MergePairDialog.vue';
 import { useCommunityStore } from '@/stores/communityStore';
-import type { AttendanceStatsMemberRow, CommunityAttendanceStats, ParticipationFrequency } from '@repo/types';
+import type {
+  AttendanceStatsMemberRow, CommunityAttendanceStats, DuplicateCandidate, ParticipationFrequency,
+} from '@repo/types';
 
 // El dashboard solo registra los elementos del Pie. Sin LineElement/PointElement/
 // LinearScale la gráfica de línea no dibuja nada y no avisa.
@@ -466,6 +504,58 @@ const retreatNotSynced = computed(
 const unenrolledCandidates = computed<AttendanceStatsMemberRow[]>(() =>
   filters.value.retreatId ? stats.value?.unenrolledCandidates ?? [] : [],
 );
+
+// --- Duplicados: hint síntoma→solución ---
+// El detector de duplicados es owner-only y caro (enriquece ficha por ficha),
+// así que se consulta UNA vez por visita —no en cada cambio de filtro— y sólo
+// si hay candidatos "sin inscribir" con quién cruzar. Si la llamada falla, la
+// vista funciona igual: hint ausente ≠ error.
+const duplicates = ref<DuplicateCandidate[]>([]);
+const duplicatesLoaded = ref(false);
+const pairDialogOpen = ref(false);
+const activePair = ref<DuplicateCandidate | null>(null);
+
+const duplicateHintByParticipantId = computed(() => {
+  const map = new Map<string, DuplicateCandidate>();
+  // El hint y el botón son para el owner (el merge es owner-only); un co-admin
+  // ve la lista de candidatos tal como hoy.
+  if (!communityStore.isOwnerOrSuperadmin) return map;
+  for (const pair of duplicates.value) {
+    for (const participant of pair.participants) map.set(participant.id, pair);
+  }
+  return map;
+});
+
+const maybeLoadDuplicates = async () => {
+  if (duplicatesLoaded.value || !communityStore.isOwnerOrSuperadmin) return;
+  if (unenrolledCandidates.value.length === 0) return;
+  // Se marca ANTES del await: el watch dispara con cada recarga de stats y no
+  // queremos una segunda llamada mientras la primera pende. Un fallo tampoco
+  // reintenta solo (el endpoint es caro); recargar la página sí.
+  duplicatesLoaded.value = true;
+  try {
+    duplicates.value = await getCommunityDuplicates(props.id);
+  } catch (error) {
+    console.error('Failed to load community duplicates:', error);
+  }
+};
+
+watch(unenrolledCandidates, () => {
+  void maybeLoadDuplicates();
+});
+
+const openMergePair = (member: AttendanceStatsMemberRow) => {
+  activePair.value = duplicateHintByParticipantId.value.get(member.participantId) ?? null;
+  if (activePair.value) pairDialogOpen.value = true;
+};
+
+const onPairMerged = async () => {
+  // El merge mueve la inscripción: el candidato debe salir de la lista en
+  // caliente y el hint refrescarse con los pares que queden.
+  duplicates.value = [];
+  duplicatesLoaded.value = false;
+  await load();
+};
 
 // Los tipos vienen del backend (solo los que la comunidad usa), pero el tipo
 // seleccionado se mantiene en la lista aunque su conteo caiga a 0 por el rango
@@ -711,6 +801,10 @@ watch(
   () => props.id,
   async (communityId) => {
     if (!communityId) return;
+    // Los duplicados viven por comunidad: al navegar a otra se descartan.
+    duplicates.value = [];
+    duplicatesLoaded.value = false;
+    activePair.value = null;
     if (communityStore.currentCommunity?.id !== communityId) {
       await communityStore.fetchCommunity(communityId).catch(() => undefined);
     }
