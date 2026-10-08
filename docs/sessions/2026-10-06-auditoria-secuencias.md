@@ -357,6 +357,26 @@ vive en **5 archivos más** — quedan como follow-up (ver abajo).
    en Node 20/Linux pero no en Node 24/macOS" — documentar cuando se haga el siguiente pase.
 4. **CI desatendido 8 meses**: considerar un workflow `schedule` semanal sobre master para que
    el próximo PR no herede 8 meses de deuda silenciosa.
+5. **Flaky `telemetryClientError.simple`**: `socket hang up` bajo cierta concurrencia de workers
+   (ver subsección de arriba); investigar el singleton compartido si vuelve a dar rojo en CI.
+
+### El OOM del main de jest (segundo fallo de CI, 2026-10-07)
+
+Tras el fix de la regex, el `Test API` volvió a morir a los ~11 min — sin ningún test en rojo:
+`FATAL ERROR: Ineffective mark-compacts near heap limit` (exit 134). **El proceso MAIN de jest
+retiene los resultados de todas las suites hasta el summary final**; con la suite actual
+(~286 archivos) su heap cruza 3.3GB y revienta. Reproducido localmente igual (3.5GB, Node 25),
+con y sin `--maxWorkers=2 --workerIdleMemoryLimit=512m` — esas flags no tocan al main.
+
+Verificación por el dato (local): `--shard=1/2` y `--shard=2/2` por separado pasan sin OOM
+(141-143 suites cada uno, ~180s). Fix: matrix de 2 shards en `ci.yml` — cada shard es un main
+nuevo con la mitad de la suites (~1.7GB pico). Es la misma muerte que la memoria
+`reference_api_full_jest_suite_sigabrt` documenta para corridas locales completas.
+
+Hallazgo colateral: `telemetryClientError.simple.test.ts` ("accepts a report without a session")
+falló 1 vez con `socket hang up` bajo una combinación específica de workers y pasa solo (11/11);
+supertest sin puerto fijo apunta a un singleton compartido entre suites vecinas del mismo worker
+(¿`AppDataSource` cerrado por un `afterAll` ajeno?). Flaky estructural pre-existente, no del PR.
 
 ## Reproducir el diagnóstico forense de hoy
 

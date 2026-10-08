@@ -39,6 +39,15 @@ jobs:
   test-api:
     name: Test API
     runs-on: ubuntu-latest
+    # The jest MAIN process keeps every suite's results in memory until the
+    # final summary: with the full suite its heap passes 3.5GB and dies with
+    # exit 134 (OOM) on Node 20/Linux — maxWorkers/workerIdleMemoryLimit do
+    # not help because the main is not a worker. Each shard runs in a fresh
+    # main with half the suites (~1.7GB peak, verified locally).
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -55,8 +64,8 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Run API tests
-        run: pnpm test:api
+      - name: Run API tests (shard ${{ matrix.shard }}/2)
+        run: pnpm --filter api test -- --shard=${{ matrix.shard }}/2
 
       - name: Upload API coverage to Codecov
         uses: codecov/codecov-action@v4
