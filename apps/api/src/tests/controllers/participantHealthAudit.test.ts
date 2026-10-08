@@ -206,12 +206,12 @@ describe('auditoría de lectura/exportación de datos de salud', () => {
 			expect(body).not.toHaveProperty('medicationDetails');
 		});
 
-		it('dropea los campos de salud del BODY sin participant:health (quien no puede leer, no escribe)', async () => {
+		it('rejects with 403 and lists the health fields in the body without participant:health, saving nothing', async () => {
 			jest.spyOn(authorizationService, 'hasPermission').mockResolvedValue(false);
 			mockUpdateParticipant.mockResolvedValue(participantWithHealth);
 
-			// Un cliente con participant:update pero sin health podría mandar
-			// estos campos explícitamente aunque el GET nunca se los devolvió.
+			// A client with participant:update but no health permission can still
+			// send these fields, e.g. a screen that shows `notes` by mistake.
 			const req = createMockReq({
 				params: { id: 'p-1' },
 				body: {
@@ -224,11 +224,33 @@ describe('auditoría de lectura/exportación de datos de salud', () => {
 			const res = createMockRes();
 			await updateParticipant(req, res, mockNext);
 
-			const sentBody = mockUpdateParticipant.mock.calls[0][1];
-			expect(sentBody).toHaveProperty('firstName', 'Ana');
-			expect(sentBody).not.toHaveProperty('emergencyContact1Name');
-			expect(sentBody).not.toHaveProperty('medicationDetails');
-			expect(sentBody).not.toHaveProperty('notes');
+			expect(res.status).toHaveBeenCalledWith(403);
+			const body = (res.json as jest.Mock).mock.calls[0][0];
+			expect(body.fields).toEqual(
+				expect.arrayContaining(['emergencyContact1Name', 'medicationDetails', 'notes']),
+			);
+			expect(body.fields).not.toContain('firstName');
+			// Partial saves are worse than none: the non-health fields are not
+			// written either.
+			expect(mockUpdateParticipant).not.toHaveBeenCalled();
+		});
+
+		it('saves normally without participant:health when the body has no health fields', async () => {
+			jest.spyOn(authorizationService, 'hasPermission').mockResolvedValue(false);
+			mockUpdateParticipant.mockResolvedValue(participantWithHealth);
+
+			const req = createMockReq({
+				params: { id: 'p-1' },
+				body: { firstName: 'Ana', isCancelled: true },
+			});
+			const res = createMockRes();
+			await updateParticipant(req, res, mockNext);
+
+			expect(res.status).not.toHaveBeenCalledWith(403);
+			expect(mockUpdateParticipant).toHaveBeenCalledWith('p-1', {
+				firstName: 'Ana',
+				isCancelled: true,
+			});
 		});
 
 		it('pasa los campos de salud del BODY intactos con participant:health', async () => {

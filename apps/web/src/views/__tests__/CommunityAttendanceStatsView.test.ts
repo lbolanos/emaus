@@ -5,16 +5,22 @@ import { nextTick, ref } from 'vue';
 // ---- Mocks (hoisted antes de importar el componente) ----
 
 const mockGetStats = vi.fn();
+const mockGetDuplicates = vi.fn();
 vi.mock('@/services/api', () => ({
 	getCommunityAttendanceStats: (...args: any[]) => mockGetStats(...args),
+	getCommunityDuplicates: (...args: any[]) => mockGetDuplicates(...args),
 }));
 
 const mockCurrentCommunity = ref<any>({ id: 'comm-1', name: 'Buen despacho', timezone: 'America/Mexico_City' });
+const mockIsOwner = ref(false);
 const mockFetchCommunity = vi.fn();
 vi.mock('@/stores/communityStore', () => ({
 	useCommunityStore: () => ({
 		get currentCommunity() {
 			return mockCurrentCommunity.value;
+		},
+		get isOwnerOrSuperadmin() {
+			return mockIsOwner.value;
 		},
 		fetchCommunity: mockFetchCommunity,
 	}),
@@ -163,7 +169,16 @@ const factory = () =>
 		props: { id: 'comm-1' },
 		global: {
 			mocks: { $t: (key: string) => key },
-			stubs: { 'router-link': { template: '<a><slot /></a>' } },
+			stubs: {
+				'router-link': { template: '<a><slot /></a>' },
+				// El dialog real arrastra reka-ui; para la vista basta con saber
+				// que se abre con el par correcto.
+				MergePairDialog: {
+					name: 'MergePairDialog',
+					template: '<div data-testid="merge-pair-dialog" :data-open="String(open)" :data-pair="pair ? pair.participants[0].id : \'\'" />',
+					props: ['open', 'communityId', 'pair'],
+				},
+			},
 		},
 	});
 
@@ -171,6 +186,9 @@ describe('CommunityAttendanceStatsView', () => {
 	beforeEach(() => {
 		mockGetStats.mockReset();
 		mockGetStats.mockResolvedValue(statsPayload());
+		mockGetDuplicates.mockReset();
+		mockGetDuplicates.mockResolvedValue([]);
+		mockIsOwner.value = false;
 		mockReplace.mockClear();
 		mockFetchCommunity.mockClear();
 		mockQuery.value = {};
@@ -479,5 +497,84 @@ describe('CommunityAttendanceStatsView', () => {
 
 		expect(wrapper.text()).toContain('community.attendanceStats.noMeetings');
 		expect(wrapper.find('.chart').exists()).toBe(false);
+	});
+
+	// --- Hint de duplicados (M1): síntoma → solución ---
+
+	const duplicatePairFor = (participantId: string) => ({
+		matchedBy: 'phone' as const,
+		participants: [
+			{
+				id: participantId, firstName: 'Asiste', lastName: 'SinInscribir', email: null,
+				cellPhone: '5511', references: 4, hasUser: false, isCommunityMember: true,
+			},
+			{
+				id: 'p-other', firstName: 'Asiste', lastName: 'SinInscribir', email: null,
+				cellPhone: '5511', references: 1, hasUser: false, isCommunityMember: false,
+			},
+		],
+	});
+
+	it('owner: marca al candidato que está en un par de duplicados y abre la fusión', async () => {
+		mockIsOwner.value = true;
+		const participantId = '11111111-2222-3333-4444-555555555555';
+		mockQuery.value = { retreatId: 'retreat-1' };
+		mockGetStats.mockResolvedValue(
+			statsPayload({
+				unenrolledCandidates: [member({ firstName: 'Asiste', lastName: 'SinInscribir', participantId })],
+			}),
+		);
+		mockGetDuplicates.mockResolvedValue([duplicatePairFor(participantId)]);
+		const wrapper = factory();
+		await flushPromises();
+		await nextTick();
+
+		// Fetch one-shot: una sola llamada aunque la recarga de filtros dispare
+		// el watch varias veces.
+		expect(mockGetDuplicates).toHaveBeenCalledTimes(1);
+		expect(mockGetDuplicates).toHaveBeenCalledWith('comm-1');
+		expect(wrapper.text()).toContain('community.attendanceStats.duplicateHint');
+
+		const mergeButton = wrapper
+			.findAll('button')
+			.find((b) => b.text() === 'community.duplicates.merge');
+		expect(mergeButton, 'el hint trae el botón de fusionar').toBeTruthy();
+		await mergeButton!.trigger('click');
+		await nextTick();
+
+		const dialog = wrapper.find('[data-testid="merge-pair-dialog"]');
+		expect(dialog.attributes('data-open')).toBe('true');
+		expect(dialog.attributes('data-pair')).toBe(participantId);
+	});
+
+	it('si la llamada de duplicados falla, la vista funciona igual (fail-soft)', async () => {
+		mockIsOwner.value = true;
+		mockQuery.value = { retreatId: 'retreat-1' };
+		mockGetStats.mockResolvedValue(
+			statsPayload({ unenrolledCandidates: [member({ firstName: 'Asiste', lastName: 'SinInscribir' })] }),
+		);
+		mockGetDuplicates.mockRejectedValue(new Error('boom'));
+		const wrapper = factory();
+		await flushPromises();
+		await nextTick();
+
+		// Sin hint y sin error: la lista de candidatos se pinta igual.
+		expect(wrapper.text()).toContain('Asiste SinInscribir');
+		expect(wrapper.text()).not.toContain('community.attendanceStats.duplicateHint');
+		expect(wrapper.text()).toContain('community.attendanceStats.unenrolledTitle');
+	});
+
+	it('co-admin: ni fetch de duplicados ni hint (el merge es owner-only)', async () => {
+		mockQuery.value = { retreatId: 'retreat-1' };
+		mockGetStats.mockResolvedValue(
+			statsPayload({ unenrolledCandidates: [member({ firstName: 'Asiste', lastName: 'SinInscribir' })] }),
+		);
+		const wrapper = factory();
+		await flushPromises();
+		await nextTick();
+
+		expect(mockGetDuplicates).not.toHaveBeenCalled();
+		expect(wrapper.text()).not.toContain('community.attendanceStats.duplicateHint');
+		expect(wrapper.text()).toContain('Asiste SinInscribir');
 	});
 });

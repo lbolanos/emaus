@@ -7,6 +7,7 @@ import {
   validateParticipantPhones,
   normalizeParticipantPhones,
   resolveCountryToIso,
+  SENSITIVE_HEALTH_FIELDS,
 } from "@repo/types";
 import { z } from "zod";
 import { authorizationService, ensureRetreatAccess } from "../middleware/authorization";
@@ -59,35 +60,6 @@ function stripScholarshipAmount<T>(data: T): T {
 	}
 	return data;
 }
-
-/**
- * Campos de salud/contacto de emergencia que solo debe ver quien tiene
- * `participant:health` (admin, treasurer, logistics, superadmin,
- * communications desde 2026-10-07: son quienes contactan a las familias y
- * conocen los problemas de los caminantes). Deja fuera
- * a propósito `snores`/`hasMedication`/`hasDietaryRestrictions` (booleanos
- * usados por la asignación de camas, sin ruta protegida hoy) y `sacraments`
- * (dato religioso, no de salud) — solo el detalle libre y los contactos.
- */
-const SENSITIVE_HEALTH_FIELDS = [
-	"medicationDetails",
-	"medicationSchedule",
-	"dietaryRestrictionsDetails",
-	"disabilitySupport",
-	"notes",
-	"emergencyContact1Name",
-	"emergencyContact1Relation",
-	"emergencyContact1HomePhone",
-	"emergencyContact1WorkPhone",
-	"emergencyContact1CellPhone",
-	"emergencyContact1Email",
-	"emergencyContact2Name",
-	"emergencyContact2Relation",
-	"emergencyContact2HomePhone",
-	"emergencyContact2WorkPhone",
-	"emergencyContact2CellPhone",
-	"emergencyContact2Email",
-] as const;
 
 /**
  * Returns true when the request user can read the health/emergency-contact
@@ -683,16 +655,23 @@ export const updateParticipant = async (
       // how other gated fields are handled in this controller.
       delete body.scholarshipAmount;
     }
-    // Mismo gate en escritura que en lectura: quien no tiene
-    // participant:health no puede escribir los campos que tampoco puede ver
-    // (un cliente podría mandarlos explícitamente en el body aunque el GET
-    // nunca se los devolvió).
+    // Same gate on write as on read: without participant:health the caller
+    // cannot write the fields it cannot see. Reject with 403 instead of
+    // stripping like scholarshipAmount: the edit form hides these fields, so
+    // receiving one means a screen forgot the permission, and a silent drop
+    // would answer 200 for an edit that was never saved.
+    // Empty values count too: validateRequest does not replace the raw body on
+    // this route, and the service writes null/'' as NULL, which would erase
+    // data the caller cannot even see.
     const canSeeHealth = await canViewHealthData(req);
     if (!canSeeHealth) {
-      for (const field of SENSITIVE_HEALTH_FIELDS) {
-        if (field in body) {
-          delete (body)[field];
-        }
+      const forbiddenFields = SENSITIVE_HEALTH_FIELDS.filter((field) => field in body);
+      if (forbiddenFields.length > 0) {
+        return res.status(403).json({
+          message:
+            "No tienes permiso para modificar datos de salud ni contactos de emergencia.",
+          fields: forbiddenFields,
+        });
       }
     }
     const updatedParticipant = await participantService.updateParticipant(

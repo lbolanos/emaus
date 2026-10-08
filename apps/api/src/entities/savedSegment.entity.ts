@@ -20,7 +20,8 @@ import { User } from './user.entity';
 export interface SegmentFilters {
 	participantType?: 'walker' | 'server' | 'waiting' | 'partial_server' | null;
 	tagIds?: string[];
-	paymentStatus?: 'paid' | 'partial' | 'unpaid' | 'overpaid' | 'scholarship' | null;
+	// 'owing' = saldo pendiente > 0 (unpaid + partial), no un estado del getter.
+	paymentStatus?: 'paid' | 'partial' | 'unpaid' | 'overpaid' | 'scholarship' | 'owing' | null;
 	maritalStatus?: 'S' | 'C' | 'D' | 'V' | 'O' | null;
 	attendanceFilter?: 'all' | 'pending' | 'confirmed' | 'declined';
 	cancelStatus?: 'active' | 'canceled';
