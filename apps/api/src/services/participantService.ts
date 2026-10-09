@@ -4661,6 +4661,26 @@ export const importParticipants = async (
           continue;
         }
 
+        // The role check above only fires when both sides declare a role on
+        // opposite sides of the walker/team line. Check the name too (same
+        // rule as §25.9): a borrowed email can match this retreat's own
+        // enrollment, and the update below would overwrite that record just
+        // as silently — name, medication and emergency contacts included.
+        const rowName = fullName(mappedData) || mappedData.email;
+        if (isImportNameConflict(existingParticipant, mappedData)) {
+          skippedDetails.push({
+            row: idx + 2,
+            reason: importNameConflictReason(
+              fullName(existingParticipant),
+              rowName,
+              "in-retreat",
+            ),
+            name: rowName,
+          });
+          skippedCount++;
+          continue;
+        }
+
         const updatedParticipant = await updateParticipant(
           existingParticipant.id,
           updateData as UpdateParticipant,

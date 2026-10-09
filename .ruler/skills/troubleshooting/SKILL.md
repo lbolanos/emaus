@@ -1097,6 +1097,13 @@ avisa antes y `--after` verifica el **tipo**, no solo la presencia. La decisión
 humana: ¿la misma persona cambiando de rol (cambiar el tipo a mano) o un correo prestado
 (conseguir el correo real del caminante y editar el CSV)?
 
+Desde 2026-10-08 el salto también aplica por **nombre**: una fila que nombra a otra persona
+(primer nombre o primer apellido distinto, `isImportNameConflict` en
+`apps/api/src/services/importEmailReuse.ts` — la misma regla de §25.9) se salta aunque el rol no
+declare conflicto, porque una fila sin `tipousuario` no dispara el guard de rol y el update pisaba
+la ficha igual — nombre, medicación y contactos de emergencia incluidos. El motivo del resumen
+dice «…inscrito en este retiro…» para distinguirlo del de §25.9.
+
 **Un correo prestado vuelve en cada export**: el sistema de la parroquia sigue teniendo el
 prestado, así que la fila llega igual cada vez que se reimporta. Antes del guard del API, cada
 reimport volvía a pisar la ficha del miembro del equipo — pasó dos veces en prod con el mismo

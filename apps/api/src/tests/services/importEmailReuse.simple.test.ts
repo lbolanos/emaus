@@ -48,6 +48,15 @@ describe('importNameConflictReason', () => {
 		expect(reason).toContain('No se tocó su ficha');
 		expect(reason).toContain('correo');
 	});
+
+	test('says where the record lives: outside this retreat or enrolled in it', () => {
+		expect(importNameConflictReason('Juan Pérez', 'María López')).toContain(
+			'registrado fuera de este retiro',
+		);
+		expect(importNameConflictReason('Juan Pérez', 'María López', 'in-retreat')).toContain(
+			'inscrito en este retiro',
+		);
+	});
 });
 
 describe('fullName', () => {

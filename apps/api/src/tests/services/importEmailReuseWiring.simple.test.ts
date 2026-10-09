@@ -1,8 +1,9 @@
 /**
- * Wiring of §25.9 inside importParticipants: a row whose email only exists
- * outside the retreat must not reach createParticipant when it names someone
- * else, because createParticipant would overwrite that person's record —
- * health data and emergency contacts included — with the row.
+ * Wiring of the name guard inside importParticipants: a row that names someone
+ * else must not overwrite the record its email matched — neither via
+ * createParticipant (§25.9, email registered outside the retreat) nor via the
+ * same-retreat update branch (§25.8, where the role guard only fires when the
+ * row declares a conflicting tipousuario).
  *
  * The decision itself is pinned in importEmailReuse.simple.test.ts. The
  * DB-backed import suite cannot call the service (participantService.test.ts,
@@ -142,5 +143,50 @@ describe('import over an email registered outside the retreat (§25.9)', () => {
 		expect(result.skippedDetails).toEqual([]);
 		expect(result.importedCount).toBe(1);
 		expect(result.reusedDetails).toEqual([]);
+	});
+});
+
+describe('import over an email already enrolled in this retreat (§25.8 name guard)', () => {
+	beforeEach(() => {
+		jest.clearAllMocks();
+		globalMatch = null;
+		sameRetreatMatch = {
+			id: 'p-same',
+			firstName: 'Juan',
+			lastName: 'Pérez',
+			email: 'compartido@example.com',
+			retreatId: 'retreat-a',
+			medicationDetails: 'Losartán 50 mg',
+			emergencyContact1Name: 'Rosa Pérez',
+		};
+	});
+
+	it('skips a row that names someone else even without a role conflict, and leaves the record alone', async () => {
+		const result = await importParticipants(RETREAT_ID, [row('María', 'López')], { id: 'u-1' });
+
+		expect(result.updatedCount).toBe(0);
+		expect(result.skippedCount).toBe(1);
+		expect(result.skippedDetails).toEqual([
+			expect.objectContaining({
+				row: 2,
+				name: 'María López',
+				reason: expect.stringContaining('Juan Pérez'),
+			}),
+		]);
+		// The reason says where the matched record lives: in this retreat.
+		expect(result.skippedDetails[0].reason).toContain('inscrito en este retiro');
+		// Nothing reached the record: still Juan's data, never saved.
+		expect(sameRetreatMatch.medicationDetails).toBe('Losartán 50 mg');
+		expect(sameRetreatMatch.emergencyContact1Name).toBe('Rosa Pérez');
+		expect(mockSave).not.toHaveBeenCalledWith(expect.objectContaining({ id: 'p-same' }));
+	});
+
+	it('updates the same person; a middle name only on the row is not a conflict', async () => {
+		const result = await importParticipants(RETREAT_ID, [row('JUAN carlos', 'Perez Gómez')], {
+			id: 'u-1',
+		});
+
+		expect(result.skippedDetails).toEqual([]);
+		expect(result.updatedCount).toBe(1);
 	});
 });

@@ -84,10 +84,13 @@ cancelación y su reinscripción.
 - **Con la app en reposo.** Queda una carrera conocida con escrituras concurrentes.
 - **Ojo cuando un correo del archivo ya es de alguien del equipo** (server o angelito): el import
   **salta esa fila** y lo dice en el resumen, para no pisar la ficha del miembro del equipo con
-  los datos de otra persona (antes la pisaba; pasó dos veces en prod). `walkers-check` lo avisa
-  antes de importar y `walkers-verify` lo detecta después; resolver el rol (¿la misma persona
-  cambia de rol, o el correo era prestado?) es decisión del operador, no del script. Un correo
-  prestado se corrige una sola vez en el archivo de correcciones (abajo).
+  los datos de otra persona (antes la pisaba; pasó dos veces en prod). El salto es por **rol**
+  (server/angelito vs caminante) o por **nombre**: una fila que nombra a otra persona —primer
+  nombre o primer apellido distinto, la misma regla del punto de abajo— también se salta, porque
+  si la fila no declara `tipousuario` el guard de rol no ve el correo prestado. `walkers-check` lo
+  avisa antes de importar y `walkers-verify` lo detecta después; resolver el rol (¿la misma
+  persona cambia de rol, o el correo era prestado?) es decisión del operador, no del script. Un
+  correo prestado se corrige una sola vez en el archivo de correcciones (abajo).
 - **Ojo cuando un correo del archivo ya es de alguien registrado fuera de este retiro** (otro
   retiro o la comunidad): si la fila trae **otro nombre**, el import la salta y lo dice en el
   resumen, porque importarla pisaría la ficha de esa persona, medicación y contactos de emergencia
