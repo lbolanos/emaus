@@ -2558,6 +2558,59 @@ describe('MessageSequenceService', () => {
 				const unassigned = await svc.listScheduled(retreat.id, { assignedTo: 'unassigned' });
 				expect(namesOf(unassigned)).toEqual(['Beto M6', 'Caro M6']);
 			});
+
+			it('v1.2: filtro por canal y órdenes por nombre de participante y de secuencia', async () => {
+				const retreat = await TestDataFactory.createTestRetreat({ timezone: 'America/Mexico_City' });
+				const mkSeq = (name: string, channel: 'whatsapp' | 'email') =>
+					svc.createSequence({
+						name,
+						retreatId: retreat.id,
+						trigger: 'participant_created',
+						audience: 'walker',
+						steps: [
+							{ stepOrder: 0, offsetDays: 5, sendHour: 9, templateType: 'WALKER_WELCOME', channel } as any,
+						],
+					});
+				const seqA = await mkSeq('AA Primera', 'whatsapp');
+				const seqB = await mkSeq('ZZ Última', 'email');
+				const smRepo = AppDataSource.getRepository(ScheduledMessage);
+				const seedRow = async (firstName: string, lastName: string, seq: any, channel: 'whatsapp' | 'email', day: number) => {
+					const p = await TestDataFactory.createTestParticipant(retreat.id, {
+						type: 'walker', firstName, lastName, cellPhone: `5512${day}${firstName.length}`,
+						email: `${firstName.toLowerCase()}.${lastName.toLowerCase()}@example.com`,
+					} as any);
+					return smRepo.save(smRepo.create({
+						sequenceId: seq.id,
+						stepId: seq.steps![0].id,
+						participantId: p.id,
+						retreatId: retreat.id,
+						channel,
+						templateType: 'WALKER_WELCOME',
+						recipientTarget: 'participant',
+						scheduledFor: new Date(`2026-11-0${day}T15:00:00Z`),
+						status: 'pending',
+					} as any));
+				};
+				// lastName ordena 'name'; el nombre de secuencia ordena 'sequence'
+				// (AA antes que ZZ) y la fecha desempata DENTRO del grupo.
+				await seedRow('Zoe', 'Zeta', seqA, 'whatsapp', 3); // AA, día 3
+				await seedRow('Ana', 'Alfa', seqB, 'email', 2);    // ZZ, día 2
+				await seedRow('Mano', 'Medio', seqB, 'whatsapp', 1); // ZZ, día 1
+				const namesOf = (r: { items: Array<{ participantName: string }> }) =>
+					r.items.map((i) => i.participantName);
+
+				// Canal: sólo la fila de email.
+				const byChannel = await svc.listScheduled(retreat.id, { channel: 'email' });
+				expect(namesOf(byChannel)).toEqual(['Ana Alfa']);
+
+				// Nombre: apellido del participante ascendente.
+				const byName = await svc.listScheduled(retreat.id, { order: 'name' });
+				expect(namesOf(byName)).toEqual(['Ana Alfa', 'Mano Medio', 'Zoe Zeta']);
+
+				// Secuencia: AA completa antes que ZZ; dentro de ZZ, fecha asc.
+				const bySequence = await svc.listScheduled(retreat.id, { order: 'sequence' });
+				expect(namesOf(bySequence)).toEqual(['Zoe Zeta', 'Mano Medio', 'Ana Alfa']);
+			});
 		});
 
 		describe('M7: Problemas — DTO con proyección participant + assignedToName', () => {

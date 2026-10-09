@@ -1778,7 +1778,7 @@ export class MessageSequenceService {
 			search?: string;
 			page?: number;
 			limit?: number;
-			order?: 'scheduled' | 'recent';
+			order?: 'scheduled' | 'recent' | 'name' | 'sequence';
 			// A paused row = `pending` of an inactive sequence: it won't go out
 			// while the sequence stays off. 'hide' drops them (the tab's default),
 			// 'only' lists just them, 'include' (default) keeps the old contract.
@@ -1790,6 +1790,8 @@ export class MessageSequenceService {
 			templateType?: string;
 			/** User id, or the literal 'unassigned' for rows nobody took. */
 			assignedTo?: string;
+			/** Row channel ('whatsapp' | 'email'); absent = all channels. */
+			channel?: MessageChannel;
 		} = {},
 	): Promise<{
 		items: Array<{
@@ -1873,6 +1875,9 @@ export class MessageSequenceService {
 		} else if (opts.assignedTo) {
 			qb.andWhere('sm.assignedTo = :assignedTo', { assignedTo: opts.assignedTo });
 		}
+		if (opts.channel) {
+			qb.andWhere('sm.channel = :channel', { channel: opts.channel });
+		}
 		const pausedWhere = "(sm.status = 'pending' AND seq.isActive = :seqActive)";
 		const pausedParams = { seqActive: false };
 		const pausedCount = await qb.clone().andWhere(pausedWhere, pausedParams).getCount();
@@ -1883,6 +1888,13 @@ export class MessageSequenceService {
 		const limit = Math.min(200, Math.max(1, opts.limit ?? 50));
 		if (opts.order === 'recent') {
 			qb.orderBy('sm.updatedAt', 'DESC');
+		} else if (opts.order === 'name') {
+			// Participante: apellido → nombre (mismo desempate del orden por fecha).
+			qb.orderBy('participant.lastName', 'ASC').addOrderBy('participant.firstName', 'ASC');
+		} else if (opts.order === 'sequence') {
+			// La secuencia no viaja en el DTO, pero ordenar por su nombre agrupa
+			// las filas de cada una (la fecha desempata dentro del grupo).
+			qb.orderBy('seq.name', 'ASC').addOrderBy('sm.scheduledFor', 'ASC');
 		} else {
 			qb.orderBy('sm.scheduledFor', 'ASC').addOrderBy('participant.lastName', 'ASC');
 		}
