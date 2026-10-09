@@ -1872,7 +1872,7 @@ describe('MessageSequenceService', () => {
 			return { retreat, seq, repo, created };
 		}
 
-		it('listScheduled: default pending only, DTO sin PII, timezone del servidor', async () => {
+		it('listScheduled: default pending only, proyección participant mínima, timezone del servidor', async () => {
 			const { retreat, seq, created } = await seedList([
 				{ status: 'pending', scheduledFor: new Date('2026-09-25T15:00:00Z'), firstName: 'Ana' },
 				{ status: 'queued', scheduledFor: new Date('2026-09-20T15:00:00Z'), firstName: 'Beto' },
@@ -1890,8 +1890,22 @@ describe('MessageSequenceService', () => {
 			expect(item.scheduledFor).toEqual(new Date('2026-09-25T15:00:00Z'));
 			// La TZ la resuelve el servidor desde el retiro — el cliente nunca la infiere.
 			expect(res.timezone).toBe('America/Mexico_City');
-			// El DTO no arrastra la entity del participante (PII) a la lista.
-			expect((item as any).participant).toBeUndefined();
+			// M6: la proyección del participante es exactamente lo que las acciones
+			// de fila necesitan (conversación/ficha) — nada de email/notes (PII).
+			expect(item.participant!.id).toBe(created[0].participantId);
+			expect(Object.keys(item.participant!).sort()).toEqual([
+				'cellPhone',
+				'country',
+				'emergencyContact1CellPhone',
+				'emergencyContact2CellPhone',
+				'firstName',
+				'id',
+				'lastName',
+			]);
+			// Sin asignación los campos de ownership normalizan a null.
+			expect(item.assignedTo).toBeNull();
+			expect(item.assignedToName).toBeNull();
+			expect(item.templateId).toBeNull(); // el paso usa el tipo crudo
 			expect((item as any).resolvedContact).toBeUndefined();
 		});
 
@@ -2471,6 +2485,142 @@ describe('MessageSequenceService', () => {
 			expect(names.filter((n) => n === 'Beto Sánchez')).toHaveLength(1);
 			// Ghost id and unassigned both normalize to null.
 			expect(names.filter((n) => n === null)).toHaveLength(2);
+		});
+
+		describe('M6: Programadas server-side (filtros plantilla/asignado + DTO)', () => {
+			it('filtros por clave compuesta de plantilla y por asignado; assignedToName en el DTO', async () => {
+				const retreat = await TestDataFactory.createTestRetreat({ timezone: 'America/Mexico_City' });
+				const custom = await createTemplate(retreat.id, 'WALKER_WELCOME', 'Bienvenida custom');
+				const seq = await svc.createSequence({
+					name: 'M6 filtros',
+					retreatId: retreat.id,
+					trigger: 'participant_created',
+					audience: 'walker',
+					steps: [
+						{ stepOrder: 0, offsetDays: 5, sendHour: 9, templateType: 'WALKER_WELCOME', channel: 'whatsapp' } as any,
+						// Paso con plantilla concreta (clave compuesta D3: gana el id).
+						{ stepOrder: 1, offsetDays: 6, sendHour: 9, templateType: 'WALKER_WELCOME', templateId: custom.id, channel: 'whatsapp' } as any,
+					],
+				});
+				const user = await TestDataFactory.createTestUser({ displayName: 'Ana Rodríguez' });
+				const smRepo = AppDataSource.getRepository(ScheduledMessage);
+				const seedRow = async (
+					firstName: string,
+					stepOrder: 0 | 1,
+					assignedTo: string | null,
+				) => {
+					const p = await TestDataFactory.createTestParticipant(retreat.id, {
+						type: 'walker', firstName, lastName: 'M6', cellPhone: `55${stepOrder}000${firstName.length}`,
+						email: `${firstName.toLowerCase()}-m6@example.com`,
+					} as any);
+					return smRepo.save(smRepo.create({
+						sequenceId: seq.id,
+						stepId: seq.steps![stepOrder].id,
+						participantId: p.id,
+						retreatId: retreat.id,
+						channel: 'whatsapp',
+						templateType: 'WALKER_WELCOME',
+						recipientTarget: 'participant',
+						scheduledFor: new Date('2026-11-01T15:00:00Z'),
+						status: 'pending',
+						assignedTo,
+					} as any));
+				};
+				await seedRow('Ana', 0, user.id); // tipo crudo, tomada por la usuaria
+				await seedRow('Beto', 0, null);    // tipo crudo, sin tomar
+				await seedRow('Caro', 1, null);    // plantilla custom (templateId)
+				const namesOf = (r: { items: Array<{ participantName: string }> }) =>
+					r.items.map((i) => i.participantName).sort();
+
+				// Sin filtros: las tres, con la proyección y el nombre del asignado.
+				const all = await svc.listScheduled(retreat.id);
+				expect(namesOf(all)).toEqual(['Ana M6', 'Beto M6', 'Caro M6']);
+				const anaRow = all.items.find((i) => i.participantName === 'Ana M6')!;
+				expect(anaRow.assignedTo).toBe(user.id);
+				expect(anaRow.assignedToName).toBe('Ana Rodríguez');
+				expect(anaRow.templateId).toBeNull();
+				const caroRow = all.items.find((i) => i.participantName === 'Caro M6')!;
+				expect(caroRow.templateId).toBe(custom.id);
+				expect(caroRow.participant!.cellPhone).toBe('5510004');
+
+				// Tipo crudo: SOLO las filas cuyo paso no apunta a plantilla concreta
+				// (Caro vive bajo el nombre de la custom, no bajo el tipo).
+				const byType = await svc.listScheduled(retreat.id, { templateType: 'WALKER_WELCOME' });
+				expect(namesOf(byType)).toEqual(['Ana M6', 'Beto M6']);
+
+				// Id de plantilla: sólo las filas de la custom.
+				const byTemplate = await svc.listScheduled(retreat.id, { templateId: custom.id });
+				expect(namesOf(byTemplate)).toEqual(['Caro M6']);
+
+				// Asignado por userId y "nadie la tomó".
+				const byAssignee = await svc.listScheduled(retreat.id, { assignedTo: user.id });
+				expect(namesOf(byAssignee)).toEqual(['Ana M6']);
+				const unassigned = await svc.listScheduled(retreat.id, { assignedTo: 'unassigned' });
+				expect(namesOf(unassigned)).toEqual(['Beto M6', 'Caro M6']);
+			});
+		});
+
+		describe('M7: Problemas — DTO con proyección participant + assignedToName', () => {
+			it('trae templateName/templateId resueltos, el asignado por nombre y SIN el dump PII del participante', async () => {
+				const retreat = await TestDataFactory.createTestRetreat({ timezone: 'America/Mexico_City' });
+				const custom = await createTemplate(retreat.id, 'WALKER_WELCOME', 'Bienvenida custom');
+				const seq = await svc.createSequence({
+					name: 'M7 issues',
+					retreatId: retreat.id,
+					trigger: 'participant_created',
+					audience: 'walker',
+					steps: [
+						{ stepOrder: 0, offsetDays: 0, sendHour: 9, templateType: 'WALKER_WELCOME', channel: 'whatsapp' } as any,
+						{ stepOrder: 1, offsetDays: 1, sendHour: 9, templateType: 'WALKER_WELCOME', templateId: custom.id, channel: 'whatsapp' } as any,
+					],
+				});
+				const user = await TestDataFactory.createTestUser({ displayName: 'Ana Rodríguez' });
+				const p1 = await TestDataFactory.createTestParticipant(retreat.id, {
+					type: 'walker', firstName: 'Ana', lastName: 'M7', cellPhone: '5511111111',
+					email: 'ana-m7@example.com', notes: 'dato sensible que no debe viajar en la lista',
+				} as any);
+				const p2 = await TestDataFactory.createTestParticipant(retreat.id, {
+					type: 'walker', firstName: 'Beto', lastName: 'M7', cellPhone: '5522222222',
+					email: 'beto-m7@example.com',
+				} as any);
+				const smRepo = AppDataSource.getRepository(ScheduledMessage);
+				await smRepo.save(smRepo.create({
+					sequenceId: seq.id, stepId: seq.steps![0].id, participantId: p1.id,
+					retreatId: retreat.id, channel: 'whatsapp', templateType: 'WALKER_WELCOME',
+					recipientTarget: 'participant', scheduledFor: new Date(), status: 'skipped',
+					error: 'sin teléfono', assignedTo: user.id,
+				} as any));
+				await smRepo.save(smRepo.create({
+					sequenceId: seq.id, stepId: seq.steps![1].id, participantId: p2.id,
+					retreatId: retreat.id, channel: 'whatsapp', templateType: 'WALKER_WELCOME',
+					recipientTarget: 'participant', scheduledFor: new Date(), status: 'failed',
+					error: 'SMTP',
+				} as any));
+
+				const { items, total } = await svc.getIssuesByRetreat(retreat.id);
+				expect(total).toBe(2);
+				expect(items).toHaveLength(2);
+
+				// Paso sin plantilla concreta → tipo crudo, nombre del tipo resuelto.
+				const anaRow = items.find((i) => i.participantId === p1.id)!;
+				expect(anaRow.error).toBe('sin teléfono');
+				expect(anaRow.templateId).toBeNull();
+				expect(anaRow.assignedTo).toBe(user.id);
+				expect(anaRow.assignedToName).toBe('Ana Rodríguez');
+				// Paso con plantilla concreta → el id del paso gana (clave D3).
+				const betoRow = items.find((i) => i.participantId === p2.id)!;
+				expect(betoRow.templateId).toBe(custom.id);
+				expect(betoRow.assignedToName).toBeNull();
+
+				// Proyección mínima: teléfonos sí (acciones de fila), notas NO.
+				const proj = anaRow.participant!;
+				expect(Object.keys(proj).sort()).toEqual([
+					'cellPhone', 'country', 'emergencyContact1CellPhone', 'emergencyContact2CellPhone',
+					'firstName', 'id', 'lastName',
+				]);
+				expect(proj.cellPhone).toBe('5511111111');
+				expect(JSON.stringify(items)).not.toContain('dato sensible');
+			});
 		});
 	});
 });

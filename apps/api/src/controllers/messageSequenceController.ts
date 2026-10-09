@@ -138,7 +138,8 @@ export class MessageSequenceController {
 
 	// GET /message-sequences/retreat/:retreatId/scheduled — programados paginados
 	// (pestaña "Programados"). Query: status (CSV, default pending), sequenceId,
-	// participantId, search, page, limit (cap 200), order=scheduled|recent.
+	// participantId, search, page, limit (cap 200), order=scheduled|recent,
+	// templateId/templateType (clave compuesta), assignedTo (userId|unassigned).
 	getScheduled = async (req: Request, res: Response) => {
 		try {
 			const { retreatId } = req.params;
@@ -173,6 +174,9 @@ export class MessageSequenceController {
 				limit: Math.min(200, Math.max(1, Number(q.limit) || 50)),
 				order: q.order === 'recent' ? 'recent' : 'scheduled',
 				paused: q.paused === 'hide' || q.paused === 'only' ? q.paused : 'include',
+				templateId: str(q.templateId),
+				templateType: str(q.templateType),
+				assignedTo: str(q.assignedTo),
 			});
 			res.json(result);
 		} catch (error) {
