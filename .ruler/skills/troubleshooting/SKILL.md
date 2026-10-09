@@ -1140,28 +1140,32 @@ mockeado: la suite con base real de `participantService.test.ts` no puede llamar
 ### 25.10 El reimport regresa a «No» lo que se capturó en emaus.cc
 
 **Síntoma**: *"marco Palancas solicitadas en Sí, en la tarde sigue bien, y al día siguiente
-aparece No"*. Lo mismo con la beca (y su monto) y el cuarto individual.
+aparece No"*. Lo mismo con la beca (y su monto), el cuarto individual y las comidas (nº de
+comidas del angelito, comida del viernes del servidor), que volvían a vacío.
 
 En `mapToEnglishKeys` las columnas S/N se leían como `str(col) === "S"`: si **la columna no
-existe**, eso da `false`. La rama de update de `importParticipants` sólo omite los `undefined`,
-así que cada reimport escribía `false` sobre todos los caminantes ya inscritos. El export de la
-parroquia no trae palancas, beca ni cuarto individual (se capturan aquí), y Buen Despacho se
-reimportó 7 veces entre el 1 y el 8 de octubre: cada marca vivía hasta el siguiente reimport. Ni la auditoría lo ve:
+existe**, eso da `false` (y las numéricas, `null`). La rama de update de `importParticipants`
+sólo omite los `undefined`, así que cada reimport escribía `false`/`null` sobre todos los
+caminantes ya inscritos. El export de la parroquia no trae palancas, beca, cuarto individual ni
+comidas (se capturan aquí), y Buen Despacho se reimportó 7 veces entre el 1 y el 8 de octubre:
+cada marca vivía hasta el siguiente reimport. Ni la auditoría lo ve:
 el import no audita fila a fila (§25.3) y `palancasRequested` no está en los campos auditados.
 
 **Fix** (2026-10-09): `optionalYesNo` en `mapToEnglishKeys` — columna ausente o celda en blanco =
-sin dato (`undefined`), y un `S`/`N` explícito se sigue aplicando. Hoy cubre `palancaspedidas`,
-`becado` y `habitacionindividual`. En la rama de **alta** siguen empezando en `false`: con `null`
-la lista de participantes muestra «N/A» y su filtro Sí/No es de igualdad exacta, así que un
-caminante nuevo desaparecería al filtrar «No». Tests: `importKeepsInternalFields.simple.test.ts`
-(mapeo real, base mockeada) y el e2e «re-import keeps palancas…» de
-`apps/web/tests/e2e/participant-csv-import.spec.ts` (API y base de dev: importa, marca por
-`PUT`, reimporta con la forma del CSV de la parroquia y relee la ficha).
+sin dato (`undefined`), y un `S`/`N` explícito se sigue aplicando. Cubre `palancaspedidas`,
+`becado`, `habitacionindividual` y `comidaviernes`. Las numéricas van con `optionalNumber`
+(misma regla; presente pero ilegible → `null`): cubre `numerocomidas`. En la rama de **alta** las
+S/N siguen empezando en `false`: con `null` la lista de participantes muestra «N/A» y su filtro
+Sí/No es de igualdad exacta, así que un caminante nuevo desaparecería al filtrar «No»; las
+comidas sí arrancan en `null`, que es su estado «sin capturar» legítimo. Tests:
+`importKeepsInternalFields.simple.test.ts` (mapeo real, base mockeada) y el e2e «re-import keeps
+palancas…» de `apps/web/tests/e2e/participant-csv-import.spec.ts` (API y base de dev: importa,
+marca por `PUT`, reimporta con la forma del CSV de la parroquia y relee la ficha).
 
-**Al agregar una columna S/N al importador**: si el dato también se captura en emaus.cc, va con
-`optionalYesNo`, no con `=== "S"`. Diagnóstico por el dato: las horas de
-`POST /api/participants/import/<retreatId>` en `/var/log/nginx/emaus-access.log*` (en UTC)
-contra el momento en que el usuario vio el cambio.
+**Al agregar una columna S/N o numérica al importador**: si el dato también se captura en
+emaus.cc, va con `optionalYesNo`/`optionalNumber`, no con `=== "S"` o `Number(col) || null`.
+Diagnóstico por el dato: las horas de `POST /api/participants/import/<retreatId>` en
+`/var/log/nginx/emaus-access.log*` (en UTC) contra el momento en que el usuario vio el cambio.
 
 ### Orden que funciona
 

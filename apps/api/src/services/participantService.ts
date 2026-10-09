@@ -3527,12 +3527,20 @@ const mapToEnglishKeys = (participant: any): Partial<CreateParticipant> => {
   const str = (val: any): string | undefined =>
     val != null ? String(val).trim() : undefined;
   // For fields captured in emaus.cc that external exports don't carry (the
-  // parish one has no palancas, scholarship or single-room column): a missing
-  // or blank cell is "no data", not "No". As `false`, every re-import reset
-  // them on walkers already enrolled — the update branch only skips undefined.
+  // parish one has no palancas, scholarship, single-room or meals column): a
+  // missing or blank cell is "no data", not "No"/"none". As explicit `false`
+  // or `null`, every re-import reset them on walkers already enrolled — the
+  // update branch only skips undefined.
   const optionalYesNo = (val: any): boolean | undefined => {
     const s = str(val);
     return s ? s === "S" : undefined;
+  };
+  // Same contract for numeric cells: present but unparsable is still `null`
+  // (the cell is there, it just carries garbage), only missing/blank is "no
+  // data".
+  const optionalNumber = (val: any): number | null | undefined => {
+    const s = str(val);
+    return s ? Number(s) || null : undefined;
   };
 
   const userType = str(participant.tipousuario);
@@ -3613,15 +3621,10 @@ const mapToEnglishKeys = (participant: any): Partial<CreateParticipant> => {
     pickupLocation: str(participant.puntoencuentro),
     isScholarship: optionalYesNo(participant.becado),
     // Comidas (paz y salvo v2): nº de comidas del angelito y comida del viernes
-    // del servidor. Opcionales en el Excel; si no vienen, quedan null.
-    mealCount:
-      str(participant.numerocomidas) != null && str(participant.numerocomidas) !== ""
-        ? Number(str(participant.numerocomidas)) || null
-        : null,
-    takesFridayMeal:
-      str(participant.comidaviernes) != null && str(participant.comidaviernes) !== ""
-        ? str(participant.comidaviernes) === "S"
-        : null,
+    // del servidor. Opcionales en el Excel; si no vienen, quedan sin dato para
+    // que un re-import no borre lo capturado en emaus.cc.
+    mealCount: optionalNumber(participant.numerocomidas),
+    takesFridayMeal: optionalYesNo(participant.comidaviernes),
     palancasCoordinator: str(participant.palancasencargado),
     palancasRequested: optionalYesNo(participant.palancaspedidas),
     palancasReceived: str(participant.palancas),

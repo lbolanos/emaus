@@ -78,16 +78,19 @@ const mapToEnglishKeys = (participant: any): any => {
 		departureDate: formatDate(participant.fechasalida),
 		notes: participant.notas?.trim() || null,
 		familyFriends: participant.amigosfamilia?.trim() || null,
-		// Comidas (paz y salvo v2) — espejo del mapeo real en participantService:
-		// numerocomidas → mealCount, comidaviernes (S/N) → takesFridayMeal.
+		// Comidas (paz y salvo v2) — espejo del mapeo real en participantService
+		// (optionalYesNo/optionalNumber): columna ausente o celda en blanco →
+		// undefined («sin dato»: un re-import no borra lo capturado en emaus.cc);
+		// presente pero ilegible → null. La suite que ejerce el mapeo REAL del
+		// servicio es importKeepsInternalFields.simple.test.ts.
 		mealCount:
 			participant.numerocomidas != null && String(participant.numerocomidas).trim() !== ''
 				? Number(String(participant.numerocomidas).trim()) || null
-				: null,
+				: undefined,
 		takesFridayMeal:
 			participant.comidaviernes != null && String(participant.comidaviernes).trim() !== ''
 				? String(participant.comidaviernes).trim() === 'S'
-				: null,
+				: undefined,
 	};
 };
 
@@ -194,10 +197,11 @@ describe('Field Mapping - Excel to Database (Simple Tests)', () => {
 			expect(result.takesFridayMeal).toBe(true);
 		});
 
-		test('comidaviernes N → false; vacío/ausente → null (no respondido)', () => {
+		test('comidaviernes N → false; vacío/ausente → undefined (sin dato)', () => {
 			expect(mapToEnglishKeys({ comidaviernes: 'N' }).takesFridayMeal).toBe(false);
-			expect(mapToEnglishKeys({}).takesFridayMeal).toBeNull();
-			expect(mapToEnglishKeys({ numerocomidas: '' }).mealCount).toBeNull();
+			expect(mapToEnglishKeys({}).takesFridayMeal).toBeUndefined();
+			expect(mapToEnglishKeys({}).mealCount).toBeUndefined();
+			expect(mapToEnglishKeys({ numerocomidas: '' }).mealCount).toBeUndefined();
 		});
 	});
 
@@ -403,8 +407,8 @@ describe('Field Mapping - Excel to Database (Simple Tests)', () => {
 				departureDate: '2023-12-23',
 				notes: 'Participante activa',
 				familyFriends: 'Juan Pérez, Laura Martínez',
-				mealCount: null,
-				takesFridayMeal: null,
+				// mealCount/takesFridayMeal quedan undefined (columnas ausentes);
+				// toEqual ignora las propiedades undefined.
 			});
 		});
 	});

@@ -3,12 +3,13 @@
  * column the file does not carry.
  *
  * The parish export (scripts/convert-parish-registrations.py) has no palancas,
- * scholarship or single-room columns: those are captured here. The importer
- * used to map an absent Y/N column to `false`, and the same-retreat update
- * branch only skips `undefined`, so every re-import reset "Palancas
- * solicitadas", the scholarship (and its amount) and the single-room request
- * to "No" for every walker already enrolled — Buen Despacho, seven re-imports
- * between Oct 1 and 8, 2026.
+ * scholarship, single-room or meals columns: those are captured here. The
+ * importer used to map an absent Y/N column to `false` (and the meals ones to
+ * `null`), and the same-retreat update branch only skips `undefined`, so every
+ * re-import reset "Palancas solicitadas", the scholarship (and its amount),
+ * the single-room request and the meals (angelito count, Friday meal) to
+ * "No"/empty for every walker already enrolled — Buen Despacho, seven
+ * re-imports between Oct 1 and 8, 2026.
  *
  * Goes through importParticipants with the data source mocked (same harness as
  * importEmailReuseWiring.simple.test.ts), so the real column mapping is the one
@@ -87,10 +88,12 @@ const INTERNAL_FIELDS = [
 	'isScholarship',
 	'scholarshipAmount',
 	'requestsSingleRoom',
+	'mealCount',
+	'takesFridayMeal',
 ];
 
 // Shape of a row from convert-parish-registrations.py: no palancaspedidas,
-// becado or habitacionindividual column at all.
+// becado, habitacionindividual, numerocomidas or comidaviernes column at all.
 const parishRow = (extra: Record<string, any> = {}) => ({
 	tipousuario: '3',
 	nombre: 'Juan',
@@ -137,7 +140,15 @@ describe('re-import keeps the fields captured in emaus.cc', () => {
 			mockUpdate.mockClear();
 			await importParticipants(
 				RETREAT_ID,
-				[parishRow({ palancaspedidas: blank, becado: blank, habitacionindividual: blank })],
+				[
+					parishRow({
+						palancaspedidas: blank,
+						becado: blank,
+						habitacionindividual: blank,
+						numerocomidas: blank,
+						comidaviernes: blank,
+					}),
+				],
 				{ id: 'u-1' },
 			);
 
@@ -151,13 +162,16 @@ describe('re-import keeps the fields captured in emaus.cc', () => {
 		const result = await importParticipants(RETREAT_ID, [parishRow()], { id: 'u-1' });
 
 		expect(result.importedCount).toBe(1);
-		// retreat_participants row created by createParticipant.
+		// retreat_participants row created by createParticipant. Meals have no
+		// "off" default: null is the legitimate "not captured yet" state.
 		expect(mockSave).toHaveBeenCalledWith(
 			expect.objectContaining({
 				retreatId: RETREAT_ID,
 				palancasRequested: false,
 				isScholarship: false,
 				requestsSingleRoom: false,
+				mealCount: null,
+				takesFridayMeal: null,
 			}),
 		);
 	});
@@ -165,7 +179,15 @@ describe('re-import keeps the fields captured in emaus.cc', () => {
 	it('still applies an explicit S or N from a file that does carry the columns', async () => {
 		await importParticipants(
 			RETREAT_ID,
-			[parishRow({ palancaspedidas: 'S', becado: 'N', habitacionindividual: 'S' })],
+			[
+				parishRow({
+					palancaspedidas: 'S',
+					becado: 'N',
+					habitacionindividual: 'S',
+					numerocomidas: '3',
+					comidaviernes: 'S',
+				}),
+			],
 			{ id: 'u-1' },
 		);
 
@@ -173,6 +195,21 @@ describe('re-import keeps the fields captured in emaus.cc', () => {
 			palancasRequested: true,
 			isScholarship: false,
 			requestsSingleRoom: true,
+			mealCount: 3,
+			takesFridayMeal: true,
+		});
+	});
+
+	it('a present but unparsable meal count clears it: the cell is there, it is just garbage', async () => {
+		await importParticipants(
+			RETREAT_ID,
+			[parishRow({ numerocomidas: 'abc', comidaviernes: 'N' })],
+			{ id: 'u-1' },
+		);
+
+		expect(rpWrite()).toMatchObject({
+			mealCount: null,
+			takesFridayMeal: false,
 		});
 	});
 });
