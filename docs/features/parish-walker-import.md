@@ -128,3 +128,7 @@ EH-0015,correo-prestado@ejemplo.com,correo-real@ejemplo.com,"el de su hermano, q
 El export de la parroquia no incluye punto de encuentro, becas, palancas, mesa ni habitación: todo
 eso es operación interna y se captura en emaus.cc. Tampoco trae la preferencia de cuarto
 individual, así que para este retiro ese campo llega siempre vacío.
+
+Reimportar no borra lo capturado aquí: una columna S/N que el CSV no trae cuenta como «sin
+dato», no como «No». Hasta el 2026-10-09 sí lo borraba —palancas solicitadas, beca con su monto y
+cuarto individual volvían a «No» en cada reimport (skill `troubleshooting` §25.10).

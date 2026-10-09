@@ -3525,6 +3525,14 @@ const mapToEnglishKeys = (participant: any): Partial<CreateParticipant> => {
   // Excel cells may be numbers, dates, or strings - safely coerce to trimmed string
   const str = (val: any): string | undefined =>
     val != null ? String(val).trim() : undefined;
+  // For fields captured in emaus.cc that external exports don't carry (the
+  // parish one has no palancas, scholarship or single-room column): a missing
+  // or blank cell is "no data", not "No". As `false`, every re-import reset
+  // them on walkers already enrolled — the update branch only skips undefined.
+  const optionalYesNo = (val: any): boolean | undefined => {
+    const s = str(val);
+    return s ? s === "S" : undefined;
+  };
 
   const userType = str(participant.tipousuario);
   let mappedType: string;
@@ -3602,7 +3610,7 @@ const mapToEnglishKeys = (participant: any): Partial<CreateParticipant> => {
     inviterCellPhone: str(participant.invtelcelular),
     inviterEmail: str(participant.invemail),
     pickupLocation: str(participant.puntoencuentro),
-    isScholarship: str(participant.becado) === "S",
+    isScholarship: optionalYesNo(participant.becado),
     // Comidas (paz y salvo v2): nº de comidas del angelito y comida del viernes
     // del servidor. Opcionales en el Excel; si no vienen, quedan null.
     mealCount:
@@ -3614,10 +3622,10 @@ const mapToEnglishKeys = (participant: any): Partial<CreateParticipant> => {
         ? str(participant.comidaviernes) === "S"
         : null,
     palancasCoordinator: str(participant.palancasencargado),
-    palancasRequested: str(participant.palancaspedidas) === "S",
+    palancasRequested: optionalYesNo(participant.palancaspedidas),
     palancasReceived: str(participant.palancas),
     palancasNotes: str(participant.notaspalancas),
-    requestsSingleRoom: str(participant.habitacionindividual) === "S",
+    requestsSingleRoom: optionalYesNo(participant.habitacionindividual),
     isCancelled: str(participant.cancelado) === "S",
     notes: str(participant.notas),
   };
@@ -4743,8 +4751,17 @@ export const importParticipants = async (
           continue;
         }
 
+        // A new enrollment from a file without these columns still starts at
+        // "No" (the list shows N/A for null and its Yes/No filter is an exact
+        // match). Only the update branch must leave them alone.
         const newParticipant = await createParticipant(
-          { ...mappedData, retreatId } as CreateParticipant,
+          {
+            ...mappedData,
+            palancasRequested: mappedData.palancasRequested ?? false,
+            isScholarship: mappedData.isScholarship ?? false,
+            requestsSingleRoom: mappedData.requestsSingleRoom ?? false,
+            retreatId,
+          } as CreateParticipant,
           false,
           true, // isImporting = true
           true, // skipCapacityCheck = true during import

@@ -331,6 +331,147 @@ test.describe('Import participants from CSV', () => {
 	});
 
 	/**
+	 * Guards troubleshooting §25.10 (2026-10-09).
+	 *
+	 * The parish export carries no palancas, scholarship or single-room column:
+	 * those are captured in emaus.cc. The importer mapped an absent Y/N column to
+	 * false and the update branch wrote it, so every re-import reset "Palancas
+	 * solicitadas" (and the scholarship with its amount, and the single-room
+	 * request) to "No" for walkers already enrolled — seven times between Oct 1
+	 * and 8 in Buen Despacho. A missing or blank cell is now "no data"; an
+	 * explicit S/N still applies, and a brand-new enrollment still starts at No.
+	 */
+	test('re-import keeps palancas, scholarship and single room captured in emaus.cc', async ({
+		baseURL,
+	}) => {
+		test.skip(!fs.existsSync(CSV_PATH), `CSV fixture not found: ${CSV_PATH}`);
+		const session = await login(baseURL!);
+		test.skip(!session, 'no usable credentials (seed the e2e users or set E2E_LOCAL_*)');
+		const { ctx, csrfToken } = session!;
+
+		let retreatId: string | undefined;
+		try {
+			const housesRes = await ctx.get('/api/houses');
+			const housesBody = await housesRes.json();
+			const houses = Array.isArray(housesBody) ? housesBody : (housesBody.data ?? []);
+			const stamp = Date.now();
+			const createRes = await ctx.post('/api/retreats', {
+				headers: withCsrf(csrfToken),
+				data: {
+					parish: `E2E Keep ${stamp}`,
+					startDate: '2030-09-08',
+					endDate: '2030-09-10',
+					houseId: houses[0]?.id,
+				},
+			});
+			expect(createRes.ok(), `create retreat: ${createRes.status()}`).toBeTruthy();
+			retreatId = (await createRes.json()).id;
+			const publishRes = await ctx.put(`/api/retreats/${retreatId}`, {
+				headers: withCsrf(csrfToken),
+				data: { isPublic: true },
+			});
+			expect(publishRes.ok(), `publish retreat: ${publishRes.status()}`).toBeTruthy();
+
+			// Shape of the parish CSV: none of the three columns, no payment.
+			const {
+				becado: _becado,
+				palancaspedidas: _palancaspedidas,
+				habitacionindividual: _habitacionindividual,
+				...template
+			} = parseCsv(fs.readFileSync(CSV_PATH, 'utf8'))[0];
+			const email = `e2e-keep-${stamp}@test.local`;
+			const parishRow = {
+				...template,
+				tipousuario: '3',
+				nombre: 'CAMINANTE',
+				apellidos: 'E2E KEEP',
+				email,
+				montopago: null,
+				fechapago: null,
+			};
+
+			const importRows = async (rows: unknown[]) => {
+				const res = await ctx.post(`/api/participants/import/${retreatId}`, {
+					headers: withCsrf(csrfToken),
+					data: { participants: rows },
+				});
+				const raw = await res.text();
+				expect(res.ok(), `import failed (${res.status()}): ${raw}`).toBeTruthy();
+				return JSON.parse(raw);
+			};
+			type Walker = {
+				id: string;
+				email: string;
+				palancasRequested?: boolean | null;
+				isScholarship?: boolean | null;
+				scholarshipAmount?: number | null;
+				requestsSingleRoom?: boolean | null;
+			};
+			const walker = async (): Promise<Walker> => {
+				const res = await ctx.get(`/api/participants?retreatId=${retreatId}`);
+				expect(res.ok(), `list participants: ${res.status()}`).toBeTruthy();
+				const body = await res.json();
+				const list: Walker[] = Array.isArray(body) ? body : (body.data ?? []);
+				const found = list.find((p) => p.email.toLowerCase() === email);
+				expect(found, `walker ${email} not in the roster`).toBeTruthy();
+				return found!;
+			};
+
+			const created = await importRows([parishRow]);
+			expect(created.importedCount, JSON.stringify(created)).toBe(1);
+			const fresh = await walker();
+			// A new enrollment still starts at No (the list's Yes/No filter is exact).
+			expect(fresh.palancasRequested).toBe(false);
+			expect(fresh.isScholarship).toBe(false);
+			expect(fresh.requestsSingleRoom).toBe(false);
+
+			// What the palancas coordinator does in the edit form.
+			const markRes = await ctx.put(`/api/participants/${fresh.id}`, {
+				headers: withCsrf(csrfToken),
+				data: {
+					contextRetreatId: retreatId,
+					palancasRequested: true,
+					isScholarship: true,
+					scholarshipAmount: 500,
+					requestsSingleRoom: true,
+				},
+			});
+			expect(markRes.ok(), `mark: ${markRes.status()} ${await markRes.text()}`).toBeTruthy();
+			const marked = await walker();
+			expect(marked.palancasRequested).toBe(true);
+			expect(marked.isScholarship).toBe(true);
+			expect(Number(marked.scholarshipAmount)).toBe(500);
+			expect(marked.requestsSingleRoom).toBe(true);
+
+			// The point of the test: the next parish export leaves them alone.
+			const reimported = await importRows([parishRow]);
+			expect(reimported.updatedCount, JSON.stringify(reimported)).toBe(1);
+			const kept = await walker();
+			expect(kept.palancasRequested, 'palancas solicitadas').toBe(true);
+			expect(kept.isScholarship, 'beca').toBe(true);
+			expect(Number(kept.scholarshipAmount), 'monto de la beca').toBe(500);
+			expect(kept.requestsSingleRoom, 'cuarto individual').toBe(true);
+
+			// A file that does carry the columns still decides.
+			const explicit = await importRows([
+				{ ...parishRow, palancaspedidas: 'N', becado: 'N', habitacionindividual: 'N' },
+			]);
+			expect(explicit.updatedCount, JSON.stringify(explicit)).toBe(1);
+			const overridden = await walker();
+			expect(overridden.palancasRequested).toBe(false);
+			expect(overridden.isScholarship).toBe(false);
+			expect(overridden.requestsSingleRoom).toBe(false);
+		} finally {
+			if (retreatId) {
+				await ctx
+					.delete(`/api/retreats/${retreatId}`, { headers: withCsrf(csrfToken) })
+					.catch(() => undefined);
+			}
+			await session!.dispose();
+		}
+	});
+
+	/**
 	 * Guards the fix for the transaction race (2026-08-25).
 	 *
 	 * With the asynchronous `sqlite` driver, TypeORM drove SQLite over a single shared

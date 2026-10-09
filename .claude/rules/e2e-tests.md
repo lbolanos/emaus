@@ -84,6 +84,13 @@ Y si el spec mide **peticiones de red**, dos cosas más:
   *tras qué interacción*, que es idéntico en los dos entornos. Ejemplo:
   `apps/web/tests/e2e/mobile-page-weight.spec.ts`.
 
+**Rojos conocidos en el checkout principal, ajenos a cualquier cambio** (2026-10-09): en
+`participant-import-ui.spec.ts`, el test «the app boots without console or page errors» falla por
+el 404 de `/runtime-config.js` (`index.html` lo pide; sólo existe en prod o con el workaround de
+`worktree-testing`). Y `excel-import.spec.ts` entero está caducado: entra a `/walkers` sin login y
+espera claves de i18n crudas. Para validar un cambio del import, el que cuenta es
+`participant-csv-import.spec.ts` (más «imports a CSV through the UI»).
+
 Ejemplo completo con las cuatro primeras: `apps/web/tests/e2e/server-registration-shirt-sizes.spec.ts`.
 Descarga de archivo (con la quinta, y cómo se verifica el binario bajado):
 `apps/web/tests/e2e/preparation-pdf-images.spec.ts`.
