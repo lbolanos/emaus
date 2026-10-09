@@ -2423,4 +2423,54 @@ describe('MessageSequenceService', () => {
 			expect(queue[0].palanqueroName).toBe('Sol');
 		});
 	});
+
+	describe('queue: assignee enrichment (assignedToName)', () => {
+		it('resolves the display name of each assignee; unassigned and ghost ids stay null', async () => {
+			const retreat = await TestDataFactory.createTestRetreat({ timezone: 'America/Mexico_City' });
+			await createTemplate(retreat.id, 'WALKER_WELCOME', 'Hola {participant.firstName}');
+
+			// Two real users plus one item pointing at a deleted/ghost user id:
+			// the lookup is a Map miss and must normalize to null, not undefined.
+			const ana = await TestDataFactory.createTestUser({ displayName: 'Ana Rodríguez' });
+			const beto = await TestDataFactory.createTestUser({ displayName: 'Beto Sánchez' });
+			const ghostId = '33333333-3333-4333-8333-333333333333';
+
+			const seq = await svc.createSequence({
+				name: 'Assignee queue',
+				retreatId: retreat.id,
+				trigger: 'participant_created',
+				audience: 'walker',
+				steps: [{ stepOrder: 0, offsetDays: 0, sendHour: 9, templateType: 'WALKER_WELCOME', channel: 'whatsapp' } as any],
+			});
+			const smRepo = AppDataSource.getRepository(ScheduledMessage);
+			const assignments: Array<string | null> = [ana.id, ana.id, beto.id, ghostId, null];
+			for (const assignedTo of assignments) {
+				const p = await TestDataFactory.createTestParticipant(retreat.id, { type: 'walker' } as any);
+				await smRepo.save(
+					smRepo.create({
+						sequenceId: seq.id,
+						stepId: seq.steps![0].id,
+						participantId: p.id,
+						retreatId: retreat.id,
+						channel: 'whatsapp',
+						templateType: 'WALKER_WELCOME',
+						recipientTarget: 'participant',
+						scheduledFor: new Date(Date.now() - 3600_000),
+						status: 'queued',
+						resolvedContent: 'x',
+						resolvedContact: '5512345678',
+						assignedTo,
+					} as any),
+				);
+			}
+
+			const queue = await svc.listQueued(retreat.id);
+			expect(queue).toHaveLength(5);
+			const names = queue.map((it) => it.assignedToName);
+			expect(names.filter((n) => n === 'Ana Rodríguez')).toHaveLength(2);
+			expect(names.filter((n) => n === 'Beto Sánchez')).toHaveLength(1);
+			// Ghost id and unassigned both normalize to null.
+			expect(names.filter((n) => n === null)).toHaveLength(2);
+		});
+	});
 });

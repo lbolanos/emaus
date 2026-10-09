@@ -13,6 +13,7 @@ import type { MessageRecipientTarget, MessageChannel } from '../entities/sequenc
 import { MessageTemplate } from '../entities/messageTemplate.entity';
 import { ParticipantCommunication } from '../entities/participantCommunication.entity';
 import { ParticipantFollowUp } from '../entities/participantFollowUp.entity';
+import { User } from '../entities/user.entity';
 import { EmailService } from './emailService';
 import { hydrateParticipantRetreatContext } from './participantRetreatHydration';
 import { makeDateInTimezone } from '../utils/date.transformer';
@@ -1688,8 +1689,9 @@ export class MessageSequenceService {
 	 * Bandeja de pendientes de WhatsApp (status queued) de un retiro. Cada ítem se
 	 * enriquece con `followUpStatus` (estado de seguimiento del participante),
 	 * `templateName` (M3: nombre de la plantilla resuelto server-side, id del paso
-	 * gana sobre el tipo) y `palancasCoordinator`/`palanqueroName` (el palanquero
-	 * asignado al caminante: nombre de la responsabilidad y su titular) para dar
+	 * gana sobre el tipo), `palancasCoordinator`/`palanqueroName` (el palanquero
+	 * asignado al caminante: nombre de la responsabilidad y su titular) y
+	 * `assignedToName` (display name del usuario que tomó el ítem) para dar
 	 * contexto al coordinador antes de enviar.
 	 */
 	async listQueued(
@@ -1701,6 +1703,7 @@ export class MessageSequenceService {
 				templateName?: string | null;
 				palancasCoordinator?: string | null;
 				palanqueroName?: string | null;
+				assignedToName?: string | null;
 			}
 		>
 	> {
@@ -1732,6 +1735,17 @@ export class MessageSequenceService {
 					`${r.participant!.firstName ?? ''} ${r.participant!.lastName ?? ''}`.trim(),
 				]),
 		);
+		// Display name of whoever took each item (ownership lives in `assignedTo`
+		// as a user id): one bulk lookup for the whole queue.
+		const assigneeIds = [...new Set(items.map((i) => i.assignedTo).filter((id): id is string => !!id))];
+		const nameByAssignee = new Map(
+			assigneeIds.length
+				? (await AppDataSource.getRepository(User).find({
+						where: { id: In(assigneeIds) },
+						select: ['id', 'displayName'],
+					})).map((u) => [u.id, u.displayName])
+				: [],
+		);
 		const names = await this.buildTemplateNameMaps(retreatId);
 		return items.map((it) => {
 			const coordinator = coordinatorByParticipant.get(it.participantId) ?? null;
@@ -1740,6 +1754,7 @@ export class MessageSequenceService {
 				templateName: names.resolve(it.step, it.templateType),
 				palancasCoordinator: coordinator,
 				palanqueroName: coordinator ? holderByName.get(coordinator) ?? null : null,
+				assignedToName: it.assignedTo ? nameByAssignee.get(it.assignedTo) ?? null : null,
 			});
 		});
 	}

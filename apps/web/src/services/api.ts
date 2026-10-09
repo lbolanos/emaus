@@ -4006,8 +4006,10 @@ export interface ScheduledMessageQueueItem {
   resolvedContent?: string | null;
   resolvedContact?: string | null;
   recipientName?: string | null;
-  // Ownership/auditoría del despacho de WhatsApp.
+  // Ownership/auditoría del despacho de WhatsApp. `assignedToName` es el display
+  // name resuelto server-side (bulk) — la bandeja filtra y pinta por nombre.
   assignedTo?: string | null;
+  assignedToName?: string | null;
   openedAt?: string | null;
   dispatchedBy?: string | null;
   participant?: {
