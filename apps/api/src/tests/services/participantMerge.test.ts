@@ -351,6 +351,18 @@ describe('participantMergeService', () => {
 				),
 			).rejects.toThrow(ParticipantMergeError);
 		});
+
+		it('ids ausentes dan error de validación, no el engañoso "consigo misma"', async () => {
+			// Con ambos ids undefined, `a === b` evalúa true y el guard viejo
+			// reportaba self-comparison. Hoy zod lo bloquea en la ruta, pero el
+			// service es exportado y su contrato no debe mentir.
+			await expect(
+				dismissDuplicatePair(community.id, undefined as any, undefined as any),
+			).rejects.toThrow('Faltan las fichas del par a descartar');
+			await expect(
+				dismissDuplicatePair(community.id, '' as any, '' as any),
+			).rejects.toThrow('Faltan las fichas del par a descartar');
+		});
 	});
 
 	// Controladores de descarte, mismo criterio de embed que getDuplicateCount
@@ -548,6 +560,12 @@ describe('participantMergeService', () => {
 			const { server } = await duplicatePair();
 			await expect(previewMerge(server.id, server.id)).rejects.toThrow(
 				ParticipantMergeError,
+			);
+		});
+
+		it('ids ausentes dan error de validación, no el engañoso "consigo misma"', async () => {
+			await expect(previewMerge(undefined as any, undefined as any)).rejects.toThrow(
+				'Faltan las fichas a fusionar',
 			);
 		});
 	});

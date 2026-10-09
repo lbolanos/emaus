@@ -248,4 +248,20 @@ describe('DuplicateMembersDialog', () => {
 		expect(wrapper.text()).toContain('boom');
 		expect(wrapper.text()).not.toContain('community.duplicates.dismissedEmpty');
 	});
+
+	it('si falla el listado de candidatos, la sección de descartados (y su undo) sigue accesible', async () => {
+		mockGet.mockRejectedValue(new Error('candidatos caídos'));
+		mockListDismissals.mockResolvedValue([dismissal()]);
+		const wrapper = factory();
+		await flushPromises();
+
+		// El error de candidatos se ve arriba; la sección de descartados depende
+		// de otro endpoint y no debe caer con él — el undo es la red de seguridad
+		// del misclick.
+		expect(wrapper.text()).toContain('candidatos caídos');
+
+		wrapper.vm.dismissedOpen = true;
+		await nextTick();
+		expect(wrapper.text()).toContain('community.duplicates.undo');
+	});
 });

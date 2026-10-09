@@ -104,8 +104,11 @@
 
       <!-- Pares descartados: visibilidad + undo. Sin esto, un misclick
            escondería un duplicado real para siempre. Colapsada por defecto
-           porque es información de referencia, no el flujo principal. -->
-      <div v-if="!loading && !error" class="border rounded-lg">
+           porque es información de referencia, no el flujo principal.
+           Gated sólo por `loading` (carga inicial del dialog): si el GET de
+           candidatos falla, el undo debe seguir accesible — depende de otro
+           endpoint y tiene su propio error dentro de la sección. -->
+      <div v-if="!loading" class="border rounded-lg">
         <button
           type="button"
           class="w-full flex items-center justify-between p-3 text-sm text-muted-foreground"

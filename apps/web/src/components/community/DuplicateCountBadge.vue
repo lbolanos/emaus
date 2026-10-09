@@ -20,9 +20,12 @@ watch(
   () => props.communityId,
   async (id) => {
     try {
-      count.value = await getCommunityDuplicateCount(id);
+      const n = await getCommunityDuplicateCount(id);
+      // Respuesta lenta de una comunidad ya abandonada: no pisa el badge de la actual.
+      if (id !== props.communityId) return;
+      count.value = n;
     } catch {
-      count.value = 0;
+      if (id === props.communityId) count.value = 0;
     }
   },
   { immediate: true },

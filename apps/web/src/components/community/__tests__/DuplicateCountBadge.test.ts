@@ -53,4 +53,22 @@ describe('DuplicateCountBadge', () => {
 		await flushPromises();
 		expect(wrapper.text()).toContain('5');
 	});
+
+	it('una respuesta lenta de la comunidad anterior no pisa el badge actual', async () => {
+		let resolveSlow: (n: number) => void = () => {};
+		mockCount.mockImplementationOnce(
+			() => new Promise<number>((r) => { resolveSlow = r; }),
+		);
+		mockCount.mockResolvedValueOnce(5);
+		const wrapper = mount(DuplicateCountBadge, { props: { communityId: 'c-1' } });
+
+		await wrapper.setProps({ communityId: 'c-2' });
+		await flushPromises();
+		expect(wrapper.text()).toContain('5');
+
+		resolveSlow(99); // la respuesta de c-1 llega tarde
+		await flushPromises();
+		expect(wrapper.text()).not.toContain('99');
+		expect(wrapper.text()).toContain('5');
+	});
 });

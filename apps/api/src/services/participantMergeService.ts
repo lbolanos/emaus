@@ -423,6 +423,11 @@ export const dismissDuplicatePair = async (
 	participantBId: string,
 	dismisserId?: string | null,
 ): Promise<DuplicateDismissalView> => {
+	// Primero la presencia: con ambos ids ausentes, `a === b` evalúa true y el
+	// error de self-comparison mentiría sobre lo que falló.
+	if (!participantAId || !participantBId) {
+		throw new ParticipantMergeError('Faltan las fichas del par a descartar');
+	}
 	if (participantAId === participantBId) {
 		throw new ParticipantMergeError('No se puede descartar una ficha consigo misma');
 	}
@@ -510,6 +515,11 @@ export interface MergePreview {
 const label = (p: Participant) => `${p.firstName ?? ''} ${p.lastName ?? ''}`.trim();
 
 const loadPair = async (keepId: string, mergeId: string) => {
+	// Mismo guard de presencia que dismissDuplicatePair: ids ausentes no son
+	// "consigo misma".
+	if (!keepId || !mergeId) {
+		throw new ParticipantMergeError('Faltan las fichas a fusionar');
+	}
 	if (keepId === mergeId) {
 		throw new ParticipantMergeError('No se puede fusionar una ficha consigo misma');
 	}
