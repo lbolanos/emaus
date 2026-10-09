@@ -11,6 +11,7 @@ import { Retreat } from '@/entities/retreat.entity';
 import { RetreatParticipant } from '@/entities/retreatParticipant.entity';
 import {
 	ParticipantMergeError,
+	countDuplicateCandidatesForCommunity,
 	findDuplicateCandidatesForCommunity,
 	mergeParticipants,
 	previewMerge,
@@ -146,6 +147,81 @@ describe('participantMergeService', () => {
 			expect(candidates.flatMap((c) => c.participants.map((p) => p.id))).not.toContain(
 				member.id,
 			);
+		});
+	});
+
+	// El badge del botón "Duplicados" sale de un endpoint propio que no paga el
+	// enriquecimiento por ficha. El contrato que importa es el ACUERDO: contar y
+	// listar recorren el mismo loadDuplicateGroups, así que el número del badge
+	// siempre significa exactamente lo que el botón abre. Los valores absolutos
+	// fijan que el acuerdo no sea trivial (ambos en 0 todo el tiempo también
+	// estarían de acuerdo).
+	describe('countDuplicateCandidatesForCommunity (acuerdo badge ↔ listado)', () => {
+		const both = async () =>
+			Promise.all([
+				countDuplicateCandidatesForCommunity(community.id),
+				findDuplicateCandidatesForCommunity(community.id),
+			]);
+
+		it('0 y listado vacío sin duplicados', async () => {
+			await TestDataFactory.createTestParticipant(retreat.id, {
+				firstName: 'Única',
+				lastName: 'Persona',
+			} as never);
+
+			const [count, list] = await both();
+
+			expect(count).toBe(0);
+			expect(list).toHaveLength(0);
+		});
+
+		it('1 con un par: el badge dice lo que el botón abre', async () => {
+			await duplicatePair();
+
+			const [count, list] = await both();
+
+			expect(count).toBe(1);
+			expect(list).toHaveLength(1);
+		});
+
+		it('2 con dos pares independientes', async () => {
+			await duplicatePair();
+			// Segundo par a mano: duplicatePair recicla teléfonos y prefijos de
+			// correo, y dos llamadas en el mismo milisegundo harían colisionar
+			// los emails — los cuatro agrupados como uno solo.
+			const other = await TestDataFactory.createTestRetreat();
+			const a = await TestDataFactory.createTestParticipant(retreat.id, {
+				firstName: 'Rosa',
+				lastName: 'Del Valle',
+				email: `p2a-${Date.now()}@test.local`,
+				cellPhone: '5544440004',
+			} as never);
+			const b = await TestDataFactory.createTestParticipant(other.id, {
+				firstName: 'Rosa',
+				lastName: 'Del Valle',
+				email: `p2b-${Date.now()}@test.local`,
+				cellPhone: '+52 55 4444 0004',
+			} as never);
+			await TestDataFactory.createTestCommunityMember(community.id, b.id);
+
+			const [count, list] = await both();
+
+			expect(count).toBe(2);
+			expect(list).toHaveLength(2);
+		});
+
+		it('el controlador responde 200 con ese número', async () => {
+			await duplicatePair();
+			const res = createMockResponse();
+
+			await CommunityController.getDuplicateCount(
+				{ params: { id: community.id } } as any,
+				res,
+			);
+
+			expect(res.status).not.toHaveBeenCalled();
+			const payload = (res.json as jest.Mock).mock.calls[0][0];
+			expect(payload).toEqual({ count: 1 });
 		});
 	});
 

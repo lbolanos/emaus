@@ -1731,6 +1731,16 @@ export async function getCommunityDuplicates(
   return response.data;
 }
 
+/**
+ * Cuántos pares de duplicados hay pendientes, para el badge del botón
+ * "Duplicados". Mismo criterio que el listado (loadDuplicateGroups en el
+ * servidor), sin su costo por ficha.
+ */
+export async function getCommunityDuplicateCount(communityId: string): Promise<number> {
+  const response = await api.get(`/communities/${communityId}/duplicates/count`);
+  return response.data.count;
+}
+
 /** Qué pasaría al fusionar dos fichas, sin tocar nada. */
 export async function previewParticipantMerge(
   communityId: string,

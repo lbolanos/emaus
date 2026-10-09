@@ -351,6 +351,10 @@ router.get(
 router.get('/:id/duplicates', requireCommunityOwner(), (req, res) =>
 	CommunityController.getDuplicateCandidates(req, res),
 );
+// El badge del botón: mismo criterio que el listado, sin su costo por ficha.
+router.get('/:id/duplicates/count', requireCommunityOwner(), (req, res) =>
+	CommunityController.getDuplicateCount(req, res),
+);
 router.get('/:id/duplicates/preview', requireCommunityOwner(), (req, res) =>
 	CommunityController.previewParticipantMerge(req, res),
 );

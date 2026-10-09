@@ -871,6 +871,16 @@ export const duplicateCandidateSchema = z.object({
 });
 export type DuplicateCandidate = z.infer<typeof duplicateCandidateSchema>;
 
+/**
+ * Respuesta de `GET /communities/:id/duplicates/count`: sólo el número, para
+ * el badge del botón "Duplicados". El listado completo es owner-only y caro
+ * (una pasada de queries por ficha); contar no necesita ese enriquecimiento.
+ */
+export const communityDuplicateCountSchema = z.object({
+	count: z.number().int().nonnegative(),
+});
+export type CommunityDuplicateCount = z.infer<typeof communityDuplicateCountSchema>;
+
 export const mergePreviewSchema = z.object({
 	keepId: z.string().uuid(),
 	mergeId: z.string().uuid(),

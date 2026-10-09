@@ -65,13 +65,31 @@ Desviaciones reales respecto a `plan.md` (2026-10-08):
 
 ## M2 — Badge de conteo
 
-- [ ] Extraer `loadDuplicateGroups` en `participantMergeService.ts` (comportamiento idéntico;
-      tests existentes en verde)
-- [ ] `countDuplicateCandidatesForCommunity` + test de acuerdo (count === lista, 3 escenarios)
-- [ ] `communityDuplicateCountSchema` en `packages/types` + controller + ruta owner-only
-- [ ] `getCommunityDuplicateCount` en api.ts + `DuplicateCountBadge.vue` + test
-- [ ] Integrar badge en botón "Duplicados" (CommunityMembersView, owners); dashboard: decidir
-- [ ] `touch apps/api/src/index.ts` (packages/types tocado)
+- [x] Extraer `loadDuplicateGroups` en `participantMergeService.ts` (comportamiento idéntico;
+      tests existentes en verde — 30/30 en las 2 suites de merge)
+- [x] `countDuplicateCandidatesForCommunity` + test de acuerdo (count === lista, 3 escenarios
+      con valores absolutos para que el acuerdo no sea trivial) + controlador 200
+- [x] `communityDuplicateCountSchema` en `packages/types` + controller + ruta owner-only
+      `GET /:id/duplicates/count`
+- [x] `getCommunityDuplicateCount` en api.ts + `DuplicateCountBadge.vue` + test (4 casos:
+      número, cero, error, refresco al cambiar comunidad)
+- [x] Integrar badge en botón "Duplicados" (CommunityMembersView, owners); dashboard: decidir
+      — NO (ver desviación 1)
+- [x] `touch apps/api/src/index.ts` (packages/types tocado)
+
+Desviaciones reales respecto a `plan.md` (2026-10-08):
+
+1. **Dashboard: sin badge.** El plan lo dejaba "opcional, decidir en implementación". El
+   dashboard no tiene entrada a duplicados; el único lugar donde el número significa algo
+   accionable es el botón que abre el listado. Un badge sin acción al lado es ruido.
+2. El test del controlador vive dentro de la suite del service (`participantMerge.test.ts`),
+   junto al de `previewParticipantMerge` que ya estaba ahí — mismo molde, no suite aparte.
+3. Refresh tras fusión: `:key="duplicatesVersion"` remonta el badge en cada `@merged` del
+   `DuplicateMembersDialog`, en vez de exponer un método — el componente se queda autocontenido
+   (solo props, sin API imperativa).
+4. Sin i18n ni íconos nuevos: el badge es un número dentro del botón ya etiquetado.
+5. Verificado en dev local contra datos reales (pull de prod de hoy): Buen despacho
+   `count === listado === 2` (Garay + Vallejos por teléfono, ya sin Marco tras M0).
 
 ## M3 — Dismiss de falsos positivos
 

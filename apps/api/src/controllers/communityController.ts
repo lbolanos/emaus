@@ -24,6 +24,7 @@ import {
 } from '../services/communityAttendanceStats';
 import {
 	ParticipantMergeError,
+	countDuplicateCandidatesForCommunity,
 	findDuplicateCandidatesForCommunity,
 	mergeParticipants,
 	previewMerge,
@@ -918,6 +919,16 @@ export class CommunityController {
 	static async getDuplicateCandidates(req: Request, res: Response) {
 		const candidates = await findDuplicateCandidatesForCommunity(req.params.id);
 		res.json(candidates);
+	}
+
+	/**
+	 * Cuántos pares pendientes, para el badge del botón "Duplicados": mismo
+	 * criterio que el listado (loadDuplicateGroups), sin el enriquecimiento
+	 * por ficha que sólo sirve para elegir superviviente.
+	 */
+	static async getDuplicateCount(req: Request, res: Response) {
+		const count = await countDuplicateCandidatesForCommunity(req.params.id);
+		res.json({ count });
 	}
 
 	/** Qué pasaría al fusionar, sin tocar nada. */

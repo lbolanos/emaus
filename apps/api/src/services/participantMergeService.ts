@@ -227,22 +227,38 @@ const countReferences = async (participantId: string): Promise<number> => {
 	return total;
 };
 
+/** Ficha en el ámbito de una comunidad, con lo que hace falta para agrupar. */
+export interface DuplicateScopeRow {
+	id: string;
+	firstName: string;
+	lastName: string;
+	email: string | null;
+	cellPhone: string | null;
+}
+
+export interface DuplicateGroup {
+	/** Por qué se proponen como la misma persona. */
+	matchedBy: DuplicateCandidate['matchedBy'];
+	/** Fichas del grupo, sin repetir, en el orden en que aparecieron en el scope. */
+	rows: DuplicateScopeRow[];
+}
+
 /**
- * Candidatos a duplicado en el ámbito de una comunidad: su padrón más los
- * participantes de los retiros vinculados a ella. Es donde aparece el caso real
- * —alguien inscrito en el retiro y a la vez dado de alta en el padrón— y acota
- * la búsqueda a algo revisable a mano.
+ * Grupos de fichas que comparten huella (email > teléfono > nombre) en el
+ * ámbito de una comunidad: su padrón más los participantes de los retiros
+ * vinculados a ella. Es donde aparece el caso real —alguien inscrito en el
+ * retiro y a la vez dado de alta en el padrón— y acota la búsqueda a algo
+ * revisable a mano.
+ *
+ * Es el paso común entre listar y contar: el badge tiene que proponer
+ * exactamente los mismos pares que el listado, o el número deja de significar
+ * lo mismo que el botón (la lección del badge-vs-ranking de
+ * communityAttendanceStats).
  */
-export const findDuplicateCandidatesForCommunity = async (
+export const loadDuplicateGroups = async (
 	communityId: string,
-): Promise<DuplicateCandidate[]> => {
-	const rows: {
-		id: string;
-		firstName: string;
-		lastName: string;
-		email: string | null;
-		cellPhone: string | null;
-	}[] = await AppDataSource.query(
+): Promise<DuplicateGroup[]> => {
+	const rows: DuplicateScopeRow[] = await AppDataSource.query(
 		`SELECT DISTINCT p.id, p.firstName, p.lastName, p.email, p.cellPhone
 		   FROM participants p
 		  WHERE p.dataDeletedAt IS NULL
@@ -277,9 +293,9 @@ export const findDuplicateCandidatesForCommunity = async (
 
 	const byId = new Map(rows.map((r) => [r.id, r]));
 	const seenPairs = new Set<string>();
-	const candidates: DuplicateCandidate[] = [];
 	const strength = { email: 3, phone: 2, name: 1 } as const;
 
+	const deduped: DuplicateGroup[] = [];
 	for (const group of [...groups.values()].sort(
 		(a, b) => strength[b.matchedBy] - strength[a.matchedBy],
 	)) {
@@ -288,25 +304,45 @@ export const findDuplicateCandidatesForCommunity = async (
 		const signature = [...ids].sort().join('|');
 		if (seenPairs.has(signature)) continue;
 		seenPairs.add(signature);
+		deduped.push({
+			matchedBy: group.matchedBy,
+			rows: ids.map((id) => byId.get(id)!),
+		});
+	}
 
+	return deduped;
+};
+
+/**
+ * Los grupos de `loadDuplicateGroups` enriquecidos con lo que sirve para
+ * ELEGIR superviviente: referencias totales, si tiene usuario y si es miembro
+ * del padrón. Es lo caro del listado (una pasada de queries por ficha) y no
+ * hace falta para contar.
+ */
+export const findDuplicateCandidatesForCommunity = async (
+	communityId: string,
+): Promise<DuplicateCandidate[]> => {
+	const groups = await loadDuplicateGroups(communityId);
+	const candidates: DuplicateCandidate[] = [];
+
+	for (const group of groups) {
 		const participants = [];
-		for (const id of ids) {
-			const row = byId.get(id)!;
+		for (const row of group.rows) {
 			const [userRow] = await AppDataSource.query(
 				`SELECT COUNT(*) AS c FROM "users" WHERE "participantId" = ?`,
-				[id],
+				[row.id],
 			);
 			const [memberRow] = await AppDataSource.query(
 				`SELECT COUNT(*) AS c FROM "community_member" WHERE "participantId" = ? AND "communityId" = ?`,
-				[id, communityId],
+				[row.id, communityId],
 			);
 			participants.push({
-				id,
+				id: row.id,
 				firstName: row.firstName,
 				lastName: row.lastName,
 				email: row.email,
 				cellPhone: row.cellPhone,
-				references: await countReferences(id),
+				references: await countReferences(row.id),
 				hasUser: Number(userRow.c) > 0,
 				isCommunityMember: Number(memberRow.c) > 0,
 			});
@@ -318,6 +354,15 @@ export const findDuplicateCandidatesForCommunity = async (
 
 	return candidates;
 };
+
+/**
+ * Cuántos pares hay pendientes, para el badge del botón "Duplicados". Recorre
+ * el mismo `loadDuplicateGroups` que el listado — nunca un atajo propio — así
+ * el número significa exactamente lo que el botón abre.
+ */
+export const countDuplicateCandidatesForCommunity = async (
+	communityId: string,
+): Promise<number> => (await loadDuplicateGroups(communityId)).length;
 
 export interface MergeMove {
 	table: string;
