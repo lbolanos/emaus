@@ -14,6 +14,7 @@ export enum AuditActionType {
 	ROLE_REMOVED = 'role_removed',
 	ROLE_INVITED = 'role_invited',
 	ROLE_INVITATION_ACCEPTED = 'role_invitation_accepted',
+	ROLE_INVITATION_APPROVED = 'role_invitation_approved',
 	ROLE_INVITATION_REVOKED = 'role_invitation_revoked',
 	ROLE_INVITATION_EXPIRED = 'role_invitation_expired',
 	ROLE_REQUEST_CREATED = 'role_request_created',

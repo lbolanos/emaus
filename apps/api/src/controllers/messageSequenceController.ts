@@ -417,6 +417,7 @@ export class MessageSequenceController {
 			// re-runs with the confirmed ones in `sendNowStepIds`.
 			const result = await messageSequenceService.runForRetreat(retreatId, {
 				sendNowStepIds: parsed.data.body?.sendNowStepIds,
+				trigger: 'manual',
 			});
 			res.json(result);
 		} catch (error) {

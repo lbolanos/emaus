@@ -631,6 +631,8 @@ async function duplicateSequence(seq: any) {
 		await sequenceStore.create({
 			name: `${seq.name} (copia)`,
 			description: seq.description || undefined,
+			// Traza de auditoría: la copia registra de qué secuencia proviene.
+			clonedFrom: seq.id,
 			retreatId: retreatId.value,
 			trigger: seq.trigger,
 			audience: seq.audience,

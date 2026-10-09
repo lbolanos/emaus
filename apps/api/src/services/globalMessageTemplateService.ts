@@ -10,6 +10,21 @@ import { Community } from '../entities/community.entity';
 import { User } from '../entities/user.entity';
 import { getRepositories } from '../utils/repositoryHelpers';
 import { v4 as uuidv4 } from 'uuid';
+import { domainAuditService, DomainAuditAction } from './domainAuditService';
+
+/** Campos con traza de auditoría de una plantilla global de mensaje. */
+const GLOBAL_TEMPLATE_AUDIT_FIELDS = ['name', 'type', 'isActive'];
+
+/** Metadata estándar: el cuerpo no va al diff, se registra si cambió y su tamaño. */
+function templateBodyMetadata(
+	previous: { message: string } | null,
+	current: { message: string },
+): Record<string, unknown> {
+	return {
+		messageChanged: previous ? previous.message !== current.message : true,
+		messageChars: current.message.length,
+	};
+}
 
 export interface TemplateVariables {
 	user?: {
@@ -65,7 +80,12 @@ export class GlobalMessageTemplateService {
 			...templateData,
 			id: uuidv4(),
 		});
-		return this.globalMessageTemplateRepository.save(template);
+		const saved = await this.globalMessageTemplateRepository.save(template);
+		void domainAuditService.logCreate('global_message_template', saved.id, saved, {
+			fields: GLOBAL_TEMPLATE_AUDIT_FIELDS,
+			metadata: templateBodyMetadata(null, saved),
+		});
+		return saved;
 	}
 
 	async update(
@@ -77,13 +97,35 @@ export class GlobalMessageTemplateService {
 			return null;
 		}
 
+		const beforeAudit = {
+			name: template.name,
+			type: template.type,
+			isActive: template.isActive,
+		};
+		const beforeMessage = template.message;
 		Object.assign(template, templateData);
-		return this.globalMessageTemplateRepository.save(template);
+		const saved = await this.globalMessageTemplateRepository.save(template);
+		void domainAuditService.logUpdate('global_message_template', id, beforeAudit, saved, {
+			fields: GLOBAL_TEMPLATE_AUDIT_FIELDS,
+			metadata: templateBodyMetadata({ message: beforeMessage }, saved),
+		});
+		return saved;
 	}
 
 	async delete(id: string): Promise<boolean> {
+		const existing = await this.globalMessageTemplateRepository.findOne({ where: { id } });
+		if (!existing) return false;
 		const result = await this.globalMessageTemplateRepository.delete(id);
-		return result.affected ? result.affected > 0 : false;
+		const deleted = result.affected ? result.affected > 0 : false;
+		if (deleted) {
+			void domainAuditService.logDelete('global_message_template', id, existing, {
+				fields: GLOBAL_TEMPLATE_AUDIT_FIELDS,
+				// Sin `messageChanged`: nada "cambió" en un delete — el helper
+				// con previous=null marcaría true y la flag dejaría de filtrar.
+				metadata: { messageChars: existing.message.length },
+			});
+		}
+		return deleted;
 	}
 
 	async toggleActive(id: string): Promise<GlobalMessageTemplate | null> {
@@ -92,13 +134,26 @@ export class GlobalMessageTemplateService {
 			return null;
 		}
 
+		const wasActive = template.isActive;
 		template.isActive = !template.isActive;
-		return this.globalMessageTemplateRepository.save(template);
+		const saved = await this.globalMessageTemplateRepository.save(template);
+		void domainAuditService.logUpdate(
+			'global_message_template',
+			id,
+			{ isActive: wasActive },
+			{ isActive: saved.isActive },
+			{
+				fields: ['isActive'],
+				action: DomainAuditAction.GLOBAL_MESSAGE_TEMPLATE_TOGGLE_ACTIVE,
+			},
+		);
+		return saved;
 	}
 
 	async copyToRetreat(
 		globalTemplateId: string,
 		retreatId: string,
+		options: { audit?: boolean } = {},
 	): Promise<MessageTemplate | null> {
 		const globalTemplate = await this.globalMessageTemplateRepository.findOne({
 			where: { id: globalTemplateId },
@@ -118,22 +173,40 @@ export class GlobalMessageTemplateService {
 			where: { retreatId, type: globalTemplate.type },
 		});
 
+		let saved: MessageTemplate;
 		if (existingRetreatTemplate) {
 			// Update existing template
 			existingRetreatTemplate.message = globalTemplate.message;
-			return this.messageTemplateRepository.save(existingRetreatTemplate);
+			saved = await this.messageTemplateRepository.save(existingRetreatTemplate);
+		} else {
+			// Create new template
+			const newTemplate = this.messageTemplateRepository.create({
+				name: globalTemplate.name,
+				type: globalTemplate.type,
+				message: globalTemplate.message,
+				scope: 'retreat',
+				retreatId,
+			});
+			saved = await this.messageTemplateRepository.save(newTemplate);
 		}
-
-		// Create new template
-		const newTemplate = this.messageTemplateRepository.create({
-			name: globalTemplate.name,
-			type: globalTemplate.type,
-			message: globalTemplate.message,
-			scope: 'retreat',
-			retreatId,
-		});
-
-		return this.messageTemplateRepository.save(newTemplate);
+		// La copia escribe `message_templates` por repo directo (no pasa por
+		// messageTemplateService): un solo evento de copia, sin doble registro.
+		// La semilla de createRetreat la llama con audit: false — las semillas
+		// del retiro están exentas, como las responsabilidades y equipos.
+		if (options.audit !== false) {
+			void domainAuditService.log({
+				action: DomainAuditAction.GLOBAL_MESSAGE_TEMPLATE_COPY_TO_RETREAT,
+				resourceType: 'global_message_template',
+				resourceId: globalTemplateId,
+				retreatId,
+				metadata: {
+					targetTemplateId: saved.id,
+					updatedExisting: Boolean(existingRetreatTemplate),
+					name: globalTemplate.name,
+				},
+			});
+		}
+		return saved;
 	}
 
 	async copyAllActiveTemplatesToRetreat(retreat: Retreat): Promise<MessageTemplate[]> {
@@ -144,7 +217,11 @@ export class GlobalMessageTemplateService {
 		const newTemplates: MessageTemplate[] = [];
 
 		for (const globalTemplate of activeGlobalTemplates) {
-			const copiedTemplate = await this.copyToRetreat(globalTemplate.id, retreat.id);
+			// Seed path (createRetreat): N copies at once would flood the viewer with
+		// rows nobody performed by hand — one retreat_create row covers them.
+		const copiedTemplate = await this.copyToRetreat(globalTemplate.id, retreat.id, {
+			audit: false,
+		});
 			if (copiedTemplate) {
 				newTemplates.push(copiedTemplate);
 			}
@@ -175,22 +252,34 @@ export class GlobalMessageTemplateService {
 			where: { communityId, type: globalTemplate.type, scope: 'community' },
 		});
 
+		let saved: MessageTemplate;
 		if (existingCommunityTemplate) {
 			// Update existing template
 			existingCommunityTemplate.message = globalTemplate.message;
-			return this.messageTemplateRepository.save(existingCommunityTemplate);
+			saved = await this.messageTemplateRepository.save(existingCommunityTemplate);
+		} else {
+			// Create new template
+			const newTemplate = this.messageTemplateRepository.create({
+				name: globalTemplate.name,
+				type: globalTemplate.type,
+				message: globalTemplate.message,
+				communityId,
+				scope: 'community',
+			});
+			saved = await this.messageTemplateRepository.save(newTemplate);
 		}
-
-		// Create new template
-		const newTemplate = this.messageTemplateRepository.create({
-			name: globalTemplate.name,
-			type: globalTemplate.type,
-			message: globalTemplate.message,
-			communityId,
-			scope: 'community',
+		void domainAuditService.log({
+			action: DomainAuditAction.GLOBAL_MESSAGE_TEMPLATE_COPY_TO_COMMUNITY,
+			resourceType: 'global_message_template',
+			resourceId: globalTemplateId,
+			metadata: {
+				communityId,
+				targetTemplateId: saved.id,
+				updatedExisting: Boolean(existingCommunityTemplate),
+				name: globalTemplate.name,
+			},
 		});
-
-		return this.messageTemplateRepository.save(newTemplate);
+		return saved;
 	}
 
 	async copyAllActiveTemplatesToCommunity(communityId: string): Promise<MessageTemplate[]> {
@@ -227,22 +316,37 @@ export class GlobalMessageTemplateService {
 			where: { communityId, type: retreatTemplate.type, scope: 'community' },
 		});
 
+		let saved: MessageTemplate;
 		if (existingCommunityTemplate) {
 			// Update existing template
 			existingCommunityTemplate.message = retreatTemplate.message;
-			return this.messageTemplateRepository.save(existingCommunityTemplate);
+			saved = await this.messageTemplateRepository.save(existingCommunityTemplate);
+		} else {
+			// Create new template
+			const newTemplate = this.messageTemplateRepository.create({
+				name: retreatTemplate.name,
+				type: retreatTemplate.type,
+				message: retreatTemplate.message,
+				communityId,
+				scope: 'community',
+			});
+			saved = await this.messageTemplateRepository.save(newTemplate);
 		}
-
-		// Create new template
-		const newTemplate = this.messageTemplateRepository.create({
-			name: retreatTemplate.name,
-			type: retreatTemplate.type,
-			message: retreatTemplate.message,
-			communityId,
-			scope: 'community',
+		void domainAuditService.log({
+			action: DomainAuditAction.GLOBAL_MESSAGE_TEMPLATE_COPY_FROM_RETREAT,
+			resourceType: 'global_message_template',
+			// El recurso copiado es la plantilla del RETIRO (origen); la comunidad
+			// va en metadata porque la columna retreatId no aplica.
+			resourceId: retreatTemplateId,
+			retreatId: retreatTemplate.retreatId ?? null,
+			metadata: {
+				communityId,
+				targetTemplateId: saved.id,
+				updatedExisting: Boolean(existingCommunityTemplate),
+				name: retreatTemplate.name,
+			},
 		});
-
-		return this.messageTemplateRepository.save(newTemplate);
+		return saved;
 	}
 
 	// System template methods

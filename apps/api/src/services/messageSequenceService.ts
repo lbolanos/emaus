@@ -36,6 +36,7 @@ import { getParticipantShirtOrderSummary } from './shirtReportService';
 import { emitSequenceQueueChanged } from '../realtime';
 import { findPalanqueroAssignments } from './responsabilityService';
 import { DEFAULT_TEMPLATE_ORDER, findDefaultTemplateForType } from './messageTemplateService';
+import { domainAuditService, DomainAuditAction } from './domainAuditService';
 
 const DEFAULT_TZ = process.env.APP_TIMEZONE || 'America/Mexico_City';
 /** Máximo de reintentos de envío de email ante fallo (SMTP transitorio). */
@@ -206,9 +207,7 @@ export class MessageSequenceService {
 		// Cada hora: enrolar nuevos + procesar vencidos.
 		cron.schedule('0 * * * *', async () => {
 			try {
-				const enrolled = await this.enrollAll();
-				const processed = await this.processDue();
-				console.log(`⏰ Sequences: enrolled ${enrolled}, processed ${processed}`);
+				await this.runEngineCycle();
 			} catch (err) {
 				console.error('❌ Error in message sequence service:', err);
 			}
@@ -414,15 +413,70 @@ export class MessageSequenceService {
 		}
 	}
 
-	/** Enrola participantes elegibles en todas las secuencias activas. */
-	public async enrollAll(now: Date = new Date()): Promise<number> {
+	/**
+	 * Una corrida del motor (el cron horario): enrola + procesa y deja en la
+	 * auditoría de dominio UN evento agregado por retiro tocado
+	 * (`message_sequence.cron_run`, actor nulo + `{ system: true }`). Así el
+	 * visor del retiro distingue "lo mandó el motor" de "lo mandó una persona"
+	 * (incidente Buen Despacho 2026-10-06). Retiros sin actividad en la corrida
+	 * no generan fila.
+	 */
+	public async runEngineCycle(now: Date = new Date()): Promise<void> {
+		const createdPerRetreat = new Map<string, number>();
+		const processedPerRetreat = new Map<string, number>();
+		const failedPerRetreat = new Map<string, number>();
+		const enrolled = await this.enrollAll(now, createdPerRetreat);
+		const processed = await this.processDue(
+			now,
+			undefined,
+			undefined,
+			processedPerRetreat,
+			failedPerRetreat,
+		);
+		console.log(`⏰ Sequences: enrolled ${enrolled}, processed ${processed}`);
+		// Fallos también son actividad: un retiro cuyos 40 envíos revientan
+		// debe quedar en el registro — es justo la pregunta forense.
+		for (const retreatId of new Set([
+			...createdPerRetreat.keys(),
+			...processedPerRetreat.keys(),
+			...failedPerRetreat.keys(),
+		])) {
+			void domainAuditService.log({
+				action: DomainAuditAction.MESSAGE_SEQUENCE_CRON_RUN,
+				resourceType: 'message_sequence',
+				resourceId: null,
+				retreatId,
+				actorUserId: null,
+				metadata: {
+					system: true,
+					enrolled: createdPerRetreat.get(retreatId) ?? 0,
+					processed: processedPerRetreat.get(retreatId) ?? 0,
+					failed: failedPerRetreat.get(retreatId) ?? 0,
+				},
+			});
+		}
+	}
+
+	/**
+	 * Enrola participantes elegibles en todas las secuencias activas. El mapa
+	 * opcional acumula las filas creadas por retiro (para el agregado de
+	 * `runEngineCycle`; no cambia el comportamiento cuando se omite).
+	 */
+	public async enrollAll(
+		now: Date = new Date(),
+		createdPerRetreat?: Map<string, number>,
+	): Promise<number> {
 		const sequences = await AppDataSource.getRepository(MessageSequence).find({
 			where: { isActive: true },
 			relations: ['steps'],
 		});
 		let created = 0;
 		for (const seq of sequences) {
-			created += await this.enrollSequence(seq, now);
+			const n = await this.enrollSequence(seq, now);
+			created += n;
+			if (n > 0 && createdPerRetreat) {
+				createdPerRetreat.set(seq.retreatId, (createdPerRetreat.get(seq.retreatId) ?? 0) + n);
+			}
 		}
 		return created;
 	}
@@ -987,6 +1041,8 @@ export class MessageSequenceService {
 		now: Date = new Date(),
 		limit = Number(process.env.SEQUENCE_PROCESS_LIMIT) || 200,
 		retreatId?: string,
+		processedPerRetreat?: Map<string, number>,
+		failedPerRetreat?: Map<string, number>,
 	): Promise<number> {
 		// Filas atascadas en `processing` (crash/restart a mitad de una corrida
 		// previa) vuelven a `pending` antes de leer candidatas.
@@ -1301,6 +1357,12 @@ export class MessageSequenceService {
 					enqueuedByRetreat.set(sm.retreatId, enqueuedIds);
 					sentToday.set(participant.id, (sentToday.get(participant.id) ?? 0) + 1);
 					processed++;
+					if (processedPerRetreat) {
+						processedPerRetreat.set(
+							sm.retreatId,
+							(processedPerRetreat.get(sm.retreatId) ?? 0) + 1,
+						);
+					}
 					continue;
 				}
 
@@ -1335,6 +1397,12 @@ export class MessageSequenceService {
 						sm.status = 'failed';
 						sm.error = 'envío SMTP falló';
 						await repo.save(sm);
+						if (failedPerRetreat) {
+							failedPerRetreat.set(
+								sm.retreatId,
+								(failedPerRetreat.get(sm.retreatId) ?? 0) + 1,
+							);
+						}
 						continue;
 					}
 					sm.status = 'sent';
@@ -1346,11 +1414,23 @@ export class MessageSequenceService {
 					await this.recordCommunication(sm, template, recipient, html, subject);
 					sentToday.set(participant.id, (sentToday.get(participant.id) ?? 0) + 1);
 					processed++;
+					if (processedPerRetreat) {
+						processedPerRetreat.set(
+							sm.retreatId,
+							(processedPerRetreat.get(sm.retreatId) ?? 0) + 1,
+						);
+					}
 				} catch (err) {
 					sm.attempts += 1;
 					sm.status = 'failed';
 					sm.error = err instanceof Error ? err.message : 'error desconocido';
 					await repo.save(sm);
+					if (failedPerRetreat) {
+						failedPerRetreat.set(
+							sm.retreatId,
+							(failedPerRetreat.get(sm.retreatId) ?? 0) + 1,
+						);
+					}
 				}
 			} catch (err) {
 				// Excepción inesperada post-claim: sin esto la fila quedaba `processing`
@@ -1518,6 +1598,8 @@ export class MessageSequenceService {
 		maxOverdueDays?: number | null;
 		createdBy?: string | null;
 		steps?: StepSyncInput[];
+		/** Sólo traza de auditoría (metadata clonedFrom): secuencia origen de una copia. */
+		clonedFrom?: string | null;
 	}): Promise<MessageSequence> {
 		const seqRepo = AppDataSource.getRepository(MessageSequence);
 		const seq = await seqRepo.save(
@@ -1534,6 +1616,13 @@ export class MessageSequenceService {
 			}),
 		);
 		await this.syncSteps(seq.id, input.steps ?? []);
+		void domainAuditService.logCreate('message_sequence', seq.id, seq, {
+			retreatId: seq.retreatId,
+			fields: ['name', 'trigger', 'audience', 'isActive', 'maxOverdueDays'],
+			metadata: {
+				...(input.clonedFrom ? { clonedFrom: input.clonedFrom } : {}),
+			},
+		});
 		return (await this.findById(seq.id))!;
 	}
 
@@ -1565,6 +1654,16 @@ export class MessageSequenceService {
 		const seqRepo = AppDataSource.getRepository(MessageSequence);
 		const seq = await seqRepo.findOne({ where: { id } });
 		if (!seq) return null;
+		// Snapshot ANTES de mutar: el diff de auditoría se calcula contra esto.
+		const beforeAudit = {
+			name: seq.name,
+			description: seq.description,
+			trigger: seq.trigger,
+			audience: seq.audience,
+			segmentId: seq.segmentId ?? null,
+			isActive: seq.isActive,
+			maxOverdueDays: seq.maxOverdueDays,
+		};
 		// B3: cambio semántico (a quién/cuándo llega) → las pending materializadas
 		// con la semántica vieja ya no representan la realidad. Se detecta ANTES
 		// de mutar la entity.
@@ -1603,6 +1702,21 @@ export class MessageSequenceService {
 			if (seq.isActive) await this.enrollSequence(seq);
 		}
 		const updated = await this.findById(id);
+		void domainAuditService.logUpdate('message_sequence', id, beforeAudit, seq, {
+			retreatId: seq.retreatId,
+			// `description` is free text: out of the diff (like create/delete),
+			// only its size and whether it changed travel in metadata.
+			fields: ['name', 'trigger', 'audience', 'segmentId', 'isActive', 'maxOverdueDays'],
+			// Los cambios de pasos no son columnas de la secuencia: se resume lo
+			// que syncSteps/B3 le hicieron a las filas materializadas.
+			metadata: {
+				descriptionChars: seq.description?.length ?? 0,
+				descriptionChanged: beforeAudit.description !== seq.description,
+				archivedStepCount: archived.archivedSteps,
+				archivedPendingCount: archived.cancelledPending,
+				cancelledPendingCount,
+			},
+		});
 		return updated
 			? {
 					...updated,
@@ -1681,8 +1795,20 @@ export class MessageSequenceService {
 	}
 
 	async deleteSequence(id: string): Promise<boolean> {
-		const result = await AppDataSource.getRepository(MessageSequence).delete(id);
-		return (result.affected ?? 0) > 0;
+		const repo = AppDataSource.getRepository(MessageSequence);
+		// Snapshot previo para la auditoría: sus scheduled_messages caen en
+		// cascade y no quedan consultables después.
+		const seq = await repo.findOne({ where: { id } });
+		if (!seq) return false;
+		const result = await repo.delete(id);
+		const deleted = (result.affected ?? 0) > 0;
+		if (deleted) {
+			void domainAuditService.logDelete('message_sequence', id, seq, {
+				retreatId: seq.retreatId,
+				fields: ['name', 'trigger', 'audience', 'isActive', 'maxOverdueDays'],
+			});
+		}
+		return deleted;
 	}
 
 	/**
@@ -2046,7 +2172,23 @@ export class MessageSequenceService {
 			.set({ scheduledFor: target, updatedAt: now })
 			.where('stepId = :stepId AND status = :status', { stepId: step.id, status: 'pending' })
 			.execute();
-		return { affected: res.affected ?? 0, scheduledFor: target };
+		const affected = res.affected ?? 0;
+		// El recurso es el PASO: el UPDATE mueve N pendientes a la misma fecha,
+		// así que el conteo va en metadata y no una fila por mensaje.
+		void domainAuditService.log({
+			action: DomainAuditAction.SEQUENCE_STEP_RESCHEDULE,
+			resourceType: 'sequence_step',
+			resourceId: step.id,
+			retreatId: step.sequence?.retreatId ?? null,
+			newValues: { scheduledFor: target },
+			metadata: {
+				affected,
+				immediate: payload.immediate === true,
+				...(payload.date ? { date: payload.date } : {}),
+				...(payload.hour !== undefined ? { hour: payload.hour } : {}),
+			},
+		});
+		return { affected, scheduledFor: target };
 	}
 
 	/**
@@ -2380,6 +2522,15 @@ export class MessageSequenceService {
 				action: 'dispatched',
 				scheduledMessageIds: [sm.id],
 			});
+			void domainAuditService.log({
+				action: DomainAuditAction.SCHEDULED_MESSAGE_DISPATCH,
+				resourceType: 'scheduled_message',
+				resourceId: sm.id,
+				retreatId: sm.retreatId,
+				oldValues: { status: 'queued' },
+				newValues: { status: 'sent', dispatchedBy: userId ?? null },
+				metadata: { channel: sm.channel },
+			});
 		}
 		return sm;
 	}
@@ -2411,9 +2562,14 @@ export class MessageSequenceService {
 		// Sólo pendientes de la bandeja (queued): asignar un enviado/cancelado no
 		// tiene a quién responsabilizar y contamina la auditoría de ownership.
 		this.assertTransition(sm, 'assign');
+		const previousAssignee = sm.assignedTo ?? null;
 		sm.assignedTo = userId;
 		const saved = await repo.save(sm);
 		emitSequenceQueueChanged({ retreatId: saved.retreatId, action: 'assigned', scheduledMessageIds: [saved.id] });
+		void domainAuditService.logUpdate('scheduled_message', id, { assignedTo: previousAssignee }, { assignedTo: userId }, {
+			retreatId: saved.retreatId,
+			action: DomainAuditAction.SCHEDULED_MESSAGE_ASSIGN,
+		});
 		return saved;
 	}
 
@@ -2423,11 +2579,21 @@ export class MessageSequenceService {
 		const sm = await repo.findOne({ where: { id } });
 		if (!sm) return null;
 		this.assertTransition(sm, 'skip');
+		const previousStatus = sm.status;
 		sm.status = 'skipped';
 		sm.error = 'omitido manualmente';
 		sm.dispatchedBy = userId ?? null;
 		const saved = await repo.save(sm);
 		emitSequenceQueueChanged({ retreatId: saved.retreatId, action: 'skipped', scheduledMessageIds: [saved.id] });
+		void domainAuditService.log({
+			action: DomainAuditAction.SCHEDULED_MESSAGE_SKIP,
+			resourceType: 'scheduled_message',
+			resourceId: id,
+			retreatId: saved.retreatId,
+			oldValues: { status: previousStatus },
+			newValues: { status: 'skipped' },
+			metadata: { reason: sm.error },
+		});
 		return saved;
 	}
 
@@ -2442,6 +2608,7 @@ export class MessageSequenceService {
 		const sm = await repo.findOne({ where: { id } });
 		if (!sm) return null;
 		this.assertTransition(sm, 'retry');
+		const previousStatus = sm.status;
 		sm.status = 'pending';
 		sm.attempts = 0;
 		sm.error = null;
@@ -2449,6 +2616,14 @@ export class MessageSequenceService {
 		sm.dispatchedBy = userId ?? null;
 		const saved = await repo.save(sm);
 		emitSequenceQueueChanged({ retreatId: saved.retreatId, action: 'retried', scheduledMessageIds: [saved.id] });
+		void domainAuditService.log({
+			action: DomainAuditAction.SCHEDULED_MESSAGE_RETRY,
+			resourceType: 'scheduled_message',
+			resourceId: id,
+			retreatId: saved.retreatId,
+			oldValues: { status: previousStatus },
+			newValues: { status: 'pending', scheduledFor: sm.scheduledFor },
+		});
 		return saved;
 	}
 
@@ -2462,11 +2637,21 @@ export class MessageSequenceService {
 		const sm = await repo.findOne({ where: { id } });
 		if (!sm) return null;
 		this.assertTransition(sm, 'discard');
+		const previousStatus = sm.status;
 		sm.status = 'cancelled';
 		sm.error = 'descartado por el coordinador';
 		sm.dispatchedBy = userId ?? null;
 		const saved = await repo.save(sm);
 		emitSequenceQueueChanged({ retreatId: saved.retreatId, action: 'discarded', scheduledMessageIds: [saved.id] });
+		void domainAuditService.log({
+			action: DomainAuditAction.SCHEDULED_MESSAGE_DISCARD,
+			resourceType: 'scheduled_message',
+			resourceId: id,
+			retreatId: saved.retreatId,
+			oldValues: { status: previousStatus },
+			newValues: { status: 'cancelled' },
+			metadata: { reason: sm.error },
+		});
 		return saved;
 	}
 
@@ -2511,7 +2696,17 @@ export class MessageSequenceService {
 			qb.set({ status: 'cancelled', error: 'descartado (masivo)', updatedAt: now });
 		}
 		const res = await qb.execute();
-		return res.affected ?? 0;
+		const affected = res.affected ?? 0;
+		if (affected > 0) {
+			void domainAuditService.log({
+				action: DomainAuditAction.SCHEDULED_MESSAGE_BULK_RESOLVE,
+				resourceType: 'scheduled_message',
+				resourceId: null,
+				retreatId,
+				metadata: { bulkAction: action, affected, idsCount: ids?.length ?? null },
+			});
+		}
+		return affected;
 	}
 
 	/**
@@ -2608,6 +2803,15 @@ export class MessageSequenceService {
 			sm.recipientName = recipient.name;
 			await repo.save(sm);
 			regenerated++;
+		}
+		if (regenerated > 0 || skipped > 0) {
+			void domainAuditService.log({
+				action: DomainAuditAction.MESSAGE_SEQUENCE_REGENERATE_QUEUE,
+				resourceType: 'message_sequence',
+				resourceId: null,
+				retreatId,
+				metadata: { regenerated, skipped },
+			});
 		}
 		return { regenerated, skipped };
 	}
@@ -2777,7 +2981,7 @@ export class MessageSequenceService {
 	 */
 	async runForRetreat(
 		retreatId: string,
-		opts: { sendNowStepIds?: readonly string[] } = {},
+		opts: { sendNowStepIds?: readonly string[]; trigger?: 'manual' | 'participant_create' } = {},
 	): Promise<SequenceRunResult> {
 		const sequences = await this.findByRetreat(retreatId);
 		// Only this retreat's sequences are walked, so step ids from another
@@ -2793,7 +2997,38 @@ export class MessageSequenceService {
 		}
 		// Scopeado a este retiro: el alta de un participante no debe disparar envíos
 		// de otros retiros.
-		const processed = await this.processDue(new Date(), undefined, retreatId);
+		const failedPerRetreat = new Map<string, number>();
+		const processed = await this.processDue(
+			new Date(),
+			undefined,
+			retreatId,
+			undefined,
+			failedPerRetreat,
+		);
+		const failed = failedPerRetreat.get(retreatId) ?? 0;
+		// Manual runs always leave a row — even a no-op one records the
+		// operator's intent, which is exactly what the incident post-mortem
+		// needed. Automatic runs (participant signup) only log when something
+		// actually happened: otherwise every signup adds an empty run_now row.
+		const trigger = opts.trigger ?? 'participant_create';
+		if (trigger === 'manual' || enrolled > 0 || processed > 0 || failed > 0 || pastSteps.length > 0) {
+			void domainAuditService.log({
+				action: DomainAuditAction.MESSAGE_SEQUENCE_RUN_NOW,
+				resourceType: 'message_sequence',
+				resourceId: null,
+				retreatId,
+				// El actor sale del auditContext: "Ejecutar ahora" manual o el alta
+				// de participantes que dispara la corrida — ambos son personas.
+				metadata: {
+					trigger,
+					sendNowStepIds: [...(opts.sendNowStepIds ?? [])],
+					enrolled,
+					processed,
+					failed,
+					pastStepsCount: pastSteps.length,
+				},
+			});
+		}
 		return { enrolled, processed, pastSteps };
 	}
 

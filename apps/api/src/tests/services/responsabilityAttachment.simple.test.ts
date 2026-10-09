@@ -43,9 +43,14 @@ const ALLOWED_MIMES = new Set([
 ]);
 
 function parseDataUrl(dataUrl: string): { buffer: Buffer; mimeType: string } | null {
-	const match = /^data:([^;]+);base64,(.+)$/.exec(dataUrl);
-	if (!match) return null;
-	return { mimeType: match[1], buffer: Buffer.from(match[2], 'base64') };
+	// Mirrors the service: string slicing, never a regex — a ~14MB payload
+	// blows the call stack of RegExp.exec on Node 20 (CI runner).
+	const marker = ';base64,';
+	const markerIndex = dataUrl.indexOf(marker);
+	const mimeType = dataUrl.startsWith('data:') ? dataUrl.slice('data:'.length, markerIndex) : '';
+	const base64Payload = markerIndex === -1 ? '' : dataUrl.slice(markerIndex + marker.length);
+	if (!mimeType || !base64Payload) return null;
+	return { mimeType, buffer: Buffer.from(base64Payload, 'base64') };
 }
 
 function slugFileName(name: string): string {

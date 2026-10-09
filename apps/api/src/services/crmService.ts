@@ -14,6 +14,10 @@ import { Payment } from '../entities/payment.entity';
 import { Retreat } from '../entities/retreat.entity';
 import { resolvePalancas, effectiveMinPalancas } from '@repo/utils';
 import type { TimelineEvent } from '@repo/types';
+import { domainAuditService } from './domainAuditService';
+
+// `description` (texto libre) queda fuera del diff: viaja su tamaño.
+const CRM_TASK_AUDIT_FIELDS = ['title', 'dueDate', 'status', 'assignedTo', 'participantId'];
 
 /**
  * Pipeline de seguimiento de participantes + tareas/recordatorios del
@@ -65,7 +69,12 @@ export class CrmService {
 		note?: string | null;
 		updatedBy?: string | null;
 	}): Promise<ParticipantFollowUp> {
-		return AppDataSource.transaction(async (manager) => {
+		// Datos para el log, capturados DENTRO de la transacción pero emitidos
+		// FUERA (riesgo §25.3: fire-and-forget dentro de la ventana
+		// transaccional revienta el commit con better-sqlite3). Se DEVUELVEN
+		// del callback: una variable asignada solo en el closure queda `null`
+		// para el control-flow de TS (TS2339 al leerla afuera).
+		const auditData = await AppDataSource.transaction(async (manager) => {
 			const repo = manager.getRepository(ParticipantFollowUp);
 			let row = await repo.findOne({
 				where: { retreatId: input.retreatId, participantId: input.participantId },
@@ -80,11 +89,11 @@ export class CrmService {
 			row.status = input.status;
 			row.note = input.note ?? null;
 			row.updatedBy = input.updatedBy ?? null;
-			const saved = await repo.save(row);
+			const savedRow = await repo.save(row);
 
 			// Guardar el mismo estado dos veces no debe ensuciar el hilo.
 			const statusChanged = previousStatus !== input.status;
-			if (!statusChanged) return saved;
+			if (!statusChanged) return { savedRow, audit: null };
 
 			const attendanceSynced = await this.syncAttendanceFromFollowUp(
 				manager,
@@ -92,6 +101,7 @@ export class CrmService {
 				input.retreatId,
 				input.status,
 			);
+			const audit = { savedId: savedRow.id, previousStatus, attendanceSynced };
 
 			await manager.getRepository(ParticipantNote).save(
 				manager.getRepository(ParticipantNote).create({
@@ -109,8 +119,26 @@ export class CrmService {
 				}),
 			);
 
-			return saved;
+			return { savedRow, audit };
 		});
+		const { savedRow: saved, audit } = auditData;
+		if (audit) {
+			void domainAuditService.logUpdate(
+				'crm_follow_up',
+				audit.savedId,
+				{ status: audit.previousStatus },
+				{ status: input.status },
+				{
+					retreatId: input.retreatId,
+					metadata: {
+						participantId: input.participantId,
+						noteChars: input.note?.length ?? 0,
+						attendanceSynced: audit.attendanceSynced,
+					},
+				},
+			);
+		}
+		return saved;
 	}
 
 	/**
@@ -175,7 +203,13 @@ export class CrmService {
 			assignedTo: input.assignedTo ?? null,
 			createdBy: input.createdBy ?? null,
 		});
-		return repo.save(task);
+		const saved = await repo.save(task);
+		void domainAuditService.logCreate('crm_task', saved.id, saved, {
+			retreatId: input.retreatId,
+			fields: CRM_TASK_AUDIT_FIELDS,
+			metadata: { descriptionChars: saved.description?.length ?? 0 },
+		});
+		return saved;
 	}
 
 	async findTaskById(id: string): Promise<CrmTask | null> {
@@ -195,6 +229,8 @@ export class CrmService {
 		const repo = AppDataSource.getRepository(CrmTask);
 		const task = await repo.findOne({ where: { id } });
 		if (!task) return null;
+		// Snapshot antes de mutar: `task` se modifica in-place.
+		const before = { ...task };
 		if (input.title !== undefined) task.title = input.title;
 		if (input.description !== undefined) task.description = input.description;
 		if (input.dueDate !== undefined) task.dueDate = input.dueDate ? new Date(input.dueDate) : null;
@@ -203,11 +239,26 @@ export class CrmService {
 			task.status = input.status;
 			task.completedAt = input.status === 'done' ? new Date() : null;
 		}
-		return repo.save(task);
+		const saved = await repo.save(task);
+		void domainAuditService.logUpdate('crm_task', id, before, saved, {
+			retreatId: saved.retreatId,
+			fields: CRM_TASK_AUDIT_FIELDS,
+			metadata: { descriptionChars: saved.description?.length ?? 0 },
+		});
+		return saved;
 	}
 
 	async deleteTask(id: string): Promise<boolean> {
-		const result = await AppDataSource.getRepository(CrmTask).delete(id);
+		const repo = AppDataSource.getRepository(CrmTask);
+		const before = await repo.findOne({ where: { id } });
+		const result = await repo.delete(id);
+		if (before) {
+			void domainAuditService.logDelete('crm_task', id, before, {
+				retreatId: before.retreatId,
+				fields: CRM_TASK_AUDIT_FIELDS,
+				metadata: { descriptionChars: before.description?.length ?? 0 },
+			});
+		}
 		return (result.affected ?? 0) > 0;
 	}
 
@@ -222,6 +273,9 @@ export class CrmService {
 		});
 	}
 
+	// Crear/editar notas NO se audita: la nota ES el registro (autor y fecha
+	// viven en su propia fila); duplicarla en domain_audit_log sería ruido.
+	// Borrarla sí (deleteNote): es pérdida de información sin rastro.
 	async createNote(input: {
 		participantId: string;
 		retreatId: string;
@@ -272,12 +326,25 @@ export class CrmService {
 		if (row.kind !== 'note') return false;
 		if (!row.createdBy || row.createdBy !== userId) return false;
 		await repo.delete(id);
+		// El cuerpo no entra al log: solo su tamaño.
+		void domainAuditService.logDelete('participant_note', id, row, {
+			retreatId: row.retreatId,
+			fields: ['kind', 'scope'],
+			metadata: {
+				participantId: row.participantId,
+				authorId: row.createdBy,
+				bodyChars: row.body?.length ?? 0,
+			},
+		});
 		return true;
 	}
 
 	/**
 	 * Deja en el hilo el momento en que un caminante alcanzó el mínimo de cartas
 	 * del retiro.
+	 *
+	 * NO se audita en domain_audit_log: es un hito derivado del conteo de
+	 * cartas (la raíz es el participant.update que ya se audita).
 	 *
 	 * Sólo escribe al CRUZAR el umbral hacia arriba: pasar de 3 a 4 cartas no
 	 * genera otra entrada, y bajar el conteo tampoco. El umbral se lee del retiro
@@ -566,13 +633,33 @@ export class CrmService {
 
 	// --- Opt-out / lista de no-contacto ---
 
-	/** Marca/desmarca a un participante como no-contactable (afecta a las secuencias). */
-	async setDoNotContact(participantId: string, value: boolean): Promise<Participant | null> {
+	/**
+	 * Marca/desmarca a un participante como no-contactable (afecta a las
+	 * secuencias). `retreatId` es opcional y sólo contextual: el flag es
+	 * global del participante, pero sin él la fila no aparecería en el visor
+	 * del retiro desde donde se activó.
+	 */
+	async setDoNotContact(
+		participantId: string,
+		value: boolean,
+		retreatId?: string,
+	): Promise<Participant | null> {
 		const repo = AppDataSource.getRepository(Participant);
 		const p = await repo.findOne({ where: { id: participantId } });
 		if (!p) return null;
+		const before = p.doNotContact;
 		p.doNotContact = value;
-		return repo.save(p);
+		const saved = await repo.save(p);
+		if (before !== value) {
+			void domainAuditService.logUpdate(
+				'participant',
+				participantId,
+				{ doNotContact: before },
+				{ doNotContact: value },
+				{ retreatId: retreatId ?? null, fields: ['doNotContact'] },
+			);
+		}
+		return saved;
 	}
 }
 

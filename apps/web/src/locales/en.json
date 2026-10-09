@@ -11,6 +11,7 @@
         "checkin": "Check-in",
         "attendance_confirmation": "Attendance confirmation",
         "anonymize": "Data anonymized (GDPR)",
+        "merge": "Records merged (duplicate absorbed)",
         "health_view": "Health record viewed",
         "health_export": "Health record exported",
         "health_data_purged": "Health data automatically purged"
@@ -54,6 +55,171 @@
           "photo_upload": "Memory photo uploaded",
           "update": "Retreat memories edited"
         }
+      },
+      "message_sequence": {
+        "create": "Sequence created",
+        "update": "Sequence edited",
+        "delete": "Sequence deleted",
+        "run_now": "Sequences run now",
+        "cron_run": "Engine run (cron)",
+        "regenerate_queue": "Queue regenerated"
+      },
+      "sequence_step": {
+        "reschedule": "Step rescheduled"
+      },
+      "scheduled_message": {
+        "dispatch": "Message marked as sent",
+        "skip": "Message skipped",
+        "retry": "Message requeued",
+        "discard": "Message discarded",
+        "assign": "Send assignee set",
+        "bulk_resolve": "Bulk action on problem messages"
+      },
+      "message_template": {
+        "create": "Template created",
+        "update": "Template edited",
+        "delete": "Template deleted"
+      },
+      "global_message_sequence": {
+        "create": "Global sequence created",
+        "update": "Global sequence edited",
+        "delete": "Global sequence deleted",
+        "toggle_active": "Global sequence activated/deactivated",
+        "copy_to_retreat": "Global sequence imported to a retreat"
+      },
+      "global_message_template": {
+        "create": "Global message template created",
+        "update": "Global message template edited",
+        "delete": "Global message template deleted",
+        "toggle_active": "Global message template activated/deactivated",
+        "copy_to_retreat": "Global template copied to a retreat",
+        "copy_to_community": "Global template copied to a community",
+        "copy_from_retreat": "Retreat template copied to a community"
+      },
+      "pre_retreat_task_template_set": {
+        "create": "Task template set created",
+        "update": "Task template set edited",
+        "delete": "Task template set deleted"
+      },
+      "pre_retreat_task_template": {
+        "create": "Pre-retreat task template created",
+        "update": "Pre-retreat task template edited",
+        "delete": "Pre-retreat task template deleted"
+      },
+      "schedule_template_set": {
+        "create": "Schedule template set created",
+        "update": "Schedule template set edited",
+        "delete": "Schedule template set deleted"
+      },
+      "schedule_template": {
+        "create": "Schedule template created",
+        "update": "Schedule template edited",
+        "delete": "Schedule template deleted"
+      },
+      "pre_retreat_task": {
+        "create": "Pre-retreat task created",
+        "update": "Pre-retreat task edited",
+        "delete": "Pre-retreat task deleted",
+        "set_status": "Pre-retreat task status changed",
+        "materialize": "Task template installed into the retreat"
+      },
+      "schedule_item": {
+        "create": "Schedule item created",
+        "update": "Schedule item edited",
+        "delete": "Schedule item deleted",
+        "bulk_assign": "Bulk assignment of responsibles",
+        "relink": "Responsibilities relinked by name",
+        "materialize": "Schedule template installed into the retreat",
+        "start": "Schedule item started",
+        "complete": "Schedule item completed",
+        "shift_day": "Whole day shifted in time",
+        "shift_all": "Entire schedule shifted in time",
+        "shift_downstream": "Item (and following) shifted in time",
+        "reorder_day": "Day items reordered",
+        "regenerate_santisimo": "Santísimo slots regenerated from the schedule"
+      },
+      "santisimo_slot": {
+        "create": "Santísimo slot created",
+        "update": "Santísimo slot edited",
+        "delete": "Santísimo slot deleted",
+        "generate": "Santísimo slots generated"
+      },
+      "santisimo_signup": {
+        "admin_create": "Santísimo signup registered by a server",
+        "public_signup": "Public Santísimo signup",
+        "delete": "Santísimo signup deleted",
+        "cancel": "Santísimo signup cancelled by the participant"
+      },
+      "responsability": {
+        "create": "Responsibility created",
+        "update": "Responsibility edited",
+        "delete": "Responsibility deleted",
+        "assign": "Participant assigned to responsibility",
+        "remove": "Participant removed from responsibility",
+        "create_speaker": "Speaker created and assigned"
+      },
+      "responsability_attachment": {
+        "create": "Document added to responsibility",
+        "update": "Responsibility document edited",
+        "restore_version": "Previous document version restored",
+        "delete": "Responsibility document deleted"
+      },
+      "service_team": {
+        "create": "Service team created",
+        "update": "Service team edited",
+        "delete": "Service team deleted",
+        "add_member": "Member added to team",
+        "remove_member": "Member removed from team",
+        "assign_leader": "Team leader assigned",
+        "unassign_leader": "Team leader removed"
+      },
+      "inventory_category": {
+        "create": "Inventory category created"
+      },
+      "inventory_team": {
+        "create": "Inventory team created"
+      },
+      "inventory_item": {
+        "create": "Inventory item created",
+        "update": "Inventory item edited"
+      },
+      "retreat_inventory": {
+        "create": "Item added to retreat inventory",
+        "update": "Retreat inventory edited",
+        "delete": "Item removed from retreat inventory",
+        "sync_catalog": "Catalog items synced to retreat",
+        "recalculate": "Required quantities recalculated",
+        "copy_from_retreat": "Inventory copied from another retreat",
+        "import": "Inventory imported from Excel"
+      },
+      "shirt_type": {
+        "create": "Shirt type created",
+        "update": "Shirt type edited",
+        "delete": "Shirt type deleted"
+      },
+      "crm_follow_up": {
+        "update": "Follow-up stage changed"
+      },
+      "crm_task": {
+        "create": "Task created",
+        "update": "Task edited",
+        "delete": "Task deleted"
+      },
+      "participant_note": {
+        "delete": "Participant note deleted"
+      },
+      "retreat_preparation": {
+        "create": "Preparation created",
+        "update": "Preparation edited",
+        "delete": "Preparation deleted",
+        "generate": "Preparation calendar generated",
+        "skip_holiday": "Session skipped for a holiday",
+        "resync_docs": "Preparation documents resynced"
+      },
+      "retreat_preparation_document": {
+        "create": "Document added to preparation",
+        "update": "Preparation document edited",
+        "delete": "Preparation document deleted"
       }
     },
     "resources": {
@@ -63,7 +229,34 @@
       "bed": "Bed",
       "house": "House",
       "payment": "Payment",
-      "retreat": "Retreat"
+      "retreat": "Retreat",
+      "message_sequence": "Message sequence",
+      "sequence_step": "Sequence step",
+      "scheduled_message": "Scheduled message",
+      "message_template": "Message template",
+      "global_message_sequence": "Global message sequence",
+      "global_message_template": "Global message template",
+      "pre_retreat_task_template_set": "Task template set",
+      "pre_retreat_task_template": "Pre-retreat task template",
+      "schedule_template_set": "Schedule template set",
+      "schedule_template": "Schedule template",
+      "pre_retreat_task": "Pre-retreat task",
+      "schedule_item": "Minute-by-minute schedule",
+      "santisimo_slot": "Santísimo slot",
+      "santisimo_signup": "Santísimo signup",
+      "responsability": "Responsibility",
+      "responsability_attachment": "Responsibility document",
+      "service_team": "Service team",
+      "inventory_category": "Inventory category",
+      "inventory_team": "Inventory team",
+      "inventory_item": "Inventory catalog item",
+      "retreat_inventory": "Retreat inventory",
+      "shirt_type": "Shirt type",
+      "crm_follow_up": "Follow-up",
+      "crm_task": "Task",
+      "participant_note": "Participant note",
+      "retreat_preparation": "Preparation",
+      "retreat_preparation_document": "Preparation document"
     },
     "ranges": {
       "1w": "1 week",
@@ -75,7 +268,7 @@
     },
     "ui": {
       "title": "Audit",
-      "description": "Record of who created, edited or deleted participants, tables, beds, houses, payments and retreat data.",
+      "description": "Record of who created, edited or deleted participants, tables, beds, houses, payments, retreat data, message sequences and templates.",
       "quickRange": "Quick range:",
       "area": "Area",
       "action": "Action",

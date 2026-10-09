@@ -1,6 +1,23 @@
 import { AppDataSource } from '../data-source';
 import { MessageTemplate } from '../entities/messageTemplate.entity';
 import { CreateMessageTemplate, UpdateMessageTemplate } from '@repo/types';
+import { domainAuditService, DomainAuditAction } from './domainAuditService';
+
+/**
+ * Auditoría de plantillas: el cuerpo del mensaje NO va al diff (HTML grande que
+ * inflaría `domain_audit_log`); se registra si cambió y su longitud.
+ */
+const TEMPLATE_AUDIT_FIELDS = ['name', 'type', 'scope', 'isDefault'];
+
+function templateAuditMetadata(
+	previous: MessageTemplate | null,
+	current: Pick<MessageTemplate, 'message'>,
+): Record<string, unknown> {
+	return {
+		messageChanged: previous ? previous.message !== current.message : true,
+		messageChars: current.message.length,
+	};
+}
 
 /**
  * M6: how the system picks the template of a type when nothing pins one — the
@@ -77,6 +94,7 @@ export class MessageTemplateService {
 		const newMessageTemplate = this.messageTemplateRepository.create(data);
 		const saved = await this.messageTemplateRepository.save(newMessageTemplate);
 		await this.clearOtherDefaults(saved);
+		this.auditCreate(saved);
 		return saved;
 	}
 
@@ -91,6 +109,7 @@ export class MessageTemplateService {
 		});
 		const saved = await this.messageTemplateRepository.save(newMessageTemplate);
 		await this.clearOtherDefaults(saved);
+		this.auditCreate(saved);
 		return saved;
 	}
 
@@ -103,21 +122,58 @@ export class MessageTemplateService {
 			communityId,
 			scope: 'community',
 		});
-		return this.messageTemplateRepository.save(newMessageTemplate);
+		const saved = await this.messageTemplateRepository.save(newMessageTemplate);
+		this.auditCreate(saved);
+		return saved;
 	}
 
 	async update(id: string, data: UpdateMessageTemplate['body']): Promise<MessageTemplate | null> {
+		const previous = await this.findById(id);
 		const result = await this.messageTemplateRepository.update(id, data);
 		if (result.affected === null || result.affected === undefined || result.affected === 0) {
 			return null;
 		}
 		const updated = await this.findById(id);
 		await this.clearOtherDefaults(updated);
+		if (updated && previous) {
+			void domainAuditService.logUpdate('message_template', id, previous, updated, {
+				retreatId: updated.retreatId ?? null,
+				fields: TEMPLATE_AUDIT_FIELDS,
+				metadata: {
+					...templateAuditMetadata(previous, updated),
+					...(updated.communityId ? { communityId: updated.communityId } : {}),
+				},
+			});
+		}
 		return updated;
 	}
 
 	async remove(id: string): Promise<boolean> {
+		const existing = await this.findById(id);
 		const result = await this.messageTemplateRepository.delete(id);
-		return result.affected !== null && result.affected !== undefined && result.affected > 0;
+		const deleted = result.affected !== null && result.affected !== undefined && result.affected > 0;
+		if (deleted && existing) {
+			void domainAuditService.logDelete('message_template', id, existing, {
+				retreatId: existing.retreatId ?? null,
+				fields: TEMPLATE_AUDIT_FIELDS,
+				metadata: {
+					...templateAuditMetadata(null, existing),
+					...(existing.communityId ? { communityId: existing.communityId } : {}),
+				},
+			});
+		}
+		return deleted;
+	}
+
+	/** Traza de auditoría de una plantilla creada (scope retreat o community). */
+	private auditCreate(saved: MessageTemplate): void {
+		void domainAuditService.logCreate('message_template', saved.id, saved, {
+			retreatId: saved.retreatId ?? null,
+			fields: TEMPLATE_AUDIT_FIELDS,
+			metadata: {
+				...templateAuditMetadata(null, saved),
+				...(saved.communityId ? { communityId: saved.communityId } : {}),
+			},
+		});
 	}
 }

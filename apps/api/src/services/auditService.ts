@@ -112,6 +112,27 @@ export class AuditService {
 		});
 	}
 
+	async logRoleInvitationApproved(
+		invitationId: string,
+		userId: string,
+		targetUserId: string,
+		retreatId: string,
+		roleName: string,
+		options: Omit<AuditLogOptions, 'targetUserId' | 'retreatId'> = {},
+	): Promise<void> {
+		await this.createAuditLog({
+			actionType: AuditActionType.ROLE_INVITATION_APPROVED,
+			resourceType: AuditResourceType.ROLE_INVITATION,
+			resourceId: invitationId,
+			userId,
+			targetUserId,
+			retreatId,
+			description: `Invitación aprobada para rol: ${roleName}`,
+			newValues: { status: 'active', role: roleName },
+			...options,
+		});
+	}
+
 	async logRoleInvitationRevoked(
 		invitationId: string,
 		userId: string,
