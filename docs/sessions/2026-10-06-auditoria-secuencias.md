@@ -373,6 +373,15 @@ Verificación por el dato (local): `--shard=1/2` y `--shard=2/2` por separado pa
 nuevo con la mitad de la suites (~1.7GB pico). Es la misma muerte que la memoria
 `reference_api_full_jest_suite_sigabrt` documenta para corridas locales completas.
 
+**Segundo episodio (2026-10-09): el shard solo era fronterizo.** El main del shard 1/2 picó a
+3.39GB contra el límite de ~4GB de Node 20 en el runner — una corrida verde, la siguiente murió
+con el mismo exit 134 (varianza de GC al borde del acantilado; el commit intermedio no añadió
+suites). Fix definitivo (`45ad89d6`): el step del CI invoca `npx jest` directo con
+`NODE_OPTIONS="--experimental-vm-modules --max-old-space-size=6144"` — el script `test` del
+package.json **hardcodea `NODE_OPTIONS`**, así que un override por `env:` a través de
+`pnpm --filter api test` se descarta en silencio. El heap sube solo para el main (el retenedor);
+los workers no cambian.
+
 Hallazgo colateral: `telemetryClientError.simple.test.ts` ("accepts a report without a session")
 falló 1 vez con `socket hang up` bajo una combinación específica de workers y pasa solo (11/11);
 supertest sin puerto fijo apunta a un singleton compartido entre suites vecinas del mismo worker
@@ -413,9 +422,25 @@ nuevos del conteo de fallos); `pnpm --filter api build` OK; `grep -c __dirname d
 ### Nota pre-merge
 
 El merge a master **despliega a producción automáticamente** (`deploy-production.yml` corre con
-cada push a master). Master trae 2 commits de health que esta rama no tiene — combinación que
-ningún CI ha probado aún; el deploy los junta. Tras el merge, el `git pull` del checkout
-principal puede chocar con `apps/web/src/locales/{en,es}.json` sin commitear de otra sesión.
+cada push a master).
+
+**Master avanzó antes del merge (2026-10-09, push `76bb2fd2`)**: ~30 commits que esta rama no
+tenía (duplicados M1–M4, palancas-quick-phone-edit, sequences-inbox-filters, 3 fixes de import),
+con overlap en 6 archivos del PR (`messageSequenceService.ts`,
+`messageSequenceController.ts`, `participantMergeService.ts`, `MessageSequencesView.vue`,
+`apps/web/src/locales/{en,es}.json`). `git merge-tree` contra ese master da merge **limpio**
+(sin conflictos); la rama se integró con `origin/master` y el CI corrió la combinación antes
+del merge — el verde anterior del PR era contra master viejo.
+
+**Doble registro de auditoría en el merge de duplicados (hallazgo de integración)**: el M4 de
+duplicados (`b03ea39a`) registra `community.participant.merge` en `community_audit_log` desde
+el `communityController`; esta rama registra `participant.merge` en `domain_audit_log` desde el
+`participantMergeService` (al que ese controller llama). Tras el merge, cada fusión desde la
+vista de comunidad deja fila en las **dos** tablas. No rompe nada (mecanismos independientes);
+unificar en `domain_audit_log` —el que alimenta `/app/audit`— queda como follow-up post-merge.
+
+Tras el merge, el `git pull` del checkout principal puede chocar con trabajo sin commitear de
+otras sesiones.
 
 ## Reproducir el diagnóstico forense de hoy
 
