@@ -1111,3 +1111,155 @@ describe('MessageSequencesView — bandeja por palanquero', () => {
 		expect(wrapper.findAll('select option[value="palanquero"]')).toHaveLength(2);
 	});
 });
+
+describe('MessageSequencesView — bandeja: acciones de fila (M3)', () => {
+	// El locale es real (es) en este archivo: títulos de botones en español.
+	const CONVERSATION_TITLE = 'Ver conversación en WhatsApp';
+
+	it('con teléfono: "Ver conversación" abre el chat SIN text= y SIN marcar nada (D1)', async () => {
+		const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
+		const apiMod: any = await import('@/services/api');
+		apiMod.openScheduledMessage.mockClear();
+		apiMod.dispatchScheduledMessage.mockClear();
+
+		const wrapper = await mountView([{ ...QUEUE_ITEM, resolvedContact: '5512345678' }]);
+		const btn = wrapper.findAll('button').find((b) => b.attributes('title') === CONVERSATION_TITLE);
+		expect(btn).toBeTruthy();
+
+		await btn!.trigger('click');
+		expect(openSpy).toHaveBeenCalledTimes(1);
+		const url = openSpy.mock.calls[0][0] as string;
+		// Chat a pelo: link de conversación, sin mensaje precargado.
+		expect(url).toMatch(/^https:\/\/api\.whatsapp\.com\/send\?phone=\d+$/);
+		expect(url).not.toContain('text=');
+		// Mirar el historial no es enviar: cero transiciones de estado al server.
+		expect(apiMod.openScheduledMessage).not.toHaveBeenCalled();
+		expect(apiMod.dispatchScheduledMessage).not.toHaveBeenCalled();
+		openSpy.mockRestore();
+	});
+
+	it('sin teléfono: no hay botón de conversación (el envío ya avisa con toast)', async () => {
+		const wrapper = await mountView(); // QUEUE_ITEM: sin resolvedContact ni cellPhone
+		const btn = wrapper.findAll('button').find((b) => b.attributes('title') === CONVERSATION_TITLE);
+		expect(btn).toBeUndefined();
+	});
+
+	it('la fila trae el botón ⓘ de ficha del participante', async () => {
+		const wrapper = await mountView();
+		const btn = wrapper.findAll('button').find((b) => b.attributes('title') === 'Detalles del participante');
+		expect(btn).toBeTruthy();
+	});
+});
+
+describe('MessageSequencesView — bandeja: filtros y paginación (M2)', () => {
+	// 12 ítems: 3 de la plantilla tpl-a ("Bienvenida") y 9 de tpl-b
+	// ("Recordatorio"); los 2 primeros de tpl-b asignados a u-2 "Ana
+	// Rodríguez". >10 para que el page size default pagine.
+	const m2Queue = () => {
+		const items: any[] = [];
+		for (let i = 1; i <= 3; i++) {
+			items.push({
+				...QUEUE_ITEM,
+				id: `q-a${i}`,
+				participantId: `pa${i}`,
+				participant: { id: `pa${i}`, firstName: `Alfa${i}`, lastName: 'Test' },
+				step: { templateId: 'tpl-a' },
+				templateName: 'Bienvenida',
+			});
+		}
+		for (let i = 1; i <= 9; i++) {
+			items.push({
+				...QUEUE_ITEM,
+				id: `q-b${i}`,
+				participantId: `pb${i}`,
+				participant: { id: `pb${i}`, firstName: `Beta${i}`, lastName: 'Test' },
+				step: { templateId: 'tpl-b' },
+				templateName: 'Recordatorio',
+				...(i <= 2 ? { assignedTo: 'u-2', assignedToName: 'Ana Rodríguez' } : {}),
+			});
+		}
+		return items;
+	};
+
+	// Nombres visibles de la bandeja (uno por fila: el botón del participante).
+	const visibleNames = (wrapper: VueWrapper<any>) =>
+		wrapper
+			.find('#seq-panel-pending')
+			.findAll('button[title="Ver detalle del participante"]')
+			.map((b) => b.text());
+
+	afterEach(() => {
+		// El tamaño de página se recuerda en localStorage: no contaminar los
+		// demás tests del archivo (que asumen el default 10).
+		localStorage.removeItem('seq.queuePageSize');
+	});
+
+	it('filtro por plantilla: opción con conteo en el select y lista filtrada', async () => {
+		const wrapper = await mountView(m2Queue());
+
+		// El select desktop (siempre montado) lista una opción por plantilla
+		// presente, con su conteo; el value es el templateId del paso.
+		const optA = wrapper.findAll('select option').find((o) => o.text() === 'Bienvenida (3)');
+		expect(optA).toBeTruthy();
+		expect(optA!.attributes('value')).toBe('tpl-a');
+		expect(
+			wrapper.findAll('select option').some((o) => o.text() === 'Recordatorio (9)'),
+		).toBe(true);
+
+		wrapper.vm.queueTemplateFilter = 'tpl-a';
+		await flushPromises();
+		expect(visibleNames(wrapper)).toEqual(['Alfa1 Test', 'Alfa2 Test', 'Alfa3 Test']);
+	});
+
+	it('filtro por asignado: opción dinámica con nombre y conteo; la fila muestra "Asignado: {nombre}"', async () => {
+		const wrapper = await mountView(m2Queue());
+
+		// La fila deja de decir "Asignado" a secas: muestra quién.
+		expect(wrapper.text()).toContain('Asignado: Ana Rodríguez');
+		// Opción dinámica dentro del select "Mostrar".
+		const opt = wrapper
+			.findAll('select option')
+			.find((o) => o.text() === 'Asignado: Ana Rodríguez (2)');
+		expect(opt).toBeTruthy();
+		expect(opt!.attributes('value')).toBe('user:u-2');
+
+		wrapper.vm.queueAssignFilter = 'user:u-2';
+		await flushPromises();
+		expect(visibleNames(wrapper)).toEqual(['Beta1 Test', 'Beta2 Test']);
+	});
+
+	it('page size: default 10 pagina; 5 re-página; "Todos" muestra todo sin paginador', async () => {
+		const wrapper = await mountView(m2Queue()); // 12 ítems
+
+		// Default 10 → 10 filas, paginador "Página 1 de 2".
+		expect(visibleNames(wrapper)).toHaveLength(10);
+		expect(wrapper.text()).toContain('Página 1 de 2');
+
+		// 5 → vuelve a página 1 con 3 páginas; se recuerda en localStorage.
+		wrapper.vm.queuePageSize = 5;
+		await flushPromises();
+		expect(visibleNames(wrapper)).toHaveLength(5);
+		expect(wrapper.text()).toContain('Página 1 de 3');
+		expect(localStorage.getItem('seq.queuePageSize')).toBe('5');
+
+		// "Todos" → una sola página, el paginador desaparece.
+		wrapper.vm.queuePageSize = 'all';
+		await flushPromises();
+		expect(visibleNames(wrapper)).toHaveLength(12);
+		expect(wrapper.text()).not.toContain('Página ');
+	});
+
+	it('page size guardado se sanitiza: valor inválido cae a 10, válido se respeta', async () => {
+		// '7' no es un tamaño de la lista → default 10.
+		localStorage.setItem('seq.queuePageSize', '7');
+		const wrapperInvalid = await mountView(m2Queue());
+		expect(wrapperInvalid.vm.queuePageSize).toBe(10);
+		expect(visibleNames(wrapperInvalid)).toHaveLength(10);
+
+		// '5' sí → arranca en 5.
+		localStorage.setItem('seq.queuePageSize', '5');
+		const wrapperValid = await mountView(m2Queue());
+		expect(wrapperValid.vm.queuePageSize).toBe(5);
+		expect(visibleNames(wrapperValid)).toHaveLength(5);
+	});
+});

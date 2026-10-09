@@ -13,7 +13,7 @@ import { useResponsabilityStore } from '@/stores/responsabilityStore';
 import { useAuthStore } from '@/stores/authStore';
 import { convertHtmlToWhatsApp, replaceAllVariables } from '@/utils/message';
 import type { ParticipantData, RetreatData } from '@/utils/message';
-import { buildWhatsAppSendLink } from '@/utils/phone';
+import { buildWhatsAppSendLink, buildWhatsAppChatLink } from '@/utils/phone';
 import { clampStepRanges } from '@/utils/sequenceStepInput';
 import { getMessageTemplateAudience } from '@repo/types';
 // #8: catálogos y helpers del editor compartidos con la vista global de
@@ -40,6 +40,8 @@ import {
 import type { SequenceStepPreview, SequencePastStep } from '@repo/types';
 import { previewSequenceStep, previewSequenceSchedule, listPastDueSequenceSteps } from '@/services/api';
 import { useModalA11y } from '@/composables/useModalA11y';
+// Ficha del participante en la bandeja: variante 'icon' (botón ⓘ suelto).
+import ParticipantInfoPopover from '@/components/ParticipantInfoPopover.vue';
 
 const { t } = useI18n();
 const { toast } = useToast();
@@ -791,14 +793,37 @@ function onTablistKeydown(e: KeyboardEvent) {
 	e.preventDefault();
 	switchTab(TAB_KEYS[next]);
 }
-const QUEUE_PAGE_SIZE = 10;
+// Mensajes por página: uno de la lista, o 'all' (todo en una sola página).
+// Se recuerda por navegador; el valor guardado se sanitiza al leerlo.
+const QUEUE_PAGE_SIZES = [5, 10, 50, 100] as const;
+function loadQueuePageSize(): number | 'all' {
+	try {
+		const raw = localStorage.getItem('seq.queuePageSize');
+		if (raw === 'all') return 'all';
+		const n = Number(raw);
+		return (QUEUE_PAGE_SIZES as readonly number[]).includes(n) ? n : 10;
+	} catch {
+		return 10; // localStorage bloqueado (Safari privado): default en memoria
+	}
+}
+const queuePageSize = ref<number | 'all'>(loadQueuePageSize());
+watch(queuePageSize, (v) => {
+	try {
+		localStorage.setItem('seq.queuePageSize', String(v));
+	} catch {
+		/* no bloqueante */
+	}
+});
 const queuePage = ref(1);
 const queueSort = ref<'scheduled' | 'name' | 'template' | 'recent' | 'sequence' | 'palanquero'>('scheduled');
 const queueSearch = ref('');
 // 'active' (default): la bandeja es la lista de trabajo y los pausados (secuencia
 // desactivada) no se van a enviar — se ocultan. 'paused' los aísla para revisarlos;
-// 'all' es todo lo que hay.
-const queueAssignFilter = ref<'active' | 'mine' | 'unassigned' | 'paused' | 'all'>('active');
+// 'all' es todo lo que hay. `user:<id>` filtra por un asignado concreto.
+const queueAssignFilter = ref<'active' | 'mine' | 'unassigned' | 'paused' | 'all' | `user:${string}`>('active');
+// Filtro por plantilla: 'all', o la clave de plantilla del ítem (el id del paso
+// si lo fijó, si no su tipo — misma jerarquía que el motor al resolver).
+const queueTemplateFilter = ref<string>('all');
 const queueMenuOpen = ref(false); // menú de acciones (solo móvil) en Pendientes
 const issuesMenuOpen = ref(false); // menú de acciones masivas (solo móvil) en Problemas
 
@@ -830,6 +855,69 @@ const sortedQueue = computed(() => {
 	if (queueSort.value === 'recent') return items.sort((a, b) => time(b) - time(a));
 	return items.sort((a, b) => time(a) - time(b)); // 'scheduled': por fecha programada
 });
+// Clave de plantilla de un ítem de la bandeja: la plantilla concreta del paso
+// (`step` viene en el payload) si el paso la fijó, si no su tipo (ítems legacy
+// o con plantilla borrada). Es la misma jerarquía que el motor al resolver.
+function queueTemplateKey(it: any): string {
+	if (it.step?.templateId) return it.step.templateId;
+	return it.templateType ? `type:${it.templateType}` : '';
+}
+
+// Opciones del filtro "Plantilla": una por plantilla presente en la bandeja
+// (sobre los ítems no pausados — el trabajo real), con su conteo.
+const queueTemplateOptions = computed(() => {
+	const map = new Map<string, { label: string; count: number }>();
+	for (const it of queue.value as any[]) {
+		if (pausedSequence(it)) continue;
+		const key = queueTemplateKey(it);
+		if (!key) continue;
+		const prev = map.get(key);
+		if (prev) prev.count += 1;
+		else map.set(key, { label: itemTemplateName(it), count: 1 });
+	}
+	return Array.from(map.entries())
+		.map(([value, { label, count }]) => ({ value, label, count }))
+		.sort((a, b) => a.label.localeCompare(b.label, 'es'));
+});
+
+// Asignados presentes en la bandeja (no pausados), con conteo — las opciones
+// dinámicas del select "Mostrar": "Asignado: {nombre} (n)".
+const queueAssigneeOptions = computed(() => {
+	const counts = new Map<string, number>();
+	const names = new Map<string, string>();
+	for (const it of queue.value as any[]) {
+		if (pausedSequence(it) || !it.assignedTo) continue;
+		counts.set(it.assignedTo, (counts.get(it.assignedTo) || 0) + 1);
+		if (it.assignedToName) names.set(it.assignedTo, it.assignedToName);
+	}
+	return Array.from(counts.entries())
+		.map(([id, count]) => ({
+			id,
+			// Sin nombre resuelto (usuario eliminado): etiqueta genérica.
+			name: names.get(id) || t('sequences.assigned'),
+			count,
+		}))
+		.sort((a, b) => a.name.localeCompare(b.name, 'es'));
+});
+
+// Filtros dinámicos que quedaron huérfanos (salió de la bandeja el último ítem
+// de esa plantilla o de ese asignado): volver al default en vez de dejar una
+// lista vacía sin explicación.
+watch(queue, () => {
+	if (
+		queueTemplateFilter.value !== 'all' &&
+		!queueTemplateOptions.value.some((o) => o.value === queueTemplateFilter.value)
+	) {
+		queueTemplateFilter.value = 'all';
+	}
+	if (
+		String(queueAssignFilter.value).startsWith('user:') &&
+		!queueAssigneeOptions.value.some((a) => `user:${a.id}` === queueAssignFilter.value)
+	) {
+		queueAssignFilter.value = 'active';
+	}
+});
+
 // Filtro por texto: nombre del participante, plantilla o destinatario.
 const filteredQueue = computed(() => {
 	let items = sortedQueue.value;
@@ -839,11 +927,18 @@ const filteredQueue = computed(() => {
 	} else if (queueAssignFilter.value !== 'all') {
 		items = items.filter((it: any) => !pausedSequence(it));
 	}
-	// Filtro por asignación: míos / sin asignar (sobre los no pausados).
+	// Filtro por asignación: míos / sin asignar / un asignado concreto.
 	if (queueAssignFilter.value === 'mine') {
 		items = items.filter((it: any) => it.assignedTo === myUserId.value);
 	} else if (queueAssignFilter.value === 'unassigned') {
 		items = items.filter((it: any) => !it.assignedTo);
+	} else if (queueAssignFilter.value.startsWith('user:')) {
+		const uid = queueAssignFilter.value.slice('user:'.length);
+		items = items.filter((it: any) => it.assignedTo === uid);
+	}
+	// Filtro por plantilla.
+	if (queueTemplateFilter.value !== 'all') {
+		items = items.filter((it: any) => queueTemplateKey(it) === queueTemplateFilter.value);
 	}
 	// Filtro por texto.
 	const q = queueSearch.value.trim().toLowerCase();
@@ -858,7 +953,13 @@ const filteredQueue = computed(() => {
 	}
 	return items;
 });
-const queueTotalPages = computed(() => Math.max(1, Math.ceil(filteredQueue.value.length / QUEUE_PAGE_SIZE)));
+// Tamaño efectivo de página: 'all' usa toda la lista filtrada.
+const effectiveQueuePageSize = computed(() =>
+	queuePageSize.value === 'all' ? filteredQueue.value.length || 1 : queuePageSize.value,
+);
+const queueTotalPages = computed(() =>
+	Math.max(1, Math.ceil(filteredQueue.value.length / effectiveQueuePageSize.value)),
+);
 // Contador del TAB: trabajo real en la bandeja — los pausados no se envían,
 // no cuentan (se ven dentro con el filtro "Pausados").
 const activeQueueCount = computed(
@@ -872,10 +973,16 @@ const pausedHiddenCount = computed(() =>
 		: queue.value.length - activeQueueCount.value,
 );
 const pagedQueue = computed(() =>
-	filteredQueue.value.slice((queuePage.value - 1) * QUEUE_PAGE_SIZE, queuePage.value * QUEUE_PAGE_SIZE),
+	filteredQueue.value.slice(
+		(queuePage.value - 1) * effectiveQueuePageSize.value,
+		queuePage.value * effectiveQueuePageSize.value,
+	),
 );
-// Volver a página 1 al reordenar o buscar; reajustar si la cola se achica.
-watch([queueSort, queueSearch, queueAssignFilter], () => (queuePage.value = 1));
+// Volver a página 1 al reordenar, buscar o cambiar filtros/tamaño; reajustar
+// si la cola se achica.
+watch([queueSort, queueSearch, queueAssignFilter, queueTemplateFilter, queuePageSize], () => {
+	queuePage.value = 1;
+});
 watch(
 	() => queue.value.length,
 	() => {
@@ -1335,12 +1442,34 @@ async function skipFromDetail() {
 	await sequenceStore.skip(item.id);
 }
 
+// Resuelve teléfono + país del destinatario del pendiente: el snapshot
+// (`resolvedContact`) primero, con fallback a la ficha — los contactos de
+// emergencia cuando el paso les apunta. Lo comparten el envío (link con texto)
+// y "ver conversación" (link a pelo): un solo lugar decide qué número se usa.
+function resolveRecipientContact(item: any): { phone: string; country: string | null } | null {
+	let rawPhone: string | undefined = item.resolvedContact || undefined;
+	const participant = item.participant;
+	if (!rawPhone) {
+		const target = item.recipientTarget || 'participant';
+		if (target === 'emergencyContact1') {
+			rawPhone = participant?.emergencyContact1CellPhone;
+		} else if (target === 'emergencyContact2') {
+			rawPhone = participant?.emergencyContact2CellPhone;
+		} else {
+			rawPhone = participant?.cellPhone;
+		}
+	}
+	if (!rawPhone) return null;
+	return { phone: rawPhone, country: participant?.country ?? null };
+}
+
 // Resuelve teléfono + país + texto del pendiente (snapshot, con fallback de
 // recálculo). El teléfono va en crudo: la lada la resuelve el builder del link.
 function buildWhatsappLink(item: any): { phone: string; country: string | null; text: string } | null {
-	let rawPhone: string | undefined = item.resolvedContact || undefined;
+	const contact = resolveRecipientContact(item);
+	if (!contact) return null;
 	let text = item.resolvedContent ? convertHtmlToWhatsApp(item.resolvedContent) : '';
-	if (!rawPhone || !text) {
+	if (!text) {
 		// M3: el paso trae su plantilla concreta (sm.step cargado por la bandeja);
 		// por id primero, fallback por tipo para ítems legacy.
 		const tpl =
@@ -1348,26 +1477,14 @@ function buildWhatsappLink(item: any): { phone: string; country: string | null; 
 			templates.value.find((x: any) => x.type === item.templateType);
 		const participant = item.participant;
 		const target = item.recipientTarget || 'participant';
-		let contactKey: string | undefined;
-		if (target === 'emergencyContact1') {
-			rawPhone = rawPhone || participant?.emergencyContact1CellPhone;
-			contactKey = 'emergencyContact1';
-		} else if (target === 'emergencyContact2') {
-			rawPhone = rawPhone || participant?.emergencyContact2CellPhone;
-			contactKey = 'emergencyContact2';
-		} else {
-			rawPhone = rawPhone || participant?.cellPhone;
-		}
-		if (!text) {
-			const retreatData = retreatStore.selectedRetreat as unknown as RetreatData;
-			const html = tpl
-				? replaceAllVariables(tpl.message, participant as unknown as ParticipantData, retreatData, contactKey)
-				: '';
-			text = convertHtmlToWhatsApp(html);
-		}
+		const contactKey = target === 'emergencyContact1' || target === 'emergencyContact2' ? target : undefined;
+		const retreatData = retreatStore.selectedRetreat as unknown as RetreatData;
+		const html = tpl
+			? replaceAllVariables(tpl.message, participant as unknown as ParticipantData, retreatData, contactKey)
+			: '';
+		text = convertHtmlToWhatsApp(html);
 	}
-	if (!rawPhone) return null;
-	return { phone: rawPhone, country: item.participant?.country ?? null, text };
+	return { phone: contact.phone, country: contact.country, text };
 }
 
 // Abre WhatsApp (deep-link) tras MARCAR el envío/apertura. El orden importa:
@@ -1420,6 +1537,22 @@ async function openWhatsapp(item: any) {
 	if (!opened) {
 		toast({ title: t('sequences.popupBlocked') });
 	}
+}
+
+// Ver la conversación en WhatsApp SIN mensaje: abre el chat a pelo (link sin
+// `text=`) para leer el historial — las respuestas viven en el teléfono del
+// servidor, no en la app. A diferencia del envío NO marca nada (sin
+// open/dispatch): mirar no es enviar, y marcar sin haber abierto es justo el
+// incidente de los 20 recordatorios (2026-09-12). Sin awaits: el window.open
+// corre en el gesto del clic, donde ningún bloqueador de popups lo frena.
+function openWhatsappHistory(item: any) {
+	const contact = resolveRecipientContact(item);
+	const url = contact ? buildWhatsAppChatLink(contact.phone, contact.country) : null;
+	if (!url) {
+		toast({ title: t('sequences.noPhone'), variant: 'destructive' });
+		return;
+	}
+	window.open(url, '_blank', 'noopener,noreferrer');
 }
 
 // Confirma el envío real (sale de la bandeja, queda registrado quién lo envió).
@@ -2039,8 +2172,34 @@ async function toggleDoNotContact() {
 									<option value="active">{{ t('sequences.filter.active') }}</option>
 									<option value="mine">{{ t('sequences.filter.mine') }}</option>
 									<option value="unassigned">{{ t('sequences.filter.unassigned') }}</option>
+									<option
+										v-for="a in queueAssigneeOptions"
+										:key="a.id"
+										:value="`user:${a.id}`"
+									>
+										{{ t('sequences.filter.assignee', { name: a.name }) }} ({{ a.count }})
+									</option>
 									<option value="paused">{{ t('sequences.filter.paused') }}</option>
 									<option value="all">{{ t('sequences.filter.all') }}</option>
+								</select>
+							</label>
+							<label class="block text-sm text-gray-700">
+								{{ t('sequences.filter.template') }}
+								<select v-model="queueTemplateFilter" class="w-full mt-1 p-2 border rounded-md text-sm bg-white">
+									<option value="all">{{ t('sequences.filter.allTemplates') }}</option>
+									<option v-for="opt in queueTemplateOptions" :key="opt.value" :value="opt.value">
+										{{ opt.label }} ({{ opt.count }})
+									</option>
+								</select>
+							</label>
+							<label class="block text-sm text-gray-700">
+								{{ t('sequences.pageSizeLabel') }}
+								<select
+									v-model="queuePageSize"
+									class="w-full mt-1 p-2 border rounded-md text-sm bg-white"
+								>
+									<option v-for="n in QUEUE_PAGE_SIZES" :key="n" :value="n">{{ n }}</option>
+									<option value="all">{{ t('sequences.pageSizeAll') }}</option>
 								</select>
 							</label>
 							<Button
@@ -2087,8 +2246,27 @@ async function toggleDoNotContact() {
 							<option value="active">{{ t('sequences.filter.active') }}</option>
 							<option value="mine">{{ t('sequences.filter.mine') }}</option>
 							<option value="unassigned">{{ t('sequences.filter.unassigned') }}</option>
+							<option v-for="a in queueAssigneeOptions" :key="a.id" :value="`user:${a.id}`">
+								{{ t('sequences.filter.assignee', { name: a.name }) }} ({{ a.count }})
+							</option>
 							<option value="paused">{{ t('sequences.filter.paused') }}</option>
 							<option value="all">{{ t('sequences.filter.all') }}</option>
+						</select>
+					</label>
+					<label class="flex items-center gap-1.5 text-xs text-gray-600">
+						{{ t('sequences.filter.template') }}
+						<select v-model="queueTemplateFilter" class="p-1 border rounded-md text-xs bg-white">
+							<option value="all">{{ t('sequences.filter.allTemplates') }}</option>
+							<option v-for="opt in queueTemplateOptions" :key="opt.value" :value="opt.value">
+								{{ opt.label }} ({{ opt.count }})
+							</option>
+						</select>
+					</label>
+					<label class="flex items-center gap-1.5 text-xs text-gray-600">
+						{{ t('sequences.pageSizeLabel') }}
+						<select v-model="queuePageSize" class="p-1 border rounded-md text-xs bg-white">
+							<option v-for="n in QUEUE_PAGE_SIZES" :key="n" :value="n">{{ n }}</option>
+							<option value="all">{{ t('sequences.pageSizeAll') }}</option>
 						</select>
 					</label>
 					<Button size="sm" variant="ghost" :disabled="regenerating" @click="regenerateQueue">
@@ -2149,7 +2327,15 @@ async function toggleDoNotContact() {
 							<span v-if="seqName(item.sequenceId)">· {{ seqName(item.sequenceId) }}</span>
 							<span v-if="palanqueroLabel(item)" class="text-violet-600">· {{ palanqueroLabel(item) }}</span>
 							<span v-if="item.assignedTo === myUserId" class="text-green-600">· {{ t('sequences.mine') }}</span>
-							<span v-else-if="item.assignedTo" class="text-gray-400">· {{ t('sequences.assigned') }}</span>
+							<!-- El nombre del asignado lo resuelve el server (M1); sin
+							     nombre resuelto (usuario eliminado) queda el genérico. -->
+							<span v-else-if="item.assignedTo" class="text-gray-400">
+								· {{
+									item.assignedToName
+										? t('sequences.assignedToName', { name: item.assignedToName })
+										: t('sequences.assigned')
+								}}
+							</span>
 						</div>
 					</div>
 					<div class="flex items-center flex-nowrap gap-1 sm:gap-1.5 sm:shrink-0">
@@ -2169,6 +2355,24 @@ async function toggleDoNotContact() {
 						>
 							{{ t('sequences.take') }}
 						</button>
+						<Button
+							v-if="resolveRecipientContact(item)"
+							size="icon"
+							variant="ghost"
+							class="h-8 w-8 shrink-0"
+							:title="t('sequences.viewConversation')"
+							@click="openWhatsappHistory(item)"
+						>
+							<MessageCircle class="w-4 h-4" />
+						</Button>
+						<!-- El payload de la cola trae una proyección del participante
+						     (id + nombre + teléfonos); el popover enriquece la ficha
+						     completa desde el store por id, con esta como fallback. -->
+						<ParticipantInfoPopover
+							v-if="item.participant"
+							variant="icon"
+							:participant="(item.participant as any)"
+						/>
 						<Button size="sm" variant="outline" class="shrink-0 px-2 sm:px-3" @click="skipItem(item)">
 							{{ t('sequences.skip') }}
 						</Button>
@@ -2882,6 +3086,16 @@ async function toggleDoNotContact() {
 
 				<div class="flex items-center justify-end gap-2 p-4 border-t bg-gray-50">
 					<Button variant="outline" @click="skipFromDetail">{{ t('sequences.skip') }}</Button>
+					<Button
+						v-if="detailItem && resolveRecipientContact(detailItem)"
+						variant="outline"
+						:title="t('sequences.viewConversation')"
+						@click="openWhatsappHistory(detailItem)"
+					>
+						<MessageCircle class="w-4 h-4 mr-1" />
+						<span class="hidden sm:inline">{{ t('sequences.viewConversation') }}</span>
+						<span class="sm:hidden">{{ t('sequences.viewConversationShort') }}</span>
+					</Button>
 					<Button @click="dispatchFromDetail">
 						<Send class="w-4 h-4 mr-1" /> {{ t('sequences.openWhatsapp') }}
 					</Button>

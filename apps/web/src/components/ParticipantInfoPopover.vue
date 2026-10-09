@@ -1,9 +1,26 @@
 <template>
   <Popover v-model:open="popoverOpen">
-    <!-- Desktop: la pastilla misma abre el detalle al hacer clic.
-         Móvil: el toque sobre la pastilla se reserva para tap-to-assign,
-         así que ahí el detalle se abre con el botón ⓘ. -->
-    <span class="inline-flex items-center gap-1 md:gap-0.5" @click="onPillClick">
+    <!-- variant 'icon': botón ⓘ suelto, visible en TODOS los breakpoints.
+         Para filas sin pastilla (bandeja de WhatsApp): el trigger de reka-ui
+         abre/cierra solo — no hay gracia de doble clic ni slot que envolver. -->
+    <PopoverTrigger v-if="variant === 'icon'" as-child>
+      <button
+        type="button"
+        class="inline-flex items-center justify-center h-8 w-8 rounded-md text-gray-500 hover:text-gray-700 hover:bg-black/10 dark:hover:bg-white/10 transition-colors shrink-0"
+        :title="$t('sequences.participantDetail')"
+        :aria-label="$t('sequences.participantDetail')"
+        draggable="false"
+        @click.stop
+        @pointerdown.stop
+        @mousedown.stop
+        @touchend.stop
+      >
+        <Info class="w-4 h-4" />
+      </button>
+    </PopoverTrigger>
+    <!-- variant 'pill' (default): desktop abre el detalle al hacer clic en la
+         pastilla; móvil reserva el toque para tap-to-assign (botón ⓘ). -->
+    <span v-else class="inline-flex items-center gap-1 md:gap-0.5" @click="onPillClick">
       <slot />
       <PopoverTrigger as-child>
         <button
@@ -132,7 +149,7 @@ import { useParticipantMessageDialog } from '@/composables/useParticipantMessage
 import { useI18n } from 'vue-i18n';
 import type { ServerAttendanceState } from '@/composables/useServerAttendance';
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   participant: Participant;
   /**
    * Asistencia a reuniones de la comunidad, cuando la vista la tiene. Se omite
@@ -140,7 +157,15 @@ const props = defineProps<{
    * sólo existe si el retiro está vinculado a una.
    */
   attendance?: ServerAttendanceState | null;
-}>();
+  /**
+   * Forma del disparador: 'pill' envuelve el slot (vista de mesas, con
+   * tap-to-assign); 'icon' renderiza un botón ⓘ suelto, siempre visible, para
+   * filas sin pastilla (bandeja de WhatsApp de secuencias).
+   */
+  variant?: 'pill' | 'icon';
+}>(), {
+  variant: 'pill',
+});
 
 const { t } = useI18n();
 const participantStore = useParticipantStore();

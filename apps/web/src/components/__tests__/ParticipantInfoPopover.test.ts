@@ -67,9 +67,9 @@ vi.mock('@/composables/useParticipantMessageDialog', () => ({
 
 import ParticipantInfoPopover from '../ParticipantInfoPopover.vue';
 
-function mountPopover(participant: Record<string, any>) {
+function mountPopover(participant: Record<string, any>, props: Record<string, any> = {}) {
   return mount(ParticipantInfoPopover, {
-    props: { participant: participant as any },
+    props: { participant: participant as any, ...props },
     global: { mocks: { $t: (key: string) => key } },
   });
 }
@@ -174,6 +174,38 @@ describe('ParticipantInfoPopover', () => {
       vi.advanceTimersByTime(300);
       await wrapper.vm.$nextTick();
       expect(popoverOpen()).toBe(false);
+    });
+  });
+
+  // Variante 'icon' (bandeja de WhatsApp de secuencias): botón ⓘ suelto. La
+  // apertura/cierre real la maneja el PopoverTrigger de reka-ui (mismo camino
+  // que el ⓘ móvil de la pastilla); acá se fija el cableado estructural y que
+  // la pastilla NO se renderice.
+  describe("variante 'icon' (bandeja de secuencias)", () => {
+    it('renderiza el botón ⓘ suelto y SIN pastilla (no hay slot ni gracia de doble clic)', () => {
+      wrapper = mountPopover({ id: 'p-1', firstName: 'Miguel', lastName: 'Cavazos' }, { variant: 'icon' });
+      const btn = wrapper
+        .findAll('button')
+        .find((b) => b.attributes('title') === 'sequences.participantDetail');
+      expect(btn).toBeTruthy();
+      expect(wrapper.findAll('span').some((s) => s.classes().includes('md:gap-0.5'))).toBe(false);
+    });
+
+    it('el ⓘ va dentro del PopoverTrigger y queda visible también en desktop', () => {
+      wrapper = mountPopover({ id: 'p-1', firstName: 'Miguel', lastName: 'Cavazos' }, { variant: 'icon' });
+      const triggerBtn = wrapper.find('.popover-trigger button');
+      expect(triggerBtn.exists()).toBe(true);
+      // El ⓘ de la pastilla se auto-oculta en md+; este no debe hacerlo.
+      expect(triggerBtn.classes().join(' ')).not.toContain('md:opacity-0');
+      expect(triggerBtn.classes().join(' ')).not.toContain('md:pointer-events-none');
+    });
+
+    it('regresión: la variante default sigue siendo pastilla con ⓘ móvil oculto en desktop', () => {
+      wrapper = mountPopover({ id: 'p-1', firstName: 'Miguel', lastName: 'Cavazos' });
+      expect(pillTrigger()).toBeTruthy();
+      const triggerBtn = wrapper.find('.popover-trigger button');
+      expect(triggerBtn.exists()).toBe(true);
+      expect(triggerBtn.classes().join(' ')).toContain('md:opacity-0');
     });
   });
 });
