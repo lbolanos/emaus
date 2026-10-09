@@ -224,3 +224,31 @@ Cerrado 2026-10-08 (8/8 chromium; screenshot verificado por DOM + OCR). Desviaci
   502`, sin recorte interno) y el PNG final mide 288×505 = caja completa; el OCR de su banda
   inferior transcribe la nota, el autor y la fecha. (`toBeVisible` de Playwright no garantiza
   in-viewport; las URLs del CDN de analyze_image caducan — usar siempre la del último Read.)
+
+## v1.2
+
+## M9 — Más órdenes y filtros en Programadas/Bandeja/Problemas (pedido 2026-10-09)
+
+- [x] Programadas: órdenes +Nombre (`participant.lastName, firstName`) y +Secuencia
+      (`seq.name, scheduledFor` desempata) server-side — el orden debe existir antes del OFFSET
+- [x] Programadas: filtro Canal server-side (`sm.channel`, whitelisted en el controller)
+- [x] Programadas: filtro Secuencia como select (opciones del store de secuencias del retiro)
+- [x] Problemas: filtros Estado (fallidos/omitidos) y Canal (client-side sobre lo cargado)
+- [x] Problemas: filtro Secuencia con conteo (opciones desde los issues cargados)
+- [x] Bandeja: filtro Secuencia con conteo (opciones sobre ítems no pausados, molde M2)
+- [x] Tests: jest (canal + los dos órdenes nuevos), vitest (los tres tabs), e2e extendido
+
+> Desviaciones M9: (1) Orden por plantilla descartado en Programadas y anunciado al proponerlo:
+> `templateName` se resuelve post-query y la paginación server-side necesita el ORDER BY antes
+> del OFFSET. (2) El select de Secuencia de Programadas sale del store (todas las del retiro)
+> SIN conteo — server-side, el conteo de la página actual sería parcial y engañoso (molde M6);
+> además bindea al MISMO ref del chip del badge, y filtro activo ⇒ `paused:'include'` (modo del
+> chip) para poder filtrar por una secuencia pausada. (3) Sin chips nuevos para canal/estado: el
+> select muestra el valor; los chips existentes (secuencia/plantilla/asignado) se reutilizan.
+> (4) Guards de filtros huérfanos para secuencia en `watch(issues)` y `watch(queue)` (molde M2).
+> (5) El menú ⋯ de Programadas pasa de 5 a 7 selects (Canal, Secuencia); su test vitest actualizado.
+> (6) e2e: los selects de Problemas se anclan en su opción "Todos los …" porque `hasText
+> 'Estado'/'Secuencia'` también matchea el label "Ordenar por" (que CONTIENE esas options).
+> Verificación 2026-10-09: jest 95/95, vitest 63/63, build verde, e2e 8/8 chromium (con la
+> cobertura v1.2: canal+orden-secuencia en Programadas vía secuencia email extra; estado/canal/
+> secuencia en Problemas), API del worktree reiniciada (vite-node no recarga services).

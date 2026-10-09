@@ -1281,6 +1281,28 @@ describe('MessageSequencesView — bandeja: filtros y paginación (M2)', () => {
 		expect(wrapperValid.vm.queuePageSize).toBe(5);
 		expect(visibleNames(wrapperValid)).toHaveLength(5);
 	});
+
+	it('v1.2: filtro por secuencia con conteo (opciones sobre ítems no pausados)', async () => {
+		const { useMessageSequenceStore } = await import('@/stores/messageSequenceStore');
+		// 2 ítems de seq-1 (activa) + 1 de seq-off (pausada: cuenta para el
+		// filtro "pausados", no aparece como opción del trabajo real).
+		const wrapper = await mountView([
+			{ ...QUEUE_ITEM, id: 'q-a', participant: { id: 'pa', firstName: 'Alfa', lastName: 'T' }, step: { templateId: 'tpl-a' } },
+			{ ...QUEUE_ITEM, id: 'q-b', participant: { id: 'pb', firstName: 'Beta', lastName: 'T' }, step: { templateId: 'tpl-b' } },
+			{ ...QUEUE_ITEM, id: 'q-off', sequenceId: 'seq-off', participant: { id: 'pc', firstName: 'Caro', lastName: 'Off' } },
+		]);
+		useMessageSequenceStore().sequences = [SEQ, { ...SEQ, id: 'seq-off', isActive: false }] as any;
+		await flushPromises();
+
+		const opt = wrapper
+			.findAll('select option')
+			.find((o) => o.attributes('value') === 'seq-1' && o.text() === 'Confirmación de camisetas (2)');
+		expect(opt).toBeTruthy();
+
+		wrapper.vm.queueSequenceFilter = 'seq-1';
+		await flushPromises();
+		expect(visibleNames(wrapper)).toEqual(['Alfa T', 'Beta T']);
+	});
 });
 
 describe('MessageSequencesView — Programadas: filtros server-side y acciones de fila (v1.1 M6)', () => {
@@ -1403,12 +1425,12 @@ describe('MessageSequencesView — Programadas: filtros server-side y acciones d
 		expect(btn).toBeUndefined();
 	});
 
-	it('menú "⋯" de Programadas (móvil): abre los 5 filtros; backdrop y Escape cierran', async () => {
+	it('menú "⋯" de Programadas (móvil): abre los 7 filtros; backdrop y Escape cierran', async () => {
 		const wrapper = await mountView();
 		const panel = wrapper.find('#seq-panel-scheduled');
 
 		// Cerrado: sólo el toolbar desktop — el menú móvil es v-if (molde bandeja).
-		expect(panel.findAll('select')).toHaveLength(5);
+		expect(panel.findAll('select')).toHaveLength(7);
 
 		// El botón ⋯ de Programadas dice "Filtros" (abre filtros, no acciones)
 		// y expone su estado (a11y, igual que los otros dos menús del tablist).
@@ -1421,14 +1443,14 @@ describe('MessageSequencesView — Programadas: filtros server-side y acciones d
 		await more!.trigger('click');
 		await flushPromises();
 		expect(findByLabel()!.attributes('aria-expanded')).toBe('true');
-		// Abierto: los mismos 5 selects duplicados en el menú (Estado, Orden,
-		// Plantilla, Mostrar, Por página).
-		expect(panel.findAll('select')).toHaveLength(10);
+		// Abierto: los mismos 7 selects duplicados en el menú (Estado, Orden,
+		// Plantilla, Mostrar, Canal, Secuencia, Por página).
+		expect(panel.findAll('select')).toHaveLength(14);
 
 		// El backdrop cierra el menú sin tocar los selects.
 		await panel.find('div.fixed.inset-0.z-10').trigger('click');
 		await flushPromises();
-		expect(panel.findAll('select')).toHaveLength(5);
+		expect(panel.findAll('select')).toHaveLength(7);
 		expect(findByLabel()!.attributes('aria-expanded')).toBe('false');
 
 		// Escape también cierra (keydown burbujea al wrapper desde el botón).
@@ -1436,7 +1458,35 @@ describe('MessageSequencesView — Programadas: filtros server-side y acciones d
 		await flushPromises();
 		await findByLabel()!.trigger('keydown', { key: 'Escape' });
 		await flushPromises();
-		expect(panel.findAll('select')).toHaveLength(5);
+		expect(panel.findAll('select')).toHaveLength(7);
+	});
+
+	it('v1.2: canal y secuencia viajan al fetch; el select de secuencia arma opciones del store', async () => {
+		const wrapper = await mountView();
+		const apiMod: any = await import('@/services/api');
+		apiMod.fetchScheduledMessages.mockClear();
+
+		// El select de secuencia (desktop) lista las secuencias del retiro, sin
+		// conteo (server-side) — la opción activa viaja como sequenceId.
+		const panel = wrapper.find('#seq-panel-scheduled');
+		const seqOpt = panel
+			.findAll('select option')
+			.find((o) => o.attributes('value') === 'seq-1' && o.text() === 'Confirmación de camisetas');
+		expect(seqOpt).toBeTruthy();
+
+		wrapper.vm.schedChannelFilter = 'email';
+		wrapper.vm.schedOrder = 'name';
+		await flushPromises();
+		let calls = apiMod.fetchScheduledMessages.mock.calls;
+		expect(calls[calls.length - 1][1]).toMatchObject({ channel: 'email', order: 'name' });
+
+		// El filtro de secuencia bindea al mismo ref del chip (badge clickeable).
+		wrapper.vm.schedSequenceFilter = 'seq-1';
+		await flushPromises();
+		calls = apiMod.fetchScheduledMessages.mock.calls;
+		expect(calls[calls.length - 1][1].sequenceId).toBe('seq-1');
+		// Filtro de secuencia activo → las pausadas se incluyen (modo del chip).
+		expect(calls[calls.length - 1][1].paused).toBe('include');
 	});
 });
 
@@ -1604,6 +1654,48 @@ describe('MessageSequencesView — Problemas: filtros, page size y acciones de f
 		const panel = wrapper.find('#seq-panel-issues');
 		const btn = panel.findAll('button').find((b) => b.attributes('title') === 'Ver conversación en WhatsApp');
 		expect(btn).toBeUndefined();
+	});
+
+	it('v1.2: filtros estado/canal/secuencia combinan y la secuencia arma opciones con conteo', async () => {
+		const wrapper = await mountWithIssues([
+			ISSUE({
+				id: 'i-1', status: 'failed', channel: 'whatsapp', sequenceId: 'seq-1',
+				participant: { ...ISSUE().participant, id: 'p1', firstName: 'Alfa', lastName: 'T' },
+			}),
+			ISSUE({
+				id: 'i-2', status: 'skipped', channel: 'email', sequenceId: 'seq-1',
+				participant: { ...ISSUE().participant, id: 'p2', firstName: 'Beta', lastName: 'T' },
+			}),
+			ISSUE({
+				id: 'i-3', status: 'failed', channel: 'email', sequenceId: 'seq-2',
+				participant: { ...ISSUE().participant, id: 'p3', firstName: 'Gamma', lastName: 'T' },
+			}),
+		]);
+		const panel = wrapper.find('#seq-panel-issues');
+
+		// La opción de secuencia sale de lo cargado, con conteo y nombre legible.
+		const seqOpt = panel
+			.findAll('select option')
+			.find((o) => o.attributes('value') === 'seq-1' && o.text() === 'Confirmación de camisetas (2)');
+		expect(seqOpt).toBeTruthy();
+
+		// Estado: los fallidos (reintentar) separados de los omitidos.
+		wrapper.vm.issuesStatusFilter = 'failed';
+		await flushPromises();
+		expect(issueNames(wrapper)).toEqual(['Alfa T', 'Gamma T']);
+
+		// Canal combina con estado.
+		wrapper.vm.issuesChannelFilter = 'email';
+		await flushPromises();
+		expect(issueNames(wrapper)).toEqual(['Gamma T']);
+
+		// Secuencia: el select bindea al mismo ref del chip (badge clickeable).
+		wrapper.vm.issuesChannelFilter = 'all';
+		wrapper.vm.issuesStatusFilter = 'all';
+		wrapper.vm.issuesSequenceFilter = 'seq-1';
+		await flushPromises();
+		expect(issueNames(wrapper)).toEqual(['Alfa T', 'Beta T']);
+		expect(panel.text()).toContain('Confirmación de camisetas');
 	});
 });
 

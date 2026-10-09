@@ -683,6 +683,62 @@ test.describe.serial('Programadas y Problemas — filtros v1.1 y ficha CRM (M6/M
 		await expect(rows).toHaveCount(5);
 		await expect(panel.getByText('Página 1 de 3')).toBeVisible();
 
+		// v1.2 — channel filter (server-side). A second sequence with an email
+		// step materializes 6 more pending rows for the same walkers; both share
+		// scheduledFor (same trigger/offset/hour), so only the channel span tells
+		// them apart — 'Correo' < 'Filtros' also makes the email sequence sort
+		// first under the new sequence order below.
+		const { ctx, csrfToken } = auth!.session;
+		const emailSeqRes = await ctx.post('/api/message-sequences', {
+			headers: withCsrf(csrfToken),
+			data: {
+				name: `E2E Secuencia Correo ${Date.now()}`,
+				retreatId: futureId,
+				trigger: 'participant_created',
+				audience: 'walker',
+				isActive: true,
+				maxOverdueDays: null,
+				steps: [{
+					stepOrder: 0,
+					offsetDays: 10,
+					sendHour: 0,
+					templateType: 'WALKER_WELCOME',
+					channel: 'email',
+					recipientTarget: 'participant',
+					recipientResponsibility: null,
+					condition: null,
+				}],
+			},
+		});
+		expect(emailSeqRes.ok(), `create email sequence: ${emailSeqRes.status()}`).toBeTruthy();
+		const rerunRes = await ctx.post(`/api/message-sequences/retreat/${futureId}/run`, {
+			headers: withCsrf(csrfToken),
+		});
+		expect(rerunRes.ok(), `rerun for email rows: ${rerunRes.status()}`).toBeTruthy();
+
+		await sizeSelect.selectOption('50'); // back from 5; the change refetches
+		const allRows = panel.locator('div.divide-y > div');
+		await expect(rows).toHaveCount(18); // 12 whatsapp + 6 email pending
+		const channelSelect = panel
+			.locator('label')
+			.filter({ hasText: 'Todos los canales' })
+			.locator('select');
+		await channelSelect.selectOption('email');
+		await expect(allRows).toHaveCount(6);
+		await expect(allRows.first()).toContainText('Email');
+		await channelSelect.selectOption('whatsapp');
+		await expect(allRows).toHaveCount(12);
+		await channelSelect.selectOption('all');
+		await expect(allRows).toHaveCount(18);
+
+		// v1.2 — order by sequence (server-side): groups each sequence's rows
+		// (name ASC, scheduledFor as tiebreaker) instead of interleaving them.
+		const orderSelect = panel.locator('label', { hasText: 'Ordenar por' }).locator('select');
+		await orderSelect.selectOption('sequence');
+		await expect(allRows.first()).toContainText('Email');
+		await expect(allRows.nth(6)).toContainText('WhatsApp');
+		await orderSelect.selectOption('scheduled');
+
 		// Fase 2 — assignee filter. `assign` only accepts QUEUED rows (the
 		// inbox, by design), so exercise it through this same server-side view
 		// with status "En cola" over a due scenario with walker 1 assigned (M1).
@@ -749,6 +805,45 @@ test.describe.serial('Programadas y Problemas — filtros v1.1 y ficha CRM (M6/M
 		const tplSelect = controls.locator('label', { hasText: 'Plantilla' }).locator('select');
 		await tplSelect.selectOption({ label: 'E2E Filtro Bienvenida (6)' });
 		await expect(rows).toHaveCount(6);
+
+		// v1.2 — status/channel/sequence filters (client-side). Everything here
+		// is skipped+whatsapp: the failed/email negatives and the restore prove
+		// the selects actually filter (selectOption also fails if the option
+		// is missing, so mounting is covered by the call itself).
+		await tplSelect.selectOption('all');
+		await expect(rows).toHaveCount(8);
+		// NB: the sort select offers "Estado"/"Secuencia" options, so a plain
+		// hasText match would hit the "Ordenar por" label too — anchor each
+		// locator on the "Todos los …" option, unique to its filter select.
+		const statusSelect = controls
+			.locator('label')
+			.filter({ hasText: 'Todos los estados' })
+			.locator('select');
+		await statusSelect.selectOption('failed');
+		await expect(rows).toHaveCount(0);
+		await statusSelect.selectOption('skipped');
+		await expect(rows).toHaveCount(8);
+
+		const chanSelect = controls
+			.locator('label')
+			.filter({ hasText: 'Todos los canales' })
+			.locator('select');
+		await chanSelect.selectOption('email');
+		await expect(rows).toHaveCount(0);
+		await chanSelect.selectOption('whatsapp');
+		await expect(rows).toHaveCount(8);
+
+		// Sequence options carry their count over the loaded issues; selecting
+		// the only present sequence keeps all rows (and renders its chip).
+		const seqSelect = controls
+			.locator('label')
+			.filter({ hasText: 'Todas las secuencias' })
+			.locator('select');
+		const seqOption = seqSelect.locator('option').filter({ hasText: '(8)' });
+		await expect(seqOption).toHaveCount(1);
+		await seqSelect.selectOption((await seqOption.getAttribute('value'))!);
+		await expect(rows).toHaveCount(8);
+		await expect(panel.getByRole('button', { name: 'Quitar filtro' })).toHaveCount(1);
 
 		// Page size paginates what is loaded; "Cargar más" not needed (8 < cap).
 		const sizeSelect = controls.locator('label', { hasText: 'Por página' }).locator('select');

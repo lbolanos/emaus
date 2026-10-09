@@ -3186,6 +3186,11 @@
       "assignee": "Assigned to: {name}",
       "template": "Template",
       "allTemplates": "All templates",
+      "sequence": "Sequence",
+      "allSequences": "All sequences",
+      "status": "Status",
+      "allStatuses": "All statuses",
+      "allChannels": "All channels",
       "participant": "Participant: {name}",
       "byParticipant": "See all messages of {name}"
     },

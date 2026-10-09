@@ -826,6 +826,9 @@ const queueAssignFilter = ref<'active' | 'mine' | 'unassigned' | 'paused' | 'all
 // Filtro por plantilla: 'all', o la clave de plantilla del ítem (el id del paso
 // si lo fijó, si no su tipo — misma jerarquía que el motor al resolver).
 const queueTemplateFilter = ref<string>('all');
+// Filtro por secuencia: 'all' o el sequenceId del ítem (la bandeja ya se podía
+// ORDENAR por secuencia; filtrarla aísla el trabajo de una sola).
+const queueSequenceFilter = ref<string>('all');
 const queueMenuOpen = ref(false); // menú de acciones (solo móvil) en Pendientes
 const issuesMenuOpen = ref(false); // menú de acciones masivas (solo móvil) en Problemas
 const schedMenuOpen = ref(false); // menú de filtros (solo móvil) en Programadas
@@ -903,8 +906,22 @@ const queueAssigneeOptions = computed(() => {
 		.sort((a, b) => a.name.localeCompare(b.name, 'es'));
 });
 
+// Secuencias presentes en la bandeja (no pausados — el trabajo real), con
+// conteo: opciones del select "Secuencia" (molde queueTemplateOptions).
+const queueSequenceOptions = computed(() => {
+	const counts = new Map<string, number>();
+	for (const it of queue.value as any[]) {
+		if (pausedSequence(it) || !it.sequenceId) continue;
+		counts.set(it.sequenceId, (counts.get(it.sequenceId) || 0) + 1);
+	}
+	return Array.from(counts.entries())
+		.map(([value, count]) => ({ value, count, label: seqName(value) }))
+		.filter((o) => o.label)
+		.sort((a, b) => a.label.localeCompare(b.label, 'es'));
+});
+
 // Filtros dinámicos que quedaron huérfanos (salió de la bandeja el último ítem
-// de esa plantilla o de ese asignado): volver al default en vez de dejar una
+// de esa plantilla, secuencia o asignado): volver al default en vez de dejar una
 // lista vacía sin explicación.
 watch(queue, () => {
 	if (
@@ -912,6 +929,12 @@ watch(queue, () => {
 		!queueTemplateOptions.value.some((o) => o.value === queueTemplateFilter.value)
 	) {
 		queueTemplateFilter.value = 'all';
+	}
+	if (
+		queueSequenceFilter.value !== 'all' &&
+		!queueSequenceOptions.value.some((o) => o.value === queueSequenceFilter.value)
+	) {
+		queueSequenceFilter.value = 'all';
 	}
 	if (
 		String(queueAssignFilter.value).startsWith('user:') &&
@@ -942,6 +965,10 @@ const filteredQueue = computed(() => {
 	// Filtro por plantilla.
 	if (queueTemplateFilter.value !== 'all') {
 		items = items.filter((it: any) => queueTemplateKey(it) === queueTemplateFilter.value);
+	}
+	// Filtro por secuencia.
+	if (queueSequenceFilter.value !== 'all') {
+		items = items.filter((it: any) => it.sequenceId === queueSequenceFilter.value);
 	}
 	// Filtro por texto.
 	const q = queueSearch.value.trim().toLowerCase();
@@ -983,7 +1010,7 @@ const pagedQueue = computed(() =>
 );
 // Volver a página 1 al reordenar, buscar o cambiar filtros/tamaño; reajustar
 // si la cola se achica.
-watch([queueSort, queueSearch, queueAssignFilter, queueTemplateFilter, queuePageSize], () => {
+watch([queueSort, queueSearch, queueAssignFilter, queueTemplateFilter, queueSequenceFilter, queuePageSize], () => {
 	queuePage.value = 1;
 });
 watch(
@@ -1002,7 +1029,7 @@ const SCHED_STATUSES = ['pending', 'queued', 'sent', 'skipped', 'failed', 'cance
 const schedSearch = ref('');
 const schedSearchDebounced = ref('');
 const schedStatus = ref<string>('pending');
-const schedOrder = ref<'scheduled' | 'recent'>('scheduled');
+const schedOrder = ref<'scheduled' | 'recent' | 'name' | 'sequence'>('scheduled');
 const schedSequenceFilter = ref<string | null>(null); // chip de secuencia (badge clickeable)
 // Chip de participante (#9): histórico de un participante. Se fija al hacer click
 // en su nombre de una fila — el nombre llega en la propia fila (no carga el roster).
@@ -1013,6 +1040,8 @@ const schedTemplateFilter = ref<string>('all');
 // 'all' | 'unassigned' | `user:${id}` (sin estados active/mine/paused: el
 // server ya filtra por status/paused por su cuenta).
 const schedAssignFilter = ref<'all' | 'unassigned' | `user:${string}`>('all');
+// Canal de la fila ('all' | 'whatsapp' | 'email'), también server-side.
+const schedChannelFilter = ref<'all' | 'whatsapp' | 'email'>('all');
 // Default 50 = el límite histórico del server; "Todos" pide su cap (200).
 const schedPageSize = ref<number | 'all'>(loadStoredPageSize('seq.schedPageSize', 50));
 watch(schedPageSize, (v) => {
@@ -1069,6 +1098,7 @@ async function loadScheduled() {
 				: schedAssignFilter.value === 'unassigned'
 					? 'unassigned'
 					: schedAssignFilter.value.slice('user:'.length),
+		channel: schedChannelFilter.value === 'all' ? undefined : schedChannelFilter.value,
 		limit: schedPageSize.value === 'all' ? 200 : schedPageSize.value,
 	});
 }
@@ -1077,7 +1107,7 @@ async function loadScheduled() {
 watch(
 	[
 		schedSearchDebounced, schedStatus, schedOrder, schedSequenceFilter, schedParticipantFilter,
-		schedShowPaused, schedTemplateFilter, schedAssignFilter, schedPageSize,
+		schedShowPaused, schedTemplateFilter, schedAssignFilter, schedChannelFilter, schedPageSize,
 	],
 	() => {
 		schedPage.value = 1;
@@ -1154,6 +1184,16 @@ const schedAssigneeChipLabel = computed(() => {
 	const uid = schedAssignFilter.value.slice('user:'.length);
 	return schedAssigneeOptions.value.find((a) => a.id === uid)?.name || t('sequences.assigned');
 });
+// Opciones del filtro Secuencia: las secuencias del retiro (del store, ya
+// cargado por la pestaña de listado). Sin conteo — server-side, el conteo de la
+// página actual sería parcial (molde M6). Pausadas incluidas: el modo paused ya
+// pasa a 'include' cuando hay un filtro de secuencia activo.
+const schedSequenceOptions = computed(() =>
+	(sequences.value as any[])
+		.filter((s) => s.id)
+		.map((s) => ({ value: s.id as string, label: s.name as string }))
+		.sort((a, b) => a.label.localeCompare(b.label, 'es')),
+);
 function clearSchedTemplateFilter() {
 	schedTemplateFilter.value = 'all'; // el watch refetch-ea
 }
@@ -1372,6 +1412,10 @@ const issuesTemplateFilter = ref<string>('all');
 // 'all' (default) | 'unassigned' | `user:<id>` — Problemas no tiene 'mine' ni
 // 'paused': aquí todo es fallido/omitido y la secuencia sigue activa igual.
 const issuesAssignFilter = ref<'all' | 'unassigned' | `user:${string}`>('all');
+// Estado del problema (failed = reintentar / skipped = descartar) y canal de la
+// fila — los dos flujos de resolución son distintos, merecen separarse.
+const issuesStatusFilter = ref<'all' | 'failed' | 'skipped'>('all');
+const issuesChannelFilter = ref<'all' | 'whatsapp' | 'email'>('all');
 const issuesPageSize = ref<number | 'all'>(loadStoredPageSize('seq.issuesPageSize', 10));
 watch(issuesPageSize, (v) => {
 	try {
@@ -1420,8 +1464,21 @@ const issuesAssigneeOptions = computed(() => {
 		}))
 		.sort((a, b) => a.name.localeCompare(b.name, 'es'));
 });
-// Filtros huérfanos (retry/discard sacó el último ítem de esa plantilla o de
-// ese asignado): volver al default en vez de dejar una lista vacía sin
+// Secuencias presentes en los problemas cargados, con conteo — alimenta el
+// select (el chip removible ya existía, seteado desde el badge de la lista).
+const issuesSequenceOptions = computed(() => {
+	const counts = new Map<string, number>();
+	for (const it of issues.value as any[]) {
+		if (!it.sequenceId) continue;
+		counts.set(it.sequenceId, (counts.get(it.sequenceId) || 0) + 1);
+	}
+	return Array.from(counts.entries())
+		.map(([value, count]) => ({ value, count, label: seqName(value) }))
+		.filter((o) => o.label)
+		.sort((a, b) => a.label.localeCompare(b.label, 'es'));
+});
+// Filtros huérfanos (retry/discard sacó el último ítem de esa plantilla,
+// asignado o secuencia): volver al default en vez de dejar una lista vacía sin
 // explicación (molde bandeja, memoria feedback_user_expectation_over_by_design).
 watch(issues, () => {
 	if (
@@ -1436,13 +1493,28 @@ watch(issues, () => {
 	) {
 		issuesAssignFilter.value = 'all';
 	}
+	if (
+		issuesSequenceFilter.value &&
+		!issuesSequenceOptions.value.some((o) => o.value === issuesSequenceFilter.value)
+	) {
+		issuesSequenceFilter.value = null;
+	}
 });
 const filteredIssues = computed(() => {
 	const q = issuesSearch.value.trim().toLowerCase();
 	let items = [...issues.value];
-	// Chip de secuencia removible (badge clickeable de la lista de secuencias).
+	// Chip de secuencia removible (badge clickeable de la lista de secuencias);
+	// el select de secuencia bindea al mismo ref.
 	if (issuesSequenceFilter.value) {
 		items = items.filter((it: any) => it.sequenceId === issuesSequenceFilter.value);
+	}
+	// Filtro por estado: fallidos (reintentar) vs omitidos (descartar).
+	if (issuesStatusFilter.value !== 'all') {
+		items = items.filter((it: any) => it.status === issuesStatusFilter.value);
+	}
+	// Filtro por canal.
+	if (issuesChannelFilter.value !== 'all') {
+		items = items.filter((it: any) => it.channel === issuesChannelFilter.value);
 	}
 	// Filtro por asignación: sin tomar / un asignado concreto.
 	if (issuesAssignFilter.value === 'unassigned') {
@@ -1498,9 +1570,12 @@ const pagedIssues = computed(() =>
 		issuesPage.value * effectiveIssuesPageSize.value,
 	),
 );
-watch([issuesSearch, issuesSort, issuesAssignFilter, issuesTemplateFilter, issuesPageSize], () => {
-	issuesPage.value = 1;
-});
+watch(
+	[issuesSearch, issuesSort, issuesAssignFilter, issuesTemplateFilter, issuesSequenceFilter, issuesStatusFilter, issuesChannelFilter, issuesPageSize],
+	() => {
+		issuesPage.value = 1;
+	},
+);
 watch(
 	() => issues.value.length,
 	() => {
@@ -2229,6 +2304,8 @@ async function toggleDoNotContact() {
 								<select v-model="schedOrder" class="w-full mt-1 p-2 border rounded-md text-sm bg-white">
 									<option value="scheduled">{{ t('sequences.sort.scheduled') }}</option>
 									<option value="recent">{{ t('sequences.sort.recent') }}</option>
+									<option value="name">{{ t('sequences.sort.name') }}</option>
+									<option value="sequence">{{ t('sequences.sort.sequence') }}</option>
 								</select>
 							</label>
 							<!-- M6: filtros server-side (plantilla/asignado) + page size. -->
@@ -2248,6 +2325,23 @@ async function toggleDoNotContact() {
 									<option value="unassigned">{{ t('sequences.filter.unassigned') }}</option>
 									<option v-for="a in schedAssigneeOptions" :key="a.id" :value="`user:${a.id}`">
 										{{ t('sequences.filter.assignee', { name: a.name }) }}
+									</option>
+								</select>
+							</label>
+							<label class="block text-sm text-gray-700">
+								{{ t('sequences.channel') }}
+								<select v-model="schedChannelFilter" class="w-full mt-1 p-2 border rounded-md text-sm bg-white">
+									<option value="all">{{ t('sequences.filter.allChannels') }}</option>
+									<option value="whatsapp">{{ t('sequences.channels.whatsapp') }}</option>
+									<option value="email">{{ t('sequences.channels.email') }}</option>
+								</select>
+							</label>
+							<label class="block text-sm text-gray-700">
+								{{ t('sequences.filter.sequence') }}
+								<select v-model="schedSequenceFilter" class="w-full mt-1 p-2 border rounded-md text-sm bg-white">
+									<option :value="null">{{ t('sequences.filter.allSequences') }}</option>
+									<option v-for="opt in schedSequenceOptions" :key="opt.value" :value="opt.value">
+										{{ opt.label }}
 									</option>
 								</select>
 							</label>
@@ -2276,6 +2370,8 @@ async function toggleDoNotContact() {
 						<select v-model="schedOrder" class="p-1 border rounded-md text-xs bg-white">
 							<option value="scheduled">{{ t('sequences.sort.scheduled') }}</option>
 							<option value="recent">{{ t('sequences.sort.recent') }}</option>
+							<option value="name">{{ t('sequences.sort.name') }}</option>
+							<option value="sequence">{{ t('sequences.sort.sequence') }}</option>
 						</select>
 					</label>
 					<label class="flex items-center gap-1.5 text-xs text-gray-600">
@@ -2294,6 +2390,23 @@ async function toggleDoNotContact() {
 							<option value="unassigned">{{ t('sequences.filter.unassigned') }}</option>
 							<option v-for="a in schedAssigneeOptions" :key="a.id" :value="`user:${a.id}`">
 								{{ t('sequences.filter.assignee', { name: a.name }) }}
+							</option>
+						</select>
+					</label>
+					<label class="flex items-center gap-1.5 text-xs text-gray-600">
+						{{ t('sequences.channel') }}
+						<select v-model="schedChannelFilter" class="p-1 border rounded-md text-xs bg-white">
+							<option value="all">{{ t('sequences.filter.allChannels') }}</option>
+							<option value="whatsapp">{{ t('sequences.channels.whatsapp') }}</option>
+							<option value="email">{{ t('sequences.channels.email') }}</option>
+						</select>
+					</label>
+					<label class="flex items-center gap-1.5 text-xs text-gray-600">
+						{{ t('sequences.filter.sequence') }}
+						<select v-model="schedSequenceFilter" class="p-1 border rounded-md text-xs bg-white">
+							<option :value="null">{{ t('sequences.filter.allSequences') }}</option>
+							<option v-for="opt in schedSequenceOptions" :key="opt.value" :value="opt.value">
+								{{ opt.label }}
 							</option>
 						</select>
 					</label>
@@ -2567,6 +2680,15 @@ async function toggleDoNotContact() {
 								</select>
 							</label>
 							<label class="block text-sm text-gray-700">
+								{{ t('sequences.filter.sequence') }}
+								<select v-model="queueSequenceFilter" class="w-full mt-1 p-2 border rounded-md text-sm bg-white">
+									<option value="all">{{ t('sequences.filter.allSequences') }}</option>
+									<option v-for="opt in queueSequenceOptions" :key="opt.value" :value="opt.value">
+										{{ opt.label }} ({{ opt.count }})
+									</option>
+								</select>
+							</label>
+							<label class="block text-sm text-gray-700">
 								{{ t('sequences.pageSizeLabel') }}
 								<select
 									v-model="queuePageSize"
@@ -2632,6 +2754,15 @@ async function toggleDoNotContact() {
 						<select v-model="queueTemplateFilter" class="p-1 border rounded-md text-xs bg-white">
 							<option value="all">{{ t('sequences.filter.allTemplates') }}</option>
 							<option v-for="opt in queueTemplateOptions" :key="opt.value" :value="opt.value">
+								{{ opt.label }} ({{ opt.count }})
+							</option>
+						</select>
+					</label>
+					<label class="flex items-center gap-1.5 text-xs text-gray-600">
+						{{ t('sequences.filter.sequence') }}
+						<select v-model="queueSequenceFilter" class="p-1 border rounded-md text-xs bg-white">
+							<option value="all">{{ t('sequences.filter.allSequences') }}</option>
+							<option v-for="opt in queueSequenceOptions" :key="opt.value" :value="opt.value">
 								{{ opt.label }} ({{ opt.count }})
 							</option>
 						</select>
@@ -2898,6 +3029,31 @@ async function toggleDoNotContact() {
 								</select>
 							</label>
 							<label class="block text-sm text-gray-700">
+								{{ t('sequences.filter.sequence') }}
+								<select v-model="issuesSequenceFilter" class="w-full mt-1 p-2 border rounded-md text-sm bg-white">
+									<option :value="null">{{ t('sequences.filter.allSequences') }}</option>
+									<option v-for="opt in issuesSequenceOptions" :key="opt.value" :value="opt.value">
+										{{ opt.label }} ({{ opt.count }})
+									</option>
+								</select>
+							</label>
+							<label class="block text-sm text-gray-700">
+								{{ t('sequences.filter.status') }}
+								<select v-model="issuesStatusFilter" class="w-full mt-1 p-2 border rounded-md text-sm bg-white">
+									<option value="all">{{ t('sequences.filter.allStatuses') }}</option>
+									<option value="failed">{{ t('sequences.statuses.failed') }}</option>
+									<option value="skipped">{{ t('sequences.statuses.skipped') }}</option>
+								</select>
+							</label>
+							<label class="block text-sm text-gray-700">
+								{{ t('sequences.channel') }}
+								<select v-model="issuesChannelFilter" class="w-full mt-1 p-2 border rounded-md text-sm bg-white">
+									<option value="all">{{ t('sequences.filter.allChannels') }}</option>
+									<option value="whatsapp">{{ t('sequences.channels.whatsapp') }}</option>
+									<option value="email">{{ t('sequences.channels.email') }}</option>
+								</select>
+							</label>
+							<label class="block text-sm text-gray-700">
 								{{ t('sequences.pageSizeLabel') }}
 								<select v-model="issuesPageSize" class="w-full mt-1 p-2 border rounded-md text-sm bg-white">
 									<option v-for="n in PAGE_SIZE_OPTIONS" :key="n" :value="n">{{ n }}</option>
@@ -2953,6 +3109,31 @@ async function toggleDoNotContact() {
 							<option v-for="opt in issuesTemplateOptions" :key="opt.value" :value="opt.value">
 								{{ opt.label }} ({{ opt.count }})
 							</option>
+						</select>
+					</label>
+					<label class="flex items-center gap-1.5 text-xs text-gray-600">
+						{{ t('sequences.filter.sequence') }}
+						<select v-model="issuesSequenceFilter" class="p-1 border rounded-md text-xs bg-white">
+							<option :value="null">{{ t('sequences.filter.allSequences') }}</option>
+							<option v-for="opt in issuesSequenceOptions" :key="opt.value" :value="opt.value">
+								{{ opt.label }} ({{ opt.count }})
+							</option>
+						</select>
+					</label>
+					<label class="flex items-center gap-1.5 text-xs text-gray-600">
+						{{ t('sequences.filter.status') }}
+						<select v-model="issuesStatusFilter" class="p-1 border rounded-md text-xs bg-white">
+							<option value="all">{{ t('sequences.filter.allStatuses') }}</option>
+							<option value="failed">{{ t('sequences.statuses.failed') }}</option>
+							<option value="skipped">{{ t('sequences.statuses.skipped') }}</option>
+						</select>
+					</label>
+					<label class="flex items-center gap-1.5 text-xs text-gray-600">
+						{{ t('sequences.channel') }}
+						<select v-model="issuesChannelFilter" class="p-1 border rounded-md text-xs bg-white">
+							<option value="all">{{ t('sequences.filter.allChannels') }}</option>
+							<option value="whatsapp">{{ t('sequences.channels.whatsapp') }}</option>
+							<option value="email">{{ t('sequences.channels.email') }}</option>
 						</select>
 					</label>
 					<label class="flex items-center gap-1.5 text-xs text-gray-600">

@@ -3510,6 +3510,11 @@
       "assignee": "Asignado: {name}",
       "template": "Plantilla",
       "allTemplates": "Todas las plantillas",
+      "sequence": "Secuencia",
+      "allSequences": "Todas las secuencias",
+      "status": "Estado",
+      "allStatuses": "Todos los estados",
+      "allChannels": "Todos los canales",
       "participant": "Participante: {name}",
       "byParticipant": "Ver todos los mensajes de {name}"
     },

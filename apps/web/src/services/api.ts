@@ -4143,7 +4143,7 @@ export interface FetchScheduledMessagesOptions {
   search?: string;
   page?: number;
   limit?: number;
-  order?: 'scheduled' | 'recent';
+  order?: 'scheduled' | 'recent' | 'name' | 'sequence';
   /** Pending rows of inactive sequences: hide (tab default), only, or include. */
   paused?: 'include' | 'hide' | 'only';
   /** M6 (D8): filtro plantilla por clave compuesta — id de plantilla y/o tipo crudo. */
@@ -4151,6 +4151,8 @@ export interface FetchScheduledMessagesOptions {
   templateType?: string;
   /** M6: user id, o 'unassigned' para las filas que nadie tomó. */
   assignedTo?: string;
+  /** Canal de la fila; ausente = todos los canales. */
+  channel?: 'whatsapp' | 'email';
 }
 
 export const fetchScheduledMessages = async (
@@ -4169,6 +4171,7 @@ export const fetchScheduledMessages = async (
   if (opts.templateId) params.set('templateId', opts.templateId);
   if (opts.templateType) params.set('templateType', opts.templateType);
   if (opts.assignedTo) params.set('assignedTo', opts.assignedTo);
+  if (opts.channel) params.set('channel', opts.channel);
   const qs = params.toString();
   const r = await api.get(`/message-sequences/retreat/${retreatId}/scheduled${qs ? `?${qs}` : ''}`);
   return r.data;
