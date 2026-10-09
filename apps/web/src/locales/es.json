@@ -2746,7 +2746,14 @@
       "blocked": "No se puede fusionar todavía:",
       "groupOf": "Grupo de {count} fichas: se fusionan de dos en dos",
       "pairTitle": "Fusionar fichas duplicadas",
-      "pairDescription": "Elige cuál ficha se conserva; todo lo de la otra pasa a ella. Revisa qué se movería antes de fusionar."
+      "pairDescription": "Elige cuál ficha se conserva; todo lo de la otra pasa a ella. Revisa qué se movería antes de fusionar.",
+      "notSame": "No son la misma persona",
+      "notSameConfirm": "¿Seguro? Dejarán de proponerse estas dos fichas",
+      "dismissedToast": "Par descartado",
+      "dismissedSection": "Pares descartados ({count})",
+      "dismissedEmpty": "No hay pares descartados",
+      "undo": "Deshacer",
+      "undoneToast": "Par restablecido"
     }
   },
   "dataDelete": {

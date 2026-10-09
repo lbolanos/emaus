@@ -63,6 +63,23 @@
             <Loader2 v-if="busy" class="mr-2 h-4 w-4 animate-spin" />
             {{ $t('community.duplicates.merge') }}
           </Button>
+          <!-- Falso positivo. Sólo pares exactos: descartar un grupo de 3+
+               ambiguo escondería pares verdaderos. Confirmación en dos pasos
+               (sin AlertDialog): el primer click arma, el segundo ejecuta. -->
+          <Button
+            v-if="pair.participants.length === 2"
+            variant="ghost"
+            size="sm"
+            class="text-muted-foreground"
+            :disabled="busy"
+            @click="onDismissClick"
+          >
+            {{
+              confirmDismiss
+                ? $t('community.duplicates.notSameConfirm')
+                : $t('community.duplicates.notSame')
+            }}
+          </Button>
         </div>
       </div>
 
@@ -84,6 +101,7 @@ import { Loader2 } from 'lucide-vue-next';
 import type { DuplicateCandidate, MergePreview } from '@repo/types';
 import {
   apiErrorMessage,
+  dismissCommunityDuplicatePair,
   mergeParticipantDuplicates,
   previewParticipantMerge,
 } from '@/services/api';
@@ -111,6 +129,8 @@ const { toast } = useToast();
 const keepId = ref('');
 const preview = ref<MergePreview | null>(null);
 const busy = ref(false);
+// Paso 1 del descarte: el botón ya se pulsó y el segundo click confirma.
+const confirmDismiss = ref(false);
 
 const totalMoves = computed(() => preview.value?.moves.reduce((sum, move) => sum + move.rows, 0) ?? 0);
 
@@ -128,6 +148,7 @@ const reset = () => {
   // cambiarla.
   keepId.value = props.pair?.participants[0]?.id ?? '';
   preview.value = null;
+  confirmDismiss.value = false;
 };
 
 const loadPreview = async () => {
@@ -152,6 +173,31 @@ const doMerge = async () => {
     toast({ title: apiErrorMessage(err), variant: 'destructive' });
   } finally {
     busy.value = false;
+  }
+};
+
+const onDismissClick = () => {
+  if (!confirmDismiss.value) {
+    confirmDismiss.value = true;
+    return;
+  }
+  void doDismiss();
+};
+
+const doDismiss = async () => {
+  const [a, b] = props.pair?.participants ?? [];
+  if (!a || !b) return;
+  busy.value = true;
+  try {
+    await dismissCommunityDuplicatePair(props.communityId, a.id, b.id);
+    toast({ title: t('community.duplicates.dismissedToast') });
+    emit('dismissed');
+    emit('update:open', false);
+  } catch (err) {
+    toast({ title: apiErrorMessage(err), variant: 'destructive' });
+  } finally {
+    busy.value = false;
+    confirmDismiss.value = false;
   }
 };
 

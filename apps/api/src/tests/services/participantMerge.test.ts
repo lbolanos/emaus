@@ -12,9 +12,12 @@ import { RetreatParticipant } from '@/entities/retreatParticipant.entity';
 import {
 	ParticipantMergeError,
 	countDuplicateCandidatesForCommunity,
+	dismissDuplicatePair,
 	findDuplicateCandidatesForCommunity,
+	listDuplicateDismissals,
 	mergeParticipants,
 	previewMerge,
+	undoDuplicateDismissal,
 } from '@/services/participantMergeService';
 
 /**
@@ -222,6 +225,187 @@ describe('participantMergeService', () => {
 			expect(res.status).not.toHaveBeenCalled();
 			const payload = (res.json as jest.Mock).mock.calls[0][0];
 			expect(payload).toEqual({ count: 1 });
+		});
+	});
+
+	// El falso positivo (los hermanos Garay en los datos reales) sale para siempre
+	// si no hay manera de decirle al sistema "no son la misma persona". El descarte
+	// vive en su propia tabla, aplica dentro de loadDuplicateGroups —así lista,
+	// badge y hint se enteran de una sola vez— y tiene undo explícito: sin él, un
+	// misclick escondería un duplicado real para siempre.
+	describe('dismissDuplicatePair (falsos positivos)', () => {
+		const both = async () =>
+			Promise.all([
+				countDuplicateCandidatesForCommunity(community.id),
+				findDuplicateCandidatesForCommunity(community.id),
+			]);
+
+		it('saca el par de la lista Y del count', async () => {
+			const { server, member } = await duplicatePair();
+			const [countBefore] = await both();
+			expect(countBefore).toBe(1);
+
+			await dismissDuplicatePair(community.id, server.id, member.id);
+
+			const [count, list] = await both();
+			expect(count).toBe(0);
+			expect(list).toHaveLength(0);
+		});
+
+		it('canonicaliza el orden: A,B y B,A son la misma fila', async () => {
+			const { server, member } = await duplicatePair();
+
+			const first = await dismissDuplicatePair(community.id, server.id, member.id);
+			const reversed = await dismissDuplicatePair(community.id, member.id, server.id);
+
+			expect(reversed.id).toBe(first.id);
+			const rows = await AppDataSource.query(
+				`SELECT COUNT(*) AS c FROM community_duplicate_dismissal`,
+			);
+			expect(Number(rows[0].c)).toBe(1);
+		});
+
+		it('es idempotente: repetir el dismiss devuelve la fila existente', async () => {
+			const { server, member } = await duplicatePair();
+
+			const first = await dismissDuplicatePair(community.id, server.id, member.id);
+			await expect(
+				dismissDuplicatePair(community.id, server.id, member.id),
+			).resolves.toMatchObject({ id: first.id });
+		});
+
+		it('NO filtra grupos de 3+: descartar en bloque escondería pares verdaderos', async () => {
+			// Tres fichas con el mismo nombre (la factory les da el mismo teléfono a
+			// todas, así que coinciden por las dos huellas — mismo grupo de 3).
+			const a = await TestDataFactory.createTestParticipant(retreat.id, {
+				firstName: 'Trillizo',
+				lastName: 'García',
+			} as never);
+			const other1 = await TestDataFactory.createTestRetreat();
+			const b = await TestDataFactory.createTestParticipant(other1.id, {
+				firstName: 'Trillizo',
+				lastName: 'Garcia',
+			} as never);
+			await TestDataFactory.createTestCommunityMember(community.id, b.id);
+			const other2 = await TestDataFactory.createTestRetreat();
+			const c = await TestDataFactory.createTestParticipant(other2.id, {
+				firstName: 'Trillizo',
+				lastName: 'García',
+			} as never);
+			await TestDataFactory.createTestCommunityMember(community.id, c.id);
+
+			await dismissDuplicatePair(community.id, a.id, b.id);
+
+			const [count, list] = await both();
+			expect(count).toBe(1);
+			expect(list).toHaveLength(1);
+			expect(list[0].participants).toHaveLength(3);
+		});
+
+		it('la lista trae nombres y el undo revive el par', async () => {
+			const { server, member } = await duplicatePair();
+			const dismissal = await dismissDuplicatePair(
+				community.id,
+				server.id,
+				member.id,
+				user.id,
+			);
+
+			const dismissals = await listDuplicateDismissals(community.id);
+			expect(dismissals).toHaveLength(1);
+			expect(dismissals[0].id).toBe(dismissal.id);
+			const names = [
+				dismissals[0].participantA.firstName,
+				dismissals[0].participantB.firstName,
+			].sort();
+			expect(names).toEqual(['Nicolas', 'Nicolás']);
+
+			await undoDuplicateDismissal(community.id, dismissal.id);
+
+			const [count] = await both();
+			expect(count).toBe(1);
+		});
+
+		it('el undo no puede tocar un descarte de otra comunidad', async () => {
+			const { server, member } = await duplicatePair();
+			const dismissal = await dismissDuplicatePair(community.id, server.id, member.id);
+			const otherCommunity = await TestDataFactory.createTestCommunity(user.id);
+
+			await expect(
+				undoDuplicateDismissal(otherCommunity.id, dismissal.id),
+			).rejects.toThrow(ParticipantMergeError);
+		});
+
+		it('rechaza descartar una ficha consigo misma o con una que no existe', async () => {
+			const { server } = await duplicatePair();
+
+			await expect(
+				dismissDuplicatePair(community.id, server.id, server.id),
+			).rejects.toThrow(ParticipantMergeError);
+			await expect(
+				dismissDuplicatePair(
+					community.id,
+					server.id,
+					'00000000-0000-4000-8000-000000000000',
+				),
+			).rejects.toThrow(ParticipantMergeError);
+		});
+	});
+
+	// Controladores de descarte, mismo criterio de embed que getDuplicateCount
+	// (M2): la suite de servicio ya levanta la base; no hace falta un harness HTTP
+	// aparte para el 200/400. El gate de ruta (owner-only + validación) tiene su
+	// propio test de wiring en tests/routes.
+	describe('descartes (controlador)', () => {
+		it('400 al descartar una ficha consigo misma', async () => {
+			const { server } = await duplicatePair();
+			const res = createMockResponse();
+
+			await CommunityController.dismissDuplicatePair(
+				{
+					params: { id: community.id },
+					body: { participantAId: server.id, participantBId: server.id },
+					user: { id: user.id },
+				} as any,
+				res,
+			);
+
+			expect(res.status).toHaveBeenCalledWith(400);
+		});
+
+		it('200 al descartar, lista con el par y 204 al deshacer', async () => {
+			const { server, member } = await duplicatePair();
+			const res = createMockResponse();
+
+			await CommunityController.dismissDuplicatePair(
+				{
+					params: { id: community.id },
+					body: { participantAId: server.id, participantBId: member.id },
+					user: { id: user.id },
+				} as any,
+				res,
+			);
+
+			expect(res.status).not.toHaveBeenCalled();
+			const dismissal = (res.json as jest.Mock).mock.calls[0][0];
+			expect(dismissal.participantA.id).toBeDefined();
+			expect(dismissal.participantB.id).toBeDefined();
+
+			const resList = createMockResponse();
+			await CommunityController.listDuplicateDismissals(
+				{ params: { id: community.id } } as any,
+				resList,
+			);
+			const list = (resList.json as jest.Mock).mock.calls[0][0];
+			expect(list).toHaveLength(1);
+
+			const resUndo = { ...createMockResponse(), end: jest.fn().mockReturnThis() };
+			await CommunityController.undoDuplicateDismissal(
+				{ params: { id: community.id, dismissalId: dismissal.id } } as any,
+				resUndo,
+			);
+			expect(resUndo.status).toHaveBeenCalledWith(204);
+			expect(resUndo.end).toHaveBeenCalled();
 		});
 	});
 

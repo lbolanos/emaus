@@ -41,6 +41,8 @@ import {
 	communityAttendanceStatsQuerySchema,
 	serverAttendanceQuerySchema,
 	mergeParticipantsSchema,
+	dismissDuplicatePairSchema,
+	undoDuplicateDismissalSchema,
 } from '@repo/types';
 
 const router = Router();
@@ -363,6 +365,23 @@ router.post(
 	requireCommunityOwner(),
 	validateRequest(mergeParticipantsSchema),
 	(req, res) => CommunityController.mergeParticipantDuplicates(req, res),
+);
+// Descartes de falsos positivos: mismo permiso que el listado — el owner es
+// quien ve los pares y decide que no lo son.
+router.post(
+	'/:id/duplicates/dismiss',
+	requireCommunityOwner(),
+	validateRequest(dismissDuplicatePairSchema),
+	(req, res) => CommunityController.dismissDuplicatePair(req, res),
+);
+router.get('/:id/duplicates/dismissals', requireCommunityOwner(), (req, res) =>
+	CommunityController.listDuplicateDismissals(req, res),
+);
+router.delete(
+	'/:id/duplicates/dismissals/:dismissalId',
+	requireCommunityOwner(),
+	validateRequest(undoDuplicateDismissalSchema),
+	(req, res) => CommunityController.undoDuplicateDismissal(req, res),
 );
 
 // Admins

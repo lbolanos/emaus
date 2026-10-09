@@ -25,9 +25,12 @@ import {
 import {
 	ParticipantMergeError,
 	countDuplicateCandidatesForCommunity,
+	dismissDuplicatePair,
 	findDuplicateCandidatesForCommunity,
+	listDuplicateDismissals,
 	mergeParticipants,
 	previewMerge,
+	undoDuplicateDismissal,
 } from '../services/participantMergeService';
 
 const communityService = new CommunityService();
@@ -929,6 +932,47 @@ export class CommunityController {
 	static async getDuplicateCount(req: Request, res: Response) {
 		const count = await countDuplicateCandidatesForCommunity(req.params.id);
 		res.json({ count });
+	}
+
+	/**
+	 * Descartar un falso positivo: "no son la misma persona". El par deja de
+	 * proponerse (lista, badge, hint) hasta que se deshaga el descarte.
+	 * Idempotente: repetirlo devuelve la fila existente.
+	 */
+	static async dismissDuplicatePair(req: Request, res: Response) {
+		try {
+			const { participantAId, participantBId } = req.body ?? {};
+			const dismissal = await dismissDuplicatePair(
+				req.params.id,
+				participantAId,
+				participantBId,
+				(req.user as any)?.id ?? null,
+			);
+			res.json(dismissal);
+		} catch (error) {
+			if (error instanceof ParticipantMergeError) {
+				return res.status(400).json({ message: error.message });
+			}
+			throw error;
+		}
+	}
+
+	/** Pares descartados, con nombres: la sección con Deshacer. */
+	static async listDuplicateDismissals(req: Request, res: Response) {
+		res.json(await listDuplicateDismissals(req.params.id));
+	}
+
+	/** Deshacer un descarte: el par vuelve a proponerse. */
+	static async undoDuplicateDismissal(req: Request, res: Response) {
+		try {
+			await undoDuplicateDismissal(req.params.id, req.params.dismissalId);
+			res.status(204).end();
+		} catch (error) {
+			if (error instanceof ParticipantMergeError) {
+				return res.status(404).json({ message: error.message });
+			}
+			throw error;
+		}
 	}
 
 	/** Qué pasaría al fusionar, sin tocar nada. */

@@ -11,6 +11,7 @@ import type {
   RetreatServerAttendance,
   DuplicateCandidate,
   MergePreview,
+  CommunityDuplicateDismissal,
   MemberState,
   MessageTemplate,
   SavedSegment,
@@ -1783,6 +1784,38 @@ export async function mergeParticipantDuplicates(
     mergeId,
   });
   return response.data;
+}
+
+/**
+ * Descarta un falso positivo: "no son la misma persona". El par deja de
+ * proponerse (listado, badge, hint) hasta que se deshaga el descarte.
+ */
+export async function dismissCommunityDuplicatePair(
+  communityId: string,
+  participantAId: string,
+  participantBId: string,
+): Promise<CommunityDuplicateDismissal> {
+  const response = await api.post(`/communities/${communityId}/duplicates/dismiss`, {
+    participantAId,
+    participantBId,
+  });
+  return response.data;
+}
+
+/** Pares ya descartados, con nombres: la sección con Deshacer. */
+export async function getCommunityDuplicateDismissals(
+  communityId: string,
+): Promise<CommunityDuplicateDismissal[]> {
+  const response = await api.get(`/communities/${communityId}/duplicates/dismissals`);
+  return response.data;
+}
+
+/** Deshace un descarte: el par vuelve a proponerse. */
+export async function undoCommunityDuplicateDismissal(
+  communityId: string,
+  dismissalId: string,
+): Promise<void> {
+  await api.delete(`/communities/${communityId}/duplicates/dismissals/${dismissalId}`);
 }
 
 /**

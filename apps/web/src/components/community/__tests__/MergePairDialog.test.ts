@@ -14,9 +14,11 @@ import { nextTick } from 'vue';
 
 const mockPreview = vi.fn();
 const mockMerge = vi.fn();
+const mockDismiss = vi.fn();
 vi.mock('@/services/api', () => ({
 	previewParticipantMerge: (...a: any[]) => mockPreview(...a),
 	mergeParticipantDuplicates: (...a: any[]) => mockMerge(...a),
+	dismissCommunityDuplicatePair: (...a: any[]) => mockDismiss(...a),
 	apiErrorMessage: (e: any) => String(e?.message ?? e),
 }));
 
@@ -32,9 +34,13 @@ vi.mock('@repo/ui', () => new Proxy(
 				return { name: 'Dialog', template: '<div v-if="open"><slot /></div>', props: ['open'] };
 			}
 			if (n === 'Button') {
+				// Sin re-emitir el click: el Button real (Primitive de radix) sólo
+				// expone el onclick del padre por fallthrough. Un mock que además
+				// haga $emit('click') dispara el handler DOS veces por click, y una
+				// confirmación en dos pasos se ejecuta en uno.
 				return {
 					name: 'Button',
-					template: `<button :disabled="disabled" @click="$emit('click', $event)"><slot /></button>`,
+					template: `<button :disabled="disabled"><slot /></button>`,
 					props: ['variant', 'size', 'disabled'],
 				};
 			}
@@ -70,6 +76,9 @@ const cleanPreview = {
 const mergeButton = (wrapper: ReturnType<typeof mount>) =>
 	wrapper.findAll('button').find((b) => b.text() === 'community.duplicates.merge');
 
+const dismissButton = (wrapper: ReturnType<typeof mount>) =>
+	wrapper.findAll('button').find((b) => b.text() === 'community.duplicates.notSame');
+
 const factory = (props: Record<string, unknown> = {}) =>
 	mount(MergePairDialog, {
 		props: { open: true, communityId: 'comm-1', pair: pair(), ...props },
@@ -78,9 +87,10 @@ const factory = (props: Record<string, unknown> = {}) =>
 
 describe('MergePairDialog', () => {
 	beforeEach(() => {
-		mockPreview.mockReset(); mockMerge.mockReset();
+		mockPreview.mockReset(); mockMerge.mockReset(); mockDismiss.mockReset();
 		mockPreview.mockResolvedValue(cleanPreview);
 		mockMerge.mockResolvedValue({ ...cleanPreview, merged: true });
+		mockDismiss.mockResolvedValue({});
 	});
 
 	it('sugiere conservar la ficha con más datos y no permite fusionar sin preview', async () => {
@@ -156,5 +166,57 @@ describe('MergePairDialog', () => {
 		expect(wrapper.vm.keepId).toBe('p-keep');
 		expect(wrapper.vm.preview).toBeNull();
 		expect(wrapper.vm.canMerge).toBe(false);
+	});
+
+	it('descarta en dos pasos: el primer click arma, el segundo ejecuta y cierra', async () => {
+		const wrapper = factory();
+		await flushPromises();
+		const button = dismissButton(wrapper)!;
+		expect(button).toBeTruthy();
+
+		await button.trigger('click');
+		await nextTick();
+		// Paso 1: sólo cambia el texto de confirmación; nada se llama todavía.
+		expect(mockDismiss).not.toHaveBeenCalled();
+		expect(wrapper.emitted('dismissed')).toBeUndefined();
+
+		// Paso 2: el botón ahora pide confirmación — ese es el que ejecuta.
+		const confirmButton = wrapper.findAll('button').find(
+			(b) => b.text() === 'community.duplicates.notSameConfirm',
+		)!;
+		await confirmButton.trigger('click');
+		await flushPromises();
+
+		expect(mockDismiss).toHaveBeenCalledWith('comm-1', 'p-keep', 'p-merge');
+		expect(wrapper.emitted('dismissed')).toHaveLength(1);
+		expect(wrapper.emitted('update:open')?.at(-1)).toEqual([false]);
+	});
+
+	it('un grupo de 3+ no ofrece el descarte: escondería pares verdaderos', async () => {
+		const group = {
+			...pair(),
+			participants: [
+				...pair().participants,
+				{ id: 'p-third', firstName: 'Pedro', lastName: 'Arroyo', email: null, cellPhone: '5511', references: 1, hasUser: false, isCommunityMember: false },
+			],
+		};
+		const wrapper = factory({ pair: group });
+		await flushPromises();
+
+		expect(dismissButton(wrapper)).toBeUndefined();
+	});
+
+	it('el paso de confirmación se desarma al llegar un par nuevo', async () => {
+		const wrapper = factory();
+		await flushPromises();
+		await dismissButton(wrapper)!.trigger('click');
+		await nextTick();
+		expect(wrapper.vm.confirmDismiss).toBe(true);
+
+		await wrapper.setProps({ pair: { ...pair(), matchedBy: 'email' } });
+		await nextTick();
+
+		expect(wrapper.vm.confirmDismiss).toBe(false);
+		expect(dismissButton(wrapper)!.text()).toBe('community.duplicates.notSame');
 	});
 });

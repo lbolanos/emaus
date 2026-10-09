@@ -409,6 +409,7 @@
       :community-id="id"
       :pair="activePair"
       @merged="onPairMerged"
+      @dismissed="onPairDismissed"
     />
   </div>
 </template>
@@ -555,6 +556,14 @@ const onPairMerged = async () => {
   duplicates.value = [];
   duplicatesLoaded.value = false;
   await load();
+};
+
+const onPairDismissed = () => {
+  // El descarte no cambia inscripciones ni asistencia: sólo se saca el par de
+  // la lista local para que el hint desaparezca, sin recargar la vista.
+  const dismissed = activePair.value;
+  duplicates.value = duplicates.value.filter((pair) => pair !== dismissed);
+  activePair.value = null;
 };
 
 // Los tipos vienen del backend (solo los que la comunidad usa), pero el tipo

@@ -93,17 +93,49 @@ Desviaciones reales respecto a `plan.md` (2026-10-08):
 
 ## M3 — Dismiss de falsos positivos
 
-- [ ] Migration `2026100X0000_CreateCommunityDuplicateDismissal` (skill `sqlite-migrations`;
-      up/down probados contra copia local)
-- [ ] Entidad `communityDuplicateDismissal.entity.ts` + registro en
-      `apps/api/src/database/config.ts`
-- [ ] Schemas + 3 endpoints owner-only (dismiss idempotente con canonicalización,
-      list, undo) + tests controller (400 inválidos, 200, 403 co-admin)
-- [ ] `loadDuplicateGroups` filtra pares dismissados (solo grupos de 2) + tests service
-      (lista Y count; grupo de 3 no se filtra; idempotencia)
-- [ ] UI: "No son la misma persona" en ambos dialogs + sección "Pares descartados" con
-      Deshacer + handler en vista de stats + i18n es+en
-- [ ] Tests UI de ambos dialogs
+- [x] Migration `20261009094500_CreateCommunityDuplicateDismissal` (skill `sqlite-migrations`;
+      tabla nueva sin FKs entrantes, `transaction = false as const`, `CREATE ... IF NOT EXISTS`
+      idempotente) — la aplicó el auto-run de nodemon a la dev DB al guardar (comportamiento
+      documentado del skill), re-ejecución segura
+- [x] Entidad `communityDuplicateDismissal.entity.ts` + registro en
+      `apps/api/src/database/config.ts` — y en DOS lugares más (ver desviación 1)
+- [x] Schemas + 3 endpoints owner-only (dismiss idempotente con canonicalización,
+      list, undo) + tests controller (400 inválidos, 200, 403 co-admin — wiring en
+      `communityDismissalRoutes.simple.test.ts`, 403 con middleware stubbeado)
+- [x] `loadDuplicateGroups` filtra pares dismissados (solo grupos de 2) + tests service
+      (lista Y count; grupo de 3 no se filtra; idempotencia; canonicalización A,B/B,A;
+      undo revive el par; undo cross-comunidad rechazado) — 45/45 en las 3 suites
+- [x] UI: "No son la misma persona" en ambos dialogs + sección "Pares descartados" con
+      Deshacer + handler en vista de stats + i18n es+en (9 claves nuevas, paridad verificada
+      por `auditLocaleCoverage.test.ts`)
+- [x] Tests UI de ambos dialogs (MergePairDialog 8, DuplicateMembersDialog 10) +
+      `pnpm --filter web build` verde
+
+Desviaciones reales respecto a `plan.md` (2026-10-09):
+
+1. **La entidad se registra en TRES listas, no una.** Además de `database/config.ts`, el
+   DataSource de tests (`apps/api/src/tests/test-setup.ts`) tiene su propio array de entities
+   — sin registro ahí, "No metadata for CommunityDuplicateDismissal" tumba 16 tests — y
+   `clearTestData()` necesita la tabla en su `clearOrder` o las filas de descarte se filtran
+   entre tests (fallos fantasma de contaminación cross-suite). El plan sólo prevenía la
+   primera.
+2. **El 403 de co-admin no es un test HTTP contra middleware real**: va en
+   `communityDismissalRoutes.simple.test.ts` (molde `communityUpdateRoutes`), que fija que el
+   gate es `requireCommunityOwner` (no mero acceso) y que la validación Zod corre antes del
+   controller. Los tests de controller quedaron embebidos en la suite de service, mismo
+   criterio que M2.
+3. **El undo emite el mismo evento `dismissed` que el dismiss**: ambos cambian el conteo
+   pendiente y el badge del botón debe refrescarse en los dos sentidos; `onDuplicatesMerged`
+   no aplica porque un descarte no toca miembros. En la vista de stats, el handler saca el
+   par de la lista local sin recargar (el descarte no cambia inscripciones ni asistencia).
+4. **La sección de descartados es fail-soft con error visible**: si su GET falla, el dialog
+   sigue vivo pero la sección muestra el error en vez de un "no hay pares descartados" que
+   mentiría (la sección existe justamente para que un misclick no esconda un duplicado real).
+5. **Hallazgo de los tests UI**: el mock de `Button` hacía `$emit('click')` además del
+   fallthrough del onclick del padre → el handler corría DOS veces por click y la
+   confirmación en dos pasos se ejecutaba en un solo click. Corregido el mock para reflejar
+   el Button real (Primitive de radix: sólo fallthrough). El componente de producción nunca
+   tuvo el bug.
 
 ## M4 — Audit del merge [P — paralelizable con M2/M3]
 

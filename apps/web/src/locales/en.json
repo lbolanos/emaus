@@ -2633,7 +2633,14 @@
       "blocked": "Cannot merge yet:",
       "groupOf": "Group of {count} records: merged two at a time",
       "pairTitle": "Merge duplicate records",
-      "pairDescription": "Choose which record keeps the data; everything from the other moves into it. Review what would move before merging."
+      "pairDescription": "Choose which record keeps the data; everything from the other moves into it. Review what would move before merging.",
+      "notSame": "Not the same person",
+      "notSameConfirm": "Are you sure? These two records will stop being suggested",
+      "dismissedToast": "Pair dismissed",
+      "dismissedSection": "Dismissed pairs ({count})",
+      "dismissedEmpty": "No dismissed pairs",
+      "undo": "Undo",
+      "undoneToast": "Pair restored"
     }
   },
   "dataDelete": {

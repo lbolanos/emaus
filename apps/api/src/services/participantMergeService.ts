@@ -1,8 +1,10 @@
+import { In } from 'typeorm';
 import { AppDataSource } from '../data-source';
 import { Participant } from '../entities/participant.entity';
 import { CommunityMember } from '../entities/communityMember.entity';
 import { CommunityAttendance } from '../entities/communityAttendance.entity';
 import { Retreat } from '../entities/retreat.entity';
+import { CommunityDuplicateDismissal } from '../entities/communityDuplicateDismissal.entity';
 import { normalizePersonName, phoneFingerprint } from '@repo/utils';
 
 /**
@@ -294,6 +296,14 @@ export const loadDuplicateGroups = async (
 	const byId = new Map(rows.map((r) => [r.id, r]));
 	const seenPairs = new Set<string>();
 	const strength = { email: 3, phone: 2, name: 1 } as const;
+	// Pares que el owner descartó ("no son la misma persona"): salen de la
+	// propuesta de una vez — lista, badge y hint beben todos de aquí.
+	const dismissals = await AppDataSource.getRepository(
+		CommunityDuplicateDismissal,
+	).find({ where: { communityId } });
+	const dismissed = new Set(
+		dismissals.map((d) => `${d.participantAId}|${d.participantBId}`),
+	);
 
 	const deduped: DuplicateGroup[] = [];
 	for (const group of [...groups.values()].sort(
@@ -303,6 +313,9 @@ export const loadDuplicateGroups = async (
 		if (ids.length < 2) continue;
 		const signature = [...ids].sort().join('|');
 		if (seenPairs.has(signature)) continue;
+		// Sólo pares de exactamente 2 se descartan: tirar un grupo de 3+ en
+		// bloque escondería pares verdaderos entre sus miembros.
+		if (ids.length === 2 && dismissed.has(signature)) continue;
 		seenPairs.add(signature);
 		deduped.push({
 			matchedBy: group.matchedBy,
@@ -363,6 +376,105 @@ export const findDuplicateCandidatesForCommunity = async (
 export const countDuplicateCandidatesForCommunity = async (
 	communityId: string,
 ): Promise<number> => (await loadDuplicateGroups(communityId)).length;
+
+// --- Descartes de falsos positivos ---
+
+/** Par canónico: el id menor primero. Así A,B y B,A son la misma fila. */
+const canonicalPair = (a: string, b: string): [string, string] => (a < b ? [a, b] : [b, a]);
+
+export interface DuplicateDismissalView {
+	id: string;
+	participantA: { id: string; firstName: string; lastName: string };
+	participantB: { id: string; firstName: string; lastName: string };
+	createdAt: Date;
+}
+
+/** Nombres de las fichas de varios descartes en UNA query — la sección de
+ *  "pares descartados" puede traer varias filas. */
+const dismissalsToViews = async (
+	rows: CommunityDuplicateDismissal[],
+): Promise<DuplicateDismissalView[]> => {
+	if (rows.length === 0) return [];
+	const ids = [...new Set(rows.flatMap((r) => [r.participantAId, r.participantBId]))];
+	const participants = await AppDataSource.getRepository(Participant).find({
+		where: { id: In(ids) },
+	});
+	const byId = new Map(participants.map((p) => [p.id, p]));
+	const nameOf = (id: string) => {
+		const p = byId.get(id);
+		return { id, firstName: p?.firstName ?? '', lastName: p?.lastName ?? '' };
+	};
+	return rows.map((row) => ({
+		id: row.id,
+		participantA: nameOf(row.participantAId),
+		participantB: nameOf(row.participantBId),
+		createdAt: row.createdAt,
+	}));
+};
+
+/**
+ * Marca un par como "no son la misma persona". Canonicaliza el orden en el
+ * servidor (A < B) y es idempotente: repetir el dismiss devuelve la fila
+ * existente, no un error — el undo es explícito (DELETE), no repetir al revés.
+ */
+export const dismissDuplicatePair = async (
+	communityId: string,
+	participantAId: string,
+	participantBId: string,
+	dismisserId?: string | null,
+): Promise<DuplicateDismissalView> => {
+	if (participantAId === participantBId) {
+		throw new ParticipantMergeError('No se puede descartar una ficha consigo misma');
+	}
+	const [a, b] = canonicalPair(participantAId, participantBId);
+	const repo = AppDataSource.getRepository(CommunityDuplicateDismissal);
+	const where = { communityId, participantAId: a, participantBId: b };
+
+	const existing = await repo.findOneBy(where);
+	if (existing) return (await dismissalsToViews([existing]))[0];
+
+	const found = await AppDataSource.getRepository(Participant).find({
+		where: { id: In([a, b]) },
+	});
+	if (found.length < 2) throw new ParticipantMergeError('Alguna de las dos fichas no existe');
+
+	try {
+		const saved = await repo.save(
+			repo.create({ ...where, dismisserId: dismisserId ?? null }),
+		);
+		return (await dismissalsToViews([saved]))[0];
+	} catch (error) {
+		// Carrera (doble clic, dos pestañas): el UNIQUE (comunidad, par) ganó.
+		// Devolver la fila existente es la idempotencia prometida.
+		const raced = await repo.findOneBy(where);
+		if (raced) return (await dismissalsToViews([raced]))[0];
+		throw error;
+	}
+};
+
+/** Pares descartados de la comunidad, con nombres para reconocerlos. */
+export const listDuplicateDismissals = async (
+	communityId: string,
+): Promise<DuplicateDismissalView[]> => {
+	const rows = await AppDataSource.getRepository(CommunityDuplicateDismissal).find({
+		where: { communityId },
+		order: { createdAt: 'DESC' },
+	});
+	return dismissalsToViews(rows);
+};
+
+/** Deshace un descarte: el par vuelve a proponerse. */
+export const undoDuplicateDismissal = async (
+	communityId: string,
+	dismissalId: string,
+): Promise<void> => {
+	const repo = AppDataSource.getRepository(CommunityDuplicateDismissal);
+	const row = await repo.findOneBy({ id: dismissalId });
+	if (!row || row.communityId !== communityId) {
+		throw new ParticipantMergeError('El descarte no existe en esta comunidad');
+	}
+	await repo.delete({ id: dismissalId });
+};
 
 export interface MergeMove {
 	table: string;

@@ -591,6 +591,7 @@
       v-model:open="isDuplicatesOpen"
       :community-id="props.id"
       @merged="onDuplicatesMerged"
+      @dismissed="onDuplicatesDismissed"
     />
 
     <MessageDialog
@@ -743,6 +744,11 @@ const isDuplicatesOpen = ref(false);
 const duplicatesVersion = ref(0);
 const onDuplicatesMerged = () => {
   fetchMembers();
+  duplicatesVersion.value++;
+};
+// Descartar (o deshacer un descarte) también mueve el conteo pendiente; a
+// diferencia del merge, no toca a los miembros del padrón.
+const onDuplicatesDismissed = () => {
   duplicatesVersion.value++;
 };
 
