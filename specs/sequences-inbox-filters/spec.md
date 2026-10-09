@@ -1,6 +1,7 @@
 # Bandeja de WhatsApp: filtros, historial y ficha
 
-> SDD spec — versión 1.0 (2026-10-08). Estado: borrador, esperando aprobación.
+> SDD spec — versión 1.0 (2026-10-08), aprobada e implementada (M1-M4). **v1.1 abajo**:
+> extensión a Programadas/Problemas + ficha con notas y palancas.
 
 ## Problema
 
@@ -97,3 +98,62 @@ nombre del asignado.
   Programados ya filtra server-side).
 - **No** historial de WhatsApp dentro de la app: solo deep-link al chat (las respuestas viven en
   el teléfono de cada servidor, por diseño del envío asistido).
+
+---
+
+# v1.1 — Programadas/Problemas y ficha con notas y palancas
+
+> SDD spec — versión 1.1 (2026-10-08), sobre la 1.0 ya implementada (M1-M4). Extensión pedida por
+> el usuario tras cerrar v1.0: "no solo en bandeja sino en programadas y en problemas" + "en la
+> info necesito ver las notas y lo relacionado a palancas".
+
+## Problema (v1.1)
+
+1. Los controles de v1.0 (filtro plantilla, filtro asignado concreto, page size, conversación,
+   ficha) quedaron sólo en la bandeja. "Programadas" (server-side) no filtra por plantilla ni por
+   asignado, ni tiene selector de página, ni acciones de conversación/ficha por fila. "Problemas"
+   (client-side) tampoco.
+2. La ficha del participante (popover ⓘ de v1.0) no trae ni las notas ni el estado de palancas —
+   justo el contexto que un coordinador necesita antes de escribirle a un caminante. El panel de
+   detalle del mensaje muestra el campo legacy `participant.notes` (uno solo, sobrescrito), no el
+   hilo CRM ("quién dijo qué y cuándo").
+
+**Reversión de no-goal**: v1.0 decía "no se añaden estos controles a Programados ni Problemas".
+El usuario pidió explícitamente extenderlos (2026-10-08) — ese no-goal queda anulado para v1.1.
+
+## Decisiones de dominio (v1.1)
+
+| # | Decisión | Por qué |
+| --- | --- | --- |
+| D8 | En **Programadas** los filtros (plantilla, asignado) y el page size van **server-side** (extienden `listScheduled`), no client-side como la bandeja | La pestaña ya es server-side con paginación y cap de 200; duplicar client-side rompería el contrato de página. El select "Todos" mapea a `limit=200` (cap del server), no a un fetch ilimitado |
+| D9 | La ficha (popover) fetchea el **timeline CRM del participante al abrirse** (una sola llamada: notas con autor, mensajes enviados, hitos de palancas), no en mount | La fila no debe pagar un fetch por un popover que quizás no se abre. Palancas/saldo/seguimiento ya están en el store (sin fetch) |
+| D10 | Panel de detalle y popover comparten el **mismo origen** de datos (timeline CRM) para notas y actividad — un solo lugar donde mirar | Elección del usuario 2026-10-08 ("Sí, unificar"). Evita que el panel muestre el campo legacy vacío mientras el hilo CRM tiene contenido |
+| D11 | Fuera de alcance v1.1: bandera "No contactar" en la ficha (el usuario la descartó; no viaja en el schema del listado) | — |
+
+## Requerimientos funcionales (v1.1)
+
+- **FR8 (M5)**: Ficha popover muestra: palancas completas (solicitada/recibidas/cantidad/notas/
+  coordinador), estado de seguimiento, saldo pendiente, hilo de notas CRM (últimas ~3 con autor y
+  fecha) y últimos mensajes enviados (~3, plantilla+fecha). Fetch del timeline al abrir, con
+  estado de carga; si falla, la ficha muestra lo estático (store) sin romperse.
+- **FR9 (M5)**: El panel de detalle del mensaje añade el hilo de notas (autor+fecha) junto al
+  campo legacy; mismas secciones de palancas completas que la ficha.
+- **FR10 (M6, API)**: `listScheduled` enriquece el DTO con `assignedTo`/`assignedToName`
+  (lookup bulk, molde M1), la proyección `participant` (id, nombre, teléfonos, país — sale del
+  join existente) y acepta filtros `templateId`/`templateType` y `assignedTo` (userId o
+  `unassigned`). El `limit` ya existente se usa para el page size.
+- **FR11 (M6, web)**: Programadas gana selects Plantilla / Asignado / Por página
+  (5/10/50/100/Todos→200), chips de filtros activos (mismo patrón bandeja), botón "ver
+  conversación" (D1 aplica: sin mutación) y popover de ficha por fila.
+- **FR12 (M7, web+API)**: Problemas gana filtros plantilla/asignado y page size client-side
+  (molde bandeja; `assignedToName` en `/stats` si falta) + botón conversación y popover por fila.
+- **FR13 (M8)**: E2E cubre: filtros en Programadas (server-side), filtro plantilla en Problemas,
+  ficha popover con notas visibles (fixture con nota CRM creada por API).
+
+## No-goals (v1.1)
+
+- **No** acciones en masa nuevas (Programadas ya tiene las suyas; Problemas conserva retry/discard
+  bulk existentes).
+- **No** se reescribe la paginación de Programadas a client-side, ni la de la bandeja a
+  server-side.
+- **No** edición de notas/palancas desde la ficha: es lectura (la edición vive en CRM/Palancas).

@@ -2,6 +2,8 @@
 
 > SDD research — versión 1.0 (2026-10-08). Lectura de código sobre master `22e6d7d7`.
 > Worktree: `.claude/worktrees/sequences-inbox-filters` (rama `sequences-inbox-filters`).
+> **v1.1 (2026-10-08)**: hallazgos de la extensión (Programadas/Problemas + ficha con notas y
+> palancas), al final del archivo.
 
 ## Mapa de la bandeja (tab "Pendientes")
 
@@ -117,3 +119,68 @@ y por eso sufre popup-blocking tras el `await`. El botón de historial NO muta n
 7. **Una sola corrida de jest a la vez** (SQLITE_MISUSE fantasma).
 8. Tras tocar el API: **reiniciarlo** en el dev del worktree (vite-node no hot-reloadea
    servicios) — skill `worktree-testing`.
+
+---
+
+## v1.1 — Programadas/Problemas y ficha con notas/palancas (2026-10-08)
+
+### Las tres pestañas tienen arquitecturas distintas
+
+| Tab | Fuente | Filtros hoy | Paginación |
+| --- | --- | --- | --- |
+| Pendientes (bandeja) | `fetchQueue` → `queue` (client-side) | texto, orden, asignación (v1.0: + plantilla, asignado concreto, page size) | client-side, page size v1.0 |
+| Programadas | `fetchScheduledMessages` → **server-side** (`listScheduled`, `messageSequenceService.ts:1772`) | texto (LIKE nombre), estado, orden, secuencia, participante, pausadas | **server-side** `page`/`limit` (cap 200, default 50) |
+| Problemas | `fetchIssues` → `issues` (client-side, payload = `ScheduledMessageQueueItem`, mismo que bandeja) | texto, orden (client-side) | "cargar más" con cap (`issuesTotal`) |
+
+### Gaps del DTO de Programadas (`ScheduledMessageListItem`, `api.ts:4041`)
+
+- **No trae `assignedTo`/`assignedToName`** — la asignación SÍ existe sobre filas pending
+  (`assignScheduledMessage`, service `:2340`) pero no viaja en el listado.
+- **No trae proyección del participante** (solo `participantId`/`participantName`): ni teléfonos
+  (para el link de conversación) ni objeto para el popover. `listScheduled` YA hace
+  `leftJoinAndSelect('sm.participant', 'participant')` → la proyección sale gratis del join.
+- **No filtra** por plantilla ni por asignado. Filtro plantilla server-side: `sm.step.templateId`
+  (con fallback `sm.templateType` para legacy — misma semántica de la D3 de v1.0; `step` ya está
+  joined). Filtro asignado: `sm.assignedTo = :userId | IS NULL`.
+- `limit` ya viaja del cliente → el selector de página es sólo UI (5/10/50/100/200; "Todos" = 200
+  del cap server).
+
+### Problemas: todo client-side como la bandeja
+
+`issues` son `ScheduledMessageQueueItem` con `participant` (proyección) y `templateId`. OJO: no
+salen de `listQueued` — vienen del endpoint `/stats` (`getSequenceStats`, `api.ts:3995`; el
+método de la cola filtra `status: 'queued'`). **Pendiente M7**: verificar si ese camino también
+enriquece `assignedToName` (el tipo lo declara, pero el enriquecimiento M1 se hizo en
+`listQueued`); si no, enriquecer `/stats` igual que M1. Los computeds de filtros de la bandeja se
+replican (o extraen a composable). El nombre de fila ya abre el panel de detalle (`openDetail`).
+
+### Ficha: notas y palancas (elección del usuario 2026-10-08)
+
+- **Palancas completas** (solicitada/recibidas/cantidad/notas/coordinador): vienen en el
+  `Participant` del store (`packages/types/src/index.ts:535-554`, `palancasRequested`,
+  `palancasReceived`, `palancasReceivedCount`, `palancasNotes`, `palancasCoordinator`) — la vista
+  carga el roster completo (`MessageSequencesView.vue:282`). **Sin fetch nuevo.**
+- **Hilo de notas CRM + últimos mensajes enviados + hitos de palancas**: una sola llamada —
+  `GET /crm/retreat/:retreatId/participants/:participantId/timeline`
+  (`crmService.getParticipantTimeline`, `crmService.ts:354`): notas (con autor y fecha),
+  comunicaciones (con templateName), scheduled, tareas, pagos — `TimelineEvent[]` unificado y
+  ordenado. Wrapper ya existe: `getParticipantTimeline` (`api.ts:4416`). Fetch **al abrir** el
+  popover (no en mount: la fila no debe pagar por un popover que no se abre).
+- **Seguimiento**: `followUpStatus` ya viaja en los ítems de bandeja/problemas (server-side);
+  para el popover se toma del timeline (evento de etapa) o del store — se decide en M5.
+- **Saldo**: el store trae payments (`fetchParticipants` con `includePayments`); mismo cálculo
+  que usa MessageDialog (`paymentRemaining`).
+- **Panel de detalle** (unificación elegida): hoy muestra el campo legacy `participant.notes`
+  (uno solo, sobrescrito) — se le añade el hilo del mismo timeline (autor+fecha), mismo origen
+  que el popover. El endpoint `getScheduledMessageDetail` ya trae `communications`, pero el hilo
+  de notas NO está en ese payload → el panel también fetchea el timeline (o se extiende ese
+  endpoint; se decide en M5 por costo).
+- Fuera de alcance (decisión del usuario): bandera "No contactar" en el popover (no viaja en el
+  schema del listado; quedó descartada de v1.1).
+
+### e2e
+
+- `sequences-inbox.spec.ts` ya monta escenario con ≥12 queued y asignación por API. Para
+  Programadas hace falta materializar `pending` con `scheduledFor` futuro (o `reschedule` API) y
+  para Problemas filas `failed/skipped` (retry de un paso sin teléfono, o update directo por
+  API). Se evalúa en M8 el costo de cada fixture.

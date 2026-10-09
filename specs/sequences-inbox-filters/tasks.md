@@ -1,7 +1,7 @@
 # Tasks — bandeja: filtros, historial y ficha
 
-> SDD tasks — versión 1.0 (2026-10-08). Marcar `[x]` al completar; anotar desviaciones reales
-> respecto a `plan.md` al cerrar cada milestone.
+> SDD tasks — versión 1.0 (2026-10-08), cerrada. **v1.1 (2026-10-08)**: M5-M8 abajo. Marcar `[x]`
+> al completar; anotar desviaciones reales respecto al plan al cerrar cada milestone.
 
 ## M1 — API: `assignedToName` en `listQueued`
 
@@ -112,3 +112,104 @@ screenshots desktop y móvil verificados). Desviaciones:
       chromium × 2 + 10/10 móviles)
 - [ ] Merge a master: merge + limpieza desde el main en un comando final (memoria
       `feedback_worktree_session_death_by_cwd`), con visto bueno del usuario
+  - v1.0 quedó lista para merge pero el usuario extendió el alcance ANTES de mergear (2026-10-08):
+    el merge final se hace con v1.0+v1.1 juntos, misma rama.
+
+## v1.1
+
+## M5 — Ficha unificada: notas, palancas, seguimiento, enviados, saldo ✅
+
+- [x] `useParticipantInsights` (composable): fetch-on-open de
+      `getParticipantTimeline(retreatId, participantId)`, cache por participante, loading/error
+      sin romper la ficha estática
+- [x] Popover: sección Palancas (`enriched.palancas*`: solicitada/recibidas/cantidad/notas/
+      coordinador) — sin fetch (store)
+- [x] Popover: seguimiento (badge etapa), saldo (`paymentRemaining` mismo cálculo que
+      MessageDialog), últimas notas (~3, autor+fecha) y últimos enviados (~3, plantilla+fecha)
+      del timeline
+- [x] Panel de detalle: hilo de notas (autor+fecha) del mismo timeline junto al campo legacy;
+      palancas completas (hoy faltan cantidad y coordinador)
+- [x] i18n es+en de las keys nuevas; íconos nuevos al mock allowlist de lucide
+- [x] Tests vitest: popover muestra notas/palancas tras el fetch (flushPromises), fallback
+      estático si el timeline falla; panel de detalle con hilo
+- [x] `pnpm --filter web build`
+
+> Desviaciones M5: ninguna funcional. Dos notas de implementación: (1) el cache del composable
+> vive a nivel módulo (compartida popover↔panel de la misma vista, D10); (2) bug cazado por los
+> tests — los refs del composable deben exponerse al template vía destructuring top-level
+> (`insights.loading` en template es la Ref siempre-truthy, no el booleano).
+
+## M6 — Programadas: filtros server-side, page size y acciones de fila ✅
+
+- [x] API `listScheduled`: `assignedTo`/`assignedToName` (lookup bulk molde M1) + proyección
+      `participant` (id, nombre, teléfonos, país — del join existente) en el DTO
+- [x] API `listScheduled`: filtros `templateId`/`templateType` (clave compuesta tipo D3) y
+      `assignedTo` (userId | `unassigned`) en el QB
+- [x] Web: selects Plantilla / Asignado / Por página (5/10/50/100/Todos→200) en toolbar y
+      menú móvil + chips de filtros activos + reset de página
+- [x] Web: botón "ver conversación" (D1: sin mutación; `resolveRecipientContact` sobre la
+      proyección nueva) + popover ficha por fila
+- [x] Tests: jest (`listScheduled` filtros + nombres), vitest (selects, chips, conversación)
+- [x] `pnpm --filter api test …` + `pnpm --filter web build`; reiniciar API del worktree
+      (2026-10-08: jest 93/93, vitest 55/55, build verde)
+
+> Desviaciones M6: (1) sin menú móvil — Programadas nunca tuvo el menú ⋯ de la bandeja; sus
+> controles viven en el toolbar `flex-wrap` que ya es responsive, y ahí quedaron los 3 selects.
+> (2) Las opciones de Plantilla/Asignado salen de las filas traídas SIN conteo (server-side,
+> el conteo de la página actual sería parcial y engañoso) y la opción activa se auto-mantiene
+> si el filtrado la vació, para que el select no "salte" solo. (3) Cero keys i18n nuevas:
+> todo se reutilizó de la bandeja M2/M3.
+
+## M7 — Problemas: filtros, page size y acciones de fila (client-side, molde bandeja) ✅
+
+- [x] Verificar/enriquecer `assignedToName` en el camino de `/stats` (issues) si falta
+- [x] Filtros Plantilla / Asignado + page size (5/10/50/100/Todos) sobre `filteredIssues`;
+      extraer a composable los computeds compartidos con la bandeja si sale natural
+- [x] Botón "ver conversación" + popover ficha por fila
+- [x] Tests vitest de filtros/page size/acciones
+- [x] `pnpm --filter web build`
+
+> Desviaciones M7: (1) el camino de issues no sólo carecía de `assignedToName` — devolvía
+> entities CRUDAS con el participante COMPLETO (notas, correos: PII que la lista no usa). Se
+> mapeó a DTO plano (molde listScheduled): proyección participant + templateName resuelto
+> server-side + templateId del paso + assignedTo/assignedToName (bulk molde M1). Test jest
+> nuevo afirma la proyección y que las notas NO viajan. (2) Sin composable compartido: la
+> clave de plantilla de issues lee `templateId` plano del DTO (la bandeja lee `step.templateId`),
+> duplicar 4 líneas fue más simple que parametrizar; el resto replica el molde. (3) Guard de
+> filtros huérfanos añadido (watch(issues), molde M2) — retry/discard del último ítem del
+> filtro ya no deja lista vacía sin explicación. (4) Page size default 10 (paridad con la
+> bandeja), no 50 como Programadas: Problemas es client-side y antes mostraba todo lo cargado.
+> (5) El "Cargar más" (server) convive con el paginador local; cero keys i18n nuevas.
+> Verificación 2026-10-08: jest 94/94, vitest 59/59, build verde, API del worktree reiniciada.
+
+## M8 — E2E + cierre v1.1
+
+- [x] Extender e2e: filtros de Programadas (server-side, fixture pending con scheduledFor futuro),
+      filtro plantilla de Problemas (fixture failed/skipped), ficha popover con nota CRM (crear
+      nota por API en el escenario)
+- [x] Screenshot de ficha popover con notas+palancas para el usuario
+- [x] Marcar tasks, anotar desviaciones por milestone, proponer commits (por milestone)
+- [x] Verificación final: jest + vitest + build + e2e
+      (2026-10-08: jest 94/94, vitest 59/59, build verde, e2e 8/8 chromium con el test
+      definitivo — screenshot incluido y verde en 1.2s)
+
+Cerrado 2026-10-08 (8/8 chromium; screenshot verificado por DOM + OCR). Desviaciones:
+
+- `assign` sólo acepta filas queued (by design), y el fixture pending-futuro de Programadas nunca
+  pasa por queued: el filtro de asignado de Programadas se ejercita con status "En cola" sobre un
+  escenario due con el walker 1 asignado — el test de Programadas quedó en DOS fases/dos retiros,
+  cambiando de retiro con un `addInitScript` adicional (los filtros del componente NO se resetean
+  al cambiar de retiro: fase 2 resetea plantilla/page size a mano antes de tocar el estado).
+- El paginador de Programadas muestra el total FILTRADO: con plantilla activa (6 items) afirma
+  "Página 1 de 1", no el total del retiro. Se resetea el select a 'all' antes de afirmar page size.
+- Problemas queda `test.skip` en móvil: su toolbar es `hidden sm:flex` y el menú ⋯ móvil ya lo
+  cubre vitest (paridad con la bandeja M2/M3, que sí corre en móvil porque SU menú ⋯ es el mismo
+  helper `queueControls`).
+- El screenshot de la ficha es captura de ELEMENTO del popover (`div.max-h-[70vh]`) tras
+  `setViewportSize(1280×960)`: el popover es un portal fixed anclado bajo su fila y a 720px de
+  viewport su borde inferior rebasa la ventana — dos capturas de viewport salieron cortadas (scroll
+  interno + portal fuera de cuadro; `toBeVisible` ≠ in-viewport). Verificado por el dato, no por
+  iteración: `page.evaluate` midió la nota DENTRO de la caja (`scrollHeight 503 ≈ clientHeight
+  502`, sin recorte interno) y el PNG final mide 288×505 = caja completa; el OCR de su banda
+  inferior transcribe la nota, el autor y la fecha. (`toBeVisible` de Playwright no garantiza
+  in-viewport; las URLs del CDN de analyze_image caducan — usar siempre la del último Read.)

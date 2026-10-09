@@ -239,13 +239,15 @@ async function createScenario(stepCount: number): Promise<string> {
 
 /**
  * Disposable retreat for the filter/page-size tests: 6 walkers × 2 steps of
- * TWO known templates (12 queued items — more than the default page of 10),
- * and when `assignWalker` is set, both items of that walker get assigned to
- * the logged-in user so the "Asignado: {name}" option resolves a real
- * displayName through the API (M1).
+ * TWO known templates (12 items — more than the default page of 10). With
+ * `offsetDays` 0 (default) the items are due and land in the whatsapp inbox
+ * (queued); with a positive value they materialize as FUTURE pending rows —
+ * the "Programadas" tab (v1.1 M6). When `assignWalker` is set, both items of
+ * that walker get assigned to the logged-in user so the "Asignado: {name}"
+ * option resolves a real displayName through the API (M1).
  */
 async function createFilterScenario(
-	opts: { assignWalker?: number } = {},
+	opts: { assignWalker?: number; offsetDays?: number } = {},
 ): Promise<{ retreatId: string; myName: string }> {
 	const { ctx, csrfToken } = auth!.session;
 	const stamp = Date.now();
@@ -301,7 +303,8 @@ async function createFilterScenario(
 		expect(post.ok(), `create ${spec.type} template: ${post.status()}`).toBeTruthy();
 	}
 
-	// Two steps (one per template), due immediately (offset 0, hour 0).
+	// Two steps (one per template). offset 0 + hour 0 ⇒ due immediately; a
+	// positive offsetDays keeps them as future pending rows (Programadas).
 	const seqRes = await ctx.post('/api/message-sequences', {
 		headers: withCsrf(csrfToken),
 		data: {
@@ -313,7 +316,7 @@ async function createFilterScenario(
 			maxOverdueDays: null,
 			steps: templateSpecs.map((spec, i) => ({
 				stepOrder: i,
-				offsetDays: 0,
+				offsetDays: opts.offsetDays ?? 0,
 				sendHour: 0,
 				templateType: spec.type,
 				channel: 'whatsapp',
@@ -347,22 +350,40 @@ async function createFilterScenario(
 		headers: withCsrf(csrfToken),
 	});
 	expect(runRes.ok(), `run: ${runRes.status()}`).toBeTruthy();
-	const queueRes = await ctx.get(`/api/message-sequences/retreat/${retreatId}/queue`);
-	const rawQueue = await queueRes.json();
-	const queue: any[] = Array.isArray(rawQueue) ? rawQueue : (rawQueue.data ?? []);
-	expect(queue.length, `inbox must have 12 items: ${JSON.stringify(queue)}`).toBe(walkerCount * 2);
 
-	// Assign both items of one walker to the logged-in user — the queue then
-	// carries assignedTo + assignedToName resolved server-side (M1).
+	// Due items land in the whatsapp inbox; future offsets stay as pending
+	// rows of the scheduled tab. Either way there must be 12 (6 walkers × 2).
+	let items: any[] = [];
+	if ((opts.offsetDays ?? 0) > 0) {
+		const schedRes = await ctx.get(
+			`/api/message-sequences/retreat/${retreatId}/scheduled?statuses=pending&limit=200`,
+		);
+		const rawSched = await schedRes.json();
+		items = rawSched.items ?? rawSched.data ?? [];
+		expect(
+			items.length,
+			`scheduled must have 12 pending rows: ${JSON.stringify(rawSched)}`,
+		).toBe(walkerCount * 2);
+	} else {
+		const queueRes = await ctx.get(`/api/message-sequences/retreat/${retreatId}/queue`);
+		const rawQueue = await queueRes.json();
+		items = Array.isArray(rawQueue) ? rawQueue : (rawQueue.data ?? []);
+		expect(items.length, `inbox must have 12 items: ${JSON.stringify(rawQueue)}`).toBe(
+			walkerCount * 2,
+		);
+	}
+
+	// Assign both items of one walker to the logged-in user — the rows then
+	// carry assignedTo + assignedToName resolved server-side (M1).
 	let myName = '';
 	if (opts.assignWalker) {
 		const statusRes = await ctx.get('/api/auth/status');
 		const me = await statusRes.json();
 		myName = me.displayName;
-		const walkerItems = queue.filter(
+		const walkerItems = items.filter(
 			(it: any) => it.participant?.firstName === `Filtro${opts.assignWalker}`,
 		);
-		expect(walkerItems.length, 'the walker to assign must have 2 queued items').toBe(2);
+		expect(walkerItems.length, 'the walker to assign must have 2 items').toBe(2);
 		for (const it of walkerItems) {
 			const assignRes = await ctx.post(`/api/message-sequences/scheduled/${it.id}/assign`, {
 				headers: withCsrf(csrfToken),
@@ -618,5 +639,172 @@ test.describe.serial('Bandeja de Secuencias — filtros, por página y acciones 
 		// (Short pause — asserting absence needs to let the clicks breathe.)
 		await page.waitForTimeout(1000);
 		expect(mutations, 'no state transitions were issued').toEqual([]);
+	});
+});
+
+test.describe.serial('Programadas y Problemas — filtros v1.1 y ficha CRM (M6/M7/M5)', () => {
+	/**
+	 * Desktop toolbar of the issues panel (the pending tab has its own — always
+	 * scope to the panel so the locators never cross tabs).
+	 */
+	const issuesControls = (page: Page) =>
+		page.locator('#seq-panel-issues div.hidden.sm\\:flex');
+
+	test('Programadas: filtros server-side (plantilla/asignado) y por página', async ({
+		page,
+	}) => {
+		test.slow();
+		// Fase 1 — offsetDays 10 ⇒ future pending rows: the Programadas default.
+		const { retreatId: futureId } = await createFilterScenario({ offsetDays: 10 });
+
+		await openInbox(page, futureId);
+		await page.locator('#seq-tab-scheduled').click();
+		const panel = page.locator('#seq-panel-scheduled');
+		// Every walker carries the phone ⇒ one conversation button per row.
+		const rows = panel.locator('button[title="Ver conversación en WhatsApp"]');
+		await expect(rows.first()).toBeVisible({ timeout: 15000 });
+		await expect(rows).toHaveCount(12);
+
+		// Template filter (server-side: option WITHOUT count, the current page
+		// would make a partial count) — picking it refetches with templateType.
+		const tplSelect = panel.locator('label', { hasText: 'Plantilla' }).locator('select');
+		await tplSelect.selectOption({ label: 'E2E Filtro Bienvenida' });
+		await expect(rows).toHaveCount(6);
+		await tplSelect.selectOption('all');
+		await expect(rows).toHaveCount(12);
+
+		// Page size travels as limit: 5 re-pages from 1 (12 rows → 3 pages).
+		const sizeSelect = panel.locator('label', { hasText: 'Por página' }).locator('select');
+		await sizeSelect.selectOption('5');
+		await expect(rows).toHaveCount(5);
+		await expect(panel.getByText('Página 1 de 3')).toBeVisible();
+
+		// Fase 2 — assignee filter. `assign` only accepts QUEUED rows (the
+		// inbox, by design), so exercise it through this same server-side view
+		// with status "En cola" over a due scenario with walker 1 assigned (M1).
+		const { retreatId, myName } = await createFilterScenario({ assignWalker: 1 });
+		// A later init script runs after the earlier one and wins on every
+		// navigation — no second UI login needed (session cookie stays).
+		await page.addInitScript((rid) => {
+			localStorage.setItem('selectedRetreatId', rid);
+		}, retreatId);
+		await page.goto('/app/settings/message-sequences');
+		await page.locator('#seq-tab-scheduled').click();
+
+		// Phase 1 left the template/page-size filters on: reset them, then
+		// switch the status (each change refetches server-side).
+		await tplSelect.selectOption('all');
+		await sizeSelect.selectOption('50');
+		const statusSelect = panel.locator('label', { hasText: 'Estado' }).locator('select');
+		await statusSelect.selectOption('queued');
+		await expect(rows).toHaveCount(12);
+
+		const showSelect = panel.locator('label', { hasText: 'Mostrar' }).locator('select');
+		await showSelect.selectOption({ label: `Asignado: ${myName}` });
+		await expect(rows).toHaveCount(2);
+		// The removable chip refetches without the filter.
+		const clearButtons = panel.getByRole('button', { name: 'Quitar filtro' });
+		await expect(clearButtons).toHaveCount(1);
+		await clearButtons.first().click();
+		await expect(rows).toHaveCount(12);
+	});
+
+	// The issues toolbar is `hidden sm:flex` — on mobile its selects live in
+	// the "⋯" menu (covered by vitest); only the desktop toolbar is exercised.
+	test.skip(({ isMobile }) => isMobile, 'toolbar desktop de Problemas oculto en móvil');
+
+	test('Problemas: filtro plantilla con conteo y por página (client-side)', async ({
+		page,
+	}) => {
+		test.slow();
+		const { retreatId } = await createFilterScenario();
+
+		// Skip 6 Bienvenida + 2 Reunión items via the API → 8 issues: the
+		// template filter then has counts to show (M7).
+		const { ctx, csrfToken } = auth!.session;
+		const queueRes = await ctx.get(`/api/message-sequences/retreat/${retreatId}/queue`);
+		const rawQueue = await queueRes.json();
+		const queue: any[] = Array.isArray(rawQueue) ? rawQueue : (rawQueue.data ?? []);
+		const byTemplate = (type: string) => queue.filter((it: any) => it.templateType === type);
+		for (const it of [...byTemplate('WALKER_WELCOME').slice(0, 6), ...byTemplate('WALKER_REUNION_INVITATION').slice(0, 2)]) {
+			const skipRes = await ctx.post(`/api/message-sequences/scheduled/${it.id}/skip`, {
+				headers: withCsrf(csrfToken),
+			});
+			expect(skipRes.ok(), `skip ${it.id}: ${skipRes.status()}`).toBeTruthy();
+		}
+
+		await openInbox(page, retreatId);
+		await page.locator('#seq-tab-issues').click();
+		const panel = page.locator('#seq-panel-issues');
+		const rows = panel.locator('button[title="Ver detalle del participante"]');
+		await expect(rows.first()).toBeVisible({ timeout: 15000 });
+		await expect(rows).toHaveCount(8);
+
+		// Template filter with its count (client-side over the loaded issues).
+		const controls = issuesControls(page);
+		const tplSelect = controls.locator('label', { hasText: 'Plantilla' }).locator('select');
+		await tplSelect.selectOption({ label: 'E2E Filtro Bienvenida (6)' });
+		await expect(rows).toHaveCount(6);
+
+		// Page size paginates what is loaded; "Cargar más" not needed (8 < cap).
+		const sizeSelect = controls.locator('label', { hasText: 'Por página' }).locator('select');
+		await sizeSelect.selectOption('5');
+		await expect(rows).toHaveCount(5);
+		await expect(panel.getByText('Página 1 de 2')).toBeVisible();
+	});
+
+	test('ficha popover: la nota CRM creada por API aparece (M5) + captura', async ({
+		page,
+	}) => {
+		test.slow();
+		const retreatId = await createScenario(1);
+
+		// CRM note via the API — the popover fetches the timeline on open (M5).
+		const { ctx, csrfToken } = auth!.session;
+		const queueRes = await ctx.get(`/api/message-sequences/retreat/${retreatId}/queue`);
+		const rawQueue = await queueRes.json();
+		const queue: any[] = Array.isArray(rawQueue) ? rawQueue : (rawQueue.data ?? []);
+		expect(queue.length, 'the scenario must have 1 queued item').toBe(1);
+		const noteRes = await ctx.post('/api/crm/notes', {
+			headers: withCsrf(csrfToken),
+			data: {
+				retreatId,
+				participantId: queue[0].participantId,
+				body: 'E2E: confirmó que llega el viernes en la tarde',
+			},
+		});
+		expect(noteRes.ok(), `create note: ${noteRes.status()}`).toBeTruthy();
+
+		await openInbox(page, retreatId);
+		// The card is a fixed-position portal capped at 70vh anchored below its
+		// row; at the default 720px viewport its bottom edge spills past the
+		// window. Grow the viewport FIRST so the whole card fits on screen —
+		// the element screenshot then needs no beyond-viewport capture.
+		await page.setViewportSize({ width: 1280, height: 960 });
+		const info = page.locator('button[title="Detalles del participante"]');
+		await expect(info.first()).toBeVisible({ timeout: 15000 });
+		await info.first().click();
+		// The note body surfaces through the timeline fetch (fetch-on-open).
+		await expect(page.getByText('E2E: confirmó que llega el viernes en la tarde')).toBeVisible({
+			timeout: 10000,
+		});
+
+		// Screenshot for the user (v1.1 M8): the card with notes + palancas.
+		// Element capture of the popover box (not the viewport): the box is the
+		// unit that shows the whole card, and its internal overflow scrolls the
+		// note into view first.
+		const note = page.getByText('E2E: confirmó que llega el viernes en la tarde');
+		await note.scrollIntoViewIfNeeded();
+		const card = page.locator('div.max-h-\\[70vh\\]').first();
+		await expect(card).toBeVisible();
+		fs.mkdirSync(path.join(__dirname, '..', '..', '.playwright-mcp'), { recursive: true });
+		await card.screenshot({
+			path: path.join(__dirname, '..', '..', '.playwright-mcp', 'm8-ficha-popover.png'),
+		});
+
+		await page.keyboard.press('Escape');
+		await expect(page.getByText('E2E: confirmó que llega el viernes en la tarde')).toBeHidden({
+			timeout: 5000,
+		});
 	});
 });
