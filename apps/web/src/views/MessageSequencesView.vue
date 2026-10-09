@@ -40,6 +40,7 @@ import {
 import type { SequenceStepPreview, SequencePastStep } from '@repo/types';
 import { previewSequenceStep, previewSequenceSchedule, listPastDueSequenceSteps } from '@/services/api';
 import { useModalA11y } from '@/composables/useModalA11y';
+import { useParticipantInsights } from '@/composables/useParticipantInsights';
 // Ficha del participante en la bandeja: variante 'icon' (botón ⓘ suelto).
 import ParticipantInfoPopover from '@/components/ParticipantInfoPopover.vue';
 
@@ -793,20 +794,21 @@ function onTablistKeydown(e: KeyboardEvent) {
 	e.preventDefault();
 	switchTab(TAB_KEYS[next]);
 }
-// Mensajes por página: uno de la lista, o 'all' (todo en una sola página).
-// Se recuerda por navegador; el valor guardado se sanitiza al leerlo.
-const QUEUE_PAGE_SIZES = [5, 10, 50, 100] as const;
-function loadQueuePageSize(): number | 'all' {
+// Mensajes por página: uno de la lista, o 'all' (todo en una sola página —
+// en Programadas el server la sirve con su cap de 200). Se recuerda por
+// navegador; el valor guardado se sanitiza al leerlo.
+const PAGE_SIZE_OPTIONS = [5, 10, 50, 100] as const;
+function loadStoredPageSize(key: string, fallback: number): number | 'all' {
 	try {
-		const raw = localStorage.getItem('seq.queuePageSize');
+		const raw = localStorage.getItem(key);
 		if (raw === 'all') return 'all';
 		const n = Number(raw);
-		return (QUEUE_PAGE_SIZES as readonly number[]).includes(n) ? n : 10;
+		return (PAGE_SIZE_OPTIONS as readonly number[]).includes(n) ? n : fallback;
 	} catch {
-		return 10; // localStorage bloqueado (Safari privado): default en memoria
+		return fallback; // localStorage bloqueado (Safari privado): default en memoria
 	}
 }
-const queuePageSize = ref<number | 'all'>(loadQueuePageSize());
+const queuePageSize = ref<number | 'all'>(loadStoredPageSize('seq.queuePageSize', 10));
 watch(queuePageSize, (v) => {
 	try {
 		localStorage.setItem('seq.queuePageSize', String(v));
@@ -1004,6 +1006,21 @@ const schedSequenceFilter = ref<string | null>(null); // chip de secuencia (badg
 // Chip de participante (#9): histórico de un participante. Se fija al hacer click
 // en su nombre de una fila — el nombre llega en la propia fila (no carga el roster).
 const schedParticipantFilter = ref<{ id: string; name: string } | null>(null);
+// M6 (D8): filtros plantilla/asignado + page size, todos server-side.
+// 'all' | templateId | `type:${tipo}` — misma clave compuesta que la bandeja.
+const schedTemplateFilter = ref<string>('all');
+// 'all' | 'unassigned' | `user:${id}` (sin estados active/mine/paused: el
+// server ya filtra por status/paused por su cuenta).
+const schedAssignFilter = ref<'all' | 'unassigned' | `user:${string}`>('all');
+// Default 50 = el límite histórico del server; "Todos" pide su cap (200).
+const schedPageSize = ref<number | 'all'>(loadStoredPageSize('seq.schedPageSize', 50));
+watch(schedPageSize, (v) => {
+	try {
+		localStorage.setItem('seq.schedPageSize', String(v));
+	} catch {
+		/* no bloqueante */
+	}
+});
 const schedPage = ref(1);
 // Paused rows (pending of an inactive sequence) are hidden by default, like in
 // the queue: Programados lists what will actually go out. An explicit chip
@@ -1033,6 +1050,7 @@ const scheduledTabCount = computed(() =>
 
 async function loadScheduled() {
 	if (!retreatId.value) return;
+	const templateKey = schedTemplateFilter.value;
 	await sequenceStore.fetchScheduled(retreatId.value, {
 		statuses: [schedStatus.value],
 		sequenceId: schedSequenceFilter.value ?? undefined,
@@ -1041,14 +1059,30 @@ async function loadScheduled() {
 		page: schedPage.value,
 		order: schedOrder.value,
 		paused: schedPausedMode.value,
+		// Clave compuesta → params del server: id pelado o `type:` prefijo.
+		templateId: templateKey !== 'all' && !templateKey.startsWith('type:') ? templateKey : undefined,
+		templateType: templateKey.startsWith('type:') ? templateKey.slice('type:'.length) : undefined,
+		assignedTo:
+			schedAssignFilter.value === 'all'
+				? undefined
+				: schedAssignFilter.value === 'unassigned'
+					? 'unassigned'
+					: schedAssignFilter.value.slice('user:'.length),
+		limit: schedPageSize.value === 'all' ? 200 : schedPageSize.value,
 	});
 }
 
 // Refetch al cambiar cualquier control; los filtros además vuelven a página 1.
-watch([schedSearchDebounced, schedStatus, schedOrder, schedSequenceFilter, schedParticipantFilter, schedShowPaused], () => {
-	schedPage.value = 1;
-	loadScheduled();
-});
+watch(
+	[
+		schedSearchDebounced, schedStatus, schedOrder, schedSequenceFilter, schedParticipantFilter,
+		schedShowPaused, schedTemplateFilter, schedAssignFilter, schedPageSize,
+	],
+	() => {
+		schedPage.value = 1;
+		loadScheduled();
+	},
+);
 watch(schedPage, loadScheduled);
 // Al entrar a la pestaña, datos frescos (las fechas vencen con el paso del tiempo).
 watch(activeTab, (tab) => {
@@ -1071,6 +1105,59 @@ function openScheduledForParticipant(it: any) {
 }
 function clearSchedParticipantFilter() {
 	schedParticipantFilter.value = null; // el watch refetch-ea
+}
+// M6: nombre legible de una clave de plantilla (id del paso o tipo crudo).
+function schedTemplateLabel(key: string): string {
+	if (key.startsWith('type:')) return templateLabel(key.slice('type:'.length));
+	return templates.value.find((tpl: any) => tpl.id === key)?.name || key;
+}
+// Opciones del filtro Plantilla de Programadas: una por plantilla presente en
+// las filas traídas. Sin conteo — server-side, el conteo de la página actual
+// sería parcial y engañoso. La opción activa se mantiene aunque la última
+// página filtrada ya no la traiga (si no, el select "saltaría" solo).
+const schedTemplateOptions = computed(() => {
+	const labels = new Map<string, string>();
+	for (const it of scheduled.value as any[]) {
+		const key = it.templateId || (it.templateType ? `type:${it.templateType}` : '');
+		if (key && !labels.has(key)) labels.set(key, itemTemplateName(it));
+	}
+	if (schedTemplateFilter.value !== 'all' && !labels.has(schedTemplateFilter.value)) {
+		labels.set(schedTemplateFilter.value, schedTemplateLabel(schedTemplateFilter.value));
+	}
+	return Array.from(labels.entries())
+		.map(([value, label]) => ({ value, label }))
+		.sort((a, b) => a.label.localeCompare(b.label, 'es'));
+});
+// Asignados presentes en las filas traídas. Igual que plantillas: la opción
+// activa se mantiene aunque el filtrado la haya vaciado.
+const schedAssigneeOptions = computed(() => {
+	const names = new Map<string, string>();
+	for (const it of scheduled.value as any[]) {
+		if (it.assignedTo && !names.has(it.assignedTo)) {
+			names.set(it.assignedTo, it.assignedToName || t('sequences.assigned'));
+		}
+	}
+	if (schedAssignFilter.value.startsWith('user:')) {
+		const uid = schedAssignFilter.value.slice('user:'.length);
+		if (!names.has(uid)) names.set(uid, t('sequences.assigned'));
+	}
+	return Array.from(names.entries())
+		.map(([id, name]) => ({ id, name }))
+		.sort((a, b) => a.name.localeCompare(b.name, 'es'));
+});
+const schedTemplateChipLabel = computed(
+	() => schedTemplateOptions.value.find((o) => o.value === schedTemplateFilter.value)?.label || '',
+);
+const schedAssigneeChipLabel = computed(() => {
+	if (!schedAssignFilter.value.startsWith('user:')) return '';
+	const uid = schedAssignFilter.value.slice('user:'.length);
+	return schedAssigneeOptions.value.find((a) => a.id === uid)?.name || t('sequences.assigned');
+});
+function clearSchedTemplateFilter() {
+	schedTemplateFilter.value = 'all'; // el watch refetch-ea
+}
+function clearSchedAssignFilter() {
+	schedAssignFilter.value = 'all'; // el watch refetch-ea
 }
 // A5: badge problemas de una secuencia → pestaña Problemas con chip removible.
 const issuesSequenceFilter = ref<string | null>(null);
@@ -1274,15 +1361,98 @@ async function enqueueNow(stepId: string) {
 	}
 }
 
-// Problemas: buscador + orden.
+// Problemas: buscador + orden. v1.1 M7: además filtros plantilla/asignado y
+// page size, client-side (molde bandeja M2) sobre los problemas cargados.
 const issuesSearch = ref('');
 const issuesSort = ref<'recent' | 'name' | 'template' | 'status'>('recent');
+// Filtro por plantilla: 'all', o la clave compuesta (templateId del DTO si el
+// paso la fijó, si no su tipo — misma jerarquía D3 que el motor al resolver).
+const issuesTemplateFilter = ref<string>('all');
+// 'all' (default) | 'unassigned' | `user:<id>` — Problemas no tiene 'mine' ni
+// 'paused': aquí todo es fallido/omitido y la secuencia sigue activa igual.
+const issuesAssignFilter = ref<'all' | 'unassigned' | `user:${string}`>('all');
+const issuesPageSize = ref<number | 'all'>(loadStoredPageSize('seq.issuesPageSize', 10));
+watch(issuesPageSize, (v) => {
+	try {
+		localStorage.setItem('seq.issuesPageSize', String(v));
+	} catch {
+		/* no bloqueante */
+	}
+});
+const issuesPage = ref(1);
+// Clave de plantilla de un issue: el DTO trae `templateId` plano (sin `step`).
+function issuesTemplateKey(it: any): string {
+	if (it.templateId) return it.templateId;
+	return it.templateType ? `type:${it.templateType}` : '';
+}
+// Opciones del filtro "Plantilla": una por plantilla presente en los problemas
+// cargados, con conteo (client-side: el conteo es real sobre lo cargado).
+const issuesTemplateOptions = computed(() => {
+	const map = new Map<string, { label: string; count: number }>();
+	for (const it of issues.value as any[]) {
+		const key = issuesTemplateKey(it);
+		if (!key) continue;
+		const prev = map.get(key);
+		if (prev) prev.count += 1;
+		else map.set(key, { label: itemTemplateName(it), count: 1 });
+	}
+	return Array.from(map.entries())
+		.map(([value, { label, count }]) => ({ value, label, count }))
+		.sort((a, b) => a.label.localeCompare(b.label, 'es'));
+});
+// Asignados presentes en los problemas cargados, con conteo — opciones
+// dinámicas "Asignado: {nombre} (n)" (molde queueAssigneeOptions).
+const issuesAssigneeOptions = computed(() => {
+	const counts = new Map<string, number>();
+	const names = new Map<string, string>();
+	for (const it of issues.value as any[]) {
+		if (!it.assignedTo) continue;
+		counts.set(it.assignedTo, (counts.get(it.assignedTo) || 0) + 1);
+		if (it.assignedToName) names.set(it.assignedTo, it.assignedToName);
+	}
+	return Array.from(counts.entries())
+		.map(([id, count]) => ({
+			id,
+			// Sin nombre resuelto (usuario eliminado): etiqueta genérica.
+			name: names.get(id) || t('sequences.assigned'),
+			count,
+		}))
+		.sort((a, b) => a.name.localeCompare(b.name, 'es'));
+});
+// Filtros huérfanos (retry/discard sacó el último ítem de esa plantilla o de
+// ese asignado): volver al default en vez de dejar una lista vacía sin
+// explicación (molde bandeja, memoria feedback_user_expectation_over_by_design).
+watch(issues, () => {
+	if (
+		issuesTemplateFilter.value !== 'all' &&
+		!issuesTemplateOptions.value.some((o) => o.value === issuesTemplateFilter.value)
+	) {
+		issuesTemplateFilter.value = 'all';
+	}
+	if (
+		String(issuesAssignFilter.value).startsWith('user:') &&
+		!issuesAssigneeOptions.value.some((a) => `user:${a.id}` === issuesAssignFilter.value)
+	) {
+		issuesAssignFilter.value = 'all';
+	}
+});
 const filteredIssues = computed(() => {
 	const q = issuesSearch.value.trim().toLowerCase();
 	let items = [...issues.value];
 	// Chip de secuencia removible (badge clickeable de la lista de secuencias).
 	if (issuesSequenceFilter.value) {
 		items = items.filter((it: any) => it.sequenceId === issuesSequenceFilter.value);
+	}
+	// Filtro por asignación: sin tomar / un asignado concreto.
+	if (issuesAssignFilter.value === 'unassigned') {
+		items = items.filter((it: any) => !it.assignedTo);
+	} else if (issuesAssignFilter.value.startsWith('user:')) {
+		const uid = issuesAssignFilter.value.slice('user:'.length);
+		items = items.filter((it: any) => it.assignedTo === uid);
+	}
+	// Filtro por plantilla.
+	if (issuesTemplateFilter.value !== 'all') {
+		items = items.filter((it: any) => issuesTemplateKey(it) === issuesTemplateFilter.value);
 	}
 	if (q) {
 		// Se busca sobre el nombre del participante, el tipo CRUDO y el nombre
@@ -1313,6 +1483,44 @@ const filteredIssues = computed(() => {
 	// 'recent' → mantiene el orden del backend (updatedAt desc)
 	return items;
 });
+// Paginación local de problemas (molde bandeja): 'all' usa todo lo cargado —
+// el "Cargar más" sigue trayendo del server lo que falte.
+const effectiveIssuesPageSize = computed(() =>
+	issuesPageSize.value === 'all' ? filteredIssues.value.length || 1 : issuesPageSize.value,
+);
+const issuesTotalPages = computed(() =>
+	Math.max(1, Math.ceil(filteredIssues.value.length / effectiveIssuesPageSize.value)),
+);
+const pagedIssues = computed(() =>
+	filteredIssues.value.slice(
+		(issuesPage.value - 1) * effectiveIssuesPageSize.value,
+		issuesPage.value * effectiveIssuesPageSize.value,
+	),
+);
+watch([issuesSearch, issuesSort, issuesAssignFilter, issuesTemplateFilter, issuesPageSize], () => {
+	issuesPage.value = 1;
+});
+watch(
+	() => issues.value.length,
+	() => {
+		if (issuesPage.value > issuesTotalPages.value) issuesPage.value = issuesTotalPages.value;
+	},
+);
+// Labels de los chips de filtro (molde Programadas M6).
+const issuesTemplateChipLabel = computed(
+	() => issuesTemplateOptions.value.find((o) => o.value === issuesTemplateFilter.value)?.label || '',
+);
+const issuesAssigneeChipLabel = computed(() => {
+	if (!issuesAssignFilter.value.startsWith('user:')) return '';
+	const uid = issuesAssignFilter.value.slice('user:'.length);
+	return issuesAssigneeOptions.value.find((a) => a.id === uid)?.name || t('sequences.assigned');
+});
+function clearIssuesTemplateFilter() {
+	issuesTemplateFilter.value = 'all';
+}
+function clearIssuesAssignFilter() {
+	issuesAssignFilter.value = 'all';
+}
 // #2: "cargar más" — cuando el total real supera lo cargado (cap de página).
 const issuesLoadingMore = ref(false);
 async function loadMoreIssues() {
@@ -1405,13 +1613,38 @@ const isDetailOpen = computed(() => !!detailItem.value);
 const detailModalRef = ref<HTMLElement | null>(null);
 useModalA11y(isDetailOpen, closeDetail, detailModalRef);
 
+// v1.1 D10: el hilo CRM (notas con autor/fecha + hitos) del panel de detalle
+// sale del mismo timeline que la ficha popover — un solo origen de verdad.
+const {
+	loading: detailInsightsLoading,
+	error: detailInsightsError,
+	events: detailInsightsEvents,
+	load: loadDetailInsights,
+	reset: resetDetailInsights,
+} = useParticipantInsights();
+// Notas + cambios de etapa/hitos (el hito de palancas es un stage_change),
+// los 5 más recientes; el timeline ya viene ordenado DESC.
+const detailThread = computed(() =>
+	detailInsightsEvents.value
+		.filter((e) => e.type === 'note' || e.type === 'stage_change')
+		.slice(0, 5),
+);
+// Cantidad de palancas del roster (el DTO del detalle no la trae).
+const detailPalancasCount = computed(() => {
+	const pid = detailItem.value?.participant?.id;
+	const p = pid ? participantStore.participants?.find((pp: any) => pp.id === pid) : null;
+	return p?.palancasReceivedCount ?? null;
+});
+
 function openDetail(item: any) {
 	detailItem.value = item;
 	sequenceStore.fetchDetail(item.id);
+	loadDetailInsights(retreatId.value, item.participant?.id);
 }
 function closeDetail() {
 	detailItem.value = null;
 	sequenceStore.clearDetail();
+	resetDetailInsights();
 }
 
 // Vista previa del mensaje a enviar (snapshot resuelto al encolar).
@@ -1980,10 +2213,41 @@ async function toggleDoNotContact() {
 							<option value="recent">{{ t('sequences.sort.recent') }}</option>
 						</select>
 					</label>
+					<!-- M6: filtros server-side (plantilla/asignado) + page size. -->
+					<label class="flex items-center gap-1.5 text-xs text-gray-600">
+						{{ t('sequences.filter.template') }}
+						<select v-model="schedTemplateFilter" class="p-1 border rounded-md text-xs bg-white">
+							<option value="all">{{ t('sequences.filter.allTemplates') }}</option>
+							<option v-for="opt in schedTemplateOptions" :key="opt.value" :value="opt.value">
+								{{ opt.label }}
+							</option>
+						</select>
+					</label>
+					<label class="flex items-center gap-1.5 text-xs text-gray-600">
+						{{ t('sequences.filterLabel') }}
+						<select v-model="schedAssignFilter" class="p-1 border rounded-md text-xs bg-white">
+							<option value="all">{{ t('sequences.filter.all') }}</option>
+							<option value="unassigned">{{ t('sequences.filter.unassigned') }}</option>
+							<option v-for="a in schedAssigneeOptions" :key="a.id" :value="`user:${a.id}`">
+								{{ t('sequences.filter.assignee', { name: a.name }) }}
+							</option>
+						</select>
+					</label>
+					<label class="flex items-center gap-1.5 text-xs text-gray-600">
+						{{ t('sequences.pageSizeLabel') }}
+						<select v-model="schedPageSize" class="p-1 border rounded-md text-xs bg-white">
+							<option v-for="n in PAGE_SIZE_OPTIONS" :key="n" :value="n">{{ n }}</option>
+							<option value="all">{{ t('sequences.pageSizeAll') }}</option>
+						</select>
+					</label>
 				</div>
-				<!-- Chips de filtro activo: secuencia (badge clickeable de la lista) y
-				     participante (click en su nombre de una fila, #9). -->
-				<div v-if="schedSequenceFilter || schedParticipantFilter" class="flex items-center gap-2 mb-2 text-xs flex-wrap">
+				<!-- Chips de filtro activo: secuencia (badge clickeable de la lista),
+				     participante (click en su nombre de una fila, #9), plantilla y
+				     asignado (M6, server-side). -->
+				<div
+					v-if="schedSequenceFilter || schedParticipantFilter || schedTemplateFilter !== 'all' || schedAssignFilter !== 'all'"
+					class="flex items-center gap-2 mb-2 text-xs flex-wrap"
+				>
 					<span v-if="schedSequenceFilter" class="inline-flex items-center gap-1 bg-blue-100 text-blue-700 rounded-full px-2 py-0.5">
 						{{ seqName(schedSequenceFilter) }}
 						<button
@@ -2002,6 +2266,32 @@ async function toggleDoNotContact() {
 							class="hover:text-violet-900"
 							:aria-label="t('sequences.clearFilter')"
 							@click="clearSchedParticipantFilter"
+						>
+							<X class="w-3 h-3" />
+						</button>
+					</span>
+					<span v-if="schedTemplateFilter !== 'all'" class="inline-flex items-center gap-1 bg-emerald-100 text-emerald-700 rounded-full px-2 py-0.5">
+						{{ schedTemplateChipLabel }}
+						<button
+							type="button"
+							class="hover:text-emerald-900"
+							:aria-label="t('sequences.clearFilter')"
+							@click="clearSchedTemplateFilter"
+						>
+							<X class="w-3 h-3" />
+						</button>
+					</span>
+					<span v-if="schedAssignFilter !== 'all'" class="inline-flex items-center gap-1 bg-amber-100 text-amber-700 rounded-full px-2 py-0.5">
+						{{
+							schedAssignFilter === 'unassigned'
+								? t('sequences.filter.unassigned')
+								: t('sequences.filter.assignee', { name: schedAssigneeChipLabel })
+						}}
+						<button
+							type="button"
+							class="hover:text-amber-900"
+							:aria-label="t('sequences.clearFilter')"
+							@click="clearSchedAssignFilter"
 						>
 							<X class="w-3 h-3" />
 						</button>
@@ -2079,6 +2369,25 @@ async function toggleDoNotContact() {
 							<span class="text-[10px] uppercase text-gray-400 shrink-0">
 								{{ t('sequences.channels.' + it.channel) }}
 							</span>
+							<!-- M6: ver conversación (D1, sin mutación) + ficha ⓘ, mismos
+							     controles que la bandeja — la proyección participant nueva
+							     trae teléfonos y país para el link. -->
+							<Button
+								v-if="resolveRecipientContact(it)"
+								size="icon"
+								variant="ghost"
+								class="h-8 w-8 shrink-0"
+								:title="t('sequences.viewConversation')"
+								@click="openWhatsappHistory(it)"
+							>
+								<MessageCircle class="w-4 h-4" />
+							</Button>
+							<ParticipantInfoPopover
+								v-if="it.participant"
+								variant="icon"
+								:participant="(it.participant as any)"
+								:retreat-id="retreatId"
+							/>
 							<!-- M4: sólo pending (queued ya está materializado en la bandeja). -->
 							<template v-if="it.status === 'pending'">
 								<Button
@@ -2198,7 +2507,7 @@ async function toggleDoNotContact() {
 									v-model="queuePageSize"
 									class="w-full mt-1 p-2 border rounded-md text-sm bg-white"
 								>
-									<option v-for="n in QUEUE_PAGE_SIZES" :key="n" :value="n">{{ n }}</option>
+									<option v-for="n in PAGE_SIZE_OPTIONS" :key="n" :value="n">{{ n }}</option>
 									<option value="all">{{ t('sequences.pageSizeAll') }}</option>
 								</select>
 							</label>
@@ -2265,7 +2574,7 @@ async function toggleDoNotContact() {
 					<label class="flex items-center gap-1.5 text-xs text-gray-600">
 						{{ t('sequences.pageSizeLabel') }}
 						<select v-model="queuePageSize" class="p-1 border rounded-md text-xs bg-white">
-							<option v-for="n in QUEUE_PAGE_SIZES" :key="n" :value="n">{{ n }}</option>
+							<option v-for="n in PAGE_SIZE_OPTIONS" :key="n" :value="n">{{ n }}</option>
 							<option value="all">{{ t('sequences.pageSizeAll') }}</option>
 						</select>
 					</label>
@@ -2372,6 +2681,7 @@ async function toggleDoNotContact() {
 							v-if="item.participant"
 							variant="icon"
 							:participant="(item.participant as any)"
+							:retreat-id="retreatId"
 						/>
 						<Button size="sm" variant="outline" class="shrink-0 px-2 sm:px-3" @click="skipItem(item)">
 							{{ t('sequences.skip') }}
@@ -2424,15 +2734,44 @@ async function toggleDoNotContact() {
 
 			<!-- Tab: Problemas (omitidos o fallidos, con su motivo) -->
 			<div v-show="activeTab === 'issues'" role="tabpanel" id="seq-panel-issues" aria-labelledby="seq-tab-issues">
-				<!-- Chip de secuencia (viene del badge clickeable de la lista) -->
-				<div v-if="issuesSequenceFilter" class="flex items-center gap-2 mb-2 text-xs">
-					<span class="inline-flex items-center gap-1 bg-red-100 text-red-700 rounded-full px-2 py-0.5">
+				<!-- Chips de filtros activos: secuencia (badge clickeable), plantilla, asignado -->
+				<div
+					v-if="issuesSequenceFilter || issuesTemplateFilter !== 'all' || issuesAssignFilter !== 'all'"
+					class="flex items-center gap-2 mb-2 text-xs flex-wrap"
+				>
+					<span v-if="issuesSequenceFilter" class="inline-flex items-center gap-1 bg-red-100 text-red-700 rounded-full px-2 py-0.5">
 						{{ seqName(issuesSequenceFilter) }}
 						<button
 							type="button"
 							class="hover:text-red-900"
 							:aria-label="t('sequences.clearFilter')"
 							@click="issuesSequenceFilter = null"
+						>
+							<X class="w-3 h-3" />
+						</button>
+					</span>
+					<span v-if="issuesTemplateFilter !== 'all'" class="inline-flex items-center gap-1 bg-emerald-100 text-emerald-700 rounded-full px-2 py-0.5">
+						{{ issuesTemplateChipLabel }}
+						<button
+							type="button"
+							class="hover:text-emerald-900"
+							:aria-label="t('sequences.clearFilter')"
+							@click="clearIssuesTemplateFilter"
+						>
+							<X class="w-3 h-3" />
+						</button>
+					</span>
+					<span v-if="issuesAssignFilter !== 'all'" class="inline-flex items-center gap-1 bg-amber-100 text-amber-700 rounded-full px-2 py-0.5">
+						{{
+							issuesAssignFilter === 'unassigned'
+								? t('sequences.filter.unassigned')
+								: t('sequences.filter.assignee', { name: issuesAssigneeChipLabel })
+						}}
+						<button
+							type="button"
+							class="hover:text-amber-900"
+							:aria-label="t('sequences.clearFilter')"
+							@click="clearIssuesAssignFilter"
 						>
 							<X class="w-3 h-3" />
 						</button>
@@ -2469,6 +2808,36 @@ async function toggleDoNotContact() {
 									<option value="template">{{ t('sequences.sort.template') }}</option>
 								</select>
 							</label>
+							<label class="block text-sm text-gray-700">
+								{{ t('sequences.filterLabel') }}
+								<select v-model="issuesAssignFilter" class="w-full mt-1 p-2 border rounded-md text-sm bg-white">
+									<option value="all">{{ t('sequences.filter.all') }}</option>
+									<option value="unassigned">{{ t('sequences.filter.unassigned') }}</option>
+									<option
+										v-for="a in issuesAssigneeOptions"
+										:key="a.id"
+										:value="`user:${a.id}`"
+									>
+										{{ t('sequences.filter.assignee', { name: a.name }) }} ({{ a.count }})
+									</option>
+								</select>
+							</label>
+							<label class="block text-sm text-gray-700">
+								{{ t('sequences.filter.template') }}
+								<select v-model="issuesTemplateFilter" class="w-full mt-1 p-2 border rounded-md text-sm bg-white">
+									<option value="all">{{ t('sequences.filter.allTemplates') }}</option>
+									<option v-for="opt in issuesTemplateOptions" :key="opt.value" :value="opt.value">
+										{{ opt.label }} ({{ opt.count }})
+									</option>
+								</select>
+							</label>
+							<label class="block text-sm text-gray-700">
+								{{ t('sequences.pageSizeLabel') }}
+								<select v-model="issuesPageSize" class="w-full mt-1 p-2 border rounded-md text-sm bg-white">
+									<option v-for="n in PAGE_SIZE_OPTIONS" :key="n" :value="n">{{ n }}</option>
+									<option value="all">{{ t('sequences.pageSizeAll') }}</option>
+								</select>
+							</label>
 							<Button
 								size="sm"
 								variant="outline"
@@ -2501,6 +2870,32 @@ async function toggleDoNotContact() {
 							<option value="template">{{ t('sequences.sort.template') }}</option>
 						</select>
 					</label>
+					<label class="flex items-center gap-1.5 text-xs text-gray-600">
+						{{ t('sequences.filterLabel') }}
+						<select v-model="issuesAssignFilter" class="p-1 border rounded-md text-xs bg-white">
+							<option value="all">{{ t('sequences.filter.all') }}</option>
+							<option value="unassigned">{{ t('sequences.filter.unassigned') }}</option>
+							<option v-for="a in issuesAssigneeOptions" :key="a.id" :value="`user:${a.id}`">
+								{{ t('sequences.filter.assignee', { name: a.name }) }} ({{ a.count }})
+							</option>
+						</select>
+					</label>
+					<label class="flex items-center gap-1.5 text-xs text-gray-600">
+						{{ t('sequences.filter.template') }}
+						<select v-model="issuesTemplateFilter" class="p-1 border rounded-md text-xs bg-white">
+							<option value="all">{{ t('sequences.filter.allTemplates') }}</option>
+							<option v-for="opt in issuesTemplateOptions" :key="opt.value" :value="opt.value">
+								{{ opt.label }} ({{ opt.count }})
+							</option>
+						</select>
+					</label>
+					<label class="flex items-center gap-1.5 text-xs text-gray-600">
+						{{ t('sequences.pageSizeLabel') }}
+						<select v-model="issuesPageSize" class="p-1 border rounded-md text-xs bg-white">
+							<option v-for="n in PAGE_SIZE_OPTIONS" :key="n" :value="n">{{ n }}</option>
+							<option value="all">{{ t('sequences.pageSizeAll') }}</option>
+						</select>
+					</label>
 					<Button size="sm" variant="outline" :disabled="bulkBusy" @click="bulkIssues('retry')">
 						<RefreshCw class="w-4 h-4 mr-1" /> {{ t('sequences.bulkRetry') }}
 					</Button>
@@ -2509,7 +2904,7 @@ async function toggleDoNotContact() {
 					</Button>
 				</div>
 				<div v-if="issues.length && filteredIssues.length" class="border rounded-md divide-y">
-				<div v-for="it in filteredIssues" :key="it.id" class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 p-3">
+				<div v-for="it in pagedIssues" :key="it.id" class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 p-3">
 					<div class="min-w-0">
 						<div class="text-sm truncate">
 							<button
@@ -2552,6 +2947,17 @@ async function toggleDoNotContact() {
 						>
 							{{ t('sequences.discard') }}
 						</Button>
+						<Button
+							v-if="resolveRecipientContact(it)"
+							size="icon"
+							variant="ghost"
+							class="h-8 w-8 shrink-0"
+							:title="t('sequences.viewConversation')"
+							@click="openWhatsappHistory(it)"
+						>
+							<MessageCircle class="w-4 h-4" />
+						</Button>
+						<ParticipantInfoPopover v-if="it.participant" variant="icon" :participant="(it.participant as any)" :retreat-id="retreatId" />
 					</div>
 				</div>
 				</div>
@@ -2560,6 +2966,12 @@ async function toggleDoNotContact() {
 				</div>
 				<div v-else class="text-sm text-gray-500 border rounded-md p-4 text-center">
 					{{ t('sequences.issuesEmpty') }}
+				</div>
+				<!-- Paginación local de los problemas cargados -->
+				<div v-if="issuesTotalPages > 1" class="flex items-center justify-center gap-3 mt-3 text-sm">
+					<Button size="sm" variant="outline" :disabled="issuesPage <= 1" @click="issuesPage = issuesPage - 1">‹</Button>
+					<span class="text-gray-600">{{ t('sequences.pageOf', { page: issuesPage, total: issuesTotalPages }) }}</span>
+					<Button size="sm" variant="outline" :disabled="issuesPage >= issuesTotalPages" @click="issuesPage = issuesPage + 1">›</Button>
 				</div>
 				<!-- #2: quedan problemas sin cargar (cap de página) → siguiente página -->
 				<div v-if="issues.length && issues.length < issuesTotal" class="flex justify-center mt-3">
@@ -3036,9 +3448,13 @@ async function toggleDoNotContact() {
 										{{ detail.palancas.requested ? t('common.yes') : t('common.no') }}
 									</span>
 								</div>
-								<div v-if="detail.palancas.received" class="text-gray-700">
+								<div v-if="detailPalancasCount != null || detail.palancas.received" class="text-gray-700">
 									<span class="text-gray-500">{{ t('sequences.palancasReceived') }}:</span>
-									{{ detail.palancas.received }}
+									{{ detailPalancasCount != null ? detailPalancasCount : detail.palancas.received }}
+								</div>
+								<div v-if="detail.palancas.coordinator" class="text-gray-700">
+									<span class="text-gray-500">{{ t('sequences.palancasCoordinator') }}:</span>
+									{{ detail.palancas.coordinator }}
 								</div>
 								<div v-if="detail.palancas.notes" class="text-gray-600">{{ detail.palancas.notes }}</div>
 							</div>
@@ -3051,6 +3467,30 @@ async function toggleDoNotContact() {
 								{{ detail.participant.notes }}
 							</div>
 							<div v-else class="text-gray-400">{{ t('sequences.noNotes') }}</div>
+						</div>
+
+						<!-- Hilo de seguimiento del CRM (mismo origen que la ficha popover, v1.1 D10):
+						     notas con autor y fecha + hitos (el de palancas es un stage_change). -->
+						<div>
+							<div class="text-xs font-medium text-gray-500 mb-1">{{ t('sequences.crmThreadSection') }}</div>
+							<div v-if="detailInsightsLoading" class="text-gray-400">{{ t('common.loading') }}…</div>
+							<ul v-else-if="detailThread.length" class="space-y-1.5">
+								<li v-for="ev in detailThread" :key="ev.id" class="text-xs">
+									<div
+										:class="ev.type === 'stage_change' ? 'text-gray-500 italic' : 'text-gray-700'"
+										class="whitespace-pre-wrap"
+									>
+										{{ ev.type === 'stage_change' ? ev.title : (ev.detail || ev.title) }}
+									</div>
+									<div class="text-gray-400">
+										{{ [ev.actorName, fmtDate(ev.at)].filter(Boolean).join(' · ') }}
+									</div>
+								</li>
+							</ul>
+							<div v-else-if="detailInsightsError" class="text-gray-400">
+								{{ t('sequences.crmThreadError') }}
+							</div>
+							<div v-else class="text-gray-400">{{ t('sequences.crmThreadEmpty') }}</div>
 						</div>
 
 						<!-- Mensajes ya enviados -->

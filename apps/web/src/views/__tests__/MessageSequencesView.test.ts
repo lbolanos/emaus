@@ -88,6 +88,8 @@ vi.mock('@/services/api', () => ({
 	// la vista
 	previewSequenceStep: vi.fn(),
 	previewSequenceSchedule: vi.fn(),
+	// useParticipantInsights (ficha y panel de detalle, v1.1)
+	getParticipantTimeline: vi.fn(),
 }));
 
 const RETREAT_ID = 'retreat-1';
@@ -105,6 +107,10 @@ const SEQ = {
 };
 
 // 15:00Z = 9:00 en CDMX (UTC-6, sin DST desde 2022) → la UI debe pintar GMT-6.
+// v1.1 M6: la fila trae la clave compuesta de plantilla, el asignado resuelto
+// y la proyección del participante (teléfonos/país para el link de conversación).
+// Sin cellPhone a propósito: la bandeja (QUEUE_ITEM) tampoco tiene, y así el
+// botón "Ver conversación" queda ausente hasta que un test lo monta con teléfono.
 const SCHED_PAGE = {
 	items: [
 		{
@@ -114,6 +120,19 @@ const SCHED_PAGE = {
 			participantId: 'p1',
 			participantName: 'Ana M3',
 			templateType: 'SHIRT_CONFIRMATION',
+			templateId: null,
+			templateName: 'Confirmar talla',
+			assignedTo: 'u-2',
+			assignedToName: 'Ana Rodríguez',
+			participant: {
+				id: 'p1',
+				firstName: 'Ana',
+				lastName: 'M3',
+				cellPhone: null,
+				emergencyContact1CellPhone: null,
+				emergencyContact2CellPhone: null,
+				country: null,
+			},
 			channel: 'whatsapp',
 			recipientTarget: 'participant',
 			recipientName: null,
@@ -1261,5 +1280,336 @@ describe('MessageSequencesView — bandeja: filtros y paginación (M2)', () => {
 		const wrapperValid = await mountView(m2Queue());
 		expect(wrapperValid.vm.queuePageSize).toBe(5);
 		expect(visibleNames(wrapperValid)).toHaveLength(5);
+	});
+});
+
+describe('MessageSequencesView — Programadas: filtros server-side y acciones de fila (v1.1 M6)', () => {
+	afterEach(() => {
+		// El tamaño de página se recuerda en localStorage: no contaminar el
+		// default (50) de los demás tests del archivo.
+		localStorage.removeItem('seq.schedPageSize');
+	});
+
+	it('los selects arman sus opciones desde las filas traídas (sin conteo) y los filtros viajan al fetch', async () => {
+		const wrapper = await mountView();
+		const apiMod: any = await import('@/services/api');
+
+		// Opción de plantilla: una por clave presente en la página, label legible.
+		// Sin conteo — server-side, el conteo de la página actual sería parcial.
+		const tplOpt = wrapper
+			.findAll('select option')
+			.find((o) => o.attributes('value') === 'type:SHIRT_CONFIRMATION' && o.text() === 'Confirmar talla');
+		expect(tplOpt).toBeTruthy();
+		// Opción de asignado: nombre resuelto por el server, value `user:<id>`.
+		const assignOpt = wrapper.findAll('select option').find((o) => o.text() === 'Asignado: Ana Rodríguez');
+		expect(assignOpt).toBeTruthy();
+		expect(assignOpt!.attributes('value')).toBe('user:u-2');
+
+		// Filtro por tipo crudo (`type:` prefijo) → templateType al server.
+		apiMod.fetchScheduledMessages.mockClear();
+		wrapper.vm.schedPage = 3; // el cambio de filtro debe devolver a página 1
+		wrapper.vm.schedTemplateFilter = 'type:SHIRT_CONFIRMATION';
+		await flushPromises();
+		let calls = apiMod.fetchScheduledMessages.mock.calls;
+		expect(calls[calls.length - 1][1]).toMatchObject({ templateType: 'SHIRT_CONFIRMATION' });
+		expect(calls[calls.length - 1][1].templateId).toBeUndefined();
+		expect(wrapper.vm.schedPage).toBe(1);
+		// Chip de plantilla con el label legible, removible.
+		expect(wrapper.text()).toContain('Confirmar talla');
+		await wrapper.vm.clearSchedTemplateFilter();
+		await flushPromises();
+		calls = apiMod.fetchScheduledMessages.mock.calls;
+		expect(calls[calls.length - 1][1].templateType).toBeUndefined();
+
+		// Plantilla concreta (id pelado) → templateId al server.
+		wrapper.vm.schedTemplateFilter = 'tpl-9';
+		await flushPromises();
+		calls = apiMod.fetchScheduledMessages.mock.calls;
+		expect(calls[calls.length - 1][1]).toMatchObject({ templateId: 'tpl-9' });
+		expect(calls[calls.length - 1][1].templateType).toBeUndefined();
+
+		// Asignado concreto y "sin asignar".
+		wrapper.vm.schedAssignFilter = 'user:u-2';
+		await flushPromises();
+		calls = apiMod.fetchScheduledMessages.mock.calls;
+		expect(calls[calls.length - 1][1].assignedTo).toBe('u-2');
+		// El chip nombra a la persona asignada.
+		expect(wrapper.text()).toContain('Asignado: Ana Rodríguez');
+		wrapper.vm.schedAssignFilter = 'unassigned';
+		await flushPromises();
+		calls = apiMod.fetchScheduledMessages.mock.calls;
+		expect(calls[calls.length - 1][1].assignedTo).toBe('unassigned');
+		// Chip "Sin asignar" y clear que refetch-ea sin el filtro.
+		await wrapper.vm.clearSchedAssignFilter();
+		await flushPromises();
+		calls = apiMod.fetchScheduledMessages.mock.calls;
+		expect(calls[calls.length - 1][1].assignedTo).toBeUndefined();
+	});
+
+	it('page size viaja como limit; "Todos" pide el cap de 200 y se recuerda por navegador', async () => {
+		const wrapper = await mountView();
+		const apiMod: any = await import('@/services/api');
+		apiMod.fetchScheduledMessages.mockClear();
+
+		wrapper.vm.schedPageSize = 5;
+		await flushPromises();
+		let calls = apiMod.fetchScheduledMessages.mock.calls;
+		expect(calls[calls.length - 1][1].limit).toBe(5);
+		expect(localStorage.getItem('seq.schedPageSize')).toBe('5');
+
+		wrapper.vm.schedPageSize = 'all';
+		await flushPromises();
+		calls = apiMod.fetchScheduledMessages.mock.calls;
+		expect(calls[calls.length - 1][1].limit).toBe(200);
+	});
+
+	it('con teléfono: botón de conversación en la fila (sin text= ni marcar) y popover ⓘ', async () => {
+		const wrapper = await mountView(); // mountView fija el mock base: pisarlo después
+		const apiMod: any = await import('@/services/api');
+		apiMod.fetchScheduledMessages.mockResolvedValue({
+			...SCHED_PAGE,
+			items: [{
+				...SCHED_PAGE.items[0],
+				participant: { ...SCHED_PAGE.items[0].participant, cellPhone: '5512345678' },
+			}],
+		});
+		wrapper.vm.activeTab = 'scheduled'; // watch → refetch con la página nueva
+		await flushPromises();
+		const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
+		apiMod.openScheduledMessage.mockClear();
+		apiMod.dispatchScheduledMessage.mockClear();
+
+		const panel = wrapper.find('#seq-panel-scheduled');
+		const btn = panel.findAll('button').find((b) => b.attributes('title') === 'Ver conversación en WhatsApp');
+		expect(btn).toBeTruthy();
+		// La ficha ⓘ también vive en la fila de Programadas (D10: mismo origen).
+		expect(panel.findAll('button').some((b) => b.attributes('title') === 'Detalles del participante')).toBe(true);
+
+		await btn!.trigger('click');
+		expect(openSpy).toHaveBeenCalledTimes(1);
+		const url = openSpy.mock.calls[0][0] as string;
+		expect(url).toMatch(/^https:\/\/(api|web)\.whatsapp\.com\//);
+		expect(url).not.toContain('text=');
+		// D1: mirar el historial no marca nada en el server.
+		expect(apiMod.openScheduledMessage).not.toHaveBeenCalled();
+		expect(apiMod.dispatchScheduledMessage).not.toHaveBeenCalled();
+		openSpy.mockRestore();
+	});
+
+	it('sin teléfono: la fila de Programadas no ofrece el botón de conversación', async () => {
+		const wrapper = await mountView(); // SCHED_PAGE base: participant sin cellPhone
+		const panel = wrapper.find('#seq-panel-scheduled');
+		const btn = panel.findAll('button').find((b) => b.attributes('title') === 'Ver conversación en WhatsApp');
+		expect(btn).toBeUndefined();
+	});
+});
+
+describe('MessageSequencesView — Problemas: filtros, page size y acciones de fila (v1.1 M7)', () => {
+	// v1.1 M7: el DTO de issues trae templateName/templateId (clave compuesta,
+	// sin `step`), assignedTo/assignedToName y la proyección participant.
+	// Sin cellPhone a propósito: el botón de conversación queda ausente hasta
+	// que un test lo monta con teléfono.
+	const ISSUE = (over: Record<string, any> = {}) => ({
+		id: 'i-1',
+		sequenceId: 'seq-1',
+		stepId: 'st-1',
+		participantId: 'p1',
+		templateType: 'SHIRT_CONFIRMATION',
+		templateId: null,
+		templateName: 'Confirmar talla',
+		channel: 'whatsapp',
+		recipientTarget: 'participant',
+		recipientName: null,
+		status: 'skipped',
+		error: 'sin teléfono',
+		scheduledFor: '2026-10-01T15:00:00.000Z',
+		updatedAt: '2026-10-01T16:00:00.000Z',
+		assignedTo: null,
+		assignedToName: null,
+		participant: {
+			id: 'p1', firstName: 'Beto', lastName: 'M3', cellPhone: null,
+			emergencyContact1CellPhone: null, emergencyContact2CellPhone: null, country: null,
+		},
+		...over,
+	});
+
+	async function mountWithIssues(items: any[]): Promise<VueWrapper<any>> {
+		const wrapper = await mountView();
+		const { useMessageSequenceStore } = await import('@/stores/messageSequenceStore');
+		const sequenceStore = useMessageSequenceStore();
+		sequenceStore.issues = items as any;
+		sequenceStore.issuesTotal = items.length;
+		wrapper.vm.activeTab = 'issues';
+		await flushPromises();
+		return wrapper;
+	}
+
+	// Nombres visibles de las filas de Problemas (uno por fila: el botón del
+	// participante, mismo título que la bandeja).
+	const issueNames = (wrapper: VueWrapper<any>) =>
+		wrapper
+			.find('#seq-panel-issues')
+			.findAll('button[title="Ver detalle del participante"]')
+			.map((b) => b.text());
+
+	afterEach(() => {
+		localStorage.removeItem('seq.issuesPageSize');
+	});
+
+	it('opciones con conteo desde lo cargado; filtros combinan y los chips limpian', async () => {
+		const wrapper = await mountWithIssues([
+			ISSUE({ id: 'i-1', participant: { ...ISSUE().participant, id: 'p1', firstName: 'Alfa', lastName: 'T' }, assignedTo: 'u-2', assignedToName: 'Ana Rodríguez' }),
+			ISSUE({ id: 'i-2', participant: { ...ISSUE().participant, id: 'p2', firstName: 'Beta', lastName: 'T' } }),
+			ISSUE({
+				id: 'i-3', templateId: 'tpl-b', templateName: 'Recordatorio',
+				participant: { ...ISSUE().participant, id: 'p3', firstName: 'Gamma', lastName: 'T' },
+			}),
+		]);
+		const panel = wrapper.find('#seq-panel-issues');
+
+		// Opciones con conteo (client-side: contar lo cargado, no lo filtrado).
+		const tplOpt = panel.findAll('select option').find((o) => o.text() === 'Confirmar talla (2)');
+		expect(tplOpt).toBeTruthy();
+		expect(tplOpt!.attributes('value')).toBe('type:SHIRT_CONFIRMATION');
+		const tplB = panel.findAll('select option').find((o) => o.text() === 'Recordatorio (1)');
+		expect(tplB).toBeTruthy();
+		expect(tplB!.attributes('value')).toBe('tpl-b');
+		const assignOpt = panel.findAll('select option').find((o) => o.text() === 'Asignado: Ana Rodríguez (1)');
+		expect(assignOpt).toBeTruthy();
+		expect(assignOpt!.attributes('value')).toBe('user:u-2');
+
+		// Filtro por plantilla (tipo crudo): 2 filas.
+		wrapper.vm.issuesPage = 2; // el cambio de filtro debe devolver a página 1
+		wrapper.vm.issuesTemplateFilter = 'type:SHIRT_CONFIRMATION';
+		await flushPromises();
+		expect(issueNames(wrapper)).toEqual(['Alfa T', 'Beta T']);
+		// Chip con el label legible, removible.
+		expect(panel.text()).toContain('Confirmar talla');
+
+		// Combina con asignado: 1 fila.
+		wrapper.vm.issuesAssignFilter = 'user:u-2';
+		await flushPromises();
+		expect(issueNames(wrapper)).toEqual(['Alfa T']);
+		expect(panel.text()).toContain('Asignado: Ana Rodríguez');
+		// El cambio de filtro devolvió a página 1.
+		expect(wrapper.vm.issuesPage).toBe(1);
+
+		// "Sin asignar" deja las no tomadas de la plantilla.
+		wrapper.vm.issuesAssignFilter = 'unassigned';
+		await flushPromises();
+		expect(issueNames(wrapper)).toEqual(['Beta T']);
+
+		// Los clears restauran la lista completa.
+		await wrapper.vm.clearIssuesTemplateFilter();
+		await wrapper.vm.clearIssuesAssignFilter();
+		await flushPromises();
+		expect(issueNames(wrapper)).toHaveLength(3);
+	});
+
+	it('page size local: default 10 pagina; 5 re-página; "Todos" sin paginador', async () => {
+		const items = Array.from({ length: 12 }, (_, i) =>
+			ISSUE({
+				id: `i-${i}`,
+				participant: { ...ISSUE().participant, id: `p${i}`, firstName: `P${i}`, lastName: 'X' },
+			}),
+		);
+		const wrapper = await mountWithIssues(items);
+		const panel = wrapper.find('#seq-panel-issues');
+
+		// Default 10 → 10 filas, paginador "Página 1 de 2".
+		expect(issueNames(wrapper)).toHaveLength(10);
+		expect(panel.text()).toContain('Página 1 de 2');
+
+		// 5 → página 1 con 3 páginas; se recuerda en localStorage.
+		wrapper.vm.issuesPageSize = 5;
+		await flushPromises();
+		expect(issueNames(wrapper)).toHaveLength(5);
+		expect(panel.text()).toContain('Página 1 de 3');
+		expect(localStorage.getItem('seq.issuesPageSize')).toBe('5');
+
+		// "Todos" → una sola página, el paginador desaparece (el "Cargar más"
+		// no aplica: issuesTotal == lo cargado).
+		wrapper.vm.issuesPageSize = 'all';
+		await flushPromises();
+		expect(issueNames(wrapper)).toHaveLength(12);
+		expect(panel.text()).not.toContain('Página ');
+	});
+
+	it('con teléfono: botón de conversación en la fila (sin text= ni mutar) y popover ⓘ', async () => {
+		const wrapper = await mountWithIssues([
+			ISSUE({ participant: { ...ISSUE().participant, cellPhone: '5512345678' } }),
+		]);
+		const apiMod: any = await import('@/services/api');
+		const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
+		apiMod.retryScheduledMessage.mockClear();
+		apiMod.discardScheduledMessage.mockClear();
+		apiMod.bulkResolveSequenceIssues.mockClear();
+
+		const panel = wrapper.find('#seq-panel-issues');
+		const btn = panel.findAll('button').find((b) => b.attributes('title') === 'Ver conversación en WhatsApp');
+		expect(btn).toBeTruthy();
+		// La ficha ⓘ también vive en la fila de Problemas (D10: mismo origen).
+		expect(panel.findAll('button').some((b) => b.attributes('title') === 'Detalles del participante')).toBe(true);
+
+		await btn!.trigger('click');
+		expect(openSpy).toHaveBeenCalledTimes(1);
+		const url = openSpy.mock.calls[0][0] as string;
+		expect(url).toMatch(/^https:\/\/(api|web)\.whatsapp\.com\//);
+		expect(url).not.toContain('text=');
+		// D1: mirar el historial no reintenta ni descarta nada.
+		expect(apiMod.retryScheduledMessage).not.toHaveBeenCalled();
+		expect(apiMod.discardScheduledMessage).not.toHaveBeenCalled();
+		expect(apiMod.bulkResolveSequenceIssues).not.toHaveBeenCalled();
+		openSpy.mockRestore();
+	});
+
+	it('sin teléfono: la fila de Problemas no ofrece el botón de conversación', async () => {
+		const wrapper = await mountWithIssues([ISSUE()]);
+		const panel = wrapper.find('#seq-panel-issues');
+		const btn = panel.findAll('button').find((b) => b.attributes('title') === 'Ver conversación en WhatsApp');
+		expect(btn).toBeUndefined();
+	});
+});
+
+describe('MessageSequencesView — panel de detalle con hilo CRM (v1.1 M5)', () => {
+	it('abrir el detalle fetchea el timeline y muestra notas con autor y el coordinador de palancas', async () => {
+		const wrapper = await mountView();
+		const apiMod: any = await import('@/services/api');
+		apiMod.getScheduledMessageDetail.mockResolvedValue({
+			message: {
+				id: 'q-1',
+				templateType: 'SHIRT_CONFIRMATION',
+				templateName: null,
+				recipientTarget: 'participant',
+				recipientName: null,
+				resolvedContent: null,
+				scheduledFor: '2026-10-09T15:00:00.000Z',
+				status: 'queued',
+				retreatId: RETREAT_ID,
+			},
+			participant: { id: 'p1', firstName: 'Beto', lastName: 'M3', notes: null, doNotContact: false },
+			palancas: { requested: true, received: null, notes: null, coordinator: 'María G.' },
+			followUp: null,
+			communications: [],
+		});
+		apiMod.getParticipantTimeline.mockResolvedValue([
+			{ id: 'n-1', type: 'note', at: '2026-10-05T10:00:00.000Z', title: 'Nota', detail: 'Confirmó que llega el viernes', actorName: 'Ana' },
+			{ id: 's-1', type: 'stage_change', at: '2026-10-01T10:00:00.000Z', title: 'Etapa: contactado', detail: null, actorName: null, meta: {} },
+		]);
+
+		// El nombre de la fila de la bandeja abre el panel de detalle.
+		const nameBtn = wrapper.findAll('button').find((b) => b.text().trim() === 'Beto M3');
+		expect(nameBtn).toBeTruthy();
+		await nameBtn!.trigger('click');
+		await flushPromises();
+
+		expect(apiMod.getParticipantTimeline).toHaveBeenCalledWith(RETREAT_ID, 'p1');
+		const text = wrapper.text();
+		// Hilo CRM: nota con autor + cambio de etapa (el hito de palancas es uno).
+		expect(text).toContain('Confirmó que llega el viernes');
+		expect(text).toContain('Ana');
+		expect(text).toContain('Etapa: contactado');
+		// Palancas completas: el coordinador viaja en el DTO del detalle.
+		expect(text).toContain('María G.');
 	});
 });
