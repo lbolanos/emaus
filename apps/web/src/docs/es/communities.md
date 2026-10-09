@@ -58,6 +58,21 @@ Los miembros pueden estar en uno de los siguientes estados:
 
 Puede actualizar el estado de un miembro haciendo clic en su estado actual en la lista de miembros.
 
+### Fusionar Fichas Duplicadas
+
+📺 **[Ver video tutorial](https://youtu.be/FrMbNdk3Kio)**
+
+Cuando la misma persona termina con dos fichas (mismo correo, teléfono o nombre parecido),
+el sistema lo sugiere en el botón **Duplicados** de la pestaña **Miembros**; el número en el
+botón indica cuántos pares quedan por revisar.
+
+1. Haga clic en **Duplicados** y revise cada pareja sugerida: son sugerencias, no veredictos
+2. Pulse **Ver qué se movería**: muestra qué inscripciones, asistencias y mensajes pasarán a
+   la ficha que se conserva (la de más registros; puede cambiarla)
+3. Haga clic en **Fusionar**: todo queda en una sola ficha y la otra se archiva — no se borra
+4. Si son dos personas distintas, use **No son la misma persona** y confirme. El descarte
+   queda en **Pares descartados** y puede deshacerse si fue un error
+
 ### Eliminar Miembros
 
 Para eliminar un miembro de la comunidad:

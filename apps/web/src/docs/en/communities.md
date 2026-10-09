@@ -48,6 +48,21 @@ Members can be in one of the following states:
 
 You can update a member's state by clicking on their current state in the members list.
 
+### Merging Duplicate Member Records
+
+📺 **[Watch tutorial video](https://youtu.be/FrMbNdk3Kio)**
+
+When the same person ends up with two records (same email, phone, or similar name), the
+system suggests it via the **Duplicates** button on the **Members** tab; the number on the
+button shows how many pairs are waiting for review.
+
+1. Click **Duplicates** and review each suggested pair: they are suggestions, not verdicts
+2. Click **See what would move**: it shows which enrollments, attendance, and messages will
+   move to the record that stays (the one with more records; you can switch it)
+3. Click **Merge**: everything lands on a single record and the other one is archived — not deleted
+4. If they are two different people, use **Not the same person** and confirm. The dismissed
+   pair is listed under **Dismissed pairs** and can be undone if it was a mistake
+
 ### Removing Members
 
 To remove a member from the community:
