@@ -34,6 +34,7 @@ import { Tag } from '../entities/tag.entity';
 import { ParticipantTag } from '../entities/participantTag.entity';
 import { AuditLog } from '../entities/auditLog.entity';
 import { CommunityAuditLog } from '../entities/communityAuditLog.entity';
+import { CommunityDuplicateDismissal } from '../entities/communityDuplicateDismissal.entity';
 import { DomainAuditLog } from '../entities/domainAuditLog.entity';
 // Note: RoleRequest and PermissionOverride excluded due to SQLite incompatibility
 // They use 'timestamp' and 'json' types which PostgreSQL supports but SQLite doesn't
@@ -122,6 +123,7 @@ const entities = [
 	ParticipantTag,
 	AuditLog,
 	CommunityAuditLog,
+	CommunityDuplicateDismissal,
 	DomainAuditLog,
 	Community,
 	CommunityMember,
@@ -331,6 +333,7 @@ export async function clearTestData() {
 	const clearOrder = [
 		'community_attendance',
 		'community_meeting',
+		'community_duplicate_dismissal',
 		'community_member',
 		'community_admin',
 		'community',

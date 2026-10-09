@@ -56,6 +56,19 @@ primero a que la pantalla esté, o el test es un falso verde.
   del flyer — patrón: `captureFlyerState`/`restoreFlyerState` + `mustOk` en
   `tests/e2e/helpers/communityFlyerState.ts`).
 
+- **Un login rechazado no siempre es un fixture sin sembrar.** El limitador de login cuenta los
+  fallos por IP + correo (10 cada 15 min) y responde 429, así que un spec con un fixture que no
+  existe se bloquea solo tras unas corridas. Decidí el skip por la respuesta de `/api/auth/login`
+  y poné su status y su `message` en el motivo; no por un `waitForURL` con timeout, que un dev
+  lento también agota y deja un skip «fixture no existe» con un usuario válido. En dev el
+  limitador solo se apaga con `NODE_ENV=development SKIP_RATE_LIMIT=true` en el API. Ejemplo:
+  `loginViaUi` en `participant-health-permission-guard.spec.ts`.
+- **Un permiso que ningún rol tiene se simula en el navegador, no se siembra.** `page.route` sobre
+  `/api/auth/status` y `/api/auth/login`, quitando el permiso del perfil. Solo cambia lo que cree
+  el frontend: lo que hace el API con ese caller va en un test de ruta
+  (`apps/api/src/tests/routes/*.simple.test.ts`). Ejemplo: `simulateMissingHealthPermission` en el
+  mismo spec.
+
 Y si el spec mide **peticiones de red**, dos cosas más:
 
 - **Filtrá por tipo de recurso, no por origen.** El ruido a excluir en dev son los módulos que
@@ -70,6 +83,13 @@ Y si el spec mide **peticiones de red**, dos cosas más:
   caché del navegador hace que la cifra dependa del orden de los tests. Afirmá *qué* se pide y
   *tras qué interacción*, que es idéntico en los dos entornos. Ejemplo:
   `apps/web/tests/e2e/mobile-page-weight.spec.ts`.
+
+**Rojos conocidos en el checkout principal, ajenos a cualquier cambio** (2026-10-09): en
+`participant-import-ui.spec.ts`, el test «the app boots without console or page errors» falla por
+el 404 de `/runtime-config.js` (`index.html` lo pide; sólo existe en prod o con el workaround de
+`worktree-testing`). Y `excel-import.spec.ts` entero está caducado: entra a `/walkers` sin login y
+espera claves de i18n crudas. Para validar un cambio del import, el que cuenta es
+`participant-csv-import.spec.ts` (más «imports a CSV through the UI»).
 
 Ejemplo completo con las cuatro primeras: `apps/web/tests/e2e/server-registration-shirt-sizes.spec.ts`.
 Descarga de archivo (con la quinta, y cómo se verifica el binario bajado):

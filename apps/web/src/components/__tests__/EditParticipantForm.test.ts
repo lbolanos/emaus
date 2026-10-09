@@ -146,6 +146,18 @@ vi.mock('../AngelitoAvailabilityEditor.vue', () => ({
 	default: { name: 'AngelitoAvailabilityEditor', template: '<div />', props: ['participant', 'retreatId'] },
 }));
 
+// Stub for the quick phone editor: emits `saved` on click so the wiring test
+// can verify the form re-emits the canonical result as `participant-patched`.
+vi.mock('../ParticipantQuickPhoneEditor.vue', () => ({
+	default: {
+		name: 'ParticipantQuickPhoneEditor',
+		template:
+			'<button class="quick-phone-stub" @click="$emit(\'saved\', { id: participant.id, cellPhone: \'5500000000\', emergencyContact1CellPhone: \'5587654321\', emergencyContact2CellPhone: null })">✏</button>',
+		props: ['participant', 'country'],
+		emits: ['saved'],
+	},
+}));
+
 // --------------------------------------------------------------------------
 // Helper data
 // --------------------------------------------------------------------------
@@ -383,6 +395,189 @@ describe('EditParticipantForm – shirt size tabs', () => {
 		const azulEntry = savedData.shirtSizes.find((s: any) => s.shirtTypeId === 'type-azul');
 		expect(azulEntry).toBeUndefined();
 
+		wrapper.unmount();
+	});
+});
+
+describe('EditParticipantForm – quick phone editor wiring (palancas layout)', () => {
+	afterEach(() => {
+		vi.clearAllMocks();
+	});
+
+	const PALANCAS_COLUMNS = [
+		'id_on_retreat',
+		'firstName',
+		'lastName',
+		'palancasCoordinator',
+		'palancasNotes',
+	];
+
+	it('does not mount the editor outside the palancas layout', async () => {
+		const wrapper = mountForm({
+			participant: makeParticipant({ type: 'walker' }),
+			columnsToShow: ['firstName', 'lastName'],
+			columnsToEdit: ['firstName', 'lastName'],
+		});
+		await nextTick();
+
+		expect(wrapper.findComponent({ name: 'ParticipantQuickPhoneEditor' }).exists()).toBe(false);
+		wrapper.unmount();
+	});
+
+	it('mounts the editor in the palancas header with the participant and country', async () => {
+		const wrapper = mountForm({
+			participant: makeParticipant({ type: 'walker', cellPhone: '5512345678' }),
+			columnsToShow: PALANCAS_COLUMNS,
+			columnsToEdit: ['palancasCoordinator', 'palancasNotes'],
+		});
+		await nextTick();
+
+		const editor = wrapper.findComponent({ name: 'ParticipantQuickPhoneEditor' });
+		expect(editor.exists()).toBe(true);
+		expect(editor.props('participant').id).toBe('p-1');
+		// No retreat loaded in the test store → country resolves to null.
+		expect(editor.props('country')).toBeNull();
+		wrapper.unmount();
+	});
+
+	it('re-emits the editor result as participant-patched', async () => {
+		const wrapper = mountForm({
+			participant: makeParticipant({ type: 'walker' }),
+			columnsToShow: PALANCAS_COLUMNS,
+			columnsToEdit: ['palancasCoordinator', 'palancasNotes'],
+		});
+		await nextTick();
+
+		await wrapper.find('.quick-phone-stub').trigger('click');
+
+		expect(wrapper.emitted('participant-patched')).toEqual([
+			[
+				{
+					id: 'p-1',
+					cellPhone: '5500000000',
+					emergencyContact1CellPhone: '5587654321',
+					emergencyContact2CellPhone: null,
+				},
+			],
+		]);
+		wrapper.unmount();
+	});
+});
+
+describe('EditParticipantForm – external patch while editing', () => {
+	afterEach(() => {
+		vi.clearAllMocks();
+	});
+
+	it('keeps unsaved edits when the same participant is patched externally (quick phone save)', async () => {
+		const participant = makeParticipant({
+			type: 'walker',
+			firstName: 'Ana',
+			cellPhone: '5511111111',
+		});
+		const wrapper = mountForm({
+			participant,
+			columnsToShow: ['firstName', 'cellPhone'],
+			columnsToEdit: ['firstName', 'cellPhone'],
+			allColumns: [
+				{ key: 'firstName', label: 'Nombre' },
+				{ key: 'cellPhone', label: 'Celular' },
+			],
+		});
+		await nextTick();
+
+		const inputWithValue = (value: string) =>
+			wrapper.findAll('input').find(
+				(i) => (i.element as HTMLInputElement).value === value,
+			)!;
+
+		// Unsaved edit in the form (only the name; the phone is untouched).
+		const firstName = inputWithValue('Ana');
+		await firstName.setValue('Ana María');
+
+		// The store patches the shared row with the canonical phone (same id).
+		await wrapper.setProps({
+			participant: { ...participant, cellPhone: '5500000000' },
+		});
+		await nextTick();
+
+		// The edit survived; the phone took the external canonical value.
+		expect((firstName.element as HTMLInputElement).value).toBe('Ana María');
+		expect(inputWithValue('5500000000')).toBeTruthy();
+		wrapper.unmount();
+	});
+
+	it('keeps the active tab when the same participant is patched externally', async () => {
+		const participant = makeParticipant({ type: 'walker', firstName: 'Ana' });
+		const wrapper = mountForm({
+			participant,
+			shirtTypes: MOCK_SHIRT_TYPES,
+			columnsToShow: ['firstName'],
+			columnsToEdit: ['firstName'],
+			allColumns: [{ key: 'firstName', label: 'Nombre' }],
+		});
+		await nextTick();
+
+		wrapper.vm.activeTab = 'camisetas';
+		await nextTick();
+
+		// Quick phone save on the same participant (same id, new cellPhone).
+		await wrapper.setProps({ participant: { ...participant, cellPhone: '5500000000' } });
+		await nextTick();
+
+		expect(wrapper.vm.activeTab).toBe('camisetas');
+		wrapper.unmount();
+	});
+
+	it('keeps an unsaved shirt size when the same participant is patched externally', async () => {
+		const participant = makeParticipant({ type: 'walker', firstName: 'Ana' });
+		const wrapper = mountForm({
+			participant,
+			shirtTypes: MOCK_SHIRT_TYPES,
+			columnsToShow: ['firstName'],
+			columnsToEdit: ['firstName'],
+			allColumns: [{ key: 'firstName', label: 'Nombre' }],
+		});
+		await nextTick();
+
+		// Unsaved pick on the Camisetas tab: it lives only in
+		// shirtSizesByType (outside localParticipant / dirtyKeys).
+		wrapper.vm.shirtSizesByType['type-blanca'] = 'M';
+		await nextTick();
+
+		// Quick phone save fires the watcher (same id, new cellPhone).
+		await wrapper.setProps({ participant: { ...participant, cellPhone: '5500000000' } });
+		await nextTick();
+		expect(wrapper.vm.shirtSizesByType['type-blanca']).toBe('M');
+
+		// A DIFFERENT participant resets the sizes wholesale.
+		await wrapper.setProps({ participant: makeParticipant({ id: 'p-2', firstName: 'Luis' }) });
+		await nextTick();
+		expect(wrapper.vm.shirtSizesByType['type-blanca']).toBeUndefined();
+		wrapper.unmount();
+	});
+
+	it('discards unsaved edits when the dialog switches to another participant', async () => {
+		const participant = makeParticipant({ type: 'walker', firstName: 'Ana' });
+		const wrapper = mountForm({
+			participant,
+			columnsToShow: ['firstName'],
+			columnsToEdit: ['firstName'],
+			allColumns: [{ key: 'firstName', label: 'Nombre' }],
+		});
+		await nextTick();
+
+		const firstName = wrapper.findAll('input').find(
+			(i) => (i.element as HTMLInputElement).value === 'Ana',
+		)!;
+		await firstName.setValue('Ana María');
+
+		await wrapper.setProps({
+			participant: makeParticipant({ id: 'p-2', firstName: 'Beto' }),
+		});
+		await nextTick();
+
+		expect((firstName.element as HTMLInputElement).value).toBe('Beto');
 		wrapper.unmount();
 	});
 });

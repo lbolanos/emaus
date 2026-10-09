@@ -2,7 +2,7 @@ import { defineStore } from 'pinia';
 import { ref, reactive } from 'vue';
 import { useToast } from '@repo/ui';
 import type { Participant, CreateParticipant, Tag } from '@repo/types';
-import { api, setAttendanceConfirmation as apiSetAttendanceConfirmation, type AttendanceConfirmation } from '@/services/api';
+import { api, setAttendanceConfirmation as apiSetAttendanceConfirmation, updateParticipantPhones as apiUpdateParticipantPhones, type AttendanceConfirmation, type QuickPhonePatch, type QuickPhoneResult } from '@/services/api';
 import { apiErrorMessage } from '@/services/apiError';
 
 export const useParticipantStore = defineStore('participant', () => {
@@ -347,6 +347,50 @@ export const useParticipantStore = defineStore('participant', () => {
 		}
 	}
 
+	// Quick phone edit (palancas): optimistic with rollback; on success the
+	// row keeps the canonical values the server returned (national number,
+	// no area code or prefix).
+	async function updateParticipantPhones(
+		participantId: string,
+		phones: QuickPhonePatch,
+	): Promise<QuickPhoneResult> {
+		const retreatId = filters.retreatId;
+		if (!retreatId) {
+			// Fail loud: a silent return made the editor close its popover as
+			// if the save had succeeded.
+			toast({
+				title: 'Error',
+				description: 'No se pudo determinar el retiro activo para guardar los teléfonos.',
+				variant: 'destructive',
+			});
+			throw new Error('updateParticipantPhones: filters.retreatId is not set');
+		}
+		const idx = participants.value.findIndex((p) => p.id === participantId);
+		const prev =
+			idx >= 0
+				? {
+						cellPhone: (participants.value[idx] as any).cellPhone,
+						emergencyContact1CellPhone: (participants.value[idx] as any).emergencyContact1CellPhone,
+						emergencyContact2CellPhone: (participants.value[idx] as any).emergencyContact2CellPhone,
+					}
+				: undefined;
+		if (idx >= 0) Object.assign(participants.value[idx], phones);
+		try {
+			const result = await apiUpdateParticipantPhones(participantId, retreatId, phones);
+			// The list may have been refetched while the request was in flight;
+			// re-find the row so the canonical values (and the rollback below)
+			// land on the right participant, not on whatever now sits at `idx`.
+			const finalIdx = participants.value.findIndex((p) => p.id === participantId);
+			if (finalIdx >= 0) Object.assign(participants.value[finalIdx], result);
+			return result;
+		} catch (e) {
+			const rollbackIdx = participants.value.findIndex((p) => p.id === participantId);
+			if (rollbackIdx >= 0 && prev) Object.assign(participants.value[rollbackIdx], prev);
+			toast({ title: 'Error', description: apiErrorMessage(e, 'No se pudieron guardar los teléfonos.'), variant: 'destructive' });
+			throw e;
+		}
+	}
+
 	return {
 		participants,
 		tags,
@@ -363,6 +407,7 @@ export const useParticipantStore = defineStore('participant', () => {
 		updateParticipant,
 		deleteParticipant,
 		setAttendanceConfirmation,
+		updateParticipantPhones,
 		saveColumnSelection,
 		loadColumnSelection,
 		getColumnSelection,

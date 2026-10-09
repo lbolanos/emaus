@@ -35,7 +35,7 @@ Cuando el usuario reporta un problema, primero ubicá el **síntoma** en la tabl
 | "elegí las tallas y el resumen dice que no elegí ninguna", "lo capturé y la pantalla lo muestra vacío", "el reporte sale en cero aunque hay datos", "los caminantes salen con 0 camisetas" | [#22 La pantalla lee un campo legacy que el formulario ya no llena](#22-la-pantalla-lee-un-campo-legacy-que-el-formulario-ya-no-llena) |
 | "al dar clic en elegir foto no sale nada", "el botón de subir archivo no hace nada", "en local no funciona pero en prod sí" | [#23 El selector de archivos no abre: la ref quedó vieja por el hot-reload](#23-el-selector-de-archivos-no-abre-la-ref-quedó-vieja-por-el-hot-reload) |
 | "no me deja seleccionar el país", "se sale al inicio y pierdo el registro", "en el iPhone se cierra solo", "se queda en Cargando…" | [#24 Un paquete de datos entero en un selector tumba Safari iOS](#24-un-paquete-de-datos-entero-en-un-selector-tumba-safari-ios) |
-| "importé el Excel y faltan personas", "subí 140 y salen 108", "el retiro no está abierto para registro público", "cannot start a transaction within a transaction", "hay tres personas en una habitación de dos", "se perdieron las habitaciones que ya había asignado la parroquia" | [#25 La importación del Excel pierde gente en silencio](#25-la-importación-del-excel-pierde-gente-en-silencio) |
+| "importé el Excel y faltan personas", "subí 140 y salen 108", "el retiro no está abierto para registro público", "cannot start a transaction within a transaction", "hay tres personas en una habitación de dos", "se perdieron las habitaciones que ya había asignado la parroquia", "después del import otra persona amaneció con otro nombre o con otra medicación", "Ya estaban registrados fuera de este retiro", "marqué palancas solicitadas / la beca y al día siguiente aparece en No" | [#25 La importación del Excel pierde gente en silencio](#25-la-importación-del-excel-pierde-gente-en-silencio) |
 | "Cannot call trigger on an empty DOMWrapper", "el test no encuentra el thead/la fila", "el selector existe en la app pero no en el test", "el `mount()` me da la tabla vacía" (Vitest) | [#26 La vista montada sigue en el skeleton: falta `flushPromises`](#26-la-vista-montada-sigue-en-el-skeleton-falta-flushpromises) |
 | "el test que lee un archivo del repo revienta con ERR_INVALID_URL_SCHEME" | [#27 `import.meta.url` no es una URL file: bajo `src/test/`](#27-importmetaurl-no-es-una-url-file-bajo-srctest) |
 | "el PDF no trae las imágenes", "en el Word sí se ven y en el PDF no", "salen solo algunas fotos", "falta el dibujo de la charla" | [#28 El PDF pierde las imágenes que van pegadas al texto](#28-el-pdf-pierde-las-imágenes-que-van-pegadas-al-texto) |
@@ -46,7 +46,7 @@ Cuando el usuario reporta un problema, primero ubicá el **síntoma** en la tabl
 | "en el sidebar el item queda marcado como seleccionado al pasar el mouse", "el hover se ve igual que el activo y no se quita al salir" | [#33 El hover deja el item "seleccionado": focus compartido entre mouse y teclado](#33-el-hover-deja-el-item-seleccionado-focus-compartido-entre-mouse-y-teclado) |
 | "al ejecutar no se crean los del primer paso", "el paso 1 debería tener 29 en cola", "si está apagada, ¿por qué veo programados?", "veo 58 en programados y ninguna en bandeja", "dupliqué la secuencia y ejecuté" | [#34 Secuencias: paso vencido, pausa y bandeja "vacía"](#34-secuencias-paso-vencido-pausa-y-bandeja-vacía) |
 | "el test dice que se llamó una función que este test no llama", "`not.toHaveBeenCalled()` falla con el código bien", "`toHaveBeenCalledTimes(n)` cuenta de más", "pasa aislado con `-t` pero falla en el archivo" (Vitest web) | [#35 Vitest no limpia los mocks entre tests](#35-vitest-no-limpia-los-mocks-entre-tests-not-tohavebeencalled-falla-con-llamadas-de-otro-test) |
-| "con mi rol no veo los contactos al editar", "a mí me faltan campos que otro usuario sí ve", "la sección de emergencia no aparece en la ficha", "el coordinador no ve el monto de la beca" | [#36 Un permiso RBAC recorta campos y el formulario oculta la sección](#36-un-permiso-rbac-recorta-campos-y-el-formulario-oculta-la-sección) |
+| "con mi rol no veo los contactos al editar", "a mí me faltan campos que otro usuario sí ve", "la sección de emergencia no aparece en la ficha", "el coordinador no ve el monto de la beca", "al guardar dice que no tengo permiso para modificar datos de salud" | [#36 Un permiso RBAC recorta campos y el formulario oculta la sección](#36-un-permiso-rbac-recorta-campos-y-el-formulario-oculta-la-sección) |
 
 ---
 
@@ -1097,6 +1097,13 @@ avisa antes y `--after` verifica el **tipo**, no solo la presencia. La decisión
 humana: ¿la misma persona cambiando de rol (cambiar el tipo a mano) o un correo prestado
 (conseguir el correo real del caminante y editar el CSV)?
 
+Desde 2026-10-08 el salto también aplica por **nombre**: una fila que nombra a otra persona
+(primer nombre o primer apellido distinto, `isImportNameConflict` en
+`apps/api/src/services/importEmailReuse.ts` — la misma regla de §25.9) se salta aunque el rol no
+declare conflicto, porque una fila sin `tipousuario` no dispara el guard de rol y el update pisaba
+la ficha igual — nombre, medicación y contactos de emergencia incluidos. El motivo del resumen
+dice «…inscrito en este retiro…» para distinguirlo del de §25.9.
+
 **Un correo prestado vuelve en cada export**: el sistema de la parroquia sigue teniendo el
 prestado, así que la fila llega igual cada vez que se reimporta. Antes del guard del API, cada
 reimport volvía a pisar la ficha del miembro del equipo — pasó dos veces en prod con el mismo
@@ -1105,6 +1112,60 @@ incluidos. La parroquia no corrige su sistema, así que la corrección es nuestr
 `~/.config/emaus/parish-email-corrections.csv` (fuera del repo, lleva PII) que el conversor aplica
 en cada export, solo mientras la fila siga trayendo el correo prestado. Formato y reglas en
 `docs/features/parish-walker-import.md` § Correos prestados.
+
+### 25.9 El correo ya es de alguien registrado fuera de este retiro
+
+**Síntoma**: el import sale bien y una persona de **otro** retiro (o de la comunidad) aparece con
+otro nombre, otra medicación u otros contactos de emergencia, o movida al retiro que se importó.
+
+La rama de update de `importParticipants` solo busca el correo **dentro** del retiro. Si no lo
+encuentra, la fila va a `createParticipant`, que lo busca en **todos** lados (el correo es la
+identidad) y, si existe, hace `Object.assign` de todos los datos personales de la fila —salud y
+contactos incluidos— sobre esa ficha y le cambia el `retreatId` al del import. Un admin del retiro
+A pisaba la ficha médica de alguien del retiro B sin tener acceso a B, y la fila contaba como
+«importada». §25.8 no lo ve: compara roles dentro del mismo retiro.
+
+**Fix** (2026-10-07): antes de `createParticipant` el import hace la misma búsqueda global. Si la
+fila nombra a otra persona —primer nombre o primer apellido distinto, sin importar mayúsculas ni
+acentos (`isImportNameConflict` en `apps/api/src/services/importEmailReuse.ts`)— la salta con
+motivo («el correo ya es de X, registrado fuera de este retiro, y la fila es de Y…»). Si es la
+misma persona, la importa y la lista en el resumen bajo «Ya estaban registrados fuera de este
+retiro…» (`reusedDetails`), para que la actualización de su ficha no sea silenciosa.
+
+Falsos positivos esperables: apodos («Pepe» / «José») o nombre y apellido invertidos saltan la
+fila; se corrige el nombre en el archivo y se reimporta. Tests: `importEmailReuse.simple.test.ts`
+(la regla) e `importEmailReuseWiring.simple.test.ts` (el cableado en el loop, con el data source
+mockeado: la suite con base real de `participantService.test.ts` no puede llamar al servicio).
+
+### 25.10 El reimport regresa a «No» lo que se capturó en emaus.cc
+
+**Síntoma**: *"marco Palancas solicitadas en Sí, en la tarde sigue bien, y al día siguiente
+aparece No"*. Lo mismo con la beca (y su monto), el cuarto individual y las comidas (nº de
+comidas del angelito, comida del viernes del servidor), que volvían a vacío.
+
+En `mapToEnglishKeys` las columnas S/N se leían como `str(col) === "S"`: si **la columna no
+existe**, eso da `false` (y las numéricas, `null`). La rama de update de `importParticipants`
+sólo omite los `undefined`, así que cada reimport escribía `false`/`null` sobre todos los
+caminantes ya inscritos. El export de la parroquia no trae palancas, beca, cuarto individual ni
+comidas (se capturan aquí), y Buen Despacho se reimportó 7 veces entre el 1 y el 8 de octubre:
+cada marca vivía hasta el siguiente reimport. Ni la auditoría lo ve:
+el import no audita fila a fila (§25.3) y `palancasRequested` no está en los campos auditados.
+
+**Fix** (2026-10-09): `optionalYesNo` en `mapToEnglishKeys` — columna ausente o celda en blanco =
+sin dato (`undefined`), y un `S`/`N` explícito se sigue aplicando. Cubre `palancaspedidas`,
+`becado`, `habitacionindividual` y `comidaviernes`. Las numéricas van con `optionalNumber`
+(misma regla; presente pero ilegible → `null`): cubre `numerocomidas`. En la rama de **alta** las
+S/N siguen empezando en `false`: con `null` la lista de participantes muestra «N/A» y su filtro
+Sí/No es de igualdad exacta, así que un caminante nuevo desaparecería al filtrar «No»; las
+comidas sí arrancan en `null`, que es su estado «sin capturar» legítimo. Tests:
+`importKeepsInternalFields.simple.test.ts` (mapeo real, base mockeada) y el e2e «re-import keeps
+palancas…» de `apps/web/tests/e2e/participant-csv-import.spec.ts` (API y base de dev: importa,
+marca por `PUT`, reimporta con la forma del CSV de la parroquia y relee la ficha).
+
+**Al agregar una columna S/N o numérica al importador**: si el dato también se captura en
+emaus.cc, va con `optionalYesNo`/`optionalNumber`, no con `=== "S"` o `Number(col) || null`.
+Diagnóstico por el dato: las horas de `POST /api/participants/import/<retreatId>` en
+`/var/log/nginx/emaus-access.log*` (en UTC) contra el momento en que el usuario vio el cambio.
 
 ### Orden que funciona
 
@@ -1583,7 +1644,8 @@ funcionando. Hoy hay dos gates de este tipo:
 
 - `participant:health` → `stripSensitiveHealthFields` (contactos de emergencia, notas, medicación,
   dieta, discapacidad). `EditParticipantForm.vue` oculta "Datos de contacto y emergencia" cuando
-  `emergencyContact1*/2*` no vienen.
+  `emergencyContact1*/2*` no vienen; los campos sueltos del formulario (`notes`, medicación) los
+  quita `isColumnAllowed` en `ParticipantList.vue`.
 - `participant:viewScholarshipAmount` → `stripScholarshipAmount`.
 
 **Diagnóstico**:
@@ -1599,6 +1661,16 @@ funcionando. Hoy hay dos gates de este tipo:
 del rango exacto de la concesión en `grantParticipantHealthToCommunications.simple.test.ts`). Al
 conceder lectura, revisar también el gate de escritura del mismo campo: antes del 2026-10-07
 quien no podía leer salud sí podía escribirlo si lo mandaba explícito en el body.
+
+**Variante — al guardar sale "No tienes permiso para modificar datos de salud ni contactos de
+emergencia"**: es el 403 de `updateParticipant`, que trae en `fields` los campos rechazados y no
+guarda nada. El usuario no tiene `participant:health` y alguna pantalla le dejó editar uno de esos
+campos. El fix va en esa pantalla (filtrar por permiso, como `isColumnAllowed`, o contra las
+columnas ya filtradas, como `BulkEditParticipantsModal`), no en el API. El
+caso original: `CancellationAndNotesView` y `NotesAndMeetingPointsView` pasaban `notes` en las
+columnas del formulario, que se saltaban el filtro; antes del 403 la nota se perdía con un 200.
+Un campo vacío (`null`/`''`) también dispara el 403, y está bien: en esa ruta `validateRequest`
+no reemplaza el body, el servicio recibe el `null` crudo y vaciaría la columna.
 
 **Caso**: 2026-10-07 — communications (retreat-scoped, Buen Despacho) no veía los contactos al
 editar en la vista Palancas; el diseño de 20260914 excluía al rol a propósito y la operación

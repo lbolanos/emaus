@@ -23,6 +23,7 @@ import {
 	audienceMatches,
 	pickTemplateForAudience,
 	templatesForStepAudience,
+	orderTemplatesByEnginePreference,
 	hasCondition,
 	conditionToFilters,
 	filtersToCondition,
@@ -38,8 +39,13 @@ const { sequences } = storeToRefs(sequenceStore);
 
 // Plantillas globales utilizables (excluye system SYS_): los tipos válidos para
 // los pasos. Al importar a un retiro se resuelven contra sus plantillas.
+// Ordenadas con la preferencia del motor (predeterminada del tipo primero):
+// addStep y pickTemplateForAudience toman la primera de esta lista — mismo
+// criterio que el editor de retiro (incidente "Recoda Pago Servidor").
 const usableTemplates = computed(() =>
-	(templateStore.templates || []).filter((tpl) => !String(tpl.type || '').startsWith('SYS_')),
+	orderTemplatesByEnginePreference(
+		(templateStore.templates || []).filter((tpl) => !String(tpl.type || '').startsWith('SYS_')),
+	),
 );
 
 // Editor GLOBAL (plantillas sin retiro): mismas reglas que el editor de retiro,
@@ -333,7 +339,12 @@ async function confirmDelete() {
 								<div>
 									<label class="text-xs text-gray-500">{{ t('sequences.template') }}</label>
 									<select v-model="step.templateType" class="w-full mt-1 p-2 border rounded-md text-sm">
-										<option v-for="tpl in templatesForStep(step)" :key="tpl.id" :value="tpl.type">{{ tpl.name }}</option>
+										<!-- El sufijo distingue la predeterminada cuando hay varias
+										     plantillas del mismo tipo (mismo criterio que el editor
+										     de retiro). -->
+										<option v-for="tpl in templatesForStep(step)" :key="tpl.id" :value="tpl.type">
+											{{ tpl.isDefault ? `${tpl.name} · ${t('sequences.defaultTemplateTag')}` : tpl.name }}
+										</option>
 									</select>
 								</div>
 								<div class="grid grid-cols-2 md:grid-cols-6 gap-3">

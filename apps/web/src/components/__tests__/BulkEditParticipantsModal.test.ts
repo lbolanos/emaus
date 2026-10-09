@@ -157,4 +157,33 @@ describe('BulkEditParticipantsModal', () => {
 		const count = fieldBlock(wrapper, 'palancasReceivedCount');
 		expect(count.find('input[type="number"]').exists()).toBe(true);
 	});
+
+	it('hides the health fields when the list does not offer their columns (no participant:health)', () => {
+		// ParticipantList drops health columns from allColumns without the
+		// permission; the API answers 403 to any health field from that caller,
+		// so offering them here would fail every row of the bulk save.
+		const wrapper = mountModal();
+		const labels = wrapper.findAll('label').map((l) => l.attributes('for'));
+
+		expect(labels).toContain('isCancelled');
+		expect(labels).toContain('hasMedication');
+		for (const healthField of ['notes', 'medicationDetails', 'dietaryRestrictionsDetails']) {
+			expect(labels).not.toContain(healthField);
+		}
+	});
+
+	it('offers the health fields when the list offers their columns', () => {
+		const wrapper = mountModal({
+			allColumns: [
+				...ALL_COLUMNS,
+				{ key: 'notes', label: 'participants.fields.notes' },
+				{ key: 'medicationDetails', label: 'participants.fields.medicationDetails' },
+			],
+		});
+		const labels = wrapper.findAll('label').map((l) => l.attributes('for'));
+
+		expect(labels).toContain('notes');
+		expect(labels).toContain('medicationDetails');
+		expect(labels).not.toContain('dietaryRestrictionsDetails');
+	});
 });

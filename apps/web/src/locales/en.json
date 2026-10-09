@@ -985,6 +985,15 @@
   },
   "participants": {
     "title": "Walkers",
+    "quickPhones": {
+      "edit": "Edit phone numbers",
+      "title": "Phone numbers",
+      "cellPhone": "Walker's cell phone",
+      "emergencyContact1": "Emergency contact 1 cell phone",
+      "emergencyContact2": "Emergency contact 2 cell phone",
+      "requiredEmpty": "This phone number cannot be empty.",
+      "invalidFloor": "Must have between 6 and 15 digits."
+    },
     "addWalker": "Add Walker",
     "name": "Name",
     "email": "Email",
@@ -1017,6 +1026,7 @@
       "successDesc": "was successfully reactivated in the retreat."
     },
     "import": {
+      "reusedFromElsewhere": "Already registered outside this retreat (same name); their record was updated with the file data:",
       "title": "Import Participants",
       "description": "Import Participants from an Excel or CSV file",
       "errorTitle": "Import error",
@@ -1181,7 +1191,8 @@
           "partial": "Partial",
           "unpaid": "Unpaid",
           "overpaid": "Overpaid",
-          "scholarship": "Scholarship"
+          "scholarship": "Scholarship",
+          "owing": "Outstanding balance"
         },
         "maritalStatus": {
           "single": "Single",
@@ -1734,7 +1745,16 @@
       "sendMessage": "Send message",
       "cell": "Cell",
       "home": "Home",
-      "work": "Work"
+      "work": "Work",
+      "palancas": "Letters / palancas",
+      "palancasRequested": "Requested",
+      "palancasReceived": "Received",
+      "palancasCoordinator": "Coordinator",
+      "followUp": "Follow-up",
+      "balance": "Balance due",
+      "recentNotes": "Recent notes",
+      "recentMessages": "Recent messages",
+      "insightsError": "Could not load the history"
     },
     "tableCard": {
       "dialogTitle": "Walkers and Inviters",
@@ -2795,7 +2815,8 @@
       "unenrolledTitle": "Attending but not enrolled in the retreat",
       "unenrolledHint": "Roster members with at least one attendance in the community's meetings (per the type and date filters) and no active enrollment in this retreat.",
       "unenrolledCount": "{count} candidates",
-      "unenrolledEmpty": "Nobody: every member who attended already has an active enrollment in this retreat."
+      "unenrolledEmpty": "Nobody: every member who attended already has an active enrollment in this retreat.",
+      "duplicateHint": "Possible duplicate"
     },
     "convoke": {
       "action": "Call for servers",
@@ -2821,7 +2842,16 @@
       "merged": "Records merged",
       "willMove": "{count} records will move to the record being kept.",
       "blocked": "Cannot merge yet:",
-      "groupOf": "Group of {count} records: merged two at a time"
+      "groupOf": "Group of {count} records: merged two at a time",
+      "pairTitle": "Merge duplicate records",
+      "pairDescription": "Choose which record keeps the data; everything from the other moves into it. Review what would move before merging.",
+      "notSame": "Not the same person",
+      "notSameConfirm": "Are you sure? These two records will stop being suggested",
+      "dismissedToast": "Pair dismissed",
+      "dismissedSection": "Dismissed pairs ({count})",
+      "dismissedEmpty": "No dismissed pairs",
+      "undo": "Undo",
+      "undoneToast": "Pair restored"
     }
   },
   "dataDelete": {
@@ -3220,14 +3250,18 @@
       "partial": "Partial",
       "unpaid": "Unpaid",
       "overpaid": "Overpaid",
-      "scholarship": "Scholarship"
+      "scholarship": "Scholarship",
+      "owing": "Outstanding balance"
     },
     "opened": "Opened",
     "mine": "Mine",
     "assigned": "Assigned",
+    "assignedToName": "Assigned to: {name}",
     "take": "Take",
     "release": "Release",
     "openWhatsapp": "Open WhatsApp",
+    "viewConversation": "View WhatsApp conversation",
+    "viewConversationShort": "Conversation",
     "openWhatsappAndSend": "Open and mark sent",
     "autoConfirmSend": "Mark sent on open",
     "markSent": "I sent it",
@@ -3236,6 +3270,7 @@
     "doNotContact": "Do not contact this participant (exclude from sends)",
     "dncError": "Could not update the do-not-contact list",
     "viewDetail": "View participant detail",
+    "participantDetail": "Participant details",
     "detailTitle": "Participant detail",
     "followUpSection": "Follow-up",
     "noFollowUp": "No follow-up recorded",
@@ -3244,8 +3279,12 @@
     "palancasSection": "Letters / palancas",
     "palancasRequested": "Requested",
     "palancasReceived": "Received",
+    "palancasCoordinator": "Coordinator",
     "notesSection": "Notes",
     "noNotes": "No notes",
+    "crmThreadSection": "CRM history",
+    "crmThreadError": "Could not load the history",
+    "crmThreadEmpty": "No history yet",
     "communicationsSection": "Messages sent",
     "noCommunications": "No messages have been sent yet",
     "editTitle": "Edit sequence",
@@ -3314,6 +3353,7 @@
     "stepDateHint": "When this step would be sent for the sample participant (retreat time)",
     "stepDatePast": "date already passed: not scheduled automatically; running asks whether to send it now",
     "templateByType": "By template type (automatic)",
+    "defaultTemplateTag": "default",
     "duplicateTemplateType": "This step has no fixed template and several share its type: the type's default will be sent. Pick a specific one.",
     "scheduledTzHint": "Times shown in {tz}",
     "clearFilter": "Clear filter",
@@ -3336,6 +3376,8 @@
     "loadMore": "Load more ({remaining} remaining)",
     "loadMoreError": "Could not load more messages with issues",
     "pageOf": "Page {page} of {total}",
+    "pageSizeLabel": "Per page",
+    "pageSizeAll": "All",
     "filterLabel": "Show",
     "filter": {
       "active": "Active",
@@ -3343,6 +3385,15 @@
       "mine": "Mine",
       "unassigned": "Unassigned",
       "paused": "Paused",
+      "assignee": "Assigned to: {name}",
+      "template": "Template",
+      "allTemplates": "All templates",
+      "sequence": "Sequence",
+      "allSequences": "All sequences",
+      "status": "Status",
+      "allStatuses": "All statuses",
+      "allChannels": "All channels",
+      "clearAll": "Clear filters",
       "participant": "Participant: {name}",
       "byParticipant": "See all messages of {name}"
     },
@@ -3358,6 +3409,7 @@
     },
     "searchPlaceholder": "Search by name, template or recipient…",
     "moreActions": "More actions",
+    "filtersAction": "Filters",
     "searchNoResults": "No results for your search",
     "bulkRetry": "Resend all",
     "bulkDiscard": "Discard all",

@@ -10,6 +10,7 @@ import { useToast } from '@repo/ui';
 import { useI18n } from 'vue-i18n';
 import { PICKUP_LOCATIONS } from '@/constants/pickupLocations';
 import { inferFieldControl, PARTICIPANT_TYPE_OPTIONS } from '@/constants/participantFieldControls';
+import { SENSITIVE_HEALTH_FIELDS } from '@repo/types';
 
 interface Props {
   isOpen: boolean;
@@ -67,6 +68,22 @@ const fieldCategories = {
     fields: ['palancasCoordinator', 'palancasRequested', 'palancasReceivedCount', 'palancasNotes']
   }
 };
+
+// Health fields are offered only when the list offers their column: the
+// parent filters allColumns by participant:health, and the API answers 403 to
+// any health field from a caller without it — every row of the bulk save
+// would fail.
+const healthFieldKeys = new Set<string>(SENSITIVE_HEALTH_FIELDS);
+type FieldCategory = (typeof fieldCategories)[keyof typeof fieldCategories];
+const visibleFieldCategories = computed(() => {
+  const allowed = new Set(props.allColumns.map((c) => c.key));
+  const visible: Record<string, FieldCategory> = {};
+  for (const [key, category] of Object.entries(fieldCategories)) {
+    const fields = category.fields.filter((f) => !healthFieldKeys.has(f) || allowed.has(f));
+    if (fields.length > 0) visible[key] = { ...category, fields };
+  }
+  return visible;
+});
 
 // Get column label by key
 const getColumnLabel = (key: string) => {
@@ -344,7 +361,7 @@ watch(() => props.isOpen, (newValue) => {
                 <!-- Field Categories -->
                 <div class="max-h-[400px] overflow-y-auto space-y-4 pr-2 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
                   <div
-                    v-for="(category, categoryKey) in fieldCategories"
+                    v-for="(category, categoryKey) in visibleFieldCategories"
                     :key="categoryKey"
                     class="border border-gray-200 rounded-lg overflow-hidden"
                   >

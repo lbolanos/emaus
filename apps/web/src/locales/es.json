@@ -1040,6 +1040,15 @@
   },
   "participants": {
     "title": "Caminantes",
+    "quickPhones": {
+      "edit": "Editar teléfonos",
+      "title": "Teléfonos",
+      "cellPhone": "Celular del caminante",
+      "emergencyContact1": "Celular de emergencia 1",
+      "emergencyContact2": "Celular de emergencia 2",
+      "requiredEmpty": "Este teléfono no puede quedar vacío.",
+      "invalidFloor": "Debe tener entre 6 y 15 dígitos."
+    },
     "addWalker": "Agregar Caminante",
     "name": "Nombre",
     "email": "Correo Electrónico",
@@ -1072,6 +1081,7 @@
       "successDesc": "fue reactivado en el retiro exitosamente."
     },
     "import": {
+      "reusedFromElsewhere": "Ya estaban registrados fuera de este retiro (con el mismo nombre); su ficha se actualizó con los datos del archivo:",
       "title": "Importar Participantes",
       "description": "Importar Participantes desde un archivo Excel o CSV",
       "errorTitle": "Error de importación",
@@ -1236,7 +1246,8 @@
           "partial": "Parcial",
           "unpaid": "No pagado",
           "overpaid": "Sobrepagado",
-          "scholarship": "Becado"
+          "scholarship": "Becado",
+          "owing": "Con saldo pendiente"
         },
         "maritalStatus": {
           "single": "Soltero/a",
@@ -1826,7 +1837,16 @@
       "sendMessage": "Mandar mensaje",
       "cell": "Cel",
       "home": "Casa",
-      "work": "Trabajo"
+      "work": "Trabajo",
+      "palancas": "Cartas / palancas",
+      "palancasRequested": "Solicitadas",
+      "palancasReceived": "Recibidas",
+      "palancasCoordinator": "Coord.",
+      "followUp": "Seguimiento",
+      "balance": "Saldo",
+      "recentNotes": "Notas recientes",
+      "recentMessages": "Últimos enviados",
+      "insightsError": "No se pudo cargar el historial"
     },
     "tableCard": {
       "dialogTitle": "Caminantes e Invitadores",
@@ -2908,7 +2928,8 @@
       "unenrolledTitle": "Asisten pero no se han inscrito al retiro",
       "unenrolledHint": "Miembros del padrón con al menos una asistencia a las reuniones de la comunidad (según los filtros de tipo y fechas) y sin inscripción activa en este retiro.",
       "unenrolledCount": "{count} candidatos",
-      "unenrolledEmpty": "Nadie: todos los miembros que han asistido ya tienen una inscripción activa en este retiro."
+      "unenrolledEmpty": "Nadie: todos los miembros que han asistido ya tienen una inscripción activa en este retiro.",
+      "duplicateHint": "Posible duplicado"
     },
     "convoke": {
       "action": "Convocar servidores",
@@ -2934,7 +2955,16 @@
       "merged": "Fichas fusionadas",
       "willMove": "Se moverán {count} registros a la ficha que se conserva.",
       "blocked": "No se puede fusionar todavía:",
-      "groupOf": "Grupo de {count} fichas: se fusionan de dos en dos"
+      "groupOf": "Grupo de {count} fichas: se fusionan de dos en dos",
+      "pairTitle": "Fusionar fichas duplicadas",
+      "pairDescription": "Elige cuál ficha se conserva; todo lo de la otra pasa a ella. Revisa qué se movería antes de fusionar.",
+      "notSame": "No son la misma persona",
+      "notSameConfirm": "¿Seguro? Dejarán de proponerse estas dos fichas",
+      "dismissedToast": "Par descartado",
+      "dismissedSection": "Pares descartados ({count})",
+      "dismissedEmpty": "No hay pares descartados",
+      "undo": "Deshacer",
+      "undoneToast": "Par restablecido"
     }
   },
   "dataDelete": {
@@ -3544,14 +3574,18 @@
       "partial": "Parcial",
       "unpaid": "Sin pagar",
       "overpaid": "Sobrepagado",
-      "scholarship": "Beca"
+      "scholarship": "Beca",
+      "owing": "Con saldo pendiente"
     },
     "opened": "Abierto",
     "mine": "Mío",
     "assigned": "Asignado",
+    "assignedToName": "Asignado: {name}",
     "take": "Tomar",
     "release": "Soltar",
     "openWhatsapp": "Abrir WhatsApp",
+    "viewConversation": "Ver conversación en WhatsApp",
+    "viewConversationShort": "Conversación",
     "openWhatsappAndSend": "Abrir y marcar enviado",
     "autoConfirmSend": "Marcar enviado al abrir",
     "markSent": "Ya lo envié",
@@ -3560,6 +3594,7 @@
     "doNotContact": "No contactar a este participante (excluir de envíos)",
     "dncError": "No se pudo actualizar la lista de no-contacto",
     "viewDetail": "Ver detalle del participante",
+    "participantDetail": "Detalles del participante",
     "detailTitle": "Detalle del participante",
     "followUpSection": "Seguimiento",
     "noFollowUp": "Sin seguimiento registrado",
@@ -3568,8 +3603,12 @@
     "palancasSection": "Cartas / palancas",
     "palancasRequested": "Solicitadas",
     "palancasReceived": "Recibidas",
+    "palancasCoordinator": "Coord.",
     "notesSection": "Notas",
     "noNotes": "Sin notas",
+    "crmThreadSection": "Hilo de seguimiento (CRM)",
+    "crmThreadError": "No se pudo cargar el hilo",
+    "crmThreadEmpty": "Sin notas en el hilo",
     "communicationsSection": "Mensajes enviados",
     "noCommunications": "Aún no se le ha enviado ningún mensaje",
     "editTitle": "Editar secuencia",
@@ -3638,6 +3677,7 @@
     "stepDateHint": "Fecha en que se enviaría este paso para el participante de muestra (hora del retiro)",
     "stepDatePast": "la fecha ya pasó: no se programa solo; al ejecutar se pregunta si enviarlo ahora",
     "templateByType": "Por tipo de plantilla (automático)",
+    "defaultTemplateTag": "predeterminada",
     "duplicateTemplateType": "Este paso no tiene plantilla fija y hay varias del mismo tipo: se enviará la predeterminada del tipo. Elige una concreta.",
     "scheduledTzHint": "Fechas en hora de {tz}",
     "clearFilter": "Quitar filtro",
@@ -3660,6 +3700,8 @@
     "loadMore": "Cargar más ({remaining} restantes)",
     "loadMoreError": "No se pudieron cargar más mensajes con problema",
     "pageOf": "Página {page} de {total}",
+    "pageSizeLabel": "Por página",
+    "pageSizeAll": "Todos",
     "filterLabel": "Mostrar",
     "filter": {
       "active": "Activos",
@@ -3667,6 +3709,15 @@
       "mine": "Míos",
       "unassigned": "Sin asignar",
       "paused": "Pausados",
+      "assignee": "Asignado: {name}",
+      "template": "Plantilla",
+      "allTemplates": "Todas las plantillas",
+      "sequence": "Secuencia",
+      "allSequences": "Todas las secuencias",
+      "status": "Estado",
+      "allStatuses": "Todos los estados",
+      "allChannels": "Todos los canales",
+      "clearAll": "Limpiar filtros",
       "participant": "Participante: {name}",
       "byParticipant": "Ver todos los mensajes de {name}"
     },
@@ -3682,6 +3733,7 @@
     },
     "searchPlaceholder": "Buscar por nombre, plantilla o destinatario…",
     "moreActions": "Más acciones",
+    "filtersAction": "Filtros",
     "searchNoResults": "Sin resultados para la búsqueda",
     "bulkRetry": "Reenviar todos",
     "bulkDiscard": "Descartar todos",

@@ -923,6 +923,38 @@ export const updateParticipantSchema = z.object({
 });
 export type UpdateParticipant = z.infer<typeof updateParticipantSchema.shape.body>;
 
+// Quick phone edit fields for the palancas view: the walker's own cell phone
+// plus the two emergency-contact cell phones (the recipients of the letter
+// requests). Kept narrow on purpose — this is a surgical patch, not a profile
+// update.
+export const quickPhoneFieldsSchema = z.object({
+	cellPhone: z.string().trim().optional(),
+	emergencyContact1CellPhone: z.string().trim().optional(),
+	emergencyContact2CellPhone: z.string().trim().optional(),
+});
+export type QuickPhoneFields = z.infer<typeof quickPhoneFieldsSchema>;
+
+// Narrow response of PATCH /participants/:id/phones: id plus the canonical
+// phones (EC2 is nullable server-side — '' persists as null).
+export interface QuickPhoneResult {
+	id: string;
+	cellPhone: string;
+	emergencyContact1CellPhone: string;
+	emergencyContact2CellPhone: string | null;
+}
+
+// PATCH /participants/:id/phones — unlike updateParticipantSchema, empty
+// strings are NOT coerced to undefined: '' must fail as 400 for the NOT NULL
+// phones (cellPhone, emergencyContact1CellPhone) and means "clear" for the
+// nullable emergencyContact2CellPhone. The controller owns that semantics;
+// the schema only shapes and trims the payload.
+export const updateParticipantPhonesSchema = z.object({
+	body: quickPhoneFieldsSchema.extend({
+		retreatId: z.string().uuid(),
+	}),
+	params: z.object({ id: idSchema }),
+});
+
 // POST /retreats — createdBy is assigned server-side from the authenticated user, never from the body.
 export const createRetreatSchema = z.object({
 	body: retreatSchema.omit({ id: true, createdBy: true, memoryPhotos: true, memorySongs: true }),

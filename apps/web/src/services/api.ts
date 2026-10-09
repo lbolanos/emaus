@@ -11,6 +11,7 @@ import type {
   RetreatServerAttendance,
   DuplicateCandidate,
   MergePreview,
+  CommunityDuplicateDismissal,
   MemberState,
   MessageTemplate,
   SavedSegment,
@@ -1731,6 +1732,16 @@ export async function getCommunityDuplicates(
   return response.data;
 }
 
+/**
+ * Cuántos pares de duplicados hay pendientes, para el badge del botón
+ * "Duplicados". Mismo criterio que el listado (loadDuplicateGroups en el
+ * servidor), sin su costo por ficha.
+ */
+export async function getCommunityDuplicateCount(communityId: string): Promise<number> {
+  const response = await api.get(`/communities/${communityId}/duplicates/count`);
+  return response.data.count;
+}
+
 /** Qué pasaría al fusionar dos fichas, sin tocar nada. */
 export async function previewParticipantMerge(
   communityId: string,
@@ -1767,12 +1778,47 @@ export async function mergeParticipantDuplicates(
   communityId: string,
   keepId: string,
   mergeId: string,
+  /** Huella que detectó el par (email/phone/name); va al audit log del merge. */
+  matchedBy?: DuplicateCandidate['matchedBy'],
 ): Promise<MergePreview> {
   const response = await api.post(`/communities/${communityId}/duplicates/merge`, {
     keepId,
     mergeId,
+    ...(matchedBy ? { matchedBy } : {}),
   });
   return response.data;
+}
+
+/**
+ * Descarta un falso positivo: "no son la misma persona". El par deja de
+ * proponerse (listado, badge, hint) hasta que se deshaga el descarte.
+ */
+export async function dismissCommunityDuplicatePair(
+  communityId: string,
+  participantAId: string,
+  participantBId: string,
+): Promise<CommunityDuplicateDismissal> {
+  const response = await api.post(`/communities/${communityId}/duplicates/dismiss`, {
+    participantAId,
+    participantBId,
+  });
+  return response.data;
+}
+
+/** Pares ya descartados, con nombres: la sección con Deshacer. */
+export async function getCommunityDuplicateDismissals(
+  communityId: string,
+): Promise<CommunityDuplicateDismissal[]> {
+  const response = await api.get(`/communities/${communityId}/duplicates/dismissals`);
+  return response.data;
+}
+
+/** Deshace un descarte: el par vuelve a proponerse. */
+export async function undoCommunityDuplicateDismissal(
+  communityId: string,
+  dismissalId: string,
+): Promise<void> {
+  await api.delete(`/communities/${communityId}/duplicates/dismissals/${dismissalId}`);
 }
 
 /**
@@ -3081,6 +3127,27 @@ export async function setAttendanceConfirmation(
   return r.data;
 }
 
+// Quick phone edit (palancas): only the changed fields travel; the server
+// validates against the retreat house's country and canonicalizes. The
+// contract lives in @repo/types (quickPhoneFieldsSchema) — one source of truth
+// for the payload and the narrow response.
+import type { QuickPhoneFields, QuickPhoneResult as QuickPhoneResultType } from '@repo/types';
+
+export type QuickPhonePatch = QuickPhoneFields;
+export type QuickPhoneResult = QuickPhoneResultType;
+
+export async function updateParticipantPhones(
+  participantId: string,
+  retreatId: string,
+  phones: QuickPhonePatch,
+): Promise<QuickPhoneResult> {
+  const r = await api.patch(`/participants/${participantId}/phones`, {
+    retreatId,
+    ...phones,
+  });
+  return r.data;
+}
+
 // ---------- Minuto a Minuto (schedule) ----------
 
 export interface ScheduleTemplateSetDTO {
@@ -3946,6 +4013,9 @@ export interface ScheduledMessageQueueItem {
   // M3: nombre resuelto por el servidor (templateId del paso gana sobre el
   // tipo); el cliente usa este con fallback al label por tipo.
   templateName?: string | null;
+  // v1.1 M6/M7: los DTO de Programadas/Problemas traen la plantilla del paso
+  // como `templateId` plano (la bandeja la trae anidada en `step`).
+  templateId?: string | null;
   recipientTarget?: "participant" | "emergencyContact1" | "emergencyContact2";
   scheduledFor: string;
   status: string;
@@ -3960,8 +4030,10 @@ export interface ScheduledMessageQueueItem {
   resolvedContent?: string | null;
   resolvedContact?: string | null;
   recipientName?: string | null;
-  // Ownership/auditoría del despacho de WhatsApp.
+  // Ownership/auditoría del despacho de WhatsApp. `assignedToName` es el display
+  // name resuelto server-side (bulk) — la bandeja filtra y pinta por nombre.
   assignedTo?: string | null;
+  assignedToName?: string | null;
   openedAt?: string | null;
   dispatchedBy?: string | null;
   participant?: {
@@ -3973,6 +4045,8 @@ export interface ScheduledMessageQueueItem {
     emergencyContact1CellPhone?: string;
     emergencyContact2Name?: string;
     emergencyContact2CellPhone?: string;
+    /** v1.1: la proyección de Programadas/Problemas lo trae (link de WhatsApp). */
+    country?: string | null;
   };
   step?: { id: string; templateType: string; templateId?: string | null; channel: string };
 }
@@ -4045,6 +4119,8 @@ export interface ScheduledMessageListItem {
   templateType: string;
   /** M3: nombre de la plantilla resuelto por el servidor (id del paso gana). */
   templateName: string | null;
+  /** M6: id de la plantilla del paso, cuando apunta a una concreta (clave compuesta D3). */
+  templateId: string | null;
   channel: 'email' | 'whatsapp';
   recipientTarget: string;
   recipientName: string | null;
@@ -4055,6 +4131,19 @@ export interface ScheduledMessageListItem {
   offsetDays: number | null;
   sendHour: number | null;
   updatedAt: string;
+  /** M6: quién tomó la fila (id del usuario) y su display name. */
+  assignedTo: string | null;
+  assignedToName: string | null;
+  /** M6: proyección mínima del participante (acciones de fila: conversación/ficha). */
+  participant: {
+    id: string;
+    firstName: string | null;
+    lastName: string | null;
+    cellPhone: string | null;
+    emergencyContact1CellPhone: string | null;
+    emergencyContact2CellPhone: string | null;
+    country: string | null;
+  } | null;
 }
 
 export interface ScheduledMessagesPage {
@@ -4075,9 +4164,16 @@ export interface FetchScheduledMessagesOptions {
   search?: string;
   page?: number;
   limit?: number;
-  order?: 'scheduled' | 'recent';
+  order?: 'scheduled' | 'recent' | 'name' | 'sequence';
   /** Pending rows of inactive sequences: hide (tab default), only, or include. */
   paused?: 'include' | 'hide' | 'only';
+  /** M6 (D8): filtro plantilla por clave compuesta — id de plantilla y/o tipo crudo. */
+  templateId?: string;
+  templateType?: string;
+  /** M6: user id, o 'unassigned' para las filas que nadie tomó. */
+  assignedTo?: string;
+  /** Canal de la fila; ausente = todos los canales. */
+  channel?: 'whatsapp' | 'email';
 }
 
 export const fetchScheduledMessages = async (
@@ -4093,6 +4189,10 @@ export const fetchScheduledMessages = async (
   if (opts.limit) params.set('limit', String(opts.limit));
   if (opts.order) params.set('order', opts.order);
   if (opts.paused) params.set('paused', opts.paused);
+  if (opts.templateId) params.set('templateId', opts.templateId);
+  if (opts.templateType) params.set('templateType', opts.templateType);
+  if (opts.assignedTo) params.set('assignedTo', opts.assignedTo);
+  if (opts.channel) params.set('channel', opts.channel);
   const qs = params.toString();
   const r = await api.get(`/message-sequences/retreat/${retreatId}/scheduled${qs ? `?${qs}` : ''}`);
   return r.data;

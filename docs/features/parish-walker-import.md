@@ -84,10 +84,20 @@ cancelación y su reinscripción.
 - **Con la app en reposo.** Queda una carrera conocida con escrituras concurrentes.
 - **Ojo cuando un correo del archivo ya es de alguien del equipo** (server o angelito): el import
   **salta esa fila** y lo dice en el resumen, para no pisar la ficha del miembro del equipo con
-  los datos de otra persona (antes la pisaba; pasó dos veces en prod). `walkers-check` lo avisa
-  antes de importar y `walkers-verify` lo detecta después; resolver el rol (¿la misma persona
-  cambia de rol, o el correo era prestado?) es decisión del operador, no del script. Un correo
-  prestado se corrige una sola vez en el archivo de correcciones (abajo).
+  los datos de otra persona (antes la pisaba; pasó dos veces en prod). El salto es por **rol**
+  (server/angelito vs caminante) o por **nombre**: una fila que nombra a otra persona —primer
+  nombre o primer apellido distinto, la misma regla del punto de abajo— también se salta, porque
+  si la fila no declara `tipousuario` el guard de rol no ve el correo prestado. `walkers-check` lo
+  avisa antes de importar y `walkers-verify` lo detecta después; resolver el rol (¿la misma
+  persona cambia de rol, o el correo era prestado?) es decisión del operador, no del script. Un
+  correo prestado se corrige una sola vez en el archivo de correcciones (abajo).
+- **Ojo cuando un correo del archivo ya es de alguien registrado fuera de este retiro** (otro
+  retiro o la comunidad): si la fila trae **otro nombre**, el import la salta y lo dice en el
+  resumen, porque importarla pisaría la ficha de esa persona, medicación y contactos de emergencia
+  incluidos. Si trae el mismo nombre, la importa y la lista en el resumen como «Ya estaban
+  registrados fuera de este retiro», porque su ficha se actualiza con los datos del archivo. Un
+  apodo o un nombre invertido también hacen saltar la fila: se corrige el nombre y se reimporta.
+  Detalle: skill `troubleshooting` §25.9.
 - **Con respaldo.** `make db-pull` deja una copia de producción de paso.
 - **Reimportar es seguro y es el flujo previsto**: el importador reconoce a la gente por correo,
   así que actualiza a quien ya estaba y añade a los nuevos, sin duplicar.
@@ -117,4 +127,10 @@ EH-0015,correo-prestado@ejemplo.com,correo-real@ejemplo.com,"el de su hermano, q
 
 El export de la parroquia no incluye punto de encuentro, becas, palancas, mesa ni habitación: todo
 eso es operación interna y se captura en emaus.cc. Tampoco trae la preferencia de cuarto
-individual, así que para este retiro ese campo llega siempre vacío.
+individual, así que para este retiro ese campo llega siempre vacío. Ni las comidas (nº de comidas
+del angelito, comida del viernes del servidor): se cobran y se capturan aquí.
+
+Reimportar no borra lo capturado aquí: una columna S/N o numérica que el CSV no trae cuenta como
+«sin dato», no como «No» o vacío. Hasta el 2026-10-09 sí lo borraba —palancas solicitadas, beca
+con su monto y cuarto individual volvían a «No», y las comidas a vacío, en cada reimport (skill
+`troubleshooting` §25.10).

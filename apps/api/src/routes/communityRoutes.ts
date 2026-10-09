@@ -41,6 +41,8 @@ import {
 	communityAttendanceStatsQuerySchema,
 	serverAttendanceQuerySchema,
 	mergeParticipantsSchema,
+	dismissDuplicatePairSchema,
+	undoDuplicateDismissalSchema,
 } from '@repo/types';
 
 const router = Router();
@@ -351,6 +353,10 @@ router.get(
 router.get('/:id/duplicates', requireCommunityOwner(), (req, res) =>
 	CommunityController.getDuplicateCandidates(req, res),
 );
+// El badge del botón: mismo criterio que el listado, sin su costo por ficha.
+router.get('/:id/duplicates/count', requireCommunityOwner(), (req, res) =>
+	CommunityController.getDuplicateCount(req, res),
+);
 router.get('/:id/duplicates/preview', requireCommunityOwner(), (req, res) =>
 	CommunityController.previewParticipantMerge(req, res),
 );
@@ -359,6 +365,23 @@ router.post(
 	requireCommunityOwner(),
 	validateRequest(mergeParticipantsSchema),
 	(req, res) => CommunityController.mergeParticipantDuplicates(req, res),
+);
+// Descartes de falsos positivos: mismo permiso que el listado — el owner es
+// quien ve los pares y decide que no lo son.
+router.post(
+	'/:id/duplicates/dismiss',
+	requireCommunityOwner(),
+	validateRequest(dismissDuplicatePairSchema),
+	(req, res) => CommunityController.dismissDuplicatePair(req, res),
+);
+router.get('/:id/duplicates/dismissals', requireCommunityOwner(), (req, res) =>
+	CommunityController.listDuplicateDismissals(req, res),
+);
+router.delete(
+	'/:id/duplicates/dismissals/:dismissalId',
+	requireCommunityOwner(),
+	validateRequest(undoDuplicateDismissalSchema),
+	(req, res) => CommunityController.undoDuplicateDismissal(req, res),
 );
 
 // Admins

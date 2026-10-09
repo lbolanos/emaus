@@ -1,9 +1,26 @@
 <template>
   <Popover v-model:open="popoverOpen">
-    <!-- Desktop: la pastilla misma abre el detalle al hacer clic.
-         Móvil: el toque sobre la pastilla se reserva para tap-to-assign,
-         así que ahí el detalle se abre con el botón ⓘ. -->
-    <span class="inline-flex items-center gap-1 md:gap-0.5" @click="onPillClick">
+    <!-- variant 'icon': botón ⓘ suelto, visible en TODOS los breakpoints.
+         Para filas sin pastilla (bandeja de WhatsApp): el trigger de reka-ui
+         abre/cierra solo — no hay gracia de doble clic ni slot que envolver. -->
+    <PopoverTrigger v-if="variant === 'icon'" as-child>
+      <button
+        type="button"
+        class="inline-flex items-center justify-center h-8 w-8 rounded-md text-gray-500 hover:text-gray-700 hover:bg-black/10 dark:hover:bg-white/10 transition-colors shrink-0"
+        :title="$t('sequences.participantDetail')"
+        :aria-label="$t('sequences.participantDetail')"
+        draggable="false"
+        @click.stop
+        @pointerdown.stop
+        @mousedown.stop
+        @touchend.stop
+      >
+        <Info class="w-4 h-4" />
+      </button>
+    </PopoverTrigger>
+    <!-- variant 'pill' (default): desktop abre el detalle al hacer clic en la
+         pastilla; móvil reserva el toque para tap-to-assign (botón ⓘ). -->
+    <span v-else class="inline-flex items-center gap-1 md:gap-0.5" @click="onPillClick">
       <slot />
       <PopoverTrigger as-child>
         <button
@@ -71,6 +88,37 @@
           </div>
         </div>
 
+        <!-- Cartas / palancas (v1.1: del roster del store, sin fetch) -->
+        <div v-if="hasPalancasInfo" class="space-y-1 border-t pt-2">
+          <div class="text-xs font-medium text-muted-foreground">{{ $t('tables.detail.palancas') }}</div>
+          <div class="text-xs space-y-0.5">
+            <div>
+              <span class="text-muted-foreground">{{ $t('tables.detail.palancasRequested') }}:</span>
+              {{ enriched.palancasRequested == null ? '—' : (enriched.palancasRequested ? $t('common.yes') : $t('common.no')) }}
+              <template v-if="enriched.palancasReceivedCount != null">
+                <span class="text-muted-foreground">· {{ $t('tables.detail.palancasReceived') }}:</span>
+                {{ enriched.palancasReceivedCount }}
+              </template>
+            </div>
+            <div v-if="enriched.palancasCoordinator" class="text-muted-foreground">
+              {{ $t('tables.detail.palancasCoordinator') }}: {{ enriched.palancasCoordinator }}
+            </div>
+            <div v-if="enriched.palancasNotes" class="text-muted-foreground">{{ enriched.palancasNotes }}</div>
+          </div>
+        </div>
+
+        <!-- Seguimiento: última etapa del hilo CRM + saldo (v1.1) -->
+        <div v-if="lastStage || balance" class="space-y-1 border-t pt-2">
+          <div class="text-xs font-medium text-muted-foreground">{{ $t('tables.detail.followUp') }}</div>
+          <div v-if="lastStage" class="text-xs">
+            {{ lastStage.title }}
+            <span class="text-muted-foreground">· {{ fmtInsightDate(lastStage.at) }}</span>
+          </div>
+          <div v-if="balance" class="text-xs text-red-600">
+            {{ $t('tables.detail.balance') }}: {{ balance }}
+          </div>
+        </div>
+
         <!-- Asistencia a reuniones de la comunidad. Sólo aparece si la vista
              que abre el popover la pasa; ausente = sin dato, no 0%. -->
         <div v-if="attendance" class="space-y-1 border-t pt-2">
@@ -106,6 +154,37 @@
           </div>
         </div>
 
+        <!-- Notas recientes y últimos enviados (timeline CRM, fetch al abrir) -->
+        <div v-if="insightsLoading && !insightEvents.length" class="space-y-1 border-t pt-2 text-xs text-muted-foreground">
+          {{ $t('common.loading') }}…
+        </div>
+        <div v-else-if="insightsError && !timelineNotes.length && !recentMessages.length" class="space-y-1 border-t pt-2 text-xs text-muted-foreground">
+          {{ $t('tables.detail.insightsError') }}
+        </div>
+        <template v-else>
+          <div v-if="timelineNotes.length" class="space-y-1.5 border-t pt-2">
+            <div class="text-xs font-medium text-muted-foreground">{{ $t('tables.detail.recentNotes') }}</div>
+            <div v-for="n in timelineNotes" :key="n.id" class="text-xs">
+              <div class="whitespace-pre-wrap">{{ n.detail || n.title }}</div>
+              <div class="text-muted-foreground">
+                {{ insightByline(n) }}
+              </div>
+            </div>
+          </div>
+          <div v-if="recentMessages.length" class="space-y-1 border-t pt-2">
+            <div class="text-xs font-medium text-muted-foreground">{{ $t('tables.detail.recentMessages') }}</div>
+            <div v-for="m in recentMessages" :key="m.id" class="text-xs flex items-baseline justify-between gap-2">
+              <span class="truncate">
+                {{ (m.meta?.templateName as string) || m.title }}
+                <span v-if="m.contactName && m.contactKey !== 'participant'" class="text-muted-foreground">
+                  → {{ m.contactName }}
+                </span>
+              </span>
+              <span class="text-muted-foreground shrink-0">{{ fmtInsightDate(m.at) }}</span>
+            </div>
+          </div>
+        </template>
+
         <!-- Botón mandar mensaje -->
         <Button
           variant="outline"
@@ -122,17 +201,19 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, ref } from 'vue';
-import type { Participant, ParticipantTag } from '@repo/types';
+import { computed, nextTick, ref, watch } from 'vue';
+import type { Participant, ParticipantTag, TimelineEvent } from '@repo/types';
+import { formatCurrency } from '@repo/utils';
 import { Popover, PopoverContent, PopoverTrigger, Button } from '@repo/ui';
 import { Info, MessageCircle } from 'lucide-vue-next';
 import TagBadge from '@/components/TagBadge.vue';
 import { useParticipantStore } from '@/stores/participantStore';
 import { useParticipantMessageDialog } from '@/composables/useParticipantMessageDialog';
+import { useParticipantInsights } from '@/composables/useParticipantInsights';
 import { useI18n } from 'vue-i18n';
 import type { ServerAttendanceState } from '@/composables/useServerAttendance';
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   participant: Participant;
   /**
    * Asistencia a reuniones de la comunidad, cuando la vista la tiene. Se omite
@@ -140,7 +221,20 @@ const props = defineProps<{
    * sólo existe si el retiro está vinculado a una.
    */
   attendance?: ServerAttendanceState | null;
-}>();
+  /**
+   * Forma del disparador: 'pill' envuelve el slot (vista de mesas, con
+   * tap-to-assign); 'icon' renderiza un botón ⓘ suelto, siempre visible, para
+   * filas sin pastilla (bandeja de WhatsApp de secuencias).
+   */
+  variant?: 'pill' | 'icon';
+  /**
+   * Retiro del participante para el fetch del timeline CRM (notas/enviados).
+   * Opcional: si no se pasa, cae al `retreatId` del propio participante.
+   */
+  retreatId?: string | null;
+}>(), {
+  variant: 'pill',
+});
 
 const { t } = useI18n();
 const participantStore = useParticipantStore();
@@ -178,6 +272,61 @@ const onPillClick = () => {
 const enriched = computed<Participant>(
   () => participantStore.participants.find((p) => p.id === props.participant.id) ?? props.participant,
 );
+
+// --- Contexto "vivo" (v1.1): palancas/seguimiento/saldo del store, notas y
+// enviados del timeline CRM. Fetch-on-open (D9): sólo al abrir el popover.
+// Refs top-level del composable (no el objeto plano): sólo éstas se
+// desempaquetan en el template — `insights.loading` ahí sería la Ref (truthy
+// siempre) y la rama de "cargando…" ganaría incluso con datos ya cargados.
+const {
+  loading: insightsLoading,
+  error: insightsError,
+  events: insightEvents,
+  load: loadInsights,
+} = useParticipantInsights();
+const effectiveRetreatId = computed(
+  () => props.retreatId ?? enriched.value.retreatId ?? null,
+);
+watch(popoverOpen, (open) => {
+  if (open) loadInsights(effectiveRetreatId.value, enriched.value.id);
+});
+
+const hasPalancasInfo = computed(
+  () =>
+    enriched.value.palancasRequested != null ||
+    enriched.value.palancasReceivedCount != null ||
+    !!enriched.value.palancasReceived ||
+    !!enriched.value.palancasNotes ||
+    !!enriched.value.palancasCoordinator,
+);
+
+// El timeline ya viene ordenado DESC por fecha (crmService.getParticipantTimeline).
+const timelineNotes = computed(() =>
+  insightEvents.value.filter((e) => e.type === 'note').slice(0, 3),
+);
+const recentMessages = computed(() =>
+  insightEvents.value.filter((e) => e.type === 'message').slice(0, 3),
+);
+const lastStage = computed(
+  () => insightEvents.value.find((e) => e.type === 'stage_change') ?? null,
+);
+
+// `paymentRemaining` es un getter del backend que viaja en el payload del
+// listado (no está en el schema `Participant` del shared types).
+const balance = computed(() => {
+  const raw = (enriched.value as Participant & { paymentRemaining?: number | string | null })
+    .paymentRemaining;
+  const remaining = Number(raw ?? 0);
+  return Number.isFinite(remaining) && remaining > 0 ? formatCurrency(remaining) : null;
+});
+
+const fmtInsightDate = (at: TimelineEvent['at']) => {
+  if (!at) return '';
+  const d = new Date(at);
+  return Number.isNaN(d.getTime()) ? '' : d.toLocaleDateString();
+};
+const insightByline = (e: TimelineEvent) =>
+  [e.actorName, fmtInsightDate(e.at)].filter(Boolean).join(' · ');
 
 const participantTags = computed<ParticipantTag[]>(
   () => (enriched.value.tags ?? []).filter((pt) => !!pt.tag),

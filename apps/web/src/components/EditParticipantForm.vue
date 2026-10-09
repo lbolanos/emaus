@@ -4,6 +4,7 @@ import { Button, Input, Label, Select, SelectContent, SelectItem, SelectTrigger,
 import { formatCurrency, resolvePalancas } from '@repo/utils';
 import TagSelector from './TagSelector.vue';
 import AngelitoAvailabilityEditor from './AngelitoAvailabilityEditor.vue';
+import ParticipantQuickPhoneEditor from './ParticipantQuickPhoneEditor.vue';
 import { getParticipantTags, assignTagToParticipant, removeTagFromParticipant, getPalanqueroOptions as fetchPalanqueroOptions, santisimoApi } from '@/services/api';
 import { PICKUP_LOCATIONS } from '@/constants/pickupLocations';
 import { inferFieldControl, PARTICIPANT_TYPE_OPTIONS } from '@/constants/participantFieldControls';
@@ -26,15 +27,25 @@ const props = defineProps<{
   shirtTypes?: ShirtType[];
 }>();
 
-const emit = defineEmits(['save', 'cancel']);
+const emit = defineEmits(['save', 'cancel', 'participant-patched']);
 
 const { toast } = useToast();
 const { t } = useI18n();
 const localParticipant = ref<any>({});
+// Last participant state synced into the form (formatted like the inputs).
+// The watcher diffs the form copy against it to tell user edits apart from
+// external patches, so a quick phone save never wipes unsaved form edits.
+const lastSyncedParticipant = ref<Record<string, any> | null>(null);
 const selectedTags = ref<Tag[]>([]);
 const showContactDetails = ref(false);
 const availabilityBlocks = ref<Array<{ id?: string; startTime: string; endTime: string }>>([]);
 const shirtSizesByType = ref<Record<string, string>>({});
+// Sync snapshot of the shirt sizes the participant row carried at the last
+// watcher fire — same pattern as lastSyncedParticipant: a size the user picked
+// but hasn't saved lives ONLY in shirtSizesByType (outside localParticipant),
+// so it must survive an external patch of the SAME participant (each quick
+// phone save fires the watcher twice: optimistic + canonical).
+const lastSyncedSizes = ref<Record<string, string>>({});
 const activeTab = ref<'datos' | 'camisetas'>('datos');
 
 const selectedShirtCount = computed(() =>
@@ -49,6 +60,18 @@ const participantRetreat = computed(() => {
   if (!rid) return null;
   return retreatStore.retreats.find((r: any) => r.id === rid) ?? null;
 });
+
+// Country of the participant's retreat house: drives the quick editor's
+// per-country phone validation (GET /retreats ships the `house` relation, but
+// the Retreat type only declares houseId).
+const participantCountry = computed<string | null>(
+  () => (participantRetreat.value as any)?.house?.country ?? null,
+);
+
+// The mini-editor already updated the store row; re-emit so the view hosting
+// the dialog syncs its copy (participantToEdit) with the server's canonical
+// response.
+const onQuickPhonesSaved = (result: unknown) => emit('participant-patched', result);
 
 async function loadAvailability() {
   const retreatId = props.participant?.retreatId;
@@ -269,8 +292,21 @@ watch(() => props.participant, (newVal) => {
 
   if (!newVal) {
     localParticipant.value = {};
+    lastSyncedParticipant.value = null;
     return;
   }
+
+  // Fields the user edited but hasn't saved: an external patch of the SAME
+  // participant (quick phone save, inline table edit) must not wipe them.
+  // Keep diverging values over the incoming ones; a different participant
+  // resets the form wholesale.
+  const sameParticipant =
+    (newVal.id ?? null) === (lastSyncedParticipant.value?.id ?? null);
+  const dirtyKeys = sameParticipant
+    ? Object.keys(localParticipant.value ?? {}).filter(
+        (key) => localParticipant.value[key] !== lastSyncedParticipant.value?.[key],
+      )
+    : [];
 
   // Create a copy and format dates properly
   const formattedData = { ...newVal };
@@ -282,16 +318,33 @@ watch(() => props.participant, (newVal) => {
     }
   });
 
+  lastSyncedParticipant.value = { ...formattedData };
+  for (const key of dirtyKeys) formattedData[key] = localParticipant.value[key];
   localParticipant.value = formattedData;
 
-  // Inicializar tallas de playera desde participant_shirt_size (si vienen en el participante)
+  // Seed shirt sizes from participant_shirt_size (when the row carries them),
+  // preserving the dirty ones: the Camisetas tab edits live only in
+  // shirtSizesByType, so rebuilding wholesale on an external patch of the same
+  // participant would silently revert an unsaved pick right before Guardar.
   const sizesMap: Record<string, string> = {};
   const existingSizes: Array<{ shirtTypeId: string; size: string }> = newVal?.shirtSizes ?? [];
   for (const s of existingSizes) {
     sizesMap[s.shirtTypeId] = s.size;
   }
+  const sizeOf = (m: Record<string, string>, k: string) => m[k] ?? 'null';
+  const dirtySizes = sameParticipant
+    ? Object.keys(shirtSizesByType.value).filter(
+        (k) => sizeOf(shirtSizesByType.value, k) !== sizeOf(lastSyncedSizes.value, k),
+      )
+    : [];
+  const prevSizes = shirtSizesByType.value;
+  lastSyncedSizes.value = { ...sizesMap };
   shirtSizesByType.value = sizesMap;
-  activeTab.value = 'datos';
+  for (const k of dirtySizes) shirtSizesByType.value[k] = prevSizes[k];
+  // Only a DIFFERENT participant resets the tab: an external patch of the
+  // same one (quick phone save) must not yank the user off the tab they are
+  // reading (e.g. camisetas).
+  if (!sameParticipant) activeTab.value = 'datos';
 
   // Load tags for the participant
   loadParticipantTags();
@@ -468,9 +521,14 @@ const calculateAge = (birthDate: string | Date) => {
               <div class="flex items-center gap-3 text-sm text-gray-500 mt-0.5">
                 <span>#{{ participant.id_on_retreat }}</span>
                 <span v-if="participant.birthDate">{{ calculateAge(participant.birthDate) }} a&ntilde;os</span>
-                <span v-if="participant.cellPhone" class="flex items-center gap-1">
-                  <Phone class="w-3 h-3" />
-                  {{ participant.cellPhone }}
+                <span class="flex items-center gap-1">
+                  <Phone v-if="participant.cellPhone" class="w-3 h-3" />
+                  <template v-if="participant.cellPhone">{{ participant.cellPhone }}</template>
+                  <ParticipantQuickPhoneEditor
+                    :participant="participant"
+                    :country="participantCountry"
+                    @saved="onQuickPhonesSaved"
+                  />
                 </span>
               </div>
             </div>

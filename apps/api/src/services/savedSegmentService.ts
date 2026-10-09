@@ -69,13 +69,25 @@ export class SavedSegmentService {
 	 * retiro y devuelve los que matchean. La fuente per-retiro de type /
 	 * isCancelled / attendance es `retreat_participants`; `paymentStatus` es un
 	 * getter computado (depende de payments + retreat.cost), así que se evalúa en
-	 * memoria sobre los candidatos cargados con sus relaciones.
+	 * memoria sobre los candidatos cargados con sus relaciones. El dinero
+	 * (payments/debts) se scopea al retiro — mismo criterio que
+	 * `findAllParticipants` y `hydrateParticipantRetreatContext`, para que un
+	 * segmento (o la condición de un paso de secuencia, que usa este método)
+	 * nunca vea los pagos de otros retiros.
 	 */
 	async evaluateFilters(retreatId: string, filters: SegmentFilters): Promise<Participant[]> {
 		const wantCancelled = filters.cancelStatus === 'canceled';
 		const rps = await AppDataSource.getRepository(RetreatParticipant).find({
 			where: { retreatId, isCancelled: wantCancelled },
-			relations: ['participant', 'participant.payments', 'participant.tags'],
+			relations: [
+				'participant',
+				'participant.payments',
+				'participant.debts',
+				'participant.tags',
+				'participant.shirtSizes',
+				'participant.shirtSizes.shirtType',
+				'participant.shirtSizes.shirtType.sizePrices',
+			],
 		});
 		const retreat = await AppDataSource.getRepository(Retreat).findOne({ where: { id: retreatId } });
 
@@ -83,9 +95,22 @@ export class SavedSegmentService {
 			.filter((rp) => !!rp.participant)
 			.map((rp) => {
 				const p = rp.participant as Participant;
-				// Enriquecer con datos per-retiro para getters/filtros.
+				// Enriquecer con datos per-retiro para getters/filtros, con los MISMOS
+				// campos que hydrateParticipantRetreatContext (la fuente común de la
+				// hidratación): payments/debts cargados por relación incluyen TODOS los
+				// retiros del participante y hay que scopearlos, o totalPaid/paymentStatus
+				// mezclan retiros y la condición de un paso de secuencia evalúa distinto
+				// que la lista de participantes (findAllParticipants scopea en el JOIN).
+				// Es la versión por lote del helper: aquí ya tenemos el rp y el retreat.
+				p.payments = (p.payments ?? []).filter((pay) => pay.retreatId === retreatId);
+				p.debts = (p.debts ?? []).filter((debt) => debt.retreatId === retreatId);
+				// shirtSizes no se filtra: totalShirtCharge descarta por sí solo las
+				// prendas cuyo shirtType es de otro retiro.
 				(p as any).type = rp.type;
 				(p as any).retreat = retreat;
+				p.isScholarship = rp.isScholarship ?? false;
+				p.mealCount = rp.mealCount ?? null;
+				p.takesFridayMeal = rp.takesFridayMeal ?? null;
 				(p as any).__attendance = (rp as any).attendanceConfirmation ?? 'pending';
 				return p;
 			});
@@ -100,7 +125,13 @@ export class SavedSegmentService {
 			participants = participants.filter((p) => (p as any).__attendance === filters.attendanceFilter);
 		}
 		if (filters.paymentStatus) {
-			participants = participants.filter((p) => p.paymentStatus === filters.paymentStatus);
+			// 'owing' no es un estado del getter: es "debe algo" (saldo pendiente
+			// > 0 = unpaid + partial). Una condición de recordatorio de pago con
+			// 'unpaid' se salta a quien ya abonó parcial — con 'owing' entran
+			// todos los que deban, que es lo que el coordinador espera cobrar.
+			participants = participants.filter((p) =>
+				filters.paymentStatus === 'owing' ? p.paymentRemaining > 0 : p.paymentStatus === filters.paymentStatus,
+			);
 		}
 		if (filters.tagIds?.length) {
 			const want = new Set(filters.tagIds);

@@ -64,9 +64,13 @@ const mockApi = {
 	delete: vi.fn(),
 };
 
+// participantStore imports the quick-phone patch as a named export.
+const mockUpdateParticipantPhones = vi.fn();
+
 vi.mock('@/services/api', () => ({
 	api: mockApi,
 	default: mockApi,
+	updateParticipantPhones: mockUpdateParticipantPhones,
 }));
 
 // Also export the mock for use in tests
@@ -642,6 +646,83 @@ describe('ParticipantStore', () => {
 
 			// Should not lose existing data
 			expect(store.participants).toEqual(initialParticipants);
+		});
+	});
+
+	describe('Quick Phone Edit (updateParticipantPhones)', () => {
+		const PHONES = { cellPhone: '5500000000' };
+		const CANONICAL = {
+			id: 'p1',
+			cellPhone: '5500000000',
+			emergencyContact1CellPhone: '5587654321',
+			emergencyContact2CellPhone: null,
+		};
+
+		const makeRow = (id: string) => ({
+			id,
+			firstName: `Row ${id}`,
+			cellPhone: '5511111111',
+			emergencyContact1CellPhone: '5522222222',
+			emergencyContact2CellPhone: null,
+		});
+
+		beforeEach(() => {
+			store.filters.retreatId = 'retreat-1';
+			store.participants = [makeRow('p1'), makeRow('p2')];
+		});
+
+		it('throws and toasts when no retreat is active, leaving the row intact', async () => {
+			delete store.filters.retreatId;
+
+			await expect(store.updateParticipantPhones('p1', PHONES)).rejects.toThrow(/retreatId/);
+
+			expect(mockUpdateParticipantPhones).not.toHaveBeenCalled();
+			// No optimistic patch happened either: the row is untouched.
+			expect(store.participants[0].cellPhone).toBe('5511111111');
+
+			const { useToast } = await import('@repo/ui');
+			const toastMock = (useToast as any).mock.results.at(-1)?.value.toast;
+			expect(toastMock).toHaveBeenCalled();
+		});
+
+		it('patches optimistically and lands the canonical server values on the row', async () => {
+			mockUpdateParticipantPhones.mockResolvedValue(CANONICAL);
+
+			const result = await store.updateParticipantPhones('p1', PHONES);
+
+			expect(mockUpdateParticipantPhones).toHaveBeenCalledWith('p1', 'retreat-1', PHONES);
+			expect(result).toEqual(CANONICAL);
+			expect(store.participants[0].cellPhone).toBe('5500000000');
+			expect(store.participants[0].emergencyContact1CellPhone).toBe('5587654321');
+		});
+
+		it('re-finds the row after a refetch replaced and reordered the list mid-flight', async () => {
+			let resolveApi!: (value: unknown) => void;
+			mockUpdateParticipantPhones.mockImplementation(
+				() => new Promise((resolve) => { resolveApi = resolve; }),
+			);
+
+			const pending = store.updateParticipantPhones('p1', PHONES);
+			// Optimistic value is visible while the request flies.
+			expect(store.participants[0].cellPhone).toBe('5500000000');
+
+			// A refetch swaps the array and reorders rows while we wait; writing
+			// by the pre-await index would corrupt p2's row.
+			store.participants = [makeRow('p2'), makeRow('p1')];
+			resolveApi(CANONICAL);
+			await pending;
+
+			expect(store.participants[1].cellPhone).toBe('5500000000');
+			expect(store.participants[0].cellPhone).toBe('5511111111');
+		});
+
+		it('rolls back to the pre-patch values when the API fails', async () => {
+			mockUpdateParticipantPhones.mockRejectedValue(new Error('boom'));
+
+			await expect(store.updateParticipantPhones('p1', PHONES)).rejects.toThrow('boom');
+
+			expect(store.participants[0].cellPhone).toBe('5511111111');
+			expect(store.participants[0].emergencyContact1CellPhone).toBe('5522222222');
 		});
 	});
 

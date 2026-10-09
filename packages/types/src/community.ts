@@ -840,6 +840,12 @@ export const mergeParticipantsSchema = z.object({
 		keepId: z.string().uuid(),
 		/** Ficha absorbida: queda como lápida, no se borra. */
 		mergeId: z.string().uuid(),
+		/**
+		 * Huella que hizo aparecer el par (email/phone/name). Opcional: sólo
+		 * viaja al audit log para registrar cómo se detectó el duplicado;
+		 * no cambia el comportamiento de la fusión.
+		 */
+		matchedBy: z.enum(['name', 'phone', 'email']).optional(),
 	}),
 	params: z.object({ id: z.string().uuid() }),
 });
@@ -870,6 +876,50 @@ export const duplicateCandidateSchema = z.object({
 	),
 });
 export type DuplicateCandidate = z.infer<typeof duplicateCandidateSchema>;
+
+/**
+ * Respuesta de `GET /communities/:id/duplicates/count`: sólo el número, para
+ * el badge del botón "Duplicados". El listado completo es owner-only y caro
+ * (una pasada de queries por ficha); contar no necesita ese enriquecimiento.
+ */
+export const communityDuplicateCountSchema = z.object({
+	count: z.number().int().nonnegative(),
+});
+export type CommunityDuplicateCount = z.infer<typeof communityDuplicateCountSchema>;
+
+/**
+ * Descartar un falso positivo del detector: "no son la misma persona". El
+ * orden de los ids no importa — el servidor canonicaliza el par (A < B) antes
+ * de escribir, y repetir el dismiss devuelve la fila existente (idempotente).
+ */
+export const dismissDuplicatePairSchema = z.object({
+	body: z.object({
+		participantAId: z.string().uuid(),
+		participantBId: z.string().uuid(),
+	}),
+	params: z.object({ id: z.string().uuid() }),
+});
+
+/** Deshacer un descarte: el par vuelve a proponerse. */
+export const undoDuplicateDismissalSchema = z.object({
+	params: z.object({ id: z.string().uuid(), dismissalId: z.string().uuid() }),
+});
+
+export const communityDuplicateDismissalSchema = z.object({
+	id: z.string().uuid(),
+	participantA: z.object({
+		id: z.string().uuid(),
+		firstName: z.string(),
+		lastName: z.string(),
+	}),
+	participantB: z.object({
+		id: z.string().uuid(),
+		firstName: z.string(),
+		lastName: z.string(),
+	}),
+	createdAt: z.coerce.date(),
+});
+export type CommunityDuplicateDismissal = z.infer<typeof communityDuplicateDismissalSchema>;
 
 export const mergePreviewSchema = z.object({
 	keepId: z.string().uuid(),

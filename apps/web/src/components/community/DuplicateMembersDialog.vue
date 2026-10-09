@@ -81,7 +81,69 @@
               <Loader2 v-if="busy === index" class="mr-2 h-4 w-4 animate-spin" />
               {{ $t('community.duplicates.merge') }}
             </Button>
+            <!-- Falso positivo. Sólo pares exactos: descartar un grupo de 3+
+                 ambiguo escondería pares verdaderos. Confirmación en dos pasos
+                 (sin AlertDialog): el primer click arma, el segundo ejecuta. -->
+            <Button
+              v-if="pair.participants.length === 2"
+              variant="ghost"
+              size="sm"
+              class="text-muted-foreground"
+              :disabled="busy === index"
+              @click="onDismissClick(index)"
+            >
+              {{
+                confirmDismissAt === index
+                  ? $t('community.duplicates.notSameConfirm')
+                  : $t('community.duplicates.notSame')
+              }}
+            </Button>
           </div>
+        </div>
+      </div>
+
+      <!-- Pares descartados: visibilidad + undo. Sin esto, un misclick
+           escondería un duplicado real para siempre. Colapsada por defecto
+           porque es información de referencia, no el flujo principal.
+           Gated sólo por `loading` (carga inicial del dialog): si el GET de
+           candidatos falla, el undo debe seguir accesible — depende de otro
+           endpoint y tiene su propio error dentro de la sección. -->
+      <div v-if="!loading" class="border rounded-lg">
+        <button
+          type="button"
+          class="w-full flex items-center justify-between p-3 text-sm text-muted-foreground"
+          @click="dismissedOpen = !dismissedOpen"
+        >
+          <span>{{ $t('community.duplicates.dismissedSection', { count: dismissals.length }) }}</span>
+          <ChevronDown v-if="dismissedOpen" class="h-4 w-4" />
+          <ChevronRight v-else class="h-4 w-4" />
+        </button>
+        <div v-if="dismissedOpen" class="px-3 pb-3 space-y-2">
+          <p v-if="dismissalsError" class="text-xs text-destructive">{{ dismissalsError }}</p>
+          <p v-else-if="dismissals.length === 0" class="text-xs text-muted-foreground">
+            {{ $t('community.duplicates.dismissedEmpty') }}
+          </p>
+          <template v-else>
+            <div
+              v-for="d in dismissals"
+              :key="d.id"
+              class="flex items-center justify-between gap-2 text-sm border rounded-md p-2"
+            >
+              <span class="text-xs">
+                {{ d.participantA.firstName }} {{ d.participantA.lastName }}
+                ·
+                {{ d.participantB.firstName }} {{ d.participantB.lastName }}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                :disabled="undoingId === d.id"
+                @click="doUndo(d.id)"
+              >
+                {{ $t('community.duplicates.undo') }}
+              </Button>
+            </div>
+          </template>
         </div>
       </div>
 
@@ -99,17 +161,20 @@ import {
   Badge, Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader,
   DialogTitle, useToast,
 } from '@repo/ui';
-import { Loader2 } from 'lucide-vue-next';
-import type { DuplicateCandidate, MergePreview } from '@repo/types';
+import { ChevronDown, ChevronRight, Loader2 } from 'lucide-vue-next';
+import type { CommunityDuplicateDismissal, DuplicateCandidate, MergePreview } from '@repo/types';
 import {
   apiErrorMessage,
+  dismissCommunityDuplicatePair,
+  getCommunityDuplicateDismissals,
   getCommunityDuplicates,
   mergeParticipantDuplicates,
   previewParticipantMerge,
+  undoCommunityDuplicateDismissal,
 } from '@/services/api';
 
 const props = defineProps<{ open: boolean; communityId: string }>();
-const emit = defineEmits<{ 'update:open': [boolean]; merged: [] }>();
+const emit = defineEmits<{ 'update:open': [boolean]; merged: []; dismissed: [] }>();
 
 const { t } = useI18n();
 const { toast } = useToast();
@@ -120,6 +185,13 @@ const candidates = ref<DuplicateCandidate[]>([]);
 const previews = ref<(MergePreview | null)[]>([]);
 const keepBy = ref<string[]>([]);
 const busy = ref<number | null>(null);
+// Paso 1 del descarte: índice del par cuyo botón ya se pulsó; el segundo
+// click en ESE par confirma.
+const confirmDismissAt = ref<number | null>(null);
+const dismissals = ref<CommunityDuplicateDismissal[]>([]);
+const dismissalsError = ref('');
+const dismissedOpen = ref(false);
+const undoingId = ref<string | null>(null);
 
 const totalMoves = (preview: MergePreview) =>
   preview.moves.reduce((sum, move) => sum + move.rows, 0);
@@ -138,6 +210,7 @@ const otherOf = (index: number) =>
 const load = async () => {
   loading.value = true;
   error.value = '';
+  confirmDismissAt.value = null;
   try {
     candidates.value = await getCommunityDuplicates(props.communityId);
     // Por defecto se conserva la ficha con más datos, que el backend devuelve
@@ -148,6 +221,18 @@ const load = async () => {
     error.value = apiErrorMessage(err);
   } finally {
     loading.value = false;
+  }
+};
+
+// La sección de descartados es información de referencia: si falla su GET no
+// se tumba el dialog, pero tampoco se miente con un "no hay pares
+// descartados" — el error se muestra dentro de la propia sección.
+const loadDismissed = async () => {
+  dismissalsError.value = '';
+  try {
+    dismissals.value = await getCommunityDuplicateDismissals(props.communityId);
+  } catch (err) {
+    dismissalsError.value = apiErrorMessage(err);
   }
 };
 
@@ -169,7 +254,12 @@ const loadPreview = async (index: number) => {
 const doMerge = async (index: number) => {
   busy.value = index;
   try {
-    await mergeParticipantDuplicates(props.communityId, keepBy.value[index], otherOf(index));
+    await mergeParticipantDuplicates(
+      props.communityId,
+      keepBy.value[index],
+      otherOf(index),
+      candidates.value[index]?.matchedBy,
+    );
     toast({ title: t('community.duplicates.merged') });
     emit('merged');
     await load();
@@ -177,6 +267,47 @@ const doMerge = async (index: number) => {
     toast({ title: apiErrorMessage(err), variant: 'destructive' });
   } finally {
     busy.value = null;
+  }
+};
+
+const onDismissClick = (index: number) => {
+  if (confirmDismissAt.value !== index) {
+    confirmDismissAt.value = index;
+    return;
+  }
+  void doDismiss(index);
+};
+
+const doDismiss = async (index: number) => {
+  const pair = candidates.value[index];
+  const [a, b] = pair.participants;
+  busy.value = index;
+  try {
+    await dismissCommunityDuplicatePair(props.communityId, a.id, b.id);
+    toast({ title: t('community.duplicates.dismissedToast') });
+    emit('dismissed');
+    confirmDismissAt.value = null;
+    await Promise.all([load(), loadDismissed()]);
+  } catch (err) {
+    toast({ title: apiErrorMessage(err), variant: 'destructive' });
+  } finally {
+    busy.value = null;
+  }
+};
+
+const doUndo = async (dismissalId: string) => {
+  undoingId.value = dismissalId;
+  try {
+    await undoCommunityDuplicateDismissal(props.communityId, dismissalId);
+    toast({ title: t('community.duplicates.undoneToast') });
+    // El undo también cambia el conteo pendiente: el mismo evento que el
+    // dismiss, para que el badge del botón se refresque en ambos sentidos.
+    emit('dismissed');
+    await Promise.all([load(), loadDismissed()]);
+  } catch (err) {
+    toast({ title: apiErrorMessage(err), variant: 'destructive' });
+  } finally {
+    undoingId.value = null;
   }
 };
 
@@ -188,7 +319,10 @@ watch(keepBy, () => {
 watch(
   () => props.open,
   (isOpen) => {
-    if (isOpen) void load();
+    if (isOpen) {
+      void load();
+      void loadDismissed();
+    }
   },
   { immediate: true },
 );

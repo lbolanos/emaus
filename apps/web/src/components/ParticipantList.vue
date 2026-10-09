@@ -18,6 +18,7 @@ import WhatsAppSendQueue from './WhatsAppSendQueue.vue';
 import BulkEditParticipantsModal from './BulkEditParticipantsModal.vue';
 import { useSavedSegmentStore } from '@/stores/savedSegmentStore';
 import type { SavedSegment, SegmentFilters } from '@repo/types';
+import { SENSITIVE_HEALTH_FIELDS } from '@repo/types';
 import { useI18n } from 'vue-i18n';
 import ExcelJS from 'exceljs';
 import { createLocaleComparator } from '@/utils/sort';
@@ -52,6 +53,7 @@ import {
 } from '@repo/ui';
 import ColumnSelector from './ColumnSelector.vue';
 import EditParticipantForm from './EditParticipantForm.vue';
+import ParticipantQuickPhoneEditor from './ParticipantQuickPhoneEditor.vue';
 import FilterDialog from './FilterDialog.vue';
 import ImportParticipantsModal from './ImportParticipantsModal.vue';
 import ExportParticipantsModal from './ExportParticipantsModal.vue';
@@ -78,20 +80,37 @@ const props = withDefaults(defineProps<{
     columnsToShowInTable?: string[],
     columnsToShowInForm?: string[],
     columnsToEditInForm?: string[],
+    /**
+     * Table-visible columns that must NOT become editable in the dialog form.
+     * The dialog's edit list unions the table's visible columns, so a column
+     * that is visible for reading but owned by another surface needs to be
+     * excluded explicitly (cellPhone in Palancas: the quick editor validates
+     * it per country; the generic PUT does not).
+     */
+    columnsExcludedFromFormEdit?: string[],
     defaultFilters?: Record<string, any>,
     /**
-     * Muestra el control de confirmación de asistencia (el botón "Por contactar"
-     * de cada fila y su filtro). Es seguimiento de palancas, así que solo lo
-     * enciende PalancasView; en el resto de las listas estorbaba.
+     * Shows the attendance-confirmation control (the "Por contactar" button on
+     * each row and its filter). It is palancas follow-up, so only PalancasView
+     * turns it on; in the other lists it was in the way.
      */
     showAttendanceConfirmation?: boolean,
+    /**
+     * Shows the quick phone-edit ✏ next to the number in the cellPhone column
+     * (walker's cell + both emergency-contact cells). Fixes in 2 clicks the
+     * "their spouse registered them and left her own number" case; it is a
+     * palancas flow, so only PalancasView turns it on.
+     */
+    inlinePhoneEdit?: boolean,
 }>(), {
     isCancelled: false,
     columnsToShowInTable: () => ['id_on_retreat', 'firstName', 'lastName', 'email', 'cellPhone', 'tableMesa.name'],
     columnsToShowInForm: () => [],
     columnsToEditInForm: () => [],
+    columnsExcludedFromFormEdit: () => [],
     defaultFilters: () => ({}),
     showAttendanceConfirmation: false,
+    inlinePhoneEdit: false,
 });
 
 const { toast } = useToast();
@@ -107,6 +126,13 @@ const { participants: allParticipants, loading, error } = storeToRefs(participan
 const retreatStore = useRetreatStore();
 const { selectedRetreatId, serverRegistrationLink, walkerRegistrationLink } = storeToRefs(retreatStore);
 const { tags } = storeToRefs(participantStore);
+
+// País de la casa del retiro seleccionado: valida los teléfonos del editor
+// rápido por país. GET /retreats manda la relation `house`, pero el tipo
+// Retreat de @repo/types solo declara houseId (mismo cast que useFlyerContent).
+const retreatCountry = computed<string | null>(
+    () => (retreatStore.selectedRetreat as any)?.house?.country ?? null,
+);
 const messageTemplateStore = useMessageTemplateStore();
 const { templates: allMessageTemplates } = storeToRefs(messageTemplateStore);
 const tableMesaStore = useTableMesaStore();
@@ -383,17 +409,11 @@ const canViewScholarshipAmount = computed(() =>
 const canViewHealthData = computed(() => hasPermission('participant:health'));
 
 // Columnas de salud/contacto de emergencia — solo visibles/seleccionables con
-// participant:health (admin/treasurer/logistics/superadmin), no con el
-// participant:read general (hasta regular_server lo tiene). Mismo listado que
-// SENSITIVE_HEALTH_FIELDS en apps/api/src/controllers/participantController.ts.
-const HEALTH_COLUMN_KEYS = new Set([
-    'medicationDetails', 'medicationSchedule', 'dietaryRestrictionsDetails',
-    'disabilitySupport', 'notes',
-    'emergencyContact1Name', 'emergencyContact1Relation', 'emergencyContact1HomePhone',
-    'emergencyContact1WorkPhone', 'emergencyContact1CellPhone', 'emergencyContact1Email',
-    'emergencyContact2Name', 'emergencyContact2Relation', 'emergencyContact2HomePhone',
-    'emergencyContact2WorkPhone', 'emergencyContact2CellPhone', 'emergencyContact2Email',
-]);
+// participant:health (admin/treasurer/logistics/communications/superadmin), no
+// con el participant:read general (hasta regular_server lo tiene).
+// The list is shared with the API gate (@repo/types): if they drift, the form
+// shows a field whose save the API rejects with 403.
+const HEALTH_COLUMN_KEYS = new Set<string>(SENSITIVE_HEALTH_FIELDS);
 
 const baseColumns = ref([
     { key: 'id_on_retreat', label: 'participants.fields.id' },
@@ -476,14 +496,17 @@ const baseColumns = ref([
     { key: 'messageCount', label: 'participants.fields.messageCount' },
 ]);
 
-// Filter columns the current user is not allowed to see (e.g. scholarshipAmount).
-const allColumns = computed(() => {
-    return baseColumns.value.filter((c) => {
-        if (c.key === 'scholarshipAmount') return canViewScholarshipAmount.value;
-        if (HEALTH_COLUMN_KEYS.has(c.key)) return canViewHealthData.value;
-        return true;
-    });
-});
+// Whether the current user may see a column (e.g. scholarshipAmount, health).
+// The edit form applies it too: the view's own form columns
+// (columnsToShowInForm/columnsToEditInForm) skipped it and showed `notes` to
+// users without participant:health, whose save the API rejects with 403.
+const isColumnAllowed = (key: string) => {
+    if (key === 'scholarshipAmount') return canViewScholarshipAmount.value;
+    if (HEALTH_COLUMN_KEYS.has(key)) return canViewHealthData.value;
+    return true;
+};
+
+const allColumns = computed(() => baseColumns.value.filter((c) => isColumnAllowed(c.key)));
 
 const longTextColumns = new Set([
     'notes', 'palancasNotes', 'medicationDetails',
@@ -613,6 +636,14 @@ const filteredAndSortedParticipants = computed(() => {
                     }
                     // For other fields, treat null/undefined as unassigned
                     return participantValue === null || participantValue === undefined || participantValue === '';
+                }
+
+                // 'owing' no es un estado del getter: es saldo pendiente > 0
+                // (unpaid + partial) — mismo criterio que el backend (#32).
+                // getNestedProperty: el tipo del store no trae los getters del
+                // backend (paymentRemaining llega en el payload del listado).
+                if (key === 'paymentStatus' && value === 'owing') {
+                    return Number(getNestedProperty(p, 'paymentRemaining') || 0) > 0;
                 }
 
                 // Handle text partial matching for city, parish, disabilitySupport
@@ -806,7 +837,7 @@ const getCellContent = (participant: any, colKey: string) => {
 
 const formColumnsToShow = computed(() => {
     const combined = new Set([...props.columnsToShowInForm, ...visibleColumns.value]);
-    return Array.from(combined);
+    return Array.from(combined).filter(isColumnAllowed);
 });
 
 const formColumnsToEdit = computed(() => {
@@ -815,7 +846,9 @@ const formColumnsToEdit = computed(() => {
         'id', 'id_on_retreat', 'email', 'registrationDate',
         'lastUpdatedDate', 'retreatId', 'tableId'
     ];
-    return Array.from(combined).filter(key => !nonEditableSystemKeys.includes(key));
+    return Array.from(combined)
+        .filter(key => !nonEditableSystemKeys.includes(key) && isColumnAllowed(key))
+        .filter(key => !props.columnsExcludedFromFormEdit.includes(key));
 });
 
 
@@ -873,6 +906,20 @@ const reactivateParticipant = async (participant: any) => {
         });
     } catch (error) {
         // toast already shown by store
+    }
+};
+
+// El mini-editor de teléfonos (tabla o diálogo) actualizó la fila vía el
+// store. Para walkers participantToEdit comparte referencia con la fila, así
+// que esto es defensa ante copias (servers abren el diálogo con un spread).
+const onParticipantPatched = (result: {
+    id: string;
+    cellPhone: string;
+    emergencyContact1CellPhone: string;
+    emergencyContact2CellPhone: string | null;
+}) => {
+    if (participantToEdit.value?.id === result.id) {
+        Object.assign(participantToEdit.value, result);
     }
 };
 
@@ -1044,7 +1091,7 @@ const toggleFilterStatus = () => {
 
 // Deja constancia (best-effort, sin bloquear la descarga) cuando el archivo
 // exportado incluye columnas de salud/contacto de emergencia — ver
-// SENSITIVE_HEALTH_FIELDS en participantController.ts. La condición se cruza
+// SENSITIVE_HEALTH_FIELDS (@repo/types). La condición se cruza
 // contra allColumns (lo que la sesión puede exportar de verdad): una clave de
 // salud rancia del localStorage, de una columna que el usuario ya no puede ver,
 // hacía disparar la auditoría de un archivo que no traía esos datos.
@@ -1909,6 +1956,15 @@ const handleKeyboardShortcuts = (event: KeyboardEvent) => {
                                 </TooltipProvider>
                                 <span v-else>{{ getCellContent(participant, colKey).value }}</span>
                             </div>
+                            <!-- Quick phone edit (palancas): number + inline ✏ that patches
+                                 the walker's cell and both emergency contacts in place. -->
+                            <div v-else-if="colKey === 'cellPhone' && props.inlinePhoneEdit" class="flex items-center gap-1">
+                                {{ getCellContent(participant, colKey).value }}
+                                <ParticipantQuickPhoneEditor
+                                    :participant="participant"
+                                    :country="retreatCountry"
+                                />
+                            </div>
                             <!-- Default cell rendering for other columns -->
                             <div v-else class="flex items-center gap-1">
                                 {{ getCellContent(participant, colKey).value }}
@@ -1947,7 +2003,7 @@ const handleKeyboardShortcuts = (event: KeyboardEvent) => {
                                 <TooltipProvider>
                                     <Tooltip>
                                         <TooltipTrigger as-child>
-                                            <Button variant="ghost" size="icon" class="h-7 w-7 text-gray-500 hover:text-blue-600 hover:bg-blue-50" @click="openEditDialog(participant)"><Edit class="h-3.5 w-3.5" /></Button>
+                                            <Button variant="ghost" size="icon" class="h-7 w-7 text-gray-500 hover:text-blue-600 hover:bg-blue-50" :aria-label="$t('participants.editParticipant')" @click="openEditDialog(participant)"><Edit class="h-3.5 w-3.5" /></Button>
                                         </TooltipTrigger>
                                         <TooltipContent>{{ $t('participants.editParticipant') }}</TooltipContent>
                                     </Tooltip>
@@ -2029,6 +2085,7 @@ const handleKeyboardShortcuts = (event: KeyboardEvent) => {
                     :shirt-types="editShirtTypes"
                     @save="handleUpdateParticipant"
                     @cancel="isEditDialogOpen = false"
+                    @participant-patched="onParticipantPatched"
                 />
             </DialogContent>
         </Dialog>

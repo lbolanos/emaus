@@ -16,8 +16,10 @@ export const segmentFiltersSchema = z.object({
 	participantType: z.enum(['walker', 'server', 'waiting', 'partial_server']).nullish(),
 	// Tiene AL MENOS uno de estos tags (intersección).
 	tagIds: z.array(idSchema).optional(),
-	// Estado de pago derivado (Participant.paymentStatus getter).
-	paymentStatus: z.enum(['paid', 'partial', 'unpaid', 'overpaid', 'scholarship']).nullish(),
+	// Estado de pago derivado (Participant.paymentStatus getter). 'owing' NO es
+	// un estado: es el saldo pendiente > 0 (unpaid + partial), para condiciones
+	// de "quien debe" sin importar si abonó algo.
+	paymentStatus: z.enum(['paid', 'partial', 'unpaid', 'overpaid', 'scholarship', 'owing']).nullish(),
 	maritalStatus: z.enum(['S', 'C', 'D', 'V', 'O']).nullish(),
 	// Confirmación de asistencia (retreat_participant.attendanceConfirmation).
 	attendanceFilter: z.enum(['all', 'pending', 'confirmed', 'declined']).optional(),

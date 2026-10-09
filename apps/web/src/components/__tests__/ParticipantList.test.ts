@@ -141,6 +141,8 @@ vi.mock('lucide-vue-next', () => ({
 	RotateCcw: { template: '<span>rotate</span>' },
 	Send: { template: '<span>send</span>' },
 	Bookmark: { template: '<span>bookmark</span>' },
+	// Imported by the real ParticipantQuickPhoneEditor mounted in the wiring tests.
+	Pencil: { template: '<span>pencil</span>' },
 }));
 
 // Mock child components
@@ -435,6 +437,43 @@ describe('ParticipantList Component', () => {
 
 			// Component should mount without errors
 			expect(newWrapper.exists()).toBe(true);
+
+			newWrapper.unmount();
+		});
+
+		it('excludes columnsExcludedFromFormEdit from the dialog edit list', async () => {
+			// createTestWrapper discards props (see the M3 wiring tests): mount
+			// directly so the column props actually reach the component.
+			const pinia = createPinia();
+			setActivePinia(pinia);
+			const newWrapper = mount(ParticipantList, {
+				props: {
+					type: 'walker',
+					columnsToShowInTable: ['firstName', 'cellPhone', 'palancasNotes'],
+					columnsToEditInForm: ['palancasNotes'],
+					columnsExcludedFromFormEdit: ['cellPhone'],
+				},
+				global: {
+					plugins: [pinia],
+					stubs: { 'router-link': true, 'router-view': true, teleport: true },
+					mocks: {
+						$t: (key: string) => key,
+						$router: { push: vi.fn() },
+						$route: { name: 'palancas', params: {}, query: {} },
+					},
+				},
+			});
+			await flushPromises();
+			await nextTick();
+
+			const editColumns = newWrapper.vm.formColumnsToEdit as string[];
+			// Visible table columns still union into the dialog edit list…
+			expect(editColumns).toContain('firstName');
+			expect(editColumns).toContain('palancasNotes');
+			// …except the ones the caller excluded: cellPhone in Palancas is
+			// owned by the quick editor (per-country validation); the generic
+			// dialog input would save through the unvalidated PUT.
+			expect(editColumns).not.toContain('cellPhone');
 
 			newWrapper.unmount();
 		});
@@ -1214,6 +1253,57 @@ describe('ParticipantList Component', () => {
 			fresh.unmount();
 		});
 
+		it('keeps health keys out of the edit form even when the view lists them as form columns', async () => {
+			// CancellationAndNotesView / NotesAndMeetingPointsView pass `notes` in
+			// their form columns. Without participant:health the form used to show
+			// it, and the API now answers 403 to any save that carries it.
+			const fresh = mount(ParticipantList, {
+				props: {
+					type: 'walker',
+					columnsToShowInForm: ['firstName', 'notes', 'medicationDetails'],
+					columnsToEditInForm: ['firstName', 'notes', 'medicationDetails'],
+				},
+				global: {
+					plugins: [pinia],
+					stubs: { 'router-link': true, 'router-view': true, teleport: true },
+					mocks: {
+						$t: (key: string) => key,
+						$router: { push: vi.fn() },
+						$route: { name: 'walkers', params: {}, query: {} },
+					},
+				},
+			});
+			await flushPromises();
+
+			const setupState = (fresh.vm as any).$.setupState;
+			for (const formColumns of [setupState.formColumnsToShow, setupState.formColumnsToEdit]) {
+				expect(formColumns).toContain('firstName');
+				expect(formColumns).not.toContain('notes');
+				expect(formColumns).not.toContain('medicationDetails');
+			}
+
+			// Positive control: granting the permission brings them back.
+			const { useAuthStore: useAuthStoreImport } = await import('@/stores/authStore');
+			const authStore = useAuthStoreImport();
+			authStore.userProfile = {
+				...(authStore.userProfile as any),
+				roles: [
+					{
+						id: 'role-1',
+						role: { name: 'admin' },
+						retreats: [{ retreatId: 'test-retreat-id' }],
+						globalPermissions: [{ resource: 'participant', operation: 'health' }],
+					},
+				],
+			} as any;
+			await nextTick();
+
+			expect(setupState.formColumnsToShow).toContain('notes');
+			expect(setupState.formColumnsToEdit).toContain('medicationDetails');
+
+			fresh.unmount();
+		});
+
 		it('la auditoría de export no dispara con una clave de salud que la sesión no puede exportar', async () => {
 			// Fixture por defecto: sin participant:health → 'medicationDetails'
 			// no está en allColumns → no puede estar en el archivo exportado,
@@ -1255,6 +1345,73 @@ describe('ParticipantList Component', () => {
 				3,
 				'csv',
 			);
+		});
+	});
+
+	describe('Quick phone edit wiring (inlinePhoneEdit prop)', () => {
+		// createTestWrapper discards props (and swaps the active pinia for a fresh
+		// one), so mount() directly and re-activate the outer pinia before touching
+		// stores — the component below mounts with `plugins: [pinia]` and must read
+		// the same store instances we seed. Same loading-flush mold as the
+		// 'Control de confirmación' describe.
+		const grantParticipantUpdate = async () => {
+			setActivePinia(pinia);
+			const { useAuthStore: useAuthStoreImport } = await import('@/stores/authStore');
+			const authStore = useAuthStoreImport();
+			authStore.userProfile = {
+				...(authStore.userProfile as any),
+				permissions: [{ resource: 'participant', operation: 'update' }],
+			} as any;
+		};
+
+		async function mountWithRows(props: Record<string, any>) {
+			setActivePinia(pinia);
+			const { useParticipantStore } = await import('@/stores/participantStore');
+			const participantStore = useParticipantStore();
+			const w = mount(ParticipantList, {
+				props: { type: 'walker', ...props },
+				global: {
+					plugins: [pinia],
+					stubs: { 'router-link': true, 'router-view': true, teleport: true },
+					mocks: {
+						$t: (key: string) => key,
+						$router: { push: vi.fn() },
+						$route: { name: 'walkers', params: {}, query: {} },
+					},
+				},
+			});
+			await flushPromises();
+			participantStore.loading = false;
+			// The mocked fetch resolved to [] and cleared the seeded rows.
+			participantStore.participants = [
+				createMockParticipant({ id: '1', firstName: 'John', lastName: 'Doe', type: 'walker' }),
+			];
+			await nextTick();
+			return w;
+		}
+
+		it('does not render the inline ✏ without the prop, even with permission', async () => {
+			await grantParticipantUpdate();
+			const newWrapper = await mountWithRows({});
+
+			expect(newWrapper.find('button[title="participants.quickPhones.edit"]').exists()).toBe(false);
+			// The cell still shows the number (createMockParticipant carries 5551234567).
+			expect(newWrapper.text()).toContain('5551234567');
+			newWrapper.unmount();
+		});
+
+		it('renders the inline ✏ with the prop and opens it seeded from the row', async () => {
+			await grantParticipantUpdate();
+			const newWrapper = await mountWithRows({ inlinePhoneEdit: true });
+
+			const pencil = newWrapper.find('button[title="participants.quickPhones.edit"]');
+			expect(pencil.exists()).toBe(true);
+			await pencil.trigger('click');
+
+			const cellInput = newWrapper.find('#qp-cellPhone');
+			expect(cellInput.exists()).toBe(true);
+			expect((cellInput.element as HTMLInputElement).value).toBe('5551234567');
+			newWrapper.unmount();
 		});
 	});
 });

@@ -43,3 +43,34 @@ export const ROLES = {
 } as const;
 
 export type Role = keyof typeof ROLES;
+
+/**
+ * Participant health and emergency-contact fields that only callers with
+ * `participant:health` may read or write. The API strips them from responses
+ * and rejects writes with 403; the web hides their columns and form fields.
+ * One list for both sides: if they drift, the form shows a field whose save
+ * the API rejects.
+ *
+ * Left out on purpose: `snores`/`hasMedication`/`hasDietaryRestrictions`
+ * (booleans the bed assignment reads) and `sacraments` (religious data, not
+ * health) — only the free-text details and the contacts.
+ */
+export const SENSITIVE_HEALTH_FIELDS = [
+	'medicationDetails',
+	'medicationSchedule',
+	'dietaryRestrictionsDetails',
+	'disabilitySupport',
+	'notes',
+	'emergencyContact1Name',
+	'emergencyContact1Relation',
+	'emergencyContact1HomePhone',
+	'emergencyContact1WorkPhone',
+	'emergencyContact1CellPhone',
+	'emergencyContact1Email',
+	'emergencyContact2Name',
+	'emergencyContact2Relation',
+	'emergencyContact2HomePhone',
+	'emergencyContact2WorkPhone',
+	'emergencyContact2CellPhone',
+	'emergencyContact2Email',
+] as const;

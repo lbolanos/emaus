@@ -6,6 +6,8 @@ import {
   createCoupleParticipantSchema,
   validateParticipantPhones,
   normalizeParticipantPhones,
+  resolveCountryToIso,
+  SENSITIVE_HEALTH_FIELDS,
 } from "@repo/types";
 import { z } from "zod";
 import { authorizationService, ensureRetreatAccess } from "../middleware/authorization";
@@ -13,6 +15,10 @@ import { Participant } from "../entities/participant.entity";
 import { participantAvailabilityService } from "../services/participantAvailabilityService";
 import { getParticipantShirtOrderSummary } from "../services/shirtReportService";
 import { domainAuditService, DomainAuditAction } from "../services/domainAuditService";
+// Static on purpose: a dynamic `await import` inside the handler re-loads the
+// module after jest's resetModules, which hands back a fresh AppDataSource the
+// integration tests never swapped to the test database.
+import { findById as findRetreatById } from "../services/retreatService";
 
 const recaptchaService = new RecaptchaService();
 
@@ -54,35 +60,6 @@ function stripScholarshipAmount<T>(data: T): T {
 	}
 	return data;
 }
-
-/**
- * Campos de salud/contacto de emergencia que solo debe ver quien tiene
- * `participant:health` (admin, treasurer, logistics, superadmin,
- * communications desde 2026-10-07: son quienes contactan a las familias y
- * conocen los problemas de los caminantes). Deja fuera
- * a propósito `snores`/`hasMedication`/`hasDietaryRestrictions` (booleanos
- * usados por la asignación de camas, sin ruta protegida hoy) y `sacraments`
- * (dato religioso, no de salud) — solo el detalle libre y los contactos.
- */
-const SENSITIVE_HEALTH_FIELDS = [
-	"medicationDetails",
-	"medicationSchedule",
-	"dietaryRestrictionsDetails",
-	"disabilitySupport",
-	"notes",
-	"emergencyContact1Name",
-	"emergencyContact1Relation",
-	"emergencyContact1HomePhone",
-	"emergencyContact1WorkPhone",
-	"emergencyContact1CellPhone",
-	"emergencyContact1Email",
-	"emergencyContact2Name",
-	"emergencyContact2Relation",
-	"emergencyContact2HomePhone",
-	"emergencyContact2WorkPhone",
-	"emergencyContact2CellPhone",
-	"emergencyContact2Email",
-] as const;
 
 /**
  * Returns true when the request user can read the health/emergency-contact
@@ -678,16 +655,23 @@ export const updateParticipant = async (
       // how other gated fields are handled in this controller.
       delete body.scholarshipAmount;
     }
-    // Mismo gate en escritura que en lectura: quien no tiene
-    // participant:health no puede escribir los campos que tampoco puede ver
-    // (un cliente podría mandarlos explícitamente en el body aunque el GET
-    // nunca se los devolvió).
+    // Same gate on write as on read: without participant:health the caller
+    // cannot write the fields it cannot see. Reject with 403 instead of
+    // stripping like scholarshipAmount: the edit form hides these fields, so
+    // receiving one means a screen forgot the permission, and a silent drop
+    // would answer 200 for an edit that was never saved.
+    // Empty values count too: validateRequest does not replace the raw body on
+    // this route, and the service writes null/'' as NULL, which would erase
+    // data the caller cannot even see.
     const canSeeHealth = await canViewHealthData(req);
     if (!canSeeHealth) {
-      for (const field of SENSITIVE_HEALTH_FIELDS) {
-        if (field in body) {
-          delete (body)[field];
-        }
+      const forbiddenFields = SENSITIVE_HEALTH_FIELDS.filter((field) => field in body);
+      if (forbiddenFields.length > 0) {
+        return res.status(403).json({
+          message:
+            "No tienes permiso para modificar datos de salud ni contactos de emergencia.",
+          fields: forbiddenFields,
+        });
       }
     }
     const updatedParticipant = await participantService.updateParticipant(
@@ -900,6 +884,72 @@ export const updateAttendanceConfirmation = async (
       id,
       retreatId,
       attendanceConfirmation,
+    );
+    res.json(result);
+  } catch (error) {
+    next(error);
+  }
+};
+
+// PATCH /participants/:id/phones — quick phone edit for the palancas view.
+// Country-aware validation mirrors the public registration (createParticipant):
+// validate against the retreat house's country, reject empty required phones
+// ('' cannot clear cellPhone/emergencyContact1CellPhone — both NOT NULL), and
+// let the service canonicalize to the national number before persisting.
+export const updateParticipantPhones = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const { id } = req.params;
+    const { retreatId, ...phones } = req.body;
+
+    const errors: string[] = [];
+    for (const required of ["cellPhone", "emergencyContact1CellPhone"] as const) {
+      if (phones[required] !== undefined && String(phones[required]).trim() === "") {
+        errors.push(
+          `${required}: required — this phone cannot be emptied (it is used for the palancas flow)`,
+        );
+      }
+    }
+    const retreat = await findRetreatById(retreatId);
+    // When the free-text house country resolves to no rule (e.g. "CDMX"),
+    // validateParticipantPhones only checks digits-only. This endpoint exists
+    // to FIX phones, so apply an E.164 floor (6–15 national digits) instead of
+    // persisting an absurd number with a 200.
+    if (!resolveCountryToIso(retreat?.house?.country)) {
+      for (const field of ["cellPhone", "emergencyContact1CellPhone", "emergencyContact2CellPhone"] as const) {
+        const value = phones[field];
+        if (value === undefined || String(value).trim() === "") continue;
+        const digits = String(value).replace(/\D/g, "");
+        if (digits.length < 6 || digits.length > 15) {
+          errors.push(
+            `${field}: phone must have 6-15 digits (the house country has no phone rule)`,
+          );
+        }
+      }
+    }
+    const phoneErrors = validateParticipantPhones(
+      phones,
+      retreat?.house?.country,
+    );
+    if (phoneErrors.length > 0) {
+      errors.push(...phoneErrors.map((e) => `${e.field}: ${e.message}`));
+    }
+    if (errors.length > 0) {
+      return res.status(400).json({ message: "Validation failed", errors });
+    }
+
+    const result = await participantService.updateParticipantPhones(
+      id,
+      retreatId,
+      {
+        cellPhone: phones.cellPhone,
+        emergencyContact1CellPhone: phones.emergencyContact1CellPhone,
+        emergencyContact2CellPhone: phones.emergencyContact2CellPhone,
+      },
+      retreat?.house?.country,
     );
     res.json(result);
   } catch (error) {

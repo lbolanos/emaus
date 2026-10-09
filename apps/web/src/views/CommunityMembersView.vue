@@ -54,6 +54,13 @@
               <Button variant="outline" @click="isDuplicatesOpen = true">
                 <Users class="mr-2 h-4 w-4" />
                 {{ $t('community.duplicates.action') }}
+                <!-- :key remonta el badge tras cada fusión para que el número
+                     baje en vivo; v-if porque el count es owner-only. -->
+                <DuplicateCountBadge
+                  v-if="communityStore.isOwnerOrSuperadmin"
+                  :key="duplicatesVersion"
+                  :community-id="props.id"
+                />
               </Button>
             </TooltipTrigger>
             <TooltipContent>
@@ -583,7 +590,8 @@
     <DuplicateMembersDialog
       v-model:open="isDuplicatesOpen"
       :community-id="props.id"
-      @merged="fetchMembers"
+      @merged="onDuplicatesMerged"
+      @dismissed="onDuplicatesDismissed"
     />
 
     <MessageDialog
@@ -672,6 +680,7 @@ import MemberNotesDialog from '@/components/community/MemberNotesDialog.vue';
 import MemberTimelineDialog from '@/components/community/MemberTimelineDialog.vue';
 import MessageDialog from '@/components/MessageDialog.vue';
 import DuplicateMembersDialog from '@/components/community/DuplicateMembersDialog.vue';
+import DuplicateCountBadge from '@/components/community/DuplicateCountBadge.vue';
 import EditCommunityMemberDialog from '@/components/EditCommunityMemberDialog.vue';
 import MemberAvatar from '@/components/community/MemberAvatar.vue';
 import MemberPhotoDialog from '@/components/community/MemberPhotoDialog.vue';
@@ -731,6 +740,17 @@ const timelineLoading = ref(false);
 const messageParticipant = ref<any>(null);
 const isMessageDialogOpen = ref(false);
 const isDuplicatesOpen = ref(false);
+// Cada fusión remonta el DuplicateCountBadge (:key) para refrescar el número.
+const duplicatesVersion = ref(0);
+const onDuplicatesMerged = () => {
+  fetchMembers();
+  duplicatesVersion.value++;
+};
+// Descartar (o deshacer un descarte) también mueve el conteo pendiente; a
+// diferencia del merge, no toca a los miembros del padrón.
+const onDuplicatesDismissed = () => {
+  duplicatesVersion.value++;
+};
 
 // Edit member profile dialog state. Útil para corregir nombre/apellido/email
 // /teléfono de miembros creados por el bot o importados con datos faltantes.

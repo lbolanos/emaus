@@ -1,8 +1,10 @@
+import { In } from 'typeorm';
 import { AppDataSource } from '../data-source';
 import { Participant } from '../entities/participant.entity';
 import { CommunityMember } from '../entities/communityMember.entity';
 import { CommunityAttendance } from '../entities/communityAttendance.entity';
 import { Retreat } from '../entities/retreat.entity';
+import { CommunityDuplicateDismissal } from '../entities/communityDuplicateDismissal.entity';
 import { normalizePersonName, phoneFingerprint } from '@repo/utils';
 import { domainAuditService, DomainAuditAction } from './domainAuditService';
 
@@ -228,22 +230,38 @@ const countReferences = async (participantId: string): Promise<number> => {
 	return total;
 };
 
+/** Ficha en el ámbito de una comunidad, con lo que hace falta para agrupar. */
+export interface DuplicateScopeRow {
+	id: string;
+	firstName: string;
+	lastName: string;
+	email: string | null;
+	cellPhone: string | null;
+}
+
+export interface DuplicateGroup {
+	/** Por qué se proponen como la misma persona. */
+	matchedBy: DuplicateCandidate['matchedBy'];
+	/** Fichas del grupo, sin repetir, en el orden en que aparecieron en el scope. */
+	rows: DuplicateScopeRow[];
+}
+
 /**
- * Candidatos a duplicado en el ámbito de una comunidad: su padrón más los
- * participantes de los retiros vinculados a ella. Es donde aparece el caso real
- * —alguien inscrito en el retiro y a la vez dado de alta en el padrón— y acota
- * la búsqueda a algo revisable a mano.
+ * Grupos de fichas que comparten huella (email > teléfono > nombre) en el
+ * ámbito de una comunidad: su padrón más los participantes de los retiros
+ * vinculados a ella. Es donde aparece el caso real —alguien inscrito en el
+ * retiro y a la vez dado de alta en el padrón— y acota la búsqueda a algo
+ * revisable a mano.
+ *
+ * Es el paso común entre listar y contar: el badge tiene que proponer
+ * exactamente los mismos pares que el listado, o el número deja de significar
+ * lo mismo que el botón (la lección del badge-vs-ranking de
+ * communityAttendanceStats).
  */
-export const findDuplicateCandidatesForCommunity = async (
+export const loadDuplicateGroups = async (
 	communityId: string,
-): Promise<DuplicateCandidate[]> => {
-	const rows: {
-		id: string;
-		firstName: string;
-		lastName: string;
-		email: string | null;
-		cellPhone: string | null;
-	}[] = await AppDataSource.query(
+): Promise<DuplicateGroup[]> => {
+	const rows: DuplicateScopeRow[] = await AppDataSource.query(
 		`SELECT DISTINCT p.id, p.firstName, p.lastName, p.email, p.cellPhone
 		   FROM participants p
 		  WHERE p.dataDeletedAt IS NULL
@@ -278,9 +296,17 @@ export const findDuplicateCandidatesForCommunity = async (
 
 	const byId = new Map(rows.map((r) => [r.id, r]));
 	const seenPairs = new Set<string>();
-	const candidates: DuplicateCandidate[] = [];
 	const strength = { email: 3, phone: 2, name: 1 } as const;
+	// Pares que el owner descartó ("no son la misma persona"): salen de la
+	// propuesta de una vez — lista, badge y hint beben todos de aquí.
+	const dismissals = await AppDataSource.getRepository(
+		CommunityDuplicateDismissal,
+	).find({ where: { communityId } });
+	const dismissed = new Set(
+		dismissals.map((d) => `${d.participantAId}|${d.participantBId}`),
+	);
 
+	const deduped: DuplicateGroup[] = [];
 	for (const group of [...groups.values()].sort(
 		(a, b) => strength[b.matchedBy] - strength[a.matchedBy],
 	)) {
@@ -288,26 +314,49 @@ export const findDuplicateCandidatesForCommunity = async (
 		if (ids.length < 2) continue;
 		const signature = [...ids].sort().join('|');
 		if (seenPairs.has(signature)) continue;
+		// Sólo pares de exactamente 2 se descartan: tirar un grupo de 3+ en
+		// bloque escondería pares verdaderos entre sus miembros.
+		if (ids.length === 2 && dismissed.has(signature)) continue;
 		seenPairs.add(signature);
+		deduped.push({
+			matchedBy: group.matchedBy,
+			rows: ids.map((id) => byId.get(id)!),
+		});
+	}
 
+	return deduped;
+};
+
+/**
+ * Los grupos de `loadDuplicateGroups` enriquecidos con lo que sirve para
+ * ELEGIR superviviente: referencias totales, si tiene usuario y si es miembro
+ * del padrón. Es lo caro del listado (una pasada de queries por ficha) y no
+ * hace falta para contar.
+ */
+export const findDuplicateCandidatesForCommunity = async (
+	communityId: string,
+): Promise<DuplicateCandidate[]> => {
+	const groups = await loadDuplicateGroups(communityId);
+	const candidates: DuplicateCandidate[] = [];
+
+	for (const group of groups) {
 		const participants = [];
-		for (const id of ids) {
-			const row = byId.get(id)!;
+		for (const row of group.rows) {
 			const [userRow] = await AppDataSource.query(
 				`SELECT COUNT(*) AS c FROM "users" WHERE "participantId" = ?`,
-				[id],
+				[row.id],
 			);
 			const [memberRow] = await AppDataSource.query(
 				`SELECT COUNT(*) AS c FROM "community_member" WHERE "participantId" = ? AND "communityId" = ?`,
-				[id, communityId],
+				[row.id, communityId],
 			);
 			participants.push({
-				id,
+				id: row.id,
 				firstName: row.firstName,
 				lastName: row.lastName,
 				email: row.email,
 				cellPhone: row.cellPhone,
-				references: await countReferences(id),
+				references: await countReferences(row.id),
 				hasUser: Number(userRow.c) > 0,
 				isCommunityMember: Number(memberRow.c) > 0,
 			});
@@ -318,6 +367,119 @@ export const findDuplicateCandidatesForCommunity = async (
 	}
 
 	return candidates;
+};
+
+/**
+ * Cuántos pares hay pendientes, para el badge del botón "Duplicados". Recorre
+ * el mismo `loadDuplicateGroups` que el listado — nunca un atajo propio — así
+ * el número significa exactamente lo que el botón abre.
+ */
+export const countDuplicateCandidatesForCommunity = async (
+	communityId: string,
+): Promise<number> => (await loadDuplicateGroups(communityId)).length;
+
+// --- Descartes de falsos positivos ---
+
+/** Par canónico: el id menor primero. Así A,B y B,A son la misma fila. */
+const canonicalPair = (a: string, b: string): [string, string] => (a < b ? [a, b] : [b, a]);
+
+export interface DuplicateDismissalView {
+	id: string;
+	participantA: { id: string; firstName: string; lastName: string };
+	participantB: { id: string; firstName: string; lastName: string };
+	createdAt: Date;
+}
+
+/** Nombres de las fichas de varios descartes en UNA query — la sección de
+ *  "pares descartados" puede traer varias filas. */
+const dismissalsToViews = async (
+	rows: CommunityDuplicateDismissal[],
+): Promise<DuplicateDismissalView[]> => {
+	if (rows.length === 0) return [];
+	const ids = [...new Set(rows.flatMap((r) => [r.participantAId, r.participantBId]))];
+	const participants = await AppDataSource.getRepository(Participant).find({
+		where: { id: In(ids) },
+	});
+	const byId = new Map(participants.map((p) => [p.id, p]));
+	const nameOf = (id: string) => {
+		const p = byId.get(id);
+		return { id, firstName: p?.firstName ?? '', lastName: p?.lastName ?? '' };
+	};
+	return rows.map((row) => ({
+		id: row.id,
+		participantA: nameOf(row.participantAId),
+		participantB: nameOf(row.participantBId),
+		createdAt: row.createdAt,
+	}));
+};
+
+/**
+ * Marca un par como "no son la misma persona". Canonicaliza el orden en el
+ * servidor (A < B) y es idempotente: repetir el dismiss devuelve la fila
+ * existente, no un error — el undo es explícito (DELETE), no repetir al revés.
+ */
+export const dismissDuplicatePair = async (
+	communityId: string,
+	participantAId: string,
+	participantBId: string,
+	dismisserId?: string | null,
+): Promise<DuplicateDismissalView> => {
+	// Primero la presencia: con ambos ids ausentes, `a === b` evalúa true y el
+	// error de self-comparison mentiría sobre lo que falló.
+	if (!participantAId || !participantBId) {
+		throw new ParticipantMergeError('Faltan las fichas del par a descartar');
+	}
+	if (participantAId === participantBId) {
+		throw new ParticipantMergeError('No se puede descartar una ficha consigo misma');
+	}
+	const [a, b] = canonicalPair(participantAId, participantBId);
+	const repo = AppDataSource.getRepository(CommunityDuplicateDismissal);
+	const where = { communityId, participantAId: a, participantBId: b };
+
+	const existing = await repo.findOneBy(where);
+	if (existing) return (await dismissalsToViews([existing]))[0];
+
+	const found = await AppDataSource.getRepository(Participant).find({
+		where: { id: In([a, b]) },
+	});
+	if (found.length < 2) throw new ParticipantMergeError('Alguna de las dos fichas no existe');
+
+	try {
+		const saved = await repo.save(
+			repo.create({ ...where, dismisserId: dismisserId ?? null }),
+		);
+		return (await dismissalsToViews([saved]))[0];
+	} catch (error) {
+		// Carrera (doble clic, dos pestañas): el UNIQUE (comunidad, par) ganó.
+		// Devolver la fila existente es la idempotencia prometida.
+		const raced = await repo.findOneBy(where);
+		if (raced) return (await dismissalsToViews([raced]))[0];
+		throw error;
+	}
+};
+
+/** Pares descartados de la comunidad, con nombres para reconocerlos. */
+export const listDuplicateDismissals = async (
+	communityId: string,
+): Promise<DuplicateDismissalView[]> => {
+	const rows = await AppDataSource.getRepository(CommunityDuplicateDismissal).find({
+		where: { communityId },
+		order: { createdAt: 'DESC' },
+	});
+	return dismissalsToViews(rows);
+};
+
+/** Deshace un descarte: el par vuelve a proponerse. */
+export const undoDuplicateDismissal = async (
+	communityId: string,
+	dismissalId: string,
+): Promise<void> => {
+	const repo = AppDataSource.getRepository(CommunityDuplicateDismissal);
+	const row = await repo.findOneBy({ id: dismissalId });
+	if (!row || row.communityId !== communityId) {
+		throw new ParticipantMergeError('El descarte no existe en esta comunidad');
+	}
+	await repo.delete({ id: dismissalId });
 };
 
 export interface MergeMove {
@@ -354,6 +516,11 @@ export interface MergePreview {
 const label = (p: Participant) => `${p.firstName ?? ''} ${p.lastName ?? ''}`.trim();
 
 const loadPair = async (keepId: string, mergeId: string) => {
+	// Mismo guard de presencia que dismissDuplicatePair: ids ausentes no son
+	// "consigo misma".
+	if (!keepId || !mergeId) {
+		throw new ParticipantMergeError('Faltan las fichas a fusionar');
+	}
 	if (keepId === mergeId) {
 		throw new ParticipantMergeError('No se puede fusionar una ficha consigo misma');
 	}

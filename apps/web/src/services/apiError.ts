@@ -27,6 +27,9 @@ export function serverErrorMessage(err: any): string | null {
 
   const firstZod = (arr: any[]): string => {
     const e = arr[0];
+    // Plain-string entries (e.g. the phones PATCH 400s) carry the detail
+    // themselves — use them instead of collapsing to just data.message.
+    if (typeof e === 'string') return e.trim();
     const path = Array.isArray(e?.path)
       ? e.path.filter((p: any) => p !== "body").join(".")
       : "";
