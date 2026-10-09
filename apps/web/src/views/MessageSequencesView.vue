@@ -828,6 +828,7 @@ const queueAssignFilter = ref<'active' | 'mine' | 'unassigned' | 'paused' | 'all
 const queueTemplateFilter = ref<string>('all');
 const queueMenuOpen = ref(false); // menú de acciones (solo móvil) en Pendientes
 const issuesMenuOpen = ref(false); // menú de acciones masivas (solo móvil) en Problemas
+const schedMenuOpen = ref(false); // menú de filtros (solo móvil) en Programadas
 
 const sortedQueue = computed(() => {
 	const items = [...queue.value];
@@ -2190,14 +2191,78 @@ async function toggleDoNotContact() {
 
 			<!-- Tab: Programados (mensajes materializados, con la fecha en que saldrán/salieron) -->
 			<div v-show="activeTab === 'scheduled'" role="tabpanel" id="seq-panel-scheduled" aria-labelledby="seq-tab-scheduled">
-				<!-- Filtros server-side: búsqueda con debounce + estado + orden -->
-				<div class="flex items-center gap-2 mb-2 flex-wrap">
+				<!-- Filtros server-side: búsqueda con debounce + (móvil) menú de acciones -->
+				<div class="flex items-center gap-2 mb-2">
 					<input
 						v-model="schedSearch"
 						type="search"
 						:placeholder="t('sequences.searchPlaceholder')"
-						class="flex-1 min-w-40 p-2 border rounded-md text-sm"
+						class="flex-1 min-w-0 p-2 border rounded-md text-sm"
 					/>
+					<!-- Escape en el wrapper: cubre el foco en el botón (tras el click) y
+					     en cualquier select del panel (el keydown burbujea). -->
+					<div class="relative sm:hidden" @keydown.escape="schedMenuOpen = false">
+						<Button
+							variant="outline"
+							size="icon"
+							:aria-label="t('sequences.filtersAction')"
+							:aria-expanded="schedMenuOpen"
+							@click="schedMenuOpen = !schedMenuOpen"
+						>
+							<MoreVertical class="w-4 h-4" />
+						</Button>
+						<div v-if="schedMenuOpen" class="fixed inset-0 z-10" @click="schedMenuOpen = false" />
+						<div
+							v-if="schedMenuOpen"
+							class="absolute right-0 mt-1 z-20 w-64 bg-white border rounded-md shadow-lg p-3 space-y-3"
+						>
+							<label class="block text-sm text-gray-700">
+								{{ t('sequences.schedStatusLabel') }}
+								<select v-model="schedStatus" class="w-full mt-1 p-2 border rounded-md text-sm bg-white">
+									<option v-for="s in SCHED_STATUSES" :key="s" :value="s">
+										{{ t('sequences.statuses.' + s) }}
+									</option>
+								</select>
+							</label>
+							<label class="block text-sm text-gray-700">
+								{{ t('sequences.sortLabel') }}
+								<select v-model="schedOrder" class="w-full mt-1 p-2 border rounded-md text-sm bg-white">
+									<option value="scheduled">{{ t('sequences.sort.scheduled') }}</option>
+									<option value="recent">{{ t('sequences.sort.recent') }}</option>
+								</select>
+							</label>
+							<!-- M6: filtros server-side (plantilla/asignado) + page size. -->
+							<label class="block text-sm text-gray-700">
+								{{ t('sequences.filter.template') }}
+								<select v-model="schedTemplateFilter" class="w-full mt-1 p-2 border rounded-md text-sm bg-white">
+									<option value="all">{{ t('sequences.filter.allTemplates') }}</option>
+									<option v-for="opt in schedTemplateOptions" :key="opt.value" :value="opt.value">
+										{{ opt.label }}
+									</option>
+								</select>
+							</label>
+							<label class="block text-sm text-gray-700">
+								{{ t('sequences.filterLabel') }}
+								<select v-model="schedAssignFilter" class="w-full mt-1 p-2 border rounded-md text-sm bg-white">
+									<option value="all">{{ t('sequences.filter.all') }}</option>
+									<option value="unassigned">{{ t('sequences.filter.unassigned') }}</option>
+									<option v-for="a in schedAssigneeOptions" :key="a.id" :value="`user:${a.id}`">
+										{{ t('sequences.filter.assignee', { name: a.name }) }}
+									</option>
+								</select>
+							</label>
+							<label class="block text-sm text-gray-700">
+								{{ t('sequences.pageSizeLabel') }}
+								<select v-model="schedPageSize" class="w-full mt-1 p-2 border rounded-md text-sm bg-white">
+									<option v-for="n in PAGE_SIZE_OPTIONS" :key="n" :value="n">{{ n }}</option>
+									<option value="all">{{ t('sequences.pageSizeAll') }}</option>
+								</select>
+							</label>
+						</div>
+					</div>
+				</div>
+				<!-- Controles inline (escritorio) -->
+				<div class="hidden sm:flex items-center justify-end flex-wrap gap-2 mb-2">
 					<label class="flex items-center gap-1.5 text-xs text-gray-600">
 						{{ t('sequences.schedStatusLabel') }}
 						<select v-model="schedStatus" class="p-1 border rounded-md text-xs bg-white">
@@ -2213,7 +2278,6 @@ async function toggleDoNotContact() {
 							<option value="recent">{{ t('sequences.sort.recent') }}</option>
 						</select>
 					</label>
-					<!-- M6: filtros server-side (plantilla/asignado) + page size. -->
 					<label class="flex items-center gap-1.5 text-xs text-gray-600">
 						{{ t('sequences.filter.template') }}
 						<select v-model="schedTemplateFilter" class="p-1 border rounded-md text-xs bg-white">
@@ -2446,11 +2510,12 @@ async function toggleDoNotContact() {
 						:placeholder="t('sequences.searchPlaceholder')"
 						class="flex-1 min-w-0 p-2 border rounded-md text-sm"
 					/>
-					<div class="relative sm:hidden">
+					<div class="relative sm:hidden" @keydown.escape="queueMenuOpen = false">
 						<Button
 							variant="outline"
 							size="icon"
 							:aria-label="t('sequences.moreActions')"
+							:aria-expanded="queueMenuOpen"
 							@click="queueMenuOpen = !queueMenuOpen"
 						>
 							<MoreVertical class="w-4 h-4" />
@@ -2785,11 +2850,12 @@ async function toggleDoNotContact() {
 						:placeholder="t('sequences.searchPlaceholder')"
 						class="flex-1 min-w-0 p-2 border rounded-md text-sm"
 					/>
-					<div class="relative sm:hidden">
+					<div class="relative sm:hidden" @keydown.escape="issuesMenuOpen = false">
 						<Button
 							variant="outline"
 							size="icon"
 							:aria-label="t('sequences.moreActions')"
+							:aria-expanded="issuesMenuOpen"
 							@click="issuesMenuOpen = !issuesMenuOpen"
 						>
 							<MoreVertical class="w-4 h-4" />

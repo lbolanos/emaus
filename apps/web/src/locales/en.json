@@ -3201,6 +3201,7 @@
     },
     "searchPlaceholder": "Search by name, template or recipient…",
     "moreActions": "More actions",
+    "filtersAction": "Filters",
     "searchNoResults": "No results for your search",
     "bulkRetry": "Resend all",
     "bulkDiscard": "Discard all",

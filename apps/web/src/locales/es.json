@@ -3525,6 +3525,7 @@
     },
     "searchPlaceholder": "Buscar por nombre, plantilla o destinatario…",
     "moreActions": "Más acciones",
+    "filtersAction": "Filtros",
     "searchNoResults": "Sin resultados para la búsqueda",
     "bulkRetry": "Reenviar todos",
     "bulkDiscard": "Descartar todos",

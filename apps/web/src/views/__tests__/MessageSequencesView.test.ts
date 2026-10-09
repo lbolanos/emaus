@@ -1402,6 +1402,42 @@ describe('MessageSequencesView — Programadas: filtros server-side y acciones d
 		const btn = panel.findAll('button').find((b) => b.attributes('title') === 'Ver conversación en WhatsApp');
 		expect(btn).toBeUndefined();
 	});
+
+	it('menú "⋯" de Programadas (móvil): abre los 5 filtros; backdrop y Escape cierran', async () => {
+		const wrapper = await mountView();
+		const panel = wrapper.find('#seq-panel-scheduled');
+
+		// Cerrado: sólo el toolbar desktop — el menú móvil es v-if (molde bandeja).
+		expect(panel.findAll('select')).toHaveLength(5);
+
+		// El botón ⋯ de Programadas dice "Filtros" (abre filtros, no acciones)
+		// y expone su estado (a11y, igual que los otros dos menús del tablist).
+		// Se re-encuentra tras cada re-render: abrir el menú reemplaza el nodo
+		// y el wrapper previo queda stale (mismo molde que el test "Ver pasos").
+		const findByLabel = () => panel.findAll('button').find((b) => b.attributes('aria-label') === 'Filtros');
+		const more = findByLabel();
+		expect(more).toBeTruthy();
+		expect(more!.attributes('aria-expanded')).toBe('false');
+		await more!.trigger('click');
+		await flushPromises();
+		expect(findByLabel()!.attributes('aria-expanded')).toBe('true');
+		// Abierto: los mismos 5 selects duplicados en el menú (Estado, Orden,
+		// Plantilla, Mostrar, Por página).
+		expect(panel.findAll('select')).toHaveLength(10);
+
+		// El backdrop cierra el menú sin tocar los selects.
+		await panel.find('div.fixed.inset-0.z-10').trigger('click');
+		await flushPromises();
+		expect(panel.findAll('select')).toHaveLength(5);
+		expect(findByLabel()!.attributes('aria-expanded')).toBe('false');
+
+		// Escape también cierra (keydown burbujea al wrapper desde el botón).
+		await findByLabel()!.trigger('click');
+		await flushPromises();
+		await findByLabel()!.trigger('keydown', { key: 'Escape' });
+		await flushPromises();
+		expect(panel.findAll('select')).toHaveLength(5);
+	});
 });
 
 describe('MessageSequencesView — Problemas: filtros, page size y acciones de fila (v1.1 M7)', () => {

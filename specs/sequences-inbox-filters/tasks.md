@@ -155,6 +155,17 @@ screenshots desktop y móvil verificados). Desviaciones:
 
 > Desviaciones M6: (1) sin menú móvil — Programadas nunca tuvo el menú ⋯ de la bandeja; sus
 > controles viven en el toolbar `flex-wrap` que ya es responsive, y ahí quedaron los 3 selects.
+> **Adenda 2026-10-09**: la desviación (1) se revirtió por pedido del usuario («en programadas
+> colocar las acciones dentro de botón tres puntos así como en bandeja»): Programadas ahora
+> calca el molde bandeja — buscador + botón ⋯ móvil (panel con los 5 selects, backdrop que
+> cierra) y toolbar desktop `hidden sm:flex`. De paso se scopeó el helper e2e `queueControls`
+> a `#seq-panel-pending` (con 3 botones "Más acciones" en el DOM v-show, el locator global
+> habría dado strict mode violation). Verificado: vitest 60/60, build verde, e2e 8/8 chromium.
+> De paso, a11y en los tres menús ⋯: `aria-expanded` + cierre con Escape en el wrapper del
+> botón (cubre también el foco dentro de los selects); Programadas usa label propio
+> `sequences.filtersAction` («Filtros») porque abre filtros, no acciones. El test estructural
+> re-encuentra el botón tras cada re-render: abrir el menú reemplaza el nodo y el wrapper
+> previo queda stale (mismo molde que el test «Ver pasos» del archivo).
 > (2) Las opciones de Plantilla/Asignado salen de las filas traídas SIN conteo (server-side,
 > el conteo de la página actual sería parcial y engañoso) y la opción activa se auto-mantiene
 > si el filtrado la vació, para que el select no "salte" solo. (3) Cero keys i18n nuevas:

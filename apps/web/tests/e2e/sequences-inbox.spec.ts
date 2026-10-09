@@ -399,13 +399,17 @@ async function createFilterScenario(
  * Scope of the pending-tab selects: the inline desktop toolbar, or the "⋯"
  * menu (which has to be opened first) on the mobile projects — the toolbar
  * itself is in the DOM at every breakpoint, but hidden below `sm`.
+ * Scoped to the pending panel: every tab has its own "Más acciones" button
+ * and `hidden sm:flex` toolbar in the DOM (the tab panels are v-show), so a
+ * page-wide locator would hit strict mode violations.
  */
 async function queueControls(page: Page, isMobile: boolean | undefined) {
+	const panel = page.locator('#seq-panel-pending');
 	if (isMobile) {
-		await page.getByRole('button', { name: 'Más acciones' }).click();
-		return page.locator('div.z-20.w-64');
+		await panel.getByRole('button', { name: 'Más acciones' }).click();
+		return panel.locator('div.z-20.w-64');
 	}
-	return page.locator('div.hidden.sm\\:flex');
+	return panel.locator('div.hidden.sm\\:flex');
 }
 
 /** Opens the sequences view on the pending tab, logged in, retreat preselected. */
