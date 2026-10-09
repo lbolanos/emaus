@@ -3,7 +3,7 @@ import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useI18n } from 'vue-i18n';
 import { useToast, Button, Input } from '@repo/ui';
-import { Plus, Trash2, X, Play, Pencil, Send, Clock, AlertTriangle, Globe, RefreshCw, MoreVertical, CalendarDays, MessageCircle, Power, Copy, ChevronDown } from 'lucide-vue-next';
+import { Plus, Trash2, X, Play, Pencil, Send, Clock, AlertTriangle, Globe, RefreshCw, SlidersHorizontal, CalendarDays, MessageCircle, Power, Copy, ChevronDown } from 'lucide-vue-next';
 import { useRetreatStore } from '@/stores/retreatStore';
 import { useParticipantStore } from '@/stores/participantStore';
 import { useMessageSequenceStore } from '@/stores/messageSequenceStore';
@@ -13,7 +13,7 @@ import { useResponsabilityStore } from '@/stores/responsabilityStore';
 import { useAuthStore } from '@/stores/authStore';
 import { convertHtmlToWhatsApp, replaceAllVariables } from '@/utils/message';
 import type { ParticipantData, RetreatData } from '@/utils/message';
-import { buildWhatsAppSendLink } from '@/utils/phone';
+import { buildWhatsAppSendLink, buildWhatsAppChatLink } from '@/utils/phone';
 import { clampStepRanges } from '@/utils/sequenceStepInput';
 import { getMessageTemplateAudience } from '@repo/types';
 // #8: catálogos y helpers del editor compartidos con la vista global de
@@ -40,6 +40,9 @@ import {
 import type { SequenceStepPreview, SequencePastStep } from '@repo/types';
 import { previewSequenceStep, previewSequenceSchedule, listPastDueSequenceSteps } from '@/services/api';
 import { useModalA11y } from '@/composables/useModalA11y';
+import { useParticipantInsights } from '@/composables/useParticipantInsights';
+// Ficha del participante en la bandeja: variante 'icon' (botón ⓘ suelto).
+import ParticipantInfoPopover from '@/components/ParticipantInfoPopover.vue';
 
 const { t } = useI18n();
 const { toast } = useToast();
@@ -791,16 +794,62 @@ function onTablistKeydown(e: KeyboardEvent) {
 	e.preventDefault();
 	switchTab(TAB_KEYS[next]);
 }
-const QUEUE_PAGE_SIZE = 10;
+// Mensajes por página: uno de la lista, o 'all' (todo en una sola página —
+// en Programadas el server la sirve con su cap de 200). Se recuerda por
+// navegador; el valor guardado se sanitiza al leerlo.
+const PAGE_SIZE_OPTIONS = [5, 10, 50, 100] as const;
+function loadStoredPageSize(key: string, fallback: number): number | 'all' {
+	try {
+		const raw = localStorage.getItem(key);
+		if (raw === 'all') return 'all';
+		const n = Number(raw);
+		return (PAGE_SIZE_OPTIONS as readonly number[]).includes(n) ? n : fallback;
+	} catch {
+		return fallback; // localStorage bloqueado (Safari privado): default en memoria
+	}
+}
+const queuePageSize = ref<number | 'all'>(loadStoredPageSize('seq.queuePageSize', 10));
+watch(queuePageSize, (v) => {
+	try {
+		localStorage.setItem('seq.queuePageSize', String(v));
+	} catch {
+		/* no bloqueante */
+	}
+});
 const queuePage = ref(1);
 const queueSort = ref<'scheduled' | 'name' | 'template' | 'recent' | 'sequence' | 'palanquero'>('scheduled');
 const queueSearch = ref('');
 // 'active' (default): la bandeja es la lista de trabajo y los pausados (secuencia
 // desactivada) no se van a enviar — se ocultan. 'paused' los aísla para revisarlos;
-// 'all' es todo lo que hay.
-const queueAssignFilter = ref<'active' | 'mine' | 'unassigned' | 'paused' | 'all'>('active');
-const queueMenuOpen = ref(false); // menú de acciones (solo móvil) en Pendientes
-const issuesMenuOpen = ref(false); // menú de acciones masivas (solo móvil) en Problemas
+// 'all' es todo lo que hay. `user:<id>` filtra por un asignado concreto.
+const queueAssignFilter = ref<'active' | 'mine' | 'unassigned' | 'paused' | 'all' | `user:${string}`>('active');
+// Filtro por plantilla: 'all', o la clave de plantilla del ítem (el id del paso
+// si lo fijó, si no su tipo — misma jerarquía que el motor al resolver).
+const queueTemplateFilter = ref<string>('all');
+// Filtro por secuencia: 'all' o el sequenceId del ítem (la bandeja ya se podía
+// ORDENAR por secuencia; filtrarla aísla el trabajo de una sola).
+const queueSequenceFilter = ref<string>('all');
+// Popover «Filtros» de cada pestaña (móvil y escritorio; en móvil también
+// lleva el orden y las acciones que en escritorio van en la barra).
+const queueMenuOpen = ref(false);
+const issuesMenuOpen = ref(false);
+const schedMenuOpen = ref(false);
+
+// Chips de filtros aplicados (molde Polaris IndexFilters): con los filtros
+// dentro del popover, cada uno aplicado queda a la vista y removible, y su
+// cantidad es el badge del botón «Filtros».
+type FilterChip = { key: string; label: string; tone: string; clear: () => void };
+const CHIP_TONE = {
+	sequence: 'bg-blue-100 text-blue-700',
+	participant: 'bg-violet-100 text-violet-700',
+	template: 'bg-emerald-100 text-emerald-700',
+	assign: 'bg-amber-100 text-amber-700',
+	// Blanco con borde: el fondo de la página ya es gris y un chip gris se pierde.
+	neutral: 'bg-white text-gray-700 ring-1 ring-inset ring-gray-300',
+} as const;
+function clearFilterChips(chips: FilterChip[]) {
+	for (const chip of chips) chip.clear();
+}
 
 const sortedQueue = computed(() => {
 	const items = [...queue.value];
@@ -830,6 +879,124 @@ const sortedQueue = computed(() => {
 	if (queueSort.value === 'recent') return items.sort((a, b) => time(b) - time(a));
 	return items.sort((a, b) => time(a) - time(b)); // 'scheduled': por fecha programada
 });
+// Clave de plantilla de un ítem de la bandeja: la plantilla concreta del paso
+// (`step` viene en el payload) si el paso la fijó, si no su tipo (ítems legacy
+// o con plantilla borrada). Es la misma jerarquía que el motor al resolver.
+function queueTemplateKey(it: any): string {
+	if (it.step?.templateId) return it.step.templateId;
+	return it.templateType ? `type:${it.templateType}` : '';
+}
+
+// Opciones del filtro "Plantilla": una por plantilla presente en la bandeja
+// (sobre los ítems no pausados — el trabajo real), con su conteo.
+const queueTemplateOptions = computed(() => {
+	const map = new Map<string, { label: string; count: number }>();
+	for (const it of queue.value as any[]) {
+		if (pausedSequence(it)) continue;
+		const key = queueTemplateKey(it);
+		if (!key) continue;
+		const prev = map.get(key);
+		if (prev) prev.count += 1;
+		else map.set(key, { label: itemTemplateName(it), count: 1 });
+	}
+	return Array.from(map.entries())
+		.map(([value, { label, count }]) => ({ value, label, count }))
+		.sort((a, b) => a.label.localeCompare(b.label, 'es'));
+});
+
+// Asignados presentes en la bandeja (no pausados), con conteo — las opciones
+// dinámicas del select "Mostrar": "Asignado: {nombre} (n)".
+const queueAssigneeOptions = computed(() => {
+	const counts = new Map<string, number>();
+	const names = new Map<string, string>();
+	for (const it of queue.value as any[]) {
+		if (pausedSequence(it) || !it.assignedTo) continue;
+		counts.set(it.assignedTo, (counts.get(it.assignedTo) || 0) + 1);
+		if (it.assignedToName) names.set(it.assignedTo, it.assignedToName);
+	}
+	return Array.from(counts.entries())
+		.map(([id, count]) => ({
+			id,
+			// Sin nombre resuelto (usuario eliminado): etiqueta genérica.
+			name: names.get(id) || t('sequences.assigned'),
+			count,
+		}))
+		.sort((a, b) => a.name.localeCompare(b.name, 'es'));
+});
+
+// Secuencias presentes en la bandeja (no pausados — el trabajo real), con
+// conteo: opciones del select "Secuencia" (molde queueTemplateOptions).
+const queueSequenceOptions = computed(() => {
+	const counts = new Map<string, number>();
+	for (const it of queue.value as any[]) {
+		if (pausedSequence(it) || !it.sequenceId) continue;
+		counts.set(it.sequenceId, (counts.get(it.sequenceId) || 0) + 1);
+	}
+	return Array.from(counts.entries())
+		.map(([value, count]) => ({ value, count, label: seqName(value) }))
+		.filter((o) => o.label)
+		.sort((a, b) => a.label.localeCompare(b.label, 'es'));
+});
+const queueFilterChips = computed<FilterChip[]>(() => {
+	const chips: FilterChip[] = [];
+	const show = queueAssignFilter.value;
+	if (show !== 'active') {
+		const uid = show.startsWith('user:') ? show.slice('user:'.length) : null;
+		chips.push({
+			key: 'assign',
+			label: uid
+				? t('sequences.filter.assignee', {
+						name: queueAssigneeOptions.value.find((a) => a.id === uid)?.name || t('sequences.assigned'),
+					})
+				: `${t('sequences.filterLabel')}: ${t('sequences.filter.' + show)}`,
+			tone: CHIP_TONE.assign,
+			clear: () => (queueAssignFilter.value = 'active'),
+		});
+	}
+	if (queueTemplateFilter.value !== 'all') {
+		const label = queueTemplateOptions.value.find((o) => o.value === queueTemplateFilter.value)?.label || '';
+		chips.push({
+			key: 'template',
+			label: `${t('sequences.filter.template')}: ${label}`,
+			tone: CHIP_TONE.template,
+			clear: () => (queueTemplateFilter.value = 'all'),
+		});
+	}
+	if (queueSequenceFilter.value !== 'all') {
+		chips.push({
+			key: 'sequence',
+			label: `${t('sequences.filter.sequence')}: ${seqName(queueSequenceFilter.value)}`,
+			tone: CHIP_TONE.sequence,
+			clear: () => (queueSequenceFilter.value = 'all'),
+		});
+	}
+	return chips;
+});
+
+// Filtros dinámicos que quedaron huérfanos (salió de la bandeja el último ítem
+// de esa plantilla, secuencia o asignado): volver al default en vez de dejar una
+// lista vacía sin explicación.
+watch(queue, () => {
+	if (
+		queueTemplateFilter.value !== 'all' &&
+		!queueTemplateOptions.value.some((o) => o.value === queueTemplateFilter.value)
+	) {
+		queueTemplateFilter.value = 'all';
+	}
+	if (
+		queueSequenceFilter.value !== 'all' &&
+		!queueSequenceOptions.value.some((o) => o.value === queueSequenceFilter.value)
+	) {
+		queueSequenceFilter.value = 'all';
+	}
+	if (
+		String(queueAssignFilter.value).startsWith('user:') &&
+		!queueAssigneeOptions.value.some((a) => `user:${a.id}` === queueAssignFilter.value)
+	) {
+		queueAssignFilter.value = 'active';
+	}
+});
+
 // Filtro por texto: nombre del participante, plantilla o destinatario.
 const filteredQueue = computed(() => {
 	let items = sortedQueue.value;
@@ -839,11 +1006,22 @@ const filteredQueue = computed(() => {
 	} else if (queueAssignFilter.value !== 'all') {
 		items = items.filter((it: any) => !pausedSequence(it));
 	}
-	// Filtro por asignación: míos / sin asignar (sobre los no pausados).
+	// Filtro por asignación: míos / sin asignar / un asignado concreto.
 	if (queueAssignFilter.value === 'mine') {
 		items = items.filter((it: any) => it.assignedTo === myUserId.value);
 	} else if (queueAssignFilter.value === 'unassigned') {
 		items = items.filter((it: any) => !it.assignedTo);
+	} else if (queueAssignFilter.value.startsWith('user:')) {
+		const uid = queueAssignFilter.value.slice('user:'.length);
+		items = items.filter((it: any) => it.assignedTo === uid);
+	}
+	// Filtro por plantilla.
+	if (queueTemplateFilter.value !== 'all') {
+		items = items.filter((it: any) => queueTemplateKey(it) === queueTemplateFilter.value);
+	}
+	// Filtro por secuencia.
+	if (queueSequenceFilter.value !== 'all') {
+		items = items.filter((it: any) => it.sequenceId === queueSequenceFilter.value);
 	}
 	// Filtro por texto.
 	const q = queueSearch.value.trim().toLowerCase();
@@ -858,7 +1036,13 @@ const filteredQueue = computed(() => {
 	}
 	return items;
 });
-const queueTotalPages = computed(() => Math.max(1, Math.ceil(filteredQueue.value.length / QUEUE_PAGE_SIZE)));
+// Tamaño efectivo de página: 'all' usa toda la lista filtrada.
+const effectiveQueuePageSize = computed(() =>
+	queuePageSize.value === 'all' ? filteredQueue.value.length || 1 : queuePageSize.value,
+);
+const queueTotalPages = computed(() =>
+	Math.max(1, Math.ceil(filteredQueue.value.length / effectiveQueuePageSize.value)),
+);
 // Contador del TAB: trabajo real en la bandeja — los pausados no se envían,
 // no cuentan (se ven dentro con el filtro "Pausados").
 const activeQueueCount = computed(
@@ -872,10 +1056,16 @@ const pausedHiddenCount = computed(() =>
 		: queue.value.length - activeQueueCount.value,
 );
 const pagedQueue = computed(() =>
-	filteredQueue.value.slice((queuePage.value - 1) * QUEUE_PAGE_SIZE, queuePage.value * QUEUE_PAGE_SIZE),
+	filteredQueue.value.slice(
+		(queuePage.value - 1) * effectiveQueuePageSize.value,
+		queuePage.value * effectiveQueuePageSize.value,
+	),
 );
-// Volver a página 1 al reordenar o buscar; reajustar si la cola se achica.
-watch([queueSort, queueSearch, queueAssignFilter], () => (queuePage.value = 1));
+// Volver a página 1 al reordenar, buscar o cambiar filtros/tamaño; reajustar
+// si la cola se achica.
+watch([queueSort, queueSearch, queueAssignFilter, queueTemplateFilter, queueSequenceFilter, queuePageSize], () => {
+	queuePage.value = 1;
+});
 watch(
 	() => queue.value.length,
 	() => {
@@ -892,11 +1082,28 @@ const SCHED_STATUSES = ['pending', 'queued', 'sent', 'skipped', 'failed', 'cance
 const schedSearch = ref('');
 const schedSearchDebounced = ref('');
 const schedStatus = ref<string>('pending');
-const schedOrder = ref<'scheduled' | 'recent'>('scheduled');
+const schedOrder = ref<'scheduled' | 'recent' | 'name' | 'sequence'>('scheduled');
 const schedSequenceFilter = ref<string | null>(null); // chip de secuencia (badge clickeable)
 // Chip de participante (#9): histórico de un participante. Se fija al hacer click
 // en su nombre de una fila — el nombre llega en la propia fila (no carga el roster).
 const schedParticipantFilter = ref<{ id: string; name: string } | null>(null);
+// M6 (D8): filtros plantilla/asignado + page size, todos server-side.
+// 'all' | templateId | `type:${tipo}` — misma clave compuesta que la bandeja.
+const schedTemplateFilter = ref<string>('all');
+// 'all' | 'unassigned' | `user:${id}` (sin estados active/mine/paused: el
+// server ya filtra por status/paused por su cuenta).
+const schedAssignFilter = ref<'all' | 'unassigned' | `user:${string}`>('all');
+// Canal de la fila ('all' | 'whatsapp' | 'email'), también server-side.
+const schedChannelFilter = ref<'all' | 'whatsapp' | 'email'>('all');
+// Default 50 = el límite histórico del server; "Todos" pide su cap (200).
+const schedPageSize = ref<number | 'all'>(loadStoredPageSize('seq.schedPageSize', 50));
+watch(schedPageSize, (v) => {
+	try {
+		localStorage.setItem('seq.schedPageSize', String(v));
+	} catch {
+		/* no bloqueante */
+	}
+});
 const schedPage = ref(1);
 // Paused rows (pending of an inactive sequence) are hidden by default, like in
 // the queue: Programados lists what will actually go out. An explicit chip
@@ -926,6 +1133,7 @@ const scheduledTabCount = computed(() =>
 
 async function loadScheduled() {
 	if (!retreatId.value) return;
+	const templateKey = schedTemplateFilter.value;
 	await sequenceStore.fetchScheduled(retreatId.value, {
 		statuses: [schedStatus.value],
 		sequenceId: schedSequenceFilter.value ?? undefined,
@@ -934,14 +1142,31 @@ async function loadScheduled() {
 		page: schedPage.value,
 		order: schedOrder.value,
 		paused: schedPausedMode.value,
+		// Clave compuesta → params del server: id pelado o `type:` prefijo.
+		templateId: templateKey !== 'all' && !templateKey.startsWith('type:') ? templateKey : undefined,
+		templateType: templateKey.startsWith('type:') ? templateKey.slice('type:'.length) : undefined,
+		assignedTo:
+			schedAssignFilter.value === 'all'
+				? undefined
+				: schedAssignFilter.value === 'unassigned'
+					? 'unassigned'
+					: schedAssignFilter.value.slice('user:'.length),
+		channel: schedChannelFilter.value === 'all' ? undefined : schedChannelFilter.value,
+		limit: schedPageSize.value === 'all' ? 200 : schedPageSize.value,
 	});
 }
 
 // Refetch al cambiar cualquier control; los filtros además vuelven a página 1.
-watch([schedSearchDebounced, schedStatus, schedOrder, schedSequenceFilter, schedParticipantFilter, schedShowPaused], () => {
-	schedPage.value = 1;
-	loadScheduled();
-});
+watch(
+	[
+		schedSearchDebounced, schedStatus, schedOrder, schedSequenceFilter, schedParticipantFilter,
+		schedShowPaused, schedTemplateFilter, schedAssignFilter, schedChannelFilter, schedPageSize,
+	],
+	() => {
+		schedPage.value = 1;
+		loadScheduled();
+	},
+);
 watch(schedPage, loadScheduled);
 // Al entrar a la pestaña, datos frescos (las fechas vencen con el paso del tiempo).
 watch(activeTab, (tab) => {
@@ -965,6 +1190,125 @@ function openScheduledForParticipant(it: any) {
 function clearSchedParticipantFilter() {
 	schedParticipantFilter.value = null; // el watch refetch-ea
 }
+// M6: nombre legible de una clave de plantilla (id del paso o tipo crudo).
+function schedTemplateLabel(key: string): string {
+	if (key.startsWith('type:')) return templateLabel(key.slice('type:'.length));
+	return templates.value.find((tpl: any) => tpl.id === key)?.name || key;
+}
+// Opciones del filtro Plantilla de Programadas: una por plantilla presente en
+// las filas traídas. Sin conteo — server-side, el conteo de la página actual
+// sería parcial y engañoso. La opción activa se mantiene aunque la última
+// página filtrada ya no la traiga (si no, el select "saltaría" solo).
+const schedTemplateOptions = computed(() => {
+	const labels = new Map<string, string>();
+	for (const it of scheduled.value as any[]) {
+		const key = it.templateId || (it.templateType ? `type:${it.templateType}` : '');
+		if (key && !labels.has(key)) labels.set(key, itemTemplateName(it));
+	}
+	if (schedTemplateFilter.value !== 'all' && !labels.has(schedTemplateFilter.value)) {
+		labels.set(schedTemplateFilter.value, schedTemplateLabel(schedTemplateFilter.value));
+	}
+	return Array.from(labels.entries())
+		.map(([value, label]) => ({ value, label }))
+		.sort((a, b) => a.label.localeCompare(b.label, 'es'));
+});
+// Asignados presentes en las filas traídas. Igual que plantillas: la opción
+// activa se mantiene aunque el filtrado la haya vaciado.
+const schedAssigneeOptions = computed(() => {
+	const names = new Map<string, string>();
+	for (const it of scheduled.value as any[]) {
+		if (it.assignedTo && !names.has(it.assignedTo)) {
+			names.set(it.assignedTo, it.assignedToName || t('sequences.assigned'));
+		}
+	}
+	if (schedAssignFilter.value.startsWith('user:')) {
+		const uid = schedAssignFilter.value.slice('user:'.length);
+		if (!names.has(uid)) names.set(uid, t('sequences.assigned'));
+	}
+	return Array.from(names.entries())
+		.map(([id, name]) => ({ id, name }))
+		.sort((a, b) => a.name.localeCompare(b.name, 'es'));
+});
+const schedTemplateChipLabel = computed(
+	() => schedTemplateOptions.value.find((o) => o.value === schedTemplateFilter.value)?.label || '',
+);
+const schedAssigneeChipLabel = computed(() => {
+	if (!schedAssignFilter.value.startsWith('user:')) return '';
+	const uid = schedAssignFilter.value.slice('user:'.length);
+	return schedAssigneeOptions.value.find((a) => a.id === uid)?.name || t('sequences.assigned');
+});
+// Opciones del filtro Secuencia: las secuencias del retiro (del store, ya
+// cargado por la pestaña de listado). Sin conteo — server-side, el conteo de la
+// página actual sería parcial (molde M6). Pausadas incluidas: el modo paused ya
+// pasa a 'include' cuando hay un filtro de secuencia activo.
+const schedSequenceOptions = computed(() =>
+	(sequences.value as any[])
+		.filter((s) => s.id)
+		.map((s) => ({ value: s.id as string, label: s.name as string }))
+		.sort((a, b) => a.label.localeCompare(b.label, 'es')),
+);
+function clearSchedTemplateFilter() {
+	schedTemplateFilter.value = 'all'; // el watch refetch-ea
+}
+function clearSchedAssignFilter() {
+	schedAssignFilter.value = 'all'; // el watch refetch-ea
+}
+// Estado ≠ «Pendiente» también cuenta: es lo que cambia qué filas se ven.
+const schedFilterChips = computed<FilterChip[]>(() => {
+	const chips: FilterChip[] = [];
+	if (schedStatus.value !== 'pending') {
+		chips.push({
+			key: 'status',
+			label: `${t('sequences.schedStatusLabel')}: ${t('sequences.statuses.' + schedStatus.value)}`,
+			tone: CHIP_TONE.neutral,
+			clear: () => (schedStatus.value = 'pending'),
+		});
+	}
+	if (schedSequenceFilter.value) {
+		chips.push({
+			key: 'sequence',
+			label: `${t('sequences.filter.sequence')}: ${seqName(schedSequenceFilter.value)}`,
+			tone: CHIP_TONE.sequence,
+			clear: clearSchedSequenceFilter,
+		});
+	}
+	if (schedParticipantFilter.value) {
+		chips.push({
+			key: 'participant',
+			label: t('sequences.filter.participant', { name: schedParticipantFilter.value.name }),
+			tone: CHIP_TONE.participant,
+			clear: clearSchedParticipantFilter,
+		});
+	}
+	if (schedTemplateFilter.value !== 'all') {
+		chips.push({
+			key: 'template',
+			label: `${t('sequences.filter.template')}: ${schedTemplateChipLabel.value}`,
+			tone: CHIP_TONE.template,
+			clear: clearSchedTemplateFilter,
+		});
+	}
+	if (schedAssignFilter.value !== 'all') {
+		chips.push({
+			key: 'assign',
+			label:
+				schedAssignFilter.value === 'unassigned'
+					? t('sequences.filter.unassigned')
+					: t('sequences.filter.assignee', { name: schedAssigneeChipLabel.value }),
+			tone: CHIP_TONE.assign,
+			clear: clearSchedAssignFilter,
+		});
+	}
+	if (schedChannelFilter.value !== 'all') {
+		chips.push({
+			key: 'channel',
+			label: `${t('sequences.channel')}: ${t('sequences.channels.' + schedChannelFilter.value)}`,
+			tone: CHIP_TONE.neutral,
+			clear: () => (schedChannelFilter.value = 'all'),
+		});
+	}
+	return chips;
+});
 // A5: badge problemas de una secuencia → pestaña Problemas con chip removible.
 const issuesSequenceFilter = ref<string | null>(null);
 function openIssuesForSequence(seq: any) {
@@ -1167,15 +1511,130 @@ async function enqueueNow(stepId: string) {
 	}
 }
 
-// Problemas: buscador + orden.
+// Problemas: buscador + orden. v1.1 M7: además filtros plantilla/asignado y
+// page size, client-side (molde bandeja M2) sobre los problemas cargados.
 const issuesSearch = ref('');
 const issuesSort = ref<'recent' | 'name' | 'template' | 'status'>('recent');
+// Filtro por plantilla: 'all', o la clave compuesta (templateId del DTO si el
+// paso la fijó, si no su tipo — misma jerarquía D3 que el motor al resolver).
+const issuesTemplateFilter = ref<string>('all');
+// 'all' (default) | 'unassigned' | `user:<id>` — Problemas no tiene 'mine' ni
+// 'paused': aquí todo es fallido/omitido y la secuencia sigue activa igual.
+const issuesAssignFilter = ref<'all' | 'unassigned' | `user:${string}`>('all');
+// Estado del problema (failed = reintentar / skipped = descartar) y canal de la
+// fila — los dos flujos de resolución son distintos, merecen separarse.
+const issuesStatusFilter = ref<'all' | 'failed' | 'skipped'>('all');
+const issuesChannelFilter = ref<'all' | 'whatsapp' | 'email'>('all');
+const issuesPageSize = ref<number | 'all'>(loadStoredPageSize('seq.issuesPageSize', 10));
+watch(issuesPageSize, (v) => {
+	try {
+		localStorage.setItem('seq.issuesPageSize', String(v));
+	} catch {
+		/* no bloqueante */
+	}
+});
+const issuesPage = ref(1);
+// Clave de plantilla de un issue: el DTO trae `templateId` plano (sin `step`).
+function issuesTemplateKey(it: any): string {
+	if (it.templateId) return it.templateId;
+	return it.templateType ? `type:${it.templateType}` : '';
+}
+// Opciones del filtro "Plantilla": una por plantilla presente en los problemas
+// cargados, con conteo (client-side: el conteo es real sobre lo cargado).
+const issuesTemplateOptions = computed(() => {
+	const map = new Map<string, { label: string; count: number }>();
+	for (const it of issues.value as any[]) {
+		const key = issuesTemplateKey(it);
+		if (!key) continue;
+		const prev = map.get(key);
+		if (prev) prev.count += 1;
+		else map.set(key, { label: itemTemplateName(it), count: 1 });
+	}
+	return Array.from(map.entries())
+		.map(([value, { label, count }]) => ({ value, label, count }))
+		.sort((a, b) => a.label.localeCompare(b.label, 'es'));
+});
+// Asignados presentes en los problemas cargados, con conteo — opciones
+// dinámicas "Asignado: {nombre} (n)" (molde queueAssigneeOptions).
+const issuesAssigneeOptions = computed(() => {
+	const counts = new Map<string, number>();
+	const names = new Map<string, string>();
+	for (const it of issues.value as any[]) {
+		if (!it.assignedTo) continue;
+		counts.set(it.assignedTo, (counts.get(it.assignedTo) || 0) + 1);
+		if (it.assignedToName) names.set(it.assignedTo, it.assignedToName);
+	}
+	return Array.from(counts.entries())
+		.map(([id, count]) => ({
+			id,
+			// Sin nombre resuelto (usuario eliminado): etiqueta genérica.
+			name: names.get(id) || t('sequences.assigned'),
+			count,
+		}))
+		.sort((a, b) => a.name.localeCompare(b.name, 'es'));
+});
+// Secuencias presentes en los problemas cargados, con conteo — alimenta el
+// select (el chip removible ya existía, seteado desde el badge de la lista).
+const issuesSequenceOptions = computed(() => {
+	const counts = new Map<string, number>();
+	for (const it of issues.value as any[]) {
+		if (!it.sequenceId) continue;
+		counts.set(it.sequenceId, (counts.get(it.sequenceId) || 0) + 1);
+	}
+	return Array.from(counts.entries())
+		.map(([value, count]) => ({ value, count, label: seqName(value) }))
+		.filter((o) => o.label)
+		.sort((a, b) => a.label.localeCompare(b.label, 'es'));
+});
+// Filtros huérfanos (retry/discard sacó el último ítem de esa plantilla,
+// asignado o secuencia): volver al default en vez de dejar una lista vacía sin
+// explicación (molde bandeja, memoria feedback_user_expectation_over_by_design).
+watch(issues, () => {
+	if (
+		issuesTemplateFilter.value !== 'all' &&
+		!issuesTemplateOptions.value.some((o) => o.value === issuesTemplateFilter.value)
+	) {
+		issuesTemplateFilter.value = 'all';
+	}
+	if (
+		String(issuesAssignFilter.value).startsWith('user:') &&
+		!issuesAssigneeOptions.value.some((a) => `user:${a.id}` === issuesAssignFilter.value)
+	) {
+		issuesAssignFilter.value = 'all';
+	}
+	if (
+		issuesSequenceFilter.value &&
+		!issuesSequenceOptions.value.some((o) => o.value === issuesSequenceFilter.value)
+	) {
+		issuesSequenceFilter.value = null;
+	}
+});
 const filteredIssues = computed(() => {
 	const q = issuesSearch.value.trim().toLowerCase();
 	let items = [...issues.value];
-	// Chip de secuencia removible (badge clickeable de la lista de secuencias).
+	// Chip de secuencia removible (badge clickeable de la lista de secuencias);
+	// el select de secuencia bindea al mismo ref.
 	if (issuesSequenceFilter.value) {
 		items = items.filter((it: any) => it.sequenceId === issuesSequenceFilter.value);
+	}
+	// Filtro por estado: fallidos (reintentar) vs omitidos (descartar).
+	if (issuesStatusFilter.value !== 'all') {
+		items = items.filter((it: any) => it.status === issuesStatusFilter.value);
+	}
+	// Filtro por canal.
+	if (issuesChannelFilter.value !== 'all') {
+		items = items.filter((it: any) => it.channel === issuesChannelFilter.value);
+	}
+	// Filtro por asignación: sin tomar / un asignado concreto.
+	if (issuesAssignFilter.value === 'unassigned') {
+		items = items.filter((it: any) => !it.assignedTo);
+	} else if (issuesAssignFilter.value.startsWith('user:')) {
+		const uid = issuesAssignFilter.value.slice('user:'.length);
+		items = items.filter((it: any) => it.assignedTo === uid);
+	}
+	// Filtro por plantilla.
+	if (issuesTemplateFilter.value !== 'all') {
+		items = items.filter((it: any) => issuesTemplateKey(it) === issuesTemplateFilter.value);
 	}
 	if (q) {
 		// Se busca sobre el nombre del participante, el tipo CRUDO y el nombre
@@ -1205,6 +1664,94 @@ const filteredIssues = computed(() => {
 		items.sort((a, b) => (a.status || '').localeCompare(b.status || '')); // failed antes que skipped
 	// 'recent' → mantiene el orden del backend (updatedAt desc)
 	return items;
+});
+// Paginación local de problemas (molde bandeja): 'all' usa todo lo cargado —
+// el "Cargar más" sigue trayendo del server lo que falte.
+const effectiveIssuesPageSize = computed(() =>
+	issuesPageSize.value === 'all' ? filteredIssues.value.length || 1 : issuesPageSize.value,
+);
+const issuesTotalPages = computed(() =>
+	Math.max(1, Math.ceil(filteredIssues.value.length / effectiveIssuesPageSize.value)),
+);
+const pagedIssues = computed(() =>
+	filteredIssues.value.slice(
+		(issuesPage.value - 1) * effectiveIssuesPageSize.value,
+		issuesPage.value * effectiveIssuesPageSize.value,
+	),
+);
+watch(
+	[issuesSearch, issuesSort, issuesAssignFilter, issuesTemplateFilter, issuesSequenceFilter, issuesStatusFilter, issuesChannelFilter, issuesPageSize],
+	() => {
+		issuesPage.value = 1;
+	},
+);
+watch(
+	() => issues.value.length,
+	() => {
+		if (issuesPage.value > issuesTotalPages.value) issuesPage.value = issuesTotalPages.value;
+	},
+);
+// Labels de los chips de filtro (molde Programadas M6).
+const issuesTemplateChipLabel = computed(
+	() => issuesTemplateOptions.value.find((o) => o.value === issuesTemplateFilter.value)?.label || '',
+);
+const issuesAssigneeChipLabel = computed(() => {
+	if (!issuesAssignFilter.value.startsWith('user:')) return '';
+	const uid = issuesAssignFilter.value.slice('user:'.length);
+	return issuesAssigneeOptions.value.find((a) => a.id === uid)?.name || t('sequences.assigned');
+});
+function clearIssuesTemplateFilter() {
+	issuesTemplateFilter.value = 'all';
+}
+function clearIssuesAssignFilter() {
+	issuesAssignFilter.value = 'all';
+}
+const issuesFilterChips = computed<FilterChip[]>(() => {
+	const chips: FilterChip[] = [];
+	if (issuesStatusFilter.value !== 'all') {
+		chips.push({
+			key: 'status',
+			label: `${t('sequences.filter.status')}: ${t('sequences.statuses.' + issuesStatusFilter.value)}`,
+			tone: CHIP_TONE.neutral,
+			clear: () => (issuesStatusFilter.value = 'all'),
+		});
+	}
+	if (issuesSequenceFilter.value) {
+		chips.push({
+			key: 'sequence',
+			label: `${t('sequences.filter.sequence')}: ${seqName(issuesSequenceFilter.value)}`,
+			tone: CHIP_TONE.sequence,
+			clear: () => (issuesSequenceFilter.value = null),
+		});
+	}
+	if (issuesTemplateFilter.value !== 'all') {
+		chips.push({
+			key: 'template',
+			label: `${t('sequences.filter.template')}: ${issuesTemplateChipLabel.value}`,
+			tone: CHIP_TONE.template,
+			clear: clearIssuesTemplateFilter,
+		});
+	}
+	if (issuesAssignFilter.value !== 'all') {
+		chips.push({
+			key: 'assign',
+			label:
+				issuesAssignFilter.value === 'unassigned'
+					? t('sequences.filter.unassigned')
+					: t('sequences.filter.assignee', { name: issuesAssigneeChipLabel.value }),
+			tone: CHIP_TONE.assign,
+			clear: clearIssuesAssignFilter,
+		});
+	}
+	if (issuesChannelFilter.value !== 'all') {
+		chips.push({
+			key: 'channel',
+			label: `${t('sequences.channel')}: ${t('sequences.channels.' + issuesChannelFilter.value)}`,
+			tone: CHIP_TONE.neutral,
+			clear: () => (issuesChannelFilter.value = 'all'),
+		});
+	}
+	return chips;
 });
 // #2: "cargar más" — cuando el total real supera lo cargado (cap de página).
 const issuesLoadingMore = ref(false);
@@ -1298,13 +1845,38 @@ const isDetailOpen = computed(() => !!detailItem.value);
 const detailModalRef = ref<HTMLElement | null>(null);
 useModalA11y(isDetailOpen, closeDetail, detailModalRef);
 
+// v1.1 D10: el hilo CRM (notas con autor/fecha + hitos) del panel de detalle
+// sale del mismo timeline que la ficha popover — un solo origen de verdad.
+const {
+	loading: detailInsightsLoading,
+	error: detailInsightsError,
+	events: detailInsightsEvents,
+	load: loadDetailInsights,
+	reset: resetDetailInsights,
+} = useParticipantInsights();
+// Notas + cambios de etapa/hitos (el hito de palancas es un stage_change),
+// los 5 más recientes; el timeline ya viene ordenado DESC.
+const detailThread = computed(() =>
+	detailInsightsEvents.value
+		.filter((e) => e.type === 'note' || e.type === 'stage_change')
+		.slice(0, 5),
+);
+// Cantidad de palancas del roster (el DTO del detalle no la trae).
+const detailPalancasCount = computed(() => {
+	const pid = detailItem.value?.participant?.id;
+	const p = pid ? participantStore.participants?.find((pp: any) => pp.id === pid) : null;
+	return p?.palancasReceivedCount ?? null;
+});
+
 function openDetail(item: any) {
 	detailItem.value = item;
 	sequenceStore.fetchDetail(item.id);
+	loadDetailInsights(retreatId.value, item.participant?.id);
 }
 function closeDetail() {
 	detailItem.value = null;
 	sequenceStore.clearDetail();
+	resetDetailInsights();
 }
 
 // Vista previa del mensaje a enviar (snapshot resuelto al encolar).
@@ -1335,12 +1907,34 @@ async function skipFromDetail() {
 	await sequenceStore.skip(item.id);
 }
 
+// Resuelve teléfono + país del destinatario del pendiente: el snapshot
+// (`resolvedContact`) primero, con fallback a la ficha — los contactos de
+// emergencia cuando el paso les apunta. Lo comparten el envío (link con texto)
+// y "ver conversación" (link a pelo): un solo lugar decide qué número se usa.
+function resolveRecipientContact(item: any): { phone: string; country: string | null } | null {
+	let rawPhone: string | undefined = item.resolvedContact || undefined;
+	const participant = item.participant;
+	if (!rawPhone) {
+		const target = item.recipientTarget || 'participant';
+		if (target === 'emergencyContact1') {
+			rawPhone = participant?.emergencyContact1CellPhone;
+		} else if (target === 'emergencyContact2') {
+			rawPhone = participant?.emergencyContact2CellPhone;
+		} else {
+			rawPhone = participant?.cellPhone;
+		}
+	}
+	if (!rawPhone) return null;
+	return { phone: rawPhone, country: participant?.country ?? null };
+}
+
 // Resuelve teléfono + país + texto del pendiente (snapshot, con fallback de
 // recálculo). El teléfono va en crudo: la lada la resuelve el builder del link.
 function buildWhatsappLink(item: any): { phone: string; country: string | null; text: string } | null {
-	let rawPhone: string | undefined = item.resolvedContact || undefined;
+	const contact = resolveRecipientContact(item);
+	if (!contact) return null;
 	let text = item.resolvedContent ? convertHtmlToWhatsApp(item.resolvedContent) : '';
-	if (!rawPhone || !text) {
+	if (!text) {
 		// M3: el paso trae su plantilla concreta (sm.step cargado por la bandeja);
 		// por id primero, fallback por tipo para ítems legacy.
 		const tpl =
@@ -1348,26 +1942,14 @@ function buildWhatsappLink(item: any): { phone: string; country: string | null; 
 			templates.value.find((x: any) => x.type === item.templateType);
 		const participant = item.participant;
 		const target = item.recipientTarget || 'participant';
-		let contactKey: string | undefined;
-		if (target === 'emergencyContact1') {
-			rawPhone = rawPhone || participant?.emergencyContact1CellPhone;
-			contactKey = 'emergencyContact1';
-		} else if (target === 'emergencyContact2') {
-			rawPhone = rawPhone || participant?.emergencyContact2CellPhone;
-			contactKey = 'emergencyContact2';
-		} else {
-			rawPhone = rawPhone || participant?.cellPhone;
-		}
-		if (!text) {
-			const retreatData = retreatStore.selectedRetreat as unknown as RetreatData;
-			const html = tpl
-				? replaceAllVariables(tpl.message, participant as unknown as ParticipantData, retreatData, contactKey)
-				: '';
-			text = convertHtmlToWhatsApp(html);
-		}
+		const contactKey = target === 'emergencyContact1' || target === 'emergencyContact2' ? target : undefined;
+		const retreatData = retreatStore.selectedRetreat as unknown as RetreatData;
+		const html = tpl
+			? replaceAllVariables(tpl.message, participant as unknown as ParticipantData, retreatData, contactKey)
+			: '';
+		text = convertHtmlToWhatsApp(html);
 	}
-	if (!rawPhone) return null;
-	return { phone: rawPhone, country: item.participant?.country ?? null, text };
+	return { phone: contact.phone, country: contact.country, text };
 }
 
 // Abre WhatsApp (deep-link) tras MARCAR el envío/apertura. El orden importa:
@@ -1420,6 +2002,22 @@ async function openWhatsapp(item: any) {
 	if (!opened) {
 		toast({ title: t('sequences.popupBlocked') });
 	}
+}
+
+// Ver la conversación en WhatsApp SIN mensaje: abre el chat a pelo (link sin
+// `text=`) para leer el historial — las respuestas viven en el teléfono del
+// servidor, no en la app. A diferencia del envío NO marca nada (sin
+// open/dispatch): mirar no es enviar, y marcar sin haber abierto es justo el
+// incidente de los 20 recordatorios (2026-09-12). Sin awaits: el window.open
+// corre en el gesto del clic, donde ningún bloqueador de popups lo frena.
+function openWhatsappHistory(item: any) {
+	const contact = resolveRecipientContact(item);
+	const url = contact ? buildWhatsAppChatLink(contact.phone, contact.country) : null;
+	if (!url) {
+		toast({ title: t('sequences.noPhone'), variant: 'destructive' });
+		return;
+	}
+	window.open(url, '_blank', 'noopener,noreferrer');
 }
 
 // Confirma el envío real (sale de la bandeja, queda registrado quién lo envió).
@@ -1824,55 +2422,139 @@ async function toggleDoNotContact() {
 
 			<!-- Tab: Programados (mensajes materializados, con la fecha en que saldrán/salieron) -->
 			<div v-show="activeTab === 'scheduled'" role="tabpanel" id="seq-panel-scheduled" aria-labelledby="seq-tab-scheduled">
-				<!-- Filtros server-side: búsqueda con debounce + estado + orden -->
-				<div class="flex items-center gap-2 mb-2 flex-wrap">
+				<!-- Toolbar (molde Polaris IndexFilters): buscador + orden + botón
+				     «Filtros» con popover y badge. Los filtros aplicados quedan a la
+				     vista como chips debajo; el mismo panel sirve a móvil y escritorio.
+				     En anchos medios la barra envuelve: el buscador guarda un mínimo y
+				     los controles bajan a una segunda línea, a la derecha (ml-auto del
+				     orden, que en una sola línea no tiene efecto). -->
+				<div class="flex flex-wrap items-center gap-2 mb-2">
 					<input
 						v-model="schedSearch"
 						type="search"
 						:placeholder="t('sequences.searchPlaceholder')"
-						class="flex-1 min-w-40 p-2 border rounded-md text-sm"
+						class="flex-1 min-w-[12rem] sm:min-w-[16rem] p-2 border rounded-md text-sm"
 					/>
-					<label class="flex items-center gap-1.5 text-xs text-gray-600">
-						{{ t('sequences.schedStatusLabel') }}
-						<select v-model="schedStatus" class="p-1 border rounded-md text-xs bg-white">
-							<option v-for="s in SCHED_STATUSES" :key="s" :value="s">
-								{{ t('sequences.statuses.' + s) }}
-							</option>
-						</select>
-					</label>
-					<label class="flex items-center gap-1.5 text-xs text-gray-600">
+					<label class="hidden sm:flex items-center gap-1.5 text-xs text-gray-600 shrink-0 ml-auto">
 						{{ t('sequences.sortLabel') }}
-						<select v-model="schedOrder" class="p-1 border rounded-md text-xs bg-white">
+						<select v-model="schedOrder" class="p-2 border rounded-md text-sm bg-white">
 							<option value="scheduled">{{ t('sequences.sort.scheduled') }}</option>
 							<option value="recent">{{ t('sequences.sort.recent') }}</option>
+							<option value="name">{{ t('sequences.sort.name') }}</option>
+							<option value="sequence">{{ t('sequences.sort.sequence') }}</option>
 						</select>
 					</label>
+					<!-- Escape en el wrapper: cubre el foco en el botón (tras el click) y
+					     en cualquier select del panel (el keydown burbujea). -->
+					<div class="relative shrink-0" @keydown.escape="schedMenuOpen = false">
+						<Button
+							variant="outline"
+							class="h-[38px] px-2.5 sm:px-3"
+							:aria-label="t('sequences.filtersAction')"
+							:aria-expanded="schedMenuOpen"
+							@click="schedMenuOpen = !schedMenuOpen"
+						>
+							<SlidersHorizontal class="w-4 h-4" />
+							<span class="hidden sm:inline ml-1.5">{{ t('sequences.filtersAction') }}</span>
+							<span
+								v-if="schedFilterChips.length"
+								class="ml-1.5 min-w-[1.25rem] rounded-full bg-blue-600 px-1.5 text-[11px] leading-5 text-white"
+							>
+								{{ schedFilterChips.length }}
+							</span>
+						</Button>
+						<div v-if="schedMenuOpen" class="fixed inset-0 z-10" @click="schedMenuOpen = false" />
+						<div
+							v-if="schedMenuOpen"
+							role="group"
+							:aria-label="t('sequences.filtersAction')"
+							class="absolute right-0 mt-1 z-20 w-72 sm:w-[30rem] bg-white border rounded-md shadow-lg p-3"
+						>
+							<div class="grid gap-3 sm:grid-cols-2">
+								<!-- Orden: en escritorio vive en la barra; en móvil, aquí. -->
+								<label class="block text-sm text-gray-700 sm:hidden">
+									{{ t('sequences.sortLabel') }}
+									<select v-model="schedOrder" class="w-full mt-1 p-2 border rounded-md text-sm bg-white">
+										<option value="scheduled">{{ t('sequences.sort.scheduled') }}</option>
+										<option value="recent">{{ t('sequences.sort.recent') }}</option>
+										<option value="name">{{ t('sequences.sort.name') }}</option>
+										<option value="sequence">{{ t('sequences.sort.sequence') }}</option>
+									</select>
+								</label>
+								<label class="block text-sm text-gray-700">
+									{{ t('sequences.schedStatusLabel') }}
+									<select v-model="schedStatus" class="w-full mt-1 p-2 border rounded-md text-sm bg-white">
+										<option v-for="s in SCHED_STATUSES" :key="s" :value="s">
+											{{ t('sequences.statuses.' + s) }}
+										</option>
+									</select>
+								</label>
+								<label class="block text-sm text-gray-700">
+									{{ t('sequences.filter.template') }}
+									<select v-model="schedTemplateFilter" class="w-full mt-1 p-2 border rounded-md text-sm bg-white">
+										<option value="all">{{ t('sequences.filter.allTemplates') }}</option>
+										<option v-for="opt in schedTemplateOptions" :key="opt.value" :value="opt.value">
+											{{ opt.label }}
+										</option>
+									</select>
+								</label>
+								<label class="block text-sm text-gray-700">
+									{{ t('sequences.filterLabel') }}
+									<select v-model="schedAssignFilter" class="w-full mt-1 p-2 border rounded-md text-sm bg-white">
+										<option value="all">{{ t('sequences.filter.all') }}</option>
+										<option value="unassigned">{{ t('sequences.filter.unassigned') }}</option>
+										<option v-for="a in schedAssigneeOptions" :key="a.id" :value="`user:${a.id}`">
+											{{ t('sequences.filter.assignee', { name: a.name }) }}
+										</option>
+									</select>
+								</label>
+								<label class="block text-sm text-gray-700">
+									{{ t('sequences.channel') }}
+									<select v-model="schedChannelFilter" class="w-full mt-1 p-2 border rounded-md text-sm bg-white">
+										<option value="all">{{ t('sequences.filter.allChannels') }}</option>
+										<option value="whatsapp">{{ t('sequences.channels.whatsapp') }}</option>
+										<option value="email">{{ t('sequences.channels.email') }}</option>
+									</select>
+								</label>
+								<label class="block text-sm text-gray-700">
+									{{ t('sequences.filter.sequence') }}
+									<select v-model="schedSequenceFilter" class="w-full mt-1 p-2 border rounded-md text-sm bg-white">
+										<option :value="null">{{ t('sequences.filter.allSequences') }}</option>
+										<option v-for="opt in schedSequenceOptions" :key="opt.value" :value="opt.value">
+											{{ opt.label }}
+										</option>
+									</select>
+								</label>
+							</div>
+						</div>
+					</div>
 				</div>
-				<!-- Chips de filtro activo: secuencia (badge clickeable de la lista) y
-				     participante (click en su nombre de una fila, #9). -->
-				<div v-if="schedSequenceFilter || schedParticipantFilter" class="flex items-center gap-2 mb-2 text-xs flex-wrap">
-					<span v-if="schedSequenceFilter" class="inline-flex items-center gap-1 bg-blue-100 text-blue-700 rounded-full px-2 py-0.5">
-						{{ seqName(schedSequenceFilter) }}
+				<!-- Chips de filtros activos: secuencia (badge clickeable de la lista), participante (click en su nombre, #9) y lo elegido en el panel; removibles uno a uno o todos -->
+				<div v-if="schedFilterChips.length" class="flex items-center gap-2 mb-2 text-xs flex-wrap">
+					<span
+						v-for="chip in schedFilterChips"
+						:key="chip.key"
+						class="inline-flex items-center gap-1 rounded-full px-2 py-0.5"
+						:class="chip.tone"
+					>
+						{{ chip.label }}
 						<button
 							type="button"
-							class="hover:text-blue-900"
+							class="opacity-70 hover:opacity-100"
 							:aria-label="t('sequences.clearFilter')"
-							@click="clearSchedSequenceFilter"
+							@click="chip.clear()"
 						>
 							<X class="w-3 h-3" />
 						</button>
 					</span>
-					<span v-if="schedParticipantFilter" class="inline-flex items-center gap-1 bg-violet-100 text-violet-700 rounded-full px-2 py-0.5">
-						{{ t('sequences.filter.participant', { name: schedParticipantFilter.name }) }}
-						<button
-							type="button"
-							class="hover:text-violet-900"
-							:aria-label="t('sequences.clearFilter')"
-							@click="clearSchedParticipantFilter"
-						>
-							<X class="w-3 h-3" />
-						</button>
-					</span>
+					<button
+						v-if="schedFilterChips.length > 1"
+						type="button"
+						class="text-blue-600 hover:underline"
+						@click="clearFilterChips(schedFilterChips)"
+					>
+						{{ t('sequences.filter.clearAll') }}
+					</button>
 				</div>
 				<p v-if="scheduledTimezone" class="text-[11px] text-gray-400 mb-2">
 					{{ t('sequences.scheduledTzHint', { tz: scheduledTimezone }) }}
@@ -1946,6 +2628,25 @@ async function toggleDoNotContact() {
 							<span class="text-[10px] uppercase text-gray-400 shrink-0">
 								{{ t('sequences.channels.' + it.channel) }}
 							</span>
+							<!-- M6: ver conversación (D1, sin mutación) + ficha ⓘ, mismos
+							     controles que la bandeja — la proyección participant nueva
+							     trae teléfonos y país para el link. -->
+							<Button
+								v-if="resolveRecipientContact(it)"
+								size="icon"
+								variant="ghost"
+								class="h-8 w-8 shrink-0"
+								:title="t('sequences.viewConversation')"
+								@click="openWhatsappHistory(it)"
+							>
+								<MessageCircle class="w-4 h-4" />
+							</Button>
+							<ParticipantInfoPopover
+								v-if="it.participant"
+								variant="icon"
+								:participant="(it.participant as any)"
+								:retreat-id="retreatId"
+							/>
 							<!-- M4: sólo pending (queued ya está materializado en la bandeja). -->
 							<template v-if="it.status === 'pending'">
 								<Button
@@ -1976,103 +2677,41 @@ async function toggleDoNotContact() {
 					{{ t('sequences.scheduledEmpty') }}
 				</div>
 
-				<!-- Paginación server-side -->
-				<div v-if="scheduledTotalPages > 1" class="flex items-center justify-center gap-3 mt-3 text-sm">
-					<Button size="sm" variant="outline" :disabled="schedPage <= 1" @click="schedPage = schedPage - 1">‹</Button>
-					<span class="text-gray-600">
-						{{ t('sequences.pageOf', { page: schedPage, total: scheduledTotalPages }) }}
-						· {{ t('sequences.scheduledTotal', { n: scheduledTotal }) }}
-					</span>
-					<Button
-						size="sm"
-						variant="outline"
-						:disabled="schedPage >= scheduledTotalPages"
-						@click="schedPage = schedPage + 1"
-					>
-						›
-					</Button>
+				<!-- Pie: tamaño de página + paginación server-side -->
+				<div v-if="scheduled.length" class="flex items-center justify-end flex-wrap gap-x-4 gap-y-2 mt-3 text-sm">
+					<label class="flex items-center gap-1.5 text-xs text-gray-600">
+						{{ t('sequences.pageSizeLabel') }}
+						<select v-model="schedPageSize" class="p-1 border rounded-md text-xs bg-white">
+							<option v-for="n in PAGE_SIZE_OPTIONS" :key="n" :value="n">{{ n }}</option>
+							<option value="all">{{ t('sequences.pageSizeAll') }}</option>
+						</select>
+					</label>
+					<div v-if="scheduledTotalPages > 1" class="flex items-center gap-3">
+						<Button size="sm" variant="outline" :disabled="schedPage <= 1" @click="schedPage = schedPage - 1">‹</Button>
+						<span class="text-gray-600">
+							{{ t('sequences.pageOf', { page: schedPage, total: scheduledTotalPages }) }}
+							· {{ t('sequences.scheduledTotal', { n: scheduledTotal }) }}
+						</span>
+						<Button size="sm" variant="outline" :disabled="schedPage >= scheduledTotalPages" @click="schedPage = schedPage + 1">›</Button>
+					</div>
 				</div>
 			</div>
 
 			<!-- Tab: Pendientes de WhatsApp -->
 			<div v-show="activeTab === 'pending'" role="tabpanel" id="seq-panel-pending" aria-labelledby="seq-tab-pending">
-				<!-- Buscador + (móvil) menú de acciones -->
-				<div v-if="queue.length" class="flex items-center gap-2 mb-2">
+				<!-- Toolbar (molde Programadas): buscador + orden + «Filtros» + la acción
+				     principal; «Renovar con plantilla actual» (mantenimiento, raro) vive
+				     en el panel. -->
+				<div v-if="queue.length" class="flex flex-wrap items-center gap-2 mb-2">
 					<input
 						v-model="queueSearch"
 						type="search"
 						:placeholder="t('sequences.searchPlaceholder')"
-						class="flex-1 min-w-0 p-2 border rounded-md text-sm"
+						class="flex-1 min-w-[12rem] sm:min-w-[16rem] p-2 border rounded-md text-sm"
 					/>
-					<div class="relative sm:hidden">
-						<Button
-							variant="outline"
-							size="icon"
-							:aria-label="t('sequences.moreActions')"
-							@click="queueMenuOpen = !queueMenuOpen"
-						>
-							<MoreVertical class="w-4 h-4" />
-						</Button>
-						<div v-if="queueMenuOpen" class="fixed inset-0 z-10" @click="queueMenuOpen = false" />
-						<div
-							v-if="queueMenuOpen"
-							class="absolute right-0 mt-1 z-20 w-64 bg-white border rounded-md shadow-lg p-3 space-y-3"
-						>
-							<label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer select-none">
-								<input type="checkbox" v-model="autoConfirmSend" class="rounded border-gray-300" />
-								{{ t('sequences.autoConfirmSend') }}
-							</label>
-							<label class="block text-sm text-gray-700">
-								{{ t('sequences.sortLabel') }}
-								<select v-model="queueSort" class="w-full mt-1 p-2 border rounded-md text-sm bg-white">
-									<option value="scheduled">{{ t('sequences.sort.scheduled') }}</option>
-									<option value="recent">{{ t('sequences.sort.recent') }}</option>
-									<option value="name">{{ t('sequences.sort.name') }}</option>
-									<option value="template">{{ t('sequences.sort.template') }}</option>
-									<option value="sequence">{{ t('sequences.sort.sequence') }}</option>
-									<option value="palanquero">{{ t('sequences.sort.palanquero') }}</option>
-								</select>
-							</label>
-							<label class="block text-sm text-gray-700">
-								{{ t('sequences.filterLabel') }}
-								<select v-model="queueAssignFilter" class="w-full mt-1 p-2 border rounded-md text-sm bg-white">
-									<option value="active">{{ t('sequences.filter.active') }}</option>
-									<option value="mine">{{ t('sequences.filter.mine') }}</option>
-									<option value="unassigned">{{ t('sequences.filter.unassigned') }}</option>
-									<option value="paused">{{ t('sequences.filter.paused') }}</option>
-									<option value="all">{{ t('sequences.filter.all') }}</option>
-								</select>
-							</label>
-							<Button
-								size="sm"
-								variant="outline"
-								class="w-full justify-center"
-								:disabled="regenerating"
-								@click="regenerateQueue(); queueMenuOpen = false"
-							>
-								<RefreshCw class="w-4 h-4 mr-1" :class="regenerating ? 'animate-spin' : ''" />
-								{{ t('sequences.regenerateQueue') }}
-							</Button>
-							<Button
-								size="sm"
-								variant="default"
-								class="w-full justify-center"
-								@click="openNext(); queueMenuOpen = false"
-							>
-								{{ t('sequences.openNext') }}
-							</Button>
-						</div>
-					</div>
-				</div>
-				<!-- Controles inline (escritorio) -->
-				<div v-if="queue.length" class="hidden sm:flex items-center justify-end flex-wrap gap-2 mb-2">
-					<label class="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer select-none mr-auto">
-						<input type="checkbox" v-model="autoConfirmSend" class="rounded border-gray-300" />
-						{{ t('sequences.autoConfirmSend') }}
-					</label>
-					<label class="flex items-center gap-1.5 text-xs text-gray-600">
+					<label class="hidden sm:flex items-center gap-1.5 text-xs text-gray-600 shrink-0 ml-auto">
 						{{ t('sequences.sortLabel') }}
-						<select v-model="queueSort" class="p-1 border rounded-md text-xs bg-white">
+						<select v-model="queueSort" class="p-2 border rounded-md text-sm bg-white">
 							<option value="scheduled">{{ t('sequences.sort.scheduled') }}</option>
 							<option value="recent">{{ t('sequences.sort.recent') }}</option>
 							<option value="name">{{ t('sequences.sort.name') }}</option>
@@ -2081,23 +2720,139 @@ async function toggleDoNotContact() {
 							<option value="palanquero">{{ t('sequences.sort.palanquero') }}</option>
 						</select>
 					</label>
-					<label class="flex items-center gap-1.5 text-xs text-gray-600">
-						{{ t('sequences.filterLabel') }}
-						<select v-model="queueAssignFilter" class="p-1 border rounded-md text-xs bg-white">
-							<option value="active">{{ t('sequences.filter.active') }}</option>
-							<option value="mine">{{ t('sequences.filter.mine') }}</option>
-							<option value="unassigned">{{ t('sequences.filter.unassigned') }}</option>
-							<option value="paused">{{ t('sequences.filter.paused') }}</option>
-							<option value="all">{{ t('sequences.filter.all') }}</option>
-						</select>
-					</label>
-					<Button size="sm" variant="ghost" :disabled="regenerating" @click="regenerateQueue">
-						<RefreshCw class="w-4 h-4 mr-1" :class="regenerating ? 'animate-spin' : ''" />
-						{{ t('sequences.regenerateQueue') }}
-					</Button>
-					<Button size="sm" variant="outline" @click="openNext">
-						{{ t('sequences.openNext') }}
-					</Button>
+					<div class="relative shrink-0" @keydown.escape="queueMenuOpen = false">
+						<Button
+							variant="outline"
+							class="h-[38px] px-2.5 sm:px-3"
+							:aria-label="t('sequences.filtersAction')"
+							:aria-expanded="queueMenuOpen"
+							@click="queueMenuOpen = !queueMenuOpen"
+						>
+							<SlidersHorizontal class="w-4 h-4" />
+							<span class="hidden sm:inline ml-1.5">{{ t('sequences.filtersAction') }}</span>
+							<span
+								v-if="queueFilterChips.length"
+								class="ml-1.5 min-w-[1.25rem] rounded-full bg-blue-600 px-1.5 text-[11px] leading-5 text-white"
+							>
+								{{ queueFilterChips.length }}
+							</span>
+						</Button>
+						<div v-if="queueMenuOpen" class="fixed inset-0 z-10" @click="queueMenuOpen = false" />
+						<div
+							v-if="queueMenuOpen"
+							role="group"
+							:aria-label="t('sequences.filtersAction')"
+							class="absolute right-0 mt-1 z-20 w-72 sm:w-[30rem] bg-white border rounded-md shadow-lg p-3"
+						>
+							<div class="grid gap-3 sm:grid-cols-2">
+								<!-- Orden: en escritorio vive en la barra; en móvil, aquí. -->
+								<label class="block text-sm text-gray-700 sm:hidden">
+									{{ t('sequences.sortLabel') }}
+									<select v-model="queueSort" class="w-full mt-1 p-2 border rounded-md text-sm bg-white">
+										<option value="scheduled">{{ t('sequences.sort.scheduled') }}</option>
+										<option value="recent">{{ t('sequences.sort.recent') }}</option>
+										<option value="name">{{ t('sequences.sort.name') }}</option>
+										<option value="template">{{ t('sequences.sort.template') }}</option>
+										<option value="sequence">{{ t('sequences.sort.sequence') }}</option>
+										<option value="palanquero">{{ t('sequences.sort.palanquero') }}</option>
+									</select>
+								</label>
+								<label class="block text-sm text-gray-700">
+									{{ t('sequences.filterLabel') }}
+									<select v-model="queueAssignFilter" class="w-full mt-1 p-2 border rounded-md text-sm bg-white">
+										<option value="active">{{ t('sequences.filter.active') }}</option>
+										<option value="mine">{{ t('sequences.filter.mine') }}</option>
+										<option value="unassigned">{{ t('sequences.filter.unassigned') }}</option>
+										<option v-for="a in queueAssigneeOptions" :key="a.id" :value="`user:${a.id}`">
+											{{ t('sequences.filter.assignee', { name: a.name }) }} ({{ a.count }})
+										</option>
+										<option value="paused">{{ t('sequences.filter.paused') }}</option>
+										<option value="all">{{ t('sequences.filter.all') }}</option>
+									</select>
+								</label>
+								<label class="block text-sm text-gray-700">
+									{{ t('sequences.filter.template') }}
+									<select v-model="queueTemplateFilter" class="w-full mt-1 p-2 border rounded-md text-sm bg-white">
+										<option value="all">{{ t('sequences.filter.allTemplates') }}</option>
+										<option v-for="opt in queueTemplateOptions" :key="opt.value" :value="opt.value">
+											{{ opt.label }} ({{ opt.count }})
+										</option>
+									</select>
+								</label>
+								<label class="block text-sm text-gray-700">
+									{{ t('sequences.filter.sequence') }}
+									<select v-model="queueSequenceFilter" class="w-full mt-1 p-2 border rounded-md text-sm bg-white">
+										<option value="all">{{ t('sequences.filter.allSequences') }}</option>
+										<option v-for="opt in queueSequenceOptions" :key="opt.value" :value="opt.value">
+											{{ opt.label }} ({{ opt.count }})
+										</option>
+									</select>
+								</label>
+							</div>
+							<div class="mt-3 pt-3 border-t space-y-2">
+								<label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer select-none sm:hidden">
+									<input type="checkbox" v-model="autoConfirmSend" class="rounded border-gray-300" />
+									{{ t('sequences.autoConfirmSend') }}
+								</label>
+								<Button
+									size="sm"
+									variant="outline"
+									class="w-full justify-center"
+									:disabled="regenerating"
+									@click="regenerateQueue(); queueMenuOpen = false"
+								>
+									<RefreshCw class="w-4 h-4 mr-1" :class="regenerating ? 'animate-spin' : ''" />
+									{{ t('sequences.regenerateQueue') }}
+								</Button>
+								<Button
+									size="sm"
+									variant="default"
+									class="w-full justify-center sm:hidden"
+									@click="openNext(); queueMenuOpen = false"
+								>
+									{{ t('sequences.openNext') }}
+								</Button>
+							</div>
+						</div>
+					</div>
+					<!-- Escritorio: la preferencia de envío junto a la acción que afecta;
+					     una sola unidad para que al envolver baje junta, a la derecha. -->
+					<div class="hidden sm:flex items-center gap-2 shrink-0 ml-auto">
+						<label class="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer select-none">
+							<input type="checkbox" v-model="autoConfirmSend" class="rounded border-gray-300" />
+							{{ t('sequences.autoConfirmSend') }}
+						</label>
+						<Button variant="outline" class="h-[38px]" @click="openNext">
+							{{ t('sequences.openNext') }}
+						</Button>
+					</div>
+				</div>
+				<!-- Chips de filtros activos (Mostrar ≠ Activos, plantilla, secuencia) -->
+				<div v-if="queueFilterChips.length" class="flex items-center gap-2 mb-2 text-xs flex-wrap">
+					<span
+						v-for="chip in queueFilterChips"
+						:key="chip.key"
+						class="inline-flex items-center gap-1 rounded-full px-2 py-0.5"
+						:class="chip.tone"
+					>
+						{{ chip.label }}
+						<button
+							type="button"
+							class="opacity-70 hover:opacity-100"
+							:aria-label="t('sequences.clearFilter')"
+							@click="chip.clear()"
+						>
+							<X class="w-3 h-3" />
+						</button>
+					</span>
+					<button
+						v-if="queueFilterChips.length > 1"
+						type="button"
+						class="text-blue-600 hover:underline"
+						@click="clearFilterChips(queueFilterChips)"
+					>
+						{{ t('sequences.filter.clearAll') }}
+					</button>
 				</div>
 				<p v-if="pausedHiddenCount && filteredQueue.length" class="text-xs text-gray-500 mb-2">
 					{{ t('sequences.queuePausedHidden', { count: pausedHiddenCount }, pausedHiddenCount) }}
@@ -2149,7 +2904,15 @@ async function toggleDoNotContact() {
 							<span v-if="seqName(item.sequenceId)">· {{ seqName(item.sequenceId) }}</span>
 							<span v-if="palanqueroLabel(item)" class="text-violet-600">· {{ palanqueroLabel(item) }}</span>
 							<span v-if="item.assignedTo === myUserId" class="text-green-600">· {{ t('sequences.mine') }}</span>
-							<span v-else-if="item.assignedTo" class="text-gray-400">· {{ t('sequences.assigned') }}</span>
+							<!-- El nombre del asignado lo resuelve el server (M1); sin
+							     nombre resuelto (usuario eliminado) queda el genérico. -->
+							<span v-else-if="item.assignedTo" class="text-gray-400">
+								· {{
+									item.assignedToName
+										? t('sequences.assignedToName', { name: item.assignedToName })
+										: t('sequences.assigned')
+								}}
+							</span>
 						</div>
 					</div>
 					<div class="flex items-center flex-nowrap gap-1 sm:gap-1.5 sm:shrink-0">
@@ -2169,6 +2932,25 @@ async function toggleDoNotContact() {
 						>
 							{{ t('sequences.take') }}
 						</button>
+						<Button
+							v-if="resolveRecipientContact(item)"
+							size="icon"
+							variant="ghost"
+							class="h-8 w-8 shrink-0"
+							:title="t('sequences.viewConversation')"
+							@click="openWhatsappHistory(item)"
+						>
+							<MessageCircle class="w-4 h-4" />
+						</Button>
+						<!-- El payload de la cola trae una proyección del participante
+						     (id + nombre + teléfonos); el popover enriquece la ficha
+						     completa desde el store por id, con esta como fallback. -->
+						<ParticipantInfoPopover
+							v-if="item.participant"
+							variant="icon"
+							:participant="(item.participant as any)"
+							:retreat-id="retreatId"
+						/>
 						<Button size="sm" variant="outline" class="shrink-0 px-2 sm:px-3" @click="skipItem(item)">
 							{{ t('sequences.skip') }}
 						</Button>
@@ -2210,102 +2992,183 @@ async function toggleDoNotContact() {
 			<div v-else class="text-sm text-gray-500 border rounded-md p-4 text-center">
 				{{ t('sequences.queueEmpty') }}
 			</div>
-				<!-- Paginación de pendientes -->
-				<div v-if="queueTotalPages > 1" class="flex items-center justify-center gap-3 mt-3 text-sm">
-					<Button size="sm" variant="outline" :disabled="queuePage <= 1" @click="queuePage = queuePage - 1">‹</Button>
-					<span class="text-gray-600">{{ t('sequences.pageOf', { page: queuePage, total: queueTotalPages }) }}</span>
-					<Button size="sm" variant="outline" :disabled="queuePage >= queueTotalPages" @click="queuePage = queuePage + 1">›</Button>
+				<!-- Pie: tamaño de página + paginación de pendientes -->
+				<div v-if="filteredQueue.length" class="flex items-center justify-end flex-wrap gap-x-4 gap-y-2 mt-3 text-sm">
+					<label class="flex items-center gap-1.5 text-xs text-gray-600">
+						{{ t('sequences.pageSizeLabel') }}
+						<select v-model="queuePageSize" class="p-1 border rounded-md text-xs bg-white">
+							<option v-for="n in PAGE_SIZE_OPTIONS" :key="n" :value="n">{{ n }}</option>
+							<option value="all">{{ t('sequences.pageSizeAll') }}</option>
+						</select>
+					</label>
+					<div v-if="queueTotalPages > 1" class="flex items-center gap-3">
+						<Button size="sm" variant="outline" :disabled="queuePage <= 1" @click="queuePage = queuePage - 1">‹</Button>
+						<span class="text-gray-600">{{ t('sequences.pageOf', { page: queuePage, total: queueTotalPages }) }}</span>
+						<Button size="sm" variant="outline" :disabled="queuePage >= queueTotalPages" @click="queuePage = queuePage + 1">›</Button>
+					</div>
 				</div>
 			</div>
 
 			<!-- Tab: Problemas (omitidos o fallidos, con su motivo) -->
 			<div v-show="activeTab === 'issues'" role="tabpanel" id="seq-panel-issues" aria-labelledby="seq-tab-issues">
-				<!-- Chip de secuencia (viene del badge clickeable de la lista) -->
-				<div v-if="issuesSequenceFilter" class="flex items-center gap-2 mb-2 text-xs">
-					<span class="inline-flex items-center gap-1 bg-red-100 text-red-700 rounded-full px-2 py-0.5">
-						{{ seqName(issuesSequenceFilter) }}
-						<button
-							type="button"
-							class="hover:text-red-900"
-							:aria-label="t('sequences.clearFilter')"
-							@click="issuesSequenceFilter = null"
-						>
-							<X class="w-3 h-3" />
-						</button>
-					</span>
-				</div>
-				<!-- Buscador + (móvil) menú de acciones -->
-				<div v-if="issues.length" class="flex items-center gap-2 mb-2">
+				<!-- Toolbar (molde Programadas): buscador + orden + «Filtros» + acciones
+				     masivas (escritorio; en móvil van al final del panel). -->
+				<div v-if="issues.length" class="flex flex-wrap items-center gap-2 mb-2">
 					<input
 						v-model="issuesSearch"
 						type="search"
 						:placeholder="t('sequences.searchPlaceholder')"
-						class="flex-1 min-w-0 p-2 border rounded-md text-sm"
+						class="flex-1 min-w-[12rem] sm:min-w-[16rem] p-2 border rounded-md text-sm"
 					/>
-					<div class="relative sm:hidden">
-						<Button
-							variant="outline"
-							size="icon"
-							:aria-label="t('sequences.moreActions')"
-							@click="issuesMenuOpen = !issuesMenuOpen"
-						>
-							<MoreVertical class="w-4 h-4" />
-						</Button>
-						<div v-if="issuesMenuOpen" class="fixed inset-0 z-10" @click="issuesMenuOpen = false" />
-						<div
-							v-if="issuesMenuOpen"
-							class="absolute right-0 mt-1 z-20 w-64 bg-white border rounded-md shadow-lg p-3 space-y-3"
-						>
-							<label class="block text-sm text-gray-700">
-								{{ t('sequences.sortLabel') }}
-								<select v-model="issuesSort" class="w-full mt-1 p-2 border rounded-md text-sm bg-white">
-									<option value="recent">{{ t('sequences.sort.recent') }}</option>
-									<option value="status">{{ t('sequences.sort.status') }}</option>
-									<option value="name">{{ t('sequences.sort.name') }}</option>
-									<option value="template">{{ t('sequences.sort.template') }}</option>
-								</select>
-							</label>
-							<Button
-								size="sm"
-								variant="outline"
-								class="w-full justify-center"
-								:disabled="bulkBusy"
-								@click="bulkIssues('retry'); issuesMenuOpen = false"
-							>
-								<RefreshCw class="w-4 h-4 mr-1" /> {{ t('sequences.bulkRetry') }}
-							</Button>
-							<Button
-								size="sm"
-								variant="ghost"
-								class="w-full justify-center text-gray-500"
-								:disabled="bulkBusy"
-								@click="bulkIssues('discard'); issuesMenuOpen = false"
-							>
-								{{ t('sequences.bulkDiscard') }}
-							</Button>
-						</div>
-					</div>
-				</div>
-				<!-- Controles inline (escritorio) -->
-				<div v-if="issues.length" class="hidden sm:flex items-center justify-end flex-wrap gap-2 mb-2">
-					<label class="flex items-center gap-1.5 text-xs text-gray-600 mr-auto">
+					<label class="hidden sm:flex items-center gap-1.5 text-xs text-gray-600 shrink-0 ml-auto">
 						{{ t('sequences.sortLabel') }}
-						<select v-model="issuesSort" class="p-1 border rounded-md text-xs bg-white">
+						<select v-model="issuesSort" class="p-2 border rounded-md text-sm bg-white">
 							<option value="recent">{{ t('sequences.sort.recent') }}</option>
 							<option value="status">{{ t('sequences.sort.status') }}</option>
 							<option value="name">{{ t('sequences.sort.name') }}</option>
 							<option value="template">{{ t('sequences.sort.template') }}</option>
 						</select>
 					</label>
-					<Button size="sm" variant="outline" :disabled="bulkBusy" @click="bulkIssues('retry')">
-						<RefreshCw class="w-4 h-4 mr-1" /> {{ t('sequences.bulkRetry') }}
-					</Button>
-					<Button size="sm" variant="ghost" class="text-gray-500" :disabled="bulkBusy" @click="bulkIssues('discard')">
-						{{ t('sequences.bulkDiscard') }}
-					</Button>
+					<div class="relative shrink-0" @keydown.escape="issuesMenuOpen = false">
+						<Button
+							variant="outline"
+							class="h-[38px] px-2.5 sm:px-3"
+							:aria-label="t('sequences.filtersAction')"
+							:aria-expanded="issuesMenuOpen"
+							@click="issuesMenuOpen = !issuesMenuOpen"
+						>
+							<SlidersHorizontal class="w-4 h-4" />
+							<span class="hidden sm:inline ml-1.5">{{ t('sequences.filtersAction') }}</span>
+							<span
+								v-if="issuesFilterChips.length"
+								class="ml-1.5 min-w-[1.25rem] rounded-full bg-blue-600 px-1.5 text-[11px] leading-5 text-white"
+							>
+								{{ issuesFilterChips.length }}
+							</span>
+						</Button>
+						<div v-if="issuesMenuOpen" class="fixed inset-0 z-10" @click="issuesMenuOpen = false" />
+						<div
+							v-if="issuesMenuOpen"
+							role="group"
+							:aria-label="t('sequences.filtersAction')"
+							class="absolute right-0 mt-1 z-20 w-72 sm:w-[30rem] bg-white border rounded-md shadow-lg p-3"
+						>
+							<div class="grid gap-3 sm:grid-cols-2">
+								<!-- Orden: en escritorio vive en la barra; en móvil, aquí. -->
+								<label class="block text-sm text-gray-700 sm:hidden">
+									{{ t('sequences.sortLabel') }}
+									<select v-model="issuesSort" class="w-full mt-1 p-2 border rounded-md text-sm bg-white">
+										<option value="recent">{{ t('sequences.sort.recent') }}</option>
+										<option value="status">{{ t('sequences.sort.status') }}</option>
+										<option value="name">{{ t('sequences.sort.name') }}</option>
+										<option value="template">{{ t('sequences.sort.template') }}</option>
+									</select>
+								</label>
+								<label class="block text-sm text-gray-700">
+									{{ t('sequences.filter.status') }}
+									<select v-model="issuesStatusFilter" class="w-full mt-1 p-2 border rounded-md text-sm bg-white">
+										<option value="all">{{ t('sequences.filter.allStatuses') }}</option>
+										<option value="failed">{{ t('sequences.statuses.failed') }}</option>
+										<option value="skipped">{{ t('sequences.statuses.skipped') }}</option>
+									</select>
+								</label>
+								<label class="block text-sm text-gray-700">
+									{{ t('sequences.filterLabel') }}
+									<select v-model="issuesAssignFilter" class="w-full mt-1 p-2 border rounded-md text-sm bg-white">
+										<option value="all">{{ t('sequences.filter.all') }}</option>
+										<option value="unassigned">{{ t('sequences.filter.unassigned') }}</option>
+										<option v-for="a in issuesAssigneeOptions" :key="a.id" :value="`user:${a.id}`">
+											{{ t('sequences.filter.assignee', { name: a.name }) }} ({{ a.count }})
+										</option>
+									</select>
+								</label>
+								<label class="block text-sm text-gray-700">
+									{{ t('sequences.filter.template') }}
+									<select v-model="issuesTemplateFilter" class="w-full mt-1 p-2 border rounded-md text-sm bg-white">
+										<option value="all">{{ t('sequences.filter.allTemplates') }}</option>
+										<option v-for="opt in issuesTemplateOptions" :key="opt.value" :value="opt.value">
+											{{ opt.label }} ({{ opt.count }})
+										</option>
+									</select>
+								</label>
+								<label class="block text-sm text-gray-700">
+									{{ t('sequences.filter.sequence') }}
+									<select v-model="issuesSequenceFilter" class="w-full mt-1 p-2 border rounded-md text-sm bg-white">
+										<option :value="null">{{ t('sequences.filter.allSequences') }}</option>
+										<option v-for="opt in issuesSequenceOptions" :key="opt.value" :value="opt.value">
+											{{ opt.label }} ({{ opt.count }})
+										</option>
+									</select>
+								</label>
+								<label class="block text-sm text-gray-700">
+									{{ t('sequences.channel') }}
+									<select v-model="issuesChannelFilter" class="w-full mt-1 p-2 border rounded-md text-sm bg-white">
+										<option value="all">{{ t('sequences.filter.allChannels') }}</option>
+										<option value="whatsapp">{{ t('sequences.channels.whatsapp') }}</option>
+										<option value="email">{{ t('sequences.channels.email') }}</option>
+									</select>
+								</label>
+							</div>
+							<div class="sm:hidden mt-3 pt-3 border-t space-y-2">
+								<Button
+									size="sm"
+									variant="outline"
+									class="w-full justify-center"
+									:disabled="bulkBusy"
+									@click="bulkIssues('retry'); issuesMenuOpen = false"
+								>
+									<RefreshCw class="w-4 h-4 mr-1" /> {{ t('sequences.bulkRetry') }}
+								</Button>
+								<Button
+									size="sm"
+									variant="ghost"
+									class="w-full justify-center text-gray-500"
+									:disabled="bulkBusy"
+									@click="bulkIssues('discard'); issuesMenuOpen = false"
+								>
+									{{ t('sequences.bulkDiscard') }}
+								</Button>
+							</div>
+						</div>
+					</div>
+					<div class="hidden sm:flex items-center gap-1 shrink-0 ml-auto">
+						<Button variant="outline" class="h-[38px]" :disabled="bulkBusy" @click="bulkIssues('retry')">
+							<RefreshCw class="w-4 h-4 mr-1" /> {{ t('sequences.bulkRetry') }}
+						</Button>
+						<Button variant="ghost" class="h-[38px] text-gray-500" :disabled="bulkBusy" @click="bulkIssues('discard')">
+							{{ t('sequences.bulkDiscard') }}
+						</Button>
+					</div>
+				</div>
+				<!-- Chips de filtros activos: secuencia (badge clickeable) y lo elegido en el panel -->
+				<div v-if="issuesFilterChips.length" class="flex items-center gap-2 mb-2 text-xs flex-wrap">
+					<span
+						v-for="chip in issuesFilterChips"
+						:key="chip.key"
+						class="inline-flex items-center gap-1 rounded-full px-2 py-0.5"
+						:class="chip.tone"
+					>
+						{{ chip.label }}
+						<button
+							type="button"
+							class="opacity-70 hover:opacity-100"
+							:aria-label="t('sequences.clearFilter')"
+							@click="chip.clear()"
+						>
+							<X class="w-3 h-3" />
+						</button>
+					</span>
+					<button
+						v-if="issuesFilterChips.length > 1"
+						type="button"
+						class="text-blue-600 hover:underline"
+						@click="clearFilterChips(issuesFilterChips)"
+					>
+						{{ t('sequences.filter.clearAll') }}
+					</button>
 				</div>
 				<div v-if="issues.length && filteredIssues.length" class="border rounded-md divide-y">
-				<div v-for="it in filteredIssues" :key="it.id" class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 p-3">
+				<div v-for="it in pagedIssues" :key="it.id" class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 p-3">
 					<div class="min-w-0">
 						<div class="text-sm truncate">
 							<button
@@ -2348,6 +3211,17 @@ async function toggleDoNotContact() {
 						>
 							{{ t('sequences.discard') }}
 						</Button>
+						<Button
+							v-if="resolveRecipientContact(it)"
+							size="icon"
+							variant="ghost"
+							class="h-8 w-8 shrink-0"
+							:title="t('sequences.viewConversation')"
+							@click="openWhatsappHistory(it)"
+						>
+							<MessageCircle class="w-4 h-4" />
+						</Button>
+						<ParticipantInfoPopover v-if="it.participant" variant="icon" :participant="(it.participant as any)" :retreat-id="retreatId" />
 					</div>
 				</div>
 				</div>
@@ -2356,6 +3230,21 @@ async function toggleDoNotContact() {
 				</div>
 				<div v-else class="text-sm text-gray-500 border rounded-md p-4 text-center">
 					{{ t('sequences.issuesEmpty') }}
+				</div>
+				<!-- Pie: tamaño de página + paginación local de los problemas cargados -->
+				<div v-if="issues.length && filteredIssues.length" class="flex items-center justify-end flex-wrap gap-x-4 gap-y-2 mt-3 text-sm">
+					<label class="flex items-center gap-1.5 text-xs text-gray-600">
+						{{ t('sequences.pageSizeLabel') }}
+						<select v-model="issuesPageSize" class="p-1 border rounded-md text-xs bg-white">
+							<option v-for="n in PAGE_SIZE_OPTIONS" :key="n" :value="n">{{ n }}</option>
+							<option value="all">{{ t('sequences.pageSizeAll') }}</option>
+						</select>
+					</label>
+					<div v-if="issuesTotalPages > 1" class="flex items-center gap-3">
+						<Button size="sm" variant="outline" :disabled="issuesPage <= 1" @click="issuesPage = issuesPage - 1">‹</Button>
+						<span class="text-gray-600">{{ t('sequences.pageOf', { page: issuesPage, total: issuesTotalPages }) }}</span>
+						<Button size="sm" variant="outline" :disabled="issuesPage >= issuesTotalPages" @click="issuesPage = issuesPage + 1">›</Button>
+					</div>
 				</div>
 				<!-- #2: quedan problemas sin cargar (cap de página) → siguiente página -->
 				<div v-if="issues.length && issues.length < issuesTotal" class="flex justify-center mt-3">
@@ -2832,9 +3721,13 @@ async function toggleDoNotContact() {
 										{{ detail.palancas.requested ? t('common.yes') : t('common.no') }}
 									</span>
 								</div>
-								<div v-if="detail.palancas.received" class="text-gray-700">
+								<div v-if="detailPalancasCount != null || detail.palancas.received" class="text-gray-700">
 									<span class="text-gray-500">{{ t('sequences.palancasReceived') }}:</span>
-									{{ detail.palancas.received }}
+									{{ detailPalancasCount != null ? detailPalancasCount : detail.palancas.received }}
+								</div>
+								<div v-if="detail.palancas.coordinator" class="text-gray-700">
+									<span class="text-gray-500">{{ t('sequences.palancasCoordinator') }}:</span>
+									{{ detail.palancas.coordinator }}
 								</div>
 								<div v-if="detail.palancas.notes" class="text-gray-600">{{ detail.palancas.notes }}</div>
 							</div>
@@ -2847,6 +3740,30 @@ async function toggleDoNotContact() {
 								{{ detail.participant.notes }}
 							</div>
 							<div v-else class="text-gray-400">{{ t('sequences.noNotes') }}</div>
+						</div>
+
+						<!-- Hilo de seguimiento del CRM (mismo origen que la ficha popover, v1.1 D10):
+						     notas con autor y fecha + hitos (el de palancas es un stage_change). -->
+						<div>
+							<div class="text-xs font-medium text-gray-500 mb-1">{{ t('sequences.crmThreadSection') }}</div>
+							<div v-if="detailInsightsLoading" class="text-gray-400">{{ t('common.loading') }}…</div>
+							<ul v-else-if="detailThread.length" class="space-y-1.5">
+								<li v-for="ev in detailThread" :key="ev.id" class="text-xs">
+									<div
+										:class="ev.type === 'stage_change' ? 'text-gray-500 italic' : 'text-gray-700'"
+										class="whitespace-pre-wrap"
+									>
+										{{ ev.type === 'stage_change' ? ev.title : (ev.detail || ev.title) }}
+									</div>
+									<div class="text-gray-400">
+										{{ [ev.actorName, fmtDate(ev.at)].filter(Boolean).join(' · ') }}
+									</div>
+								</li>
+							</ul>
+							<div v-else-if="detailInsightsError" class="text-gray-400">
+								{{ t('sequences.crmThreadError') }}
+							</div>
+							<div v-else class="text-gray-400">{{ t('sequences.crmThreadEmpty') }}</div>
 						</div>
 
 						<!-- Mensajes ya enviados -->
@@ -2882,6 +3799,16 @@ async function toggleDoNotContact() {
 
 				<div class="flex items-center justify-end gap-2 p-4 border-t bg-gray-50">
 					<Button variant="outline" @click="skipFromDetail">{{ t('sequences.skip') }}</Button>
+					<Button
+						v-if="detailItem && resolveRecipientContact(detailItem)"
+						variant="outline"
+						:title="t('sequences.viewConversation')"
+						@click="openWhatsappHistory(detailItem)"
+					>
+						<MessageCircle class="w-4 h-4 mr-1" />
+						<span class="hidden sm:inline">{{ t('sequences.viewConversation') }}</span>
+						<span class="sm:hidden">{{ t('sequences.viewConversationShort') }}</span>
+					</Button>
 					<Button @click="dispatchFromDetail">
 						<Send class="w-4 h-4 mr-1" /> {{ t('sequences.openWhatsapp') }}
 					</Button>

@@ -65,37 +65,102 @@ Desviaciones reales respecto a `plan.md` (2026-10-08):
 
 ## M2 — Badge de conteo
 
-- [ ] Extraer `loadDuplicateGroups` en `participantMergeService.ts` (comportamiento idéntico;
-      tests existentes en verde)
-- [ ] `countDuplicateCandidatesForCommunity` + test de acuerdo (count === lista, 3 escenarios)
-- [ ] `communityDuplicateCountSchema` en `packages/types` + controller + ruta owner-only
-- [ ] `getCommunityDuplicateCount` en api.ts + `DuplicateCountBadge.vue` + test
-- [ ] Integrar badge en botón "Duplicados" (CommunityMembersView, owners); dashboard: decidir
-- [ ] `touch apps/api/src/index.ts` (packages/types tocado)
+- [x] Extraer `loadDuplicateGroups` en `participantMergeService.ts` (comportamiento idéntico;
+      tests existentes en verde — 30/30 en las 2 suites de merge)
+- [x] `countDuplicateCandidatesForCommunity` + test de acuerdo (count === lista, 3 escenarios
+      con valores absolutos para que el acuerdo no sea trivial) + controlador 200
+- [x] `communityDuplicateCountSchema` en `packages/types` + controller + ruta owner-only
+      `GET /:id/duplicates/count`
+- [x] `getCommunityDuplicateCount` en api.ts + `DuplicateCountBadge.vue` + test (4 casos:
+      número, cero, error, refresco al cambiar comunidad)
+- [x] Integrar badge en botón "Duplicados" (CommunityMembersView, owners); dashboard: decidir
+      — NO (ver desviación 1)
+- [x] `touch apps/api/src/index.ts` (packages/types tocado)
+
+Desviaciones reales respecto a `plan.md` (2026-10-08):
+
+1. **Dashboard: sin badge.** El plan lo dejaba "opcional, decidir en implementación". El
+   dashboard no tiene entrada a duplicados; el único lugar donde el número significa algo
+   accionable es el botón que abre el listado. Un badge sin acción al lado es ruido.
+2. El test del controlador vive dentro de la suite del service (`participantMerge.test.ts`),
+   junto al de `previewParticipantMerge` que ya estaba ahí — mismo molde, no suite aparte.
+3. Refresh tras fusión: `:key="duplicatesVersion"` remonta el badge en cada `@merged` del
+   `DuplicateMembersDialog`, en vez de exponer un método — el componente se queda autocontenido
+   (solo props, sin API imperativa).
+4. Sin i18n ni íconos nuevos: el badge es un número dentro del botón ya etiquetado.
+5. Verificado en dev local contra datos reales (pull de prod de hoy): Buen despacho
+   `count === listado === 2` (Garay + Vallejos por teléfono, ya sin Marco tras M0).
 
 ## M3 — Dismiss de falsos positivos
 
-- [ ] Migration `2026100X0000_CreateCommunityDuplicateDismissal` (skill `sqlite-migrations`;
-      up/down probados contra copia local)
-- [ ] Entidad `communityDuplicateDismissal.entity.ts` + registro en
-      `apps/api/src/database/config.ts`
-- [ ] Schemas + 3 endpoints owner-only (dismiss idempotente con canonicalización,
-      list, undo) + tests controller (400 inválidos, 200, 403 co-admin)
-- [ ] `loadDuplicateGroups` filtra pares dismissados (solo grupos de 2) + tests service
-      (lista Y count; grupo de 3 no se filtra; idempotencia)
-- [ ] UI: "No son la misma persona" en ambos dialogs + sección "Pares descartados" con
-      Deshacer + handler en vista de stats + i18n es+en
-- [ ] Tests UI de ambos dialogs
+- [x] Migration `20261009094500_CreateCommunityDuplicateDismissal` (skill `sqlite-migrations`;
+      tabla nueva sin FKs entrantes, `transaction = false as const`, `CREATE ... IF NOT EXISTS`
+      idempotente) — la aplicó el auto-run de nodemon a la dev DB al guardar (comportamiento
+      documentado del skill), re-ejecución segura
+- [x] Entidad `communityDuplicateDismissal.entity.ts` + registro en
+      `apps/api/src/database/config.ts` — y en DOS lugares más (ver desviación 1)
+- [x] Schemas + 3 endpoints owner-only (dismiss idempotente con canonicalización,
+      list, undo) + tests controller (400 inválidos, 200, 403 co-admin — wiring en
+      `communityDismissalRoutes.simple.test.ts`, 403 con middleware stubbeado)
+- [x] `loadDuplicateGroups` filtra pares dismissados (solo grupos de 2) + tests service
+      (lista Y count; grupo de 3 no se filtra; idempotencia; canonicalización A,B/B,A;
+      undo revive el par; undo cross-comunidad rechazado) — 45/45 en las 3 suites
+- [x] UI: "No son la misma persona" en ambos dialogs + sección "Pares descartados" con
+      Deshacer + handler en vista de stats + i18n es+en (9 claves nuevas, paridad verificada
+      por `auditLocaleCoverage.test.ts`)
+- [x] Tests UI de ambos dialogs (MergePairDialog 8, DuplicateMembersDialog 10) +
+      `pnpm --filter web build` verde
+
+Desviaciones reales respecto a `plan.md` (2026-10-09):
+
+1. **La entidad se registra en TRES listas, no una.** Además de `database/config.ts`, el
+   DataSource de tests (`apps/api/src/tests/test-setup.ts`) tiene su propio array de entities
+   — sin registro ahí, "No metadata for CommunityDuplicateDismissal" tumba 16 tests — y
+   `clearTestData()` necesita la tabla en su `clearOrder` o las filas de descarte se filtran
+   entre tests (fallos fantasma de contaminación cross-suite). El plan sólo prevenía la
+   primera.
+2. **El 403 de co-admin no es un test HTTP contra middleware real**: va en
+   `communityDismissalRoutes.simple.test.ts` (molde `communityUpdateRoutes`), que fija que el
+   gate es `requireCommunityOwner` (no mero acceso) y que la validación Zod corre antes del
+   controller. Los tests de controller quedaron embebidos en la suite de service, mismo
+   criterio que M2.
+3. **El undo emite el mismo evento `dismissed` que el dismiss**: ambos cambian el conteo
+   pendiente y el badge del botón debe refrescarse en los dos sentidos; `onDuplicatesMerged`
+   no aplica porque un descarte no toca miembros. En la vista de stats, el handler saca el
+   par de la lista local sin recargar (el descarte no cambia inscripciones ni asistencia).
+4. **La sección de descartados es fail-soft con error visible**: si su GET falla, el dialog
+   sigue vivo pero la sección muestra el error en vez de un "no hay pares descartados" que
+   mentiría (la sección existe justamente para que un misclick no esconda un duplicado real).
+5. **Hallazgo de los tests UI**: el mock de `Button` hacía `$emit('click')` además del
+   fallthrough del onclick del padre → el handler corría DOS veces por click y la
+   confirmación en dos pasos se ejecutaba en un solo click. Corregido el mock para reflejar
+   el Button real (Primitive de radix: sólo fallthrough). El componente de producción nunca
+   tuvo el bug.
 
 ## M4 — Audit del merge [P — paralelizable con M2/M3]
 
-- [ ] `PARTICIPANT_MERGE` en `CommunityAuditAction` + `matchedBy` opcional en
+- [x] `PARTICIPANT_MERGE` en `CommunityAuditAction` + `matchedBy` opcional en
       `mergeParticipantsSchema.body`
-- [ ] Log fire-and-forget en controller tras el merge (metadata compacta del `MergeResult`)
-- [ ] Ambos dialogs pasan `matchedBy: pair.matchedBy`
-- [ ] Tests: fila de audit tras 200; merge 200 aunque audit rechace
+- [x] Log fire-and-forget en controller tras el merge (metadata compacta del `MergeResult`)
+- [x] Ambos dialogs pasan `matchedBy: pair.matchedBy`
+- [x] Tests: fila de audit tras 200; merge 200 aunque audit rechace
+
+Desviaciones reales respecto a `plan.md` (2026-10-09):
+
+1. Los tests del audit viven en `participantMerge.test.ts`, mismo criterio que M2/M3
+   (controller embebido en la suite del service). No existe un helper `awaitAuditRow` en
+   el repo: el flush del fire-and-forget usa el mismo `setTimeout` que el resto de las
+   suites que esperan filas de audit.
+2. Fallo fantasma al correr las DOS suites que matchean "participantMerge" en workers
+   paralelos (comparten la SQLite de test): "NO filtra grupos de 3+" dio count 2 vs 1.
+   Con `--runInBand`, 41/41 — es la clase documentada en `troubleshooting`. La suite del
+   merge se corre serializada cuando toca correrla junto a `participantMergeReferences`.
+3. Sin tests frontend nuevos: el contrato del 4º argumento se fijó endureciendo el assert
+   del merge existente en ambos dialogs (`'phone'` explícito); el recorrido completo de
+   `matchedBy` → audit log ya lo cubre el backend.
 
 ## Cierre
 
-- [ ] Marcar tareas y anotar desviaciones por milestone
-- [ ] Proponer commit(s)
+- [x] Marcar tareas y anotar desviaciones por milestone (M0–M4)
+- [x] Proponer commit(s) — M1 `6524ea92`, M2 `6ff2978a`, M3 `5ea8df8a`; M4 propuesto
+      el 2026-10-09

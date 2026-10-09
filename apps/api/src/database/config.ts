@@ -32,6 +32,7 @@ import { Tag } from '../entities/tag.entity';
 import { ParticipantTag } from '../entities/participantTag.entity';
 import { AuditLog } from '../entities/auditLog.entity';
 import { CommunityAuditLog } from '../entities/communityAuditLog.entity';
+import { CommunityDuplicateDismissal } from '../entities/communityDuplicateDismissal.entity';
 import { DomainAuditLog } from '../entities/domainAuditLog.entity';
 import { Community } from '../entities/community.entity';
 import { CommunityMember } from '../entities/communityMember.entity';
@@ -122,6 +123,7 @@ export function createDatabaseConfig() {
 		// Audit entities
 		AuditLog,
 		CommunityAuditLog,
+		CommunityDuplicateDismissal,
 		DomainAuditLog,
 		// Community entities
 		Community,

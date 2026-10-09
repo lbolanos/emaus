@@ -749,6 +749,28 @@ describe('ImportParticipantsModal Component', () => {
 			await nextTick();
 			expect(wrapper.exists()).toBe(true);
 		});
+
+		it('lists rows that updated someone registered outside the retreat, after the skipped ones (§25.9)', async () => {
+			const { useParticipantStore } = await import('@/stores/participantStore');
+			const store = useParticipantStore();
+			vi.spyOn(store, 'importParticipants').mockResolvedValue({
+				importedCount: 2,
+				updatedCount: 0,
+				skippedCount: 1,
+				skippedDetails: [{ row: 3, reason: 'el correo ya es de Juan Pérez', name: 'María López' }],
+				reusedDetails: [{ row: 2, name: 'Ana Ruiz' }],
+			} as any);
+
+			const setupState = (wrapper.vm as any).$.setupState;
+			setupState.selectedFile = new File(['x'], 'import.csv', { type: 'text/csv' });
+			setupState.importData = [{ email: 'ana@example.com', nombre: 'Ana', apellidos: 'Ruiz' }];
+			await setupState.confirmImport();
+
+			const summary: string = setupState.importSummary;
+			expect(summary).toContain('Omitidos:\nFila 3: el correo ya es de Juan Pérez (María López)');
+			expect(summary).toContain('participants.import.reusedFromElsewhere\nFila 2: Ana Ruiz');
+			expect(summary.indexOf('Omitidos')).toBeLessThan(summary.indexOf('reusedFromElsewhere'));
+		});
 	});
 
 	describe('Email Validation', () => {

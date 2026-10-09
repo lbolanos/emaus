@@ -20,6 +20,7 @@ export const CommunityAuditAction = {
 	MEMBER_CREATE: 'community.member.create',
 	MEMBER_LINKED: 'community.member.linked',
 	LINK_REQUEST_CREATED: 'community.link.request_created',
+	PARTICIPANT_MERGE: 'community.participant.merge',
 } as const;
 
 export type CommunityAuditActionType =

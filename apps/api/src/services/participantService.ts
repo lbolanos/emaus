@@ -33,6 +33,11 @@ import {
   isImportRoleConflict,
   importRoleConflictReason,
 } from "./importRoleConflict";
+import {
+  isImportNameConflict,
+  importNameConflictReason,
+  fullName,
+} from "./importEmailReuse";
 
 // Campos de participante que vale la pena auditar (allowlist). Excluye datos médicos
 // y otros campos sensibles que no aportan al "quién hizo qué".
@@ -3521,6 +3526,14 @@ const mapToEnglishKeys = (participant: any): Partial<CreateParticipant> => {
   // Excel cells may be numbers, dates, or strings - safely coerce to trimmed string
   const str = (val: any): string | undefined =>
     val != null ? String(val).trim() : undefined;
+  // For fields captured in emaus.cc that external exports don't carry (the
+  // parish one has no palancas, scholarship or single-room column): a missing
+  // or blank cell is "no data", not "No". As `false`, every re-import reset
+  // them on walkers already enrolled — the update branch only skips undefined.
+  const optionalYesNo = (val: any): boolean | undefined => {
+    const s = str(val);
+    return s ? s === "S" : undefined;
+  };
 
   const userType = str(participant.tipousuario);
   let mappedType: string;
@@ -3598,7 +3611,7 @@ const mapToEnglishKeys = (participant: any): Partial<CreateParticipant> => {
     inviterCellPhone: str(participant.invtelcelular),
     inviterEmail: str(participant.invemail),
     pickupLocation: str(participant.puntoencuentro),
-    isScholarship: str(participant.becado) === "S",
+    isScholarship: optionalYesNo(participant.becado),
     // Comidas (paz y salvo v2): nº de comidas del angelito y comida del viernes
     // del servidor. Opcionales en el Excel; si no vienen, quedan null.
     mealCount:
@@ -3610,10 +3623,10 @@ const mapToEnglishKeys = (participant: any): Partial<CreateParticipant> => {
         ? str(participant.comidaviernes) === "S"
         : null,
     palancasCoordinator: str(participant.palancasencargado),
-    palancasRequested: str(participant.palancaspedidas) === "S",
+    palancasRequested: optionalYesNo(participant.palancaspedidas),
     palancasReceived: str(participant.palancas),
     palancasNotes: str(participant.notaspalancas),
-    requestsSingleRoom: str(participant.habitacionindividual) === "S",
+    requestsSingleRoom: optionalYesNo(participant.habitacionindividual),
     isCancelled: str(participant.cancelado) === "S",
     notes: str(participant.notas),
   };
@@ -4586,6 +4599,9 @@ export const importParticipants = async (
   // Second pass: Process participants and collect bed assignments
   const skippedDetails: Array<{ row: number; reason: string; name?: string }> =
     [];
+  // Rows whose email already belonged to someone registered outside this
+  // retreat: createParticipant updated that record with the row (§25.9).
+  const reusedDetails: Array<{ row: number; name: string }> = [];
 
   for (let idx = 0; idx < sortedParticipantsData.length; idx++) {
     const participantRawData = sortedParticipantsData[idx];
@@ -4654,6 +4670,26 @@ export const importParticipants = async (
           continue;
         }
 
+        // The role check above only fires when both sides declare a role on
+        // opposite sides of the walker/team line. Check the name too (same
+        // rule as §25.9): a borrowed email can match this retreat's own
+        // enrollment, and the update below would overwrite that record just
+        // as silently — name, medication and emergency contacts included.
+        const rowName = fullName(mappedData) || mappedData.email;
+        if (isImportNameConflict(existingParticipant, mappedData)) {
+          skippedDetails.push({
+            row: idx + 2,
+            reason: importNameConflictReason(
+              fullName(existingParticipant),
+              rowName,
+              "in-retreat",
+            ),
+            name: rowName,
+          });
+          skippedCount++;
+          continue;
+        }
+
         const updatedParticipant = await updateParticipant(
           existingParticipant.id,
           updateData as UpdateParticipant,
@@ -4693,8 +4729,40 @@ export const importParticipants = async (
           paymentsCreated++;
         }
       } else {
+        // §25.9 — the email may belong to someone registered outside this
+        // retreat. createParticipant would reuse that record and overwrite
+        // its personal and health data with this row: skip it when the row
+        // names someone else, report it when it is the same person. Same
+        // lookup as createParticipant, so both see the same record.
+        const reusedParticipant = await participantRepository
+          .createQueryBuilder("participant")
+          .where("LOWER(participant.email) = :email", {
+            email: importNormalizedEmail,
+          })
+          .orderBy("participant.registrationDate", "DESC")
+          .getOne();
+        const rowName = fullName(mappedData) || mappedData.email;
+        if (reusedParticipant && isImportNameConflict(reusedParticipant, mappedData)) {
+          skippedDetails.push({
+            row: idx + 2,
+            reason: importNameConflictReason(fullName(reusedParticipant), rowName),
+            name: rowName,
+          });
+          skippedCount++;
+          continue;
+        }
+
+        // A new enrollment from a file without these columns still starts at
+        // "No" (the list shows N/A for null and its Yes/No filter is an exact
+        // match). Only the update branch must leave them alone.
         const newParticipant = await createParticipant(
-          { ...mappedData, retreatId } as CreateParticipant,
+          {
+            ...mappedData,
+            palancasRequested: mappedData.palancasRequested ?? false,
+            isScholarship: mappedData.isScholarship ?? false,
+            requestsSingleRoom: mappedData.requestsSingleRoom ?? false,
+            retreatId,
+          } as CreateParticipant,
           false,
           true, // isImporting = true
           true, // skipCapacityCheck = true during import
@@ -4702,6 +4770,9 @@ export const importParticipants = async (
         importedCount++;
         processedParticipantIds.push(newParticipant.id);
         participant = newParticipant;
+        if (reusedParticipant) {
+          reusedDetails.push({ row: idx + 2, name: rowName });
+        }
 
         // Create payment record if payment data exists in import
         const paymentResult = await createPaymentFromImport(
@@ -5162,6 +5233,7 @@ export const importParticipants = async (
     updatedCount,
     skippedCount,
     skippedDetails,
+    reusedDetails,
     tablesCreated,
     bedsCreated,
     paymentsCreated,
