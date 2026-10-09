@@ -252,3 +252,32 @@ Cerrado 2026-10-08 (8/8 chromium; screenshot verificado por DOM + OCR). Desviaci
 > Verificación 2026-10-09: jest 95/95, vitest 63/63, build verde, e2e 8/8 chromium (con la
 > cobertura v1.2: canal+orden-secuencia en Programadas vía secuencia email extra; estado/canal/
 > secuencia en Problemas), API del worktree reiniciada (vite-node no recarga services).
+
+## M10 — Toolbars de escritorio: popover «Filtros» + chips (pedido 2026-10-09)
+
+Pedido: «mejoremos ux ui para desktop porque se ven mucho» (captura: 7 selects con etiqueta
+partidos en dos líneas + acciones masivas sueltas). Molde: Shopify Polaris IndexFilters (buscador,
+orden y botón de filtros con popover; filtros aplicados como chips bajo el buscador).
+
+- [x] Los tres tabs: buscador + «Ordenar por» inline (escritorio) + botón «Filtros» con badge →
+      popover en 2 columnas (escritorio) / 1 columna (móvil), `role="group"` con nombre accesible
+- [x] Chips para TODO filtro aplicado (incl. estado y canal, que en v1.2 no tenían) + «Limpiar
+      filtros» con 2+; el badge es su cantidad. Estado de Programadas ≠ «Pendiente» cuenta
+- [x] «Por página» al pie, junto al paginador (todas las anchuras)
+- [x] Acciones de escritorio en la barra: Bandeja «Marcar enviado al abrir» + «Abrir siguiente»;
+      Problemas «Reenviar/Descartar todos». «Renovar con plantilla actual» pasa al popover
+- [x] Tests: vitest (popover abre los filtros; chips/badge/limpiar en Programadas y Problemas),
+      e2e (helpers `openFilters`/`closeFilters`; page size leído del pie)
+
+> Desviaciones M10: (1) Un solo panel para móvil y escritorio: desaparece el toolbar duplicado
+> `hidden sm:flex`; en móvil el panel suma el orden y las acciones (`sm:hidden`). (2) El fondo
+> de la página es gris: el chip neutro (estado/canal) en `bg-gray-100` era invisible — se vio en
+> la captura, no en tests; pasa a blanco con borde. (3) A 1024/800 px el buscador quedaba en
+> 69/18 px (medido con `boundingBox`): la barra ahora envuelve (`flex-wrap`, buscador
+> `min-w-[12rem] sm:min-w-[16rem]`) y los controles bajan a la derecha (`ml-auto` en el orden y
+> en el grupo de acciones; en una línea no tiene efecto). (4) e2e: mientras el popover está
+> abierto su backdrop tapa la página, así que `closeFilters` (Escape sobre el botón) va antes
+> de tocar el pie, el orden o los chips. (5) Sin componente compartido para el shell del popover
+> (follow-up #3 sigue abierto): las tres copias quedaron con las mismas clases.
+> Verificación 2026-10-09: vitest 65/65, `web build` (vue-tsc) verde, e2e 8/8 chromium, capturas
+> a 1280/1024/800/390 px revisadas (Buen Despacho y San Judas Tadeo en la base del worktree).

@@ -1,4 +1,4 @@
-import { test, expect, type Browser, type Page } from '@playwright/test';
+import { test, expect, type Browser, type Locator, type Page } from '@playwright/test';
 import * as fs from 'fs';
 import * as path from 'path';
 import { loginAs, withCsrf, E2E_USERS, type AuthSession } from './helpers/auth';
@@ -396,20 +396,26 @@ async function createFilterScenario(
 }
 
 /**
- * Scope of the pending-tab selects: the inline desktop toolbar, or the "⋯"
- * menu (which has to be opened first) on the mobile projects — the toolbar
- * itself is in the DOM at every breakpoint, but hidden below `sm`.
- * Scoped to the pending panel: every tab has its own "Más acciones" button
- * and `hidden sm:flex` toolbar in the DOM (the tab panels are v-show), so a
- * page-wide locator would hit strict mode violations.
+ * Opens the «Filtros» popover of a tab and returns its group — the same panel
+ * at every breakpoint. Always pass the tab panel: every tab has its own button
+ * in the DOM (the tab panels are v-show), so a page-wide locator would hit
+ * strict mode violations. `exact`: «Limpiar filtros» also matches "filtros".
  */
-async function queueControls(page: Page, isMobile: boolean | undefined) {
-	const panel = page.locator('#seq-panel-pending');
-	if (isMobile) {
-		await panel.getByRole('button', { name: 'Más acciones' }).click();
-		return panel.locator('div.z-20.w-64');
-	}
-	return panel.locator('div.hidden.sm\\:flex');
+async function openFilters(panel: Locator): Promise<Locator> {
+	await panel.getByRole('button', { name: 'Filtros', exact: true }).click();
+	const group = panel.getByRole('group', { name: 'Filtros' });
+	await expect(group).toBeVisible();
+	return group;
+}
+
+/**
+ * Closes it with Escape on its button. Required before touching anything else
+ * in the tab: while open, its backdrop covers the page and would intercept the
+ * click (the footer's page size, the inline sort, the chips).
+ */
+async function closeFilters(panel: Locator): Promise<void> {
+	await panel.getByRole('button', { name: 'Filtros', exact: true }).press('Escape');
+	await expect(panel.getByRole('group', { name: 'Filtros' })).toBeHidden();
 }
 
 /** Opens the sequences view on the pending tab, logged in, retreat preselected. */
@@ -525,10 +531,7 @@ test.describe.serial('Bandeja de Secuencias — filtros, por página y acciones 
 	const rowButtons = (page: Page) =>
 		page.locator('#seq-panel-pending button[title="Ver detalle del participante"]');
 
-	test('filtros: plantilla con conteo y asignado con nombre del usuario', async ({
-		page,
-		isMobile,
-	}) => {
+	test('filtros: plantilla con conteo y asignado con nombre del usuario', async ({ page }) => {
 		test.slow();
 		const { retreatId, myName } = await createFilterScenario({ assignWalker: 1 });
 
@@ -539,14 +542,16 @@ test.describe.serial('Bandeja de Secuencias — filtros, por página y acciones 
 		// Scenario sanity: 12 items > default page of 10 ⇒ paginator present.
 		await expect(panel.getByText('Página 1 de 2')).toBeVisible();
 
-		const controls = await queueControls(page, isMobile);
+		const controls = await openFilters(panel);
 
 		// Template filter: one option per template with its count; picking one
-		// leaves its 6 items (one row per walker) and a single page.
+		// leaves its 6 items (one row per walker) and a single page — and the
+		// applied filter stays in sight as a chip (the popover hides the select).
 		const tplSelect = controls.locator('label', { hasText: 'Plantilla' }).locator('select');
 		await tplSelect.selectOption({ label: 'E2E Filtro Bienvenida (6)' });
 		await expect(rows).toHaveCount(6);
 		await expect(panel.getByText('Página 1 de 2')).toBeHidden();
+		await expect(panel.getByText('Plantilla: E2E Filtro Bienvenida')).toBeVisible();
 
 		// Assignee filter: the dynamic option carries the displayName resolved
 		// by the API (M1) and filters by user:<id> — the 2 items that user took.
@@ -559,7 +564,6 @@ test.describe.serial('Bandeja de Secuencias — filtros, por página y acciones 
 
 	test('por página: default 10 pagina; "Todos" muestra todo sin paginador; 5 re-página', async ({
 		page,
-		isMobile,
 	}) => {
 		test.slow();
 		const { retreatId } = await createFilterScenario();
@@ -571,8 +575,8 @@ test.describe.serial('Bandeja de Secuencias — filtros, por página y acciones 
 		await expect(rows).toHaveCount(10);
 		await expect(panel.getByText('Página 1 de 2')).toBeVisible();
 
-		const controls = await queueControls(page, isMobile);
-		const sizeSelect = controls.locator('label', { hasText: 'Por página' }).locator('select');
+		// Page size lives in the footer, next to the paginator (every breakpoint).
+		const sizeSelect = panel.locator('label', { hasText: 'Por página' }).locator('select');
 
 		// "Todos": all 12 rows on one page, the paginator goes away.
 		await sizeSelect.selectOption('all');
@@ -647,13 +651,6 @@ test.describe.serial('Bandeja de Secuencias — filtros, por página y acciones 
 });
 
 test.describe.serial('Programadas y Problemas — filtros v1.1 y ficha CRM (M6/M7/M5)', () => {
-	/**
-	 * Desktop toolbar of the issues panel (the pending tab has its own — always
-	 * scope to the panel so the locators never cross tabs).
-	 */
-	const issuesControls = (page: Page) =>
-		page.locator('#seq-panel-issues div.hidden.sm\\:flex');
-
 	test('Programadas: filtros server-side (plantilla/asignado) y por página', async ({
 		page,
 	}) => {
@@ -671,13 +668,15 @@ test.describe.serial('Programadas y Problemas — filtros v1.1 y ficha CRM (M6/M
 
 		// Template filter (server-side: option WITHOUT count, the current page
 		// would make a partial count) — picking it refetches with templateType.
-		const tplSelect = panel.locator('label', { hasText: 'Plantilla' }).locator('select');
+		let filters = await openFilters(panel);
+		const tplSelect = filters.locator('label', { hasText: 'Plantilla' }).locator('select');
 		await tplSelect.selectOption({ label: 'E2E Filtro Bienvenida' });
 		await expect(rows).toHaveCount(6);
 		await tplSelect.selectOption('all');
 		await expect(rows).toHaveCount(12);
+		await closeFilters(panel);
 
-		// Page size travels as limit: 5 re-pages from 1 (12 rows → 3 pages).
+		// Page size (footer) travels as limit: 5 re-pages from 1 (12 rows → 3 pages).
 		const sizeSelect = panel.locator('label', { hasText: 'Por página' }).locator('select');
 		await sizeSelect.selectOption('5');
 		await expect(rows).toHaveCount(5);
@@ -719,7 +718,8 @@ test.describe.serial('Programadas y Problemas — filtros v1.1 y ficha CRM (M6/M
 		await sizeSelect.selectOption('50'); // back from 5; the change refetches
 		const allRows = panel.locator('div.divide-y > div');
 		await expect(rows).toHaveCount(18); // 12 whatsapp + 6 email pending
-		const channelSelect = panel
+		filters = await openFilters(panel);
+		const channelSelect = filters
 			.locator('label')
 			.filter({ hasText: 'Todos los canales' })
 			.locator('select');
@@ -730,6 +730,7 @@ test.describe.serial('Programadas y Problemas — filtros v1.1 y ficha CRM (M6/M
 		await expect(allRows).toHaveCount(12);
 		await channelSelect.selectOption('all');
 		await expect(allRows).toHaveCount(18);
+		await closeFilters(panel);
 
 		// v1.2 — order by sequence (server-side): groups each sequence's rows
 		// (name ASC, scheduledFor as tiebreaker) instead of interleaving them.
@@ -751,27 +752,34 @@ test.describe.serial('Programadas y Problemas — filtros v1.1 y ficha CRM (M6/M
 		await page.goto('/app/settings/message-sequences');
 		await page.locator('#seq-tab-scheduled').click();
 
-		// Phase 1 left the template/page-size filters on: reset them, then
-		// switch the status (each change refetches server-side).
-		await tplSelect.selectOption('all');
-		await sizeSelect.selectOption('50');
-		const statusSelect = panel.locator('label', { hasText: 'Estado' }).locator('select');
+		// The reload reset the filters; phase 1 left the stored page size at 50.
+		// Switch the status (each change refetches server-side).
+		filters = await openFilters(panel);
+		const statusSelect = filters.locator('label', { hasText: 'Estado' }).locator('select');
 		await statusSelect.selectOption('queued');
 		await expect(rows).toHaveCount(12);
 
-		const showSelect = panel.locator('label', { hasText: 'Mostrar' }).locator('select');
+		const showSelect = filters.locator('label', { hasText: 'Mostrar' }).locator('select');
 		await showSelect.selectOption({ label: `Asignado: ${myName}` });
 		await expect(rows).toHaveCount(2);
-		// The removable chip refetches without the filter.
+		await closeFilters(panel);
+		// Both applied filters are chips (status ≠ Pendiente counts too) and the
+		// badge says so; removing the assignee chip refetches without it.
+		await expect(panel.getByRole('button', { name: 'Filtros', exact: true })).toContainText('2');
 		const clearButtons = panel.getByRole('button', { name: 'Quitar filtro' });
-		await expect(clearButtons).toHaveCount(1);
-		await clearButtons.first().click();
+		await expect(clearButtons).toHaveCount(2);
+		await panel
+			.locator('span', { hasText: `Asignado: ${myName}` })
+			.getByRole('button', { name: 'Quitar filtro' })
+			.click();
 		await expect(rows).toHaveCount(12);
+		await expect(clearButtons).toHaveCount(1);
 	});
 
-	// The issues toolbar is `hidden sm:flex` — on mobile its selects live in
-	// the "⋯" menu (covered by vitest); only the desktop toolbar is exercised.
-	test.skip(({ isMobile }) => isMobile, 'toolbar desktop de Problemas oculto en móvil');
+	// The «Filtros» popover is the same at every breakpoint, but the inline
+	// sort select of the bar is desktop-only (on mobile it moves into the
+	// popover, covered by vitest) — this describe runs on desktop.
+	test.skip(({ isMobile }) => isMobile, 'el orden inline de la barra es solo de escritorio');
 
 	test('Problemas: filtro plantilla con conteo y por página (client-side)', async ({
 		page,
@@ -801,7 +809,7 @@ test.describe.serial('Programadas y Problemas — filtros v1.1 y ficha CRM (M6/M
 		await expect(rows).toHaveCount(8);
 
 		// Template filter with its count (client-side over the loaded issues).
-		const controls = issuesControls(page);
+		const controls = await openFilters(panel);
 		const tplSelect = controls.locator('label', { hasText: 'Plantilla' }).locator('select');
 		await tplSelect.selectOption({ label: 'E2E Filtro Bienvenida (6)' });
 		await expect(rows).toHaveCount(6);
@@ -832,6 +840,10 @@ test.describe.serial('Programadas y Problemas — filtros v1.1 y ficha CRM (M6/M
 		await expect(rows).toHaveCount(0);
 		await chanSelect.selectOption('whatsapp');
 		await expect(rows).toHaveCount(8);
+		// Back to "all": status/channel are chips too, the sequence step below
+		// counts exactly one.
+		await statusSelect.selectOption('all');
+		await chanSelect.selectOption('all');
 
 		// Sequence options carry their count over the loaded issues; selecting
 		// the only present sequence keeps all rows (and renders its chip).
@@ -844,9 +856,10 @@ test.describe.serial('Programadas y Problemas — filtros v1.1 y ficha CRM (M6/M
 		await seqSelect.selectOption((await seqOption.getAttribute('value'))!);
 		await expect(rows).toHaveCount(8);
 		await expect(panel.getByRole('button', { name: 'Quitar filtro' })).toHaveCount(1);
+		await closeFilters(panel);
 
-		// Page size paginates what is loaded; "Cargar más" not needed (8 < cap).
-		const sizeSelect = controls.locator('label', { hasText: 'Por página' }).locator('select');
+		// Page size (footer) paginates what is loaded; "Cargar más" not needed (8 < cap).
+		const sizeSelect = panel.locator('label', { hasText: 'Por página' }).locator('select');
 		await sizeSelect.selectOption('5');
 		await expect(rows).toHaveCount(5);
 		await expect(panel.getByText('Página 1 de 2')).toBeVisible();

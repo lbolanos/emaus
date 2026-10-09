@@ -1215,9 +1215,12 @@ describe('MessageSequencesView — bandeja: filtros y paginación (M2)', () => {
 
 	it('filtro por plantilla: opción con conteo en el select y lista filtrada', async () => {
 		const wrapper = await mountView(m2Queue());
+		// Los selects de filtro viven en el popover «Filtros» (v-if): abrirlo.
+		wrapper.vm.queueMenuOpen = true;
+		await flushPromises();
 
-		// El select desktop (siempre montado) lista una opción por plantilla
-		// presente, con su conteo; el value es el templateId del paso.
+		// El select lista una opción por plantilla presente, con su conteo; el
+		// value es el templateId del paso.
 		const optA = wrapper.findAll('select option').find((o) => o.text() === 'Bienvenida (3)');
 		expect(optA).toBeTruthy();
 		expect(optA!.attributes('value')).toBe('tpl-a');
@@ -1232,6 +1235,8 @@ describe('MessageSequencesView — bandeja: filtros y paginación (M2)', () => {
 
 	it('filtro por asignado: opción dinámica con nombre y conteo; la fila muestra "Asignado: {nombre}"', async () => {
 		const wrapper = await mountView(m2Queue());
+		wrapper.vm.queueMenuOpen = true;
+		await flushPromises();
 
 		// La fila deja de decir "Asignado" a secas: muestra quién.
 		expect(wrapper.text()).toContain('Asignado: Ana Rodríguez');
@@ -1292,6 +1297,7 @@ describe('MessageSequencesView — bandeja: filtros y paginación (M2)', () => {
 			{ ...QUEUE_ITEM, id: 'q-off', sequenceId: 'seq-off', participant: { id: 'pc', firstName: 'Caro', lastName: 'Off' } },
 		]);
 		useMessageSequenceStore().sequences = [SEQ, { ...SEQ, id: 'seq-off', isActive: false }] as any;
+		wrapper.vm.queueMenuOpen = true;
 		await flushPromises();
 
 		const opt = wrapper
@@ -1315,6 +1321,8 @@ describe('MessageSequencesView — Programadas: filtros server-side y acciones d
 	it('los selects arman sus opciones desde las filas traídas (sin conteo) y los filtros viajan al fetch', async () => {
 		const wrapper = await mountView();
 		const apiMod: any = await import('@/services/api');
+		wrapper.vm.schedMenuOpen = true; // popover «Filtros» (v-if)
+		await flushPromises();
 
 		// Opción de plantilla: una por clave presente en la página, label legible.
 		// Sin conteo — server-side, el conteo de la página actual sería parcial.
@@ -1425,17 +1433,17 @@ describe('MessageSequencesView — Programadas: filtros server-side y acciones d
 		expect(btn).toBeUndefined();
 	});
 
-	it('menú "⋯" de Programadas (móvil): abre los 7 filtros; backdrop y Escape cierran', async () => {
+	it('popover «Filtros» de Programadas: abre los filtros; backdrop y Escape cierran', async () => {
 		const wrapper = await mountView();
 		const panel = wrapper.find('#seq-panel-scheduled');
 
-		// Cerrado: sólo el toolbar desktop — el menú móvil es v-if (molde bandeja).
-		expect(panel.findAll('select')).toHaveLength(7);
+		// Cerrado: sólo el orden de la barra y el «Por página» del pie — los
+		// filtros viven en el popover (v-if, molde Polaris IndexFilters).
+		expect(panel.findAll('select')).toHaveLength(2);
 
-		// El botón ⋯ de Programadas dice "Filtros" (abre filtros, no acciones)
-		// y expone su estado (a11y, igual que los otros dos menús del tablist).
-		// Se re-encuentra tras cada re-render: abrir el menú reemplaza el nodo
-		// y el wrapper previo queda stale (mismo molde que el test "Ver pasos").
+		// El botón dice "Filtros" y expone su estado (a11y, igual en los tres
+		// tabs). Se re-encuentra tras cada re-render: abrir el menú reemplaza el
+		// nodo y el wrapper previo queda stale (mismo molde que el test "Ver pasos").
 		const findByLabel = () => panel.findAll('button').find((b) => b.attributes('aria-label') === 'Filtros');
 		const more = findByLabel();
 		expect(more).toBeTruthy();
@@ -1443,14 +1451,15 @@ describe('MessageSequencesView — Programadas: filtros server-side y acciones d
 		await more!.trigger('click');
 		await flushPromises();
 		expect(findByLabel()!.attributes('aria-expanded')).toBe('true');
-		// Abierto: los mismos 7 selects duplicados en el menú (Estado, Orden,
-		// Plantilla, Mostrar, Canal, Secuencia, Por página).
-		expect(panel.findAll('select')).toHaveLength(14);
+		// Abierto: + el orden móvil (sm:hidden) y los 5 filtros (Estado,
+		// Plantilla, Mostrar, Canal, Secuencia), en un grupo accesible.
+		expect(panel.findAll('select')).toHaveLength(8);
+		expect(panel.find('[role="group"][aria-label="Filtros"]').exists()).toBe(true);
 
 		// El backdrop cierra el menú sin tocar los selects.
 		await panel.find('div.fixed.inset-0.z-10').trigger('click');
 		await flushPromises();
-		expect(panel.findAll('select')).toHaveLength(7);
+		expect(panel.findAll('select')).toHaveLength(2);
 		expect(findByLabel()!.attributes('aria-expanded')).toBe('false');
 
 		// Escape también cierra (keydown burbujea al wrapper desde el botón).
@@ -1458,16 +1467,46 @@ describe('MessageSequencesView — Programadas: filtros server-side y acciones d
 		await flushPromises();
 		await findByLabel()!.trigger('keydown', { key: 'Escape' });
 		await flushPromises();
-		expect(panel.findAll('select')).toHaveLength(7);
+		expect(panel.findAll('select')).toHaveLength(2);
+	});
+
+	it('chips: cada filtro aplicado (estado ≠ Pendiente, canal…) es un chip, el badge los cuenta y «Limpiar filtros» los quita', async () => {
+		const wrapper = await mountView();
+		const apiMod: any = await import('@/services/api');
+		const panel = wrapper.find('#seq-panel-scheduled');
+		const filtersBtn = () => panel.findAll('button').find((b) => b.attributes('aria-label') === 'Filtros')!;
+		// Default (Pendiente, sin filtros): ni chips ni badge.
+		expect(filtersBtn().text()).toBe('Filtros');
+
+		wrapper.vm.schedStatus = 'sent';
+		wrapper.vm.schedChannelFilter = 'email';
+		await flushPromises();
+		expect(panel.text()).toContain('Estado: Enviado');
+		expect(panel.text()).toContain('Canal: Email');
+		expect(filtersBtn().text()).toContain('2');
+
+		apiMod.fetchScheduledMessages.mockClear();
+		const clearAll = panel.findAll('button').find((b) => b.text() === 'Limpiar filtros');
+		expect(clearAll).toBeTruthy();
+		await clearAll!.trigger('click');
+		await flushPromises();
+		expect(wrapper.vm.schedStatus).toBe('pending');
+		expect(wrapper.vm.schedChannelFilter).toBe('all');
+		const calls = apiMod.fetchScheduledMessages.mock.calls;
+		expect(calls[calls.length - 1][1]).toMatchObject({ statuses: ['pending'] });
+		expect(calls[calls.length - 1][1].channel).toBeUndefined();
+		expect(panel.text()).not.toContain('Limpiar filtros');
 	});
 
 	it('v1.2: canal y secuencia viajan al fetch; el select de secuencia arma opciones del store', async () => {
 		const wrapper = await mountView();
 		const apiMod: any = await import('@/services/api');
+		wrapper.vm.schedMenuOpen = true;
+		await flushPromises();
 		apiMod.fetchScheduledMessages.mockClear();
 
-		// El select de secuencia (desktop) lista las secuencias del retiro, sin
-		// conteo (server-side) — la opción activa viaja como sequenceId.
+		// El select de secuencia lista las secuencias del retiro, sin conteo
+		// (server-side) — la opción activa viaja como sequenceId.
 		const panel = wrapper.find('#seq-panel-scheduled');
 		const seqOpt = panel
 			.findAll('select option')
@@ -1552,6 +1591,8 @@ describe('MessageSequencesView — Problemas: filtros, page size y acciones de f
 			}),
 		]);
 		const panel = wrapper.find('#seq-panel-issues');
+		wrapper.vm.issuesMenuOpen = true; // popover «Filtros» (v-if)
+		await flushPromises();
 
 		// Opciones con conteo (client-side: contar lo cargado, no lo filtrado).
 		const tplOpt = panel.findAll('select option').find((o) => o.text() === 'Confirmar talla (2)');
@@ -1672,6 +1713,8 @@ describe('MessageSequencesView — Problemas: filtros, page size y acciones de f
 			}),
 		]);
 		const panel = wrapper.find('#seq-panel-issues');
+		wrapper.vm.issuesMenuOpen = true;
+		await flushPromises();
 
 		// La opción de secuencia sale de lo cargado, con conteo y nombre legible.
 		const seqOpt = panel
@@ -1695,7 +1738,38 @@ describe('MessageSequencesView — Problemas: filtros, page size y acciones de f
 		wrapper.vm.issuesSequenceFilter = 'seq-1';
 		await flushPromises();
 		expect(issueNames(wrapper)).toEqual(['Alfa T', 'Beta T']);
-		expect(panel.text()).toContain('Confirmación de camisetas');
+		expect(panel.text()).toContain('Secuencia: Confirmación de camisetas');
+	});
+
+	it('estado y canal aplicados también son chips: el badge los cuenta y «Limpiar filtros» restaura la lista', async () => {
+		const wrapper = await mountWithIssues([
+			ISSUE({ id: 'i-1', status: 'failed', channel: 'email', participant: { ...ISSUE().participant, id: 'p1', firstName: 'Alfa', lastName: 'T' } }),
+			ISSUE({ id: 'i-2', status: 'skipped', channel: 'whatsapp', participant: { ...ISSUE().participant, id: 'p2', firstName: 'Beta', lastName: 'T' } }),
+		]);
+		const panel = wrapper.find('#seq-panel-issues');
+
+		wrapper.vm.issuesStatusFilter = 'failed';
+		wrapper.vm.issuesChannelFilter = 'email';
+		await flushPromises();
+		expect(issueNames(wrapper)).toEqual(['Alfa T']);
+		expect(panel.text()).toContain('Estado: Fallido');
+		expect(panel.text()).toContain('Canal: Email');
+		const filtersBtn = panel.findAll('button').find((b) => b.attributes('aria-label') === 'Filtros');
+		expect(filtersBtn!.text()).toContain('2');
+
+		// Un chip suelto quita sólo su filtro.
+		const chipClears = panel.findAll('button').filter((b) => b.attributes('aria-label') === 'Quitar filtro');
+		expect(chipClears).toHaveLength(2);
+		await chipClears[1].trigger('click'); // canal
+		await flushPromises();
+		expect(wrapper.vm.issuesChannelFilter).toBe('all');
+		expect(wrapper.vm.issuesStatusFilter).toBe('failed');
+
+		wrapper.vm.issuesChannelFilter = 'email';
+		await flushPromises();
+		await panel.findAll('button').find((b) => b.text() === 'Limpiar filtros')!.trigger('click');
+		await flushPromises();
+		expect(issueNames(wrapper)).toEqual(['Alfa T', 'Beta T']);
 	});
 });
 

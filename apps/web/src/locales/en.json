@@ -3191,6 +3191,7 @@
       "status": "Status",
       "allStatuses": "All statuses",
       "allChannels": "All channels",
+      "clearAll": "Clear filters",
       "participant": "Participant: {name}",
       "byParticipant": "See all messages of {name}"
     },

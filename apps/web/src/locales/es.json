@@ -3515,6 +3515,7 @@
       "status": "Estado",
       "allStatuses": "Todos los estados",
       "allChannels": "Todos los canales",
+      "clearAll": "Limpiar filtros",
       "participant": "Participante: {name}",
       "byParticipant": "Ver todos los mensajes de {name}"
     },

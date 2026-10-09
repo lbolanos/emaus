@@ -3,7 +3,7 @@ import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useI18n } from 'vue-i18n';
 import { useToast, Button, Input } from '@repo/ui';
-import { Plus, Trash2, X, Play, Pencil, Send, Clock, AlertTriangle, Globe, RefreshCw, MoreVertical, CalendarDays, MessageCircle, Power, Copy, ChevronDown } from 'lucide-vue-next';
+import { Plus, Trash2, X, Play, Pencil, Send, Clock, AlertTriangle, Globe, RefreshCw, SlidersHorizontal, CalendarDays, MessageCircle, Power, Copy, ChevronDown } from 'lucide-vue-next';
 import { useRetreatStore } from '@/stores/retreatStore';
 import { useParticipantStore } from '@/stores/participantStore';
 import { useMessageSequenceStore } from '@/stores/messageSequenceStore';
@@ -829,9 +829,27 @@ const queueTemplateFilter = ref<string>('all');
 // Filtro por secuencia: 'all' o el sequenceId del ítem (la bandeja ya se podía
 // ORDENAR por secuencia; filtrarla aísla el trabajo de una sola).
 const queueSequenceFilter = ref<string>('all');
-const queueMenuOpen = ref(false); // menú de acciones (solo móvil) en Pendientes
-const issuesMenuOpen = ref(false); // menú de acciones masivas (solo móvil) en Problemas
-const schedMenuOpen = ref(false); // menú de filtros (solo móvil) en Programadas
+// Popover «Filtros» de cada pestaña (móvil y escritorio; en móvil también
+// lleva el orden y las acciones que en escritorio van en la barra).
+const queueMenuOpen = ref(false);
+const issuesMenuOpen = ref(false);
+const schedMenuOpen = ref(false);
+
+// Chips de filtros aplicados (molde Polaris IndexFilters): con los filtros
+// dentro del popover, cada uno aplicado queda a la vista y removible, y su
+// cantidad es el badge del botón «Filtros».
+type FilterChip = { key: string; label: string; tone: string; clear: () => void };
+const CHIP_TONE = {
+	sequence: 'bg-blue-100 text-blue-700',
+	participant: 'bg-violet-100 text-violet-700',
+	template: 'bg-emerald-100 text-emerald-700',
+	assign: 'bg-amber-100 text-amber-700',
+	// Blanco con borde: el fondo de la página ya es gris y un chip gris se pierde.
+	neutral: 'bg-white text-gray-700 ring-1 ring-inset ring-gray-300',
+} as const;
+function clearFilterChips(chips: FilterChip[]) {
+	for (const chip of chips) chip.clear();
+}
 
 const sortedQueue = computed(() => {
 	const items = [...queue.value];
@@ -918,6 +936,41 @@ const queueSequenceOptions = computed(() => {
 		.map(([value, count]) => ({ value, count, label: seqName(value) }))
 		.filter((o) => o.label)
 		.sort((a, b) => a.label.localeCompare(b.label, 'es'));
+});
+const queueFilterChips = computed<FilterChip[]>(() => {
+	const chips: FilterChip[] = [];
+	const show = queueAssignFilter.value;
+	if (show !== 'active') {
+		const uid = show.startsWith('user:') ? show.slice('user:'.length) : null;
+		chips.push({
+			key: 'assign',
+			label: uid
+				? t('sequences.filter.assignee', {
+						name: queueAssigneeOptions.value.find((a) => a.id === uid)?.name || t('sequences.assigned'),
+					})
+				: `${t('sequences.filterLabel')}: ${t('sequences.filter.' + show)}`,
+			tone: CHIP_TONE.assign,
+			clear: () => (queueAssignFilter.value = 'active'),
+		});
+	}
+	if (queueTemplateFilter.value !== 'all') {
+		const label = queueTemplateOptions.value.find((o) => o.value === queueTemplateFilter.value)?.label || '';
+		chips.push({
+			key: 'template',
+			label: `${t('sequences.filter.template')}: ${label}`,
+			tone: CHIP_TONE.template,
+			clear: () => (queueTemplateFilter.value = 'all'),
+		});
+	}
+	if (queueSequenceFilter.value !== 'all') {
+		chips.push({
+			key: 'sequence',
+			label: `${t('sequences.filter.sequence')}: ${seqName(queueSequenceFilter.value)}`,
+			tone: CHIP_TONE.sequence,
+			clear: () => (queueSequenceFilter.value = 'all'),
+		});
+	}
+	return chips;
 });
 
 // Filtros dinámicos que quedaron huérfanos (salió de la bandeja el último ítem
@@ -1200,6 +1253,62 @@ function clearSchedTemplateFilter() {
 function clearSchedAssignFilter() {
 	schedAssignFilter.value = 'all'; // el watch refetch-ea
 }
+// Estado ≠ «Pendiente» también cuenta: es lo que cambia qué filas se ven.
+const schedFilterChips = computed<FilterChip[]>(() => {
+	const chips: FilterChip[] = [];
+	if (schedStatus.value !== 'pending') {
+		chips.push({
+			key: 'status',
+			label: `${t('sequences.schedStatusLabel')}: ${t('sequences.statuses.' + schedStatus.value)}`,
+			tone: CHIP_TONE.neutral,
+			clear: () => (schedStatus.value = 'pending'),
+		});
+	}
+	if (schedSequenceFilter.value) {
+		chips.push({
+			key: 'sequence',
+			label: `${t('sequences.filter.sequence')}: ${seqName(schedSequenceFilter.value)}`,
+			tone: CHIP_TONE.sequence,
+			clear: clearSchedSequenceFilter,
+		});
+	}
+	if (schedParticipantFilter.value) {
+		chips.push({
+			key: 'participant',
+			label: t('sequences.filter.participant', { name: schedParticipantFilter.value.name }),
+			tone: CHIP_TONE.participant,
+			clear: clearSchedParticipantFilter,
+		});
+	}
+	if (schedTemplateFilter.value !== 'all') {
+		chips.push({
+			key: 'template',
+			label: `${t('sequences.filter.template')}: ${schedTemplateChipLabel.value}`,
+			tone: CHIP_TONE.template,
+			clear: clearSchedTemplateFilter,
+		});
+	}
+	if (schedAssignFilter.value !== 'all') {
+		chips.push({
+			key: 'assign',
+			label:
+				schedAssignFilter.value === 'unassigned'
+					? t('sequences.filter.unassigned')
+					: t('sequences.filter.assignee', { name: schedAssigneeChipLabel.value }),
+			tone: CHIP_TONE.assign,
+			clear: clearSchedAssignFilter,
+		});
+	}
+	if (schedChannelFilter.value !== 'all') {
+		chips.push({
+			key: 'channel',
+			label: `${t('sequences.channel')}: ${t('sequences.channels.' + schedChannelFilter.value)}`,
+			tone: CHIP_TONE.neutral,
+			clear: () => (schedChannelFilter.value = 'all'),
+		});
+	}
+	return chips;
+});
 // A5: badge problemas de una secuencia → pestaña Problemas con chip removible.
 const issuesSequenceFilter = ref<string | null>(null);
 function openIssuesForSequence(seq: any) {
@@ -1597,6 +1706,53 @@ function clearIssuesTemplateFilter() {
 function clearIssuesAssignFilter() {
 	issuesAssignFilter.value = 'all';
 }
+const issuesFilterChips = computed<FilterChip[]>(() => {
+	const chips: FilterChip[] = [];
+	if (issuesStatusFilter.value !== 'all') {
+		chips.push({
+			key: 'status',
+			label: `${t('sequences.filter.status')}: ${t('sequences.statuses.' + issuesStatusFilter.value)}`,
+			tone: CHIP_TONE.neutral,
+			clear: () => (issuesStatusFilter.value = 'all'),
+		});
+	}
+	if (issuesSequenceFilter.value) {
+		chips.push({
+			key: 'sequence',
+			label: `${t('sequences.filter.sequence')}: ${seqName(issuesSequenceFilter.value)}`,
+			tone: CHIP_TONE.sequence,
+			clear: () => (issuesSequenceFilter.value = null),
+		});
+	}
+	if (issuesTemplateFilter.value !== 'all') {
+		chips.push({
+			key: 'template',
+			label: `${t('sequences.filter.template')}: ${issuesTemplateChipLabel.value}`,
+			tone: CHIP_TONE.template,
+			clear: clearIssuesTemplateFilter,
+		});
+	}
+	if (issuesAssignFilter.value !== 'all') {
+		chips.push({
+			key: 'assign',
+			label:
+				issuesAssignFilter.value === 'unassigned'
+					? t('sequences.filter.unassigned')
+					: t('sequences.filter.assignee', { name: issuesAssigneeChipLabel.value }),
+			tone: CHIP_TONE.assign,
+			clear: clearIssuesAssignFilter,
+		});
+	}
+	if (issuesChannelFilter.value !== 'all') {
+		chips.push({
+			key: 'channel',
+			label: `${t('sequences.channel')}: ${t('sequences.channels.' + issuesChannelFilter.value)}`,
+			tone: CHIP_TONE.neutral,
+			clear: () => (issuesChannelFilter.value = 'all'),
+		});
+	}
+	return chips;
+});
 // #2: "cargar más" — cuando el total real supera lo cargado (cap de página).
 const issuesLoadingMore = ref(false);
 async function loadMoreIssues() {
@@ -2266,213 +2422,139 @@ async function toggleDoNotContact() {
 
 			<!-- Tab: Programados (mensajes materializados, con la fecha en que saldrán/salieron) -->
 			<div v-show="activeTab === 'scheduled'" role="tabpanel" id="seq-panel-scheduled" aria-labelledby="seq-tab-scheduled">
-				<!-- Filtros server-side: búsqueda con debounce + (móvil) menú de acciones -->
-				<div class="flex items-center gap-2 mb-2">
+				<!-- Toolbar (molde Polaris IndexFilters): buscador + orden + botón
+				     «Filtros» con popover y badge. Los filtros aplicados quedan a la
+				     vista como chips debajo; el mismo panel sirve a móvil y escritorio.
+				     En anchos medios la barra envuelve: el buscador guarda un mínimo y
+				     los controles bajan a una segunda línea, a la derecha (ml-auto del
+				     orden, que en una sola línea no tiene efecto). -->
+				<div class="flex flex-wrap items-center gap-2 mb-2">
 					<input
 						v-model="schedSearch"
 						type="search"
 						:placeholder="t('sequences.searchPlaceholder')"
-						class="flex-1 min-w-0 p-2 border rounded-md text-sm"
+						class="flex-1 min-w-[12rem] sm:min-w-[16rem] p-2 border rounded-md text-sm"
 					/>
-					<!-- Escape en el wrapper: cubre el foco en el botón (tras el click) y
-					     en cualquier select del panel (el keydown burbujea). -->
-					<div class="relative sm:hidden" @keydown.escape="schedMenuOpen = false">
-						<Button
-							variant="outline"
-							size="icon"
-							:aria-label="t('sequences.filtersAction')"
-							:aria-expanded="schedMenuOpen"
-							@click="schedMenuOpen = !schedMenuOpen"
-						>
-							<MoreVertical class="w-4 h-4" />
-						</Button>
-						<div v-if="schedMenuOpen" class="fixed inset-0 z-10" @click="schedMenuOpen = false" />
-						<div
-							v-if="schedMenuOpen"
-							class="absolute right-0 mt-1 z-20 w-64 bg-white border rounded-md shadow-lg p-3 space-y-3"
-						>
-							<label class="block text-sm text-gray-700">
-								{{ t('sequences.schedStatusLabel') }}
-								<select v-model="schedStatus" class="w-full mt-1 p-2 border rounded-md text-sm bg-white">
-									<option v-for="s in SCHED_STATUSES" :key="s" :value="s">
-										{{ t('sequences.statuses.' + s) }}
-									</option>
-								</select>
-							</label>
-							<label class="block text-sm text-gray-700">
-								{{ t('sequences.sortLabel') }}
-								<select v-model="schedOrder" class="w-full mt-1 p-2 border rounded-md text-sm bg-white">
-									<option value="scheduled">{{ t('sequences.sort.scheduled') }}</option>
-									<option value="recent">{{ t('sequences.sort.recent') }}</option>
-									<option value="name">{{ t('sequences.sort.name') }}</option>
-									<option value="sequence">{{ t('sequences.sort.sequence') }}</option>
-								</select>
-							</label>
-							<!-- M6: filtros server-side (plantilla/asignado) + page size. -->
-							<label class="block text-sm text-gray-700">
-								{{ t('sequences.filter.template') }}
-								<select v-model="schedTemplateFilter" class="w-full mt-1 p-2 border rounded-md text-sm bg-white">
-									<option value="all">{{ t('sequences.filter.allTemplates') }}</option>
-									<option v-for="opt in schedTemplateOptions" :key="opt.value" :value="opt.value">
-										{{ opt.label }}
-									</option>
-								</select>
-							</label>
-							<label class="block text-sm text-gray-700">
-								{{ t('sequences.filterLabel') }}
-								<select v-model="schedAssignFilter" class="w-full mt-1 p-2 border rounded-md text-sm bg-white">
-									<option value="all">{{ t('sequences.filter.all') }}</option>
-									<option value="unassigned">{{ t('sequences.filter.unassigned') }}</option>
-									<option v-for="a in schedAssigneeOptions" :key="a.id" :value="`user:${a.id}`">
-										{{ t('sequences.filter.assignee', { name: a.name }) }}
-									</option>
-								</select>
-							</label>
-							<label class="block text-sm text-gray-700">
-								{{ t('sequences.channel') }}
-								<select v-model="schedChannelFilter" class="w-full mt-1 p-2 border rounded-md text-sm bg-white">
-									<option value="all">{{ t('sequences.filter.allChannels') }}</option>
-									<option value="whatsapp">{{ t('sequences.channels.whatsapp') }}</option>
-									<option value="email">{{ t('sequences.channels.email') }}</option>
-								</select>
-							</label>
-							<label class="block text-sm text-gray-700">
-								{{ t('sequences.filter.sequence') }}
-								<select v-model="schedSequenceFilter" class="w-full mt-1 p-2 border rounded-md text-sm bg-white">
-									<option :value="null">{{ t('sequences.filter.allSequences') }}</option>
-									<option v-for="opt in schedSequenceOptions" :key="opt.value" :value="opt.value">
-										{{ opt.label }}
-									</option>
-								</select>
-							</label>
-							<label class="block text-sm text-gray-700">
-								{{ t('sequences.pageSizeLabel') }}
-								<select v-model="schedPageSize" class="w-full mt-1 p-2 border rounded-md text-sm bg-white">
-									<option v-for="n in PAGE_SIZE_OPTIONS" :key="n" :value="n">{{ n }}</option>
-									<option value="all">{{ t('sequences.pageSizeAll') }}</option>
-								</select>
-							</label>
-						</div>
-					</div>
-				</div>
-				<!-- Controles inline (escritorio) -->
-				<div class="hidden sm:flex items-center justify-end flex-wrap gap-2 mb-2">
-					<label class="flex items-center gap-1.5 text-xs text-gray-600">
-						{{ t('sequences.schedStatusLabel') }}
-						<select v-model="schedStatus" class="p-1 border rounded-md text-xs bg-white">
-							<option v-for="s in SCHED_STATUSES" :key="s" :value="s">
-								{{ t('sequences.statuses.' + s) }}
-							</option>
-						</select>
-					</label>
-					<label class="flex items-center gap-1.5 text-xs text-gray-600">
+					<label class="hidden sm:flex items-center gap-1.5 text-xs text-gray-600 shrink-0 ml-auto">
 						{{ t('sequences.sortLabel') }}
-						<select v-model="schedOrder" class="p-1 border rounded-md text-xs bg-white">
+						<select v-model="schedOrder" class="p-2 border rounded-md text-sm bg-white">
 							<option value="scheduled">{{ t('sequences.sort.scheduled') }}</option>
 							<option value="recent">{{ t('sequences.sort.recent') }}</option>
 							<option value="name">{{ t('sequences.sort.name') }}</option>
 							<option value="sequence">{{ t('sequences.sort.sequence') }}</option>
 						</select>
 					</label>
-					<label class="flex items-center gap-1.5 text-xs text-gray-600">
-						{{ t('sequences.filter.template') }}
-						<select v-model="schedTemplateFilter" class="p-1 border rounded-md text-xs bg-white">
-							<option value="all">{{ t('sequences.filter.allTemplates') }}</option>
-							<option v-for="opt in schedTemplateOptions" :key="opt.value" :value="opt.value">
-								{{ opt.label }}
-							</option>
-						</select>
-					</label>
-					<label class="flex items-center gap-1.5 text-xs text-gray-600">
-						{{ t('sequences.filterLabel') }}
-						<select v-model="schedAssignFilter" class="p-1 border rounded-md text-xs bg-white">
-							<option value="all">{{ t('sequences.filter.all') }}</option>
-							<option value="unassigned">{{ t('sequences.filter.unassigned') }}</option>
-							<option v-for="a in schedAssigneeOptions" :key="a.id" :value="`user:${a.id}`">
-								{{ t('sequences.filter.assignee', { name: a.name }) }}
-							</option>
-						</select>
-					</label>
-					<label class="flex items-center gap-1.5 text-xs text-gray-600">
-						{{ t('sequences.channel') }}
-						<select v-model="schedChannelFilter" class="p-1 border rounded-md text-xs bg-white">
-							<option value="all">{{ t('sequences.filter.allChannels') }}</option>
-							<option value="whatsapp">{{ t('sequences.channels.whatsapp') }}</option>
-							<option value="email">{{ t('sequences.channels.email') }}</option>
-						</select>
-					</label>
-					<label class="flex items-center gap-1.5 text-xs text-gray-600">
-						{{ t('sequences.filter.sequence') }}
-						<select v-model="schedSequenceFilter" class="p-1 border rounded-md text-xs bg-white">
-							<option :value="null">{{ t('sequences.filter.allSequences') }}</option>
-							<option v-for="opt in schedSequenceOptions" :key="opt.value" :value="opt.value">
-								{{ opt.label }}
-							</option>
-						</select>
-					</label>
-					<label class="flex items-center gap-1.5 text-xs text-gray-600">
-						{{ t('sequences.pageSizeLabel') }}
-						<select v-model="schedPageSize" class="p-1 border rounded-md text-xs bg-white">
-							<option v-for="n in PAGE_SIZE_OPTIONS" :key="n" :value="n">{{ n }}</option>
-							<option value="all">{{ t('sequences.pageSizeAll') }}</option>
-						</select>
-					</label>
+					<!-- Escape en el wrapper: cubre el foco en el botón (tras el click) y
+					     en cualquier select del panel (el keydown burbujea). -->
+					<div class="relative shrink-0" @keydown.escape="schedMenuOpen = false">
+						<Button
+							variant="outline"
+							class="h-[38px] px-2.5 sm:px-3"
+							:aria-label="t('sequences.filtersAction')"
+							:aria-expanded="schedMenuOpen"
+							@click="schedMenuOpen = !schedMenuOpen"
+						>
+							<SlidersHorizontal class="w-4 h-4" />
+							<span class="hidden sm:inline ml-1.5">{{ t('sequences.filtersAction') }}</span>
+							<span
+								v-if="schedFilterChips.length"
+								class="ml-1.5 min-w-[1.25rem] rounded-full bg-blue-600 px-1.5 text-[11px] leading-5 text-white"
+							>
+								{{ schedFilterChips.length }}
+							</span>
+						</Button>
+						<div v-if="schedMenuOpen" class="fixed inset-0 z-10" @click="schedMenuOpen = false" />
+						<div
+							v-if="schedMenuOpen"
+							role="group"
+							:aria-label="t('sequences.filtersAction')"
+							class="absolute right-0 mt-1 z-20 w-72 sm:w-[30rem] bg-white border rounded-md shadow-lg p-3"
+						>
+							<div class="grid gap-3 sm:grid-cols-2">
+								<!-- Orden: en escritorio vive en la barra; en móvil, aquí. -->
+								<label class="block text-sm text-gray-700 sm:hidden">
+									{{ t('sequences.sortLabel') }}
+									<select v-model="schedOrder" class="w-full mt-1 p-2 border rounded-md text-sm bg-white">
+										<option value="scheduled">{{ t('sequences.sort.scheduled') }}</option>
+										<option value="recent">{{ t('sequences.sort.recent') }}</option>
+										<option value="name">{{ t('sequences.sort.name') }}</option>
+										<option value="sequence">{{ t('sequences.sort.sequence') }}</option>
+									</select>
+								</label>
+								<label class="block text-sm text-gray-700">
+									{{ t('sequences.schedStatusLabel') }}
+									<select v-model="schedStatus" class="w-full mt-1 p-2 border rounded-md text-sm bg-white">
+										<option v-for="s in SCHED_STATUSES" :key="s" :value="s">
+											{{ t('sequences.statuses.' + s) }}
+										</option>
+									</select>
+								</label>
+								<label class="block text-sm text-gray-700">
+									{{ t('sequences.filter.template') }}
+									<select v-model="schedTemplateFilter" class="w-full mt-1 p-2 border rounded-md text-sm bg-white">
+										<option value="all">{{ t('sequences.filter.allTemplates') }}</option>
+										<option v-for="opt in schedTemplateOptions" :key="opt.value" :value="opt.value">
+											{{ opt.label }}
+										</option>
+									</select>
+								</label>
+								<label class="block text-sm text-gray-700">
+									{{ t('sequences.filterLabel') }}
+									<select v-model="schedAssignFilter" class="w-full mt-1 p-2 border rounded-md text-sm bg-white">
+										<option value="all">{{ t('sequences.filter.all') }}</option>
+										<option value="unassigned">{{ t('sequences.filter.unassigned') }}</option>
+										<option v-for="a in schedAssigneeOptions" :key="a.id" :value="`user:${a.id}`">
+											{{ t('sequences.filter.assignee', { name: a.name }) }}
+										</option>
+									</select>
+								</label>
+								<label class="block text-sm text-gray-700">
+									{{ t('sequences.channel') }}
+									<select v-model="schedChannelFilter" class="w-full mt-1 p-2 border rounded-md text-sm bg-white">
+										<option value="all">{{ t('sequences.filter.allChannels') }}</option>
+										<option value="whatsapp">{{ t('sequences.channels.whatsapp') }}</option>
+										<option value="email">{{ t('sequences.channels.email') }}</option>
+									</select>
+								</label>
+								<label class="block text-sm text-gray-700">
+									{{ t('sequences.filter.sequence') }}
+									<select v-model="schedSequenceFilter" class="w-full mt-1 p-2 border rounded-md text-sm bg-white">
+										<option :value="null">{{ t('sequences.filter.allSequences') }}</option>
+										<option v-for="opt in schedSequenceOptions" :key="opt.value" :value="opt.value">
+											{{ opt.label }}
+										</option>
+									</select>
+								</label>
+							</div>
+						</div>
+					</div>
 				</div>
-				<!-- Chips de filtro activo: secuencia (badge clickeable de la lista),
-				     participante (click en su nombre de una fila, #9), plantilla y
-				     asignado (M6, server-side). -->
-				<div
-					v-if="schedSequenceFilter || schedParticipantFilter || schedTemplateFilter !== 'all' || schedAssignFilter !== 'all'"
-					class="flex items-center gap-2 mb-2 text-xs flex-wrap"
-				>
-					<span v-if="schedSequenceFilter" class="inline-flex items-center gap-1 bg-blue-100 text-blue-700 rounded-full px-2 py-0.5">
-						{{ seqName(schedSequenceFilter) }}
+				<!-- Chips de filtros activos: secuencia (badge clickeable de la lista), participante (click en su nombre, #9) y lo elegido en el panel; removibles uno a uno o todos -->
+				<div v-if="schedFilterChips.length" class="flex items-center gap-2 mb-2 text-xs flex-wrap">
+					<span
+						v-for="chip in schedFilterChips"
+						:key="chip.key"
+						class="inline-flex items-center gap-1 rounded-full px-2 py-0.5"
+						:class="chip.tone"
+					>
+						{{ chip.label }}
 						<button
 							type="button"
-							class="hover:text-blue-900"
+							class="opacity-70 hover:opacity-100"
 							:aria-label="t('sequences.clearFilter')"
-							@click="clearSchedSequenceFilter"
+							@click="chip.clear()"
 						>
 							<X class="w-3 h-3" />
 						</button>
 					</span>
-					<span v-if="schedParticipantFilter" class="inline-flex items-center gap-1 bg-violet-100 text-violet-700 rounded-full px-2 py-0.5">
-						{{ t('sequences.filter.participant', { name: schedParticipantFilter.name }) }}
-						<button
-							type="button"
-							class="hover:text-violet-900"
-							:aria-label="t('sequences.clearFilter')"
-							@click="clearSchedParticipantFilter"
-						>
-							<X class="w-3 h-3" />
-						</button>
-					</span>
-					<span v-if="schedTemplateFilter !== 'all'" class="inline-flex items-center gap-1 bg-emerald-100 text-emerald-700 rounded-full px-2 py-0.5">
-						{{ schedTemplateChipLabel }}
-						<button
-							type="button"
-							class="hover:text-emerald-900"
-							:aria-label="t('sequences.clearFilter')"
-							@click="clearSchedTemplateFilter"
-						>
-							<X class="w-3 h-3" />
-						</button>
-					</span>
-					<span v-if="schedAssignFilter !== 'all'" class="inline-flex items-center gap-1 bg-amber-100 text-amber-700 rounded-full px-2 py-0.5">
-						{{
-							schedAssignFilter === 'unassigned'
-								? t('sequences.filter.unassigned')
-								: t('sequences.filter.assignee', { name: schedAssigneeChipLabel })
-						}}
-						<button
-							type="button"
-							class="hover:text-amber-900"
-							:aria-label="t('sequences.clearFilter')"
-							@click="clearSchedAssignFilter"
-						>
-							<X class="w-3 h-3" />
-						</button>
-					</span>
+					<button
+						v-if="schedFilterChips.length > 1"
+						type="button"
+						class="text-blue-600 hover:underline"
+						@click="clearFilterChips(schedFilterChips)"
+					>
+						{{ t('sequences.filter.clearAll') }}
+					</button>
 				</div>
 				<p v-if="scheduledTimezone" class="text-[11px] text-gray-400 mb-2">
 					{{ t('sequences.scheduledTzHint', { tz: scheduledTimezone }) }}
@@ -2595,139 +2677,41 @@ async function toggleDoNotContact() {
 					{{ t('sequences.scheduledEmpty') }}
 				</div>
 
-				<!-- Paginación server-side -->
-				<div v-if="scheduledTotalPages > 1" class="flex items-center justify-center gap-3 mt-3 text-sm">
-					<Button size="sm" variant="outline" :disabled="schedPage <= 1" @click="schedPage = schedPage - 1">‹</Button>
-					<span class="text-gray-600">
-						{{ t('sequences.pageOf', { page: schedPage, total: scheduledTotalPages }) }}
-						· {{ t('sequences.scheduledTotal', { n: scheduledTotal }) }}
-					</span>
-					<Button
-						size="sm"
-						variant="outline"
-						:disabled="schedPage >= scheduledTotalPages"
-						@click="schedPage = schedPage + 1"
-					>
-						›
-					</Button>
+				<!-- Pie: tamaño de página + paginación server-side -->
+				<div v-if="scheduled.length" class="flex items-center justify-end flex-wrap gap-x-4 gap-y-2 mt-3 text-sm">
+					<label class="flex items-center gap-1.5 text-xs text-gray-600">
+						{{ t('sequences.pageSizeLabel') }}
+						<select v-model="schedPageSize" class="p-1 border rounded-md text-xs bg-white">
+							<option v-for="n in PAGE_SIZE_OPTIONS" :key="n" :value="n">{{ n }}</option>
+							<option value="all">{{ t('sequences.pageSizeAll') }}</option>
+						</select>
+					</label>
+					<div v-if="scheduledTotalPages > 1" class="flex items-center gap-3">
+						<Button size="sm" variant="outline" :disabled="schedPage <= 1" @click="schedPage = schedPage - 1">‹</Button>
+						<span class="text-gray-600">
+							{{ t('sequences.pageOf', { page: schedPage, total: scheduledTotalPages }) }}
+							· {{ t('sequences.scheduledTotal', { n: scheduledTotal }) }}
+						</span>
+						<Button size="sm" variant="outline" :disabled="schedPage >= scheduledTotalPages" @click="schedPage = schedPage + 1">›</Button>
+					</div>
 				</div>
 			</div>
 
 			<!-- Tab: Pendientes de WhatsApp -->
 			<div v-show="activeTab === 'pending'" role="tabpanel" id="seq-panel-pending" aria-labelledby="seq-tab-pending">
-				<!-- Buscador + (móvil) menú de acciones -->
-				<div v-if="queue.length" class="flex items-center gap-2 mb-2">
+				<!-- Toolbar (molde Programadas): buscador + orden + «Filtros» + la acción
+				     principal; «Renovar con plantilla actual» (mantenimiento, raro) vive
+				     en el panel. -->
+				<div v-if="queue.length" class="flex flex-wrap items-center gap-2 mb-2">
 					<input
 						v-model="queueSearch"
 						type="search"
 						:placeholder="t('sequences.searchPlaceholder')"
-						class="flex-1 min-w-0 p-2 border rounded-md text-sm"
+						class="flex-1 min-w-[12rem] sm:min-w-[16rem] p-2 border rounded-md text-sm"
 					/>
-					<div class="relative sm:hidden" @keydown.escape="queueMenuOpen = false">
-						<Button
-							variant="outline"
-							size="icon"
-							:aria-label="t('sequences.moreActions')"
-							:aria-expanded="queueMenuOpen"
-							@click="queueMenuOpen = !queueMenuOpen"
-						>
-							<MoreVertical class="w-4 h-4" />
-						</Button>
-						<div v-if="queueMenuOpen" class="fixed inset-0 z-10" @click="queueMenuOpen = false" />
-						<div
-							v-if="queueMenuOpen"
-							class="absolute right-0 mt-1 z-20 w-64 bg-white border rounded-md shadow-lg p-3 space-y-3"
-						>
-							<label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer select-none">
-								<input type="checkbox" v-model="autoConfirmSend" class="rounded border-gray-300" />
-								{{ t('sequences.autoConfirmSend') }}
-							</label>
-							<label class="block text-sm text-gray-700">
-								{{ t('sequences.sortLabel') }}
-								<select v-model="queueSort" class="w-full mt-1 p-2 border rounded-md text-sm bg-white">
-									<option value="scheduled">{{ t('sequences.sort.scheduled') }}</option>
-									<option value="recent">{{ t('sequences.sort.recent') }}</option>
-									<option value="name">{{ t('sequences.sort.name') }}</option>
-									<option value="template">{{ t('sequences.sort.template') }}</option>
-									<option value="sequence">{{ t('sequences.sort.sequence') }}</option>
-									<option value="palanquero">{{ t('sequences.sort.palanquero') }}</option>
-								</select>
-							</label>
-							<label class="block text-sm text-gray-700">
-								{{ t('sequences.filterLabel') }}
-								<select v-model="queueAssignFilter" class="w-full mt-1 p-2 border rounded-md text-sm bg-white">
-									<option value="active">{{ t('sequences.filter.active') }}</option>
-									<option value="mine">{{ t('sequences.filter.mine') }}</option>
-									<option value="unassigned">{{ t('sequences.filter.unassigned') }}</option>
-									<option
-										v-for="a in queueAssigneeOptions"
-										:key="a.id"
-										:value="`user:${a.id}`"
-									>
-										{{ t('sequences.filter.assignee', { name: a.name }) }} ({{ a.count }})
-									</option>
-									<option value="paused">{{ t('sequences.filter.paused') }}</option>
-									<option value="all">{{ t('sequences.filter.all') }}</option>
-								</select>
-							</label>
-							<label class="block text-sm text-gray-700">
-								{{ t('sequences.filter.template') }}
-								<select v-model="queueTemplateFilter" class="w-full mt-1 p-2 border rounded-md text-sm bg-white">
-									<option value="all">{{ t('sequences.filter.allTemplates') }}</option>
-									<option v-for="opt in queueTemplateOptions" :key="opt.value" :value="opt.value">
-										{{ opt.label }} ({{ opt.count }})
-									</option>
-								</select>
-							</label>
-							<label class="block text-sm text-gray-700">
-								{{ t('sequences.filter.sequence') }}
-								<select v-model="queueSequenceFilter" class="w-full mt-1 p-2 border rounded-md text-sm bg-white">
-									<option value="all">{{ t('sequences.filter.allSequences') }}</option>
-									<option v-for="opt in queueSequenceOptions" :key="opt.value" :value="opt.value">
-										{{ opt.label }} ({{ opt.count }})
-									</option>
-								</select>
-							</label>
-							<label class="block text-sm text-gray-700">
-								{{ t('sequences.pageSizeLabel') }}
-								<select
-									v-model="queuePageSize"
-									class="w-full mt-1 p-2 border rounded-md text-sm bg-white"
-								>
-									<option v-for="n in PAGE_SIZE_OPTIONS" :key="n" :value="n">{{ n }}</option>
-									<option value="all">{{ t('sequences.pageSizeAll') }}</option>
-								</select>
-							</label>
-							<Button
-								size="sm"
-								variant="outline"
-								class="w-full justify-center"
-								:disabled="regenerating"
-								@click="regenerateQueue(); queueMenuOpen = false"
-							>
-								<RefreshCw class="w-4 h-4 mr-1" :class="regenerating ? 'animate-spin' : ''" />
-								{{ t('sequences.regenerateQueue') }}
-							</Button>
-							<Button
-								size="sm"
-								variant="default"
-								class="w-full justify-center"
-								@click="openNext(); queueMenuOpen = false"
-							>
-								{{ t('sequences.openNext') }}
-							</Button>
-						</div>
-					</div>
-				</div>
-				<!-- Controles inline (escritorio) -->
-				<div v-if="queue.length" class="hidden sm:flex items-center justify-end flex-wrap gap-2 mb-2">
-					<label class="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer select-none mr-auto">
-						<input type="checkbox" v-model="autoConfirmSend" class="rounded border-gray-300" />
-						{{ t('sequences.autoConfirmSend') }}
-					</label>
-					<label class="flex items-center gap-1.5 text-xs text-gray-600">
+					<label class="hidden sm:flex items-center gap-1.5 text-xs text-gray-600 shrink-0 ml-auto">
 						{{ t('sequences.sortLabel') }}
-						<select v-model="queueSort" class="p-1 border rounded-md text-xs bg-white">
+						<select v-model="queueSort" class="p-2 border rounded-md text-sm bg-white">
 							<option value="scheduled">{{ t('sequences.sort.scheduled') }}</option>
 							<option value="recent">{{ t('sequences.sort.recent') }}</option>
 							<option value="name">{{ t('sequences.sort.name') }}</option>
@@ -2736,51 +2720,139 @@ async function toggleDoNotContact() {
 							<option value="palanquero">{{ t('sequences.sort.palanquero') }}</option>
 						</select>
 					</label>
-					<label class="flex items-center gap-1.5 text-xs text-gray-600">
-						{{ t('sequences.filterLabel') }}
-						<select v-model="queueAssignFilter" class="p-1 border rounded-md text-xs bg-white">
-							<option value="active">{{ t('sequences.filter.active') }}</option>
-							<option value="mine">{{ t('sequences.filter.mine') }}</option>
-							<option value="unassigned">{{ t('sequences.filter.unassigned') }}</option>
-							<option v-for="a in queueAssigneeOptions" :key="a.id" :value="`user:${a.id}`">
-								{{ t('sequences.filter.assignee', { name: a.name }) }} ({{ a.count }})
-							</option>
-							<option value="paused">{{ t('sequences.filter.paused') }}</option>
-							<option value="all">{{ t('sequences.filter.all') }}</option>
-						</select>
-					</label>
-					<label class="flex items-center gap-1.5 text-xs text-gray-600">
-						{{ t('sequences.filter.template') }}
-						<select v-model="queueTemplateFilter" class="p-1 border rounded-md text-xs bg-white">
-							<option value="all">{{ t('sequences.filter.allTemplates') }}</option>
-							<option v-for="opt in queueTemplateOptions" :key="opt.value" :value="opt.value">
-								{{ opt.label }} ({{ opt.count }})
-							</option>
-						</select>
-					</label>
-					<label class="flex items-center gap-1.5 text-xs text-gray-600">
-						{{ t('sequences.filter.sequence') }}
-						<select v-model="queueSequenceFilter" class="p-1 border rounded-md text-xs bg-white">
-							<option value="all">{{ t('sequences.filter.allSequences') }}</option>
-							<option v-for="opt in queueSequenceOptions" :key="opt.value" :value="opt.value">
-								{{ opt.label }} ({{ opt.count }})
-							</option>
-						</select>
-					</label>
-					<label class="flex items-center gap-1.5 text-xs text-gray-600">
-						{{ t('sequences.pageSizeLabel') }}
-						<select v-model="queuePageSize" class="p-1 border rounded-md text-xs bg-white">
-							<option v-for="n in PAGE_SIZE_OPTIONS" :key="n" :value="n">{{ n }}</option>
-							<option value="all">{{ t('sequences.pageSizeAll') }}</option>
-						</select>
-					</label>
-					<Button size="sm" variant="ghost" :disabled="regenerating" @click="regenerateQueue">
-						<RefreshCw class="w-4 h-4 mr-1" :class="regenerating ? 'animate-spin' : ''" />
-						{{ t('sequences.regenerateQueue') }}
-					</Button>
-					<Button size="sm" variant="outline" @click="openNext">
-						{{ t('sequences.openNext') }}
-					</Button>
+					<div class="relative shrink-0" @keydown.escape="queueMenuOpen = false">
+						<Button
+							variant="outline"
+							class="h-[38px] px-2.5 sm:px-3"
+							:aria-label="t('sequences.filtersAction')"
+							:aria-expanded="queueMenuOpen"
+							@click="queueMenuOpen = !queueMenuOpen"
+						>
+							<SlidersHorizontal class="w-4 h-4" />
+							<span class="hidden sm:inline ml-1.5">{{ t('sequences.filtersAction') }}</span>
+							<span
+								v-if="queueFilterChips.length"
+								class="ml-1.5 min-w-[1.25rem] rounded-full bg-blue-600 px-1.5 text-[11px] leading-5 text-white"
+							>
+								{{ queueFilterChips.length }}
+							</span>
+						</Button>
+						<div v-if="queueMenuOpen" class="fixed inset-0 z-10" @click="queueMenuOpen = false" />
+						<div
+							v-if="queueMenuOpen"
+							role="group"
+							:aria-label="t('sequences.filtersAction')"
+							class="absolute right-0 mt-1 z-20 w-72 sm:w-[30rem] bg-white border rounded-md shadow-lg p-3"
+						>
+							<div class="grid gap-3 sm:grid-cols-2">
+								<!-- Orden: en escritorio vive en la barra; en móvil, aquí. -->
+								<label class="block text-sm text-gray-700 sm:hidden">
+									{{ t('sequences.sortLabel') }}
+									<select v-model="queueSort" class="w-full mt-1 p-2 border rounded-md text-sm bg-white">
+										<option value="scheduled">{{ t('sequences.sort.scheduled') }}</option>
+										<option value="recent">{{ t('sequences.sort.recent') }}</option>
+										<option value="name">{{ t('sequences.sort.name') }}</option>
+										<option value="template">{{ t('sequences.sort.template') }}</option>
+										<option value="sequence">{{ t('sequences.sort.sequence') }}</option>
+										<option value="palanquero">{{ t('sequences.sort.palanquero') }}</option>
+									</select>
+								</label>
+								<label class="block text-sm text-gray-700">
+									{{ t('sequences.filterLabel') }}
+									<select v-model="queueAssignFilter" class="w-full mt-1 p-2 border rounded-md text-sm bg-white">
+										<option value="active">{{ t('sequences.filter.active') }}</option>
+										<option value="mine">{{ t('sequences.filter.mine') }}</option>
+										<option value="unassigned">{{ t('sequences.filter.unassigned') }}</option>
+										<option v-for="a in queueAssigneeOptions" :key="a.id" :value="`user:${a.id}`">
+											{{ t('sequences.filter.assignee', { name: a.name }) }} ({{ a.count }})
+										</option>
+										<option value="paused">{{ t('sequences.filter.paused') }}</option>
+										<option value="all">{{ t('sequences.filter.all') }}</option>
+									</select>
+								</label>
+								<label class="block text-sm text-gray-700">
+									{{ t('sequences.filter.template') }}
+									<select v-model="queueTemplateFilter" class="w-full mt-1 p-2 border rounded-md text-sm bg-white">
+										<option value="all">{{ t('sequences.filter.allTemplates') }}</option>
+										<option v-for="opt in queueTemplateOptions" :key="opt.value" :value="opt.value">
+											{{ opt.label }} ({{ opt.count }})
+										</option>
+									</select>
+								</label>
+								<label class="block text-sm text-gray-700">
+									{{ t('sequences.filter.sequence') }}
+									<select v-model="queueSequenceFilter" class="w-full mt-1 p-2 border rounded-md text-sm bg-white">
+										<option value="all">{{ t('sequences.filter.allSequences') }}</option>
+										<option v-for="opt in queueSequenceOptions" :key="opt.value" :value="opt.value">
+											{{ opt.label }} ({{ opt.count }})
+										</option>
+									</select>
+								</label>
+							</div>
+							<div class="mt-3 pt-3 border-t space-y-2">
+								<label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer select-none sm:hidden">
+									<input type="checkbox" v-model="autoConfirmSend" class="rounded border-gray-300" />
+									{{ t('sequences.autoConfirmSend') }}
+								</label>
+								<Button
+									size="sm"
+									variant="outline"
+									class="w-full justify-center"
+									:disabled="regenerating"
+									@click="regenerateQueue(); queueMenuOpen = false"
+								>
+									<RefreshCw class="w-4 h-4 mr-1" :class="regenerating ? 'animate-spin' : ''" />
+									{{ t('sequences.regenerateQueue') }}
+								</Button>
+								<Button
+									size="sm"
+									variant="default"
+									class="w-full justify-center sm:hidden"
+									@click="openNext(); queueMenuOpen = false"
+								>
+									{{ t('sequences.openNext') }}
+								</Button>
+							</div>
+						</div>
+					</div>
+					<!-- Escritorio: la preferencia de envío junto a la acción que afecta;
+					     una sola unidad para que al envolver baje junta, a la derecha. -->
+					<div class="hidden sm:flex items-center gap-2 shrink-0 ml-auto">
+						<label class="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer select-none">
+							<input type="checkbox" v-model="autoConfirmSend" class="rounded border-gray-300" />
+							{{ t('sequences.autoConfirmSend') }}
+						</label>
+						<Button variant="outline" class="h-[38px]" @click="openNext">
+							{{ t('sequences.openNext') }}
+						</Button>
+					</div>
+				</div>
+				<!-- Chips de filtros activos (Mostrar ≠ Activos, plantilla, secuencia) -->
+				<div v-if="queueFilterChips.length" class="flex items-center gap-2 mb-2 text-xs flex-wrap">
+					<span
+						v-for="chip in queueFilterChips"
+						:key="chip.key"
+						class="inline-flex items-center gap-1 rounded-full px-2 py-0.5"
+						:class="chip.tone"
+					>
+						{{ chip.label }}
+						<button
+							type="button"
+							class="opacity-70 hover:opacity-100"
+							:aria-label="t('sequences.clearFilter')"
+							@click="chip.clear()"
+						>
+							<X class="w-3 h-3" />
+						</button>
+					</span>
+					<button
+						v-if="queueFilterChips.length > 1"
+						type="button"
+						class="text-blue-600 hover:underline"
+						@click="clearFilterChips(queueFilterChips)"
+					>
+						{{ t('sequences.filter.clearAll') }}
+					</button>
 				</div>
 				<p v-if="pausedHiddenCount && filteredQueue.length" class="text-xs text-gray-500 mb-2">
 					{{ t('sequences.queuePausedHidden', { count: pausedHiddenCount }, pausedHiddenCount) }}
@@ -2920,235 +2992,180 @@ async function toggleDoNotContact() {
 			<div v-else class="text-sm text-gray-500 border rounded-md p-4 text-center">
 				{{ t('sequences.queueEmpty') }}
 			</div>
-				<!-- Paginación de pendientes -->
-				<div v-if="queueTotalPages > 1" class="flex items-center justify-center gap-3 mt-3 text-sm">
-					<Button size="sm" variant="outline" :disabled="queuePage <= 1" @click="queuePage = queuePage - 1">‹</Button>
-					<span class="text-gray-600">{{ t('sequences.pageOf', { page: queuePage, total: queueTotalPages }) }}</span>
-					<Button size="sm" variant="outline" :disabled="queuePage >= queueTotalPages" @click="queuePage = queuePage + 1">›</Button>
+				<!-- Pie: tamaño de página + paginación de pendientes -->
+				<div v-if="filteredQueue.length" class="flex items-center justify-end flex-wrap gap-x-4 gap-y-2 mt-3 text-sm">
+					<label class="flex items-center gap-1.5 text-xs text-gray-600">
+						{{ t('sequences.pageSizeLabel') }}
+						<select v-model="queuePageSize" class="p-1 border rounded-md text-xs bg-white">
+							<option v-for="n in PAGE_SIZE_OPTIONS" :key="n" :value="n">{{ n }}</option>
+							<option value="all">{{ t('sequences.pageSizeAll') }}</option>
+						</select>
+					</label>
+					<div v-if="queueTotalPages > 1" class="flex items-center gap-3">
+						<Button size="sm" variant="outline" :disabled="queuePage <= 1" @click="queuePage = queuePage - 1">‹</Button>
+						<span class="text-gray-600">{{ t('sequences.pageOf', { page: queuePage, total: queueTotalPages }) }}</span>
+						<Button size="sm" variant="outline" :disabled="queuePage >= queueTotalPages" @click="queuePage = queuePage + 1">›</Button>
+					</div>
 				</div>
 			</div>
 
 			<!-- Tab: Problemas (omitidos o fallidos, con su motivo) -->
 			<div v-show="activeTab === 'issues'" role="tabpanel" id="seq-panel-issues" aria-labelledby="seq-tab-issues">
-				<!-- Chips de filtros activos: secuencia (badge clickeable), plantilla, asignado -->
-				<div
-					v-if="issuesSequenceFilter || issuesTemplateFilter !== 'all' || issuesAssignFilter !== 'all'"
-					class="flex items-center gap-2 mb-2 text-xs flex-wrap"
-				>
-					<span v-if="issuesSequenceFilter" class="inline-flex items-center gap-1 bg-red-100 text-red-700 rounded-full px-2 py-0.5">
-						{{ seqName(issuesSequenceFilter) }}
-						<button
-							type="button"
-							class="hover:text-red-900"
-							:aria-label="t('sequences.clearFilter')"
-							@click="issuesSequenceFilter = null"
-						>
-							<X class="w-3 h-3" />
-						</button>
-					</span>
-					<span v-if="issuesTemplateFilter !== 'all'" class="inline-flex items-center gap-1 bg-emerald-100 text-emerald-700 rounded-full px-2 py-0.5">
-						{{ issuesTemplateChipLabel }}
-						<button
-							type="button"
-							class="hover:text-emerald-900"
-							:aria-label="t('sequences.clearFilter')"
-							@click="clearIssuesTemplateFilter"
-						>
-							<X class="w-3 h-3" />
-						</button>
-					</span>
-					<span v-if="issuesAssignFilter !== 'all'" class="inline-flex items-center gap-1 bg-amber-100 text-amber-700 rounded-full px-2 py-0.5">
-						{{
-							issuesAssignFilter === 'unassigned'
-								? t('sequences.filter.unassigned')
-								: t('sequences.filter.assignee', { name: issuesAssigneeChipLabel })
-						}}
-						<button
-							type="button"
-							class="hover:text-amber-900"
-							:aria-label="t('sequences.clearFilter')"
-							@click="clearIssuesAssignFilter"
-						>
-							<X class="w-3 h-3" />
-						</button>
-					</span>
-				</div>
-				<!-- Buscador + (móvil) menú de acciones -->
-				<div v-if="issues.length" class="flex items-center gap-2 mb-2">
+				<!-- Toolbar (molde Programadas): buscador + orden + «Filtros» + acciones
+				     masivas (escritorio; en móvil van al final del panel). -->
+				<div v-if="issues.length" class="flex flex-wrap items-center gap-2 mb-2">
 					<input
 						v-model="issuesSearch"
 						type="search"
 						:placeholder="t('sequences.searchPlaceholder')"
-						class="flex-1 min-w-0 p-2 border rounded-md text-sm"
+						class="flex-1 min-w-[12rem] sm:min-w-[16rem] p-2 border rounded-md text-sm"
 					/>
-					<div class="relative sm:hidden" @keydown.escape="issuesMenuOpen = false">
-						<Button
-							variant="outline"
-							size="icon"
-							:aria-label="t('sequences.moreActions')"
-							:aria-expanded="issuesMenuOpen"
-							@click="issuesMenuOpen = !issuesMenuOpen"
-						>
-							<MoreVertical class="w-4 h-4" />
-						</Button>
-						<div v-if="issuesMenuOpen" class="fixed inset-0 z-10" @click="issuesMenuOpen = false" />
-						<div
-							v-if="issuesMenuOpen"
-							class="absolute right-0 mt-1 z-20 w-64 bg-white border rounded-md shadow-lg p-3 space-y-3"
-						>
-							<label class="block text-sm text-gray-700">
-								{{ t('sequences.sortLabel') }}
-								<select v-model="issuesSort" class="w-full mt-1 p-2 border rounded-md text-sm bg-white">
-									<option value="recent">{{ t('sequences.sort.recent') }}</option>
-									<option value="status">{{ t('sequences.sort.status') }}</option>
-									<option value="name">{{ t('sequences.sort.name') }}</option>
-									<option value="template">{{ t('sequences.sort.template') }}</option>
-								</select>
-							</label>
-							<label class="block text-sm text-gray-700">
-								{{ t('sequences.filterLabel') }}
-								<select v-model="issuesAssignFilter" class="w-full mt-1 p-2 border rounded-md text-sm bg-white">
-									<option value="all">{{ t('sequences.filter.all') }}</option>
-									<option value="unassigned">{{ t('sequences.filter.unassigned') }}</option>
-									<option
-										v-for="a in issuesAssigneeOptions"
-										:key="a.id"
-										:value="`user:${a.id}`"
-									>
-										{{ t('sequences.filter.assignee', { name: a.name }) }} ({{ a.count }})
-									</option>
-								</select>
-							</label>
-							<label class="block text-sm text-gray-700">
-								{{ t('sequences.filter.template') }}
-								<select v-model="issuesTemplateFilter" class="w-full mt-1 p-2 border rounded-md text-sm bg-white">
-									<option value="all">{{ t('sequences.filter.allTemplates') }}</option>
-									<option v-for="opt in issuesTemplateOptions" :key="opt.value" :value="opt.value">
-										{{ opt.label }} ({{ opt.count }})
-									</option>
-								</select>
-							</label>
-							<label class="block text-sm text-gray-700">
-								{{ t('sequences.filter.sequence') }}
-								<select v-model="issuesSequenceFilter" class="w-full mt-1 p-2 border rounded-md text-sm bg-white">
-									<option :value="null">{{ t('sequences.filter.allSequences') }}</option>
-									<option v-for="opt in issuesSequenceOptions" :key="opt.value" :value="opt.value">
-										{{ opt.label }} ({{ opt.count }})
-									</option>
-								</select>
-							</label>
-							<label class="block text-sm text-gray-700">
-								{{ t('sequences.filter.status') }}
-								<select v-model="issuesStatusFilter" class="w-full mt-1 p-2 border rounded-md text-sm bg-white">
-									<option value="all">{{ t('sequences.filter.allStatuses') }}</option>
-									<option value="failed">{{ t('sequences.statuses.failed') }}</option>
-									<option value="skipped">{{ t('sequences.statuses.skipped') }}</option>
-								</select>
-							</label>
-							<label class="block text-sm text-gray-700">
-								{{ t('sequences.channel') }}
-								<select v-model="issuesChannelFilter" class="w-full mt-1 p-2 border rounded-md text-sm bg-white">
-									<option value="all">{{ t('sequences.filter.allChannels') }}</option>
-									<option value="whatsapp">{{ t('sequences.channels.whatsapp') }}</option>
-									<option value="email">{{ t('sequences.channels.email') }}</option>
-								</select>
-							</label>
-							<label class="block text-sm text-gray-700">
-								{{ t('sequences.pageSizeLabel') }}
-								<select v-model="issuesPageSize" class="w-full mt-1 p-2 border rounded-md text-sm bg-white">
-									<option v-for="n in PAGE_SIZE_OPTIONS" :key="n" :value="n">{{ n }}</option>
-									<option value="all">{{ t('sequences.pageSizeAll') }}</option>
-								</select>
-							</label>
-							<Button
-								size="sm"
-								variant="outline"
-								class="w-full justify-center"
-								:disabled="bulkBusy"
-								@click="bulkIssues('retry'); issuesMenuOpen = false"
-							>
-								<RefreshCw class="w-4 h-4 mr-1" /> {{ t('sequences.bulkRetry') }}
-							</Button>
-							<Button
-								size="sm"
-								variant="ghost"
-								class="w-full justify-center text-gray-500"
-								:disabled="bulkBusy"
-								@click="bulkIssues('discard'); issuesMenuOpen = false"
-							>
-								{{ t('sequences.bulkDiscard') }}
-							</Button>
-						</div>
-					</div>
-				</div>
-				<!-- Controles inline (escritorio) -->
-				<div v-if="issues.length" class="hidden sm:flex items-center justify-end flex-wrap gap-2 mb-2">
-					<label class="flex items-center gap-1.5 text-xs text-gray-600 mr-auto">
+					<label class="hidden sm:flex items-center gap-1.5 text-xs text-gray-600 shrink-0 ml-auto">
 						{{ t('sequences.sortLabel') }}
-						<select v-model="issuesSort" class="p-1 border rounded-md text-xs bg-white">
+						<select v-model="issuesSort" class="p-2 border rounded-md text-sm bg-white">
 							<option value="recent">{{ t('sequences.sort.recent') }}</option>
 							<option value="status">{{ t('sequences.sort.status') }}</option>
 							<option value="name">{{ t('sequences.sort.name') }}</option>
 							<option value="template">{{ t('sequences.sort.template') }}</option>
 						</select>
 					</label>
-					<label class="flex items-center gap-1.5 text-xs text-gray-600">
-						{{ t('sequences.filterLabel') }}
-						<select v-model="issuesAssignFilter" class="p-1 border rounded-md text-xs bg-white">
-							<option value="all">{{ t('sequences.filter.all') }}</option>
-							<option value="unassigned">{{ t('sequences.filter.unassigned') }}</option>
-							<option v-for="a in issuesAssigneeOptions" :key="a.id" :value="`user:${a.id}`">
-								{{ t('sequences.filter.assignee', { name: a.name }) }} ({{ a.count }})
-							</option>
-						</select>
-					</label>
-					<label class="flex items-center gap-1.5 text-xs text-gray-600">
-						{{ t('sequences.filter.template') }}
-						<select v-model="issuesTemplateFilter" class="p-1 border rounded-md text-xs bg-white">
-							<option value="all">{{ t('sequences.filter.allTemplates') }}</option>
-							<option v-for="opt in issuesTemplateOptions" :key="opt.value" :value="opt.value">
-								{{ opt.label }} ({{ opt.count }})
-							</option>
-						</select>
-					</label>
-					<label class="flex items-center gap-1.5 text-xs text-gray-600">
-						{{ t('sequences.filter.sequence') }}
-						<select v-model="issuesSequenceFilter" class="p-1 border rounded-md text-xs bg-white">
-							<option :value="null">{{ t('sequences.filter.allSequences') }}</option>
-							<option v-for="opt in issuesSequenceOptions" :key="opt.value" :value="opt.value">
-								{{ opt.label }} ({{ opt.count }})
-							</option>
-						</select>
-					</label>
-					<label class="flex items-center gap-1.5 text-xs text-gray-600">
-						{{ t('sequences.filter.status') }}
-						<select v-model="issuesStatusFilter" class="p-1 border rounded-md text-xs bg-white">
-							<option value="all">{{ t('sequences.filter.allStatuses') }}</option>
-							<option value="failed">{{ t('sequences.statuses.failed') }}</option>
-							<option value="skipped">{{ t('sequences.statuses.skipped') }}</option>
-						</select>
-					</label>
-					<label class="flex items-center gap-1.5 text-xs text-gray-600">
-						{{ t('sequences.channel') }}
-						<select v-model="issuesChannelFilter" class="p-1 border rounded-md text-xs bg-white">
-							<option value="all">{{ t('sequences.filter.allChannels') }}</option>
-							<option value="whatsapp">{{ t('sequences.channels.whatsapp') }}</option>
-							<option value="email">{{ t('sequences.channels.email') }}</option>
-						</select>
-					</label>
-					<label class="flex items-center gap-1.5 text-xs text-gray-600">
-						{{ t('sequences.pageSizeLabel') }}
-						<select v-model="issuesPageSize" class="p-1 border rounded-md text-xs bg-white">
-							<option v-for="n in PAGE_SIZE_OPTIONS" :key="n" :value="n">{{ n }}</option>
-							<option value="all">{{ t('sequences.pageSizeAll') }}</option>
-						</select>
-					</label>
-					<Button size="sm" variant="outline" :disabled="bulkBusy" @click="bulkIssues('retry')">
-						<RefreshCw class="w-4 h-4 mr-1" /> {{ t('sequences.bulkRetry') }}
-					</Button>
-					<Button size="sm" variant="ghost" class="text-gray-500" :disabled="bulkBusy" @click="bulkIssues('discard')">
-						{{ t('sequences.bulkDiscard') }}
-					</Button>
+					<div class="relative shrink-0" @keydown.escape="issuesMenuOpen = false">
+						<Button
+							variant="outline"
+							class="h-[38px] px-2.5 sm:px-3"
+							:aria-label="t('sequences.filtersAction')"
+							:aria-expanded="issuesMenuOpen"
+							@click="issuesMenuOpen = !issuesMenuOpen"
+						>
+							<SlidersHorizontal class="w-4 h-4" />
+							<span class="hidden sm:inline ml-1.5">{{ t('sequences.filtersAction') }}</span>
+							<span
+								v-if="issuesFilterChips.length"
+								class="ml-1.5 min-w-[1.25rem] rounded-full bg-blue-600 px-1.5 text-[11px] leading-5 text-white"
+							>
+								{{ issuesFilterChips.length }}
+							</span>
+						</Button>
+						<div v-if="issuesMenuOpen" class="fixed inset-0 z-10" @click="issuesMenuOpen = false" />
+						<div
+							v-if="issuesMenuOpen"
+							role="group"
+							:aria-label="t('sequences.filtersAction')"
+							class="absolute right-0 mt-1 z-20 w-72 sm:w-[30rem] bg-white border rounded-md shadow-lg p-3"
+						>
+							<div class="grid gap-3 sm:grid-cols-2">
+								<!-- Orden: en escritorio vive en la barra; en móvil, aquí. -->
+								<label class="block text-sm text-gray-700 sm:hidden">
+									{{ t('sequences.sortLabel') }}
+									<select v-model="issuesSort" class="w-full mt-1 p-2 border rounded-md text-sm bg-white">
+										<option value="recent">{{ t('sequences.sort.recent') }}</option>
+										<option value="status">{{ t('sequences.sort.status') }}</option>
+										<option value="name">{{ t('sequences.sort.name') }}</option>
+										<option value="template">{{ t('sequences.sort.template') }}</option>
+									</select>
+								</label>
+								<label class="block text-sm text-gray-700">
+									{{ t('sequences.filter.status') }}
+									<select v-model="issuesStatusFilter" class="w-full mt-1 p-2 border rounded-md text-sm bg-white">
+										<option value="all">{{ t('sequences.filter.allStatuses') }}</option>
+										<option value="failed">{{ t('sequences.statuses.failed') }}</option>
+										<option value="skipped">{{ t('sequences.statuses.skipped') }}</option>
+									</select>
+								</label>
+								<label class="block text-sm text-gray-700">
+									{{ t('sequences.filterLabel') }}
+									<select v-model="issuesAssignFilter" class="w-full mt-1 p-2 border rounded-md text-sm bg-white">
+										<option value="all">{{ t('sequences.filter.all') }}</option>
+										<option value="unassigned">{{ t('sequences.filter.unassigned') }}</option>
+										<option v-for="a in issuesAssigneeOptions" :key="a.id" :value="`user:${a.id}`">
+											{{ t('sequences.filter.assignee', { name: a.name }) }} ({{ a.count }})
+										</option>
+									</select>
+								</label>
+								<label class="block text-sm text-gray-700">
+									{{ t('sequences.filter.template') }}
+									<select v-model="issuesTemplateFilter" class="w-full mt-1 p-2 border rounded-md text-sm bg-white">
+										<option value="all">{{ t('sequences.filter.allTemplates') }}</option>
+										<option v-for="opt in issuesTemplateOptions" :key="opt.value" :value="opt.value">
+											{{ opt.label }} ({{ opt.count }})
+										</option>
+									</select>
+								</label>
+								<label class="block text-sm text-gray-700">
+									{{ t('sequences.filter.sequence') }}
+									<select v-model="issuesSequenceFilter" class="w-full mt-1 p-2 border rounded-md text-sm bg-white">
+										<option :value="null">{{ t('sequences.filter.allSequences') }}</option>
+										<option v-for="opt in issuesSequenceOptions" :key="opt.value" :value="opt.value">
+											{{ opt.label }} ({{ opt.count }})
+										</option>
+									</select>
+								</label>
+								<label class="block text-sm text-gray-700">
+									{{ t('sequences.channel') }}
+									<select v-model="issuesChannelFilter" class="w-full mt-1 p-2 border rounded-md text-sm bg-white">
+										<option value="all">{{ t('sequences.filter.allChannels') }}</option>
+										<option value="whatsapp">{{ t('sequences.channels.whatsapp') }}</option>
+										<option value="email">{{ t('sequences.channels.email') }}</option>
+									</select>
+								</label>
+							</div>
+							<div class="sm:hidden mt-3 pt-3 border-t space-y-2">
+								<Button
+									size="sm"
+									variant="outline"
+									class="w-full justify-center"
+									:disabled="bulkBusy"
+									@click="bulkIssues('retry'); issuesMenuOpen = false"
+								>
+									<RefreshCw class="w-4 h-4 mr-1" /> {{ t('sequences.bulkRetry') }}
+								</Button>
+								<Button
+									size="sm"
+									variant="ghost"
+									class="w-full justify-center text-gray-500"
+									:disabled="bulkBusy"
+									@click="bulkIssues('discard'); issuesMenuOpen = false"
+								>
+									{{ t('sequences.bulkDiscard') }}
+								</Button>
+							</div>
+						</div>
+					</div>
+					<div class="hidden sm:flex items-center gap-1 shrink-0 ml-auto">
+						<Button variant="outline" class="h-[38px]" :disabled="bulkBusy" @click="bulkIssues('retry')">
+							<RefreshCw class="w-4 h-4 mr-1" /> {{ t('sequences.bulkRetry') }}
+						</Button>
+						<Button variant="ghost" class="h-[38px] text-gray-500" :disabled="bulkBusy" @click="bulkIssues('discard')">
+							{{ t('sequences.bulkDiscard') }}
+						</Button>
+					</div>
+				</div>
+				<!-- Chips de filtros activos: secuencia (badge clickeable) y lo elegido en el panel -->
+				<div v-if="issuesFilterChips.length" class="flex items-center gap-2 mb-2 text-xs flex-wrap">
+					<span
+						v-for="chip in issuesFilterChips"
+						:key="chip.key"
+						class="inline-flex items-center gap-1 rounded-full px-2 py-0.5"
+						:class="chip.tone"
+					>
+						{{ chip.label }}
+						<button
+							type="button"
+							class="opacity-70 hover:opacity-100"
+							:aria-label="t('sequences.clearFilter')"
+							@click="chip.clear()"
+						>
+							<X class="w-3 h-3" />
+						</button>
+					</span>
+					<button
+						v-if="issuesFilterChips.length > 1"
+						type="button"
+						class="text-blue-600 hover:underline"
+						@click="clearFilterChips(issuesFilterChips)"
+					>
+						{{ t('sequences.filter.clearAll') }}
+					</button>
 				</div>
 				<div v-if="issues.length && filteredIssues.length" class="border rounded-md divide-y">
 				<div v-for="it in pagedIssues" :key="it.id" class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 p-3">
@@ -3214,11 +3231,20 @@ async function toggleDoNotContact() {
 				<div v-else class="text-sm text-gray-500 border rounded-md p-4 text-center">
 					{{ t('sequences.issuesEmpty') }}
 				</div>
-				<!-- Paginación local de los problemas cargados -->
-				<div v-if="issuesTotalPages > 1" class="flex items-center justify-center gap-3 mt-3 text-sm">
-					<Button size="sm" variant="outline" :disabled="issuesPage <= 1" @click="issuesPage = issuesPage - 1">‹</Button>
-					<span class="text-gray-600">{{ t('sequences.pageOf', { page: issuesPage, total: issuesTotalPages }) }}</span>
-					<Button size="sm" variant="outline" :disabled="issuesPage >= issuesTotalPages" @click="issuesPage = issuesPage + 1">›</Button>
+				<!-- Pie: tamaño de página + paginación local de los problemas cargados -->
+				<div v-if="issues.length && filteredIssues.length" class="flex items-center justify-end flex-wrap gap-x-4 gap-y-2 mt-3 text-sm">
+					<label class="flex items-center gap-1.5 text-xs text-gray-600">
+						{{ t('sequences.pageSizeLabel') }}
+						<select v-model="issuesPageSize" class="p-1 border rounded-md text-xs bg-white">
+							<option v-for="n in PAGE_SIZE_OPTIONS" :key="n" :value="n">{{ n }}</option>
+							<option value="all">{{ t('sequences.pageSizeAll') }}</option>
+						</select>
+					</label>
+					<div v-if="issuesTotalPages > 1" class="flex items-center gap-3">
+						<Button size="sm" variant="outline" :disabled="issuesPage <= 1" @click="issuesPage = issuesPage - 1">‹</Button>
+						<span class="text-gray-600">{{ t('sequences.pageOf', { page: issuesPage, total: issuesTotalPages }) }}</span>
+						<Button size="sm" variant="outline" :disabled="issuesPage >= issuesTotalPages" @click="issuesPage = issuesPage + 1">›</Button>
+					</div>
 				</div>
 				<!-- #2: quedan problemas sin cargar (cap de página) → siguiente página -->
 				<div v-if="issues.length && issues.length < issuesTotal" class="flex justify-center mt-3">
