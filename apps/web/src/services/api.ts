@@ -3992,6 +3992,9 @@ export interface ScheduledMessageQueueItem {
   // M3: nombre resuelto por el servidor (templateId del paso gana sobre el
   // tipo); el cliente usa este con fallback al label por tipo.
   templateName?: string | null;
+  // v1.1 M6/M7: los DTO de Programadas/Problemas traen la plantilla del paso
+  // como `templateId` plano (la bandeja la trae anidada en `step`).
+  templateId?: string | null;
   recipientTarget?: "participant" | "emergencyContact1" | "emergencyContact2";
   scheduledFor: string;
   status: string;
@@ -4006,8 +4009,10 @@ export interface ScheduledMessageQueueItem {
   resolvedContent?: string | null;
   resolvedContact?: string | null;
   recipientName?: string | null;
-  // Ownership/auditoría del despacho de WhatsApp.
+  // Ownership/auditoría del despacho de WhatsApp. `assignedToName` es el display
+  // name resuelto server-side (bulk) — la bandeja filtra y pinta por nombre.
   assignedTo?: string | null;
+  assignedToName?: string | null;
   openedAt?: string | null;
   dispatchedBy?: string | null;
   participant?: {
@@ -4019,6 +4024,8 @@ export interface ScheduledMessageQueueItem {
     emergencyContact1CellPhone?: string;
     emergencyContact2Name?: string;
     emergencyContact2CellPhone?: string;
+    /** v1.1: la proyección de Programadas/Problemas lo trae (link de WhatsApp). */
+    country?: string | null;
   };
   step?: { id: string; templateType: string; templateId?: string | null; channel: string };
 }
@@ -4091,6 +4098,8 @@ export interface ScheduledMessageListItem {
   templateType: string;
   /** M3: nombre de la plantilla resuelto por el servidor (id del paso gana). */
   templateName: string | null;
+  /** M6: id de la plantilla del paso, cuando apunta a una concreta (clave compuesta D3). */
+  templateId: string | null;
   channel: 'email' | 'whatsapp';
   recipientTarget: string;
   recipientName: string | null;
@@ -4101,6 +4110,19 @@ export interface ScheduledMessageListItem {
   offsetDays: number | null;
   sendHour: number | null;
   updatedAt: string;
+  /** M6: quién tomó la fila (id del usuario) y su display name. */
+  assignedTo: string | null;
+  assignedToName: string | null;
+  /** M6: proyección mínima del participante (acciones de fila: conversación/ficha). */
+  participant: {
+    id: string;
+    firstName: string | null;
+    lastName: string | null;
+    cellPhone: string | null;
+    emergencyContact1CellPhone: string | null;
+    emergencyContact2CellPhone: string | null;
+    country: string | null;
+  } | null;
 }
 
 export interface ScheduledMessagesPage {
@@ -4121,9 +4143,16 @@ export interface FetchScheduledMessagesOptions {
   search?: string;
   page?: number;
   limit?: number;
-  order?: 'scheduled' | 'recent';
+  order?: 'scheduled' | 'recent' | 'name' | 'sequence';
   /** Pending rows of inactive sequences: hide (tab default), only, or include. */
   paused?: 'include' | 'hide' | 'only';
+  /** M6 (D8): filtro plantilla por clave compuesta — id de plantilla y/o tipo crudo. */
+  templateId?: string;
+  templateType?: string;
+  /** M6: user id, o 'unassigned' para las filas que nadie tomó. */
+  assignedTo?: string;
+  /** Canal de la fila; ausente = todos los canales. */
+  channel?: 'whatsapp' | 'email';
 }
 
 export const fetchScheduledMessages = async (
@@ -4139,6 +4168,10 @@ export const fetchScheduledMessages = async (
   if (opts.limit) params.set('limit', String(opts.limit));
   if (opts.order) params.set('order', opts.order);
   if (opts.paused) params.set('paused', opts.paused);
+  if (opts.templateId) params.set('templateId', opts.templateId);
+  if (opts.templateType) params.set('templateType', opts.templateType);
+  if (opts.assignedTo) params.set('assignedTo', opts.assignedTo);
+  if (opts.channel) params.set('channel', opts.channel);
   const qs = params.toString();
   const r = await api.get(`/message-sequences/retreat/${retreatId}/scheduled${qs ? `?${qs}` : ''}`);
   return r.data;

@@ -13,6 +13,7 @@ import type { MessageRecipientTarget, MessageChannel } from '../entities/sequenc
 import { MessageTemplate } from '../entities/messageTemplate.entity';
 import { ParticipantCommunication } from '../entities/participantCommunication.entity';
 import { ParticipantFollowUp } from '../entities/participantFollowUp.entity';
+import { User } from '../entities/user.entity';
 import { EmailService } from './emailService';
 import { hydrateParticipantRetreatContext } from './participantRetreatHydration';
 import { makeDateInTimezone } from '../utils/date.transformer';
@@ -1688,8 +1689,9 @@ export class MessageSequenceService {
 	 * Bandeja de pendientes de WhatsApp (status queued) de un retiro. Cada ítem se
 	 * enriquece con `followUpStatus` (estado de seguimiento del participante),
 	 * `templateName` (M3: nombre de la plantilla resuelto server-side, id del paso
-	 * gana sobre el tipo) y `palancasCoordinator`/`palanqueroName` (el palanquero
-	 * asignado al caminante: nombre de la responsabilidad y su titular) para dar
+	 * gana sobre el tipo), `palancasCoordinator`/`palanqueroName` (el palanquero
+	 * asignado al caminante: nombre de la responsabilidad y su titular) y
+	 * `assignedToName` (display name del usuario que tomó el ítem) para dar
 	 * contexto al coordinador antes de enviar.
 	 */
 	async listQueued(
@@ -1701,6 +1703,7 @@ export class MessageSequenceService {
 				templateName?: string | null;
 				palancasCoordinator?: string | null;
 				palanqueroName?: string | null;
+				assignedToName?: string | null;
 			}
 		>
 	> {
@@ -1732,6 +1735,17 @@ export class MessageSequenceService {
 					`${r.participant!.firstName ?? ''} ${r.participant!.lastName ?? ''}`.trim(),
 				]),
 		);
+		// Display name of whoever took each item (ownership lives in `assignedTo`
+		// as a user id): one bulk lookup for the whole queue.
+		const assigneeIds = [...new Set(items.map((i) => i.assignedTo).filter((id): id is string => !!id))];
+		const nameByAssignee = new Map(
+			assigneeIds.length
+				? (await AppDataSource.getRepository(User).find({
+						where: { id: In(assigneeIds) },
+						select: ['id', 'displayName'],
+					})).map((u) => [u.id, u.displayName])
+				: [],
+		);
 		const names = await this.buildTemplateNameMaps(retreatId);
 		return items.map((it) => {
 			const coordinator = coordinatorByParticipant.get(it.participantId) ?? null;
@@ -1740,6 +1754,7 @@ export class MessageSequenceService {
 				templateName: names.resolve(it.step, it.templateType),
 				palancasCoordinator: coordinator,
 				palanqueroName: coordinator ? holderByName.get(coordinator) ?? null : null,
+				assignedToName: it.assignedTo ? nameByAssignee.get(it.assignedTo) ?? null : null,
 			});
 		});
 	}
@@ -1763,11 +1778,20 @@ export class MessageSequenceService {
 			search?: string;
 			page?: number;
 			limit?: number;
-			order?: 'scheduled' | 'recent';
+			order?: 'scheduled' | 'recent' | 'name' | 'sequence';
 			// A paused row = `pending` of an inactive sequence: it won't go out
 			// while the sequence stays off. 'hide' drops them (the tab's default),
 			// 'only' lists just them, 'include' (default) keeps the old contract.
 			paused?: 'include' | 'hide' | 'only';
+			// M6 (D8): template filters use the same composite key the inbox
+			// groups by — `step.templateId` when the step points at a concrete
+			// template, else the raw `sm.templateType`. Passing BOTH is a plain AND.
+			templateId?: string;
+			templateType?: string;
+			/** User id, or the literal 'unassigned' for rows nobody took. */
+			assignedTo?: string;
+			/** Row channel ('whatsapp' | 'email'); absent = all channels. */
+			channel?: MessageChannel;
 		} = {},
 	): Promise<{
 		items: Array<{
@@ -1778,6 +1802,8 @@ export class MessageSequenceService {
 			participantName: string;
 			templateType: string;
 			templateName: string | null;
+			/** Template id of the step, when it points at a concrete template. */
+			templateId: string | null;
 			channel: MessageChannel;
 			recipientTarget: string;
 			recipientName: string | null;
@@ -1788,6 +1814,18 @@ export class MessageSequenceService {
 			offsetDays: number | null;
 			sendHour: number | null;
 			updatedAt: Date;
+			assignedTo: string | null;
+			assignedToName: string | null;
+			/** Minimal participant projection (no PII dump) for row actions. */
+			participant: {
+				id: string;
+				firstName: string | null;
+				lastName: string | null;
+				cellPhone: string | null;
+				emergencyContact1CellPhone: string | null;
+				emergencyContact2CellPhone: string | null;
+				country: string | null;
+			} | null;
 		}>;
 		total: number;
 		page: number;
@@ -1820,6 +1858,26 @@ export class MessageSequenceService {
 				{ q: `%${opts.search}%` },
 			);
 		}
+		// M6: plantilla por clave compuesta (D3) — el id del paso si apunta a una
+		// plantilla concreta; el tipo crudo cubre SOLO los ítems sin plantilla
+		// concreta (los que usan la del tipo no aparecen bajo el tipo crudo en la
+		// UI, así que el filtro tampoco los trae).
+		if (opts.templateId) {
+			qb.andWhere('step.templateId = :templateId', { templateId: opts.templateId });
+		}
+		if (opts.templateType) {
+			qb.andWhere('(step.templateId IS NULL AND sm.templateType = :templateType)', {
+				templateType: opts.templateType,
+			});
+		}
+		if (opts.assignedTo === 'unassigned') {
+			qb.andWhere('sm.assignedTo IS NULL');
+		} else if (opts.assignedTo) {
+			qb.andWhere('sm.assignedTo = :assignedTo', { assignedTo: opts.assignedTo });
+		}
+		if (opts.channel) {
+			qb.andWhere('sm.channel = :channel', { channel: opts.channel });
+		}
 		const pausedWhere = "(sm.status = 'pending' AND seq.isActive = :seqActive)";
 		const pausedParams = { seqActive: false };
 		const pausedCount = await qb.clone().andWhere(pausedWhere, pausedParams).getCount();
@@ -1830,6 +1888,13 @@ export class MessageSequenceService {
 		const limit = Math.min(200, Math.max(1, opts.limit ?? 50));
 		if (opts.order === 'recent') {
 			qb.orderBy('sm.updatedAt', 'DESC');
+		} else if (opts.order === 'name') {
+			// Participante: apellido → nombre (mismo desempate del orden por fecha).
+			qb.orderBy('participant.lastName', 'ASC').addOrderBy('participant.firstName', 'ASC');
+		} else if (opts.order === 'sequence') {
+			// La secuencia no viaja en el DTO, pero ordenar por su nombre agrupa
+			// las filas de cada una (la fecha desempata dentro del grupo).
+			qb.orderBy('seq.name', 'ASC').addOrderBy('sm.scheduledFor', 'ASC');
 		} else {
 			qb.orderBy('sm.scheduledFor', 'ASC').addOrderBy('participant.lastName', 'ASC');
 		}
@@ -1845,6 +1910,16 @@ export class MessageSequenceService {
 		});
 		// Sólo si hay filas: en página vacía la consulta sería en vano.
 		const names = rows.length ? await this.buildTemplateNameMaps(retreatId) : null;
+		// Display name of whoever took each row (bulk, molde listQueued M1).
+		const assigneeIds = [...new Set(rows.map((r) => r.assignedTo).filter((id): id is string => !!id))];
+		const nameByAssignee = new Map(
+			assigneeIds.length
+				? (await AppDataSource.getRepository(User).find({
+						where: { id: In(assigneeIds) },
+						select: ['id', 'displayName'],
+					})).map((u) => [u.id, u.displayName])
+				: [],
+		);
 		return {
 			items: rows.map((sm) => ({
 				id: sm.id,
@@ -1856,6 +1931,7 @@ export class MessageSequenceService {
 					: '',
 				templateType: sm.templateType,
 				templateName: names ? names.resolve(sm.step, sm.templateType) : null,
+				templateId: sm.step?.templateId ?? null,
 				channel: sm.channel,
 				recipientTarget: sm.recipientTarget,
 				recipientName: sm.recipientName ?? null,
@@ -1866,6 +1942,19 @@ export class MessageSequenceService {
 				offsetDays: sm.step?.offsetDays ?? null,
 				sendHour: sm.step?.sendHour ?? null,
 				updatedAt: sm.updatedAt,
+				assignedTo: sm.assignedTo ?? null,
+				assignedToName: sm.assignedTo ? nameByAssignee.get(sm.assignedTo) ?? null : null,
+				participant: sm.participant
+					? {
+							id: sm.participant.id,
+							firstName: sm.participant.firstName ?? null,
+							lastName: sm.participant.lastName ?? null,
+							cellPhone: sm.participant.cellPhone ?? null,
+							emergencyContact1CellPhone: sm.participant.emergencyContact1CellPhone ?? null,
+							emergencyContact2CellPhone: sm.participant.emergencyContact2CellPhone ?? null,
+							country: sm.participant.country ?? null,
+						}
+					: null,
 			})),
 			total,
 			page,
@@ -2574,11 +2663,48 @@ export class MessageSequenceService {
 	 * Devuelve `{ items, total }`: `total` es el conteo REAL de problemas (sin
 	 * cap) para que el contador del tab no mienta cuando hay más de `limit` —
 	 * la UI pagina con "cargar más" (offset) en vez de recortar en silencio.
+	 *
+	 * v1.1 M7: cada ítem es un DTO plano (molde listScheduled) con
+	 * `templateName` resuelto server-side, `templateId` del paso, `assignedTo` +
+	 * `assignedToName` (lookup bulk molde M1) y una proyección mínima del
+	 * participante — la entity cruda viajaba con TODO el participante (notas,
+	 * correos: PII que la lista no usa).
 	 */
 	async getIssuesByRetreat(
 		retreatId: string,
 		opts: { limit?: number; offset?: number } = {},
-	): Promise<{ items: ScheduledMessage[]; total: number }> {
+	): Promise<{
+		items: Array<{
+			id: string;
+			sequenceId: string;
+			stepId: string;
+			participantId: string;
+			templateType: string;
+			templateName: string | null;
+			/** Template id of the step, when it points at a concrete template. */
+			templateId: string | null;
+			channel: MessageChannel;
+			recipientTarget: string;
+			recipientName: string | null;
+			status: string;
+			scheduledFor: Date;
+			error: string | null;
+			updatedAt: Date;
+			assignedTo: string | null;
+			assignedToName: string | null;
+			/** Minimal participant projection (no PII dump) for row actions. */
+			participant: {
+				id: string;
+				firstName: string | null;
+				lastName: string | null;
+				cellPhone: string | null;
+				emergencyContact1CellPhone: string | null;
+				emergencyContact2CellPhone: string | null;
+				country: string | null;
+			} | null;
+		}>;
+		total: number;
+	}> {
 		const repo = AppDataSource.getRepository(ScheduledMessage);
 		const where = [
 			{ retreatId, status: 'skipped' as const },
@@ -2589,14 +2715,57 @@ export class MessageSequenceService {
 		const [items, total] = await Promise.all([
 			repo.find({
 				where,
-				relations: ['participant'],
+				relations: ['participant', 'step'],
 				order: { updatedAt: 'DESC' },
 				take: opts.limit ?? 100,
 				skip: opts.offset ?? 0,
 			}),
 			repo.count({ where }),
 		]);
-		return { items, total };
+		if (!items.length) return { items: [], total };
+		const names = await this.buildTemplateNameMaps(retreatId);
+		// Display name of whoever took each item (bulk, molde listQueued M1).
+		const assigneeIds = [...new Set(items.map((i) => i.assignedTo).filter((id): id is string => !!id))];
+		const nameByAssignee = new Map(
+			assigneeIds.length
+				? (await AppDataSource.getRepository(User).find({
+						where: { id: In(assigneeIds) },
+						select: ['id', 'displayName'],
+					})).map((u) => [u.id, u.displayName])
+				: [],
+		);
+		return {
+			items: items.map((it) => ({
+				id: it.id,
+				sequenceId: it.sequenceId,
+				stepId: it.stepId,
+				participantId: it.participantId,
+				templateType: it.templateType,
+				templateName: names.resolve(it.step, it.templateType),
+				templateId: it.step?.templateId ?? null,
+				channel: it.channel,
+				recipientTarget: it.recipientTarget,
+				recipientName: it.recipientName ?? null,
+				status: it.status,
+				scheduledFor: it.scheduledFor,
+				error: it.error ?? null,
+				updatedAt: it.updatedAt,
+				assignedTo: it.assignedTo ?? null,
+				assignedToName: it.assignedTo ? nameByAssignee.get(it.assignedTo) ?? null : null,
+				participant: it.participant
+					? {
+							id: it.participant.id,
+							firstName: it.participant.firstName ?? null,
+							lastName: it.participant.lastName ?? null,
+							cellPhone: it.participant.cellPhone ?? null,
+							emergencyContact1CellPhone: it.participant.emergencyContact1CellPhone ?? null,
+							emergencyContact2CellPhone: it.participant.emergencyContact2CellPhone ?? null,
+							country: it.participant.country ?? null,
+						}
+					: null,
+			})),
+			total,
+		};
 	}
 
 	/**
