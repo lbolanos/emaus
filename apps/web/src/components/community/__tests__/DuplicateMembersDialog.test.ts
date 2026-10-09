@@ -163,7 +163,8 @@ describe('DuplicateMembersDialog', () => {
 		await wrapper.vm.doMerge(0);
 		await flushPromises();
 
-		expect(mockMerge).toHaveBeenCalledWith('comm-1', 'p-keep', 'p-merge');
+		// El cuarto argumento es la huella del par: alimenta el audit log del merge.
+		expect(mockMerge).toHaveBeenCalledWith('comm-1', 'p-keep', 'p-merge', 'phone');
 		expect(mockGet).toHaveBeenCalled();
 	});
 

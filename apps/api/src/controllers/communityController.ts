@@ -1009,9 +1009,36 @@ export class CommunityController {
 	 * que se puede exigir aquí es el más alto de la comunidad.
 	 */
 	static async mergeParticipantDuplicates(req: Request, res: Response) {
-		const { keepId, mergeId } = req.body ?? {};
+		const { id: communityId } = req.params;
+		const { keepId, mergeId, matchedBy } = req.body ?? {};
 		try {
-			res.json(await mergeParticipants(keepId, mergeId));
+			const result = await mergeParticipants(keepId, mergeId);
+
+			// Audit fire-and-forget, DESPUÉS de que el merge resuelva y fuera de
+			// su transacción: un audit caído no puede tirar atrás una fusión ya
+			// hecha (mismo patrón que updateMemberProfile). Metadata compacta:
+			// el detalle completo vive en las columnas reapuntadas y en la
+			// lápida `mergedIntoParticipantId`.
+			const totalRowsMoved = result.moves.reduce((sum, move) => sum + move.rows, 0);
+			void communityAuditService.log({
+				action: CommunityAuditAction.PARTICIPANT_MERGE,
+				resourceType: 'participant',
+				resourceId: keepId,
+				communityId,
+				actorUserId: (req.user as any)?.id,
+				metadata: {
+					keepId,
+					mergeId,
+					...(matchedBy ? { matchedBy } : {}),
+					totalRowsMoved,
+					attendanceMoved: result.attendanceMoved,
+					attendanceMerged: result.attendanceMerged,
+				},
+				ipAddress: req.ip,
+				userAgent: req.get('user-agent'),
+			});
+
+			res.json(result);
 		} catch (error) {
 			if (error instanceof ParticipantMergeError) {
 				return res.status(400).json({ message: error.message });

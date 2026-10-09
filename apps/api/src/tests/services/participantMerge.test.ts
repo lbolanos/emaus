@@ -4,6 +4,7 @@ import { createMockResponse } from '../test-utils/authTestUtils';
 import { CommunityController } from '@/controllers/communityController';
 import { AppDataSource } from '@/data-source';
 import { Community } from '@/entities/community.entity';
+import { CommunityAuditLog } from '@/entities/communityAuditLog.entity';
 import { CommunityAttendance } from '@/entities/communityAttendance.entity';
 import { CommunityMember } from '@/entities/communityMember.entity';
 import { Participant } from '@/entities/participant.entity';
@@ -746,6 +747,73 @@ describe('participantMergeService', () => {
 			expect(payload).toMatchObject({ keepId: server.id, mergeId: member.id });
 			expect(typeof payload.attendanceMoved).toBe('number');
 			expect(typeof payload.attendanceMerged).toBe('number');
+		});
+	});
+
+	// El merge es cirugía de identidad global; hasta M4 no dejaba rastro en el
+	// audit log. El log va DESPUÉS de resolver y fuera de la transacción: un
+	// audit caído no puede tirar atrás una fusión ya hecha.
+	describe('mergeParticipantDuplicates (controlador) — audit', () => {
+		const mergeReq = (body: any) =>
+			({
+				params: { id: community.id },
+				body,
+				user: { id: user.id },
+				ip: '127.0.0.1',
+				get: () => 'Jest/1.0',
+			}) as any;
+
+		it('deja fila de audit tras un 200, con matchedBy y los contadores', async () => {
+			const { server, member } = await duplicatePair();
+			const res = createMockResponse();
+
+			await CommunityController.mergeParticipantDuplicates(
+				mergeReq({ keepId: server.id, mergeId: member.id, matchedBy: 'name' }),
+				res,
+			);
+			expect(res.status).not.toHaveBeenCalled();
+			// Fire-and-forget: darle tiempo a aterrizar antes de leer la tabla.
+			await new Promise((r) => setTimeout(r, 100));
+
+			const repo = AppDataSource.getRepository(CommunityAuditLog);
+			const rows = await repo.find({
+				where: { communityId: community.id, action: 'community.participant.merge' },
+			});
+			expect(rows).toHaveLength(1);
+			expect(rows[0].actorUserId).toBe(user.id);
+			expect(rows[0].resourceId).toBe(server.id);
+			const metadata = JSON.parse(rows[0].metadata as string);
+			expect(metadata).toMatchObject({
+				keepId: server.id,
+				mergeId: member.id,
+				matchedBy: 'name',
+			});
+			expect(typeof metadata.totalRowsMoved).toBe('number');
+			expect(typeof metadata.attendanceMoved).toBe('number');
+			expect(typeof metadata.attendanceMerged).toBe('number');
+		});
+
+		it('responde 200 aunque el audit caiga: la fusión ya está hecha', async () => {
+			const { server, member } = await duplicatePair();
+			const auditRepo = AppDataSource.getRepository(CommunityAuditLog);
+			const save = jest
+				.spyOn(auditRepo, 'save')
+				.mockRejectedValue(new Error('audit down'));
+			const res = createMockResponse();
+
+			try {
+				await CommunityController.mergeParticipantDuplicates(
+					mergeReq({ keepId: server.id, mergeId: member.id }),
+					res,
+				);
+				await new Promise((r) => setTimeout(r, 50));
+			} finally {
+				save.mockRestore();
+			}
+
+			expect(res.status).not.toHaveBeenCalled();
+			const payload = (res.json as jest.Mock).mock.calls[0][0];
+			expect(payload).toMatchObject({ merged: true, keepId: server.id });
 		});
 	});
 });

@@ -1778,10 +1778,13 @@ export async function mergeParticipantDuplicates(
   communityId: string,
   keepId: string,
   mergeId: string,
+  /** Huella que detectó el par (email/phone/name); va al audit log del merge. */
+  matchedBy?: DuplicateCandidate['matchedBy'],
 ): Promise<MergePreview> {
   const response = await api.post(`/communities/${communityId}/duplicates/merge`, {
     keepId,
     mergeId,
+    ...(matchedBy ? { matchedBy } : {}),
   });
   return response.data;
 }

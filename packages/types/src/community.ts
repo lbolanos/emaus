@@ -840,6 +840,12 @@ export const mergeParticipantsSchema = z.object({
 		keepId: z.string().uuid(),
 		/** Ficha absorbida: queda como lápida, no se borra. */
 		mergeId: z.string().uuid(),
+		/**
+		 * Huella que hizo aparecer el par (email/phone/name). Opcional: sólo
+		 * viaja al audit log para registrar cómo se detectó el duplicado;
+		 * no cambia el comportamiento de la fusión.
+		 */
+		matchedBy: z.enum(['name', 'phone', 'email']).optional(),
 	}),
 	params: z.object({ id: z.string().uuid() }),
 });

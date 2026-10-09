@@ -139,13 +139,28 @@ Desviaciones reales respecto a `plan.md` (2026-10-09):
 
 ## M4 — Audit del merge [P — paralelizable con M2/M3]
 
-- [ ] `PARTICIPANT_MERGE` en `CommunityAuditAction` + `matchedBy` opcional en
+- [x] `PARTICIPANT_MERGE` en `CommunityAuditAction` + `matchedBy` opcional en
       `mergeParticipantsSchema.body`
-- [ ] Log fire-and-forget en controller tras el merge (metadata compacta del `MergeResult`)
-- [ ] Ambos dialogs pasan `matchedBy: pair.matchedBy`
-- [ ] Tests: fila de audit tras 200; merge 200 aunque audit rechace
+- [x] Log fire-and-forget en controller tras el merge (metadata compacta del `MergeResult`)
+- [x] Ambos dialogs pasan `matchedBy: pair.matchedBy`
+- [x] Tests: fila de audit tras 200; merge 200 aunque audit rechace
+
+Desviaciones reales respecto a `plan.md` (2026-10-09):
+
+1. Los tests del audit viven en `participantMerge.test.ts`, mismo criterio que M2/M3
+   (controller embebido en la suite del service). No existe un helper `awaitAuditRow` en
+   el repo: el flush del fire-and-forget usa el mismo `setTimeout` que el resto de las
+   suites que esperan filas de audit.
+2. Fallo fantasma al correr las DOS suites que matchean "participantMerge" en workers
+   paralelos (comparten la SQLite de test): "NO filtra grupos de 3+" dio count 2 vs 1.
+   Con `--runInBand`, 41/41 — es la clase documentada en `troubleshooting`. La suite del
+   merge se corre serializada cuando toca correrla junto a `participantMergeReferences`.
+3. Sin tests frontend nuevos: el contrato del 4º argumento se fijó endureciendo el assert
+   del merge existente en ambos dialogs (`'phone'` explícito); el recorrido completo de
+   `matchedBy` → audit log ya lo cubre el backend.
 
 ## Cierre
 
-- [ ] Marcar tareas y anotar desviaciones por milestone
-- [ ] Proponer commit(s)
+- [x] Marcar tareas y anotar desviaciones por milestone (M0–M4)
+- [x] Proponer commit(s) — M1 `6524ea92`, M2 `6ff2978a`, M3 `5ea8df8a`; M4 propuesto
+      el 2026-10-09

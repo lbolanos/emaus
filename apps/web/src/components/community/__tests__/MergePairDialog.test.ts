@@ -148,7 +148,8 @@ describe('MergePairDialog', () => {
 		await wrapper.vm.doMerge();
 		await flushPromises();
 
-		expect(mockMerge).toHaveBeenCalledWith('comm-1', 'p-keep', 'p-merge');
+		// El cuarto argumento es la huella del par: alimenta el audit log del merge.
+		expect(mockMerge).toHaveBeenCalledWith('comm-1', 'p-keep', 'p-merge', 'phone');
 		expect(wrapper.emitted('merged')).toHaveLength(1);
 		expect(wrapper.emitted('update:open')?.at(-1)).toEqual([false]);
 	});

@@ -251,7 +251,12 @@ const loadPreview = async (index: number) => {
 const doMerge = async (index: number) => {
   busy.value = index;
   try {
-    await mergeParticipantDuplicates(props.communityId, keepBy.value[index], otherOf(index));
+    await mergeParticipantDuplicates(
+      props.communityId,
+      keepBy.value[index],
+      otherOf(index),
+      candidates.value[index]?.matchedBy,
+    );
     toast({ title: t('community.duplicates.merged') });
     emit('merged');
     await load();

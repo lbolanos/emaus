@@ -165,7 +165,12 @@ const loadPreview = async () => {
 const doMerge = async () => {
   busy.value = true;
   try {
-    await mergeParticipantDuplicates(props.communityId, keepId.value, otherId.value);
+    await mergeParticipantDuplicates(
+      props.communityId,
+      keepId.value,
+      otherId.value,
+      props.pair?.matchedBy,
+    );
     toast({ title: t('community.duplicates.merged') });
     emit('merged');
     emit('update:open', false);
