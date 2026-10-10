@@ -11,6 +11,7 @@
         "checkin": "Check-in",
         "attendance_confirmation": "Confirmación de asistencia",
         "anonymize": "Datos anonimizados (GDPR)",
+        "merge": "Fichas fusionadas (duplicado absorbido)",
         "health_view": "Ficha de salud consultada",
         "health_export": "Ficha de salud exportada",
         "health_data_purged": "Datos de salud purgados automáticamente"
@@ -54,6 +55,171 @@
           "photo_upload": "Foto de recuerdo subida",
           "update": "Recuerdos del retiro editados"
         }
+      },
+      "message_sequence": {
+        "create": "Secuencia creada",
+        "update": "Secuencia editada",
+        "delete": "Secuencia eliminada",
+        "run_now": "Secuencias ejecutadas ahora",
+        "cron_run": "Corrida del motor (cron)",
+        "regenerate_queue": "Bandeja regenerada"
+      },
+      "sequence_step": {
+        "reschedule": "Paso reprogramado"
+      },
+      "scheduled_message": {
+        "dispatch": "Mensaje marcado como enviado",
+        "skip": "Mensaje omitido",
+        "retry": "Mensaje reencolado",
+        "discard": "Mensaje descartado",
+        "assign": "Responsable de envío asignado",
+        "bulk_resolve": "Acción masiva sobre mensajes con problema"
+      },
+      "message_template": {
+        "create": "Plantilla creada",
+        "update": "Plantilla editada",
+        "delete": "Plantilla eliminada"
+      },
+      "global_message_sequence": {
+        "create": "Plantilla global creada",
+        "update": "Plantilla global editada",
+        "delete": "Plantilla global eliminada",
+        "toggle_active": "Plantilla global activada/desactivada",
+        "copy_to_retreat": "Plantilla global importada a un retiro"
+      },
+      "global_message_template": {
+        "create": "Plantilla global de mensaje creada",
+        "update": "Plantilla global de mensaje editada",
+        "delete": "Plantilla global de mensaje eliminada",
+        "toggle_active": "Plantilla global de mensaje activada/desactivada",
+        "copy_to_retreat": "Plantilla global copiada a un retiro",
+        "copy_to_community": "Plantilla global copiada a una comunidad",
+        "copy_from_retreat": "Plantilla de retiro copiada a una comunidad"
+      },
+      "pre_retreat_task_template_set": {
+        "create": "Conjunto de plantillas de tareas creado",
+        "update": "Conjunto de plantillas de tareas editado",
+        "delete": "Conjunto de plantillas de tareas eliminado"
+      },
+      "pre_retreat_task_template": {
+        "create": "Plantilla de tarea pre-retiro creada",
+        "update": "Plantilla de tarea pre-retiro editada",
+        "delete": "Plantilla de tarea pre-retiro eliminada"
+      },
+      "schedule_template_set": {
+        "create": "Conjunto de plantillas de minuto a minuto creado",
+        "update": "Conjunto de plantillas de minuto a minuto editado",
+        "delete": "Conjunto de plantillas de minuto a minuto eliminado"
+      },
+      "schedule_template": {
+        "create": "Plantilla de minuto a minuto creada",
+        "update": "Plantilla de minuto a minuto editada",
+        "delete": "Plantilla de minuto a minuto eliminada"
+      },
+      "pre_retreat_task": {
+        "create": "Tarea pre-retiro creada",
+        "update": "Tarea pre-retiro editada",
+        "delete": "Tarea pre-retiro eliminada",
+        "set_status": "Estado de tarea pre-retiro cambiado",
+        "materialize": "Plantilla de tareas instalada en el retiro"
+      },
+      "schedule_item": {
+        "create": "Actividad del minuto a minuto creada",
+        "update": "Actividad del minuto a minuto editada",
+        "delete": "Actividad del minuto a minuto eliminada",
+        "bulk_assign": "Asignación masiva de responsables",
+        "relink": "Responsabilidades re-vinculadas por nombre",
+        "materialize": "Plantilla de minuto a minuto instalada en el retiro",
+        "start": "Actividad iniciada",
+        "complete": "Actividad completada",
+        "shift_day": "Día completo desplazado en el tiempo",
+        "shift_all": "Agenda completa desplazada en el tiempo",
+        "shift_downstream": "Actividad (y siguientes) desplazadas en el tiempo",
+        "reorder_day": "Actividades del día reordenadas",
+        "regenerate_santisimo": "Slots del Santísimo regenerados desde la agenda"
+      },
+      "santisimo_slot": {
+        "create": "Turno del Santísimo creado",
+        "update": "Turno del Santísimo editado",
+        "delete": "Turno del Santísimo eliminado",
+        "generate": "Turnos del Santísimo generados"
+      },
+      "santisimo_signup": {
+        "admin_create": "Inscripción al Santísimo registrada por un servidor",
+        "public_signup": "Inscripción pública al Santísimo",
+        "delete": "Inscripción al Santísimo eliminada",
+        "cancel": "Inscripción al Santísimo cancelada por el participante"
+      },
+      "responsability": {
+        "create": "Responsabilidad creada",
+        "update": "Responsabilidad editada",
+        "delete": "Responsabilidad eliminada",
+        "assign": "Participante asignado a la responsabilidad",
+        "remove": "Participante retirado de la responsabilidad",
+        "create_speaker": "Charlista creado y asignado"
+      },
+      "responsability_attachment": {
+        "create": "Documento agregado a la responsabilidad",
+        "update": "Documento de la responsabilidad editado",
+        "restore_version": "Versión anterior de un documento restaurada",
+        "delete": "Documento de la responsabilidad eliminado"
+      },
+      "service_team": {
+        "create": "Equipo de servicio creado",
+        "update": "Equipo de servicio editado",
+        "delete": "Equipo de servicio eliminado",
+        "add_member": "Miembro agregado al equipo",
+        "remove_member": "Miembro retirado del equipo",
+        "assign_leader": "Líder asignado al equipo",
+        "unassign_leader": "Líder retirado del equipo"
+      },
+      "inventory_category": {
+        "create": "Categoría de inventario creada"
+      },
+      "inventory_team": {
+        "create": "Equipo de inventario creado"
+      },
+      "inventory_item": {
+        "create": "Ítem de inventario creado",
+        "update": "Ítem de inventario editado"
+      },
+      "retreat_inventory": {
+        "create": "Ítem agregado al inventario del retiro",
+        "update": "Inventario del retiro editado",
+        "delete": "Ítem retirado del inventario del retiro",
+        "sync_catalog": "Ítems del catálogo sincronizados al retiro",
+        "recalculate": "Cantidades requeridas recalculadas",
+        "copy_from_retreat": "Inventario copiado de otro retiro",
+        "import": "Inventario importado desde Excel"
+      },
+      "shirt_type": {
+        "create": "Tipo de playera creado",
+        "update": "Tipo de playera editado",
+        "delete": "Tipo de playera eliminado"
+      },
+      "crm_follow_up": {
+        "update": "Etapa de seguimiento cambiada"
+      },
+      "crm_task": {
+        "create": "Tarea creada",
+        "update": "Tarea editada",
+        "delete": "Tarea eliminada"
+      },
+      "participant_note": {
+        "delete": "Nota del participante eliminada"
+      },
+      "retreat_preparation": {
+        "create": "Preparación creada",
+        "update": "Preparación editada",
+        "delete": "Preparación eliminada",
+        "generate": "Calendario de preparaciones generado",
+        "skip_holiday": "Sesión saltada por festivo",
+        "resync_docs": "Documentos de preparación resincronizados"
+      },
+      "retreat_preparation_document": {
+        "create": "Documento agregado a la preparación",
+        "update": "Documento de preparación editado",
+        "delete": "Documento de preparación eliminado"
       }
     },
     "resources": {
@@ -63,7 +229,34 @@
       "bed": "Cama",
       "house": "Casa",
       "payment": "Pago",
-      "retreat": "Retiro"
+      "retreat": "Retiro",
+      "message_sequence": "Secuencia de mensajes",
+      "sequence_step": "Paso de secuencia",
+      "scheduled_message": "Mensaje programado",
+      "message_template": "Plantilla de mensaje",
+      "global_message_sequence": "Secuencia global de mensajes",
+      "global_message_template": "Plantilla global de mensaje",
+      "pre_retreat_task_template_set": "Conjunto de plantillas de tareas",
+      "pre_retreat_task_template": "Plantilla de tarea pre-retiro",
+      "schedule_template_set": "Conjunto de plantillas de minuto a minuto",
+      "schedule_template": "Plantilla de minuto a minuto",
+      "pre_retreat_task": "Tarea pre-retiro",
+      "schedule_item": "Minuto a minuto",
+      "santisimo_slot": "Turno del Santísimo",
+      "santisimo_signup": "Inscripción al Santísimo",
+      "responsability": "Responsabilidad",
+      "responsability_attachment": "Documento de responsabilidad",
+      "service_team": "Equipo de servicio",
+      "inventory_category": "Categoría de inventario",
+      "inventory_team": "Equipo de inventario",
+      "inventory_item": "Ítem del catálogo de inventario",
+      "retreat_inventory": "Inventario del retiro",
+      "shirt_type": "Tipo de playera",
+      "crm_follow_up": "Seguimiento",
+      "crm_task": "Tarea",
+      "participant_note": "Nota del participante",
+      "retreat_preparation": "Preparación",
+      "retreat_preparation_document": "Documento de preparación"
     },
     "ranges": {
       "1w": "1 semana",
@@ -75,7 +268,7 @@
     },
     "ui": {
       "title": "Auditoría",
-      "description": "Registro de quién creó, editó o borró participantes, mesas, camas, casas, pagos y datos del retiro.",
+      "description": "Registro de quién creó, editó o borró participantes, mesas, camas, casas, pagos, datos del retiro, secuencias y plantillas de mensajes.",
       "quickRange": "Rango rápido:",
       "area": "Área",
       "action": "Acción",

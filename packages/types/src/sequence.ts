@@ -123,6 +123,10 @@ export const createMessageSequenceSchema = z.object({
 		isActive: z.boolean().default(true),
 		maxOverdueDays: z.number().int().min(0).nullish(),
 		steps: z.array(stepInputSchema).default([]),
+		// Sólo para la traza de auditoría (metadata clonedFrom): secuencia de la
+		// que ésta es copia — la manda el "duplicar" del web o el import de una
+		// plantilla global. No afecta el comportamiento de la secuencia.
+		clonedFrom: idSchema.nullish(),
 	}),
 });
 

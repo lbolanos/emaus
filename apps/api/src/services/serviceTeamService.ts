@@ -7,6 +7,24 @@ import { v4 as uuidv4 } from 'uuid';
 import { defaultServiceTeams } from '../data/dynamicsTemplates';
 import { formatDate as formatDateUtil } from '@repo/utils';
 import { syncTeamToResponsibility } from './leaderSyncService';
+import { domainAuditService } from './domainAuditService';
+import { DomainAuditAction } from '@repo/types';
+
+// Diff allowlist del equipo. `description` e `instructions` (markdown con
+// líneas de instrucciones) quedan fuera: solo su tamaño en metadata.
+const TEAM_AUDIT_FIELDS = ['name', 'teamType', 'priority', 'isActive'];
+
+function teamTextMetadata(team?: ServiceTeam | null, prev?: ServiceTeam | null) {
+	if (!team) return undefined;
+	const size = (s: string | null | undefined) => (s ? s.length : 0);
+	const meta: Record<string, number> = {};
+	for (const key of ['description', 'instructions'] as const) {
+		const now = size(team[key]);
+		const was = prev ? size(prev[key]) : 0;
+		if (prev ? now !== was : now > 0) meta[`${key}Chars`] = now;
+	}
+	return Object.keys(meta).length ? meta : undefined;
+}
 
 export const findTeamsByRetreatId = async (retreatId: string, dataSource?: DataSource) => {
 	const repos = getRepositories(dataSource);
@@ -36,18 +54,45 @@ export const createTeam = async (data: any, dataSource?: DataSource) => {
 		...data,
 	});
 	await repos.serviceTeam.save(team);
+	void domainAuditService.logCreate('service_team', team.id, team, {
+		retreatId: team.retreatId,
+		fields: TEAM_AUDIT_FIELDS,
+		metadata: teamTextMetadata(team),
+	});
 	return findTeamById(team.id, dataSource);
 };
 
 export const updateTeam = async (id: string, data: any, dataSource?: DataSource) => {
 	const repos = getRepositories(dataSource);
+	const before = await repos.serviceTeam.findOne({ where: { id } });
 	await repos.serviceTeam.update(id, data);
-	return findTeamById(id, dataSource);
+	const after = await findTeamById(id, dataSource);
+	if (before) {
+		void domainAuditService.logUpdate('service_team', id, before, after, {
+			retreatId: before.retreatId,
+			fields: TEAM_AUDIT_FIELDS,
+			metadata: teamTextMetadata(after, before),
+		});
+	}
+	return after;
 };
 
 export const deleteTeam = async (id: string, dataSource?: DataSource) => {
 	const repos = getRepositories(dataSource);
+	// Count antes del delete: el FK es CASCADE y los miembros se van con el
+	// equipo — contarlo después siempre daría 0.
+	const before = await repos.serviceTeam.findOne({ where: { id } });
+	const cascadeMembers = await repos.serviceTeamMember.count({
+		where: { serviceTeamId: id },
+	});
 	await repos.serviceTeam.delete(id);
+	if (before) {
+		void domainAuditService.logDelete('service_team', id, before, {
+			retreatId: before.retreatId,
+			fields: TEAM_AUDIT_FIELDS,
+			metadata: { cascadeMembers, ...teamTextMetadata(before) },
+		});
+	}
 };
 
 export const addMember = async (
@@ -82,7 +127,16 @@ export const addMember = async (
 		role: role || null,
 	});
 	await repos.serviceTeamMember.save(member);
-	return findTeamById(teamId, dataSource);
+	const updated = await findTeamById(teamId, dataSource);
+	void domainAuditService.log({
+		action: DomainAuditAction.SERVICE_TEAM_ADD_MEMBER,
+		resourceType: 'service_team',
+		resourceId: teamId,
+		retreatId: updated?.retreatId ?? null,
+		newValues: { participantId, role: role || null },
+		metadata: sourceTeamId ? { movedFromTeamId: sourceTeamId } : undefined,
+	});
+	return updated;
 };
 
 export const removeMember = async (
@@ -99,10 +153,22 @@ export const removeMember = async (
 		await syncTeamToResponsibility(team.teamType, team.retreatId, null, dataSource);
 	}
 
-	await repos.serviceTeamMember.delete({
+	const removed = await repos.serviceTeamMember.delete({
 		serviceTeamId: teamId,
 		participantId,
 	});
+	// Repeat clicks (or removing a non-member) must not fabricate history:
+	// only log when a membership row actually went away.
+	if ((removed.affected ?? 0) > 0) {
+		void domainAuditService.log({
+			action: DomainAuditAction.SERVICE_TEAM_REMOVE_MEMBER,
+			resourceType: 'service_team',
+			resourceId: teamId,
+			retreatId: team?.retreatId ?? null,
+			oldValues: { participantId },
+			metadata: team?.leaderId === participantId ? { wasLeader: true } : undefined,
+		});
+	}
 	return findTeamById(teamId, dataSource);
 };
 
@@ -113,6 +179,8 @@ export const assignLeader = async (
 	dataSource?: DataSource,
 ) => {
 	const repos = getRepositories(dataSource);
+
+	const before = await repos.serviceTeam.findOne({ where: { id: teamId } });
 
 	// If coming from another team as leader, unset there
 	if (sourceTeamId && sourceTeamId !== teamId) {
@@ -140,6 +208,7 @@ export const assignLeader = async (
 	const existing = await repos.serviceTeamMember.findOne({
 		where: { serviceTeamId: teamId, participantId },
 	});
+	let addedAsMember = false;
 	if (!existing) {
 		const member = repos.serviceTeamMember.create({
 			id: uuidv4(),
@@ -148,7 +217,21 @@ export const assignLeader = async (
 			role: 'líder',
 		});
 		await repos.serviceTeamMember.save(member);
+		addedAsMember = true;
 	}
+
+	void domainAuditService.log({
+		action: DomainAuditAction.SERVICE_TEAM_ASSIGN_LEADER,
+		resourceType: 'service_team',
+		resourceId: teamId,
+		retreatId: before?.retreatId ?? null,
+		oldValues: { leaderId: before?.leaderId ?? null },
+		newValues: { leaderId: participantId },
+		metadata: {
+			...(sourceTeamId && sourceTeamId !== teamId ? { movedFromTeamId: sourceTeamId } : {}),
+			addedAsMember,
+		},
+	});
 
 	return findTeamById(teamId, dataSource);
 };
@@ -159,10 +242,21 @@ export const unassignLeader = async (teamId: string, dataSource?: DataSource) =>
 	await repos.serviceTeam.update(teamId, { leaderId: null as any });
 	if (team && team.leaderId) {
 		await syncTeamToResponsibility(team.teamType, team.retreatId, null, dataSource);
+		// Sin líder asignado no hubo cambio real: no dejar fila de ruido.
+		void domainAuditService.log({
+			action: DomainAuditAction.SERVICE_TEAM_UNASSIGN_LEADER,
+			resourceType: 'service_team',
+			resourceId: teamId,
+			retreatId: team.retreatId,
+			oldValues: { leaderId: team.leaderId },
+			newValues: { leaderId: null },
+		});
 	}
 	return findTeamById(teamId, dataSource);
 };
 
+// Sin auditoría deliberadamente: semilla automática al crear el retiro — la
+// traza vive en retreat.create.
 export const createDefaultServiceTeamsForRetreat = async (
 	retreat: Retreat,
 	dataSource?: DataSource,

@@ -39,6 +39,19 @@ jobs:
   test-api:
     name: Test API
     runs-on: ubuntu-latest
+    # The jest MAIN process keeps every suite's results in memory until the
+    # final summary and dies with exit 134 (OOM) on Node 20/Linux —
+    # maxWorkers/workerIdleMemoryLimit do not help because the main is not a
+    # worker. Two defenses: each shard runs in a fresh main with half the
+    # suites, AND the main gets a bigger heap. Sharding alone proved
+    # borderline: shard 1/2 peaked at 3.39GB against the ~4GB default limit
+    # (one run green, the next OOM). The `test` script hardcodes
+    # NODE_OPTIONS, so jest is invoked directly here to also raise
+    # --max-old-space-size.
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -55,8 +68,11 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Run API tests
-        run: pnpm test:api
+      - name: Run API tests (shard ${{ matrix.shard }}/2)
+        working-directory: apps/api
+        env:
+          NODE_OPTIONS: --experimental-vm-modules --max-old-space-size=6144
+        run: npx jest --shard=${{ matrix.shard }}/2 --detectOpenHandles --forceExit
 
       - name: Upload API coverage to Codecov
         uses: codecov/codecov-action@v4

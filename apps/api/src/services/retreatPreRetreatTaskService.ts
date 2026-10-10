@@ -5,6 +5,8 @@ import type { PreRetreatTaskStatus } from '../entities/retreatPreRetreatTask.ent
 import { PreRetreatTaskTemplate } from '../entities/preRetreatTaskTemplate.entity';
 import { PreRetreatTaskTemplateSet } from '../entities/preRetreatTaskTemplateSet.entity';
 import { Retreat } from '../entities/retreat.entity';
+import { domainAuditService } from './domainAuditService';
+import { DomainAuditAction } from '@repo/types';
 
 export class PreRetreatTaskNotFoundError extends Error {
 	constructor(msg = 'Tarea no encontrada') {
@@ -51,6 +53,20 @@ function startDateString(value: Date | string | null | undefined): string | null
 const norm = (s: string | null | undefined) => (s ?? '').trim().toLowerCase();
 
 export class RetreatPreRetreatTaskService {
+	// Campos con diff completo; notes/supportNotes son texto libre del equipo
+	// servidor y se quedan fuera (el hecho del cambio ya queda registrado).
+	private static readonly AUDIT_FIELDS = [
+		'name',
+		'parentId',
+		'templateId',
+		'dueOffsetDays',
+		'dueDate',
+		'status',
+		'responsibleParticipantId',
+		'responsibleText',
+		'sortOrder',
+	];
+
 	private get repo() {
 		return AppDataSource.getRepository(RetreatPreRetreatTask);
 	}
@@ -177,6 +193,10 @@ export class RetreatPreRetreatTaskService {
 		}
 		if (payload.status === 'done') payload.completedAt = new Date();
 		const saved = await this.repo.save(this.repo.create(payload));
+		void domainAuditService.logCreate('pre_retreat_task', saved.id, saved, {
+			retreatId,
+			fields: RetreatPreRetreatTaskService.AUDIT_FIELDS,
+		});
 		const full = await this.get(saved.id);
 		return this.toDTO(full ?? saved);
 	}
@@ -205,6 +225,12 @@ export class RetreatPreRetreatTaskService {
 		}
 		await this.repo.update(id, patch);
 		const updated = await this.get(id);
+		if (updated) {
+			void domainAuditService.logUpdate('pre_retreat_task', id, existing, updated, {
+				retreatId: existing.retreatId,
+				fields: RetreatPreRetreatTaskService.AUDIT_FIELDS,
+			});
+		}
 		return updated ? this.toDTO(updated) : null;
 	}
 
@@ -216,11 +242,26 @@ export class RetreatPreRetreatTaskService {
 			completedAt: status === 'done' ? new Date() : null,
 		});
 		const updated = await this.get(id);
+		void domainAuditService.logUpdate('pre_retreat_task', id, existing, updated, {
+			retreatId: existing.retreatId,
+			fields: ['status', 'completedAt'],
+			action: DomainAuditAction.PRE_RETREAT_TASK_SET_STATUS,
+		});
 		return this.toDTO(updated!);
 	}
 
 	async remove(id: string): Promise<boolean> {
+		const before = await this.repo.findOne({ where: { id } });
+		// Contar antes del delete: los hijos se van en cascade con su padre.
+		const cascadeChildren = await this.repo.count({ where: { parentId: id } });
 		const r = await this.repo.delete(id);
+		if ((r.affected ?? 0) > 0 && before) {
+			void domainAuditService.logDelete('pre_retreat_task', id, before, {
+				retreatId: before.retreatId,
+				fields: RetreatPreRetreatTaskService.AUDIT_FIELDS,
+				metadata: { cascadeChildren },
+			});
+		}
 		return (r.affected ?? 0) > 0;
 	}
 
@@ -280,6 +321,7 @@ export class RetreatPreRetreatTaskService {
 			instanceIdByTemplateId.set(t.id, saved.id);
 		}
 
+		let createdChildren = 0;
 		for (const t of children) {
 			const parentInstanceId = t.parentId
 				? instanceIdByTemplateId.get(t.parentId)
@@ -302,7 +344,26 @@ export class RetreatPreRetreatTaskService {
 					status: 'pending',
 				}),
 			);
+			createdChildren++;
 		}
+
+		// Un evento agregado por materialización (no una fila por tarea creada):
+		// el recurso es el template set instalado; los conteos van en metadata.
+		void domainAuditService.log({
+			action: DomainAuditAction.PRE_RETREAT_TASK_MATERIALIZE,
+			resourceType: 'pre_retreat_task',
+			resourceId: set.id,
+			retreatId,
+			metadata: {
+				mode: 'replace',
+				templateSetId: set.id,
+				templateSetName: set.name,
+				baseDate: base,
+				clearExisting,
+				createdRoots: roots.length,
+				createdChildren,
+			},
+		});
 
 		return this.listForRetreat(retreatId);
 	}
@@ -419,6 +480,25 @@ export class RetreatPreRetreatTaskService {
 				}),
 			);
 			added++;
+		}
+
+		// Evento agregado (análogo al materialize completo, en modo incremental).
+		if (added > 0) {
+			void domainAuditService.log({
+				action: DomainAuditAction.PRE_RETREAT_TASK_MATERIALIZE,
+				resourceType: 'pre_retreat_task',
+				resourceId: set.id,
+				retreatId,
+				metadata: {
+					mode: 'add_missing',
+					templateSetId: set.id,
+					templateSetName: set.name,
+					baseDate: base,
+					added,
+					skipped,
+					total: templates.length,
+				},
+			});
 		}
 
 		return { added, skipped, total: templates.length };

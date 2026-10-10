@@ -5,6 +5,10 @@ import { MessageSequence } from '../entities/messageSequence.entity';
 import type { MessageChannel, MessageRecipientTarget } from '../entities/sequenceStep.entity';
 import { messageSequenceService } from './messageSequenceService';
 import { findDefaultTemplateForType } from './messageTemplateService';
+import { domainAuditService, DomainAuditAction } from './domainAuditService';
+
+/** Campos con traza de auditoría de una plantilla global (sin retiro asociado). */
+const GLOBAL_SEQ_AUDIT_FIELDS = ['name', 'trigger', 'audience', 'isActive', 'maxOverdueDays'];
 
 /** Paso recibido al crear/editar una plantilla global. */
 type GlobalStepInput = {
@@ -59,6 +63,10 @@ export class GlobalMessageSequenceService {
 			}),
 		);
 		await this.syncSteps(seq.id, input.steps ?? []);
+		void domainAuditService.logCreate('global_message_sequence', seq.id, seq, {
+			fields: GLOBAL_SEQ_AUDIT_FIELDS,
+			metadata: { stepCount: input.steps?.length ?? 0 },
+		});
 		return (await this.getById(seq.id))!;
 	}
 
@@ -77,6 +85,13 @@ export class GlobalMessageSequenceService {
 		const repo = AppDataSource.getRepository(GlobalMessageSequence);
 		const seq = await repo.findOne({ where: { id } });
 		if (!seq) return null;
+		const beforeAudit = {
+			name: seq.name,
+			trigger: seq.trigger,
+			audience: seq.audience,
+			isActive: seq.isActive,
+			maxOverdueDays: seq.maxOverdueDays,
+		};
 		if (input.name !== undefined) seq.name = input.name;
 		if (input.description !== undefined) seq.description = input.description;
 		if (input.trigger !== undefined) seq.trigger = input.trigger;
@@ -85,20 +100,46 @@ export class GlobalMessageSequenceService {
 		if (input.maxOverdueDays !== undefined) seq.maxOverdueDays = input.maxOverdueDays;
 		await repo.save(seq);
 		if (input.steps !== undefined) await this.syncSteps(id, input.steps);
+		void domainAuditService.logUpdate('global_message_sequence', id, beforeAudit, seq, {
+			fields: GLOBAL_SEQ_AUDIT_FIELDS,
+			metadata: {
+				...(input.steps !== undefined ? { stepCount: input.steps.length } : {}),
+			},
+		});
 		return this.getById(id);
 	}
 
 	async delete(id: string): Promise<boolean> {
-		const result = await AppDataSource.getRepository(GlobalMessageSequence).delete(id);
-		return (result.affected ?? 0) > 0;
+		const repo = AppDataSource.getRepository(GlobalMessageSequence);
+		const seq = await repo.findOne({ where: { id } });
+		if (!seq) return false;
+		const result = await repo.delete(id);
+		const deleted = (result.affected ?? 0) > 0;
+		if (deleted) {
+			void domainAuditService.logDelete('global_message_sequence', id, seq, {
+				fields: GLOBAL_SEQ_AUDIT_FIELDS,
+			});
+		}
+		return deleted;
 	}
 
 	async toggleActive(id: string): Promise<GlobalMessageSequence | null> {
 		const repo = AppDataSource.getRepository(GlobalMessageSequence);
 		const seq = await repo.findOne({ where: { id } });
 		if (!seq) return null;
+		const wasActive = seq.isActive;
 		seq.isActive = !seq.isActive;
 		await repo.save(seq);
+		void domainAuditService.logUpdate(
+			'global_message_sequence',
+			id,
+			{ isActive: wasActive },
+			{ isActive: seq.isActive },
+			{
+				fields: ['isActive'],
+				action: DomainAuditAction.GLOBAL_MESSAGE_SEQUENCE_TOGGLE_ACTIVE,
+			},
+		);
 		return this.getById(id);
 	}
 
@@ -160,7 +201,7 @@ export class GlobalMessageSequenceService {
 				recipientResponsibility: s.recipientResponsibility ?? null,
 				condition: s.condition ?? null,
 			}));
-		return messageSequenceService.createSequence({
+		const created = await messageSequenceService.createSequence({
 			name: global.name,
 			description: global.description ?? null,
 			retreatId,
@@ -170,7 +211,16 @@ export class GlobalMessageSequenceService {
 			maxOverdueDays: global.maxOverdueDays ?? null,
 			createdBy: createdBy ?? null,
 			steps,
+			clonedFrom: globalSequenceId,
 		});
+		void domainAuditService.log({
+			action: DomainAuditAction.GLOBAL_MESSAGE_SEQUENCE_COPY_TO_RETREAT,
+			resourceType: 'global_message_sequence',
+			resourceId: globalSequenceId,
+			retreatId,
+			metadata: { createdSequenceId: created.id, name: global.name },
+		});
+		return created;
 	}
 }
 

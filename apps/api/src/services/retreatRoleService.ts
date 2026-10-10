@@ -258,6 +258,7 @@ export class RetreatRoleService {
 				retreatId,
 				status: 'pending',
 			},
+			relations: ['role'],
 		});
 
 		if (!userRetreat) {
@@ -272,6 +273,16 @@ export class RetreatRoleService {
 		performanceOptimizationService.invalidateUserPermissionCache(userId);
 		performanceOptimizationService.invalidateRetreatAccessCache(userId, retreatId);
 		performanceOptimizationService.invalidateUserPermissionsResultCache(userId);
+
+		// Conceder acceso a un retiro sin registro dejó huecos: el cambio de
+		// status pending→active sólo era visible en updated_at.
+		await this.auditService.logRoleInvitationApproved(
+			userRetreat.id.toString(),
+			approvedBy,
+			userId,
+			retreatId,
+			userRetreat.role?.name || 'unknown',
+		);
 
 		return result;
 	}
@@ -289,6 +300,21 @@ export class RetreatRoleService {
 		}
 
 		const userRetreatRepository = AppDataSource.getRepository(UserRetreat);
+		// Leer la invitación antes de revocarla: el email y el rol sólo existen
+		// mientras la fila sigue 'pending'.
+		const pending = await userRetreatRepository.findOne({
+			where: {
+				userId,
+				retreatId,
+				status: 'pending',
+			},
+			relations: ['user', 'role'],
+		});
+
+		if (!pending) {
+			return false;
+		}
+
 		const result = await userRetreatRepository
 			.createQueryBuilder()
 			.update(UserRetreat)
@@ -306,6 +332,15 @@ export class RetreatRoleService {
 			performanceOptimizationService.invalidateUserPermissionCache(userId);
 			performanceOptimizationService.invalidateRetreatAccessCache(userId, retreatId);
 			performanceOptimizationService.invalidateUserPermissionsResultCache(userId);
+
+			// Quitar un acceso pendiente también era invisible en auditoría.
+			await this.auditService.logRoleInvitationRevoked(
+				pending.id.toString(),
+				rejectedBy,
+				pending.user?.email || userId,
+				retreatId,
+				pending.role?.name || 'unknown',
+			);
 		}
 
 		return success;

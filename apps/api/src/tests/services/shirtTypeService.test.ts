@@ -10,6 +10,7 @@
 
 import { setupTestDatabase, teardownTestDatabase, clearTestData } from '../test-setup';
 import { TestDataFactory } from '../test-utils/testDataFactory';
+import { DomainAuditLog } from '@/entities/domainAuditLog.entity';
 import { Retreat } from '@/entities/retreat.entity';
 import { House } from '@/entities/house.entity';
 import { RetreatShirtType } from '@/entities/retreatShirtType.entity';
@@ -54,6 +55,20 @@ async function makeRetreat(): Promise<string> {
 	} as any);
 	await retreatRepo.save(retreat);
 	return (retreat as any).id;
+}
+
+// The CRUD now emits domain-audit rows fire-and-forget. §25.3: on the shared
+// better-sqlite3 connection, an in-flight audit INSERT landing inside the
+// transaction window of the NEXT call breaks its commit
+// (TransactionNotStartedError). Wait for the row before opening one.
+async function awaitAuditRow(action: string, resourceId: string): Promise<void> {
+	const auditRepo = getDS().getRepository(DomainAuditLog);
+	for (let i = 0; i < 60; i++) {
+		const found = await auditRepo.findOne({ where: { action, resourceId } });
+		if (found) return;
+		await new Promise((r) => setTimeout(r, 5));
+	}
+	throw new Error(`audit row not seen: ${action} for ${resourceId}`);
 }
 
 describe('Shirt Type Service', () => {
@@ -343,6 +358,7 @@ describe('Shirt Type Service', () => {
 					{ size: 'M', price: 150 },
 				],
 			});
+			await awaitAuditRow('shirt_type.create', created.id);
 			const updated = await updateShirtType(created.id, {
 				sizePrices: [{ size: 'G', price: 180 }],
 			});
@@ -356,6 +372,7 @@ describe('Shirt Type Service', () => {
 				price: 135,
 				sizePrices: [{ size: 'XXL', price: 250 }],
 			});
+			await awaitAuditRow('shirt_type.create', created.id);
 			const updated = await updateShirtType(created.id, { sizePrices: [] });
 			expect(overridesOf(updated)).toEqual([]);
 		});

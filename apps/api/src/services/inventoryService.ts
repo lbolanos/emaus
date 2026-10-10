@@ -12,6 +12,20 @@ import { RetreatParticipant } from '../entities/retreatParticipant.entity';
 import { RetreatShirtType } from '../entities/retreatShirtType.entity';
 import { ParticipantShirtSize } from '../entities/participantShirtSize.entity';
 import { v4 as uuidv4 } from 'uuid';
+import { domainAuditService } from './domainAuditService';
+import { DomainAuditAction } from '@repo/types';
+
+// --- Auditoría de dominio (tanda P2, bloque C) ---
+// `notes` (texto libre) queda fuera del diff: viaja su tamaño en metadata.
+const ITEM_AUDIT_FIELDS = ['name', 'unit', 'ratio', 'requiredQuantity', 'isActive'];
+const RETREAT_INV_AUDIT_FIELDS = [
+	'currentQuantity',
+	'status',
+	'boxLabel',
+	'ratioOverride',
+	'requiredQtyOverride',
+	'isExcluded',
+];
 
 // Category Services
 export const getInventoryCategories = async (dataSource?: DataSource) => {
@@ -28,7 +42,13 @@ export const createInventoryCategory = async (
 		id: uuidv4(),
 		...categoryData,
 	});
-	return repos.inventoryCategory.save(newCategory);
+	const saved = await repos.inventoryCategory.save(newCategory);
+	// Catálogo global: no hay retreatId (compartido por todos los retiros).
+	void domainAuditService.logCreate('inventory_category', saved.id, saved, {
+		fields: ['name', 'isActive'],
+		metadata: { descriptionChars: saved.description?.length ?? 0 },
+	});
+	return saved;
 };
 
 // Team Services
@@ -46,7 +66,12 @@ export const createInventoryTeam = async (
 		id: uuidv4(),
 		...teamData,
 	});
-	return repos.inventoryTeam.save(newTeam);
+	const saved = await repos.inventoryTeam.save(newTeam);
+	void domainAuditService.logCreate('inventory_team', saved.id, saved, {
+		fields: ['name', 'isActive'],
+		metadata: { descriptionChars: saved.description?.length ?? 0 },
+	});
+	return saved;
 };
 
 // Inventory Item Services
@@ -68,7 +93,16 @@ export const createInventoryItem = async (
 		id: uuidv4(),
 		...itemData,
 	});
-	return repos.inventoryItem.save(newItem);
+	const saved = await repos.inventoryItem.save(newItem);
+	void domainAuditService.logCreate('inventory_item', saved.id, saved, {
+		fields: ITEM_AUDIT_FIELDS,
+		metadata: {
+			descriptionChars: saved.description?.length ?? 0,
+			categoryId: saved.categoryId ?? null,
+			teamId: saved.teamId ?? null,
+		},
+	});
+	return saved;
 };
 
 export const updateInventoryItem = async (
@@ -81,8 +115,15 @@ export const updateInventoryItem = async (
 	if (!item) {
 		return null;
 	}
+	// Snapshot antes de Object.assign: muta la misma referencia.
+	const before = { ...item };
 	Object.assign(item, itemData);
-	return repos.inventoryItem.save(item);
+	const saved = await repos.inventoryItem.save(item);
+	void domainAuditService.logUpdate('inventory_item', id, before, saved, {
+		fields: ITEM_AUDIT_FIELDS,
+		metadata: { descriptionChars: saved.description?.length ?? 0 },
+	});
+	return saved;
 };
 
 // Retreat Inventory Services
@@ -247,6 +288,9 @@ export const updateRetreatInventory = async (
 		return null;
 	}
 
+	// Snapshot antes de mutar: `inventory` se modifica in-place más abajo.
+	const before = { ...inventory };
+
 	const changes: { field: AuditableField; oldValue: unknown; newValue: unknown }[] = [];
 
 	if (updateData.currentQuantity !== undefined) {
@@ -321,6 +365,33 @@ export const updateRetreatInventory = async (
 			'retreatShirtType',
 		],
 	});
+	// Traza forense unificada. retreat_inventory_history sigue siendo el
+	// detalle por-campo por-ítem (con userId explícito); este evento aporta
+	// el actor implícito del auditContext, la IP y el visor /app/audit.
+	// Sólo cuando algo auditado cambió de verdad (stringifyForAudit, mismo
+	// criterio que recordHistory) — guardar lo mismo no debe ensuciar el log.
+	const auditChanged =
+		changes.length > 0 ||
+		RETREAT_INV_AUDIT_FIELDS.some(
+			(f) =>
+				stringifyForAudit((before as any)[f]) !== stringifyForAudit((saved as any)[f]),
+		);
+	if (auditChanged) {
+		void domainAuditService.logUpdate(
+			'retreat_inventory',
+			saved.id,
+			before,
+			saved,
+			{
+				retreatId,
+				fields: RETREAT_INV_AUDIT_FIELDS,
+				metadata: {
+					itemName: reloaded ? displayNameOf(reloaded) : undefined,
+					notesChars: saved.notes?.length ?? 0,
+				},
+			},
+		);
+	}
 	return reloaded ?? saved;
 };
 
@@ -328,6 +399,8 @@ export const updateRetreatInventory = async (
  * Aplica el mismo conjunto de cambios a múltiples items a la vez.
  * Útil para "marcar 20 items como Caja 1" o "todos los del Botiquín
  * como packed" en un solo clic desde la UI.
+ * Sin evento agregado propio: el loop pasa por updateRetreatInventory, que
+ * ya deja una fila por ítem con su actor.
  */
 export const bulkUpdateRetreatInventory = async (
 	retreatId: string,
@@ -376,19 +449,37 @@ export const removeItemFromRetreat = async (
 	dataSource?: DataSource,
 ): Promise<boolean> => {
 	const repos = getRepositories(dataSource);
+	// relations para el nombre legible del evento (customName o del catálogo).
 	let row = await repos.retreatInventory.findOne({
 		where: { retreatId, inventoryItemId: itemId },
+		relations: ['inventoryItem'],
 	});
 	if (!row) {
 		row = await repos.retreatInventory.findOne({
 			where: { retreatId, id: itemId },
+			relations: ['inventoryItem'],
 		});
 	}
 	if (!row) return false;
+	// Contadas ANTES: el FK CASCADE se lleva el historial junto con la fila.
+	const historyRows = await repos.retreatInventoryHistory.count({
+		where: { retreatInventoryId: row.id },
+	});
 	await repos.retreatInventory.remove(row);
+	void domainAuditService.logDelete('retreat_inventory', row.id, row, {
+		retreatId,
+		fields: ['currentQuantity', 'requiredQuantity', 'status', 'boxLabel'],
+		metadata: {
+			itemName: displayNameOf(row),
+			historyRows,
+			source: row.inventoryItemId ? 'catalog' : 'custom',
+		},
+	});
 	return true;
 };
 
+// Sin evento agregado propio: el loop pasa por removeItemFromRetreat, que ya
+// deja una fila por ítem (mismo criterio que bulkUpdateRetreatInventory).
 export const bulkRemoveItemsFromRetreat = async (
 	retreatId: string,
 	itemIds: string[],
@@ -456,7 +547,13 @@ export const addItemToRetreat = async (
 		ratioOverride: overrides?.ratioOverride ?? null,
 		requiredQtyOverride: overrides?.requiredQtyOverride ?? null,
 	});
-	return repos.retreatInventory.save(row);
+	const saved = await repos.retreatInventory.save(row);
+	void domainAuditService.logCreate('retreat_inventory', saved.id, saved, {
+		retreatId,
+		fields: ['requiredQuantity', 'currentQuantity', 'ratioOverride', 'requiredQtyOverride'],
+		metadata: { itemName: item.name, source: 'catalog' },
+	});
+	return saved;
 };
 
 /**
@@ -504,7 +601,17 @@ export const addCustomItemToRetreat = async (
 		ratioOverride: payload.ratioOverride ?? null,
 		requiredQtyOverride: payload.requiredQtyOverride ?? null,
 	});
-	return repos.retreatInventory.save(row);
+	const saved = await repos.retreatInventory.save(row);
+	void domainAuditService.logCreate('retreat_inventory', saved.id, saved, {
+		retreatId,
+		fields: ['customName', 'requiredQuantity', 'currentQuantity'],
+		metadata: {
+			source: 'custom',
+			notesChars: saved.notes?.length ?? 0,
+			hasCustomCategory: Boolean(saved.customCategoryId),
+		},
+	});
+	return saved;
 };
 
 /**
@@ -515,6 +622,9 @@ export const addCustomItemToRetreat = async (
  *    `currentQuantity = 0`. Si tiene stock, se conserva (warning).
  *
  * Idempotente. Devuelve {created, updated, removed, skipped}.
+ *
+ * NO se audita: consecuencia derivada del CRUD de tipos de playera (y del
+ * check-in de tallas) que la disparó — el evento raíz ya quedó registrado.
  */
 export const syncShirtItemsForRetreat = async (
 	retreatId: string,
@@ -704,6 +814,15 @@ export const syncMissingCatalogItems = async (
 	});
 
 	await repos.retreatInventory.save(newRows);
+	if (newRows.length > 0) {
+		void domainAuditService.log({
+			action: DomainAuditAction.RETREAT_INVENTORY_SYNC_CATALOG,
+			resourceType: 'retreat_inventory',
+			resourceId: retreatId,
+			retreatId,
+			metadata: { added: newRows.length },
+		});
+	}
 	return { added: newRows.length };
 };
 
@@ -892,6 +1011,16 @@ export const calculateRequiredQuantities = async (
 	);
 
 	await repos.retreatInventory.save(updatedInventories);
+	void domainAuditService.log({
+		action: DomainAuditAction.RETREAT_INVENTORY_RECALCULATE,
+		resourceType: 'retreat_inventory',
+		resourceId: retreatId,
+		retreatId,
+		metadata: {
+			calcBase: options?.calcBase ?? 'actual',
+			items: updatedInventories.length,
+		},
+	});
 	return updatedInventories;
 };
 
@@ -1013,6 +1142,8 @@ export const getInventoryAlerts = async (retreatId: string, dataSource?: DataSou
 };
 
 // Default Inventory Creation
+// NO se audita: semilla automática al crear el retiro — la traza vive en
+// retreat.create (igual que responsabilidades, equipos y playeras).
 export const createDefaultInventoryForRetreat = async (
 	retreat: Retreat,
 	dataSource?: DataSource,
@@ -1150,6 +1281,19 @@ export const copyInventoryFromRetreat = async (
 		}
 	}
 
+	void domainAuditService.log({
+		action: DomainAuditAction.RETREAT_INVENTORY_COPY_FROM_RETREAT,
+		resourceType: 'retreat_inventory',
+		resourceId: targetRetreatId,
+		retreatId: targetRetreatId,
+		metadata: {
+			sourceRetreatId,
+			copied,
+			created,
+			skipped,
+			overwrite: options.overwrite === true,
+		},
+	});
 	return { copied, created, skipped };
 };
 
@@ -1247,6 +1391,18 @@ export const importInventoryFromExcel = async (
 			});
 		}
 	}
+
+	void domainAuditService.log({
+		action: DomainAuditAction.RETREAT_INVENTORY_IMPORT,
+		resourceType: 'retreat_inventory',
+		resourceId: retreatId,
+		retreatId,
+		metadata: {
+			processed: excelData.length,
+			succeeded: results.success.length,
+			failed: results.errors.length,
+		},
+	});
 
 	return results;
 };

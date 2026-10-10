@@ -1,6 +1,7 @@
 import { AppDataSource } from '../data-source';
 import { PreRetreatTaskTemplate } from '../entities/preRetreatTaskTemplate.entity';
 import { PreRetreatTaskTemplateSet } from '../entities/preRetreatTaskTemplateSet.entity';
+import { domainAuditService } from './domainAuditService';
 
 export class PreRetreatTaskTemplateService {
 	private get repo() {
@@ -21,19 +22,38 @@ export class PreRetreatTaskTemplateService {
 	}
 
 	async createSet(data: Partial<PreRetreatTaskTemplateSet>): Promise<PreRetreatTaskTemplateSet> {
-		return this.setRepo.save(this.setRepo.create(data));
+		const saved = await this.setRepo.save(this.setRepo.create(data));
+		void domainAuditService.logCreate('pre_retreat_task_template_set', saved.id, saved, {
+			fields: ['name', 'isDefault'],
+		});
+		return saved;
 	}
 
 	async updateSet(
 		id: string,
 		data: Partial<PreRetreatTaskTemplateSet>,
 	): Promise<PreRetreatTaskTemplateSet | null> {
+		const before = await this.getSet(id);
+		if (!before) return null;
 		await this.setRepo.update(id, data);
-		return this.getSet(id);
+		const after = await this.getSet(id);
+		void domainAuditService.logUpdate('pre_retreat_task_template_set', id, before, after, {
+			fields: ['name', 'isDefault'],
+		});
+		return after;
 	}
 
 	async deleteSet(id: string): Promise<boolean> {
+		const before = await this.getSet(id);
+		// Contar antes del delete: el cascade borra los ítems junto con el set.
+		const cascadeItems = await this.repo.count({ where: { templateSetId: id } });
 		const r = await this.setRepo.delete(id);
+		if ((r.affected ?? 0) > 0 && before) {
+			void domainAuditService.logDelete('pre_retreat_task_template_set', id, before, {
+				fields: ['name', 'isDefault'],
+				metadata: { cascadeItems },
+			});
+		}
 		return (r.affected ?? 0) > 0;
 	}
 
@@ -76,7 +96,11 @@ export class PreRetreatTaskTemplateService {
 		if (data.parentId) {
 			await this.assertValidParent(data.parentId, data.templateSetId);
 		}
-		return this.repo.save(this.repo.create(data));
+		const saved = await this.repo.save(this.repo.create(data));
+		void domainAuditService.logCreate('pre_retreat_task_template', saved.id, saved, {
+			fields: ['name', 'templateSetId', 'parentId', 'defaultOrder'],
+		});
+		return saved;
 	}
 
 	async update(
@@ -94,11 +118,24 @@ export class PreRetreatTaskTemplateService {
 			await this.assertValidParent(data.parentId, data.templateSetId ?? existing.templateSetId, id);
 		}
 		await this.repo.update(id, data);
-		return this.get(id);
+		const after = await this.get(id);
+		void domainAuditService.logUpdate('pre_retreat_task_template', id, existing, after, {
+			fields: ['name', 'templateSetId', 'parentId', 'defaultOrder'],
+		});
+		return after;
 	}
 
 	async delete(id: string): Promise<boolean> {
+		const before = await this.get(id);
+		// Contar antes del delete: los hijos se van en cascade con su padre.
+		const cascadeChildren = await this.repo.count({ where: { parentId: id } });
 		const r = await this.repo.delete(id);
+		if ((r.affected ?? 0) > 0 && before) {
+			void domainAuditService.logDelete('pre_retreat_task_template', id, before, {
+				fields: ['name', 'templateSetId', 'parentId'],
+				metadata: { cascadeChildren },
+			});
+		}
 		return (r.affected ?? 0) > 0;
 	}
 }

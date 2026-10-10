@@ -26,7 +26,11 @@ export class CrmController {
 			if (!(await crmService.participantBelongsToRetreat(participantId, retreatId))) {
 				return res.status(404).json({ error: 'Participante no encontrado en este retiro' });
 			}
-			const updated = await crmService.setDoNotContact(participantId, req.body?.value !== false);
+			const updated = await crmService.setDoNotContact(
+				participantId,
+				req.body?.value !== false,
+				retreatId,
+			);
 			if (!updated) return res.status(404).json({ error: 'Participante no encontrado' });
 			res.json({ id: updated.id, doNotContact: updated.doNotContact });
 		} catch (error) {

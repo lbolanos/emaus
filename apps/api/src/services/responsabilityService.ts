@@ -8,6 +8,11 @@ import { getRepositories } from '../utils/repositoryHelpers';
 import { v4 as uuidv4 } from 'uuid';
 import { formatDate as formatDateUtil } from '@repo/utils';
 import { syncResponsibilityToTeam } from './leaderSyncService';
+import { domainAuditService } from './domainAuditService';
+import { DomainAuditAction } from '@repo/types';
+
+// Diff allowlist: description aquí es corta (anexo 'A-2-1' o una línea), sí entra.
+const RESP_AUDIT_FIELDS = ['name', 'description', 'responsabilityType'];
 
 export const findAllResponsibilities = async (retreatId?: string, dataSource?: DataSource) => {
 	const repos = getRepositories(dataSource);
@@ -53,7 +58,12 @@ export const createResponsability = async (
 		...responsabilityData,
 		id: uuidv4(),
 	});
-	return repos.responsability.save(newResponsability);
+	const saved = await repos.responsability.save(newResponsability);
+	void domainAuditService.logCreate('responsability', saved.id, saved, {
+		retreatId: saved.retreatId,
+		fields: RESP_AUDIT_FIELDS,
+	});
+	return saved;
 };
 
 export const updateResponsability = async (
@@ -64,13 +74,28 @@ export const updateResponsability = async (
 	const repos = getRepositories(dataSource);
 	const responsability = await repos.responsability.findOne({ where: { id } });
 	if (!responsability) return null;
+	// Snapshot ANTES de mutar: Object.assign muta la misma entidad que vamos
+	// a usar como "old" del diff.
+	const before = { ...responsability };
 	Object.assign(responsability, responsabilityData);
-	return repos.responsability.save(responsability);
+	const saved = await repos.responsability.save(responsability);
+	void domainAuditService.logUpdate('responsability', id, before, saved, {
+		retreatId: saved.retreatId,
+		fields: RESP_AUDIT_FIELDS,
+	});
+	return saved;
 };
 
 export const deleteResponsability = async (id: string, dataSource?: DataSource) => {
 	const repos = getRepositories(dataSource);
+	const before = await repos.responsability.findOne({ where: { id } });
 	await repos.responsability.delete(id);
+	if (before) {
+		void domainAuditService.logDelete('responsability', id, before, {
+			retreatId: before.retreatId,
+			fields: RESP_AUDIT_FIELDS,
+		});
+	}
 };
 
 export const assignResponsabilityToParticipant = async (
@@ -88,8 +113,17 @@ export const assignResponsabilityToParticipant = async (
 
 	if (!responsability || !participant) return null;
 
+	const previousParticipantId = responsability.participantId ?? null;
 	responsability.participant = participant;
 	const saved = await repos.responsability.save(responsability);
+	void domainAuditService.log({
+		action: DomainAuditAction.RESPONSABILITY_ASSIGN,
+		resourceType: 'responsability',
+		resourceId: responsabilityId,
+		retreatId: responsability.retreatId,
+		oldValues: { participantId: previousParticipantId },
+		newValues: { participantId },
+	});
 	await syncResponsibilityToTeam(responsability.name, responsability.retreatId, participantId, dataSource);
 	return saved;
 };
@@ -110,6 +144,14 @@ export const removeResponsabilityFromParticipant = async (
 	responsability.participant = undefined;
 	responsability.participantId = undefined;
 	const saved = await repos.responsability.save(responsability);
+	void domainAuditService.log({
+		action: DomainAuditAction.RESPONSABILITY_REMOVE,
+		resourceType: 'responsability',
+		resourceId: responsabilityId,
+		retreatId: responsability.retreatId,
+		oldValues: { participantId },
+		newValues: { participantId: null },
+	});
 	await syncResponsibilityToTeam(responsability.name, responsability.retreatId, null, dataSource);
 	return saved;
 };
@@ -328,6 +370,8 @@ export const exportResponsibilitiesToDocx = async (retreatId: string, dataSource
 	return Packer.toBuffer(doc);
 };
 
+// Sin auditoría deliberadamente: semilla automática al crear el retiro — la
+// traza vive en retreat.create.
 export const createDefaultResponsibilitiesForRetreat = async (
 	retreat: Retreat,
 	dataSource?: DataSource,
@@ -414,6 +458,8 @@ export const getDefaultCharlas = () => [
  * Si el `responsabilityName` matchea el catálogo de `getDefaultCharlas()`,
  * la Responsabilidad se crea con `description = anexo` (ej. 'A-2-1').
  */
+// Sin auditoría deliberadamente: derivada de materializar el minuto a minuto
+// (schedule_item.materialize ya registra la acción manual que la dispara).
 export const ensureCharlaResponsibilitiesFromTemplateSet = async (
 	retreatId: string,
 	templateSetId?: string,
@@ -555,9 +601,26 @@ export const createAndAssignSpeaker = async (
 	const savedParticipant = await repos.participant.save(newParticipant);
 
 	// Assign the new participant to the responsibility
+	const previousParticipantId = responsability.participantId ?? null;
 	responsability.participant = savedParticipant;
 	responsability.participantId = savedParticipant.id;
 	const saved = await repos.responsability.save(responsability);
+	// Crea un participante mínimo Y lo asigna: un solo evento que distingue
+	// "asignó a alguien existente" (assign) de "creó charlista nuevo".
+	void domainAuditService.log({
+		action: DomainAuditAction.RESPONSABILITY_CREATE_SPEAKER,
+		resourceType: 'responsability',
+		resourceId: responsability.id,
+		retreatId: responsability.retreatId,
+		oldValues: { participantId: previousParticipantId },
+		newValues: { participantId: savedParticipant.id },
+		metadata: {
+			speakerParticipantId: savedParticipant.id,
+			speakerName: `${speakerData.firstName} ${speakerData.lastName}`.trim(),
+			hasPhone: !!speakerData.cellPhone,
+			hasEmail: !!speakerData.email,
+		},
+	});
 	await syncResponsibilityToTeam(responsability.name, responsability.retreatId, savedParticipant.id, dataSource);
 
 	// Re-fetch with relations
