@@ -218,10 +218,10 @@ export class GlobalMessageTemplateService {
 
 		for (const globalTemplate of activeGlobalTemplates) {
 			// Seed path (createRetreat): N copies at once would flood the viewer with
-		// rows nobody performed by hand — one retreat_create row covers them.
-		const copiedTemplate = await this.copyToRetreat(globalTemplate.id, retreat.id, {
-			audit: false,
-		});
+			// rows nobody performed by hand — one retreat_create row covers them.
+			const copiedTemplate = await this.copyToRetreat(globalTemplate.id, retreat.id, {
+				audit: false,
+			});
 			if (copiedTemplate) {
 				newTemplates.push(copiedTemplate);
 			}

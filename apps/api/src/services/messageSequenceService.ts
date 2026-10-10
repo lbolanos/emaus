@@ -1440,6 +1440,12 @@ export class MessageSequenceService {
 				sm.attempts += 1;
 				sm.status = 'failed';
 				sm.error = err instanceof Error ? err.message : 'error desconocido';
+				// Same count as the SMTP and send-exception paths: a retreat whose
+				// rows all die here (template, participant or render errors) must
+				// still show `failed` in cron_run/run_now.
+				if (failedPerRetreat) {
+					failedPerRetreat.set(sm.retreatId, (failedPerRetreat.get(sm.retreatId) ?? 0) + 1);
+				}
 				try {
 					await repo.save(sm);
 				} catch (saveErr) {
@@ -2189,6 +2195,39 @@ export class MessageSequenceService {
 			},
 		});
 		return { affected, scheduledFor: target };
+	}
+
+	/**
+	 * Second half of a step's "Ejecutar ahora": after rescheduleStep moved its
+	 * pending rows to now, process this retreat's queue. processDue also sends
+	 * any OTHER due message of the retreat, so the send leaves its own run_now
+	 * row with counts — sequence_step.reschedule only records the move.
+	 */
+	async processDueAfterStepReschedule(retreatId: string, stepId: string): Promise<number> {
+		const failedPerRetreat = new Map<string, number>();
+		const processed = await this.processDue(
+			new Date(),
+			undefined,
+			retreatId,
+			undefined,
+			failedPerRetreat,
+		);
+		// Always logged, like a manual run_now: a person clicked it.
+		void domainAuditService.log({
+			action: DomainAuditAction.MESSAGE_SEQUENCE_RUN_NOW,
+			resourceType: 'message_sequence',
+			resourceId: null,
+			retreatId,
+			metadata: {
+				trigger: 'step_reschedule',
+				sendNowStepIds: [stepId],
+				enrolled: 0,
+				processed,
+				failed: failedPerRetreat.get(retreatId) ?? 0,
+				pastStepsCount: 0,
+			},
+		});
+		return processed;
 	}
 
 	/**

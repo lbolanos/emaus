@@ -237,13 +237,11 @@ export class MessageSequenceController {
 			let processed: number | undefined;
 			if (parsed.data.body.immediate && affected > 0) {
 				// Sólo este retiro, como el run manual: no enviar mensajes de otros.
-				const run = await messageSequenceService.processDue(
-					new Date(),
-					undefined,
+				// The service also leaves the run_now audit row with the counts.
+				processed = await messageSequenceService.processDueAfterStepReschedule(
 					step.sequence.retreatId,
+					step.id,
 				);
-				// processDue devuelve el número de filas procesadas (no un objeto).
-				processed = run;
 			}
 			res.json({ affected, scheduledFor, processed });
 		} catch (error) {

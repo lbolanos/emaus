@@ -96,6 +96,37 @@ describe('minuto a minuto — auditoría de dominio', () => {
 		});
 	});
 
+	it('update registra el cambio de responsables (filas, no columnas) y no lo repite con el mismo conjunto', async () => {
+		const retreat = await TestDataFactory.createTestRetreat();
+		const ana = await TestDataFactory.createTestParticipant(retreat.id, { type: 'server' } as any);
+		const beto = await TestDataFactory.createTestParticipant(retreat.id, { type: 'server' } as any);
+		const item = await schedule.create(retreat.id, {
+			name: 'Charla de bienvenida',
+			type: 'logistica',
+			day: 1,
+			startTime: '2026-11-20T17:00:00.000Z',
+			durationMinutes: 30,
+			responsableParticipantIds: [ana.id],
+		});
+		// setResponsables saves inside a transaction: flush each fire-and-forget
+		// row before the next write (§25.3).
+		await waitForLogs((r) => rowsOf(r, 'schedule_item.create').length > 0);
+
+		await schedule.update(item.id, { responsableParticipantIds: [beto.id] });
+		await waitForLogs((r) => rowsOf(r, 'schedule_item.update').length >= 1);
+		await schedule.update(item.id, { responsableParticipantIds: [beto.id] });
+
+		const rows = await waitForLogs((r) => rowsOf(r, 'schedule_item.update').length >= 2);
+		const updates = rowsOf(rows, 'schedule_item.update');
+		expect(updates).toHaveLength(2);
+		const withChange = updates.filter((r) => meta(r).responsableParticipantIds);
+		expect(withChange).toHaveLength(1);
+		expect(meta(withChange[0])).toMatchObject({
+			previousResponsableParticipantIds: [ana.id],
+			responsableParticipantIds: [beto.id],
+		});
+	});
+
 	it('startItem deja schedule_item.start con el diff de status', async () => {
 		const retreat = await TestDataFactory.createTestRetreat();
 		const item = await schedule.create(retreat.id, {

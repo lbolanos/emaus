@@ -419,6 +419,22 @@ nuevos del conteo de fallos); `pnpm --filter api build` OK; `grep -c __dirname d
 - helper de tamaño de texto copiado ~6× (ya listado en LOWs de la primera revisión)
 - `doNotContact` es global del participante pero se loguea con el retreatId de donde se activó
 
+### Tercera revisión (2026-10-10, sobre la rama ya integrada con master)
+
+`/code-review` dio 9 hallazgos. Contrastados contra el código:
+
+| Hallazgo | Resolución |
+| --- | --- |
+| El catch externo de `processDue` (excepción post-claim: render, plantilla, participante) marcaba `failed` sin sumar a `failedPerRetreat` | **Arreglado**: mismo conteo que las ramas SMTP y de excepción de envío. En canal whatsapp es la única vía a `failed`, así que el agregado reportaba `failed: 0` |
+| El «Ejecutar ahora» de un paso (`immediate`) corría `processDue` del retiro sin fila con conteos: solo quedaba `sequence_step.reschedule` con `affected` | **Arreglado**: `processDueAfterStepReschedule` deja `message_sequence.run_now` con `trigger: 'step_reschedule'` (misma forma de metadata que los otros run_now). Siempre se registra, porque lo pulsó una persona. Importa porque esa corrida también despacha cualquier otro vencido del retiro |
+| `updateItem` del minuto a minuto no registraba el cambio de responsables (son filas, no columnas: el diff de `logUpdate` no los ve) | **Arreglado**: los ids de antes y después van en metadata solo cuando el conjunto cambia (el cliente reenvía el DTO completo en cada edición) |
+| Bloque mal indentado en `copyAllActiveTemplatesToRetreat` | **Arreglado** (cosmético) |
+| approve/reject esperan el log · nombre en el signup público de Santísimo · `clonedFrom` controlado por el cliente | Ya listados en los follow-ups de la segunda revisión |
+| Codecov espera un `lcov.info` que el step `npx jest` no genera | **Descartado, no es regresión**: el step anterior (`pnpm test:api`) tampoco pasaba `--coverage`, así que el upload ya no subía nada desde antes |
+| `parseDataUrl` acepta MIME con parámetros | **Descartado** (igual que en la segunda revisión): `ALLOWED_MIMES` no hace match con `text/markdown;charset=…` y se rechaza; con `markerIndex === -1` el payload queda vacío y lanza |
+
+Verificación: 3 tests nuevos (messageSequenceAudit 19, scheduleAudit 6). Regresión: 28 suites de secuencias, plantillas globales y minuto a minuto, **424/424**. Build OK, `__dirname` = 2, eslint 0 errores.
+
 ### Nota pre-merge
 
 El merge a master **despliega a producción automáticamente** (`deploy-production.yml` corre con

@@ -448,6 +448,54 @@ describe('MessageSequenceService — auditoría de dominio', () => {
 		expect(meta(row)).toEqual({ system: true, enrolled: 1, processed: 0, failed: 1 });
 	});
 
+	it('cron_run cuenta también las filas que mueren en el catch externo (error de render)', async () => {
+		const { retreat } = await seedRetreatWithWalker();
+		await createGeneralTemplate(retreat.id);
+		await seedSequence(retreat.id, { sendHour: 0 });
+		// resolveContent runs in processDue's OUTER try: an exception there
+		// skips the inner send catches, which were the only ones counting.
+		const spy = jest
+			.spyOn(svc as any, 'resolveContent')
+			.mockRejectedValueOnce(new Error('render roto'));
+		try {
+			await svc.runEngineCycle(new Date());
+		} finally {
+			spy.mockRestore();
+		}
+
+		const rows = await waitForLogs((r) => rowsOf(r, 'message_sequence.cron_run').length > 0);
+		const row = rowsOf(rows, 'message_sequence.cron_run')[0];
+		expect(meta(row)).toEqual({ system: true, enrolled: 1, processed: 0, failed: 1 });
+	});
+
+	it('el "Ejecutar ahora" de un paso deja run_now con trigger step_reschedule y los conteos', async () => {
+		const { retreat, participant } = await seedRetreatWithWalker();
+		await createGeneralTemplate(retreat.id);
+		const seq = await seedSequence(retreat.id);
+		await seedRow(retreat.id, participant.id, seq, seq.steps![0], 'pending');
+		const step = await svc.findStepWithSequence(seq.steps![0].id);
+
+		// Same two calls as the controller's immediate path.
+		await svc.rescheduleStep(step!, { immediate: true });
+		await waitForLogs((r) => rowsOf(r, 'sequence_step.reschedule').length > 0);
+		const processed = await svc.processDueAfterStepReschedule(retreat.id, step!.id);
+
+		expect(processed).toBe(1);
+		const rows = await waitForLogs((r) => rowsOf(r, 'message_sequence.run_now').length > 0);
+		const row = rowsOf(rows, 'message_sequence.run_now')[0];
+		expect(row.retreatId).toBe(retreat.id);
+		// Before this, the send only left sequence_step.reschedule with
+		// `affected`: nothing recorded how many went out or failed.
+		expect(meta(row)).toEqual({
+			trigger: 'step_reschedule',
+			sendNowStepIds: [step!.id],
+			enrolled: 0,
+			processed: 1,
+			failed: 0,
+			pastStepsCount: 0,
+		});
+	});
+
 	it('runForRetreat automático deja run_now cuando lo único que hay son fallos', async () => {
 		const { retreat } = await seedRetreatWithWalker();
 		await createGeneralTemplate(retreat.id);

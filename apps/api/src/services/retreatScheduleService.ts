@@ -301,7 +301,24 @@ export class RetreatScheduleService {
 
 		await this.itemRepo.update(id, update);
 
+		// Responsables are rows, not columns: logUpdate's diff never sees them,
+		// so the before/after ids go in metadata (create records them too).
+		let responsablesChange:
+			| { previousResponsableParticipantIds: string[]; responsableParticipantIds: string[] }
+			| undefined;
 		if (data.responsableParticipantIds !== undefined) {
+			const previous = (await this.respRepo.find({ where: { scheduleItemId: id } })).map(
+				(r) => r.participantId,
+			);
+			const next = data.responsableParticipantIds;
+			const sameSet =
+				previous.length === next.length && previous.every((pid) => next.includes(pid));
+			if (!sameSet) {
+				responsablesChange = {
+					previousResponsableParticipantIds: previous,
+					responsableParticipantIds: [...next],
+				};
+			}
 			await this.setResponsables(id, data.responsableParticipantIds);
 		}
 
@@ -319,10 +336,11 @@ export class RetreatScheduleService {
 		}
 
 		if (after) {
+			const updateMetadata = { ...scheduleNotesMetadata(after, existing), ...responsablesChange };
 			void domainAuditService.logUpdate('schedule_item', id, existing, after, {
 				retreatId: existing.retreatId,
 				fields: [...SCHEDULE_ITEM_AUDIT_FIELDS],
-				metadata: scheduleNotesMetadata(after, existing),
+				metadata: Object.keys(updateMetadata).length ? updateMetadata : undefined,
 			});
 		}
 
