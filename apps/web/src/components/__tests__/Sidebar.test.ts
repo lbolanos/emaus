@@ -1,8 +1,9 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { mount, VueWrapper } from '@vue/test-utils';
+import { mount, VueWrapper, flushPromises } from '@vue/test-utils';
 import { nextTick } from 'vue';
 import { createPinia, setActivePinia } from 'pinia';
 import Sidebar from '../layout/Sidebar.vue';
+import { api } from '@/services/api';
 import {
 	createTestWrapper,
 	createMockUser,
@@ -190,6 +191,8 @@ vi.mock('@/composables/useAuthPermissions', () => ({
 			manage: vi.fn(() => true),
 		},
 		canAccessResource: vi.fn(() => true),
+		canManageRetreatById: vi.fn(() => false),
+		userPermissions: { value: [] },
 		isSuperadmin: vi.fn(() => false),
 		isAdmin: vi.fn(() => true),
 		hasRole: vi.fn(() => true),
@@ -642,6 +645,16 @@ describe('Sidebar Component', () => {
 			expect(services).toBeUndefined();
 		});
 
+		it('domain-audit is in administration next to role-management, not in reports', () => {
+			const sections = getSections(superWrapper);
+			const names = (category: string): string[] =>
+				sections.find((s: any) => s.category === category)?.items.map((i: any) => i.name) ?? [];
+			const admin = names('administration');
+			expect(admin).toContain('domain-audit');
+			expect(admin.indexOf('domain-audit')).toBe(admin.indexOf('role-management') + 1);
+			expect(names('reports')).not.toContain('domain-audit');
+		});
+
 		it('logistics is treated as a retreat section (appears in topRetreatSections)', () => {
 			const topRetreat = getTopRetreat(superWrapper);
 			const logistics = topRetreat.find((s: any) => s.category === 'logistics');
@@ -670,6 +683,7 @@ describe('Sidebar Component', () => {
 		// canAccess (por defecto, ninguna operación).
 		const mockPermissions = (
 			canAccess: (resource: string, operation: string) => boolean = () => true,
+			audit: { retreatAdmin?: boolean; permissions?: string[] } = {},
 		) => {
 			vi.mocked(useAuthPermissions).mockReturnValue({
 				can: {
@@ -681,6 +695,8 @@ describe('Sidebar Component', () => {
 					manage: vi.fn(() => true),
 				},
 				canAccessResource: vi.fn(canAccess),
+				canManageRetreatById: vi.fn(() => audit.retreatAdmin ?? false),
+				userPermissions: { value: audit.permissions ?? [] },
 				isSuperadmin: vi.fn(() => false),
 				isAdmin: vi.fn(() => true),
 				hasRole: vi.fn(() => true),
@@ -721,6 +737,76 @@ describe('Sidebar Component', () => {
 			expect(findItem(grantedWrapper, 'food')).toBeDefined();
 
 			grantedWrapper.unmount();
+		});
+
+		describe('domain-audit visibility (same rule as GET /domain-audit/retreat/:id)', () => {
+			afterEach(() => {
+				vi.mocked(api.get).mockImplementation(() => Promise.resolve(mockApiResponse) as any);
+			});
+
+			// A non-superadmin user, with the selected retreat created by `createdBy`.
+			// The retreat also comes back from fetchRetreats (onMounted), which
+			// would otherwise replace the store's list with the mock's [].
+			const mountCoordinator = async (
+				createdBy: string,
+				audit: { retreatAdmin?: boolean; permissions?: string[] } = {},
+			) => {
+				const testPinia = createPinia();
+				setActivePinia(testPinia);
+				const { useAuthStore: useAuthStoreImport } = await import('@/stores/authStore');
+				const authStore = useAuthStoreImport();
+				const user = {
+					id: 'coord-id',
+					email: 'coord@test.com',
+					roles: [{ id: 'role-s', role: { name: 'server' }, retreats: [], globalPermissions: [] }],
+					permissions: [],
+				};
+				authStore.user = user as any;
+				authStore.userProfile = user as any;
+				authStore.isAuthenticated = true;
+				authStore.refreshUserProfile = vi.fn().mockResolvedValue(undefined) as any;
+
+				const retreat = createMockRetreat({ parish: 'Test', createdBy });
+				vi.mocked(api.get).mockImplementation(((url: string) =>
+					Promise.resolve(url === '/retreats' ? { data: [retreat] } : mockApiResponse)) as any);
+				const { useRetreatStore: useRetreatStoreImport } = await import('@/stores/retreatStore');
+				const retreatStore = useRetreatStoreImport();
+				retreatStore.retreats = [retreat as any];
+				retreatStore.selectRetreat('test-retreat-id');
+
+				mockPermissions(undefined, audit);
+				const w = createTestWrapper(Sidebar, {
+					pinia: testPinia,
+					global: { mocks: { $t: (key: string) => key } },
+				});
+				await flushPromises();
+				return w;
+			};
+
+			it('hides it from a server who is not creator, retreat admin, nor holds audit:read', async () => {
+				const w = await mountCoordinator('someone-else');
+				// Before the fix this user saw the link and got a 403 from the API.
+				expect(findItem(w, 'domain-audit')).toBeUndefined();
+				w.unmount();
+			});
+
+			it('shows it to an admin of the selected retreat', async () => {
+				const w = await mountCoordinator('someone-else', { retreatAdmin: true });
+				expect(findItem(w, 'domain-audit')).toBeDefined();
+				w.unmount();
+			});
+
+			it('shows it to the creator of the selected retreat', async () => {
+				const w = await mountCoordinator('coord-id');
+				expect(findItem(w, 'domain-audit')).toBeDefined();
+				w.unmount();
+			});
+
+			it('shows it to a holder of the global audit:read permission', async () => {
+				const w = await mountCoordinator('someone-else', { permissions: ['audit:read'] });
+				expect(findItem(w, 'domain-audit')).toBeDefined();
+				w.unmount();
+			});
 		});
 	});
 });

@@ -448,7 +448,7 @@ const receptionStore = useReceptionStore();
 const participantStore = useParticipantStore();
 const { participants } = storeToRefs(participantStore);
 const { isSidebarCollapsed, isMobile } = storeToRefs(uiStore);
-const { can, isSuperadmin, currentRetreatRole, canAccessResource } =
+const { can, isSuperadmin, currentRetreatRole, canAccessResource, canManageRetreatById, userPermissions } =
   useAuthPermissions();
 const route = useRoute();
 const { isRetreatSection, currentSectionTitle } = useRouteContext();
@@ -564,6 +564,19 @@ const canDeleteSelectedRetreat = computed(() => {
 	if (!r) return false;
 	if (isSuperadmin.value) return true;
 	return can.delete('retreat') && r.createdBy === authStore.user?.id;
+});
+
+// Same rule as GET /domain-audit/retreat/:id (domainAuditController): global
+// audit:read, the retreat's creator, or an admin of the retreat. Without it the
+// item showed for anyone with a retreat selected and the API answered 403.
+const canReadDomainAudit = computed(() => {
+  const retreatId = retreatStore.selectedRetreatId;
+  if (!retreatId) return false;
+  if (auth.userProfile?.roles?.some(role => role.role.name === 'superadmin')) return true;
+  if (userPermissions.value.includes('audit:read')) return true;
+  const userId = authStore.user?.id;
+  if (userId && retreatStore.selectedRetreat?.createdBy === userId) return true;
+  return canManageRetreatById(retreatId);
 });
 
 // Auto-close mobile menu on navigation
@@ -1000,13 +1013,6 @@ const menuSections: MenuSection[] = [
         permissionOperation: 'health',
         requiresRetreat: true,
         label: 'sidebar.food'
-      },
-      {
-        name: 'domain-audit',
-        routeName: 'domain-audit',
-        icon: Activity,
-        requiresRetreat: true,
-        label: 'sidebar.audit'
       }
     ],
     position: 'top'
@@ -1020,6 +1026,15 @@ const menuSections: MenuSection[] = [
         icon: UserCog,
         requiresRetreat: true,
         label: 'sidebar.roleManagement'
+      },
+      {
+        // Oversight, not a retreat report: it lives next to role management.
+        // Visibility is decided by canReadDomainAudit (same rule as the API).
+        name: 'domain-audit',
+        routeName: 'domain-audit',
+        icon: Activity,
+        requiresRetreat: true,
+        label: 'sidebar.audit'
       },
       {
         name: 'retreat-shirt-types',
@@ -1118,6 +1133,8 @@ const filteredMenuSections = computed(() => {
         const hasUserManage = can.manage('user');
         if (!isSuperadmin && !hasUserManage) return false;
       }
+
+      if (item.name === 'domain-audit' && !canReadDomainAudit.value) return false;
 
       if (item.permission && item.permission !== 'superadmin' && item.name !== 'role-management' && item.name !== 'communities') {
         const operation = item.permissionOperation ?? 'read';

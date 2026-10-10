@@ -113,7 +113,11 @@ jq -c 'select(.actorUserId=="<userId>")' /var/log/emaus/audit-*.ndjson
   con `makeDateInTimezone`; el fin de día es exclusivo (inicio del día siguiente).
   El frontend no calcula fronteras ni manda `T23:59:59`.
 - **Frontend**: vista `apps/web/src/views/DomainAuditView.vue` en `/app/audit` (ítem
-  "Auditoría" del sidebar). Presets de rango rápido (1 semana … 6 meses, Todo; default
+  "Auditoría" de la sección Administración del sidebar, junto a Gestión de roles; hasta
+  2026-10-10 estaba al final de Reportes). El ítem sigue la misma regla que el endpoint:
+  solo lo ven `audit:read`, el creador del retiro o un admin del retiro
+  (`canReadDomainAudit` en `Sidebar.vue`). Antes lo veía cualquiera con retiro
+  seleccionado, y el API le respondía 403. Presets de rango rápido (1 semana … 6 meses, Todo; default
   1 mes, con `aria-pressed`), filtros por área/acción/fechas, diff old→new y paginación.
   Carga robusta: guard de secuencia (respuestas fuera de orden no pintan) +
   coalescencia por microtask (watchers en cascada → una sola request).
