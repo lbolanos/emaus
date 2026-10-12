@@ -1642,6 +1642,11 @@
     "sortByIdOnRetreat": "Número",
     "totalPaid": "Total pagado"
   },
+  "palancasDashboard": {
+    "title": "Asignación por palanquero",
+    "unassigned": "Sin asignar",
+    "totalWalkers": "Caminantes"
+  },
   "retreatDashboard": {
     "title": "Dashboard del Retiro",
     "partialServersDescription": "Participantes que asisten como angelitos",

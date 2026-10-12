@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import ParticipantList from '@/components/ParticipantList.vue'
+import PalancasAssignmentSummary from '@/components/PalancasAssignmentSummary.vue'
 
 // palancasReceivedCount = numeric letter count (source of truth for hitos); the
 // legacy prose field is no longer a list/form column. cellPhone joins the table
@@ -18,7 +19,11 @@ const palancaFormExcludedColumns = ['cellPhone'];
 </script>
 
 <template>
-  <ParticipantList type="walker"
+  <div>
+    <!-- px/pb alinean con el p-0 sm:p-4 del ParticipantList: mismo canal que la
+         tabla y un hueco constante entre ambos. -->
+    <PalancasAssignmentSummary class="px-0 sm:px-4 pb-4 sm:pb-0" />
+    <ParticipantList type="walker"
     :columns-to-show-in-table="palancaTableColumns"
     :columns-to-show-in-form="palancaFormShowColumns"
     :columns-to-edit-in-form="palancaFormEditColumns"
@@ -26,4 +31,5 @@ const palancaFormExcludedColumns = ['cellPhone'];
     show-attendance-confirmation
     inline-phone-edit
  />
+  </div>
 </template>

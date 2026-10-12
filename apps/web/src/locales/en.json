@@ -1551,6 +1551,11 @@
     "communityNone": "No community",
     "communityHint": "Optional. Linking it lets you see the server team meeting attendance when assigning tables."
   },
+  "palancasDashboard": {
+    "title": "Palanquero assignment",
+    "unassigned": "Unassigned",
+    "totalWalkers": "Walkers"
+  },
   "retreatDashboard": {
     "title": "Retreat Dashboard",
     "partialServersDescription": "Participants who assist as angelitos",

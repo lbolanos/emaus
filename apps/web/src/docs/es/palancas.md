@@ -5,6 +5,10 @@
 
 Las **palancas** son las cartas y mensajes de apoyo que reciben los caminantes durante el retiro. Esta pantalla te ayuda a llevar el control de cuántas se pidieron, cuántas llegaron y quién las coordina para cada caminante.
 
+## Resumen de asignación
+
+Arriba de la tabla, **Asignación por palanquero** muestra de un vistazo cuántos caminantes tiene cada palanquero (con su nombre debajo), cuántos están **sin asignar** y el total de caminantes del retiro. Los números se actualizan al momento de cambiar el coordinador en la tabla: úsalo para repartir la carga entre palanqueros y buscar que «sin asignar» llegue a cero antes del retiro.
+
 ## Qué muestra la tabla
 
 Para cada caminante ves su número, nombre y datos de referencia como la **fecha del último pago** y el **conteo de mensajes**. Estos campos son de solo lectura y sirven de contexto.
