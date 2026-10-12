@@ -366,4 +366,53 @@ describe('PreRetreatTasksView', () => {
 			expect(empty.find('[data-testid="priest-letter-item"]').exists()).toBe(false);
 		});
 	});
+
+	describe('descripción extensa (Ver más / Ver menos)', () => {
+		const LONG_DESC =
+			'Comprar 60 rosas y una rosa en maceta.\nLas rosas se entregan a los caminantes y servidores el domingo al momento de entrar a la iglesia. Se pueden comprar y llevar al retiro desde el viernes.';
+
+		function tasksWithDesc(desc: { p1?: string; c1?: string }) {
+			const tasks = JSON.parse(JSON.stringify(TASKS));
+			tasks[0].description = desc.p1;
+			if (desc.c1) tasks[1].children[0].description = desc.c1;
+			return tasks;
+		}
+
+		it('una tarea raíz con descripción larga se clampa y muestra "Ver más"', async () => {
+			mockTaskApi.list.mockResolvedValue(tasksWithDesc({ p1: LONG_DESC }));
+			const w = await mountView();
+			const p = w.find('[data-testid="task-p1"] p');
+			expect(p.classes()).toContain('line-clamp-2');
+			expect(p.text()).toContain('60 rosas');
+			const toggle = w.find('[data-testid="toggle-desc-p1"]');
+			expect(toggle.exists()).toBe(true);
+			expect(toggle.text()).toBe('Ver más');
+
+			await toggle.trigger('click');
+			expect(w.find('[data-testid="task-p1"] p').classes()).not.toContain('line-clamp-2');
+			expect(w.find('[data-testid="toggle-desc-p1"]').text()).toBe('Ver menos');
+		});
+
+		it('la descripción de una sub-tarea se renderiza (antes era invisible)', async () => {
+			mockTaskApi.list.mockResolvedValue(tasksWithDesc({ c1: LONG_DESC }));
+			const w = await mountView();
+			await w.find('button[aria-label="Expandir"]').trigger('click');
+			const p = w.find('[data-testid="task-c1"] p');
+			expect(p.exists()).toBe(true);
+			expect(p.text()).toContain('60 rosas');
+			expect(p.classes()).toContain('line-clamp-2');
+
+			await w.find('[data-testid="toggle-desc-c1"]').trigger('click');
+			expect(w.find('[data-testid="task-c1"] p').classes()).not.toContain('line-clamp-2');
+		});
+
+		it('una descripción corta se muestra completa y sin botón', async () => {
+			mockTaskApi.list.mockResolvedValue(tasksWithDesc({ p1: 'Confirmar menús con la casa' }));
+			const w = await mountView();
+			const p = w.find('[data-testid="task-p1"] p');
+			expect(p.classes()).not.toContain('line-clamp-2');
+			expect(p.text()).toContain('Confirmar menús');
+			expect(w.find('[data-testid="toggle-desc-p1"]').exists()).toBe(false);
+		});
+	});
 });

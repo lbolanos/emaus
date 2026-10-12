@@ -213,6 +213,22 @@ function toggleExpanded(id: string) {
     : [...expanded.value, id];
 }
 
+// Descripciones largas: "Ver más / Ver menos". Heurística por longitud/número de
+// saltos (medir scrollHeight no funciona en happy-dom). Array, no Set: un Set
+// dentro de un ref no es reactivo.
+const expandedDesc = ref<string[]>([]);
+function isLongDescription(d: string): boolean {
+  return d.length > 140 || d.split('\n').length > 2;
+}
+function isDescExpanded(id: string) {
+  return expandedDesc.value.includes(id);
+}
+function toggleDescExpanded(id: string) {
+  expandedDesc.value = isDescExpanded(id)
+    ? expandedDesc.value.filter((x) => x !== id)
+    : [...expandedDesc.value, id];
+}
+
 function responsibleLabel(t: RetreatPreRetreatTaskDTO): string {
   return [participantLabel(t.responsible), t.responsibleText].filter(Boolean).join(' · ');
 }
@@ -568,9 +584,23 @@ watch(retreatId, () => {
                   {{ task.progress.done }}/{{ task.progress.total }}
                 </span>
               </div>
-              <p v-if="task.description" class="text-xs text-gray-500 mt-1 line-clamp-2">
-                {{ task.description }}
-              </p>
+            </button>
+            <!-- Fuera del botón-toggle: que "Ver más" no dispare el colapso de sub-tareas. -->
+            <p
+              v-if="task.description"
+              class="text-xs text-gray-500 mt-1 whitespace-pre-line"
+              :class="{ 'line-clamp-2': isLongDescription(task.description) && !isDescExpanded(task.id) }"
+            >
+              {{ task.description }}
+            </p>
+            <button
+              v-if="task.description && isLongDescription(task.description)"
+              type="button"
+              class="text-xs font-medium text-purple-600 hover:text-purple-700"
+              :data-testid="`toggle-desc-${task.id}`"
+              @click="toggleDescExpanded(task.id)"
+            >
+              {{ isDescExpanded(task.id) ? 'Ver menos' : 'Ver más' }}
             </button>
             <div class="text-xs text-gray-500 mt-0.5 flex items-center gap-2 flex-wrap">
               <span v-if="dueLabel(task)">📆 {{ dueLabel(task) }}</span>
@@ -659,6 +689,22 @@ watch(retreatId, () => {
               >
                 {{ child.name }}
               </span>
+              <p
+                v-if="child.description"
+                class="text-xs text-gray-500 mt-1 whitespace-pre-line"
+                :class="{ 'line-clamp-2': isLongDescription(child.description) && !isDescExpanded(child.id) }"
+              >
+                {{ child.description }}
+              </p>
+              <button
+                v-if="child.description && isLongDescription(child.description)"
+                type="button"
+                class="text-xs font-medium text-purple-600 hover:text-purple-700"
+                :data-testid="`toggle-desc-${child.id}`"
+                @click="toggleDescExpanded(child.id)"
+              >
+                {{ isDescExpanded(child.id) ? 'Ver menos' : 'Ver más' }}
+              </button>
               <div class="text-xs text-gray-500 mt-0.5 flex items-center gap-2 flex-wrap">
                 <span v-if="child.status !== 'done' && child.status !== 'pending'">
                   {{ STATUS_LABELS[child.status] }}

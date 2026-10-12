@@ -184,7 +184,7 @@ async function save() {
 
         <div>
           <Label for="prt-desc">Detalle</Label>
-          <Textarea id="prt-desc" v-model="form.description" rows="2" />
+          <Textarea id="prt-desc" v-model="form.description" rows="4" />
         </div>
 
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">

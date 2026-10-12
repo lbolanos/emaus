@@ -161,7 +161,7 @@ async function save() {
 
         <div>
           <Label for="prtt-desc">Detalle</Label>
-          <Textarea id="prtt-desc" v-model="form.description" rows="2" />
+          <Textarea id="prtt-desc" v-model="form.description" rows="4" />
         </div>
 
         <div>
