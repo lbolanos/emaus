@@ -18,6 +18,7 @@ import {
 	SantisimoNotFoundError,
 	SantisimoPastError,
 } from '../../services/santisimoService';
+import { authorizationService } from '../../middleware/authorization';
 import { buildSantisimoInviteToken } from '../../utils/santisimoInviteToken';
 
 const RETREAT_ID = '33333333-3333-4333-8333-333333333333';
@@ -218,6 +219,33 @@ describe('santisimoController — public invite handlers', () => {
 
 			expect(res.status).toHaveBeenCalledWith(404);
 			expect(res.json).toHaveBeenCalledWith({ message: 'No signup to cancel' });
+		});
+	});
+
+	describe('getGuardiaLinks (autenticado)', () => {
+		it('responde 403 cuando el usuario no tiene acceso al retiro', async () => {
+			jest.spyOn(authorizationService, 'hasRetreatAccess').mockResolvedValue(false);
+			const req = createMockRequest({ params: { retreatId: RETREAT_ID }, user: { id: 'u1' } });
+			const res = createMockResponse();
+
+			await santisimoController.getGuardiaLinks(req as any, res as any);
+
+			expect(res.status).toHaveBeenCalledWith(403);
+			expect(res.json).toHaveBeenCalledWith({ message: 'Forbidden' });
+		});
+
+		it('responde 200 con { links } del service', async () => {
+			jest.spyOn(authorizationService, 'hasRetreatAccess').mockResolvedValue(true);
+			const links = { 'p-1': 'https://emaus.cc/santisimo/servidor/abc' };
+			jest.spyOn(santisimoService, 'getGuardiaLinks').mockResolvedValue(links);
+			const req = createMockRequest({ params: { retreatId: RETREAT_ID }, user: { id: 'u1' } });
+			const res = createMockResponse();
+
+			await santisimoController.getGuardiaLinks(req as any, res as any);
+
+			expect(santisimoService.getGuardiaLinks).toHaveBeenCalledWith(RETREAT_ID);
+			expect(res.status).not.toHaveBeenCalledWith(403);
+			expect(res.json).toHaveBeenCalledWith({ links });
 		});
 	});
 });

@@ -262,3 +262,16 @@ export const publicInviteCancel = async (req: Request, res: Response) => {
 	if (!ok) return res.status(404).json({ message: 'No signup to cancel' });
 	res.status(204).send();
 };
+
+/**
+ * Mapa participantId → enlace personal de guardia (autenticado): lo consume
+ * el cliente de envío para resolver `{participant.santisimoGuardiaLink}`.
+ */
+export const getGuardiaLinks = async (req: Request, res: Response) => {
+	const { retreatId } = req.params;
+	if (!(await checkRetreatAccess(req, retreatId))) {
+		return res.status(403).json({ message: 'Forbidden' });
+	}
+	const links = await santisimoService.getGuardiaLinks(retreatId);
+	res.json({ links });
+};

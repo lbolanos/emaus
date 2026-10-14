@@ -2900,6 +2900,16 @@ export const santisimoApi = {
     const r = await api.get(`/santisimo/retreats/${retreatId}/slots`);
     return r.data;
   },
+  /**
+   * Mapa participantId → enlace personal de guardia de los servidores del
+   * retiro (specs/santisimo-guardia-links). Lo fetchean los componentes de
+   * envío para resolver `{participant.santisimoGuardiaLink}`: el navegador
+   * no puede cifrar el token, el servidor lo construye.
+   */
+  async getGuardiaLinks(retreatId: string): Promise<Record<string, string>> {
+    const r = await api.get(`/santisimo/retreats/${retreatId}/guardia-links`);
+    return r.data.links;
+  },
   async createSlot(
     retreatId: string,
     data: {

@@ -457,7 +457,7 @@ import { useRetreatStore } from '@/stores/retreatStore';
 import RichTextEditor from './RichTextEditor.vue';
 import { messageTemplateTypes, getMessageTemplateAudience } from '@repo/types';
 import { convertHtmlToWhatsApp, convertHtmlToEmail, detectEmailClient, copyRichTextToClipboard, testEmojiConversion, beautifyHtml, replaceAllVariables, buildServerRegistrationLink, HTML_TAG_RE, ParticipantData, RetreatData } from '@/utils/message';
-import { getParticipantNextMeeting, getParticipantShirtOrder } from '@/services/api';
+import { getParticipantNextMeeting, getParticipantShirtOrder, santisimoApi } from '@/services/api';
 import { sanitizeHtml, sanitizeEmailHtml } from '@/utils/sanitize';
 import { effectiveDefaultTemplate } from '@/utils/templateDefault';
 
@@ -529,6 +529,11 @@ const previewNextMeetingDate = ref<string | null>(null);
 // loaded/no aplica; el preview cae al mock de @repo/utils en ese caso.
 const previewShirtOrderSummary = ref<string | null>(null);
 const previewShirtCharge = ref<number | null>(null);
+// Enlace personal de guardia del Santísimo para el participante de muestra
+// ({participant.santisimoGuardiaLink}): el navegador no puede cifrar el
+// token, se fetchea el mapa del retiro (mismo criterio retreat-only que las
+// prendas). `null` = not loaded/no aplica → mock de @repo/utils.
+const previewGuardiaLink = ref<string | null>(null);
 
 const formData = ref({
   name: '',
@@ -740,6 +745,7 @@ const participantVariables = computed(() => [
   { key: 'paymentRemaining', label: 'Saldo pendiente (falta por pagar)' },
   { key: 'shirtOrderSummary', label: 'Resumen de prendas pedidas (servidor)' },
   { key: 'shirtCharge', label: 'Valor total de las prendas' },
+  { key: 'santisimoGuardiaLink', label: 'Enlace personal de guardia del Santísimo (servidor)' },
 ]);
 
 const retreatVariables = computed(() => [
@@ -1003,6 +1009,7 @@ const previewMessage = computed(() => {
         ...(selectedParticipantData.value as ParticipantData),
         shirtOrderSummary: previewShirtOrderSummary.value || '',
         shirtCharge: previewShirtCharge.value ?? undefined,
+        santisimoGuardiaLink: previewGuardiaLink.value || '',
       }
     : (selectedParticipantData.value as ParticipantData | null);
 
@@ -1067,6 +1074,7 @@ watch(
       previewNextMeetingDate.value = null;
       previewShirtOrderSummary.value = null;
       previewShirtCharge.value = null;
+      previewGuardiaLink.value = null;
       return;
     }
     try {
@@ -1096,6 +1104,18 @@ watch(
     } else {
       previewShirtOrderSummary.value = null;
       previewShirtCharge.value = null;
+    }
+    // Enlace de guardia del Santísimo: mismo criterio retreat-only que las
+    // prendas (una llamada trae el mapa completo del retiro).
+    if (!isCommunityScope.value && retreatStore.selectedRetreatId) {
+      try {
+        const links = await santisimoApi.getGuardiaLinks(retreatStore.selectedRetreatId);
+        previewGuardiaLink.value = links?.[participantId] || '';
+      } catch {
+        previewGuardiaLink.value = '';
+      }
+    } else {
+      previewGuardiaLink.value = null;
     }
   },
   { immediate: false },

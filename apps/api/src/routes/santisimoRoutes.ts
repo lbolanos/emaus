@@ -16,6 +16,7 @@ import {
 	publicGetInvite,
 	publicInviteSignup,
 	publicInviteCancel,
+	getGuardiaLinks,
 } from '../controllers/santisimoController';
 import {
 	getParticipantAvailability,
@@ -105,6 +106,13 @@ router.get(
 	'/retreats/:retreatId/participants/:participantId/assigned-slots',
 	requirePermission('santisimo:read'),
 	getParticipantAssignedSlots,
+);
+
+// Mapa participantId → enlace personal de guardia (para el cliente de envío)
+router.get(
+	'/retreats/:retreatId/guardia-links',
+	requirePermission('santisimo:read'),
+	getGuardiaLinks,
 );
 
 // Angelito availability per retreat

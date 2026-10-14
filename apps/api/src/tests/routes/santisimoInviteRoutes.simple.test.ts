@@ -16,6 +16,17 @@ import { join } from 'path';
 const ROUTE_FILE = join(__dirname, '..', '..', 'routes', 'santisimoRoutes.ts');
 const ROUTES_INDEX_FILE = join(__dirname, '..', '..', 'routes', 'index.ts');
 const CSRF_FILE = join(__dirname, '..', '..', 'middleware', 'routeCsrf.ts');
+const FRONTEND_API_FILE = join(
+	__dirname,
+	'..',
+	'..',
+	'..',
+	'..',
+	'web',
+	'src',
+	'services',
+	'api.ts',
+);
 
 const routeSrc = readFileSync(ROUTE_FILE, 'utf-8');
 const code = routeSrc
@@ -64,5 +75,21 @@ describe('santisimoRoutes — rutas públicas del invite /public/invite/:token',
 
 		const csrfSrc = readFileSync(CSRF_FILE, 'utf-8');
 		expect(csrfSrc).toMatch(/startsWith/);
+	});
+
+	it('GET /retreats/:retreatId/guardia-links es autenticado con santisimo:read', () => {
+		const block = code.match(/router\.get\(\s*['"]\/retreats\/:retreatId\/guardia-links['"][^)]*\)/);
+		expect(block).not.toBeNull();
+		expect(block![0]).toMatch(/requirePermission\(\s*['"]santisimo:read['"]\s*\)/);
+
+		// Debe quedar DESPUÉS del guard de sesión (requiere auth).
+		const authPos = code.search(/router\.use\(isAuthenticated\)/);
+		expect(
+			code.search(/router\.get\(\s*['"]\/retreats\/:retreatId\/guardia-links['"]/),
+		).toBeGreaterThan(authPos);
+
+		// El cliente apunta exactamente a esa URL (un mismatch = 404 en prod).
+		const apiSrc = readFileSync(FRONTEND_API_FILE, 'utf-8');
+		expect(apiSrc).toMatch(/\/santisimo\/retreats\/\$\{retreatId\}\/guardia-links/);
 	});
 });

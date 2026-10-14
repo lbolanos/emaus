@@ -10,6 +10,7 @@ import { buildWhatsAppSendLink, sanitizePhoneForWhatsapp } from '@/utils/phone';
 import { useRetreatStore } from '@/stores/retreatStore';
 import { useParticipantCommunicationStore } from '@/stores/participantCommunicationStore';
 import { getMessageTemplateAudience } from '@repo/types';
+import { santisimoApi } from '@/services/api';
 
 /**
  * Cola de envío de WhatsApp ASISTIDA: cada mensaje se manda desde la cuenta de
@@ -37,6 +38,10 @@ const selectedTemplateId = ref('');
 const baseMessage = ref('');
 // participantId → 'sent' (los que no están marcados quedan 'pending').
 const sentIds = ref<Set<string>>(new Set());
+// participantId → enlace personal de guardia del Santísimo, para resolver
+// {participant.santisimoGuardiaLink} (el navegador no puede cifrar el token:
+// el mapa lo arma el backend). Record plano, no Map (reactividad).
+const guardiaLinks = ref<Record<string, string>>({});
 
 interface QueueItem {
 	id: string;
@@ -71,7 +76,10 @@ function onTemplateSelect(templateId: string) {
 /** Resuelve variables del mensaje para un participante (HTML → texto WhatsApp). */
 function resolvedMessageFor(item: QueueItem): string {
 	const retreatData = retreatStore.selectedRetreat as unknown as RetreatData;
-	const participantData = item.participant as unknown as ParticipantData;
+	const participantData = {
+		...(item.participant as unknown as ParticipantData),
+		santisimoGuardiaLink: guardiaLinks.value[item.id] || '',
+	};
 	const personalized = replaceAllVariables(baseMessage.value, participantData, retreatData);
 	return convertHtmlToWhatsApp(personalized);
 }
@@ -143,7 +151,9 @@ function close() {
 	emit('update:open', false);
 }
 
-// Reset al abrir.
+// Reset al abrir + fetch del mapa de enlaces de guardia (una sola llamada por
+// apertura; falla silenciosa → la variable queda vacía y findEmptyVariables
+// del preview la avisa).
 watch(
 	() => props.open,
 	(isOpen) => {
@@ -151,6 +161,17 @@ watch(
 			sentIds.value = new Set();
 			selectedTemplateId.value = '';
 			baseMessage.value = '';
+			guardiaLinks.value = {};
+			if (props.retreatId) {
+				santisimoApi
+					.getGuardiaLinks(props.retreatId)
+					.then((links) => {
+						guardiaLinks.value = links || {};
+					})
+					.catch(() => {
+						guardiaLinks.value = {};
+					});
+			}
 		}
 	},
 );

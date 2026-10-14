@@ -26,7 +26,7 @@ milestone correspondiente.
       (+ rate limit `publicParticipantLimiter` en POST/DELETE)
 - [x] Tests Jest: token roundtrip/tamper/clave; CA2-CA6; wiring (sin auth, CSRF-exentas)
 - [x] `pnpm --filter api exec tsc --noEmit` sin errores nuevos vs baseline master
-- [ ] Commit `feat(api): ... (M1)`
+- [x] Commit `feat(api): ... (M1)` — `5a74a746`
 
 **Done**: 2026-10-14 — 39 tests nuevos (11 token + 13 integración service + 11 controller + 4
 wiring source-level), tsc sin errores en archivos tocados (los 146 del baseline viven en
@@ -35,14 +35,26 @@ tableMesaService/participantService/etc.), `pnpm --filter api build` verde (los 
 
 ## M2 — variable `participant.santisimoGuardiaLink` en los 3 caminos
 
-- [ ] `ParticipantData.santisimoGuardiaLink` + builder + mock en `packages/utils`
-- [ ] `GET /santisimo/retreats/:retreatId/guardia-links` (R5)
-- [ ] Inyección en `MessageDialog.vue` (fetch del mapa al abrir + `updateMessagePreview`)
-- [ ] Inyección en `WhatsAppSendQueue.vue` (fetch al abrir + `resolvedMessageFor`)
-- [ ] Inyección en `BaseMessageTemplateModal.vue` (preview con participante real) + picker
-- [ ] Inyección lazy en `messageSequenceService.resolveContent`
-- [ ] Tests: utils, wiring endpoint, `resolveContent` (CA7-CA8)
-- [ ] Commit `feat(templates): ... (M2)`
+- [x] `ParticipantData.santisimoGuardiaLink` + builder + mock en `packages/utils`
+- [x] `GET /santisimo/retreats/:retreatId/guardia-links` (R5)
+- [x] Inyección en `MessageDialog.vue` (fetch del mapa al abrir + `updateMessagePreview`)
+- [x] Inyección en `WhatsAppSendQueue.vue` (fetch al abrir + `resolvedMessageFor`)
+- [x] Inyección en `BaseMessageTemplateModal.vue` (preview con participante real) + picker
+- [x] Inyección lazy en `messageSequenceService.resolveContent`
+- [x] Tests: utils, wiring endpoint, `resolveContent` (CA7-CA8)
+- [x] Commit `feat(templates): ... (M2)`
+
+**Done**: 2026-10-14 — 23 tests jest de M2 verdes (4 integración getGuardiaLinks/resolveContent
++ 14 controller con `getGuardiaLinks` 403/200 + 5 wiring incl. ruta autenticada y match de URL
+en `api.ts` del web), 3 tests Vitest de la variable (`apps/web/src/utils/__tests__/santisimoGuardiaLink.test.ts`),
+255 tests Vitest existentes de los 3 componentes tocados y las vistas que los montan siguen
+verdes, `tsc --noEmit` api en 146 (= baseline) y `vue-tsc --noEmit` web en 0.
+
+### Desviaciones 2026-10-14 (M2)
+
+- `santisimoService.getGuardiaLinks` filtra por `retreat_participants.type='server'` con
+  `isCancelled:false` y participante no borrado — el plan decía "participantes type='server'",
+  sin mencionar membresías canceladas; se alinea con `resolveInviteContext` (membresía activa).
 
 ## M3 — vista pública `/santisimo/servidor/:token`
 

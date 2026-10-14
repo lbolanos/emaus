@@ -475,6 +475,7 @@ import {
 	sendCommunityEmailViaBackend,
 	getParticipantNextMeeting,
 	getParticipantShirtOrder,
+	santisimoApi,
 } from '@/services/api';
 import ParticipantMessageHistory from './ParticipantMessageHistory.vue';
 import CommunityMessageHistory from './CommunityMessageHistory.vue';
@@ -577,6 +578,10 @@ const nextMeetingId = ref<string | null>(null);
 // contexto retreat (las prendas son por retiro). Null = not loaded yet.
 const shirtOrderSummary = ref<string | null>(null);
 const shirtCharge = ref<number | null>(null);
+// Enlace personal de guardias del Santísimo ({participant.santisimoGuardiaLink}):
+// el navegador no puede cifrar el token, así que se fetchea el mapa del retiro
+// y se toma la entrada de este participante. Null = not loaded yet.
+const santisimoGuardiaLink = ref<string | null>(null);
 
 // Computed properties
 const contextId = computed(() => props.context === 'retreat' ? props.retreatId : props.communityId);
@@ -856,6 +861,7 @@ const updateMessagePreview = () => {
 			...participantData,
 			shirtOrderSummary: shirtOrderSummary.value || '',
 			shirtCharge: shirtCharge.value ?? undefined,
+			santisimoGuardiaLink: santisimoGuardiaLink.value || '',
 		};
 	}
 	if (isCommunityCtx && props.participant && 'participant' in props.participant) {
@@ -1589,6 +1595,34 @@ const loadShirtOrder = async () => {
 	}
 };
 
+const loadGuardiaLink = async () => {
+	// Solo retreat context: el enlace cifrado vive por retiro+participante y
+	// sólo existe para servidores (el mapa del backend filtra el resto).
+	if (props.context !== 'retreat' || !props.retreatId || !props.participant) {
+		santisimoGuardiaLink.value = null;
+		return;
+	}
+	const participantData = 'participant' in props.participant && props.participant.participant
+		? props.participant.participant
+		: props.participant;
+	const pid = (participantData as any).id;
+	if (!pid) {
+		santisimoGuardiaLink.value = null;
+		return;
+	}
+	try {
+		const links = await santisimoApi.getGuardiaLinks(props.retreatId);
+		santisimoGuardiaLink.value = links?.[pid] || '';
+	} catch {
+		// Silent fail — placeholder resolverá a empty (y findEmptyVariables
+		// lo avisará si la plantilla lo usa).
+		santisimoGuardiaLink.value = '';
+	}
+	if (selectedTemplate.value && !isUserEditing.value) {
+		updateMessagePreview();
+	}
+};
+
 // Watchers
 watch(() => props.open, (newValue: boolean) => {
 	if (newValue && props.participant) {
@@ -1636,6 +1670,8 @@ watch(() => props.open, (newValue: boolean) => {
 		shirtOrderSummary.value = null;
 		shirtCharge.value = null;
 		loadShirtOrder();
+		santisimoGuardiaLink.value = null;
+		loadGuardiaLink();
 
 		// Load templates based on context
 		if (props.context === 'community' && props.communityId) {

@@ -7,6 +7,7 @@ import { Participant } from '../entities/participant.entity';
 import { RetreatParticipant } from '../entities/retreatParticipant.entity';
 import { domainAuditService } from './domainAuditService';
 import { DomainAuditAction } from '@repo/types';
+import { buildSantisimoInviteUrl } from '../utils/santisimoInviteToken';
 
 export class SantisimoNotFoundError extends Error {}
 export class SantisimoCapacityError extends Error {}
@@ -581,6 +582,28 @@ export class SantisimoService {
 			metadata: { via: 'invite_token', participantId, removedCount: mine.length },
 		});
 		return true;
+	}
+
+	/**
+	 * Mapa participantId → enlace personal de guardia para los SERVIDORES del
+	 * retiro (R5): lo fetchea el cliente de envío (MessageDialog / cola de
+	 * WhatsApp) porque el navegador no puede cifrar el token. Sólo
+	 * `type='server'`, membresía activa y participante no borrado — enviar un
+	 * enlace de guardia a un caminante no tiene sentido operativo.
+	 */
+	async getGuardiaLinks(retreatId: string): Promise<Record<string, string>> {
+		const baseUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+		const memberships = await AppDataSource.getRepository(RetreatParticipant).find({
+			where: { retreatId, isCancelled: false, type: 'server' },
+			relations: ['participant'],
+		});
+		const links: Record<string, string> = {};
+		for (const membership of memberships) {
+			const participant = membership.participant;
+			if (!participant || participant.dataDeletedAt) continue;
+			links[participant.id] = buildSantisimoInviteUrl(baseUrl, retreatId, participant.id);
+		}
+		return links;
 	}
 }
 
