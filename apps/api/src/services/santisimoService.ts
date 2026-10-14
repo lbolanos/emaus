@@ -3,6 +3,8 @@ import { AppDataSource } from '../data-source';
 import { SantisimoSlot } from '../entities/santisimoSlot.entity';
 import { SantisimoSignup } from '../entities/santisimoSignup.entity';
 import { Retreat } from '../entities/retreat.entity';
+import { Participant } from '../entities/participant.entity';
+import { RetreatParticipant } from '../entities/retreatParticipant.entity';
 import { domainAuditService } from './domainAuditService';
 import { DomainAuditAction } from '@repo/types';
 
@@ -399,6 +401,206 @@ export class SantisimoService {
 			})),
 		};
 	}
+
+	// ---- Enlace personal cifrado (self-enrollment del servidor) ----
+	// specs/santisimo-guardia-links: un solo horario por servidor, editable,
+	// slots de comida visibles (solo anunciados). La identidad la aporta el
+	// token AES-256-GCM, no la sesión.
+
+	/** Valida retiro + participante del token. Null => 404 uniforme. */
+	private async resolveInviteContext(
+		retreatId: string,
+		participantId: string,
+	): Promise<{ retreat: Retreat; participant: Participant } | null> {
+		const retreat = await this.retreatRepo.findOne({ where: { id: retreatId } });
+		// isPublic NO se exige aquí (decisión 5 de la spec): el token es la
+		// capability; `isPublic` gobierna las superficies abiertas por slug.
+		if (!retreat || !retreat.santisimoEnabled) return null;
+
+		const participant = await AppDataSource.getRepository(Participant).findOne({
+			where: { id: participantId },
+		});
+		if (!participant || participant.dataDeletedAt) return null;
+
+		const membership = await AppDataSource.getRepository(RetreatParticipant).findOne({
+			where: { retreatId, participantId, isCancelled: false },
+		});
+		if (!membership) return null;
+
+		return { retreat, participant };
+	}
+
+	async getInviteData(
+		retreatId: string,
+		participantId: string,
+	): Promise<SantisimoInviteData | null> {
+		const ctx = await this.resolveInviteContext(retreatId, participantId);
+		if (!ctx) return null;
+
+		const slots = await this.slotRepo.find({
+			where: { retreatId },
+			relations: ['signups'],
+			order: { startTime: 'ASC' },
+		});
+
+		const now = new Date();
+		const currentSlot = slots.find((s) =>
+			(s.signups ?? []).some((sig) => sig.participantId === participantId),
+		);
+
+		const fullName =
+			`${ctx.participant.firstName ?? ''} ${ctx.participant.lastName ?? ''}`.trim() ||
+			ctx.participant.firstName;
+
+		return {
+			participant: { firstName: ctx.participant.firstName, fullName },
+			retreat: {
+				parish: ctx.retreat.parish,
+				startDate: ctx.retreat.startDate,
+				endDate: ctx.retreat.endDate,
+			},
+			current: currentSlot
+				? {
+						slotId: currentSlot.id,
+						startTime: currentSlot.startTime,
+						endTime: currentSlot.endTime,
+						mealWindow: currentSlot.mealWindow,
+					}
+				: null,
+			// Slots pasados ocultos; los mealWindow se muestran (badge en la UI,
+			// cupo compartido con angelitos — decisión 2 de la spec).
+			slots: slots
+				.filter((s) => new Date(s.endTime) > now)
+				.map((s) => ({
+					id: s.id,
+					startTime: s.startTime,
+					endTime: s.endTime,
+					capacity: s.capacity,
+					signedUpCount: s.signups?.length ?? 0,
+					mealWindow: s.mealWindow,
+					isDisabled: s.isDisabled,
+					intention: s.intention ?? null,
+					selectable:
+						!s.isDisabled && ((s.signups?.length ?? 0) < s.capacity || s.id === currentSlot?.id),
+				})),
+		};
+	}
+
+	/**
+	 * Inscribe al servidor en UN slot, reemplazando su guardia previa del
+	 * retiro (transacción: delete de los previos + insert del nuevo).
+	 */
+	async inviteSignup(
+		retreatId: string,
+		participantId: string,
+		slotId: string,
+		ipAddress?: string,
+	): Promise<{ slotId: string; startTime: Date; endTime: Date }> {
+		const ctx = await this.resolveInviteContext(retreatId, participantId);
+		if (!ctx) throw new SantisimoNotFoundError('Invite not found');
+
+		const slot = await this.slotRepo.findOne({ where: { id: slotId }, relations: ['signups'] });
+		if (!slot || slot.retreatId !== retreatId) throw new SantisimoNotFoundError('Slot not found');
+
+		if (slot.isDisabled) throw new SantisimoDisabledError(`Slot ${slot.id} disabled`);
+		if (new Date(slot.endTime) < new Date())
+			throw new SantisimoPastError(`Slot ${slot.id} already passed`);
+
+		// Guardias actuales del participante en ESTE retiro (vía slot: el signup
+		// no lleva retreatId).
+		const existing = await this.signupRepo.find({
+			where: { participantId },
+			relations: ['slot'],
+		});
+		const mine = existing.filter((sig) => sig.slot?.retreatId === retreatId);
+
+		// Idempotente: re-guardar su propio slot es un no-op (aunque ya esté
+		// "lleno" con su propio cupo).
+		if (mine.some((sig) => sig.slotId === slot.id)) {
+			return { slotId: slot.id, startTime: slot.startTime, endTime: slot.endTime };
+		}
+
+		// Capacidad sin contar su propio signup (el reemplazo lo libera).
+		const others = (slot.signups ?? []).filter((sig) => sig.participantId !== participantId).length;
+		if (others >= slot.capacity) throw new SantisimoCapacityError(`Slot ${slot.id} full`);
+
+		const fullName =
+			`${ctx.participant.firstName ?? ''} ${ctx.participant.lastName ?? ''}`.trim() ||
+			ctx.participant.firstName;
+		const replacedIds = mine.map((s) => s.id);
+
+		const created = await AppDataSource.transaction(async (em) => {
+			if (replacedIds.length) await em.delete(SantisimoSignup, replacedIds);
+			const signup = em.create(SantisimoSignup, {
+				slotId: slot.id,
+				participantId,
+				name: fullName,
+				phone: ctx.participant.cellPhone || null,
+				email: ctx.participant.email || null,
+				userId: null,
+				// Sin cancelToken: la cancelación pública va por el invite token.
+				cancelToken: null,
+				ipAddress: ipAddress || null,
+				isAngelito: false,
+				autoAssigned: false,
+			});
+			return em.save(SantisimoSignup, signup);
+		});
+
+		// El token/URL NUNCA entra al evento (bearer secret, como cancelToken).
+		void domainAuditService.log({
+			action: DomainAuditAction.SANTISIMO_SIGNUP_INVITE_SIGNUP,
+			resourceType: 'santisimo_signup',
+			resourceId: created.id,
+			retreatId,
+			ipAddress: ipAddress || null,
+			metadata: {
+				participantId,
+				slotId: slot.id,
+				replacedCount: replacedIds.length,
+			},
+		});
+
+		return { slotId: created.slotId, startTime: slot.startTime, endTime: slot.endTime };
+	}
+
+	/** Quita la guardia actual del servidor en el retiro (link "Quitar"). */
+	async inviteCancel(retreatId: string, participantId: string, ipAddress?: string): Promise<boolean> {
+		const existing = await this.signupRepo.find({
+			where: { participantId },
+			relations: ['slot'],
+		});
+		const mine = existing.filter((sig) => sig.slot?.retreatId === retreatId);
+		if (!mine.length) return false;
+
+		await this.signupRepo.delete(mine.map((s) => s.id));
+		void domainAuditService.logDelete('santisimo_signup', mine[0].id, mine[0], {
+			retreatId,
+			fields: SIGNUP_AUDIT_FIELDS,
+			action: DomainAuditAction.SANTISIMO_SIGNUP_INVITE_CANCEL,
+			metadata: { via: 'invite_token', participantId, removedCount: mine.length },
+		});
+		return true;
+	}
+}
+
+export interface SantisimoInviteSlotView {
+	id: string;
+	startTime: Date;
+	endTime: Date;
+	capacity: number;
+	signedUpCount: number;
+	mealWindow: boolean;
+	isDisabled: boolean;
+	intention: string | null;
+	selectable: boolean;
+}
+
+export interface SantisimoInviteData {
+	participant: { firstName: string; fullName: string };
+	retreat: { parish: string; startDate: Date; endDate: Date };
+	current: { slotId: string; startTime: Date; endTime: Date; mealWindow: boolean } | null;
+	slots: SantisimoInviteSlotView[];
 }
 
 export const santisimoService = new SantisimoService();

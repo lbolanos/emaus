@@ -143,6 +143,11 @@ export const DomainAuditAction = {
 	SANTISIMO_SIGNUP_PUBLIC_SIGNUP: 'santisimo_signup.public_signup',
 	SANTISIMO_SIGNUP_DELETE: 'santisimo_signup.delete',
 	SANTISIMO_SIGNUP_CANCEL: 'santisimo_signup.cancel',
+	// Self-enrollment del servidor vía enlace personal cifrado (sin sesión, sin
+	// reCAPTCHA: el token ES la capability — specs/santisimo-guardia-links).
+	// El token/URL jamás entra al evento; participantId e IP viajan en metadata.
+	SANTISIMO_SIGNUP_INVITE_SIGNUP: 'santisimo_signup.invite_signup',
+	SANTISIMO_SIGNUP_INVITE_CANCEL: 'santisimo_signup.invite_cancel',
 	// Responsabilidades. `createDefaultResponsibilitiesForRetreat` y
 	// `ensureCharlaResponsibilitiesFromTemplateSet` NO se auditan: son semilla
 	// al crear el retiro / derivadas de materializar el minuto a minuto — la

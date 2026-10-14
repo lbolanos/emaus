@@ -13,20 +13,25 @@ milestone correspondiente.
 - [x] `research.md` (anclas del código pre-M1, verificadas contra `c8363d08`)
 - [x] `plan.md` (M0-M5 con verificación)
 - [x] `tasks.md`
-- [ ] Commit `docs(specs): ... (M0)`
+- [x] Commit `docs(specs): ... (M0)` — `9af9882d`
 
 ## M1 — backend: token util + endpoints públicos del invite
 
-- [ ] `apps/api/src/utils/santisimoInviteToken.ts` (R1) + test unitario puro
-- [ ] `PublicSantisimoInviteSignupSchema` + tipos en `packages/types/src/santisimo.ts`
-- [ ] Acciones `santisimo_signup.invite_signup` / `.invite_cancel` en `packages/types/src/audit.ts`
-- [ ] `santisimoService.getInviteData` / `inviteSignup` / `inviteCancel` (transacción, audit)
-- [ ] Handlers `publicGetInvite` / `publicInviteSignup` / `publicInviteCancel` en el controller
-- [ ] Rutas públicas en `santisimoRoutes.ts` antes de `router.use(isAuthenticated)`
+- [x] `apps/api/src/utils/santisimoInviteToken.ts` (R1) + test unitario puro
+- [x] `PublicSantisimoInviteSignupSchema` + tipos en `packages/types/src/santisimo.ts`
+- [x] Acciones `santisimo_signup.invite_signup` / `.invite_cancel` en `packages/types/src/audit.ts`
+- [x] `santisimoService.getInviteData` / `inviteSignup` / `inviteCancel` (transacción, audit)
+- [x] Handlers `publicGetInvite` / `publicInviteSignup` / `publicInviteCancel` en el controller
+- [x] Rutas públicas en `santisimoRoutes.ts` antes de `router.use(isAuthenticated)`
       (+ rate limit `publicParticipantLimiter` en POST/DELETE)
-- [ ] Tests Jest: token roundtrip/tamper/clave; CA2-CA6; wiring (sin auth, CSRF-exentas)
-- [ ] `pnpm --filter api exec tsc --noEmit` sin errores nuevos vs baseline master
+- [x] Tests Jest: token roundtrip/tamper/clave; CA2-CA6; wiring (sin auth, CSRF-exentas)
+- [x] `pnpm --filter api exec tsc --noEmit` sin errores nuevos vs baseline master
 - [ ] Commit `feat(api): ... (M1)`
+
+**Done**: 2026-10-14 — 39 tests nuevos (11 token + 13 integración service + 11 controller + 4
+wiring source-level), tsc sin errores en archivos tocados (los 146 del baseline viven en
+tableMesaService/participantService/etc.), `pnpm --filter api build` verde (los 2 matches de
+`__dirname` en dist/index.js son el shim ESM preexistente de `src/index.ts`, no código nuevo).
 
 ## M2 — variable `participant.santisimoGuardiaLink` en los 3 caminos
 

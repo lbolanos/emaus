@@ -13,6 +13,9 @@ import {
 	publicGetSchedule,
 	publicCreateSignup,
 	publicCancelSignup,
+	publicGetInvite,
+	publicInviteSignup,
+	publicInviteCancel,
 } from '../controllers/santisimoController';
 import {
 	getParticipantAvailability,
@@ -30,6 +33,7 @@ import {
 	GenerateSantisimoSlotsSchema,
 	AdminCreateSantisimoSignupSchema,
 	PublicSantisimoSignupSchema,
+	PublicSantisimoInviteSignupSchema,
 } from '@repo/types';
 
 const router = Router();
@@ -43,6 +47,17 @@ router.post(
 	publicCreateSignup,
 );
 router.delete('/public/signups/:token', publicCancelSignup);
+
+// Enlace personal cifrado del servidor (specs/santisimo-guardia-links).
+// Quedan bajo el prefijo `/santisimo/public` ya exento de CSRF.
+router.get('/public/invite/:token', publicGetInvite);
+router.post(
+	'/public/invite/:token/signup',
+	publicParticipantLimiter,
+	validateRequest(PublicSantisimoInviteSignupSchema),
+	publicInviteSignup,
+);
+router.delete('/public/invite/:token/signup', publicParticipantLimiter, publicInviteCancel);
 
 // -- Authenticated routes --
 router.use(isAuthenticated);

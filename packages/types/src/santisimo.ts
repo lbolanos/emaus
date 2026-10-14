@@ -91,3 +91,13 @@ export const PublicSantisimoSignupSchema = z.object({
 	params: z.object({ slug: z.string() }),
 });
 export type PublicSantisimoSignup = z.infer<typeof PublicSantisimoSignupSchema>;
+
+// Self-enrollment del servidor vía enlace personal cifrado: un solo slot, la
+// identidad la aporta el token (specs/santisimo-guardia-links R3).
+export const PublicSantisimoInviteSignupSchema = z.object({
+	body: z.object({
+		slotId: idSchema,
+	}),
+	params: z.object({ token: z.string().min(20).max(512) }),
+});
+export type PublicSantisimoInviteSignup = z.infer<typeof PublicSantisimoInviteSignupSchema>;
