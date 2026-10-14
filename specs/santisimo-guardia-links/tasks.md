@@ -112,8 +112,33 @@ está cubierta por los tests de M2 en `WhatsAppSendQueue`.
 
 ## M5 — verificación end-to-end + reconcile
 
-- [ ] Dev del worktree arriba (puertos libres verificados) + flujo CA2-CA10 manual
-- [ ] `pnpm --filter api build` + `pnpm --filter web build`
-- [ ] `tasks.md` cerrado + **Reconcile** en `spec.md`
-- [ ] URL del dev entregada al usuario
-- [ ] Commit `docs(specs): reconcile (M5)` — push/PR solo con visto bueno
+- [x] Dev del worktree arriba (puertos libres verificados) + flujo CA2-CA10 manual
+- [x] `pnpm --filter api build` + `pnpm --filter web build`
+- [x] `tasks.md` cerrado + **Reconcile** en `spec.md`
+- [x] URL del dev entregada al usuario
+- [x] Commit `docs(specs): reconcile (M5)` — push/PR solo con visto bueno
+
+**Done**: 2026-10-14 — Dev del worktree arriba (API `:3002`, web `:5174`, DB
+`database.worktree.sqlite` con la migración auto-aplicada al arranque — camino de prod
+validado). Flujo público verificado end-to-end por API (GET invite → signup → reemplazo →
+DELETE 204) y por UI con e2e móvil: `apps/web/tests/e2e/santisimo-guardia-invite.spec.ts`
+**3/3 verde ×2 corridas consecutivas** (elegir/cambiar/quitar con verificación por el dato
+`signedUpCount` 1→0/0→1, token editado → mensaje amigable, cola admin CA10: popup wa.me cuyo
+enlace resuelve al participante correcto por teléfono). Builds api+web verdes;
+`grep __dirname dist/index.js` = 2 (shim preexistente de `src/index.ts`, sin cambios).
+Reconcile escrito en `spec.md` con 6 desviaciones/hallazgos.
+
+### Desviaciones 2026-10-14 (M5)
+
+- El e2e móvil fallaba de forma consistente tras varias corridas: **429 del
+  `publicParticipantLimiter`** (10 mutaciones públicas/hora por IP; el spec gasta 4 por
+  corrida más los sondeos manuales). Fix: el dev del worktree arranca con
+  `NODE_ENV=development SKIP_RATE_LIMIT=true` (salida canónica de `.claude/rules/e2e-tests.md`);
+  documentado en el header del spec.
+- El assert inicial de CA10 comparaba el token del popup contra el capturado en beforeAll:
+  imposible de pasar, porque **cada GET de `guardia-links` regenera el token** (IV aleatorio
+  AES-GCM; mismo participante, tokens coexistentes válidos). El spec ahora extrae el token del
+  popup y verifica contra el API que resuelve al participante correcto (`fullName`).
+- API re-arrancada manualmente (no con el script del skill, que re-copia la DB del main) tras
+  matar el proceso viejo del puerto 3002; había que matar además un nodemon huérfano (PID
+  1192) que habría revivido al primer guardado de un archivo del api.

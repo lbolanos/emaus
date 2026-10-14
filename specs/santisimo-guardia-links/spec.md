@@ -1,7 +1,7 @@
 # Spec: enlace público personalizado para que cada servidor elija su guardia del Santísimo
 
-**Estado**: en curso · **Branch**: `santisimo-guardia-links` (worktree
-`.claude/worktrees/santisimo-guardia-links`) · **Fecha**: 2026-10-14
+**Estado**: cerrada (reconciled 2026-10-14) · **Branch**: `santisimo-guardia-links` (worktree
+`.claude/worktrees/santisimo-guardia-links`) · **Escrita**: 2026-10-14
 
 ## Problema
 
@@ -117,8 +117,9 @@ servidor el horario en el que quiere asistir a la capilla santisimo».
   `getMessageTemplateAudience`). Migración única de semilla (SQL plano, sin `@repo/types`,
   insert-if-absent): plantilla WhatsApp en texto plano con `{participant.firstName}`,
   `{retreat.parish}`, `{participant.santisimoGuardiaLink}` y aviso de enlace personal.
-  Docs de usuario (`apps/web/src/docs/es/santisimo.md` + par en) y sección nueva en
-  `.claude/skills/santisimo/SKILL.md`.
+  Docs de usuario (`apps/web/src/docs/es/santisimo.md` + par en) y sección nueva en la skill
+  del Santísimo — en su copia **versionada** `.ruler/skills/santisimo/SKILL.md` (la copia
+  `.claude/skills/` del checkout main es local y no versionada; se sincroniza al cerrar).
 
 ## Criterios de aceptación
 
@@ -158,3 +159,51 @@ servidor el horario en el que quiere asistir a la capilla santisimo».
 - Excluir slots por responsabilidad del minuto a minuto en la vista del enlace (si el
   coordinador mueve horarios después, `resolveSantisimoConflicts` ya remueve signups que
   chocan — comportamiento existente).
+
+## Reconcile (2026-10-14)
+
+Cerrado M0-M5 en `9af9882d` → `91006834` + cierre M5. R1-R8 construidos según lo escrito;
+el detalle por milestone (tests corridos, verificaciones por el dato) vive en `tasks.md`.
+
+**Verificación de los CA**:
+
+- CA1-CA6: tests Jest de M1 (token unitario + integración service + controller + wiring).
+- CA7-CA8: tests Jest de M2 (`resolveContent`, endpoint `guardia-links`) + Vitest de la
+  variable en `apps/web/src/utils/__tests__/santisimoGuardiaLink.test.ts`.
+- CA9: e2e `apps/web/tests/e2e/santisimo-guardia-invite.spec.ts` con **emulación móvil**
+  (`devices['iPhone 13']`, pedido explícito del usuario): elegir → confirmación, cambiar →
+  reemplazo verificado por el dato contra el API (`signedUpCount` 1→0/0→1), quitar → cupo
+  liberado, token editado → mensaje amigable. El badge de comida (CA4-UI) se verifica en el
+  e2e solo si el retiro fixture tiene un `mealWindow` futuro con cupo; con todos llenos el
+  spec lo anota y sigue (la cobertura completa del badge está en los 8 Vitest de la vista M3).
+- CA10: e2e admin — la cola abre el popup `wa.me` por servidor y el **enlace del popup
+  resuelve al participante correcto** (GET público del token del popup → `fullName`). No se
+  compara el string del token contra un fetch previo del mapa: ver desviación 3.
+- CA11: migración verificada por el dato contra copia aislada (1 plantilla global + 8 por
+  retiro, CHECK vigente, `foreign_key_check` limpio, 39→40 globales preservadas). Sin
+  secretos nuevos versionados (gitleaks en pre-commit).
+
+**Desviaciones y hallazgos del cierre**:
+
+1. **`getGuardiaLinks` filtra membresías canceladas y participantes borrados** (R5 decía
+   "servers no borrados"): `retreat_participants.isCancelled = false` además del borrado
+   lógico. Alineado con `resolveInviteContext` (membresía activa) — sin esto, la cola
+   ofrecería enlaces de servidores que ya no van.
+2. **Audit i18n**: las acciones `santisimo_signup.invite_signup` / `.invite_cancel` (M1)
+   quedaron sin etiqueta hasta que `auditLocaleCoverage.test.ts` lo cazó; el fix entró en M3.
+   El hueco era del checklist de M1, no del diseño.
+3. **El token se regenera en cada generación** (IV aleatorio de AES-GCM): cada GET de
+   `guardia-links` produce un token distinto — igualmente válido — para el mismo
+   participante. Consecuencia del diseño stateless (decisión 4), no un bug: todos los tokens
+   emitidos siguen vivos hasta el cierre del retiro. Relevante para tests (no comparar
+   strings entre fetches) y para quien espere un enlace estable por participante.
+4. **Skill del Santísimo**: la sección nueva vive en `.ruler/skills/santisimo/SKILL.md`
+   (versionada); la copia `.claude/skills/` del checkout main es local y quedó
+   desincronizada hasta el cierre del feature. R8 corregido en este mismo commit.
+5. **e2e y rate limit**: el spec gasta 4 mutaciones públicas por corrida y el
+   `publicParticipantLimiter` (10/hora por IP) vuelve falsa la 3ª corrida — el 429 se
+   muestra como error genérico de guardado. El dev contra el que corre debe arrancar con
+   `NODE_ENV=development SKIP_RATE_LIMIT=true` (documentado en el header del spec).
+6. **CA9 decía "ventana de incógnito"**: la verificación real fue en contexto limpio de
+   Playwright con emulación móvil — equivalente (sin cookies de sesión), y además cubre el
+   factor móvil que motivó el feature.
