@@ -1717,7 +1717,16 @@
     "palancasReceived": "Recibidas",
     "walkersWithoutPalancas": "Sin Palancas",
     "totalPalancasReceived": "Total Palancas",
-    "palancasUnknown": "Cartas sin capturar"
+    "palancasUnknown": "Cartas sin capturar",
+    "retreatHouse": "Casa de Retiro",
+    "copyAddress": "Copiar dirección",
+    "clickToCopy": "Haz clic para copiar",
+    "copyShort": "Copiar",
+    "copyMapsUrl": "Copiar Google Maps",
+    "copyWazeUrl": "Copiar Waze",
+    "openMapsUrl": "Abrir Google Maps",
+    "openWazeUrl": "Abrir Waze",
+    "addressCopied": "¡Dirección copiada al portapapeles!"
   },
   "retreatFlyer": {
     "printButton": "Imprimir Flyer",

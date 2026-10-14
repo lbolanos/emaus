@@ -346,6 +346,145 @@ describe('RetreatDashboardView', () => {
 		});
 	});
 
+	describe('House location card', () => {
+		const fullAddress = 'Av. Reforma 123, Col. Centro, Celaya, Guanajuato, 38000, México';
+
+		// Los botones de la card se identifican por aria-label (el texto visible
+		// es "Abrir Google Maps" / "Copiar"; el aria-label lleva la key completa).
+		const findByAria = (wrapper: VueWrapper, ariaLabel: string) =>
+			wrapper.findAll('button').find(b => b.attributes('aria-label') === ariaLabel);
+
+		afterEach(() => {
+			delete (mockRetreat as any).house;
+		});
+
+		it('renders house name, address and the copy + open actions', async () => {
+			(mockRetreat as any).house = {
+				id: 'house-1',
+				name: 'Casa de Retiros San José',
+				address1: 'Av. Reforma 123',
+				address2: 'Col. Centro',
+				city: 'Celaya',
+				state: 'Guanajuato',
+				zipCode: '38000',
+				country: 'México',
+				latitude: 20.5135,
+				longitude: -100.8157,
+			};
+			const { wrapper } = await mountDashboard();
+			const text = wrapper.text();
+			expect(text).toContain('retreatDashboard.retreatHouse');
+			expect(text).toContain('Casa de Retiros San José');
+			expect(text).toContain(fullAddress);
+			expect(text).toContain('retreatDashboard.clickToCopy');
+			expect(text).toContain('retreatDashboard.openMapsUrl');
+			expect(text).toContain('retreatDashboard.openWazeUrl');
+			// "Copiar" aparece en las dos filas de servicio
+			expect(text.match(/retreatDashboard\.copyShort/g)?.length).toBe(2);
+			// Y las cuatro acciones + dirección copiable existen como botones
+			expect(findByAria(wrapper, 'retreatDashboard.copyAddress')).toBeDefined();
+			expect(findByAria(wrapper, 'retreatDashboard.copyMapsUrl')).toBeDefined();
+			expect(findByAria(wrapper, 'retreatDashboard.copyWazeUrl')).toBeDefined();
+			expect(findByAria(wrapper, 'retreatDashboard.openMapsUrl')).toBeDefined();
+			expect(findByAria(wrapper, 'retreatDashboard.openWazeUrl')).toBeDefined();
+			wrapper.unmount();
+		});
+
+		it('copies the address text when clicking the address block', async () => {
+			(mockRetreat as any).house = {
+				id: 'house-1',
+				address1: 'Av. Reforma 123',
+				address2: 'Col. Centro',
+				city: 'Celaya',
+				state: 'Guanajuato',
+				zipCode: '38000',
+				country: 'México',
+			};
+			const { wrapper } = await mountDashboard();
+			const btn = findByAria(wrapper, 'retreatDashboard.copyAddress');
+			expect(btn).toBeDefined();
+			await btn!.trigger('click');
+			expect(mockClipboardWriteText).toHaveBeenCalledWith(fullAddress);
+			wrapper.unmount();
+		});
+
+		it('prefers the saved googleMapsUrl for Maps and builds Waze from coords', async () => {
+			(mockRetreat as any).house = {
+				id: 'house-1',
+				address1: 'Av. Reforma 123',
+				city: 'Celaya',
+				state: 'Guanajuato',
+				zipCode: '38000',
+				country: 'México',
+				latitude: 20.5135,
+				longitude: -100.8157,
+				googleMapsUrl: 'https://maps.app.goo.gl/saved-pin',
+			};
+			const { wrapper } = await mountDashboard();
+			await findByAria(wrapper, 'retreatDashboard.copyMapsUrl')!.trigger('click');
+			expect(mockClipboardWriteText).toHaveBeenCalledWith('https://maps.app.goo.gl/saved-pin');
+
+			await findByAria(wrapper, 'retreatDashboard.copyWazeUrl')!.trigger('click');
+			expect(mockClipboardWriteText).toHaveBeenCalledWith(
+				'https://waze.com/ul?ll=20.5135,-100.8157&navigate=yes'
+			);
+			wrapper.unmount();
+		});
+
+		it('opens Maps and Waze in a new tab from the open buttons', async () => {
+			(mockRetreat as any).house = {
+				id: 'house-1',
+				address1: 'Av. Reforma 123',
+				city: 'Celaya',
+				state: 'Guanajuato',
+				zipCode: '38000',
+				country: 'México',
+				latitude: 20.5135,
+				longitude: -100.8157,
+				googleMapsUrl: 'https://maps.app.goo.gl/saved-pin',
+			};
+			const { wrapper } = await mountDashboard();
+			await findByAria(wrapper, 'retreatDashboard.openMapsUrl')!.trigger('click');
+			expect(mockWindowOpen).toHaveBeenCalledWith('https://maps.app.goo.gl/saved-pin', '_blank');
+
+			await findByAria(wrapper, 'retreatDashboard.openWazeUrl')!.trigger('click');
+			expect(mockWindowOpen).toHaveBeenCalledWith(
+				'https://waze.com/ul?ll=20.5135,-100.8157&navigate=yes',
+				'_blank'
+			);
+			wrapper.unmount();
+		});
+
+		it('falls back to address-query URLs when there are no coords nor saved pin', async () => {
+			(mockRetreat as any).house = {
+				id: 'house-1',
+				address1: 'Av. Reforma 123',
+				address2: 'Col. Centro',
+				city: 'Celaya',
+				state: 'Guanajuato',
+				zipCode: '38000',
+				country: 'México',
+			};
+			const { wrapper } = await mountDashboard();
+			await findByAria(wrapper, 'retreatDashboard.copyMapsUrl')!.trigger('click');
+			expect(mockClipboardWriteText).toHaveBeenCalledWith(
+				`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(fullAddress)}`
+			);
+
+			await findByAria(wrapper, 'retreatDashboard.copyWazeUrl')!.trigger('click');
+			expect(mockClipboardWriteText).toHaveBeenCalledWith(
+				`https://waze.com/ul?q=${encodeURIComponent(fullAddress)}`
+			);
+			wrapper.unmount();
+		});
+
+		it('does not render the card when the retreat has no house', async () => {
+			const { wrapper } = await mountDashboard();
+			expect(wrapper.text()).not.toContain('retreatDashboard.retreatHouse');
+			wrapper.unmount();
+		});
+	});
+
 	describe('Inventory alerts', () => {
 		it('does not show inventory section when no alerts', async () => {
 			const { wrapper } = await mountDashboard();

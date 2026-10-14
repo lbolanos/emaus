@@ -1625,7 +1625,16 @@
     "palancasReceived": "Received",
     "walkersWithoutPalancas": "Without Palancas",
     "totalPalancasReceived": "Total Palancas",
-    "palancasUnknown": "Letters not captured"
+    "palancasUnknown": "Letters not captured",
+    "retreatHouse": "Retreat House",
+    "copyAddress": "Copy address",
+    "clickToCopy": "Click to copy",
+    "copyShort": "Copy",
+    "copyMapsUrl": "Copy Google Maps",
+    "copyWazeUrl": "Copy Waze",
+    "openMapsUrl": "Open Google Maps",
+    "openWazeUrl": "Open Waze",
+    "addressCopied": "Address copied to clipboard!"
   },
   "reception": {
     "paysAtHouse": "Pays at the house"

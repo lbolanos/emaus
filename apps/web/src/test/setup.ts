@@ -507,6 +507,7 @@ vi.mock('lucide-vue-next', () => ({
 	Mail: { name: 'Mail', template: '<svg></svg>' },
 	MailCheck: { name: 'MailCheck', template: '<svg></svg>' },
 	MapPin: { name: 'MapPin', template: '<svg></svg>' },
+	Navigation: { name: 'Navigation', template: '<svg></svg>' },
 	Phone: { name: 'Phone', template: '<svg></svg>' },
 	PhoneMissed: { name: 'PhoneMissed', template: '<svg></svg>' },
 	Info: { name: 'Info', template: '<svg></svg>' },

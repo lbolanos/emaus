@@ -985,6 +985,90 @@
           <ChevronDown class="w-3.5 h-3.5 transition-transform duration-200" :class="{ '-rotate-90': dashSettings.collapsed.additionalInfo }" />
         </button>
         <div v-show="!dashSettings.collapsed.additionalInfo" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <!-- Retreat House Location: dirección en texto + URLs de Maps/Waze
+               listas para pegar en WhatsApp. La casa llega en GET /retreats/:id
+               (relation `house`), no requiere fetch extra. -->
+          <Card v-if="showHouseLocationCard" class="group hover:shadow-md transition-all duration-300">
+            <CardHeader class="pb-3">
+              <CardTitle class="text-lg flex items-center gap-2">
+                <MapPin class="w-4 h-4 text-primary" />
+                {{ $t('retreatDashboard.retreatHouse') }}
+              </CardTitle>
+            </CardHeader>
+            <CardContent class="space-y-3">
+              <div v-if="retreatHouse?.name">
+                <p class="text-sm font-medium">{{ retreatHouse.name }}</p>
+              </div>
+
+              <!-- Dirección en texto: un click la copia (hint siempre visible
+                   porque en móvil no hay hover para un tooltip). -->
+              <button
+                v-if="retreatHouseAddress"
+                type="button"
+                class="flex w-full items-start gap-2 rounded-md px-1.5 py-1.5 -mx-1.5 text-left transition-colors hover:bg-muted/70"
+                :aria-label="$t('retreatDashboard.copyAddress')"
+                @click="copyHouseAddress"
+              >
+                <MapPin class="mt-0.5 w-3.5 h-3.5 shrink-0 text-muted-foreground" />
+                <span class="flex-1 text-sm leading-relaxed text-muted-foreground">{{ retreatHouseAddress }}</span>
+                <span class="mt-0.5 flex shrink-0 items-center gap-1 text-xs text-muted-foreground/80">
+                  <Copy class="w-3 h-3" />
+                  {{ $t('retreatDashboard.clickToCopy') }}
+                </span>
+              </button>
+
+              <!-- Un botón por servicio para lanzar la app de mapas, con el
+                   copiar-link pegado a la derecha: la acción principal abre,
+                   la secundaria copia. -->
+              <div v-if="retreatHouseMapsUrl || retreatHouseWazeUrl" class="space-y-2 pt-1">
+                <div v-if="retreatHouseMapsUrl" class="flex items-stretch overflow-hidden rounded-md border">
+                  <button
+                    type="button"
+                    class="flex flex-1 items-center gap-2 px-3 py-2 text-left text-sm transition-colors hover:bg-muted/70"
+                    :aria-label="$t('retreatDashboard.openMapsUrl')"
+                    @click="openLink(retreatHouseMapsUrl)"
+                  >
+                    <MapPin class="w-4 h-4 shrink-0 text-primary" />
+                    <span class="flex-1 font-medium">{{ $t('retreatDashboard.openMapsUrl') }}</span>
+                    <ExternalLink class="w-3.5 h-3.5 shrink-0 text-muted-foreground" />
+                  </button>
+                  <div class="w-px bg-border" aria-hidden="true"></div>
+                  <button
+                    type="button"
+                    class="flex items-center gap-1.5 px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted/70 hover:text-foreground"
+                    :aria-label="$t('retreatDashboard.copyMapsUrl')"
+                    @click="copyLink(retreatHouseMapsUrl)"
+                  >
+                    <Copy class="w-3.5 h-3.5" />
+                    {{ $t('retreatDashboard.copyShort') }}
+                  </button>
+                </div>
+                <div v-if="retreatHouseWazeUrl" class="flex items-stretch overflow-hidden rounded-md border">
+                  <button
+                    type="button"
+                    class="flex flex-1 items-center gap-2 px-3 py-2 text-left text-sm transition-colors hover:bg-muted/70"
+                    :aria-label="$t('retreatDashboard.openWazeUrl')"
+                    @click="openLink(retreatHouseWazeUrl)"
+                  >
+                    <Navigation class="w-4 h-4 shrink-0 text-primary" />
+                    <span class="flex-1 font-medium">{{ $t('retreatDashboard.openWazeUrl') }}</span>
+                    <ExternalLink class="w-3.5 h-3.5 shrink-0 text-muted-foreground" />
+                  </button>
+                  <div class="w-px bg-border" aria-hidden="true"></div>
+                  <button
+                    type="button"
+                    class="flex items-center gap-1.5 px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted/70 hover:text-foreground"
+                    :aria-label="$t('retreatDashboard.copyWazeUrl')"
+                    @click="copyLink(retreatHouseWazeUrl)"
+                  >
+                    <Copy class="w-3.5 h-3.5" />
+                    {{ $t('retreatDashboard.copyShort') }}
+                  </button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
           <!-- Opening Notes -->
           <Card v-if="selectedRetreat.openingNotes" class="group hover:shadow-md transition-all duration-300">
             <CardHeader class="pb-3">
@@ -1224,7 +1308,7 @@ import {
 	todayISO,
 	type PreRetreatTaskCounts,
 } from '@/stores/preRetreatTaskStore';
-import type { RetreatBed } from '@repo/types';
+import type { RetreatBed, House } from '@repo/types';
 import { Button } from '@repo/ui';
 import {
   Dialog,
@@ -1289,7 +1373,12 @@ import {
   UserPlus,
   Users,
 } from 'lucide-vue-next';
-import { formatDate, buildClosingChurchWazeUrl, resolvePalancas } from '@repo/utils';
+import {
+  formatDate,
+  buildClosingChurchMapsUrl,
+  buildClosingChurchWazeUrl,
+  resolvePalancas,
+} from '@repo/utils';
 import { openLocation } from '@/utils/openLocation';
 import {
   isRetreatLive as isRetreatLiveUtil,
@@ -1563,6 +1652,60 @@ const openClosingChurchWaze = () => {
   const r = selectedRetreat.value as any;
   const url = buildClosingChurchWazeUrl(r?.closingChurchLatitude, r?.closingChurchLongitude);
   if (url) window.open(url, '_blank', 'noopener,noreferrer');
+};
+
+// --- Ubicación de la casa de retiro (copiar dirección / Maps / Waze) ---
+// `Retreat` (@repo/types) no declara `house`, pero GET /retreats/:id lo sirve
+// vía relation; se tipa localmente con `House` en un solo cast en vez de
+// propagar `as any` por todo el template (como sí hace la card de clausura).
+const retreatHouse = computed<House | null>(() => (selectedRetreat.value as any)?.house ?? null);
+
+const retreatHouseAddress = computed(() => {
+  const h = retreatHouse.value;
+  if (!h) return '';
+  return [h.address1, h.address2, h.city, h.state, h.zipCode, h.country]
+    .filter((part) => !!part && String(part).trim() !== '')
+    .join(', ');
+});
+
+// Maps: el pin guardado por la organización (`googleMapsUrl`) manda — puede ser
+// más preciso que las coordenadas. Sin él, coordenadas; sin coordenadas,
+// búsqueda por dirección textual.
+const retreatHouseMapsUrl = computed(() => {
+  const h = retreatHouse.value;
+  if (!h) return '';
+  if (h.googleMapsUrl) return h.googleMapsUrl;
+  const byCoords = buildClosingChurchMapsUrl(h.latitude, h.longitude);
+  if (byCoords) return byCoords;
+  return retreatHouseAddress.value
+    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(retreatHouseAddress.value)}`
+    : '';
+});
+
+// Waze no puede consumir un googleMapsUrl arbitrario: coordenadas, y si no hay,
+// búsqueda por dirección.
+const retreatHouseWazeUrl = computed(() => {
+  const h = retreatHouse.value;
+  if (!h) return '';
+  const byCoords = buildClosingChurchWazeUrl(h.latitude, h.longitude);
+  if (byCoords) return byCoords;
+  return retreatHouseAddress.value
+    ? `https://waze.com/ul?q=${encodeURIComponent(retreatHouseAddress.value)}`
+    : '';
+});
+
+const showHouseLocationCard = computed(() =>
+  !!retreatHouse.value && (!!retreatHouseAddress.value || !!retreatHouseMapsUrl.value),
+);
+
+const copyHouseAddress = async () => {
+  if (!retreatHouseAddress.value) return;
+  try {
+    await navigator.clipboard.writeText(retreatHouseAddress.value);
+    toast({ title: t('retreatDashboard.addressCopied') });
+  } catch {
+    toast({ title: 'Error al copiar la dirección', variant: 'destructive' });
+  }
 };
 
 // Navigation helpers
