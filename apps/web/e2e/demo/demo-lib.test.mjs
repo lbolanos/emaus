@@ -193,6 +193,31 @@ test('maskNode enmascara los nombres sueltos del historial (recipientName/contac
   }
 });
 
+test('maskNode: signup del santísimo (name plano + slotId) se enmascara; un nombre de plantilla NO', async () => {
+  const { maskNode } = await import('./demo-lib.mjs');
+  // Toma 4 del demo de guardias (2026-10-14): los nombres reales de angelitos
+  // (Eduardo Garay…) se colaron porque signup.name no tiene firstName al lado.
+  const d = {
+    slots: [
+      { id: 's1', signups: [{ id: 'g1', slotId: 's1', name: 'Eduardo Garay', phone: '5512345678' }] },
+      { id: 's2', signups: [{ id: 'g2', slotId: 's2', name: 'Eduardo Garay' }] },
+    ],
+    templates: [{ id: 't1', name: 'Guardias Santísimo — elección de horario' }],
+    roles: [{ id: 'r1', name: 'superadmin' }],
+  };
+  maskNode(d);
+  const flat = JSON.stringify(d);
+  for (const real of ['Eduardo', 'Garay', '5512345678']) {
+    assert.ok(!flat.includes(real), `sobrevivió: ${real}`);
+  }
+  // mismo nombre real → mismo fake (la misma persona en dos slots se ve igual)
+  assert.equal(d.slots[0].signups[0].name, d.slots[1].signups[0].name);
+  assert.match(d.slots[0].signups[0].name, /^\S+ \S+$/);
+  // los names NO-persona quedan intactos
+  assert.equal(d.templates[0].name, 'Guardias Santísimo — elección de horario');
+  assert.equal(d.roles[0].name, 'superadmin');
+});
+
 test('maskNode: el teléfono falso NO puede ser el número de alguien', async () => {
   const { maskNode } = await import('./demo-lib.mjs');
   // Números con forma real de entrada (celular CDMX, con lada 52, y de Guadalajara).
