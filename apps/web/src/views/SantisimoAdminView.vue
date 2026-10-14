@@ -53,6 +53,14 @@
               type="button"
               role="menuitem"
               class="w-full text-left px-3 py-2 hover:bg-gray-50"
+              @click="closeMore(); openGuardiaWhatsAppQueue()"
+              :title="t('santisimo.sendGuardiaLinksHint')"
+              data-testid="santisimo-guardia-links-button"
+            >💬 {{ t('santisimo.sendGuardiaLinks') }}</button>
+            <button
+              type="button"
+              role="menuitem"
+              class="w-full text-left px-3 py-2 hover:bg-gray-50"
               @click="closeMore(); doAutoAssignAngelitos()"
               :title="t('santisimo.autoAssignHint')"
               data-testid="santisimo-auto-assign-button"
@@ -373,6 +381,15 @@
         </DialogFooter>
       </DialogContent>
     </Dialog>
+
+    <!-- Cola de envío de enlaces personales de guardia (montada, sin v-if:
+         regla de frontend.md para dialogs abiertos desde un ref) -->
+    <WhatsAppSendQueue
+      v-model:open="isGuardiaQueueOpen"
+      :participants="guardiaQueueParticipants"
+      :retreat-id="retreatId || ''"
+      :templates="guardiaTemplates"
+    />
   </div>
 </template>
 
@@ -393,8 +410,12 @@ import {
 } from '@repo/ui';
 import { HelpCircle, Link2, Plus, Printer, Filter, FilterX } from 'lucide-vue-next';
 import { useRoute } from 'vue-router';
+import WhatsAppSendQueue from '@/components/WhatsAppSendQueue.vue';
 import { useSantisimoStore } from '@/stores/santisimoStore';
 import { useRetreatStore } from '@/stores/retreatStore';
+import { useParticipantStore } from '@/stores/participantStore';
+import { useMessageTemplateStore } from '@/stores/messageTemplateStore';
+import { getMessageTemplateAudience } from '@repo/types';
 import { api, retreatScheduleApi, santisimoApi, type SantisimoSlotWithSignups } from '@/services/api';
 
 interface ServerOption {
@@ -414,7 +435,10 @@ const route = useRoute();
 const { toast } = useToast();
 const santisimoStore = useSantisimoStore();
 const retreatStore = useRetreatStore();
+const participantStore = useParticipantStore();
+const messageTemplateStore = useMessageTemplateStore();
 const { slots, loading, error } = storeToRefs(santisimoStore);
+const { templates: allTemplates } = storeToRefs(messageTemplateStore);
 
 const retreatId = computed(() => (route.params.id as string) || retreatStore.selectedRetreatId);
 const retreat = computed(() =>
@@ -477,6 +501,40 @@ if (typeof window !== 'undefined') {
   window.addEventListener('click', () => {
     if (moreActionsOpen.value) moreActionsOpen.value = false;
   });
+}
+
+// -- Cola de envío de enlaces personales de guardia (specs/santisimo-guardia-links) --
+const isGuardiaQueueOpen = ref(false);
+const guardiaQueueParticipants = ref<any[]>([]);
+
+// Plantillas útiles para este envío: audiencia servidor (incluye la sembrada
+// SANTISIMO_GUARDIA_INVITE) + generales.
+const guardiaTemplates = computed(() =>
+  allTemplates.value.filter((tpl: any) => {
+    const audience = getMessageTemplateAudience(tpl.type);
+    return tpl.scope !== 'community' && (audience === 'server' || audience === 'general');
+  }),
+);
+
+async function openGuardiaWhatsAppQueue() {
+  // Regla de frontend.md: capturar el retreatId al click y resetear los
+  // filters compartidos antes del fetch — otra vista pudo dejar type/cancelStatus.
+  const rid = retreatId.value;
+  if (!rid) return;
+  Object.keys(participantStore.filters).forEach((key) => delete participantStore.filters[key]);
+  participantStore.filters.retreatId = rid;
+  await participantStore.fetchParticipants();
+  // El mapa guardia-links es la fuente de verdad de quién tiene enlace
+  // (servidores con membresía activa y no borrados): filtrar por él evita
+  // destinatarios cuyo enlace resolvería vacío.
+  const links = await santisimoApi
+    .getGuardiaLinks(rid)
+    .catch(() => ({}) as Record<string, string>);
+  guardiaQueueParticipants.value = participantStore.participants.filter(
+    (p: any) => p.type === 'server' && links[p.id],
+  );
+  await messageTemplateStore.fetchTemplates(rid);
+  isGuardiaQueueOpen.value = true;
 }
 
 async function doAutoAssignAngelitos() {

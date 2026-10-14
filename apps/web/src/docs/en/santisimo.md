@@ -17,3 +17,15 @@ For each slot you can:
 ## Public link and more actions
 
 Turn on the **Enable** checkbox and, if the retreat is public, use **⋮ More actions → Copy public link** to share the page where the community signs up themselves. That menu also lets you **Print**, **Auto-assign angelitos** to meal hours, and **Delete all and regenerate** from the Minute-by-Minute schedule (destructive).
+
+## Send watch links via WhatsApp
+
+So that **each server picks their own time slot** (instead of you assigning it by hand), use **⋮ More actions → Send watch links via WhatsApp**:
+
+1. The send queue opens with every server of the retreat that has a link (active membership).
+2. Pick the **"Chapel Watch — Time Slot Selection"** template (or your own using the `{participant.santisimoGuardiaLink}` variable).
+3. Send it with **Open WhatsApp**: each message carries a **personal link** tied to that server; nothing to fill in by hand.
+
+Each link opens a page where the server sees the time slots and picks **one** (those overlapping a meal show a 🍽 tag; capacity is shared with the angelitos). They can **change** or **remove** their watch by reopening the same link, until the retreat closes — and you see the result in this view's calendar right away.
+
+> The link is personal: it identifies the server without asking for a password. The template already includes the do-not-forward notice.

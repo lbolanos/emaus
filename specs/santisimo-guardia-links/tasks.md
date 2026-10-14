@@ -80,13 +80,35 @@ vue-tsc 0; locales válidos y 17/17 en `src/locales/__tests__/`.
 
 ## M4 — entrada admin + plantilla sembrada + docs
 
-- [ ] Ítem "Enviar enlaces de guardia por WhatsApp" en `SantisimoAdminView` (⋮ Más acciones,
+- [x] Ítem "Enviar enlaces de guardia por WhatsApp" en `SantisimoAdminView` (⋮ Más acciones,
       `useRekaDialogFix`/`deferOpen` si aplica, WhatsAppSendQueue montado)
-- [ ] Migración semilla de plantilla WhatsApp (skill `sqlite-migrations`; SQL plano, sin
+- [x] Migración semilla de plantilla WhatsApp (skill `sqlite-migrations`; SQL plano, sin
       `@repo/types`, insert-if-absent)
-- [ ] Docs usuario es/en + sección nueva en `.claude/skills/santisimo/SKILL.md`
-- [ ] Verificar CA10-CA11
-- [ ] Commit `feat(web+api): ... (M4)`
+- [x] Docs usuario es/en + sección nueva en `.claude/skills/santisimo/SKILL.md`
+- [x] Verificar CA10-CA11
+- [x] Commit `feat(web+api): ... (M4)`
+
+**Done**: 2026-10-14 — El menú ⋮ de `SantisimoAdminView` es un div plano (no reka
+DropdownMenu), así que NO hace falta `useRekaDialogFix`; el ítem abre la cola montada sin
+`v-if`. Destinatarios filtrados por `type==='server'` **y** presencia en el mapa `guardia-links`
+(paridad con el backend: membresía activa, no borrado). Plantillas ofertadas: audiencia
+server|general, scope ≠ community. Migración `20261014120000` verificada por el dato contra
+copia aislada del worktree (`database.worktree.sqlite`): 1 plantilla global + 8 por retiro, CHECK
+vigente con el tipo nuevo, `PRAGMA foreign_key_check` limpio, recreate preservó las 39 globales
+existentes (39→40), mensaje con `{participant.santisimoGuardiaLink}` + aviso de no reenviar.
+tsc api 146 (baseline); vue-tsc 0; vitest 19/19 (locale coverage + SantisimoAdminView.help +
+PublicSantisimoServerView). Sin secretos nuevos versionados.
+
+**Nota CA10/CA11**: CA11 verificado arriba. CA10 (cola con enlace distinto por servidor en la
+UI real) se cierra en M5 con el dev del worktree arriba; la resolución por destinatario ya
+está cubierta por los tests de M2 en `WhatsAppSendQueue`.
+
+### Desviaciones 2026-10-14 (M4)
+
+- La skill del Santísimo vive versionada en `.ruler/skills/santisimo/SKILL.md` (la copia de
+  `.claude/skills/santisimo/` del checkout main es local y no versionada): la sección nueva
+  "Enlaces personales de guardia (invite cifrado)" + 2 entradas de troubleshooting entraron en
+  la versión versionada; la copia local del main se sincroniza al cerrar el feature.
 
 ## M5 — verificación end-to-end + reconcile
 
