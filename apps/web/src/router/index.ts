@@ -52,6 +52,7 @@ const MyScheduleView = () => import('../views/MyScheduleView.vue');
 const ScheduleTemplateView = () => import('../views/ScheduleTemplateView.vue');
 const AssignResponsiblesView = () => import('../views/AssignResponsiblesView.vue');
 const PublicSantisimoView = () => import('../views/PublicSantisimoView.vue');
+const PublicSantisimoServerView = () => import('../views/PublicSantisimoServerView.vue');
 const PublicMinuteByMinuteView = () => import('../views/PublicMinuteByMinuteView.vue');
 const RecepcionView = () => import('../views/RecepcionView.vue');
 const RetreatShirtTypesView = () => import('../views/RetreatShirtTypesView.vue');
@@ -145,6 +146,16 @@ const router = createRouter({
 			path: '/public/attendance/:communityId/:meetingId',
 			name: 'public-attendance',
 			component: () => import('../views/PublicAttendanceView.vue'),
+			props: true,
+			meta: { requiresAuth: false },
+		},
+		{
+			// Enlace personal cifrado de guardia para un servidor específico
+			// (specs/santisimo-guardia-links). Debe declararse antes que
+			// /santisimo/:slug para que "servidor" nunca se capture como slug.
+			path: '/santisimo/servidor/:token',
+			name: 'public-santisimo-server',
+			component: PublicSantisimoServerView,
 			props: true,
 			meta: { requiresAuth: false },
 		},

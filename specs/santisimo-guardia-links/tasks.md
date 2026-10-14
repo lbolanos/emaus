@@ -58,13 +58,25 @@ verdes, `tsc --noEmit` api en 146 (= baseline) y `vue-tsc --noEmit` web en 0.
 
 ## M3 — vista pública `/santisimo/servidor/:token`
 
-- [ ] Ruta `public-santisimo-server` con `requiresAuth:false`
-- [ ] `PublicSantisimoServerView.vue` (radios, badge de comida, guardar/cambiar/quitar, errores)
-- [ ] `api.ts`: 4 métodos + tipos en el grupo `santisimoApi`
-- [ ] i18n es+en (`santisimo.serverInvite.*`); allowlist lucide si hay ícono nuevo
-- [ ] Test Vitest de la vista (CA9 parcial)
-- [ ] `pnpm --filter web exec vue-tsc --noEmit` sin errores nuevos
-- [ ] Commit `feat(web): ... (M3)`
+- [x] Ruta `public-santisimo-server` con `requiresAuth:false`
+- [x] `PublicSantisimoServerView.vue` (radios, badge de comida, guardar/cambiar/quitar, errores)
+- [x] `api.ts`: 4 métodos + tipos en el grupo `santisimoApi`
+- [x] i18n es+en (`santisimo.serverInvite.*`); allowlist lucide si hay ícono nuevo
+- [x] Test Vitest de la vista (CA9 parcial)
+- [x] `pnpm --filter web exec vue-tsc --noEmit` sin errores nuevos
+- [x] Commit `feat(web): ... (M3)`
+
+**Done**: 2026-10-14 — 8 tests Vitest de la vista (columnas/radios/name único, badge 🍽
+solo en mealWindow, lleno deshabilitado, 404 → mensaje único, guardar + recarga, 409
+CAPACITY amigable, guardia actual con preselección y quitar, sin slots). Sin íconos lucide
+nuevos (✝ y 🍽 literales como en `PublicSantisimoView`), así que no se tocó el allowlist.
+vue-tsc 0; locales válidos y 17/17 en `src/locales/__tests__/`.
+
+### Desviaciones 2026-10-14 (M3)
+
+- `auditLocaleCoverage.test.ts` cazó que las acciones de audit de M1
+  (`santisimo_signup.invite_signup` / `.invite_cancel`) no tenían etiqueta i18n: añadidas
+  aquí a `audit.actions.santisimo_signup` en es+en (el hueco era de M1, el fix entra en M3).
 
 ## M4 — entrada admin + plantilla sembrada + docs
 
