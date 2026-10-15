@@ -28,6 +28,8 @@ import {
   ChevronDown,
   ChevronRight,
   GraduationCap,
+  // lucide 0.363 has no HousePlus — Home is the pays-at-the-house icon (D8).
+  Home,
   Download,
   Plus,
   Wallet,
@@ -58,7 +60,7 @@ const canRegisterPayment = computed(() => hasPermission('payment:create' as any)
 
 const search = ref('');
 const typeFilter = ref<'all' | 'walker' | 'server' | 'partial_server' | 'waiting'>('all');
-const statusFilter = ref<'all' | 'paz' | 'pending'>('all');
+const statusFilter = ref<'all' | 'paz' | 'pending' | 'house'>('all');
 
 const typeLabel = (type: string): string => {
   const known = ['walker', 'server', 'partial_server', 'waiting'];
@@ -81,12 +83,19 @@ const expectedOf = (p: any): number => p?.chargeBreakdown?.expected ?? 0;
 const paidOf = (p: any): number => p?.totalPaid ?? 0;
 const isPazYSalvo = (p: any): boolean => balanceOf(p) <= 0;
 
+// specs/pays-at-house D1/D4: la marca sustituye visualmente a "Pendiente"
+// mientras quede saldo (cubre unpaid y partial) y la beca tiene precedencia.
+const isPaysAtHouse = (p: any): boolean =>
+  !!p.paysAtHouse && !p.isScholarship && !isPazYSalvo(p);
+
 const statusLabel = (p: any): string =>
   p.isScholarship
     ? t('paymentManagement.balances.scholarship')
-    : isPazYSalvo(p)
-      ? t('paymentManagement.balances.statusPaz')
-      : t('paymentManagement.balances.statusPending');
+    : isPaysAtHouse(p)
+      ? t('paymentManagement.balances.statusPaysAtHouse')
+      : isPazYSalvo(p)
+        ? t('paymentManagement.balances.statusPaz')
+        : t('paymentManagement.balances.statusPending');
 
 // ---- Columnas configurables (persistidas en localStorage) ----
 const COLUMN_KEYS = ['type', 'expected', 'paid', 'balance', 'status'] as const;
@@ -187,8 +196,9 @@ const sortValue = (p: any, key: SortKey): string | number => {
     case 'balance':
       return balanceOf(p);
     case 'status':
-      // Becado < paz y salvo < pendiente (orden lógico de cobranza)
-      return p.isScholarship ? 0 : isPazYSalvo(p) ? 1 : 2;
+      // Becado < paz y salvo < pendiente < paga en la casa: los marcados van al
+      // final porque NO requieren recordatorio (specs/pays-at-house D5).
+      return p.isScholarship ? 0 : isPazYSalvo(p) ? 1 : isPaysAtHouse(p) ? 3 : 2;
   }
 };
 
@@ -205,6 +215,9 @@ const rows = computed(() => {
     .filter((p: any) => (typeFilter.value === 'all' ? true : p.type === typeFilter.value))
     .filter((p: any) => {
       if (statusFilter.value === 'all') return true;
+      // 'pending' aquí es "con saldo" (owing): los marcados siguen debiendo
+      // (specs/pays-at-house D6); 'house' aísla a los marcados.
+      if (statusFilter.value === 'house') return isPaysAtHouse(p);
       return statusFilter.value === 'paz' ? isPazYSalvo(p) : !isPazYSalvo(p);
     })
     .filter((p: any) => {
@@ -308,8 +321,36 @@ const toggleScholarship = async (p: any) => {
   }
 };
 
-// Recordatorio de pago por WhatsApp con el saldo pendiente.
-const canWhatsapp = (p: any): boolean => !isPazYSalvo(p) && !!p.cellPhone;
+const togglingPaysAtHouseId = ref<string | null>(null);
+
+// Toggle "paga en la casa de retiro" (specs/pays-at-house): mismo camino de
+// escritura que la beca (PUT /participants/:id + contextRetreatId). Solo
+// visible con saldo pendiente y sin beca (D1/D4).
+const togglePaysAtHouse = async (p: any) => {
+  const name = `${p.firstName} ${p.lastName}`.trim();
+  const message = p.paysAtHouse
+    ? t('paymentManagement.balances.confirmRemovePaysAtHouse', { name })
+    : t('paymentManagement.balances.confirmPaysAtHouse', { name });
+  if (!window.confirm(message)) return;
+
+  try {
+    togglingPaysAtHouseId.value = p.id;
+    await participantStore.updateParticipant(p.id, {
+      paysAtHouse: !p.paysAtHouse,
+      contextRetreatId: activeRetreatId.value,
+    } as any);
+    await participantStore.fetchParticipants();
+  } catch (error) {
+    console.error('Error toggling pays-at-house:', error);
+  } finally {
+    togglingPaysAtHouseId.value = null;
+  }
+};
+
+// Recordatorio de pago por WhatsApp con el saldo pendiente. Los marcados
+// "paga en la casa" se excluyen: no hay que insistirle (specs/pays-at-house D5).
+const canWhatsapp = (p: any): boolean =>
+  !isPazYSalvo(p) && !isPaysAtHouse(p) && !!p.cellPhone;
 
 const sendWhatsappReminder = (p: any) => {
   const message = t('paymentManagement.balances.reminderMessage', {
@@ -472,6 +513,7 @@ const exportToExcel = async () => {
           <SelectItem value="all">{{ $t('paymentManagement.balances.allStatus') }}</SelectItem>
           <SelectItem value="paz">{{ $t('paymentManagement.balances.statusPaz') }}</SelectItem>
           <SelectItem value="pending">{{ $t('paymentManagement.balances.statusPending') }}</SelectItem>
+          <SelectItem value="house">{{ $t('paymentManagement.balances.statusPaysAtHouse') }}</SelectItem>
         </SelectContent>
       </Select>
     </div>
@@ -574,6 +616,10 @@ const exportToExcel = async () => {
                   class="inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-800"
                 >{{ $t('paymentManagement.balances.scholarship') }}</span>
                 <span
+                  v-else-if="isPaysAtHouse(p)"
+                  class="inline-flex items-center rounded-full bg-sky-100 px-2 py-0.5 text-xs font-medium text-sky-800"
+                >{{ $t('paymentManagement.balances.statusPaysAtHouse') }}</span>
+                <span
                   v-else
                   class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium"
                   :class="isPazYSalvo(p) ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-800'"
@@ -625,6 +671,18 @@ const exportToExcel = async () => {
                     @click="toggleScholarship(p)"
                   >
                     <GraduationCap class="w-4 h-4" />
+                  </Button>
+                  <Button
+                    v-if="canEditParticipant && !p.isScholarship && !isPazYSalvo(p)"
+                    variant="outline"
+                    size="sm"
+                    :class="isPaysAtHouse(p) ? 'text-sky-700 border-sky-300 hover:bg-sky-50' : 'text-gray-600'"
+                    :disabled="togglingPaysAtHouseId === p.id"
+                    :title="p.paysAtHouse ? $t('paymentManagement.balances.removePaysAtHouse') : $t('paymentManagement.balances.markPaysAtHouse')"
+                    :aria-label="p.paysAtHouse ? $t('paymentManagement.balances.removePaysAtHouse') : $t('paymentManagement.balances.markPaysAtHouse')"
+                    @click="togglePaysAtHouse(p)"
+                  >
+                    <Home class="w-4 h-4" />
                   </Button>
                 </div>
               </TableCell>
@@ -684,6 +742,10 @@ const exportToExcel = async () => {
             class="inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-800"
           >{{ $t('paymentManagement.balances.scholarship') }}</span>
           <span
+            v-else-if="isPaysAtHouse(p)"
+            class="inline-flex items-center rounded-full bg-sky-100 px-2 py-0.5 text-xs font-medium text-sky-800"
+          >{{ $t('paymentManagement.balances.statusPaysAtHouse') }}</span>
+          <span
             v-else
             class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium"
             :class="isPazYSalvo(p) ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-800'"
@@ -741,6 +803,18 @@ const exportToExcel = async () => {
             @click="toggleScholarship(p)"
           >
             <GraduationCap class="w-4 h-4" />
+          </Button>
+          <Button
+            v-if="canEditParticipant && !p.isScholarship && !isPazYSalvo(p)"
+            variant="outline"
+            size="sm"
+            class="flex-1"
+            :class="isPaysAtHouse(p) ? 'text-sky-700 border-sky-300' : 'text-gray-600'"
+            :disabled="togglingPaysAtHouseId === p.id"
+            :aria-label="p.paysAtHouse ? $t('paymentManagement.balances.removePaysAtHouse') : $t('paymentManagement.balances.markPaysAtHouse')"
+            @click="togglePaysAtHouse(p)"
+          >
+            <Home class="w-4 h-4" />
           </Button>
           <Button
             variant="outline"

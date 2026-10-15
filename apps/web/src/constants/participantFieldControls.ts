@@ -56,6 +56,10 @@ const EXACT_FIELD_CONTROLS: Record<string, ParticipantFieldControlSpec> = {
   palancasReceivedCount: { control: 'number' },
   scholarshipAmount: { control: 'number' },
   mealCount: { control: 'number' },
+  // Per-retreat commitment flag ("pays on arrival at the retreat house") —
+  // starts with neither is/has/requests nor an EXTRA_BOOLEAN_KEYS stem, so
+  // without this entry the heuristics would classify it as free text.
+  paysAtHouse: { control: 'boolean' },
   // Per-retreat free-text size codes (G, L, XL…), not a closed list.
   tshirtSize: { control: 'text' },
   // Relation display fields — never edited as anything but plain text.

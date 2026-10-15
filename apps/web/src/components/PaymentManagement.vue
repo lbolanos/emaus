@@ -303,16 +303,27 @@
 						</div>
 					</div>
 					<div class="mt-6 flex flex-col-reverse sm:flex-row sm:justify-between gap-2">
-						<Button
-							v-if="!editingPayment"
-							type="button"
-							variant="outline"
-							class="text-blue-700 border-blue-300 hover:bg-blue-50"
-							:disabled="!paymentForm.participantId || paymentStore.loading || markingScholarship"
-							@click="markAsScholarship"
-						>
-							🎓 {{ $t('paymentManagement.modal.markScholarship') }}
-						</Button>
+						<div v-if="!editingPayment" class="flex flex-col-reverse sm:flex-row gap-2">
+							<Button
+								type="button"
+								variant="outline"
+								class="text-blue-700 border-blue-300 hover:bg-blue-50"
+								:disabled="!paymentForm.participantId || paymentStore.loading || markingScholarship"
+								@click="markAsScholarship"
+							>
+								🎓 {{ $t('paymentManagement.modal.markScholarship') }}
+							</Button>
+							<Button
+								v-if="selectedParticipant && !selectedParticipant.isScholarship"
+								type="button"
+								variant="outline"
+								class="text-sky-700 border-sky-300 hover:bg-sky-50"
+								:disabled="paymentStore.loading || markingPaysAtHouse"
+								@click="togglePaysAtHouse"
+							>
+								🏠 {{ selectedParticipant.paysAtHouse ? $t('paymentManagement.modal.removePaysAtHouse') : $t('paymentManagement.modal.markPaysAtHouse') }}
+							</Button>
+						</div>
 						<div v-else></div>
 						<div class="flex justify-end gap-2">
 							<Button type="button" variant="outline" @click="closePaymentModal">
@@ -654,6 +665,41 @@ const markAsScholarship = async () => {
 		console.error('Error marking participant as scholarship:', error);
 	} finally {
 		markingScholarship.value = false;
+	}
+};
+
+const markingPaysAtHouse = ref(false);
+
+// specs/pays-at-house: toggle del modal de pago. Oculto para becados (D4 —
+// marcar la beca limpia la marca en el backend). Reutiliza las confirmaciones
+// de Saldos para no bifurcar el texto.
+const selectedParticipant = computed(() =>
+	participants.value.find((p: any) => p.id === paymentForm.value.participantId) ?? null,
+);
+
+const togglePaysAtHouse = async () => {
+	const participant = selectedParticipant.value;
+	if (!participant) return;
+
+	const name = `${participant.firstName} ${participant.lastName}`.trim();
+	const message = participant.paysAtHouse
+		? t('paymentManagement.balances.confirmRemovePaysAtHouse', { name })
+		: t('paymentManagement.balances.confirmPaysAtHouse', { name });
+	if (!window.confirm(message)) return;
+
+	try {
+		markingPaysAtHouse.value = true;
+		await participantStore.updateParticipant(participant.id, {
+			paysAtHouse: !participant.paysAtHouse,
+			contextRetreatId: activeRetreatId.value,
+		} as any);
+		closePaymentModal();
+		await participantStore.fetchParticipants();
+		loadSummary();
+	} catch (error) {
+		console.error('Error toggling pays-at-house:', error);
+	} finally {
+		markingPaysAtHouse.value = false;
 	}
 };
 

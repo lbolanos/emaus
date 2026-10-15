@@ -3148,6 +3148,8 @@ export interface ReceptionParticipant {
   totalPaid: number;
   tableName: string | null;
   isScholarship: boolean;
+  /** Walker committed to pay on arrival (specs/pays-at-house, D7 badge). */
+  paysAtHouse: boolean;
 }
 
 export interface ReceptionStats {

@@ -370,6 +370,8 @@
       "reference": "Número de Referencia",
       "notes": "Notas",
       "markScholarship": "Marcar como Becado",
+      "markPaysAtHouse": "Marcar que paga en la casa",
+      "removePaysAtHouse": "Quitar «paga en la casa»",
       "cancel": "Cancelar",
       "update": "Actualizar",
       "save": "Guardar"
@@ -407,6 +409,10 @@
       "removeScholarship": "Quitar beca",
       "confirmScholarship": "¿Marcar a {name} como becado? Quedará exento de todo cobro (paz y salvo).",
       "confirmRemoveScholarship": "¿Quitar la beca a {name}? Volverá a aplicar el cobro según su tipo.",
+      "markPaysAtHouse": "Marcar que paga en la casa",
+      "removePaysAtHouse": "Quitar «paga en la casa»",
+      "confirmPaysAtHouse": "¿Marcar que {name} pagará al llegar a la casa de retiro? El saldo se conserva; solo se dejan de enviar recordatorios de cobro.",
+      "confirmRemovePaysAtHouse": "¿Quitar la marca de {name}? Volverá a mostrarse como pendiente y a recibir recordatorios.",
       "expected": "Esperado",
       "paid": "Pagado",
       "toCollect": "Por cobrar",
@@ -416,6 +422,7 @@
       "allStatus": "Todos",
       "statusPaz": "Paz y salvo",
       "statusPending": "Pendiente",
+      "statusPaysAtHouse": "Paga en la casa",
       "participant": "Participante",
       "type": "Tipo",
       "balance": "Balance",
@@ -1250,6 +1257,7 @@
           "unpaid": "No pagado",
           "overpaid": "Sobrepagado",
           "scholarship": "Becado",
+          "pays_at_house": "Paga en la casa",
           "owing": "Con saldo pendiente"
         },
         "maritalStatus": {
@@ -1616,6 +1624,7 @@
     "noTable": "Sin mesa",
     "charge": "Cobrar",
     "scholarship": "Beca",
+    "paysAtHouse": "Paga en la casa",
     "amount": "Monto",
     "method": "Método",
     "methodCash": "Efectivo",
@@ -3607,6 +3616,7 @@
       "unpaid": "Sin pagar",
       "overpaid": "Sobrepagado",
       "scholarship": "Beca",
+      "pays_at_house": "Paga en la casa",
       "owing": "Con saldo pendiente"
     },
     "opened": "Abierto",

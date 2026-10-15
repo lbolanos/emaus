@@ -370,6 +370,8 @@
       "reference": "Reference Number",
       "notes": "Notes",
       "markScholarship": "Mark as Scholarship",
+      "markPaysAtHouse": "Mark as pays at the retreat house",
+      "removePaysAtHouse": "Remove pays-at-the-house",
       "cancel": "Cancel",
       "update": "Update",
       "save": "Save"
@@ -407,6 +409,10 @@
       "removeScholarship": "Remove scholarship",
       "confirmScholarship": "Mark {name} as scholarship? They will be exempt from all charges (cleared).",
       "confirmRemoveScholarship": "Remove scholarship from {name}? Charges will apply again based on their type.",
+      "markPaysAtHouse": "Mark as pays at the retreat house",
+      "removePaysAtHouse": "Remove pays-at-the-house",
+      "confirmPaysAtHouse": "Mark that {name} will pay on arrival at the retreat house? The balance stays; payment reminders just stop.",
+      "confirmRemovePaysAtHouse": "Remove the pays-at-the-house mark from {name}? They will show as pending again and receive reminders.",
       "expected": "Expected",
       "paid": "Paid",
       "toCollect": "To collect",
@@ -416,6 +422,7 @@
       "allStatus": "All",
       "statusPaz": "Cleared",
       "statusPending": "Pending",
+      "statusPaysAtHouse": "Pays at the house",
       "participant": "Participant",
       "type": "Type",
       "balance": "Balance",
@@ -1195,6 +1202,7 @@
           "unpaid": "Unpaid",
           "overpaid": "Overpaid",
           "scholarship": "Scholarship",
+          "pays_at_house": "Pays at the house",
           "owing": "Outstanding balance"
         },
         "maritalStatus": {
@@ -1618,6 +1626,9 @@
     "walkersWithoutPalancas": "Without Palancas",
     "totalPalancasReceived": "Total Palancas",
     "palancasUnknown": "Letters not captured"
+  },
+  "reception": {
+    "paysAtHouse": "Pays at the house"
   },
   "retreatFlyer": {
     "printButton": "Print Flyer",
@@ -3283,6 +3294,7 @@
       "unpaid": "Unpaid",
       "overpaid": "Overpaid",
       "scholarship": "Scholarship",
+      "pays_at_house": "Pays at the house",
       "owing": "Outstanding balance"
     },
     "opened": "Opened",

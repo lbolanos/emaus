@@ -64,21 +64,36 @@ undefined` nunca disparaba al marcar la beca. La higiene ahora es incondicional 
 
 ## M3 — Frontend
 
-- [ ] `ParticipantBalances.vue`: helper, `statusLabel`, badge sky, toggle `HousePlus`,
+- [x] `ParticipantBalances.vue`: helper, `statusLabel`, badge sky, toggle `HousePlus`,
       ocultar en becados, `canWhatsapp` (D5), filtro `house`, orden
-- [ ] `PaymentManagement.vue`: botón del modal junto a "Marcar como Becado"
-- [ ] Palancas: acción rápida inline por fila (gate `participant:update`) + indicador
-- [ ] `EditParticipantForm.vue`: grupo Financiero + layout palancas
-- [ ] `ParticipantList.vue`: statusMap + color/emoji
-- [ ] `FilterDialog.vue` + `sequenceEditorShared.ts` (CONDITION_PAYMENTS)
-- [ ] `participantFieldControls.ts`: entrada boolean exacta
-- [ ] `RecepcionView.vue`: badge (D7)
-- [ ] i18n es + en (todas las keys de plan.md)
-- [ ] `setup.ts`: `HousePlus` en el allowlist de lucide
-- [ ] `pnpm --filter web test` en verde + typecheck
-- [ ] Commit `feat(web): pays-at-house status across surfaces`
+- [x] `PaymentManagement.vue`: botón del modal junto a "Marcar como Becado"
+- [x] Palancas: acción rápida inline por fila (gate `participant:update`) + indicador
+- [x] `EditParticipantForm.vue`: grupo Financiero + layout palancas
+- [x] `ParticipantList.vue`: statusMap + color/emoji
+- [x] `FilterDialog.vue` + `sequenceEditorShared.ts` (CONDITION_PAYMENTS)
+- [x] `participantFieldControls.ts`: entrada boolean exacta
+- [x] `RecepcionView.vue`: badge (D7)
+- [x] i18n es + en (todas las keys de plan.md)
+- [x] `setup.ts`: `HousePlus` en el allowlist de lucide
+- [x] `pnpm --filter web test` en verde + typecheck
+- [x] Commit `feat(web): pays-at-house status across surfaces`
 
-**Done**:
+**Done**: 2026-10-15. Suite web 215 archivos / 3253 tests en verde; `vue-tsc --noEmit` limpio.
+El botón de Cobrar de Recepción quedó con `v-if="!p.isScholarship && !p.totalPaid"` explícito
+(mismo comportamiento que el `v-else-if` original: se desacopló de la cadena del badge Beca para
+que badge y Cobrar convivan en un marcado).
+
+### Desviaciones
+
+- **Icono**: `lucide-vue-next` 0.363.0 (la versión pinneada) no exporta `HousePlus` — se usó
+  `Home`, que ya estaba en el allowlist de `setup.ts` (la entrada nueva de `HousePlus` se agregó
+  y se retiró). El botón del modal de pago usa el emoji 🏠 en el label, sin ícono.
+- **Badge de Recepción (CA 7)**: el payload de recepción no trae monto esperado (el operador
+  teclea el monto a cobrar a mano), así que el badge se oculta con `!p.totalPaid` — el mismo
+  umbral que ya usaba el botón Cobrar. "Cobro completo → badge desaparece" se cumple, y también
+  con un pago parcial registrado en la puerta (borrar el pago lo restaura, D3).
+- `en.json` no tenía bloque `reception` (la vista vive solo en es con fallback); se agregó el
+  bloque mínimo con `reception.paysAtHouse` para cumplir la regla de key en ambos locales.
 
 ## M4 — Verificación end-to-end + cierre
 
