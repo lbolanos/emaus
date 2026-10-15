@@ -64,6 +64,7 @@ const makeShirtSize = (shirtType: RetreatShirtType, size = 'M'): ParticipantShir
 const makeParticipant = (opts: {
 	type?: 'walker' | 'server' | 'waiting' | 'partial_server';
 	isScholarship?: boolean;
+	paysAtHouse?: boolean;
 	payments?: Payment[];
 	debts?: ParticipantDebt[];
 	mealCount?: number | null;
@@ -74,6 +75,7 @@ const makeParticipant = (opts: {
 	const p = new Participant();
 	if (opts.type !== undefined) (p as any).type = opts.type;
 	p.isScholarship = !!opts.isScholarship;
+	if (opts.paysAtHouse !== undefined) p.paysAtHouse = opts.paysAtHouse;
 	p.payments = opts.payments ?? ([] as any);
 	p.debts = opts.debts ?? ([] as any);
 	if (opts.mealCount !== undefined) p.mealCount = opts.mealCount;
@@ -177,6 +179,94 @@ describe('Participant.paymentStatus', () => {
 			retreat: makeRetreat('$1,500.00'),
 		});
 		expect(p.paymentStatus).toBe('paid');
+	});
+});
+
+// Especificación: specs/pays-at-house (D1-D8). La marca "paga en la casa de
+// retiro" sustituye visualmente a Pendiente mientras quede saldo; NO exime
+// del cobro (a diferencia de la beca) y el estado sigue siendo derivado.
+describe('Participant.paymentStatus — pays_at_house', () => {
+	it('marca + sin pagos → "pays_at_house" (sustituye visualmente a "unpaid")', () => {
+		const p = makeParticipant({
+			paysAtHouse: true,
+			payments: [],
+			retreat: makeRetreat('1500'),
+		});
+		expect(p.paymentStatus).toBe('pays_at_house');
+		// Sigue debiendo: no exime del cobro (D6).
+		expect(p.paymentRemaining).toBe(1500);
+	});
+
+	it('marca + pago parcial → "pays_at_house" (D1: cubre unpaid y partial)', () => {
+		const p = makeParticipant({
+			paysAtHouse: true,
+			payments: [makePayment(500)],
+			retreat: makeRetreat('1500'),
+		});
+		expect(p.paymentStatus).toBe('pays_at_house');
+		expect(p.paymentRemaining).toBe(1000);
+	});
+
+	it('marca + pago completo → "paid" (D3: la marca persiste, el estado deriva a paid)', () => {
+		const p = makeParticipant({
+			paysAtHouse: true,
+			payments: [makePayment(1500)],
+			retreat: makeRetreat('1500'),
+		});
+		// La marca queda como auditoría de lo acordado, pero ya no debe nada.
+		expect(p.paysAtHouse).toBe(true);
+		expect(p.paymentStatus).toBe('paid');
+	});
+
+	it('marca + pago de más → "overpaid" (el pago de más domina)', () => {
+		const p = makeParticipant({
+			paysAtHouse: true,
+			payments: [makePayment(2000)],
+			retreat: makeRetreat('1500'),
+		});
+		expect(p.paymentStatus).toBe('overpaid');
+	});
+
+	it('beca gana sobre la marca (D4: precedencia scholarship > pays_at_house)', () => {
+		const p = makeParticipant({
+			isScholarship: true,
+			paysAtHouse: true,
+			payments: [],
+			retreat: makeRetreat('1500'),
+		});
+		expect(p.paymentStatus).toBe('scholarship');
+	});
+
+	it('expected 0 (angelito sin comidas) → "paid" aunque esté marcado', () => {
+		const p = makeParticipant({
+			type: 'partial_server',
+			paysAtHouse: true,
+			mealCount: 0,
+			retreat: makeRetreat('$2,800'),
+		});
+		expect(p.chargeBreakdown.expected).toBe(0);
+		expect(p.paymentStatus).toBe('paid');
+	});
+
+	it('sin marca: regresión exacta de los estados previos (unpaid/partial/paid)', () => {
+		const unpaid = makeParticipant({ payments: [], retreat: makeRetreat('1500') });
+		const partial = makeParticipant({ payments: [makePayment(500)], retreat: makeRetreat('1500') });
+		const paid = makeParticipant({ payments: [makePayment(1500)], retreat: makeRetreat('1500') });
+		expect(unpaid.paysAtHouse).toBeUndefined();
+		expect(unpaid.paymentStatus).toBe('unpaid');
+		expect(partial.paymentStatus).toBe('partial');
+		expect(paid.paymentStatus).toBe('paid');
+	});
+
+	it('toJSON serializa paysAtHouse y el estado nuevo', () => {
+		const p = makeParticipant({
+			paysAtHouse: true,
+			payments: [],
+			retreat: makeRetreat('1500'),
+		});
+		const json: any = p.toJSON();
+		expect(json.paysAtHouse).toBe(true);
+		expect(json.paymentStatus).toBe('pays_at_house');
 	});
 });
 
@@ -488,6 +578,7 @@ describe('RetreatParticipant overlay onto Participant', () => {
 		bagMade?: boolean | null;
 		isScholarship?: boolean | null;
 		scholarshipAmount?: number | null;
+		paysAtHouse?: boolean | null;
 		palancasCoordinator?: string | null;
 		palancasRequested?: boolean | null;
 		palancasReceived?: string | null;
@@ -512,6 +603,7 @@ describe('RetreatParticipant overlay onto Participant', () => {
 			p.family_friend_color = h.familyFriendColor ?? undefined;
 		p.bagMade = h.bagMade ?? false;
 		p.isScholarship = h.isScholarship ?? false;
+		p.paysAtHouse = h.paysAtHouse ?? false;
 		if (h.scholarshipAmount !== undefined)
 			p.scholarshipAmount = h.scholarshipAmount;
 		if (h.palancasCoordinator !== undefined)
@@ -549,6 +641,37 @@ describe('RetreatParticipant overlay onto Participant', () => {
 		p.id = 'pid-1';
 		overlay(p, { participantId: 'pid-1', scholarshipAmount: 1500 });
 		expect(p.scholarshipAmount).toBe(1500);
+	});
+
+	it('hydrates paysAtHouse from the retreat_participants row (default false)', () => {
+		const marked = new Participant();
+		marked.id = 'pid-1';
+		overlay(marked, { participantId: 'pid-1', paysAtHouse: true });
+		expect(marked.paysAtHouse).toBe(true);
+
+		const unmarked = new Participant();
+		unmarked.id = 'pid-1';
+		overlay(unmarked, { participantId: 'pid-1' });
+		expect(unmarked.paysAtHouse).toBe(false);
+	});
+
+	it('produces different pays-at-house state for the same participant on different retreats', () => {
+		// specs/pays-at-house: la marca es per-retiro. Mismo participante marcado
+		// en A y normal en B → estados derivados distintos por retiro.
+		const onA = new Participant();
+		onA.id = 'pid-1';
+		(onA as any).retreat = makeRetreat('1500');
+		(onA as any).payments = [];
+		overlay(onA, { participantId: 'pid-1', paysAtHouse: true });
+
+		const onB = new Participant();
+		onB.id = 'pid-1';
+		(onB as any).retreat = makeRetreat('1500');
+		(onB as any).payments = [];
+		overlay(onB, { participantId: 'pid-1', paysAtHouse: false });
+
+		expect(onA.paymentStatus).toBe('pays_at_house');
+		expect(onB.paymentStatus).toBe('unpaid');
 	});
 
 	it('produces different scholarship state for the same participant on different retreats', () => {
@@ -611,6 +734,7 @@ describe('RetreatParticipant overlay onto Participant', () => {
 			.map((c: any) => c.propertyName);
 		expect(cols).not.toContain('isScholarship');
 		expect(cols).not.toContain('scholarshipAmount');
+		expect(cols).not.toContain('paysAtHouse');
 	});
 
 	it('hydrates palancas fields from retreat_participants', () => {

@@ -36,17 +36,31 @@ etc., ninguno en archivos tocados — verificado por grep); el gate de tipos rec
 
 ## M2 — Backend: tests
 
-- [ ] `paymentStatus.test.ts`: marca+unpaid, marca+partial (D1), marca+paid, marca+overpaid,
-      precedencia beca (D4), expected 0, sin marca = regresión exacta
-- [ ] `crossRetreatPayments.test.ts`: overlay per-retiro sin mezclar
-- [ ] Nuevo segment test: `pays_at_house` matchea / `owing` incluye / `unpaid` excluye (D2);
-      pagó todo deja de matchear
-- [ ] Update test: escribe fila del retiro de contexto; beca limpia marca; false persiste
-- [ ] `receptionTotalPaid.integration.test.ts`: expone bool; pago completo → paid
-- [ ] Suite api en verde (una sola corrida de jest)
-- [ ] Commit `test(api): pays-at-house coverage`
+- [x] `paymentStatus.test.ts`: marca+unpaid, marca+partial (D1), marca+paid, marca+overpaid,
+      precedencia beca (D4), expected 0, sin marca = regresión exacta (+ toJSON, overlay
+      per-retiro, metadata: no es columna de `participants`)
+- [x] `crossRetreatPayments.test.ts`: overlay per-retiro sin mezclar (marcado en A, normal en B)
+- [x] Segment tests (`savedSegment.test.ts`): `pays_at_house` matchea / `owing` incluye /
+      `unpaid` y `partial` excluyen (D2); pagó todo deja de matchear y la marca persiste (D3)
+- [x] Update tests (`paysAtHouseWritePath.test.ts` nuevo): fila del retiro de contexto; beca
+      limpia marca; false persiste; payload legacy sin el campo no borra; contextRetreatId de
+      otro retiro no toca la fila primaria
+- [x] `receptionTotalPaid.integration.test.ts`: expone bool en pendingList y arrivedList (D7)
+- [x] Suite api en verde — 2 shards secuenciales con `--max-old-space-size=8192` (299 suites,
+      4605 tests passed, 0 failed)
+- [x] Commit `test(api): pays-at-house coverage`
 
-**Done**:
+**Done**: 2026-10-15. El test D4 cazó un bug real en la higiene de M1: el payload de la UI
+reenvía la ficha hidratada (con `paysAtHouse: true`), así que el guard `paysAtHouse ===
+undefined` nunca disparaba al marcar la beca. La higiene ahora es incondicional cuando
+`isScholarship === true` (participanService.ts:3156).
+
+### Desviaciones 2026-10-15
+
+- El test de segmentos vive en `savedSegment.test.ts` (donde ya estaba el setup de
+  `evaluateFilters`) y no en un archivo nuevo, como decía el plan.
+- "Pago completo → paid" de recepción quedó cubierto por los casos del getter (el payload de
+  recepción no expone `paymentStatus`; la vista computa el badge con el costo del retiro).
 
 ## M3 — Frontend
 

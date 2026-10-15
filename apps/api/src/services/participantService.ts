@@ -3156,8 +3156,11 @@ export const updateParticipant = async (
     if (paysAtHouse !== undefined) rpUpdates.paysAtHouse = !!paysAtHouse;
     // Data hygiene: a scholarship participant is exempt from everything, so
     // the pays-at-house commitment is meaningless — enabling the scholarship
-    // clears it (mirrors the scholarshipAmount hygiene below).
-    if (isScholarship === true && paysAtHouse === undefined) {
+    // always clears it. Unconditional on purpose: the client re-sends the
+    // whole hydrated DTO, so a stale `paysAtHouse: true` rides along when the
+    // user marks the scholarship and the `!== undefined` guard above would
+    // keep it (caught by paysAtHouseWritePath.test.ts, D4).
+    if (isScholarship === true) {
       rpUpdates.paysAtHouse = false;
     }
     if (scholarshipAmount !== undefined)
