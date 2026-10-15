@@ -209,6 +209,10 @@ export class Participant {
 	// Virtual — populated from retreat_participants at query time.
 	scholarshipAmount?: number | null;
 
+	// Virtual — populated from retreat_participants at query time. El participante
+	// comprometió pagar al llegar el viernes a la casa de retiro; no exime del cobro.
+	paysAtHouse?: boolean;
+
 	// Source of truth lives in retreat_participants; legacy column kept for
 	// backward compatibility (overlay reads from retreat_participants).
 	@Column({ type: 'varchar', nullable: true })
@@ -495,8 +499,16 @@ export class Participant {
 	 * "Paz y salvo" = balance en 0 (totalPaid >= expected).
 	 * 'paid': a paz y salvo · 'partial': pago parcial · 'unpaid': sin pagos y con deuda
 	 * 'overpaid': pagó de más · 'scholarship': becado (exento de todo)
+	 * 'pays_at_house': comprometió pagar al llegar el viernes a la casa de retiro;
+	 * sigue debiendo (sustituye visualmente a unpaid/partial), beca gana si coinciden.
 	 */
-	get paymentStatus(): 'paid' | 'partial' | 'unpaid' | 'overpaid' | 'scholarship' {
+	get paymentStatus():
+		| 'paid'
+		| 'partial'
+		| 'unpaid'
+		| 'overpaid'
+		| 'scholarship'
+		| 'pays_at_house' {
 		if (this.isScholarship) {
 			return 'scholarship';
 		}
@@ -509,6 +521,7 @@ export class Participant {
 
 		if (expected > 0 && total > expected) return 'overpaid';
 		if (expected === 0) return 'paid'; // no debe nada → paz y salvo
+		if (this.paysAtHouse && total < expected) return 'pays_at_house';
 		if (total === 0) return 'unpaid';
 		if (total < expected) return 'partial';
 		return 'paid';
@@ -544,6 +557,7 @@ export class Participant {
 		if (this.messageCount !== undefined) plainObject.messageCount = this.messageCount;
 		if (this.mealCount !== undefined) plainObject.mealCount = this.mealCount;
 		if (this.takesFridayMeal !== undefined) plainObject.takesFridayMeal = this.takesFridayMeal;
+		if (this.paysAtHouse !== undefined) plainObject.paysAtHouse = this.paysAtHouse;
 
 		return plainObject;
 	}

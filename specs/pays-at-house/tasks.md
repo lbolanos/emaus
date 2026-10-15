@@ -12,23 +12,27 @@
 - [x] `specs/pays-at-house/research.md`
 - [x] `specs/pays-at-house/plan.md`
 - [x] `specs/pays-at-house/tasks.md`
-- [ ] **Gate**: Leonardo revisa el spec (en particular D1-D8) antes de codear M1
+- [x] **Gate**: Leonardo revisa el spec (en particular D1-D8) antes de codear M1 — aprobado
+      2026-10-15 ("listo realiza todo con e2e tests al final"); se agrega e2e Playwright a M4
 
 ## M1 — Backend: modelo + migración + exposición
 
-- [ ] Migration `20261015120000_AddPaysAtHouseToRetreatParticipants.ts` (up/down, SQL plano)
-- [ ] `CreateSchema.ts`: columna en el CREATE TABLE de `retreat_participants`
-- [ ] `retreatParticipant.entity.ts`: `@Column paysAtHouse`
-- [ ] `participant.entity.ts`: virtual + getter `paymentStatus` + `toJSON`
-- [ ] Hidratación: `participantRetreatHydration.ts`, `findAllParticipants` (select + overlay),
+- [x] Migration `20261015120000_AddPaysAtHouseToRetreatParticipants.ts` (up/down, SQL plano,
+      guarda idempotencia por PRAGMA table_info)
+- [x] `CreateSchema.ts`: columna en el CREATE TABLE de `retreat_participants`
+- [x] `retreatParticipant.entity.ts`: `@Column paysAtHouse`
+- [x] `participant.entity.ts`: virtual + getter `paymentStatus` + `toJSON`
+- [x] Hidratación: `participantRetreatHydration.ts`, `findAllParticipants` (select + overlay),
       `evaluateFilters`, `getReceptionStats`
-- [ ] `updateParticipant`: destructure + `rpUpdates` + higiene D4 + `oldAuditSnapshot`
-- [ ] Tipos: `participantSchema`, `segment.ts`, `savedSegment.entity.ts`
-- [ ] `aiChatService.getParticipantDetails` expone el bool
-- [ ] Migración corre en el dev del worktree; `PRAGMA table_info(retreat_participants)` ok
-- [ ] Commit `feat(api): pays-at-house payment status flag`
+- [x] `updateParticipant`: destructure + `rpUpdates` + higiene D4 + `oldAuditSnapshot` +
+      virtuales del retorno
+- [x] Tipos: `participantSchema`, `segment.ts`, `savedSegment.entity.ts`
+- [x] `aiChatService.getParticipantDetails` expone el bool
+- [x] Migración corre en el worktree (CLI); `PRAGMA table_info` muestra `paysAtHouse`, 606 filas
+- [x] Commit `feat(api): pays-at-house payment status flag`
 
-**Done**:
+**Done**: 2026-10-15. tsc --noEmit tiene 146 errores preexistentes en master (tableMesaService
+etc., ninguno en archivos tocados — verificado por grep); el gate de tipos recae en build+jest.
 
 ## M2 — Backend: tests
 

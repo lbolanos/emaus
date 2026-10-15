@@ -538,6 +538,7 @@ export async function createChatStream(
 						tshirtSize: p.tshirtSize || null,
 						invitedBy: p.invitedBy || null,
 						isScholarship: p.isScholarship,
+						paysAtHouse: p.paysAtHouse ?? false,
 						isCancelled: p.isCancelled,
 						totalPaid: p.totalPaid,
 						paymentStatus: p.paymentStatus,
