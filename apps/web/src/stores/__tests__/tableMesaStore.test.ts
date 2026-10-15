@@ -316,7 +316,7 @@ describe('TableMesaStore', () => {
 	});
 
 	describe('createTable', () => {
-		it('should create table with auto-incremented name', async () => {
+		it('lets the API name the table instead of numbering from the local list', async () => {
 			const { api } = await import('@/services/api');
 			store.tables = [
 				{ id: 'table-1', name: 'Mesa 1', retreatId: 'test-retreat-id' },
@@ -327,12 +327,23 @@ describe('TableMesaStore', () => {
 
 			await store.createTable();
 
-			expect(api.post).toHaveBeenCalledWith('/tables', {
-				name: 'Mesa 3',
-				retreatId: 'test-retreat-id',
-			});
+			expect(api.post).toHaveBeenCalledWith('/tables', { retreatId: 'test-retreat-id' });
 			expect(store.tables).toHaveLength(3);
 			expect(store.tables[2]).toEqual(newTable);
+		});
+
+		it('ignores a second click while the first creation is still in flight', async () => {
+			const { api } = await import('@/services/api');
+			(api.post as any).mockClear();
+			let resolvePost!: (value: unknown) => void;
+			(api.post as any).mockReturnValueOnce(new Promise((resolve) => (resolvePost = resolve)));
+
+			const first = store.createTable();
+			await store.createTable();
+			resolvePost({ data: { id: 'table-9', name: 'Mesa 9', retreatId: 'test-retreat-id' } });
+			await first;
+
+			expect(api.post).toHaveBeenCalledTimes(1);
 		});
 
 		it('should return early if no retreat selected', async () => {
@@ -358,36 +369,6 @@ describe('TableMesaStore', () => {
 				description: 'Failed to create table',
 				variant: 'destructive',
 			});
-		});
-	});
-
-	describe('createTable - names after a rename', () => {
-		it('skips "Mesa N" when a renamed table already uses it', async () => {
-			const { api } = await import('@/services/api');
-			store.tables = [
-				{ id: 'table-1', name: 'Mesa 1', retreatId: 'test-retreat-id' },
-				{ id: 'table-2', name: 'Mesa 3', retreatId: 'test-retreat-id' },
-			];
-			(api.post as any).mockResolvedValue({ data: { id: 'table-3', name: 'Mesa 4' } });
-
-			await store.createTable();
-
-			expect(api.post).toHaveBeenCalledWith('/tables', {
-				name: 'Mesa 4',
-				retreatId: 'test-retreat-id',
-			});
-		});
-	});
-
-	describe('nextTableName', () => {
-		it('returns "Mesa {count + 1}" when it is free', async () => {
-			const { nextTableName } = await import('../tableMesaStore');
-			expect(nextTableName(['Mesa 1', 'Mesa 2'])).toBe('Mesa 3');
-		});
-
-		it('skips names already taken, ignoring case and extra spaces', async () => {
-			const { nextTableName } = await import('../tableMesaStore');
-			expect(nextTableName(['Mesa 1', ' mesa  3', 'MESA 4'])).toBe('Mesa 5');
 		});
 	});
 

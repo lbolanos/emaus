@@ -20,20 +20,6 @@ import { useParticipantStore } from './participantStore';
 
 const compareTableNames = createLocaleComparator('es');
 
-/** Key used to tell two table names apart, the same way the API does ("mesa 3" == "Mesa 3"). */
-const tableNameKey = (name: string) => name.trim().replace(/\s+/g, ' ').toLocaleLowerCase('es');
-
-/**
- * "Mesa {count + 1}" unless a renamed table already holds that name; then the
- * next free number, so a new table never duplicates an existing one.
- */
-export const nextTableName = (existingNames: string[]): string => {
-	const taken = new Set(existingNames.map(tableNameKey));
-	let candidate = existingNames.length + 1;
-	while (taken.has(tableNameKey(`Mesa ${candidate}`))) candidate++;
-	return `Mesa ${candidate}`;
-};
-
 export const useTableMesaStore = defineStore('tableMesa', () => {
 	const tables = ref<TableMesa[]>([]);
 	const isLoading = ref(false);
@@ -211,18 +197,21 @@ export const useTableMesaStore = defineStore('tableMesa', () => {
 		}
 	};
 
+	const isCreatingTable = ref(false);
+
 	const createTable = async () => {
-		if (!retreatStore.selectedRetreatId) return;
+		if (!retreatStore.selectedRetreatId || isCreatingTable.value) return;
+		isCreatingTable.value = true;
 		try {
-			const newTableData = {
-				name: nextTableName(tables.value.map((t) => t.name)),
-				retreatId: retreatStore.selectedRetreatId,
-			};
-			const newTable = await api.post('/tables', newTableData);
+			// No name: the API numbers the table from the stored ones. Numbering from this list
+			// duplicated "Mesa 9" when it was stale or a second click left before the first returned.
+			const newTable = await api.post('/tables', { retreatId: retreatStore.selectedRetreatId });
 			tables.value.push(newTable.data);
 		} catch (e: any) {
 			console.error('Failed to create table', e);
 			toast({ title: 'Error', description: 'Failed to create table', variant: 'destructive' });
+		} finally {
+			isCreatingTable.value = false;
 		}
 	};
 

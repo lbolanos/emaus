@@ -81,6 +81,9 @@ export const getTable = async (req: Request, res: Response, next: NextFunction) 
 
 export const createTable = async (req: Request, res: Response, next: NextFunction) => {
 	try {
+		if (!req.body?.retreatId) {
+			return res.status(400).json({ message: 'retreatId is required' });
+		}
 		const newTable = await tableMesaService.createTable(req.body);
 		res.status(201).json(newTable);
 	} catch (error: any) {

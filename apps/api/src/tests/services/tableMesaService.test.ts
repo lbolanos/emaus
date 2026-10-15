@@ -225,6 +225,34 @@ describe('Table Mesa Service', () => {
 
 			expect(createdTables).toHaveLength(3);
 		});
+
+		test('numbers a table created without name from the stored tables', async () => {
+			// The factory leaves "Table 1".."Table 5".
+			const newTable = await tableMesaService.createTable(
+				{ retreatId: testRetreat.id },
+				getTestDataSource(),
+			);
+
+			expect(newTable.name).toBe('Mesa 6');
+		});
+
+		test('does not duplicate a requested name that is already taken (stale client list)', async () => {
+			const newTable = await tableMesaService.createTable(
+				{ name: ' table  5', retreatId: testRetreat.id },
+				getTestDataSource(),
+			);
+
+			expect(newTable.name).toBe('Mesa 6');
+		});
+
+		test('two creations in flight for the same retreat get distinct numbers', async () => {
+			const created = await Promise.all([
+				tableMesaService.createTable({ retreatId: testRetreat.id }, getTestDataSource()),
+				tableMesaService.createTable({ retreatId: testRetreat.id }, getTestDataSource()),
+			]);
+
+			expect(created.map((t) => t.name).sort()).toEqual(['Mesa 6', 'Mesa 7']);
+		});
 	});
 
 	describe('createDefaultTablesForRetreat', () => {
@@ -1006,7 +1034,8 @@ describe('Table Mesa Service', () => {
 			).map((t) => t.name);
 			expect(names).toHaveLength(7);
 			expect(new Set(names).size).toBe(7);
-			expect(names).toEqual(expect.arrayContaining(['Mesa 6', 'Mesa 7', 'Mesa 8']));
+			// "Table 1".."Table 4" and the renamed "Mesa 6" hold 1-4 and 6: the gap (5) is used first.
+			expect(names).toEqual(expect.arrayContaining(['Mesa 5', 'Mesa 6', 'Mesa 7']));
 		});
 	});
 });

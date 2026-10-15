@@ -10,6 +10,7 @@ import { In } from 'typeorm';
 import { tableMesaSchema } from '@repo/types';
 import { formatDate as formatDateUtil } from '@repo/utils';
 import { sortByName as sortByTableName } from '../utils/naturalSort';
+import { nextTableName } from '../utils/tableNaming';
 import { domainAuditService, DomainAuditAction } from './domainAuditService';
 
 export const MAX_WALKERS_PER_TABLE = 7;
@@ -29,14 +30,20 @@ export class DuplicateTableNameError extends Error {
 	}
 }
 
-/**
- * Next "Mesa N" whose name no table of the retreat uses, starting at `start`.
- * Tables can be renamed, so "Mesa {count + 1}" may already exist.
- */
-const nextFreeTableNumber = (takenKeys: Set<string>, start: number): number => {
-	let candidate = start;
-	while (takenKeys.has(tableNameKey(`Mesa ${candidate}`))) candidate++;
-	return candidate;
+// Naming a table reads the retreat's tables and then inserts, so two creations in flight for the
+// same retreat would read the same list and pick the same number. The API runs as a single
+// process (pm2 fork, 1 instance), so an in-process queue per retreat is enough.
+const tableCreationQueues = new Map<string, Promise<unknown>>();
+
+const withRetreatTableQueue = <T>(retreatId: string, task: () => Promise<T>): Promise<T> => {
+	const previous = tableCreationQueues.get(retreatId) ?? Promise.resolve();
+	const run = previous.then(task);
+	const settled = run.catch(() => undefined);
+	tableCreationQueues.set(retreatId, settled);
+	void settled.then(() => {
+		if (tableCreationQueues.get(retreatId) === settled) tableCreationQueues.delete(retreatId);
+	});
+	return run;
 };
 
 export const findTablesByRetreatId = async (retreatId: string, dataSource?: DataSource) => {
@@ -98,21 +105,35 @@ export const findTableById = async (id: string, dataSource?: DataSource) => {
 };
 
 export const createTable = async (
-	tableData: { name: string; retreatId: string },
+	tableData: { name?: string; retreatId: string },
 	dataSource?: DataSource,
-) => {
-	const repos = getRepositories(dataSource);
-	const newTable = repos.tableMesa.create({
-		...tableData,
-		id: uuidv4(),
+) =>
+	withRetreatTableQueue(tableData.retreatId, async () => {
+		const repos = getRepositories(dataSource);
+		const existingNames = (
+			await repos.tableMesa.find({ where: { retreatId: tableData.retreatId } })
+		).map((t) => t.name);
+		// A requested name that is already taken comes from a stale list (another coordinator
+		// added a table meanwhile, or a browser still runs the bundle that numbered by count):
+		// number it from the stored tables instead of duplicating it.
+		const requested = tableData.name ? normalizeTableName(tableData.name) : '';
+		const takenKeys = new Set(existingNames.map(tableNameKey));
+		const name =
+			requested && !takenKeys.has(tableNameKey(requested))
+				? requested
+				: nextTableName(existingNames);
+		const newTable = repos.tableMesa.create({
+			...tableData,
+			name,
+			id: uuidv4(),
+		});
+		const saved = await repos.tableMesa.save(newTable);
+		void domainAuditService.logCreate('table', saved.id, saved, {
+			retreatId: saved.retreatId,
+			fields: ['name', 'retreatId'],
+		});
+		return saved;
 	});
-	const saved = await repos.tableMesa.save(newTable);
-	void domainAuditService.logCreate('table', saved.id, saved, {
-		retreatId: saved.retreatId,
-		fields: ['name', 'retreatId'],
-	});
-	return saved;
-};
 
 export const createDefaultTablesForRetreat = async (retreat: Retreat, dataSource?: DataSource) => {
 	const repos = getRepositories(dataSource);
@@ -513,13 +534,8 @@ export const rebalanceTablesForRetreat = async (retreatId: string, dataSource?: 
 	const idealTableCount = Math.max(1, Math.ceil(walkerCount / MAX_WALKERS_PER_TABLE));
 
 	if (tableCount < idealTableCount) {
-		const takenKeys = new Set(tables.map((t) => tableNameKey(t.name)));
-		let nextNumber = tableCount + 1;
-		for (let i = tableCount + 1; i <= idealTableCount; i++) {
-			nextNumber = nextFreeTableNumber(takenKeys, nextNumber);
-			const name = `Mesa ${nextNumber}`;
-			takenKeys.add(tableNameKey(name));
-			const newTable = await createTable({ name, retreatId }, dataSource);
+		for (let i = tableCount; i < idealTableCount; i++) {
+			const newTable = await createTable({ retreatId }, dataSource);
 			tables.push(newTable);
 		}
 	} else if (tableCount > idealTableCount && tableCount > 5) {
