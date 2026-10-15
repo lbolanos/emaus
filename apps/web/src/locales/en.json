@@ -2317,6 +2317,13 @@
     "title": "Retreat Responsibilities",
     "description": "Manage retreat responsibilities and assign servers to each one",
     "createResponsability": "Create Responsability",
+    "sendTasks": {
+      "button": "Send tasks",
+      "title": "Send tasks to a server ({count}):",
+      "searchPlaceholder": "Search server...",
+      "counts": "{responsibilities} responsibilities · {teams} teams",
+      "empty": "No servers with assigned tasks"
+    },
     "addToTeam": "Add servers to team",
     "addToTeamDescription": "Choose the active servers to add to this service team",
     "teamLabel": "Team",

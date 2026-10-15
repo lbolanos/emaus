@@ -2413,6 +2413,13 @@
     "title": "Responsabilidades del Retiro",
     "description": "Gestiona las responsabilidades del retiro y asigna servidores a cada una",
     "createResponsability": "Crear Responsabilidad",
+    "sendTasks": {
+      "button": "Enviar tareas",
+      "title": "Enviar tareas a un servidor ({count}):",
+      "searchPlaceholder": "Buscar servidor...",
+      "counts": "{responsibilities} responsabilidades · {teams} equipos",
+      "empty": "No hay servidores con tareas asignadas"
+    },
     "addToTeam": "Agregar servidores al equipo",
     "addToTeamDescription": "Elige los servidores activos que se agregarán a este equipo de servicio",
     "teamLabel": "Equipo",
