@@ -822,14 +822,20 @@ const assignmentsCandidates = computed(() => {
   }
   for (const team of teams) {
     if (team.isActive === false) continue;
-    if (team.leaderId) {
-      const p = availableParticipants.value.find((x) => x.id === team.leaderId);
-      if (p) ensure(p).teamsCount += 1;
-    }
-    for (const m of team.members ?? []) {
-      const p = availableParticipants.value.find((x) => x.id === m.participantId);
-      if (p) ensure(p).teamsCount += 1;
-    }
+    // Un mismo equipo cuenta UNA vez por persona: el líder suele repetirse en
+    // `members`, y sin este set el conteo duplicaría el equipo (el builder del
+    // briefing lo filtra una sola vez, líder O miembro).
+    const counted = new Set<string>();
+    const bump = (participantId?: string | null) => {
+      if (!participantId || counted.has(participantId)) return;
+      const p = availableParticipants.value.find((x) => x.id === participantId);
+      if (p) {
+        ensure(p).teamsCount += 1;
+        counted.add(participantId);
+      }
+    };
+    bump(team.leaderId);
+    for (const m of team.members ?? []) bump(m.participantId);
   }
   let list = [...byId.values()].filter((e) => e.responsibilitiesCount + e.teamsCount > 0);
   const q = assignmentsSearch.value.trim();

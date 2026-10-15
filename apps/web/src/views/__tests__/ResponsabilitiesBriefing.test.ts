@@ -104,6 +104,8 @@ const teams = [
 		leaderId: 's1',
 		leader: jose,
 		members: [
+			// El líder repetido en members (pasa en prod): el equipo cuenta UNA vez.
+			{ id: 'm-0', serviceTeamId: 'team-1', participantId: 's1', role: null, participant: jose },
 			{ id: 'm-1', serviceTeamId: 'team-1', participantId: 's2', role: 'ayudante', participant: maria },
 		],
 		isActive: true,
