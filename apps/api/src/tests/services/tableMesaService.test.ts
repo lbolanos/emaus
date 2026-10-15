@@ -298,6 +298,82 @@ describe('Table Mesa Service', () => {
 
 			expect(result).toBeNull();
 		});
+
+		test('should trim and collapse whitespace in the new name', async () => {
+			const updated = await tableMesaService.updateTable(
+				testTables[0].id,
+				{ name: '  Mesa   12 ' },
+				getTestDataSource(),
+			);
+
+			expect(updated?.name).toBe('Mesa 12');
+		});
+
+		test('should reject a name already used by another table of the same retreat, ignoring case', async () => {
+			const taken = testTables[1].name.toUpperCase();
+
+			await expect(
+				tableMesaService.updateTable(testTables[0].id, { name: taken }, getTestDataSource()),
+			).rejects.toBeInstanceOf(tableMesaService.DuplicateTableNameError);
+
+			const unchanged = await getTestDataSource()
+				.getRepository(TableMesa)
+				.findOneByOrFail({ id: testTables[0].id });
+			expect(unchanged.name).toBe(testTables[0].name);
+		});
+
+		test('should allow a table to keep its own name with different casing', async () => {
+			const updated = await tableMesaService.updateTable(
+				testTables[0].id,
+				{ name: testTables[0].name.toUpperCase() },
+				getTestDataSource(),
+			);
+
+			expect(updated?.name).toBe(testTables[0].name.toUpperCase());
+		});
+
+		test('should allow a name that only exists in another retreat', async () => {
+			const otherRetreat = await TestDataFactory.createTestRetreat();
+			const [otherTable] = await TestDataFactory.createTestTables(otherRetreat.id, 1);
+
+			const updated = await tableMesaService.updateTable(
+				otherTable.id,
+				{ name: testTables[0].name },
+				getTestDataSource(),
+			);
+
+			expect(updated?.name).toBe(testTables[0].name);
+		});
+
+		test('should only write the name, never move the table to another retreat', async () => {
+			const otherRetreat = await TestDataFactory.createTestRetreat();
+
+			const updated = await tableMesaService.updateTable(
+				testTables[0].id,
+				{ name: 'Mesa 20', retreatId: otherRetreat.id } as any,
+				getTestDataSource(),
+			);
+
+			expect(updated?.retreatId).toBe(testRetreat.id);
+		});
+	});
+
+	describe('findTableRetreatId', () => {
+		test('should return the retreat of the table', async () => {
+			const retreatId = await tableMesaService.findTableRetreatId(
+				testTables[0].id,
+				getTestDataSource(),
+			);
+			expect(retreatId).toBe(testRetreat.id);
+		});
+
+		test('should return null for a non-existent table', async () => {
+			const retreatId = await tableMesaService.findTableRetreatId(
+				'00000000-0000-0000-0000-000000000000',
+				getTestDataSource(),
+			);
+			expect(retreatId).toBeNull();
+		});
 	});
 
 	describe('deleteTable', () => {
@@ -909,6 +985,28 @@ describe('Table Mesa Service', () => {
 			);
 			// Should create more tables to accommodate all walkers
 			expect(tables.length).toBeGreaterThan(5);
+		});
+
+		test('should skip "Mesa N" names already taken by a renamed table', async () => {
+			// 5 tables + 45 walkers → 7 tables needed, so it creates two more.
+			for (let i = 0; i < 40; i++) {
+				const walker = createTestParticipant({
+					email: `renamed-walker-${i}@test.com`,
+					firstName: `Walker${i}`,
+					lastName: 'Renamed',
+				});
+				await saveParticipantWithRetreatRole(walker, 'walker');
+			}
+			await tableMesaService.updateTable(testTables[4].id, { name: 'Mesa 6' }, getTestDataSource());
+
+			await tableMesaService.rebalanceTablesForRetreat(testRetreat.id, getTestDataSource());
+
+			const names = (
+				await tableMesaService.findTablesByRetreatId(testRetreat.id, getTestDataSource())
+			).map((t) => t.name);
+			expect(names).toHaveLength(7);
+			expect(new Set(names).size).toBe(7);
+			expect(names).toEqual(expect.arrayContaining(['Mesa 6', 'Mesa 7', 'Mesa 8']));
 		});
 	});
 });

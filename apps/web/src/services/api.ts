@@ -98,9 +98,10 @@ export const getTablesByRetreat = async (
   return response.data;
 };
 
+/** Renames a table. The API only accepts `name`; it answers 409 if another table of the retreat uses it. */
 export const updateTable = async (
   tableId: string,
-  data: Partial<TableMesa>,
+  data: { name: string },
 ): Promise<TableMesa> => {
   const response = await api.put(`/tables/${tableId}`, data);
   return response.data;

@@ -8,13 +8,31 @@ import {
 	unassignWalker as unassignWalkerApi,
 	clearAllTables as clearAllTablesApi,
 	deleteEmptyTables as deleteEmptyTablesApi,
+	updateTable as updateTableApi,
 	api,
 } from '@/services/api';
 import { apiErrorMessage } from '@/services/apiError';
+import { createLocaleComparator } from '@/utils/sort';
 import type { TableMesa } from '@repo/types';
 import { useRetreatStore } from './retreatStore';
 import { useToast } from '@repo/ui';
 import { useParticipantStore } from './participantStore';
+
+const compareTableNames = createLocaleComparator('es');
+
+/** Key used to tell two table names apart, the same way the API does ("mesa 3" == "Mesa 3"). */
+const tableNameKey = (name: string) => name.trim().replace(/\s+/g, ' ').toLocaleLowerCase('es');
+
+/**
+ * "Mesa {count + 1}" unless a renamed table already holds that name; then the
+ * next free number, so a new table never duplicates an existing one.
+ */
+export const nextTableName = (existingNames: string[]): string => {
+	const taken = new Set(existingNames.map(tableNameKey));
+	let candidate = existingNames.length + 1;
+	while (taken.has(tableNameKey(`Mesa ${candidate}`))) candidate++;
+	return `Mesa ${candidate}`;
+};
 
 export const useTableMesaStore = defineStore('tableMesa', () => {
 	const tables = ref<TableMesa[]>([]);
@@ -197,7 +215,7 @@ export const useTableMesaStore = defineStore('tableMesa', () => {
 		if (!retreatStore.selectedRetreatId) return;
 		try {
 			const newTableData = {
-				name: `Mesa ${tables.value.length + 1}`,
+				name: nextTableName(tables.value.map((t) => t.name)),
 				retreatId: retreatStore.selectedRetreatId,
 			};
 			const newTable = await api.post('/tables', newTableData);
@@ -206,6 +224,22 @@ export const useTableMesaStore = defineStore('tableMesa', () => {
 			console.error('Failed to create table', e);
 			toast({ title: 'Error', description: 'Failed to create table', variant: 'destructive' });
 		}
+	};
+
+	/**
+	 * Renames a table and keeps the list in natural order ("Mesa 2" before
+	 * "Mesa 10"), the same order the API returns. The PUT response carries no
+	 * leaders or walkers, so only the name is merged into the table in state.
+	 * Errors are re-thrown: the card shows them and keeps the editor open.
+	 */
+	const renameTable = async (tableId: string, name: string) => {
+		const updated = await updateTableApi(tableId, { name });
+		const table = tables.value.find((t) => t.id === tableId);
+		if (table) {
+			table.name = updated.name;
+			tables.value = [...tables.value].sort((a, b) => compareTableNames(a.name, b.name));
+		}
+		return updated;
 	};
 
 	const deleteTable = async (tableId: string) => {
@@ -245,6 +279,7 @@ export const useTableMesaStore = defineStore('tableMesa', () => {
 		unassignLeader,
 		unassignWalkerFromTable,
 		createTable,
+		renameTable,
 		deleteTable,
 		deleteEmptyTables,
 	};

@@ -1754,6 +1754,13 @@
       "errorNotEmpty": "Cannot delete a table that has walkers assigned to it.",
       "disabledTooltip": "Cannot delete table with walkers assigned"
     },
+    "rename": {
+      "button": "Edit table number",
+      "inputLabel": "Table name",
+      "errorTitle": "Could not rename the table",
+      "duplicate": "Another table in this retreat is already named “{name}”.",
+      "error": "Something went wrong while saving the table name."
+    },
     "viewWalkers": "View Walkers",
     "invitedBy": "Invited by",
     "detail": {

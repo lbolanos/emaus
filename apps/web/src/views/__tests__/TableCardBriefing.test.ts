@@ -46,6 +46,7 @@ vi.mock('@repo/ui', () => {
     CardHeader: stub('CardHeader'),
     CardTitle: stub('CardTitle'),
     Button: { name: 'Button', props: ['variant', 'size', 'title'], template: '<button class="ui-button" :title="title"><slot /></button>' },
+    Input: { name: 'Input', props: ['modelValue'], template: '<input :value="modelValue" />' },
     // Popover siempre renderiza su contenido para poder hacer click en la lista.
     Popover: { name: 'Popover', props: ['open'], template: '<div class="popover"><slot /></div>' },
     PopoverTrigger: { name: 'PopoverTrigger', props: ['asChild'], template: '<div class="popover-trigger"><slot /></div>' },
@@ -69,6 +70,9 @@ vi.mock('lucide-vue-next', () => ({
   Eye: { name: 'Eye', template: '<svg />' },
   Camera: { name: 'Camera', template: '<svg />' },
   Send: { name: 'Send', template: '<svg class="icon-send" />' },
+  Pencil: { name: 'Pencil', template: '<svg />' },
+  Check: { name: 'Check', template: '<svg />' },
+  X: { name: 'X', template: '<svg />' },
 }));
 
 vi.mock('./ServerDropZone.vue', () => ({ default: { name: 'ServerDropZone', template: '<div />' } }));

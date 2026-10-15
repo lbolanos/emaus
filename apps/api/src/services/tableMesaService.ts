@@ -13,6 +13,31 @@ import { sortByName as sortByTableName } from '../utils/naturalSort';
 import { domainAuditService, DomainAuditAction } from './domainAuditService';
 
 export const MAX_WALKERS_PER_TABLE = 7;
+export const MAX_TABLE_NAME_LENGTH = 60;
+
+/** Trims and collapses inner whitespace so "Mesa  3 " and "Mesa 3" are the same name. */
+export const normalizeTableName = (name: string): string => name.trim().replace(/\s+/g, ' ');
+
+/** Comparison key: two tables of a retreat cannot share it ("mesa 3" == "Mesa 3"). */
+const tableNameKey = (name: string): string => normalizeTableName(name).toLocaleLowerCase('es');
+
+/** Thrown when a rename would leave two tables of the same retreat with the same name. */
+export class DuplicateTableNameError extends Error {
+	constructor(public readonly tableName: string) {
+		super(`Table name already in use: ${tableName}`);
+		this.name = 'DuplicateTableNameError';
+	}
+}
+
+/**
+ * Next "Mesa N" whose name no table of the retreat uses, starting at `start`.
+ * Tables can be renamed, so "Mesa {count + 1}" may already exist.
+ */
+const nextFreeTableNumber = (takenKeys: Set<string>, start: number): number => {
+	let candidate = start;
+	while (takenKeys.has(tableNameKey(`Mesa ${candidate}`))) candidate++;
+	return candidate;
+};
 
 export const findTablesByRetreatId = async (retreatId: string, dataSource?: DataSource) => {
 	const repos = getRepositories(dataSource);
@@ -101,16 +126,39 @@ export const createDefaultTablesForRetreat = async (retreat: Retreat, dataSource
 	}
 };
 
+/** Lightweight lookup for authorization: the retreat a table belongs to, or null. */
+export const findTableRetreatId = async (
+	id: string,
+	dataSource?: DataSource,
+): Promise<string | null> => {
+	const repos = getRepositories(dataSource);
+	const table = await repos.tableMesa.findOne({ where: { id }, select: ['id', 'retreatId'] });
+	return table?.retreatId ?? null;
+};
+
+/**
+ * Renames a table. Only `name` is writable here: the leaders and walkers have
+ * their own endpoints, and `retreatId` must never move. Throws
+ * DuplicateTableNameError if another table of the same retreat already uses it.
+ */
 export const updateTable = async (
 	id: string,
-	tableData: Partial<TableMesa>,
+	tableData: { name: string },
 	dataSource?: DataSource,
 ) => {
 	const repos = getRepositories(dataSource);
 	const table = await repos.tableMesa.findOneBy({ id });
 	if (!table) return null;
+	const name = normalizeTableName(tableData.name);
+	const siblings = await repos.tableMesa.find({
+		where: { retreatId: table.retreatId },
+		select: ['id', 'name'],
+	});
+	if (siblings.some((t) => t.id !== id && tableNameKey(t.name) === tableNameKey(name))) {
+		throw new DuplicateTableNameError(name);
+	}
 	const oldSnapshot = { ...table };
-	Object.assign(table, tableData);
+	table.name = name;
 	const saved = await repos.tableMesa.save(table);
 	void domainAuditService.logUpdate('table', id, oldSnapshot, saved, {
 		retreatId: saved.retreatId,
@@ -465,8 +513,13 @@ export const rebalanceTablesForRetreat = async (retreatId: string, dataSource?: 
 	const idealTableCount = Math.max(1, Math.ceil(walkerCount / MAX_WALKERS_PER_TABLE));
 
 	if (tableCount < idealTableCount) {
+		const takenKeys = new Set(tables.map((t) => tableNameKey(t.name)));
+		let nextNumber = tableCount + 1;
 		for (let i = tableCount + 1; i <= idealTableCount; i++) {
-			const newTable = await createTable({ name: `Mesa ${i}`, retreatId }, dataSource);
+			nextNumber = nextFreeTableNumber(takenKeys, nextNumber);
+			const name = `Mesa ${nextNumber}`;
+			takenKeys.add(tableNameKey(name));
+			const newTable = await createTable({ name, retreatId }, dataSource);
 			tables.push(newTable);
 		}
 	} else if (tableCount > idealTableCount && tableCount > 5) {

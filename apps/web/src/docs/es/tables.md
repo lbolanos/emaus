@@ -22,6 +22,14 @@ Las mesas son grupos pequeños donde los caminantes procesan su experiencia de r
 4. Agregue caminantes a la mesa
 5. Guarde la mesa
 
+## Cambiar el Número de una Mesa
+
+1. Haga clic en el lápiz junto al nombre de la mesa
+2. El número ya queda seleccionado: escriba el nuevo (por ejemplo `12`) y presione **Enter**
+3. Para salir sin cambiar nada, presione **Esc** o la ✕
+
+También puede escribir un nombre completo distinto. Dos mesas del mismo retiro no pueden llamarse igual. Las mesas se reordenan solas por número, y los reportes y gafetes que imprima después ya usan el nombre nuevo.
+
 ## Eliminar Mesas Vacías
 
 Si sobraron mesas sin nadie asignado, no hace falta borrarlas una por una:

@@ -8,6 +8,7 @@ vi.mock('@/services/api', () => ({
 	assignWalkerToTable: vi.fn(),
 	unassignLeader: vi.fn(),
 	unassignWalker: vi.fn(),
+	updateTable: vi.fn(),
 	api: {
 		get: vi.fn(),
 		post: vi.fn(),
@@ -357,6 +358,66 @@ describe('TableMesaStore', () => {
 				description: 'Failed to create table',
 				variant: 'destructive',
 			});
+		});
+	});
+
+	describe('createTable - names after a rename', () => {
+		it('skips "Mesa N" when a renamed table already uses it', async () => {
+			const { api } = await import('@/services/api');
+			store.tables = [
+				{ id: 'table-1', name: 'Mesa 1', retreatId: 'test-retreat-id' },
+				{ id: 'table-2', name: 'Mesa 3', retreatId: 'test-retreat-id' },
+			];
+			(api.post as any).mockResolvedValue({ data: { id: 'table-3', name: 'Mesa 4' } });
+
+			await store.createTable();
+
+			expect(api.post).toHaveBeenCalledWith('/tables', {
+				name: 'Mesa 4',
+				retreatId: 'test-retreat-id',
+			});
+		});
+	});
+
+	describe('nextTableName', () => {
+		it('returns "Mesa {count + 1}" when it is free', async () => {
+			const { nextTableName } = await import('../tableMesaStore');
+			expect(nextTableName(['Mesa 1', 'Mesa 2'])).toBe('Mesa 3');
+		});
+
+		it('skips names already taken, ignoring case and extra spaces', async () => {
+			const { nextTableName } = await import('../tableMesaStore');
+			expect(nextTableName(['Mesa 1', ' mesa  3', 'MESA 4'])).toBe('Mesa 5');
+		});
+	});
+
+	describe('renameTable', () => {
+		it('merges only the name, keeps leaders and walkers, and re-sorts naturally', async () => {
+			const { updateTable } = await import('@/services/api');
+			const walkers = [{ id: 'w-1', firstName: 'Ana' }];
+			store.tables = [
+				{ id: 'table-1', name: 'Mesa 1', retreatId: 'test-retreat-id', walkers },
+				{ id: 'table-2', name: 'Mesa 2', retreatId: 'test-retreat-id', walkers: [] },
+				{ id: 'table-3', name: 'Mesa 3', retreatId: 'test-retreat-id', walkers: [] },
+			];
+			// The PUT answer has no relations.
+			(updateTable as any).mockResolvedValue({ id: 'table-1', name: 'Mesa 10', retreatId: 'test-retreat-id' });
+
+			await store.renameTable('table-1', 'Mesa 10');
+
+			expect(updateTable).toHaveBeenCalledWith('table-1', { name: 'Mesa 10' });
+			expect(store.tables.map((t: any) => t.name)).toEqual(['Mesa 2', 'Mesa 3', 'Mesa 10']);
+			expect(store.tables[2].walkers).toEqual(walkers);
+		});
+
+		it('re-throws API errors so the card can show them', async () => {
+			const { updateTable } = await import('@/services/api');
+			store.tables = [{ id: 'table-1', name: 'Mesa 1', retreatId: 'test-retreat-id' }];
+			const error = { response: { status: 409 } };
+			(updateTable as any).mockRejectedValue(error);
+
+			await expect(store.renameTable('table-1', 'Mesa 2')).rejects.toBe(error);
+			expect(store.tables[0].name).toBe('Mesa 1');
 		});
 	});
 

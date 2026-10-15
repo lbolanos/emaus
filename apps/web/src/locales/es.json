@@ -1844,6 +1844,13 @@
       "errorNotEmpty": "No se puede eliminar una mesa que tiene caminantes asignados.",
       "disabledTooltip": "No se puede eliminar mesa con caminantes asignados"
     },
+    "rename": {
+      "button": "Editar número de mesa",
+      "inputLabel": "Nombre de la mesa",
+      "errorTitle": "No se pudo renombrar la mesa",
+      "duplicate": "Ya hay otra mesa llamada «{name}» en este retiro.",
+      "error": "Ocurrió un error al guardar el nombre de la mesa."
+    },
     "viewWalkers": "Ver Caminantes",
     "invitedBy": "Invitado por",
     "detail": {

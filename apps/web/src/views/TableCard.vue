@@ -2,11 +2,62 @@
   <div>
     <Card class="flex flex-col" :class="{ 'opacity-50 pointer-events-none': !table.id }">
       <!-- Card Header -->
-      <CardHeader class="flex-row items-center justify-between">
-        <CardTitle class="flex items-center justify-between">
-          {{ table.name }}
+      <CardHeader class="flex-row items-center justify-between gap-2">
+        <form
+          v-if="isEditingName"
+          class="flex flex-1 items-center gap-1 min-w-0"
+          data-testid="table-name-form"
+          @submit.prevent="saveName"
+        >
+          <Input
+            ref="nameInputRef"
+            v-model="nameDraft"
+            class="h-8 flex-1 min-w-0"
+            :maxlength="MAX_TABLE_NAME_LENGTH"
+            :aria-label="$t('tables.rename.inputLabel')"
+            :disabled="isSavingName"
+            data-testid="table-name-input"
+            @keydown.esc.prevent="cancelEditName"
+          />
+          <Button
+            type="submit"
+            variant="ghost"
+            size="icon"
+            class="h-8 w-8 shrink-0"
+            :disabled="isSavingName || !nameDraft.trim()"
+            :title="$t('common.save')"
+            data-testid="table-name-save"
+          >
+            <Check class="w-4 h-4" />
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            class="h-8 w-8 shrink-0"
+            :disabled="isSavingName"
+            :title="$t('common.cancel')"
+            data-testid="table-name-cancel"
+            @click="cancelEditName"
+          >
+            <X class="w-4 h-4" />
+          </Button>
+        </form>
+        <CardTitle v-else class="flex items-center gap-1 min-w-0">
+          <span class="truncate">{{ table.name }}</span>
+          <Button
+            variant="ghost"
+            size="icon"
+            class="h-7 w-7 shrink-0 text-muted-foreground"
+            :title="$t('tables.rename.button')"
+            data-testid="table-name-edit"
+            @click="startEditName"
+          >
+            <Pencil class="w-3.5 h-3.5" />
+          </Button>
         </CardTitle>
-        <div class="flex items-center gap-2">
+        <!-- Hidden while renaming: on narrow cards it would cover the save/cancel buttons. -->
+        <div v-if="!isEditingName" class="flex items-center gap-2">
           <span class="text-sm font-normal text-gray-500 dark:text-gray-400"> {{ table.walkers?.length || 0 }} / 7 </span>
           <Popover v-if="leaderOptions.length > 0" v-model:open="briefingOpen">
             <PopoverTrigger as-child>
@@ -254,8 +305,9 @@ import { buildTableData } from '@/utils/tableBriefing';
 import { highlightClassFor } from '@/utils/participantSearch';
 import type { SearchHighlight } from '@/utils/participantSearch';
 
-import { Button, Popover, PopoverContent, PopoverTrigger } from '@repo/ui';
-import { Trash2, Eye, Camera, Send } from 'lucide-vue-next';
+import { Button, Input, Popover, PopoverContent, PopoverTrigger } from '@repo/ui';
+import { Trash2, Eye, Camera, Send, Pencil, Check, X } from 'lucide-vue-next';
+import { apiErrorMessage } from '@/services/apiError';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@repo/ui';
 import PhotoAssignmentDialog from '@/components/PhotoAssignmentDialog.vue';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@repo/ui';
@@ -307,6 +359,58 @@ const isDialogOpen = ref(false);
 const isPhotoDialogOpen = ref(false);
 
 const hasWalkers = computed(() => (props.table.walkers?.length || 0) > 0);
+
+// --- Rename: the table "number" lives in its name ("Mesa 3") ---
+// Same limit the API enforces (MAX_TABLE_NAME_LENGTH in tableMesaService).
+const MAX_TABLE_NAME_LENGTH = 60;
+const isEditingName = ref(false);
+const isSavingName = ref(false);
+const nameDraft = ref('');
+const nameInputRef = ref<{ $el?: HTMLInputElement } | null>(null);
+
+const startEditName = async () => {
+  nameDraft.value = props.table.name;
+  isEditingName.value = true;
+  await nextTick();
+  const input = nameInputRef.value?.$el;
+  if (!input?.focus) return;
+  input.focus();
+  // Pre-select the trailing number so typing "12" turns "Mesa 3" into "Mesa 12".
+  const match = /\d+\s*$/.exec(nameDraft.value);
+  if (match) {
+    input.setSelectionRange(match.index, match.index + match[0].trimEnd().length);
+  } else {
+    input.select();
+  }
+};
+
+const cancelEditName = () => {
+  isEditingName.value = false;
+  nameDraft.value = '';
+};
+
+const saveName = async () => {
+  const name = nameDraft.value.trim().replace(/\s+/g, ' ');
+  if (!name || !props.table.id) return;
+  if (name === props.table.name) {
+    cancelEditName();
+    return;
+  }
+  isSavingName.value = true;
+  try {
+    await tableMesaStore.renameTable(props.table.id, name);
+    isEditingName.value = false;
+  } catch (e: any) {
+    const status = e?.response?.status;
+    const description =
+      status === 409
+        ? t('tables.rename.duplicate', { name })
+        : apiErrorMessage(e, t('tables.rename.error'));
+    toast({ title: t('tables.rename.errorTitle'), description, variant: 'destructive' });
+  } finally {
+    isSavingName.value = false;
+  }
+};
 
 // --- Briefing de mesa: enviar info de la mesa al líder/colíder elegido ---
 const briefingOpen = ref(false);

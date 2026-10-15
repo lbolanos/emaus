@@ -1,7 +1,16 @@
 import { Request, Response, NextFunction } from 'express';
+import { z } from 'zod';
 import * as tableMesaService from '../services/tableMesaService';
 import { domainAuditService, DomainAuditAction } from '../services/domainAuditService';
+import { ensureRetreatAccess } from '../middleware/authorization';
 import { canViewHealthData, stripSensitiveHealthFields } from './participantController';
+
+const renameTableBodySchema = z.object({
+	name: z
+		.string()
+		.transform(tableMesaService.normalizeTableName)
+		.pipe(z.string().min(1).max(tableMesaService.MAX_TABLE_NAME_LENGTH)),
+});
 
 /**
  * Strip health/emergency-contact data from every Participant a table payload
@@ -79,14 +88,34 @@ export const createTable = async (req: Request, res: Response, next: NextFunctio
 	}
 };
 
+/**
+ * Renames a table. `requirePermission('table:update')` on the route is global,
+ * so the retreat of THIS table is checked here; and only `name` passes through
+ * (the zod schema drops every other key, e.g. `retreatId` or `liderId`).
+ */
 export const updateTable = async (req: Request, res: Response, next: NextFunction) => {
 	try {
-		const updatedTable = await tableMesaService.updateTable(req.params.id, req.body);
+		const parsed = renameTableBodySchema.safeParse(req.body);
+		if (!parsed.success) {
+			return res.status(400).json({ message: 'Validation error', errors: parsed.error.errors });
+		}
+		const retreatId = await tableMesaService.findTableRetreatId(req.params.id);
+		if (!retreatId) {
+			return res.status(404).json({ message: 'Table not found' });
+		}
+		if (!(await ensureRetreatAccess(req, res, retreatId))) return;
+
+		const updatedTable = await tableMesaService.updateTable(req.params.id, parsed.data);
 		if (!updatedTable) {
 			return res.status(404).json({ message: 'Table not found' });
 		}
 		res.json(updatedTable);
 	} catch (error: any) {
+		if (error instanceof tableMesaService.DuplicateTableNameError) {
+			return res
+				.status(409)
+				.json({ message: 'Table name already in use', name: error.tableName });
+		}
 		next(error);
 	}
 };
