@@ -143,6 +143,8 @@ vi.mock('lucide-vue-next', () => ({
 	Bookmark: { template: '<span>bookmark</span>' },
 	// Imported by the real ParticipantQuickPhoneEditor mounted in the wiring tests.
 	Pencil: { template: '<span>pencil</span>' },
+	// Imported by the real ParticipantPaysAtHouseToggle (inline 🏠 wiring).
+	Home: { template: '<span>home</span>' },
 }));
 
 // Mock child components
@@ -1411,6 +1413,92 @@ describe('ParticipantList Component', () => {
 			const cellInput = newWrapper.find('#qp-cellPhone');
 			expect(cellInput.exists()).toBe(true);
 			expect((cellInput.element as HTMLInputElement).value).toBe('5551234567');
+			newWrapper.unmount();
+		});
+	});
+
+	describe('Pays-at-house wiring (inlinePaysAtHouseToggle prop)', () => {
+		// Same mounting mold as the phone-edit wiring describe above: direct
+		// mount() with the outer pinia so the seeded store instances line up.
+		const grantParticipantUpdate = async () => {
+			setActivePinia(pinia);
+			const { useAuthStore: useAuthStoreImport } = await import('@/stores/authStore');
+			const authStore = useAuthStoreImport();
+			authStore.userProfile = {
+				...(authStore.userProfile as any),
+				permissions: [{ resource: 'participant', operation: 'update' }],
+			} as any;
+		};
+
+		async function mountWithRows(props: Record<string, any>, rowOver: Record<string, any> = {}) {
+			setActivePinia(pinia);
+			const { useParticipantStore } = await import('@/stores/participantStore');
+			const participantStore = useParticipantStore();
+			const w = mount(ParticipantList, {
+				props: {
+					type: 'walker',
+					// The 🏠 rides the lastPaymentDate cell (PalancasView shape);
+					// the default walker columns don't include it.
+					columnsToShowInTable: ['id_on_retreat', 'firstName', 'lastName', 'lastPaymentDate'],
+					...props,
+				},
+				global: {
+					plugins: [pinia],
+					stubs: { 'router-link': true, 'router-view': true, teleport: true },
+					mocks: {
+						$t: (key: string) => key,
+						$router: { push: vi.fn() },
+						$route: { name: 'walkers', params: {}, query: {} },
+					},
+				},
+			});
+			await flushPromises();
+			participantStore.loading = false;
+			participantStore.participants = [
+				createMockParticipant({
+					id: '1',
+					firstName: 'John',
+					lastName: 'Doe',
+					type: 'walker',
+					paymentStatus: 'unpaid',
+					paysAtHouse: false,
+					...rowOver,
+				}),
+			];
+			await nextTick();
+			return w;
+		}
+
+		it('does not render the 🏠 without the prop, even owing with permission', async () => {
+			await grantParticipantUpdate();
+			const newWrapper = await mountWithRows({});
+
+			expect(
+				newWrapper.find('button[title="paymentManagement.balances.markPaysAtHouse"]').exists(),
+			).toBe(false);
+			newWrapper.unmount();
+		});
+
+		it('renders the toggle with the prop for an owing walker', async () => {
+			await grantParticipantUpdate();
+			const newWrapper = await mountWithRows({ inlinePaysAtHouseToggle: true });
+
+			expect(
+				newWrapper.find('button[title="paymentManagement.balances.markPaysAtHouse"]').exists(),
+			).toBe(true);
+			newWrapper.unmount();
+		});
+
+		it('does not render it for a walker that owes nothing (D1)', async () => {
+			await grantParticipantUpdate();
+			const newWrapper = await mountWithRows(
+				{ inlinePaysAtHouseToggle: true },
+				{ paymentStatus: 'paid' },
+			);
+
+			expect(
+				newWrapper.find('button[title="paymentManagement.balances.markPaysAtHouse"]').exists(),
+			).toBe(false);
 			newWrapper.unmount();
 		});
 	});

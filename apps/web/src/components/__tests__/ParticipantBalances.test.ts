@@ -232,4 +232,80 @@ describe('ParticipantBalances', () => {
 		expect(saved.key).toBe('name');
 		expect(saved.dir).toBe('desc'); // default es name/asc → un clic lo invierte
 	});
+
+	describe('pays-at-house (specs/pays-at-house)', () => {
+		it('marcado con saldo: badge sky, sin recordatorio WhatsApp (D5), toggle presente', async () => {
+			participantStoreMock.participants = [
+				makeParticipant({ id: 'p1', paysAtHouse: true }),
+			];
+			const wrapper = await mountBalances();
+			// Badge sky en la fila (la key cruda sola también está en el Select).
+			expect(wrapper.findAll('.bg-sky-100').length).toBeGreaterThan(0);
+			// D5: marcado no recibe recordatorios de cobro aunque tenga teléfono.
+			expect(
+				wrapper.findAll('button[title="paymentManagement.balances.whatsappReminder"]').length,
+			).toBe(0);
+			// El toggle existe y ofrece quitar la marca.
+			expect(
+				wrapper.findAll('button[title="paymentManagement.balances.removePaysAtHouse"]').length,
+			).toBeGreaterThan(0);
+		});
+
+		it('marcar casa confirma y llama a updateParticipant con paysAtHouse + contextRetreatId', async () => {
+			const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+			const wrapper = await mountBalances();
+			const btn = wrapper
+				.findAll('button[title="paymentManagement.balances.markPaysAtHouse"]')
+				.at(0);
+			expect(btn).toBeTruthy();
+			await btn!.trigger('click');
+			await flushPromises();
+			expect(participantStoreMock.updateParticipant).toHaveBeenCalledWith(
+				'p1',
+				expect.objectContaining({ paysAtHouse: true, contextRetreatId: 'r1' }),
+			);
+			confirmSpy.mockRestore();
+		});
+
+		it('cancelar el confirm no toca el store', async () => {
+			const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
+			const wrapper = await mountBalances();
+			const btn = wrapper
+				.findAll('button[title="paymentManagement.balances.markPaysAtHouse"]')
+				.at(0);
+			await btn!.trigger('click');
+			await flushPromises();
+			expect(participantStoreMock.updateParticipant).not.toHaveBeenCalled();
+			confirmSpy.mockRestore();
+		});
+
+		it('becado no ve el toggle de casa (D4)', async () => {
+			participantStoreMock.participants = [
+				makeParticipant({ id: 'p1', isScholarship: true }),
+			];
+			const wrapper = await mountBalances();
+			expect(
+				wrapper.findAll('button[title="paymentManagement.balances.markPaysAtHouse"]').length,
+			).toBe(0);
+		});
+
+		it('marcado que acaba a paz y salvo: estado paid, sin badge ni toggle (D3 en datos, no en UI)', async () => {
+			participantStoreMock.participants = [
+				makeParticipant({
+					id: 'p1',
+					paysAtHouse: true,
+					totalPaid: 1000,
+					chargeBreakdown: { retreatFee: 1000, meals: 0, debts: 0, expected: 1000, totalPaid: 1000, balance: 0 },
+				}),
+			];
+			const wrapper = await mountBalances();
+			expect(wrapper.text()).toContain('paymentManagement.balances.statusPaz');
+			// La key cruda también vive en el Select del filtro: el badge real se
+			// distingue por su clase sky.
+			expect(wrapper.findAll('.bg-sky-100').length).toBe(0);
+			expect(
+				wrapper.findAll('button[title="paymentManagement.balances.removePaysAtHouse"]').length,
+			).toBe(0);
+		});
+	});
 });
