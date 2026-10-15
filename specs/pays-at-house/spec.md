@@ -123,4 +123,49 @@ salvo ni los montos.
 
 ## Reconcile
 
-(pendiente — se llena al cerrar la implementación, verificando cada CA contra lo hecho)
+Cerrado el 2026-10-15 (M4). Cada CA verificada contra lo implementado; el guion manual corrió
+contra el dev del worktree (API 3003 / web 5175, DB aislada) con persistencia real.
+
+1. **Migración** ✓ — `PRAGMA table_info(retreat_participants)` en la DB del worktree muestra
+   `paysAtHouse boolean` (col 38); `CreateSchema` actualizado en M1; suite api verde sobre DB
+   fresca de test.
+2. **Saldos** ✓ — guion con persistencia real: toggle → confirm → badge sky "Paga en la casa",
+   columnas y summary idénticos ($147,101 / $78,471 / $68,631, 33/59) antes y después (D6);
+   unit tests de badge/toggle.
+3. **Parcial/total** ✓ — getter con marca+partial → `pays_at_house` (M2); marcado que cubre el
+   total → "Paz y salvo" (unit test de ParticipantBalances, D3 en datos).
+4. **Beca** ✓ — guion: becado con marca persistente → al marcar beca la marca se limpia y queda
+   "Becado" $0 (D4); la acción casa no aparece en becados (unit + guion).
+5. **Recordatorio WhatsApp** ✓ — oculto para marcados con teléfono (guion, unit D5, e2e);
+   visible de nuevo al desmarcar (restauración del guion: fila vuelve a "Pendiente" con
+   Recordatorio).
+6. **Palancas** ✓ — cadena cruzada verificada en ambos sentidos con persistencia real
+   (Saldos→Palancas: el toggle muestra "Quitar"; Palancas→Saldos: badge tras el refetch del
+   store). Corrido con superadmin: el gate es `participant:update` (el mismo permiso del perfil
+   comunicaciones, verificado en la migración de roles); el caso sin permiso no renderiza el
+   toggle (unit test). No se sembró usuario comunicaciones en la DB del worktree.
+7. **Recepción** ✓ — badge + botón Cobrar conviven ($0.00 pagado, guion + e2e); cobro/pago
+   registrado → badge fuera (e2e con overlay + unit; el payload de recepción no trae esperado,
+   el umbral es `totalPaid` — ver Desviaciones M3); borrar el pago restaura el badge porque la
+   marca persistió (D3, tests M2).
+8. **Filtros** ✓ — Select de Saldos con "Paga en la casa" devuelve exactamente al marcado
+   (guion: 1 fila); la opción "Pendiente" del Select computa saldo > 0 e incluye a los marcados;
+   segmento/condición `pays_at_house` con paridad backend (savedSegment.test.ts, D2).
+9. **Per-retiro** ✓ — crossRetreatPayments.test.ts (overlay sin mezclar).
+10. **Regresión** ✓ — paymentStatus.test.ts: sin marca, `paymentStatus` byte a byte igual.
+11. **Build/suites** ✓ — api 299 suites / 4605 tests (2 shards secuenciales), web 216 archivos /
+    3273 tests, `vue-tsc` limpio, `pnpm --filter api build` verde. Las 2 ocurrencias de
+    `__dirname` en `dist/index.js` son una definición ESM local preexistente de master
+    (`index.ts:209`, diff contra master vacío), no el global prohibido.
+
+**Negativos** ✓ — summary/pazYSalvoCount intactos (guion + tests); `unpaid` exacto no matchea
+marcados (D2, savedSegment.test.ts); Recepción sin acción nueva de marcar (solo badge).
+
+### Notas de cierre
+
+- El e2e (`apps/web/tests/e2e/pays-at-house.spec.ts`, 5 tests chromium) corre contra el stack de
+  dev y no persiste nada: PUTs abortados y asertados por payload, estados "marcado" vía overlay
+  de `page.route` sobre el GET.
+- `RetreatSnapshotFields` del history CRUD excluye `paysAtHouse` a propósito: el snapshot
+  histórico captura campos de identidad/datos, no flags financieros per-retiro (la marca vive en
+  `retreat_participants`, que es exactamente la fila que el history referencia).

@@ -97,20 +97,39 @@ que badge y Cobrar convivan en un marcado).
 
 ## M4 — Verificación end-to-end + cierre
 
-- [ ] Extender tests frontend (Balances, List, Recepción, toggle Palancas)
-- [ ] Levantar dev del worktree (`start-worktree-dev.sh`) y correr el guion:
-  1. Migración aplicada (PRAGMA)
+- [x] Extender tests frontend (Balances, List, Recepción, toggle Palancas)
+- [x] E2E Playwright (`tests/e2e/pays-at-house.spec.ts`, 5 tests chromium): badge/toggle con
+      overlay del GET, PUT capturado-aborto con payload asertado, recepción badge+Cobrar y
+      umbral totalPaid. Sin persistir nada.
+- [x] Levantar dev del worktree (`start-worktree-dev.sh`, puertos 3003/5175 — los default los
+      ocupaba otro worktree) y correr el guion:
+  1. Migración aplicada (PRAGMA: col 38 `paysAtHouse`)
   2. Saldos: toggle → badge sky, montos y summary intactos (D6)
-  3. Palancas con perfil comunicaciones: marcar desde la fila → Saldos lo refleja
+  3. Palancas: marcar desde la fila → Saldos lo refleja (cadena cruzada en ambos sentidos)
   4. Beca: acción oculta; beca limpia marca (D4); recordatorio WhatsApp oculto (D5)
-  5. Recepción: badge + Cobrar; pagar → badge fuera, paid; borrar pago → vuelve (D3)
-  6. Filtro `pays_at_house` en Saldos y FilterDialog; segmento y condición de secuencia con
-     paridad backend-lista (D2); `owing` incluye
-  7. Dos retiros: marca per-retiro
-- [ ] `pnpm --filter api test` + `pnpm --filter web test` + typechecks
-- [ ] `pnpm --filter api build` (gate bundle ESM)
-- [ ] `## Reconcile` en spec.md (cada CA contra lo implementado)
+  5. Recepción: badge + Cobrar conviven; pago registrado → badge fuera (e2e + unit; D3 en tests)
+  6. Filtro `pays_at_house` en Saldos (solo el marcado); segmento/condición con paridad
+     backend-lista (D2, M2); "Pendiente" del Select = saldo > 0, los incluye
+  7. Dos retiros: marca per-retiro (crossRetreatPayments.test.ts, M2)
+- [x] `pnpm --filter api test` (299 suites / 4605 tests, 2 shards secuenciales) +
+      `pnpm --filter web test` (216 archivos / 3273 tests) + `vue-tsc --noEmit` limpio
+- [x] `pnpm --filter api build` (gate bundle ESM)
+- [x] `## Reconcile` en spec.md (cada CA contra lo implementado)
 - [ ] PR a master; esperar `gh pr checks` en verde antes de merge
 - [ ] Commit final `docs(specs): pays-at-house reconcile`
 
-**Done**:
+**Done**: 2026-10-15. El guion se corrió con persistencia real sobre la DB desechable del
+worktree (copia que `start-worktree-dev.sh` re-hace en cada arranque) y se restauró el estado
+de los participantes usados al final. El e2e corre contra el stack de dev con `E2E_BASE_URL`
+apuntando al puerto del worktree.
+
+### Desviaciones 2026-10-15
+
+- El guion de Palancas se corrió con el superadmin local en vez de un usuario de perfil
+  comunicaciones (no sembrado en la DB del worktree): el gate real es el permiso
+  `participant:update`, que ese perfil ya tiene (migración de roles) y el caso sin permiso está
+  cubierto por unit test.
+- "Pagar → badge fuera / borrar pago → vuelve" de Recepción se verificó por e2e (overlay con
+  `totalPaid > 0`) y unit tests, no manipulando pagos reales en el guion.
+- La marca per-retiro (punto 7) quedó cubierta por los tests M2 de cross-retreat; no se
+  reprodujo a mano en el guion.
