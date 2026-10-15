@@ -13,6 +13,23 @@ Each card is a responsibility or talk. You can:
 - View **documentation** and download support files (dynamics), open per-responsibility **attachments**, and, when a related team exists, **add servers to the team**.
 - Filter by **All / Talks / Responsibilities / Unassigned**, search, change the number of columns, **export to Word**, and **print**.
 
+### Send tasks via WhatsApp
+
+With the **Send tasks** button in the header you can send each server a WhatsApp
+message listing **their responsibilities** and the **teams** they belong to (as
+leader or member, with the other members of each team):
+
+1. Press **Send tasks** and search for the server by name or nickname.
+2. Pick one: the message opens already drafted with their tasks. Review and adjust
+   it if needed.
+3. **Open and mark sent** copies the message to the clipboard and opens the
+   WhatsApp conversation with that server; paste the message, send it, and the
+   communication is recorded in their history. (With **Open WhatsApp** the
+   conversation opens without recording the send.)
+
+If a server is not on the list, it is because they have no responsibility and no
+team assigned (or they are cancelled).
+
 ## Service Teams
 
 Each team has a type, a leader, and its members. You can:
