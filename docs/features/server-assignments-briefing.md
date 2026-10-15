@@ -71,7 +71,11 @@ que lo lee quien lo firma).
 (`MANUAL_HIDDEN_TEMPLATE_TYPES`, junto a `TABLE_LEADER_BRIEFING`): sus variables solo
 se llenan vía el botón "Enviar tareas" (que pasa el `assignmentsData`). Se selecciona
 solo cuando el diálogo se abre con `forceTemplateType='SERVER_ASSIGNMENTS_BRIEFING'`.
-El picker de variables muestra la categoría **"Tareas"**
+Tampoco se **persiste ni se restaura** como preferencia de plantilla del contexto
+(`emaus.messageDialog.lastTemplate.*`): sin el `assignmentsData` del flujo, restaurarla
+abriría el diálogo manual con `{assignments.*}` literales y sin forma de ver qué está
+seleccionado (bug pre-existente con `TABLE_LEADER_BRIEFING`, cazado en el E2E de esta
+feature). El picker de variables muestra la categoría **"Tareas"**
 (`BaseMessageTemplateModal.vue`; su preview usa el mock).
 
 ## Migración

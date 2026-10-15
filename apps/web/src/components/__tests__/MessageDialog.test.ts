@@ -22,12 +22,20 @@ vi.mock('@/stores/communityStore', () => ({
 	}),
 }));
 
+// Handle al ref de plantillas del store mockeado (lo popula el factory, lazy):
+// los tests lo re-asignan para disparar el watcher que aplica la plantilla
+// recordada cuando la lista "termina de cargar".
+const mockTemplatesRef: { current: any } = { current: null };
+
 vi.mock('@/stores/messageTemplateStore', () => ({
 	useMessageTemplateStore: () => ({
-		templates: ref([
+		templates: (mockTemplatesRef.current ??= ref([
 			{ id: 'tpl-1', name: 'Bienvenida', type: 'WALKER', message: '<p>Hola {nombre}</p>' },
 			{ id: 'tpl-2', name: 'Recordatorio', type: 'GENERAL', message: '<p>Recuerda</p>' },
-		]),
+			// Plantilla de flujo dedicado: oculta del selector manual, solo entra
+			// vía forceTemplateType (botón "Enviar tareas").
+			{ id: 'tpl-3', name: 'Tareas del Servidor', type: 'SERVER_ASSIGNMENTS_BRIEFING', message: '<p>{assignments.responsibilitiesRoster}</p>' },
+		])),
 		loading: ref(false),
 		fetchTemplates: mockFetchTemplates,
 	}),
@@ -648,6 +656,60 @@ describe('MessageDialog Component', () => {
 			const sendButton = wrapper.findAll('.dialog-footer .button')
 				.find(b => b.text().includes('Enviar'));
 			expect(sendButton?.attributes('disabled')).toBeDefined();
+		});
+	});
+
+	describe('Plantillas de flujo dedicado (ocultas del selector manual)', () => {
+		const PREF_KEY = 'emaus.messageDialog.lastTemplate.retreat.retreat-1';
+
+		// Dispara el watcher que aplica la pref/forceTemplateType cuando la lista
+		// "termina de cargar" (nueva referencia del array del store).
+		const markTemplatesLoaded = async () => {
+			mockTemplatesRef.current.value = [...mockTemplatesRef.current.value];
+			await nextTick();
+			await nextTick();
+		};
+
+		it('no restaura una preferencia que apunte a una plantilla de flujo dedicado', async () => {
+			// Pref contaminada: la guardó el flujo "Enviar tareas" (o el briefing
+			// de mesa) para este contexto en una sesión anterior.
+			localStorage.setItem(PREF_KEY, 'tpl-3');
+
+			const wrapper = mountDialog({ open: false });
+			await wrapper.setProps({ open: true });
+			await nextTick();
+			await markTemplatesLoaded();
+
+			// Sin selección (placeholder del selector), nunca tpl-3: abriría con
+			// {assignments.*} literales y el dropdown ni la lista para corregir.
+			expect((wrapper.vm as any).selectedTemplate).toBe('');
+		});
+
+		it('restaura una preferencia válida (regresión del fix)', async () => {
+			localStorage.setItem(PREF_KEY, 'tpl-1');
+
+			const wrapper = mountDialog({ open: false });
+			await wrapper.setProps({ open: true });
+			await nextTick();
+			await markTemplatesLoaded();
+
+			expect((wrapper.vm as any).selectedTemplate).toBe('tpl-1');
+		});
+
+		it('no persiste como preferencia la plantilla elegida por forceTemplateType', async () => {
+			const wrapper = mountDialog({
+				open: false,
+				forceTemplateType: 'SERVER_ASSIGNMENTS_BRIEFING',
+			});
+			await wrapper.setProps({ open: true });
+			await nextTick();
+			await markTemplatesLoaded();
+
+			// El flujo forzado selecciona su plantilla…
+			expect((wrapper.vm as any).selectedTemplate).toBe('tpl-3');
+			// …pero no la deja como preferencia del contexto: el próximo diálogo
+			// manual no debe abrirla con variables literales.
+			expect(localStorage.getItem(PREF_KEY)).not.toBe('tpl-3');
 		});
 	});
 });

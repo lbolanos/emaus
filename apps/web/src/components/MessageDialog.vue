@@ -1804,6 +1804,14 @@ watch([sendMethod, emailSendMethod], () => {
 // Persist selected template per context (only when user/restore actually picked one).
 watch(selectedTemplate, (newValue: string) => {
 	if (!props.open || !newValue) return;
+	// Las plantillas de flujos dedicados (briefing de mesa / tareas) no se
+	// persisten: su selección vino de forceTemplateType, y si quedara como pref
+	// el próximo diálogo manual del contexto la restauraría con {table.*}/
+	// {assignments.*} literales — y sin aparecer en el selector, no hay forma
+	// de ver qué está seleccionado. Nótese que NO vale isHiddenFromManualSelector
+	// aquí: en el flujo forzado forceTemplateType === type la devolvería false.
+	const tmpl = (allMessageTemplates.value || []).find((t: any) => t.id === newValue);
+	if (tmpl && MANUAL_HIDDEN_TEMPLATE_TYPES.includes(tmpl.type)) return;
 	saveTemplatePref(newValue);
 });
 
@@ -1836,8 +1844,13 @@ watch(
 		}
 
 		if (!pendingTemplateId.value) return;
-		const exists = list.some((t: any) => t.id === pendingTemplateId.value);
-		if (exists) {
+		const pending = list.find((t: any) => t.id === pendingTemplateId.value);
+		// Una pref que apunte a una plantilla de flujo dedicado (guardada por el
+		// flujo forzado antes del filtro de persistencia) no se restaura: sin el
+		// contexto del flujo sus variables quedan literales y el selector manual
+		// ni siquiera la lista. Con `exists` a secas el bug se veía en prod con
+		// TABLE_LEADER_BRIEFING.
+		if (pending && !MANUAL_HIDDEN_TEMPLATE_TYPES.includes(pending.type)) {
 			selectedTemplate.value = pendingTemplateId.value!;
 		}
 		pendingTemplateId.value = null;
