@@ -246,6 +246,9 @@ process.env.DB_DATABASE = ':memory:';
 process.env.JWT_SECRET = 'test-secret-key';
 process.env.JWT_REFRESH_SECRET = 'test-refresh-secret-key';
 process.env.CSRF_SECRET = 'test-csrf-secret-key';
+// CI no tiene apps/api/.env (config.ts lo carga por dotenv y local sí existe):
+// sin esto deriveKey del santisimo invite token hace fail-fast (PR #7, shard 2).
+process.env.INVITE_TOKEN_SECRET = 'test-invite-secret-key';
 
 // Mock console methods in tests to reduce noise
 const originalConsole = global.console;
