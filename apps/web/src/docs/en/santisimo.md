@@ -1,5 +1,7 @@
 # Chapel Watch Schedule
 
+📺 **[Watch the tutorial](https://youtu.be/gGDyzbTtdKo)** (Spanish)
+
 Here you organize **adoration of the Blessed Sacrament** by the hour during the retreat. You generate time slots between two dates, enable a public link so the community ("angelitos") can sign up, and manage sign-ups from the three-column calendar (one day per column).
 
 ## Generate the slots

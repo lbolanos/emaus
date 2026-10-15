@@ -1,5 +1,7 @@
 # Guardias de la Capilla
 
+📺 **[Ver video tutorial](https://youtu.be/gGDyzbTtdKo)**
+
 Aquí organizas la **adoración al Santísimo** por horas durante el retiro. Generas los turnos entre dos fechas, activas un enlace público para que la comunidad ("angelitos") se inscriba, y administras las inscripciones desde el calendario de tres columnas (un día por columna).
 
 ## Generar los turnos
