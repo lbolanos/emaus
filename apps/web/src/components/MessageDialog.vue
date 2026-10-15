@@ -463,7 +463,7 @@ import {
 	TabsList,
 	TabsTrigger,
 } from '@repo/ui';
-import { convertHtmlToWhatsApp, convertHtmlToEmail, replaceAllVariables, findEmptyVariables, ParticipantData, RetreatData, CommunityData, TableData, SpouseData } from '@/utils/message';
+import { convertHtmlToWhatsApp, convertHtmlToEmail, replaceAllVariables, findEmptyVariables, ParticipantData, RetreatData, CommunityData, TableData, SpouseData, AssignmentsData } from '@/utils/message';
 import { buildServerRegistrationLink, resolveMemberProfile } from '@repo/utils';
 import { sanitizeEmailHtml } from '@/utils/sanitize';
 import { buildWhatsAppSendLink, sanitizePhoneForWhatsapp } from '@/utils/phone';
@@ -499,6 +499,8 @@ interface Props {
 	communityId?: string;
 	/** Datos de mesa para resolver variables {table.*} (flujo briefing de mesa). */
 	tableData?: TableData | null;
+	/** Tareas del servidor para resolver variables {assignments.*} (flujo briefing de tareas). */
+	assignmentsData?: AssignmentsData | null;
 	/** Si se setea, preselecciona la plantilla de ese tipo al abrir (sobre la preferencia guardada). */
 	forceTemplateType?: string | null;
 }
@@ -512,6 +514,7 @@ const props = withDefaults(defineProps<Props>(), {
 	retreatId: '',
 	communityId: '',
 	tableData: null,
+	assignmentsData: null,
 	forceTemplateType: null,
 });
 
@@ -789,10 +792,12 @@ const historyCountry = computed(
 
 // Plantillas que solo deben usarse vía un flujo dedicado (no en el selector
 // manual): TABLE_LEADER_BRIEFING únicamente se envía con el botón "Enviar info a
-// líderes" (que pasa el contexto de mesa). Sin ese contexto sus variables
-// {table.*} quedarían vacías/literales. Se oculta del dropdown EXCEPTO cuando el
+// líderes" (que pasa el contexto de mesa) y SERVER_ASSIGNMENTS_BRIEFING con el
+// botón "Enviar tareas" de la vista de Responsabilidades (que pasa el contexto
+// de tareas). Sin ese contexto sus variables {table.*}/{assignments.*}
+// quedarían vacías/literales. Se ocultan del dropdown EXCEPTO cuando el
 // diálogo se abrió justo para ese tipo (forceTemplateType).
-const MANUAL_HIDDEN_TEMPLATE_TYPES = ['TABLE_LEADER_BRIEFING'];
+const MANUAL_HIDDEN_TEMPLATE_TYPES = ['TABLE_LEADER_BRIEFING', 'SERVER_ASSIGNMENTS_BRIEFING'];
 const isHiddenFromManualSelector = (type: string): boolean =>
 	MANUAL_HIDDEN_TEMPLATE_TYPES.includes(type) && props.forceTemplateType !== type;
 
@@ -929,6 +934,7 @@ const updateMessagePreview = () => {
 		selectedContactKey.value,
 		communityData,
 		props.tableData ?? undefined,
+		props.assignmentsData ?? undefined,
 	);
 
 	// Retiros de parejas: datos del cónyuge para {spouse.*}. Solo cuando el
@@ -957,6 +963,7 @@ const updateMessagePreview = () => {
 		props.tableData ?? undefined,
 		false,
 		spouseData,
+		props.assignmentsData ?? undefined,
 	);
 	messagePreview.value = message;
 
@@ -1703,12 +1710,14 @@ watch(() => props.open, (newValue: boolean) => {
 });
 
 // Recalcular el preview con flush 'post' (tras el render, con props ya
-// commiteados) cuando cambia la plantilla o el contexto de mesa. En el flujo de
-// briefing, `props.tableData` puede no estar asentado cuando el watcher pre-flush
-// de `selectedTemplate` corre updateMessagePreview(), dejando {table.*} literales
-// (race de timing no determinista). Un watcher post-flush garantiza datos frescos.
+// commiteados) cuando cambia la plantilla o el contexto de mesa/tareas. En el
+// flujo de briefing, `props.tableData` puede no estar asentado cuando el watcher
+// pre-flush de `selectedTemplate` corre updateMessagePreview(), dejando {table.*}
+// literales (race de timing no determinista; mismo riesgo para
+// `props.assignmentsData` y {assignments.*}). Un watcher post-flush garantiza
+// datos frescos.
 watch(
-	[selectedTemplate, () => props.tableData],
+	[selectedTemplate, () => props.tableData, () => props.assignmentsData],
 	() => {
 		if (props.open && selectedTemplate.value && !isUserEditing.value) {
 			updateMessagePreview();
