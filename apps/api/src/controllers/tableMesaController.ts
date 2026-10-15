@@ -72,6 +72,8 @@ export const getTable = async (req: Request, res: Response, next: NextFunction) 
 		if (!table) {
 			return res.status(404).json({ message: 'Table not found' });
 		}
+		// The route permission is global; the retreat of THIS table is checked here.
+		if (!(await ensureRetreatAccess(req, res, table.retreatId))) return;
 		const canSeeHealth = await canViewHealthData(req);
 		res.json(canSeeHealth ? table : tablesWithoutHealth(table));
 	} catch (error: any) {
@@ -84,6 +86,7 @@ export const createTable = async (req: Request, res: Response, next: NextFunctio
 		if (!req.body?.retreatId) {
 			return res.status(400).json({ message: 'retreatId is required' });
 		}
+		if (!(await ensureRetreatAccess(req, res, req.body.retreatId))) return;
 		const newTable = await tableMesaService.createTable(req.body);
 		res.status(201).json(newTable);
 	} catch (error: any) {
@@ -125,6 +128,13 @@ export const updateTable = async (req: Request, res: Response, next: NextFunctio
 
 export const deleteTable = async (req: Request, res: Response, next: NextFunction) => {
 	try {
+		// 404 before the access guard, same flow as the rename; unknown ids used
+		// to answer 204 (delete of nothing).
+		const retreatId = await tableMesaService.findTableRetreatId(req.params.id);
+		if (!retreatId) {
+			return res.status(404).json({ message: 'Table not found' });
+		}
+		if (!(await ensureRetreatAccess(req, res, retreatId))) return;
 		await tableMesaService.deleteTable(req.params.id);
 		res.status(204).send();
 	} catch (error: any) {
@@ -143,6 +153,12 @@ export const assignLeader = async (req: Request, res: Response, next: NextFuncti
 		) {
 			return res.status(400).json({ message: 'Invalid table ID' });
 		}
+
+		const retreatId = await tableMesaService.findTableRetreatId(tableId);
+		if (!retreatId) {
+			return res.status(404).json({ message: 'Table not found' });
+		}
+		if (!(await ensureRetreatAccess(req, res, retreatId))) return;
 
 		const updatedTable = await tableMesaService.assignLeaderToTable(
 			tableId,
@@ -170,6 +186,12 @@ export const unassignLeader = async (req: Request, res: Response, next: NextFunc
 			return res.status(400).json({ message: 'Invalid table ID' });
 		}
 
+		const retreatId = await tableMesaService.findTableRetreatId(tableId);
+		if (!retreatId) {
+			return res.status(404).json({ message: 'Table not found' });
+		}
+		if (!(await ensureRetreatAccess(req, res, retreatId))) return;
+
 		const updatedTable = await tableMesaService.unassignLeaderFromTable(tableId, role as any);
 		const canSeeHealth = await canViewHealthData(req);
 		res.json(canSeeHealth ? updatedTable : tablesWithoutHealth(updatedTable));
@@ -190,6 +212,12 @@ export const assignWalker = async (req: Request, res: Response, next: NextFuncti
 			return res.status(400).json({ message: 'Invalid table ID' });
 		}
 
+		const retreatId = await tableMesaService.findTableRetreatId(tableId);
+		if (!retreatId) {
+			return res.status(404).json({ message: 'Table not found' });
+		}
+		if (!(await ensureRetreatAccess(req, res, retreatId))) return;
+
 		const updatedTable = await tableMesaService.assignWalkerToTable(tableId, participantId);
 		const canSeeHealth = await canViewHealthData(req);
 		res.json(canSeeHealth ? updatedTable : tablesWithoutHealth(updatedTable));
@@ -209,6 +237,12 @@ export const unassignWalker = async (req: Request, res: Response, next: NextFunc
 		) {
 			return res.status(400).json({ message: 'Invalid table ID' });
 		}
+
+		const retreatId = await tableMesaService.findTableRetreatId(tableId);
+		if (!retreatId) {
+			return res.status(404).json({ message: 'Table not found' });
+		}
+		if (!(await ensureRetreatAccess(req, res, retreatId))) return;
 
 		const updatedTable = await tableMesaService.unassignWalkerFromTable(tableId, walkerId);
 		const canSeeHealth = await canViewHealthData(req);

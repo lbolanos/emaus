@@ -76,6 +76,7 @@ jest.mock('../../services/domainAuditService', () => {
 
 const mockFindTablesByRetreatId = jest.fn();
 const mockFindTableById = jest.fn();
+const mockFindTableRetreatId = jest.fn();
 const mockAssignLeaderToTable = jest.fn();
 const mockUnassignLeaderFromTable = jest.fn();
 const mockAssignWalkerToTable = jest.fn();
@@ -83,6 +84,7 @@ const mockUnassignWalkerFromTable = jest.fn();
 jest.mock('../../services/tableMesaService', () => ({
 	findTablesByRetreatId: (...args: unknown[]) => mockFindTablesByRetreatId(...args),
 	findTableById: (...args: unknown[]) => mockFindTableById(...args),
+	findTableRetreatId: (...args: unknown[]) => mockFindTableRetreatId(...args),
 	assignLeaderToTable: (...args: unknown[]) => mockAssignLeaderToTable(...args),
 	unassignLeaderFromTable: (...args: unknown[]) => mockUnassignLeaderFromTable(...args),
 	assignWalkerToTable: (...args: unknown[]) => mockAssignWalkerToTable(...args),
@@ -369,6 +371,9 @@ describe('mapa de camas y mesas — ficha de salud gateada por participant:healt
 						unassignWalker: mockUnassignWalkerFromTable,
 					}[handlerName as string] as jest.Mock;
 					serviceMock.mockResolvedValue(tableWithHealth);
+					// The handlers resolve the table's retreat and check access to
+					// it before mutating (route permissions are global).
+					mockFindTableRetreatId.mockResolvedValue('retreat-1');
 
 					const res = createMockRes();
 					const req = createMockReq({

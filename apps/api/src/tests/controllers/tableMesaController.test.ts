@@ -11,14 +11,28 @@ jest.mock('../../services/tableMesaService', () => {
 		deleteEmptyTablesForRetreat: jest.fn(),
 		rebalanceTablesForRetreat: jest.fn(),
 		findTablesByRetreatId: jest.fn(),
+		findTableById: jest.fn(),
 		findTableRetreatId: jest.fn(),
+		createTable: jest.fn(),
 		updateTable: jest.fn(),
+		deleteTable: jest.fn(),
+		assignLeaderToTable: jest.fn(),
+		unassignLeaderFromTable: jest.fn(),
+		assignWalkerToTable: jest.fn(),
+		unassignWalkerFromTable: jest.fn(),
 	};
 });
 
 jest.mock('../../middleware/authorization', () => ({
 	...jest.requireActual('../../middleware/authorization'),
 	ensureRetreatAccess: jest.fn(),
+}));
+
+// The handlers under test shape their payload with canViewHealthData; the guard
+// wiring is what we assert here, so health data is always allowed.
+jest.mock('../../controllers/participantController', () => ({
+	...jest.requireActual('../../controllers/participantController'),
+	canViewHealthData: jest.fn().mockResolvedValue(true),
 }));
 
 import * as tableMesaService from '../../services/tableMesaService';
@@ -222,6 +236,176 @@ describe('Table Mesa Controller', () => {
 			expect(res.status).toHaveBeenCalledWith(409);
 			expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ name: 'Mesa 2' }));
 			expect(mockNext).not.toHaveBeenCalled();
+		});
+	});
+
+	describe('getTable', () => {
+		const table = { id: 'table-1', name: 'Mesa 1', retreatId: 'retreat-1' };
+
+		test('should return 404 when the table does not exist', async () => {
+			(tableMesaService.findTableById as jest.Mock).mockResolvedValue(null);
+			const req = createMockRequest({ params: { id: 'table-1' } });
+			const res = createMockResponse();
+
+			await tableMesaController.getTable(req as any, res as any, mockNext);
+
+			expect(res.status).toHaveBeenCalledWith(404);
+			expect(ensureRetreatAccess).not.toHaveBeenCalled();
+		});
+
+		test('should check access to the table retreat before answering', async () => {
+			(tableMesaService.findTableById as jest.Mock).mockResolvedValue(table);
+			(ensureRetreatAccess as jest.Mock).mockResolvedValue(false);
+			const req = createMockRequest({ params: { id: 'table-1' } });
+			const res = createMockResponse();
+
+			await tableMesaController.getTable(req as any, res as any, mockNext);
+
+			expect(ensureRetreatAccess).toHaveBeenCalledWith(req, res, 'retreat-1');
+			expect(res.json).not.toHaveBeenCalled();
+		});
+
+		test('should return the table when the user has access', async () => {
+			(tableMesaService.findTableById as jest.Mock).mockResolvedValue(table);
+			(ensureRetreatAccess as jest.Mock).mockResolvedValue(true);
+			const req = createMockRequest({ params: { id: 'table-1' } });
+			const res = createMockResponse();
+
+			await tableMesaController.getTable(req as any, res as any, mockNext);
+
+			expect(res.json).toHaveBeenCalledWith(table);
+		});
+	});
+
+	describe('createTable', () => {
+		test('should return 400 when retreatId is missing', async () => {
+			const req = createMockRequest({ body: {} });
+			const res = createMockResponse();
+
+			await tableMesaController.createTable(req as any, res as any, mockNext);
+
+			expect(res.status).toHaveBeenCalledWith(400);
+			expect(tableMesaService.createTable).not.toHaveBeenCalled();
+		});
+
+		test('should check access to the target retreat before creating', async () => {
+			(ensureRetreatAccess as jest.Mock).mockResolvedValue(false);
+			const req = createMockRequest({ body: { retreatId: 'retreat-1' } });
+			const res = createMockResponse();
+
+			await tableMesaController.createTable(req as any, res as any, mockNext);
+
+			expect(ensureRetreatAccess).toHaveBeenCalledWith(req, res, 'retreat-1');
+			expect(tableMesaService.createTable).not.toHaveBeenCalled();
+			expect(res.json).not.toHaveBeenCalled();
+		});
+
+		test('should create the table and return 201 when the user has access', async () => {
+			(ensureRetreatAccess as jest.Mock).mockResolvedValue(true);
+			(tableMesaService.createTable as jest.Mock).mockResolvedValue({
+				id: 'table-2',
+				name: 'Mesa 2',
+			});
+			const req = createMockRequest({ body: { retreatId: 'retreat-1' } });
+			const res = createMockResponse();
+
+			await tableMesaController.createTable(req as any, res as any, mockNext);
+
+			expect(tableMesaService.createTable).toHaveBeenCalledWith({ retreatId: 'retreat-1' });
+			expect(res.status).toHaveBeenCalledWith(201);
+			expect(res.json).toHaveBeenCalledWith({ id: 'table-2', name: 'Mesa 2' });
+		});
+	});
+
+	describe('deleteTable', () => {
+		test('should return 404 when the table does not exist', async () => {
+			(tableMesaService.findTableRetreatId as jest.Mock).mockResolvedValue(null);
+			const req = createMockRequest({ params: { id: 'table-1' } });
+			const res = createMockResponse();
+
+			await tableMesaController.deleteTable(req as any, res as any, mockNext);
+
+			expect(res.status).toHaveBeenCalledWith(404);
+			expect(tableMesaService.deleteTable).not.toHaveBeenCalled();
+		});
+
+		test('should check access before deleting', async () => {
+			(tableMesaService.findTableRetreatId as jest.Mock).mockResolvedValue('retreat-1');
+			(ensureRetreatAccess as jest.Mock).mockResolvedValue(false);
+			const req = createMockRequest({ params: { id: 'table-1' } });
+			const res = createMockResponse();
+
+			await tableMesaController.deleteTable(req as any, res as any, mockNext);
+
+			expect(ensureRetreatAccess).toHaveBeenCalledWith(req, res, 'retreat-1');
+			expect(tableMesaService.deleteTable).not.toHaveBeenCalled();
+		});
+
+		test('should delete and return 204 when the user has access', async () => {
+			(tableMesaService.findTableRetreatId as jest.Mock).mockResolvedValue('retreat-1');
+			(ensureRetreatAccess as jest.Mock).mockResolvedValue(true);
+			(tableMesaService.deleteTable as jest.Mock).mockResolvedValue(undefined);
+			const req = createMockRequest({ params: { id: 'table-1' } });
+			const res = createMockResponse();
+
+			await tableMesaController.deleteTable(req as any, res as any, mockNext);
+
+			expect(tableMesaService.deleteTable).toHaveBeenCalledWith('table-1');
+			expect(res.status).toHaveBeenCalledWith(204);
+		});
+	});
+
+	describe('assign/unassign handlers check the table retreat', () => {
+		const tableId = '1b6f9c2e-9d3b-4a2c-b1e0-7f2a5c8d9e01';
+		const retreatId = 'retreat-1';
+		const updatedTable = { id: tableId, name: 'Mesa 1', retreatId };
+
+		const cases = [
+			['assignLeader', 'assignLeaderToTable', { id: tableId, role: 'lider' }, { participantId: 'p-1' }],
+			['unassignLeader', 'unassignLeaderFromTable', { id: tableId, role: 'colider1' }, {}],
+			['assignWalker', 'assignWalkerToTable', { id: tableId }, { participantId: 'p-1' }],
+			['unassignWalker', 'unassignWalkerFromTable', { id: tableId, walkerId: 'w-1' }, {}],
+		] as [string, string, any, any][];
+
+		test.each(cases)('%s: 404 when the table does not exist', async (handler, serviceFn, params, body) => {
+			(tableMesaService.findTableRetreatId as jest.Mock).mockResolvedValue(null);
+			const req = createMockRequest({ params, body });
+			const res = createMockResponse();
+
+			await (tableMesaController as any)[handler](req as any, res as any, mockNext);
+
+			expect(res.status).toHaveBeenCalledWith(404);
+			expect((tableMesaService as any)[serviceFn]).not.toHaveBeenCalled();
+		});
+
+		test.each(cases)(
+			'%s: does not touch the service without retreat access',
+			async (handler, serviceFn, params, body) => {
+				(tableMesaService.findTableRetreatId as jest.Mock).mockResolvedValue(retreatId);
+				(ensureRetreatAccess as jest.Mock).mockResolvedValue(false);
+				const req = createMockRequest({ params, body });
+				const res = createMockResponse();
+
+				await (tableMesaController as any)[handler](req as any, res as any, mockNext);
+
+				expect(tableMesaService.findTableRetreatId).toHaveBeenCalledWith(tableId);
+				expect(ensureRetreatAccess).toHaveBeenCalledWith(req, res, retreatId);
+				expect((tableMesaService as any)[serviceFn]).not.toHaveBeenCalled();
+				expect(res.json).not.toHaveBeenCalled();
+			},
+		);
+
+		test.each(cases)('%s: proceeds when the user has access', async (handler, serviceFn, params, body) => {
+			(tableMesaService.findTableRetreatId as jest.Mock).mockResolvedValue(retreatId);
+			(ensureRetreatAccess as jest.Mock).mockResolvedValue(true);
+			((tableMesaService as any)[serviceFn] as jest.Mock).mockResolvedValue(updatedTable);
+			const req = createMockRequest({ params, body });
+			const res = createMockResponse();
+
+			await (tableMesaController as any)[handler](req as any, res as any, mockNext);
+
+			expect((tableMesaService as any)[serviceFn]).toHaveBeenCalled();
+			expect(res.json).toHaveBeenCalledWith(updatedTable);
 		});
 	});
 });
