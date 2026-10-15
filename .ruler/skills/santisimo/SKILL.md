@@ -291,6 +291,16 @@ cp apps/api/database.sqlite apps/api/database.sqlite.backup-pre-regenerate-$(dat
 cd apps/api && DOTENV_CONFIG_PATH=./.env npx vite-node --require dotenv/config scripts/test-regenerate-san-agustin.ts
 ```
 
+## Enlaces personales de guardia (invite cifrado)
+
+Cada **servidor** elige él mismo UN horario de guardia desde un enlace público con su identidad cifrada, sin login. Spec completa y decisiones: `specs/santisimo-guardia-links/spec.md`.
+
+- **Token**: AES-256-GCM stateless en `apps/api/src/utils/santisimoInviteToken.ts` (payload `{v:1,r,p}`, clave `HMAC-SHA256(INVITE_TOKEN_SECRET ?? SESSION_SECRET, 'santisimo-guardia-invite-v1')`). Es capability URL: quien lo tiene puede inscribir como ese servidor; rotar `INVITE_TOKEN_SECRET` los invalida TODOS. El token jamás se loguea ni entra al audit.
+- **Vista pública**: `/santisimo/servidor/:token` (`PublicSantisimoServerView.vue`), radios de un solo horario, editable hasta el cierre. NO confundir con `/santisimo/:slug` (angelitos, multi-select con nombre libre).
+- **API pública** (CSRF-exenta por el prefijo `/santisimo/public`, rate-limit `publicParticipantLimiter`): `GET/POST/DELETE /santisimo/public/invite/:token[/signup]`. 404 uniforme ante cualquier causa inválida; 409 con `error: 'CAPACITY'|'DISABLED'|'PAST'`.
+- **Envío**: plantilla tipo `SANTISIMO_GUARDIA_INVITE` (sembrada por `20261014120000`) con `{participant.santisimoGuardiaLink}`. Entrada admin: SantisimoAdminView → ⋮ Más acciones → "Enviar enlaces de guardia por WhatsApp" (abre `WhatsAppSendQueue` con los servidores del retiro). La variable tiene 3 caminos de resolución (regla dura de memoria): motor de secuencias (`resolveContent`), cliente (fetch de `GET /santisimo/retreats/:retreatId/guardia-links`) y preview del editor.
+- **Auditoría**: `santisimo_signup.invite_signup` / `.invite_cancel` en DomainAuditLog (con participantId/slotId, NUNCA el token).
+
 ## Troubleshooting
 
 - **"Sesión expirada" al hacer POST público**: el endpoint no está en la lista CSRF-excluida. Verificar `'/santisimo/public'` en `applyCsrfProtectionExcept` en `apps/api/src/routes/index.ts`.
@@ -300,3 +310,5 @@ cd apps/api && DOTENV_CONFIG_PATH=./.env npx vite-node --require dotenv/config s
 - **Slots arrancan a "10am del viernes" en lugar de las 16:00**: bug de timezone — el server creó los items con la hora local UTC en lugar de la del retiro. Solución: confirmar `house.timezone` o `retreat.timezone` y luego "Borrar todo y regenerar". Ver "Bug histórico" arriba.
 - **Slots de madrugada (2-4 AM) aparecen como "Comida"**: hay items duplicados de comida con timestamps mal calculados (08:20 UTC que en CDMX es 2:20 AM). Síntoma típico de doble-materialización. Solución: "Borrar todo y regenerar" — el método deduplica items con `scheduleTemplateId` repetido.
 - **Timezone almacenamiento**: SIEMPRE se guarda UTC en `santisimo_slot.startTime/endTime` y `retreat_schedule_item.startTime/endTime`. La zona `house.timezone`/`retreat.timezone` solo afecta la **construcción** de esas fechas al materializar el template (vía `makeDateInTimezone`). El render en el navegador usa los métodos locales (`getHours/getMinutes`), por lo que un usuario con su navegador en una zona distinta a la del retiro verá horas distintas — esto es esperado (un padrino en España viendo un retiro en CDMX ve horas Europe/Madrid).
+- **"Este enlace no es válido" para un servidor que sí debería tener enlace**: el 404 del invite es uniforme; las causas son token corrupto/editado, `santisimoEnabled` apagado, participante borrado (`dataDeletedAt`) o membresía cancelada. El mapa `guardia-links` (y la cola de envío) sólo incluye servidores con membresía activa.
+- **La variable `{participant.santisimoGuardiaLink}` llega vacía en un envío**: son 3 caminos de resolución (secuencias, MessageDialog/cola, preview del editor). Ver la sección "Enlaces personales de guardia" arriba y el skill `template-variables` antes de añadir superficies nuevas.

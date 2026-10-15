@@ -2894,11 +2894,56 @@ export interface PublicSantisimoSchedule {
   slots: PublicSantisimoSlot[];
 }
 
+export interface PublicSantisimoInviteSlot {
+  id: string;
+  startTime: string;
+  endTime: string;
+  capacity: number;
+  signedUpCount: number;
+  mealWindow: boolean;
+  isDisabled: boolean;
+  intention: string | null;
+  selectable: boolean;
+}
+
+/**
+ * Datos del enlace personal cifrado `/santisimo/servidor/:token`
+ * (specs/santisimo-guardia-links). Los slots pasados no vienen y
+ * `selectable` ya descuenta el cupo propio del servidor.
+ */
+export interface PublicSantisimoInvite {
+  participant: { firstName: string | null; fullName: string | null };
+  retreat: { parish: string | null; startDate: string; endDate: string };
+  current: {
+    slotId: string;
+    startTime: string;
+    endTime: string;
+    mealWindow: boolean;
+  } | null;
+  slots: PublicSantisimoInviteSlot[];
+}
+
+export interface PublicSantisimoInviteSignup {
+  slotId: string;
+  startTime: string;
+  endTime: string;
+}
+
 export const santisimoApi = {
   // Admin
   async listSlots(retreatId: string): Promise<SantisimoSlotWithSignups[]> {
     const r = await api.get(`/santisimo/retreats/${retreatId}/slots`);
     return r.data;
+  },
+  /**
+   * Mapa participantId → enlace personal de guardia de los servidores del
+   * retiro (specs/santisimo-guardia-links). Lo fetchean los componentes de
+   * envío para resolver `{participant.santisimoGuardiaLink}`: el navegador
+   * no puede cifrar el token, el servidor lo construye.
+   */
+  async getGuardiaLinks(retreatId: string): Promise<Record<string, string>> {
+    const r = await api.get(`/santisimo/retreats/${retreatId}/guardia-links`);
+    return r.data.links;
   },
   async createSlot(
     retreatId: string,
@@ -3070,6 +3115,20 @@ export const santisimoApi = {
   },
   async publicCancel(token: string): Promise<void> {
     await api.delete(`/santisimo/public/signups/${token}`);
+  },
+
+  // Public personal invite (specs/santisimo-guardia-links): the token encodes
+  // retreat + participant server-side; the browser never builds it.
+  async getPublicInvite(token: string): Promise<PublicSantisimoInvite> {
+    const r = await api.get(`/santisimo/public/invite/${token}`);
+    return r.data;
+  },
+  async publicInviteSignup(token: string, slotId: string): Promise<PublicSantisimoInviteSignup> {
+    const r = await api.post(`/santisimo/public/invite/${token}/signup`, { slotId });
+    return r.data.signup;
+  },
+  async publicInviteCancel(token: string): Promise<void> {
+    await api.delete(`/santisimo/public/invite/${token}/signup`);
   },
 };
 

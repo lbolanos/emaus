@@ -4,7 +4,7 @@ Plan de contenido para el canal de ayuda. Cada video se graba con el pipeline de
 `apps/web/e2e/demo/` (skill **`demo-videos`**) y se publica con **`youtube-publishing`**.
 Convención: ~1–3 min, en español, narrado, conduciendo la app real.
 
-**Hechos: 20 · Pendientes: ~7**
+**Hechos: 21 · Pendientes: ~6**
 
 ---
 
@@ -34,6 +34,7 @@ Convención: ~1–3 min, en español, narrado, conduciendo la app real.
 - [x] **Familia Emaús** (capa social: Mi Perfil con bio/intereses/dones y privacidad; Buscar Hermanos con filtros y acciones conectar/seguir; Hermanos con aceptadas/pendientes/enviadas; Seguidores; Testimonios con visibilidad y publicación en landing) — _unlisted_ — https://youtu.be/K-YtP1DFaRw
 - [x] **Corregir teléfonos en Palancas** (editor rápido del celular del caminante y sus dos contactos de emergencia: columna Celular con lápiz en la tabla y el mismo editor en el detalle; canoniza `+52` a 10 dígitos, bloquea números inválidos, fila/ficha se refrescan al instante) — https://youtu.be/V3JJkwi8tpc — unlisted (2026-10-08), en la playlist (posición 23). Guion: `apps/web/e2e/demo/record-quick-phones.mjs`. Enlazado en la ayuda in-app de Palancas.
 - [x] **Comunidades: fichas duplicadas** (botón Duplicados con conteo de pendientes, revisión de cada par, preview obligatorio de lo que se moverá, fusión que archiva la ficha sobrante, descarte de falsos positivos en dos pasos y su deshacer) — https://youtu.be/FrMbNdk3Kio — unlisted (2026-10-09, en la playlist al final). Guion: `apps/web/e2e/demo/record-duplicates.mjs`. PII verificada con `e2e/demo/_pii-gate-duplicates.mjs`: 88 nombres / 88 correos / 85 teléfonos reales vigilados → 0 fugas (sin enmascarar detecta 93, así que la puerta sabe fallar).
+- [x] **Guardias del Santísimo por WhatsApp** (enlace personal por servidor: activar y generar turnos, cola de WhatsApp con la plantilla que inyecta el enlace de cada persona, el mensaje que recibe, y la vista pública donde elige/cambia/quita su horario sin cuenta; nombres y teléfonos ficticios) — https://youtu.be/gGDyzbTtdKo — unlisted (2026-10-14, en la playlist al final). Guion: `apps/web/e2e/demo/record-santisimo-links.mjs`. PII verificada por frames contra los 14 nombres reales de `santisimo_signup` del retiro demo → 0 fugas; token del popup wa.me difuminado con ffmpeg (37.3–42.4 s). Fix de masking de `signup.name` (ancla `slotId`) con test guard en `demo-lib.test.mjs`. **Muestra dinámicas del Santísimo → NO pasar a público** (política de audiencia).
 
 ---
 
@@ -59,7 +60,7 @@ Cierran la confusión "cuenta de usuario vs. registro al retiro" que ya viene en
 
 - [x] ~~**Equipos de servicio y responsabilidades**~~ — publicado (arriba). *(Incluye documentos/guiones, versionado, MAM y Mi Agenda.)*
 - [ ] **Inventario** — control de inventario del retiro (`inventory`).
-- [ ] **Santísimo (guardias de adoración)** — armado del horario de guardias (`santisimo`).
+- [x] ~~**Santísimo (guardias de adoración)**~~ — publicado (arriba). *(Armado del horario + enlaces de guardia por WhatsApp; los angelitos quedan cubiertos dentro del mismo flujo.)*
 - [ ] **Angelitos** — asignación de angelitos (`angelitos`).
 - [ ] **Misa de clausura** — captura de iglesia + invitación a familiares (skill `closing-mass-church`).
 - [x] ~~**Palancas**~~ — regrabado y resubido **unlisted** 2026-08-22 — https://youtu.be/-D7uV1bvB-A *(asignar palanqueros, avisos al registrarse, secuencias a familiares, registro solicitadas/recibidas/notas; en playlist y sin strike, ver arriba).*

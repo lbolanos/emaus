@@ -106,6 +106,14 @@ export function maskNode(n) {
   } else if (typeof n.fullName === 'string' && n.fullName.trim()) {
     person = fakeFor(n.id || n.fullName);
     n.fullName = `${person.first} ${person.last}`;
+  } else if (typeof n.name === 'string' && typeof n.slotId === 'string' && n.name.trim() && !n.name.includes('@')) {
+    // santisimo_signup: el nombre de la persona vive en la clave plana `name`
+    // (sin firstName/displayName al lado); `slotId` delata al objeto como
+    // signup. La clave `name` NO se puede enmascarar a ciegas: roles,
+    // plantillas y casas también la usan. Se colaron los nombres reales de
+    // angelitos en la toma 4 del demo de guardias (2026-10-14).
+    person = fakeFor(n.participantId || n.name);
+    n.name = `${person.first} ${person.last}`;
   }
   for (const k of Object.keys(n)) {
     const v = n[k];

@@ -148,7 +148,9 @@
         "admin_create": "Inscripción al Santísimo registrada por un servidor",
         "public_signup": "Inscripción pública al Santísimo",
         "delete": "Inscripción al Santísimo eliminada",
-        "cancel": "Inscripción al Santísimo cancelada por el participante"
+        "cancel": "Inscripción al Santísimo cancelada por el participante",
+        "invite_signup": "Guardia del Santísimo elegida por el servidor (enlace personal)",
+        "invite_cancel": "Guardia del Santísimo quitada por el servidor (enlace personal)"
       },
       "responsability": {
         "create": "Responsabilidad creada",
@@ -999,6 +1001,7 @@
       "SERVER_CONVOCATION": "Convocatoria de Servidores",
       "SERVER_SHIRT_CONFIRMATION": "Confirmación de Camisetas (Servidores)",
       "SERVER_SHIRT_CONFIRMATION_REMINDER": "Recordatorio de Confirmación de Camisetas",
+      "SANTISIMO_GUARDIA_INVITE": "Guardias Santísimo — Elección de Horario (Servidores)",
       "SERVER_WELCOME": "Bienvenida Servidor",
       "EMERGENCY_CONTACT_VALIDATION": "Validación Contacto Emergencia",
       "PALANCA_REQUEST": "Solicitud Palanca",
@@ -3450,11 +3453,35 @@
     "autoAssignHint": "Recalcula ventanas de comida y reparte angelitos disponibles entre los slots bloqueados.",
     "autoAssignDone": "Auto-asignación completada",
     "autoAssignSummary": "{meal} ventanas de comida · {assigned} angelitos asignados · {pending} slots sin cubrir",
+    "sendGuardiaLinks": "Enviar enlaces de guardia por WhatsApp",
+    "sendGuardiaLinksHint": "Abre la cola de envío con un enlace personal por cada servidor para que elija su horario de guardia.",
     "regenerateFromSchedule": "Borrar todo y regenerar",
     "regenerateFromScheduleHint": "Borra TODOS los slots e inscripciones del Santísimo, re-materializa el Minuto a Minuto desde el template con la timezone actual del retiro y regenera los slots.",
     "regenerateFromScheduleConfirm": "Esto borrará TODOS los slots del Santísimo (con sus inscripciones) y re-materializará el Minuto a Minuto desde el template. Items editados manualmente que vengan del template SE PIERDEN. Items creados a mano (sin template) se conservan. ¿Continuar?",
     "regenerateFromScheduleDone": "Slots regenerados",
-    "regenerateFromScheduleSummary": "{removed} items del template eliminados · {replaced} items re-materializados · {deleted} slots borrados · {created} slots creados"
+    "regenerateFromScheduleSummary": "{removed} items del template eliminados · {replaced} items re-materializados · {deleted} slots borrados · {created} slots creados",
+    "serverInvite": {
+      "heading": "Guardias de la Capilla",
+      "greeting": "Hola, {name}",
+      "greetingFallback": "servidor(a)",
+      "intro": "Elige UN horario para acompañar al Santísimo durante el retiro. Puedes cambiarlo o quitarlo más tarde volviendo a entrar a este enlace.",
+      "personalNotice": "Este enlace es personal y lleva tu nombre; no lo reenvíes a nadie.",
+      "currentLabel": "Tu guardia actual",
+      "currentTag": "Tu guardia",
+      "mealBadge": "Coincide con la hora de comida",
+      "selectHint": "Selecciona un horario para continuar.",
+      "save": "Guardar mi horario",
+      "remove": "Quitar mi guardia",
+      "saved": "¡Listo! Tu horario quedó guardado. Puedes cambiarlo cuando quieras desde este mismo enlace.",
+      "removed": "Quitaste tu guardia. Puedes elegir un horario de nuevo cuando quieras.",
+      "noSlots": "Todavía no hay horarios disponibles. Vuelve a entrar más tarde.",
+      "invalidLinkTitle": "Enlace no válido",
+      "invalidLink": "Este enlace no es válido o ya expiró. Pídele uno nuevo a tu coordinador.",
+      "errorCapacity": "Alguien más tomó ese horario justo ahora. Por favor elige otro.",
+      "errorDisabled": "Ese horario ya no está disponible. Por favor elige otro.",
+      "errorPast": "Ese horario ya pasó. Por favor elige otro.",
+      "errorGeneric": "No se pudo guardar tu horario. Inténtalo de nuevo."
+    }
   },
   "whatsappQueue": {
     "title": "Cola de envío por WhatsApp",

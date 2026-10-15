@@ -148,7 +148,9 @@
         "admin_create": "Santísimo signup registered by a server",
         "public_signup": "Public Santísimo signup",
         "delete": "Santísimo signup deleted",
-        "cancel": "Santísimo signup cancelled by the participant"
+        "cancel": "Santísimo signup cancelled by the participant",
+        "invite_signup": "Chapel watch chosen by the server (personal link)",
+        "invite_cancel": "Chapel watch removed by the server (personal link)"
       },
       "responsability": {
         "create": "Responsibility created",
@@ -944,6 +946,7 @@
       "SERVER_CONVOCATION": "Server Convocation",
       "SERVER_SHIRT_CONFIRMATION": "Shirt Confirmation (Servers)",
       "SERVER_SHIRT_CONFIRMATION_REMINDER": "Shirt Confirmation Reminder",
+      "SANTISIMO_GUARDIA_INVITE": "Chapel Watch — Time Slot Selection (Servers)",
       "SERVER_WELCOME": "Server Welcome",
       "EMERGENCY_CONTACT_VALIDATION": "Emergency Contact Validation",
       "PALANCA_REQUEST": "Palanca Request",
@@ -3126,11 +3129,35 @@
     "autoAssignHint": "Recomputes meal windows and distributes available angelitos across blocked slots.",
     "autoAssignDone": "Auto-assignment complete",
     "autoAssignSummary": "{meal} meal windows · {assigned} angelitos assigned · {pending} slots unfilled",
+    "sendGuardiaLinks": "Send watch links via WhatsApp",
+    "sendGuardiaLinksHint": "Opens the send queue with a personal link for each server to pick their watch time slot.",
     "regenerateFromSchedule": "Delete all & regenerate",
     "regenerateFromScheduleHint": "Deletes ALL Santísimo slots and signups, re-materializes the schedule from the template with the retreat's current timezone and regenerates the slots.",
     "regenerateFromScheduleConfirm": "This will delete ALL Santísimo slots (with their signups) and re-materialize the schedule from the template. Manually edited template-linked items WILL BE LOST. Items created by hand (no template) are preserved. Continue?",
     "regenerateFromScheduleDone": "Slots regenerated",
-    "regenerateFromScheduleSummary": "{removed} template items removed · {replaced} items re-materialized · {deleted} slots deleted · {created} slots created"
+    "regenerateFromScheduleSummary": "{removed} template items removed · {replaced} items re-materialized · {deleted} slots deleted · {created} slots created",
+    "serverInvite": {
+      "heading": "Chapel Watch",
+      "greeting": "Hi, {name}",
+      "greetingFallback": "server",
+      "intro": "Pick ONE time slot to accompany the Blessed Sacrament during the retreat. You can change or remove it later from this same link.",
+      "personalNotice": "This link is personal and carries your name; do not forward it to anyone.",
+      "currentLabel": "Your current watch",
+      "currentTag": "Yours",
+      "mealBadge": "Overlaps with a meal time",
+      "selectHint": "Select a time slot to continue.",
+      "save": "Save my time slot",
+      "remove": "Remove my watch",
+      "saved": "All set! Your time slot is saved. You can change it anytime from this same link.",
+      "removed": "Your watch was removed. You can pick a new time slot whenever you want.",
+      "noSlots": "No time slots available yet. Come back later.",
+      "invalidLinkTitle": "Invalid link",
+      "invalidLink": "This link is not valid or has expired. Ask your coordinator for a new one.",
+      "errorCapacity": "Someone else just took that time slot. Please pick another one.",
+      "errorDisabled": "That time slot is no longer available. Please pick another one.",
+      "errorPast": "That time slot has already passed. Please pick another one.",
+      "errorGeneric": "Could not save your time slot. Please try again."
+    }
   },
   "whatsappQueue": {
     "title": "WhatsApp send queue",

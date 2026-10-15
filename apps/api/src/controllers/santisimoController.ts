@@ -11,6 +11,7 @@ import { authorizationService } from '../middleware/authorization';
 import RecaptchaService from '../services/recaptchaService';
 import { AppDataSource } from '../data-source';
 import { SantisimoSignup } from '../entities/santisimoSignup.entity';
+import { parseSantisimoInviteToken } from '../utils/santisimoInviteToken';
 
 const recaptcha = new RecaptchaService();
 
@@ -219,4 +220,58 @@ export const publicCancelSignup = async (req: Request, res: Response) => {
 	const ok = await santisimoService.cancelByToken(token);
 	if (!ok) return res.status(404).json({ message: 'Not found' });
 	res.status(204).send();
+};
+
+// -- Public invite handlers (enlace personal cifrado del servidor) --
+// Sin reCAPTCHA: el token AES-256-GCM es la capability (spec, decisión 6).
+// 404 uniforme: token inválido, retiro sin santísimo o participante borrado
+// no se distinguen para no filtrar información del enlace.
+
+export const publicGetInvite = async (req: Request, res: Response) => {
+	const payload = parseSantisimoInviteToken(req.params.token);
+	if (!payload) return res.status(404).json({ message: 'Invite not found' });
+	const data = await santisimoService.getInviteData(payload.retreatId, payload.participantId);
+	if (!data) return res.status(404).json({ message: 'Invite not found' });
+	res.json(data);
+};
+
+export const publicInviteSignup = async (req: Request, res: Response) => {
+	const payload = parseSantisimoInviteToken(req.params.token);
+	if (!payload) return res.status(404).json({ message: 'Invite not found' });
+	try {
+		const signup = await santisimoService.inviteSignup(
+			payload.retreatId,
+			payload.participantId,
+			req.body.slotId,
+			req.ip,
+		);
+		res.status(201).json({ signup });
+	} catch (err) {
+		mapError(res, err);
+	}
+};
+
+export const publicInviteCancel = async (req: Request, res: Response) => {
+	const payload = parseSantisimoInviteToken(req.params.token);
+	if (!payload) return res.status(404).json({ message: 'Invite not found' });
+	const ok = await santisimoService.inviteCancel(
+		payload.retreatId,
+		payload.participantId,
+		req.ip,
+	);
+	if (!ok) return res.status(404).json({ message: 'No signup to cancel' });
+	res.status(204).send();
+};
+
+/**
+ * Mapa participantId → enlace personal de guardia (autenticado): lo consume
+ * el cliente de envío para resolver `{participant.santisimoGuardiaLink}`.
+ */
+export const getGuardiaLinks = async (req: Request, res: Response) => {
+	const { retreatId } = req.params;
+	if (!(await checkRetreatAccess(req, retreatId))) {
+		return res.status(403).json({ message: 'Forbidden' });
+	}
+	const links = await santisimoService.getGuardiaLinks(retreatId);
+	res.json({ links });
 };

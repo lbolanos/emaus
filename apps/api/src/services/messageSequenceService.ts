@@ -26,6 +26,7 @@ import {
 	isPlaceholderBirthDate,
 	findEmptyVariables,
 } from '@repo/utils';
+import { buildSantisimoInviteUrl } from '../utils/santisimoInviteToken';
 import { getMessageTemplateAudience } from '@repo/types';
 import type { SequencePastStep, SequenceRunResult } from '@repo/types';
 import { savedSegmentService } from './savedSegmentService';
@@ -877,6 +878,20 @@ export class MessageSequenceService {
 				retreat,
 			),
 		};
+		// Enlace personal de guardias del Santísimo: el navegador no puede
+		// cifrarlo, así que aquí también lo resuelve el servidor (lazy, sólo si
+		// la plantilla lo usa — specs/santisimo-guardia-links R4).
+		const participantWithGuardiaLink =
+			message.includes('{participant.santisimoGuardiaLink}') && participantWithShirtOrder
+				? {
+						...participantWithShirtOrder,
+						santisimoGuardiaLink: buildSantisimoInviteUrl(
+							process.env.FRONTEND_URL || 'http://localhost:5173',
+							retreatId,
+							participant.id,
+						),
+					}
+				: participantWithShirtOrder;
 		// `{community.*}`: la comunidad REAL del retiro cuando la plantilla la usa
 		// (lazy, igual que {table.*}). NUNCA pasar `null`: replaceAllVariables
 		// sólo sustituye {community.*} si el argumento es !== undefined, y el
@@ -892,7 +907,7 @@ export class MessageSequenceService {
 					: undefined;
 		return replaceAllVariables(
 			message,
-			participantWithShirtOrder as any,
+			participantWithGuardiaLink as any,
 			retreatWithLinks as any,
 			contactKey,
 			communityData,

@@ -114,6 +114,12 @@ alternativas es-LATAM: `aura-2-selena-es`, `aura-2-estrella-es`, `aura-2-javier-
 - **Re-mux del video**: si re-muxeas un `.webm` ya grabado, elegí el archivo por **mtime
   (el más nuevo)**, NO por orden alfabético (los nombres son hex aleatorios → `.sort().pop()`
   puede agarrar el webm de OTRA feature y pegarle el audio equivocado).
+- **`route.continue()` tras `route.fetch()` de una mutación RE-ENVÍA la request** (doble-DELETE
+  en la toma 3 del demo de guardias del Santísimo, 2026-10-14): si interceptás un POST/PUT/DELETE
+  para observarlo y querés devolver la respuesta real al front, usá
+  `route.fulfill({ response: resp })` — nunca `continue()`, que manda el request otra vez y la
+  mutación corre dos veces. Y si la respuesta es 204 sin body, `resp.json()` lanza: guardá con
+  `resp.status() === 204` antes de parsear.
 
 ## Lecciones aprendidas grabando vistas de `/app` (sesión 2026-07-06)
 

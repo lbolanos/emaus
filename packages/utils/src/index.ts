@@ -413,6 +413,15 @@ export interface ParticipantData {
 	retreatBed?: { roomNumber: string; bedNumber: string };
 	palanquero?: { name?: string; email?: string; cellPhone?: string };
 	dataDeleteToken?: string | null;
+	/**
+	 * Enlace personal cifrado para que el servidor elija su guardia del
+	 * Santísimo (specs/santisimo-guardia-links). A diferencia de
+	 * `dataDeleteToken`, el navegador NO puede construirlo (requiere cifrar
+	 * AES-256-GCM): el caller lo hidrata con el mapa de
+	 * `GET /santisimo/retreats/:retreatId/guardia-links` (cliente) o con
+	 * `buildSantisimoInviteUrl` (motor de secuencias, base FRONTEND_URL).
+	 */
+	santisimoGuardiaLink?: string;
 }
 
 /**
@@ -833,6 +842,7 @@ const getMockParticipant = (): ParticipantData => {
 		lastUpdatedDate: '2024-01-10',
 		tableMesa: { name: '01' },
 		retreatBed: { roomNumber: '101', bedNumber: '1' },
+		santisimoGuardiaLink: 'https://emaus.cc/santisimo/servidor/ejemplo-de-token',
 	};
 };
 
@@ -995,6 +1005,9 @@ const buildParticipantReplacements = (
 		'participant.dataDeleteUrl': participantData.dataDeleteToken
 			? `${getPublicWebUrl()}/eliminar-datos/${participantData.dataDeleteToken}`
 			: '',
+		// URL completa pre-construida por el caller (ver comentario en
+		// ParticipantData): aquí solo se pasa.
+		'participant.santisimoGuardiaLink': participantData.santisimoGuardiaLink || '',
 	};
 };
 
