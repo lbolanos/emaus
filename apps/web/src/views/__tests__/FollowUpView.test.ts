@@ -62,6 +62,8 @@ vi.mock('@/components/MessageDialog.vue', () => ({
 }));
 
 import FollowUpView from '../FollowUpView.vue';
+import { useParticipantStore } from '@/stores/participantStore';
+import { useRetreatStore } from '@/stores/retreatStore';
 
 describe('FollowUpView (tablero de seguimiento)', () => {
 	beforeEach(() => {
@@ -161,7 +163,7 @@ describe('FollowUpView (tablero de seguimiento)', () => {
 		expect(w.text()).not.toContain('Mario Medina');
 	});
 
-	it('«Con sus cartas» es un cubo derivado: quien cumple sale de su etapa y no acepta arrastre', async () => {
+	it('the letters cube is derived: meeting the threshold leaves the stage and accepts no drop', async () => {
 		const w = await mountView();
 		const sections = w.findAll('section');
 		// Cinco etapas + el cubo derivado al final.
@@ -185,6 +187,41 @@ describe('FollowUpView (tablero de seguimiento)', () => {
 		// La tarjeta del cubo abre el panel de historial como cualquier otra.
 		await metColumn.findComponent({ name: 'FollowUpCard' }).trigger('click');
 		expect(w.findComponent({ name: 'ParticipantTimelinePanel' }).props('open')).toBe(true);
+	});
+
+	it('returns a letters-met card to its stage when the count drops below the threshold', async () => {
+		const w = await mountView();
+		let sections = w.findAll('section');
+		expect(sections[5].text()).toContain('Luz Ma Ibarra');
+		expect(sections[1].text()).not.toContain('Luz Ma');
+
+		// The record drops to 2 of 3: the card leaves the cube and reappears
+		// in its Contactado stage on its own — no manual stage change involved.
+		const store = useParticipantStore();
+		(store.participants as any[])[1].palancasReceivedCount = 2;
+		await flushPromises();
+
+		sections = w.findAll('section');
+		expect(sections[5].text()).not.toContain('Luz Ma');
+		expect(sections[1].text()).toContain('Luz Ma Ibarra');
+
+		(store.participants as any[])[1].palancasReceivedCount = 4;
+	});
+
+	it('keeps letters-met cards in their stage until the retreat loads its threshold', async () => {
+		// While the retreat fetch is in flight the threshold falls back to the
+		// default; the skip is gated so cards don't teleport out of their stage
+		// column on first paint (they just duplicate into the cube, as before).
+		const retreats = useRetreatStore();
+		const loaded = retreats.selectedRetreat;
+		retreats.selectedRetreat = null;
+		const w = await mountView();
+
+		const sections = w.findAll('section');
+		expect(sections[1].text()).toContain('Luz Ma Ibarra');
+		expect(sections[5].text()).toContain('Luz Ma Ibarra');
+
+		retreats.selectedRetreat = loaded;
 	});
 
 	it('tocar una tarjeta abre su historial y la etapa se cambia desde ahí', async () => {

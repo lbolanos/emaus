@@ -20,7 +20,7 @@ import { useParticipantMessageDialog } from '@/composables/useParticipantMessage
 import MessageDialog from '@/components/MessageDialog.vue';
 import FollowUpCard from '@/components/crm/FollowUpCard.vue';
 import ParticipantTimelinePanel from '@/components/crm/ParticipantTimelinePanel.vue';
-import { resolvePalancas, effectiveMinPalancas } from '@repo/utils';
+import { resolvePalancas, effectiveMinPalancas, type PalancaMilestone } from '@repo/utils';
 import type { FollowUpStatus } from '@repo/types';
 
 const { t } = useI18n();
@@ -128,6 +128,23 @@ const contactableParticipants = computed(() =>
 	),
 );
 
+// While the retreat record is still loading, minPalancas falls back to the
+// default; the stage skip waits for the real threshold so cards don't
+// teleport out of their column and back on first paint.
+const retreatLoaded = computed(() => retreatStore.selectedRetreat != null);
+
+/** Palancas milestone per contactable participant, resolved ONCE: the letters
+ *  filter, the stage columns and the derived cube all read from this map.
+ *  Plain object on purpose — Map/Set inside reactive state is a known trap in
+ *  this repo. */
+const milestoneByParticipant = computed<Record<string, PalancaMilestone>>(() => {
+	const byId: Record<string, PalancaMilestone> = {};
+	for (const p of contactableParticipants.value) {
+		byId[p.id] = resolvePalancas(p, minPalancas.value).milestone;
+	}
+	return byId;
+});
+
 const visibleParticipants = computed(() => {
 	const q = search.value.trim().toLowerCase();
 	return contactableParticipants.value.filter((p: any) => {
@@ -143,8 +160,7 @@ const visibleParticipants = computed(() => {
 			if (!name.includes(q)) return false;
 		}
 		if (lettersFilter.value !== 'all') {
-			const { milestone } = resolvePalancas(p, minPalancas.value);
-			if (milestone !== lettersFilter.value) return false;
+			if (milestoneByParticipant.value[p.id] !== lettersFilter.value) return false;
 		}
 		return true;
 	});
@@ -153,11 +169,11 @@ const visibleParticipants = computed(() => {
 const columns = computed(() => {
 	const byStatus: Record<string, any[]> = Object.fromEntries(STATUSES.map((s) => [s, []]));
 	for (const p of visibleParticipants.value) {
-		// Quien ya cumplió sus cartas vive en el cubo verde: las etapas manuales
-		// quedan para el seguimiento que falta hacer (2026-10-15: antes cumplía
-		// el umbral Y seguía en su etapa, y la columna de la etapa dejaba de
-		// discriminar a quién faltaba contactar).
-		if (resolvePalancas(p, minPalancas.value).milestone === 'met') continue;
+		// Letters-met participants live in the green cube only: manual stages are
+		// left for the follow-up still pending (2026-10-15: they used to meet the
+		// threshold AND stay in their stage, so the stage column no longer told
+		// you who still needed contacting).
+		if (retreatLoaded.value && milestoneByParticipant.value[p.id] === 'met') continue;
 		const status = statusByParticipant.value[p.id] ?? 'pending';
 		(byStatus[status] ?? byStatus.pending).push(p);
 	}
@@ -167,18 +183,16 @@ const columns = computed(() => {
 const lettersThreshold = computed(() => effectiveMinPalancas(minPalancas.value));
 
 /**
- * Columna «Con sus cartas»: cubo DERIVADO del conteo de la ficha, no una etapa.
- * Quien cumple el umbral vive SOLO aquí — sale de su etapa de contacto para que
- * las columnas manuales muestren el seguimiento pendiente. La etapa no se pierde:
- * se sigue viendo y editando en el panel de detalle, y si el conteo baja del
- * umbral la persona reaparece en su columna sola. No se arrastra hacia esta
- * columna porque el conteo es la única verdad — una etapa manual acabaría
- * contradiciendo a la ficha.
+ * «Con sus cartas» column: a cube DERIVED from the participant's letter count,
+ * not a stage. Whoever meets the threshold lives ONLY here — they leave their
+ * contact stage so the manual columns show the pending follow-up. The stage is
+ * not lost (still visible and editable in the detail panel), and if the count
+ * drops below the threshold the card reappears in its stage on its own. Nothing
+ * is dragged into this column because the count is the single truth — a manual
+ * stage would end up contradicting the record.
  */
 const lettersMetParticipants = computed<any[]>(() =>
-	visibleParticipants.value.filter(
-		(p: any) => resolvePalancas(p, minPalancas.value).milestone === 'met',
-	),
+	visibleParticipants.value.filter((p: any) => milestoneByParticipant.value[p.id] === 'met'),
 );
 
 /** Índice del tablero: las cinco etapas y el cubo de cartas, con su conteo. */
@@ -489,10 +503,10 @@ const lastActivityByParticipant = computed<Record<string, string>>(() => {
 					</div>
 				</section>
 
-				<!-- Cubo derivado «Con sus cartas»: sin zona de arrastre porque no es
-				     una etapa — se llena sola desde el conteo de la ficha, y quien
-				     cumple sale de su etapa de contacto (que sigue editable en el
-				     panel de detalle). -->
+				<!-- «Con sus cartas» derived cube: no drop zone because it is not a
+				     stage — it fills itself from the record's letter count, and
+				     whoever meets the threshold leaves their contact stage (which
+				     stays editable in the detail panel). -->
 				<section
 					:id="`stage-${LETTERS_MET}`"
 					class="w-full lg:w-64 lg:shrink-0 flex-col rounded-md bg-green-50 border border-green-200 transition-opacity"
