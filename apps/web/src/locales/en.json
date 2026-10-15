@@ -3600,7 +3600,7 @@
     "lettersMet": "Complete",
     "lettersUnknown": "Not captured",
     "lettersColumnTitle": "With their letters",
-    "lettersColumnHint": "Automatic: {threshold}+ letters on file",
+    "lettersColumnHint": "Automatic: {threshold}+ letters on file; they leave their stage",
     "lettersColumnEmpty": "No one has their letters yet",
     "showMore": "Show more",
     "emptyColumn": "Nobody in this stage",

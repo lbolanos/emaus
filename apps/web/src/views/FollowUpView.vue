@@ -153,6 +153,11 @@ const visibleParticipants = computed(() => {
 const columns = computed(() => {
 	const byStatus: Record<string, any[]> = Object.fromEntries(STATUSES.map((s) => [s, []]));
 	for (const p of visibleParticipants.value) {
+		// Quien ya cumplió sus cartas vive en el cubo verde: las etapas manuales
+		// quedan para el seguimiento que falta hacer (2026-10-15: antes cumplía
+		// el umbral Y seguía en su etapa, y la columna de la etapa dejaba de
+		// discriminar a quién faltaba contactar).
+		if (resolvePalancas(p, minPalancas.value).milestone === 'met') continue;
 		const status = statusByParticipant.value[p.id] ?? 'pending';
 		(byStatus[status] ?? byStatus.pending).push(p);
 	}
@@ -163,9 +168,12 @@ const lettersThreshold = computed(() => effectiveMinPalancas(minPalancas.value))
 
 /**
  * Columna «Con sus cartas»: cubo DERIVADO del conteo de la ficha, no una etapa.
- * Quien cumple el umbral aparece aquí y ADEMÁS en su etapa de contacto; no se
- * arrastra hacia esta columna porque el conteo es la única verdad — una etapa
- * manual acabaría contradiciendo a la ficha.
+ * Quien cumple el umbral vive SOLO aquí — sale de su etapa de contacto para que
+ * las columnas manuales muestren el seguimiento pendiente. La etapa no se pierde:
+ * se sigue viendo y editando en el panel de detalle, y si el conteo baja del
+ * umbral la persona reaparece en su columna sola. No se arrastra hacia esta
+ * columna porque el conteo es la única verdad — una etapa manual acabaría
+ * contradiciendo a la ficha.
  */
 const lettersMetParticipants = computed<any[]>(() =>
 	visibleParticipants.value.filter(
@@ -483,7 +491,8 @@ const lastActivityByParticipant = computed<Record<string, string>>(() => {
 
 				<!-- Cubo derivado «Con sus cartas»: sin zona de arrastre porque no es
 				     una etapa — se llena sola desde el conteo de la ficha, y quien
-				     cumple sigue viviendo en su etapa de contacto. -->
+				     cumple sale de su etapa de contacto (que sigue editable en el
+				     panel de detalle). -->
 				<section
 					:id="`stage-${LETTERS_MET}`"
 					class="w-full lg:w-64 lg:shrink-0 flex-col rounded-md bg-green-50 border border-green-200 transition-opacity"

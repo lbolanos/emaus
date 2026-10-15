@@ -157,7 +157,9 @@ desplazar. Con espacio de sobra te lleva hasta ella.
 
 La última columna, **Con sus cartas**, no es una etapa: se llena sola con quienes tienen al menos el
 mínimo de cartas del retiro (3 por defecto) y no se le arrastra nada — captura el número en la ficha
-y la tarjeta aparece ahí. Quien está en esa columna sigue apareciendo en su etapa de contacto.
+y la tarjeta aparece ahí. Quien llega al mínimo sale de su etapa de contacto y vive solo en esta
+columna, para que las etapas muestren el seguimiento pendiente; su etapa no se pierde (se ve y se
+cambia en el historial) y si el conteo baja del mínimo, la tarjeta regresa sola a su etapa.
 
 ⚠️ **Al mover una tarjeta a Confirmó o Declinó también se registra la confirmación de asistencia**,
 que es la que hace que las secuencias dejen de insistirle a esa persona. Es lo que normalmente

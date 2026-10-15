@@ -92,11 +92,13 @@ describe('FollowUpView (tablero de seguimiento)', () => {
 		await w.findAll('select')[0].setValue('all');
 		await flushPromises();
 		const columns = w.findAll('section');
-		// Omar y Mario no tienen follow-up; Luz Ma está en Contactado.
+		// Omar y Mario no tienen follow-up; Luz Ma tiene fila en Contactado,
+		// pero ya cumplió sus cartas (4 de 3): vive en el cubo, no en su etapa.
 		expect(columns[0].text()).toContain('Omar Ojeda');
 		expect(columns[0].text()).toContain('Mario Medina');
 		expect(columns[0].text()).not.toContain('Luz Ma');
-		expect(columns[1].text()).toContain('Luz Ma Ibarra');
+		expect(columns[1].text()).not.toContain('Luz Ma');
+		expect(columns[5].text()).toContain('Luz Ma Ibarra');
 	});
 
 	it('soltar una tarjeta en otra columna guarda la etapa nueva', async () => {
@@ -146,9 +148,9 @@ describe('FollowUpView (tablero de seguimiento)', () => {
 		await flushPromises();
 		expect(w.text()).not.toContain('(eliminado)');
 		expect(w.text()).not.toContain('Cancelado Pérez');
-		// Los tres contactables: Omar y Mario en Por contactar, y Luz Ma DOS
-		// veces — su etapa (Contactado) y el cubo «Con sus cartas» (4 de 3).
-		expect(w.findAllComponents({ name: 'FollowUpCard' })).toHaveLength(4);
+		// Los tres contactables, una vez cada uno: Omar y Mario en Por
+		// contactar; Luz Ma (4 de 3) vive en el cubo «Con sus cartas».
+		expect(w.findAllComponents({ name: 'FollowUpCard' })).toHaveLength(3);
 	});
 
 	it('abre filtrado a caminantes por defecto', async () => {
@@ -159,18 +161,19 @@ describe('FollowUpView (tablero de seguimiento)', () => {
 		expect(w.text()).not.toContain('Mario Medina');
 	});
 
-	it('«Con sus cartas» es un cubo derivado: duplica a quien cumple y no acepta arrastre', async () => {
+	it('«Con sus cartas» es un cubo derivado: quien cumple sale de su etapa y no acepta arrastre', async () => {
 		const w = await mountView();
 		const sections = w.findAll('section');
 		// Cinco etapas + el cubo derivado al final.
 		expect(sections).toHaveLength(6);
 		const metColumn = sections[5];
 
-		// Luz Ma (4 de 3) entra al cubo Y sigue en su etapa Contactado;
-		// Omar (0 cartas) no entra.
+		// Luz Ma (4 de 3) vive SOLO en el cubo: su etapa Contactado ya no la
+		// lista — las etapas quedan para el seguimiento pendiente. Omar (0
+		// cartas) no entra.
 		expect(metColumn.text()).toContain('Luz Ma Ibarra');
 		expect(metColumn.text()).not.toContain('Omar Ojeda');
-		expect(sections[1].text()).toContain('Luz Ma Ibarra');
+		expect(sections[1].text()).not.toContain('Luz Ma Ibarra');
 
 		// Soltar una tarjeta sobre el cubo no guarda etapa: no es zona de drop.
 		const card = w.findAllComponents({ name: 'FollowUpCard' })[0];
@@ -212,8 +215,10 @@ describe('FollowUpView (tablero de seguimiento)', () => {
 		const w = await mountView();
 		expect(w.get('#stage-pending').classes()).not.toContain('hidden');
 		expect(w.get('#stage-contacted').classes()).toContain('hidden');
-		// Con su conteo: Luz Ma está en Contactado.
-		expect(w.get('[data-testid="stage-nav-contacted"]').text()).toContain('1');
+		// Con su conteo: Luz Ma ya cumplió 4 de 3, así que Contactado quedó en
+		// 0 y el cubo «Con sus cartas» en 1.
+		expect(w.get('[data-testid="stage-nav-contacted"]').text()).toContain('0');
+		expect(w.get('[data-testid="stage-nav-letters_met"]').text()).toContain('1');
 
 		await w.get('[data-testid="stage-nav-contacted"]').trigger('click');
 
@@ -221,6 +226,12 @@ describe('FollowUpView (tablero de seguimiento)', () => {
 		expect(w.get('#stage-pending').classes()).toContain('hidden');
 		// Desde lg todas se ven: lo oculto es sólo bajo `lg`.
 		expect(w.get('#stage-pending').classes()).toContain('lg:flex');
+
+		// La pastilla del cubo muestra la columna verde como cualquier etapa:
+		// en el celular es el único camino para ver a quienes ya tienen cartas.
+		await w.get('[data-testid="stage-nav-letters_met"]').trigger('click');
+		expect(w.get('#stage-letters_met').classes()).not.toContain('hidden');
+		expect(w.get('#stage-pending').classes()).toContain('hidden');
 
 		// En el celular la pastilla es ícono + conteo, sin el nombre.
 		const pill = w.get('[data-testid="stage-nav-contacted"]');

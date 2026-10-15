@@ -3922,7 +3922,7 @@
     "lettersMet": "Completas",
     "lettersUnknown": "Sin capturar",
     "lettersColumnTitle": "Con sus cartas",
-    "lettersColumnHint": "Automática: {threshold}+ cartas en la ficha",
+    "lettersColumnHint": "Automática: {threshold}+ cartas en la ficha; salen de su etapa",
     "lettersColumnEmpty": "Nadie con sus cartas aún",
     "showMore": "Mostrar más",
     "emptyColumn": "Nadie en esta etapa",
