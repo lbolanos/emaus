@@ -5,6 +5,7 @@ import { formatCurrency, resolvePalancas } from '@repo/utils';
 import TagSelector from './TagSelector.vue';
 import AngelitoAvailabilityEditor from './AngelitoAvailabilityEditor.vue';
 import ParticipantQuickPhoneEditor from './ParticipantQuickPhoneEditor.vue';
+import ParticipantPaysAtHouseToggle from './ParticipantPaysAtHouseToggle.vue';
 import { getParticipantTags, assignTagToParticipant, removeTagFromParticipant, getPalanqueroOptions as fetchPalanqueroOptions, santisimoApi } from '@/services/api';
 import { PICKUP_LOCATIONS } from '@/constants/pickupLocations';
 import { inferFieldControl, PARTICIPANT_TYPE_OPTIONS } from '@/constants/participantFieldControls';
@@ -154,7 +155,7 @@ const fieldGroups: { key: string; label: string; icon: string; keys: string[] }[
   { key: 'inviter', label: 'Invitador', icon: 'users', keys: ['invitedBy', 'isInvitedByEmausMember', 'inviterHomePhone', 'inviterWorkPhone', 'inviterCellPhone', 'inviterEmail'] },
   { key: 'emergency', label: 'Emergencia', icon: 'heart', keys: ['emergencyContact1Name', 'emergencyContact1Relation', 'emergencyContact1HomePhone', 'emergencyContact1WorkPhone', 'emergencyContact1CellPhone', 'emergencyContact1Email', 'emergencyContact2Name', 'emergencyContact2Relation', 'emergencyContact2HomePhone', 'emergencyContact2WorkPhone', 'emergencyContact2CellPhone', 'emergencyContact2Email'] },
   { key: 'logistics', label: 'Log\u00edstica', icon: 'briefcase', keys: ['pickupLocation', 'arrivesOnOwn', 'requestsSingleRoom', 'retreatBed.roomNumber', 'tableMesa.name', 'tableId'] },
-  { key: 'financial', label: 'Financiero', icon: 'fileText', keys: ['totalPaid', 'paymentRemaining', 'lastPaymentDate', 'paymentStatus', 'isScholarship', 'scholarshipAmount', 'mealCount', 'takesFridayMeal'] },
+  { key: 'financial', label: 'Financiero', icon: 'fileText', keys: ['totalPaid', 'paymentRemaining', 'lastPaymentDate', 'paymentStatus', 'isScholarship', 'paysAtHouse', 'scholarshipAmount', 'mealCount', 'takesFridayMeal'] },
   { key: 'palancas', label: 'Palancas', icon: 'clipboardList', keys: ['palancasCoordinator', 'palancasRequested', 'palancasReceived', 'palancasNotes'] },
   { key: 'admin', label: 'Administraci\u00f3n', icon: 'fileText', keys: ['isCancelled', 'notes', 'registrationDate', 'lastUpdatedDate', 'retreatId'] },
 ];
@@ -529,6 +530,9 @@ const calculateAge = (birthDate: string | Date) => {
                     :country="participantCountry"
                     @saved="onQuickPhonesSaved"
                   />
+                  <!-- specs/pays-at-house: el palanquero marca aquí que el
+                       caminante pagará al llegar a la casa de retiro. -->
+                  <ParticipantPaysAtHouseToggle v-if="isPalancasView" :participant="participant" />
                 </span>
               </div>
             </div>

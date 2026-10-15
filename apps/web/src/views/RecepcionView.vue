@@ -416,8 +416,17 @@ onUnmounted(() => {
               >
                 {{ t('reception.scholarship') }}
               </span>
+              <!-- Solo el badge (D7): la marca vive en Pagos/Palancas. Se oculta
+                   con cualquier pago registrado — mismo umbral que Cobrar, que
+                   es lo único que esta superficie sabe del saldo. -->
+              <span
+                v-if="p.paysAtHouse && !p.isScholarship && !p.totalPaid"
+                class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300"
+              >
+                {{ t('reception.paysAtHouse') }}
+              </span>
               <button
-                v-else-if="!p.totalPaid"
+                v-if="!p.isScholarship && !p.totalPaid"
                 class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-sm font-medium border border-input hover:bg-muted transition-colors"
                 @click="openCharge(p)"
                 :title="t('reception.charge')"

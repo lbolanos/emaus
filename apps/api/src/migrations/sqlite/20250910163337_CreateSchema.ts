@@ -151,6 +151,7 @@ export class CreateSchema20250910163337 implements MigrationInterface {
 				"paymentDate" DATE,
 				"paymentAmount" DECIMAL(10,2),
 				"isScholarship" BOOLEAN NOT NULL DEFAULT (0),
+				"paysAtHouse" BOOLEAN NOT NULL DEFAULT (0),
 				"palancasCoordinator" VARCHAR(255),
 				"palancasRequested" BOOLEAN,
 				"palancasReceived" TEXT,

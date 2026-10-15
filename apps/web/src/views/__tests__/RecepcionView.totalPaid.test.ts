@@ -201,4 +201,49 @@ describe('RecepcionView - total pagado', () => {
 		expect(betoBadge!.classes().some((c: string) => c.includes('green'))).toBe(false);
 		expect(betoBadge!.classes()).toContain('text-muted-foreground');
 	});
+
+	describe('badge "paga en la casa" (specs/pays-at-house, D7)', () => {
+		async function mountWithPending(list: ReceptionParticipant[]) {
+			getReceptionStatsMock.mockResolvedValue({
+				...statsFixture,
+				pendingList: list,
+				arrivedList: [],
+			});
+			return mountView();
+		}
+
+		it('marcado sin pagos: badge sky junto al botón Cobrar', async () => {
+			const wrapper = await mountWithPending([
+				makeParticipant({ firstName: 'Dani', lastName: 'Marquez', idOnRetreat: 9, paysAtHouse: true }),
+			]);
+
+			const li = wrapper.findAll('ul')[0].findAll('li')[0];
+			const badge = li.findAll('span').find((s: any) => s.text() === 'reception.paysAtHouse');
+			expect(badge, 'pays-at-house badge should exist').toBeTruthy();
+			expect(badge!.classes().some((c: string) => c.includes('sky'))).toBe(true);
+			// D7: el badge no desplaza a Cobrar — cobrar en la puerta sigue a un clic.
+			const charge = li.find('button[title="reception.charge"]');
+			expect(charge.exists()).toBe(true);
+		});
+
+		it('marcado con pago registrado: sin badge (mismo umbral que Cobrar)', async () => {
+			const wrapper = await mountWithPending([
+				makeParticipant({ firstName: 'Dani', lastName: 'Marquez', idOnRetreat: 9, paysAtHouse: true, totalPaid: 500 }),
+			]);
+
+			const li = wrapper.findAll('ul')[0].findAll('li')[0];
+			expect(li.findAll('span').some((s: any) => s.text() === 'reception.paysAtHouse')).toBe(false);
+			expect(li.find('button[title="reception.charge"]').exists()).toBe(false);
+		});
+
+		it('becado: gana el badge de beca aunque persista la marca (D4)', async () => {
+			const wrapper = await mountWithPending([
+				makeParticipant({ firstName: 'Dani', lastName: 'Marquez', idOnRetreat: 9, paysAtHouse: true, isScholarship: true }),
+			]);
+
+			const li = wrapper.findAll('ul')[0].findAll('li')[0];
+			expect(li.text()).toContain('reception.scholarship');
+			expect(li.findAll('span').some((s: any) => s.text() === 'reception.paysAtHouse')).toBe(false);
+		});
+	});
 });

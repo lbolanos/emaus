@@ -30,6 +30,7 @@ const palancaFormExcludedColumns = ['cellPhone'];
     :columns-excluded-from-form-edit="palancaFormExcludedColumns"
     show-attendance-confirmation
     inline-phone-edit
+    inline-pays-at-house-toggle
  />
   </div>
 </template>

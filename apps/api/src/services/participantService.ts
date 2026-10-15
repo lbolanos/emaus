@@ -819,6 +819,7 @@ export const findAllParticipants = async (
         "familyFriendColor",
         "bagMade",
         "isScholarship",
+        "paysAtHouse",
         "scholarshipAmount",
         "mealCount",
         "takesFridayMeal",
@@ -854,6 +855,7 @@ export const findAllParticipants = async (
           p.family_friend_color = h.familyFriendColor ?? undefined;
         p.bagMade = h.bagMade ?? false;
         p.isScholarship = h.isScholarship ?? false;
+        p.paysAtHouse = h.paysAtHouse ?? false;
         if (h.scholarshipAmount !== undefined)
           p.scholarshipAmount = h.scholarshipAmount;
         if (h.mealCount !== undefined) p.mealCount = h.mealCount;
@@ -3015,6 +3017,7 @@ export const updateParticipant = async (
     id_on_retreat,
     family_friend_color,
     isScholarship,
+    paysAtHouse,
     scholarshipAmount,
     mealCount,
     takesFridayMeal,
@@ -3130,6 +3133,7 @@ export const updateParticipant = async (
     isCancelled: currentRp?.isCancelled,
     tableId: currentRp?.tableId,
     isScholarship: currentRp?.isScholarship,
+    paysAtHouse: currentRp?.paysAtHouse,
     scholarshipAmount: currentRp?.scholarshipAmount,
   };
 
@@ -3149,6 +3153,16 @@ export const updateParticipant = async (
       rpUpdates.familyFriendColor = family_friend_color || null;
     if (isScholarship !== undefined)
       rpUpdates.isScholarship = !!isScholarship;
+    if (paysAtHouse !== undefined) rpUpdates.paysAtHouse = !!paysAtHouse;
+    // Data hygiene: a scholarship participant is exempt from everything, so
+    // the pays-at-house commitment is meaningless — enabling the scholarship
+    // always clears it. Unconditional on purpose: the client re-sends the
+    // whole hydrated DTO, so a stale `paysAtHouse: true` rides along when the
+    // user marks the scholarship and the `!== undefined` guard above would
+    // keep it (caught by paysAtHouseWritePath.test.ts, D4).
+    if (isScholarship === true) {
+      rpUpdates.paysAtHouse = false;
+    }
     if (scholarshipAmount !== undefined)
       rpUpdates.scholarshipAmount =
         scholarshipAmount === null || scholarshipAmount === ""
@@ -3352,6 +3366,12 @@ export const updateParticipant = async (
       isScholarship !== undefined
         ? !!isScholarship
         : (currentRp?.isScholarship ?? false);
+    updatedParticipant.paysAtHouse =
+      rpUpdates.paysAtHouse !== undefined
+        ? rpUpdates.paysAtHouse
+        : paysAtHouse !== undefined
+          ? !!paysAtHouse
+          : (currentRp?.paysAtHouse ?? false);
     updatedParticipant.scholarshipAmount =
       scholarshipAmount !== undefined
         ? scholarshipAmount === null || scholarshipAmount === ""
@@ -5430,6 +5450,7 @@ export const getReceptionStats = async (retreatId: string) => {
       : 0,
     tableName: rp.tableMesa?.name ?? null,
     isScholarship: !!rp.isScholarship,
+    paysAtHouse: !!rp.paysAtHouse,
   }));
 
   const arrivedList = walkers
@@ -5449,6 +5470,7 @@ export const getReceptionStats = async (retreatId: string) => {
         : 0,
       tableName: rp.tableMesa?.name ?? null,
       isScholarship: !!rp.isScholarship,
+      paysAtHouse: !!rp.paysAtHouse,
     }));
 
   return { total, arrived, pending: total - arrived, pendingList, arrivedList };

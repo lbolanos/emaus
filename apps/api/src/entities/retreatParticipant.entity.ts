@@ -106,6 +106,12 @@ export class RetreatParticipant {
 	@Column({ type: 'boolean', default: false })
 	isScholarship!: boolean;
 
+	// El participante comprometió pagar al llegar el viernes a la casa de retiro.
+	// NO exime del cobro: solo cambia el estado derivado a 'pays_at_house'
+	// mientras haya saldo pendiente (beca gana si coinciden).
+	@Column({ type: 'boolean', default: false })
+	paysAtHouse!: boolean;
+
 	// Informativo/auditoría: el monto de beca otorgado. NO afecta el cálculo de paz y
 	// salvo (isScholarship ya exime de todo); solo se usa como referencia y para validar
 	// que no supere el cobro del retiro.

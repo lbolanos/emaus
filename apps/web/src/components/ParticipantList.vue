@@ -54,6 +54,7 @@ import {
 import ColumnSelector from './ColumnSelector.vue';
 import EditParticipantForm from './EditParticipantForm.vue';
 import ParticipantQuickPhoneEditor from './ParticipantQuickPhoneEditor.vue';
+import ParticipantPaysAtHouseToggle from './ParticipantPaysAtHouseToggle.vue';
 import FilterDialog from './FilterDialog.vue';
 import ImportParticipantsModal from './ImportParticipantsModal.vue';
 import ExportParticipantsModal from './ExportParticipantsModal.vue';
@@ -102,6 +103,12 @@ const props = withDefaults(defineProps<{
      * palancas flow, so only PalancasView turns it on.
      */
     inlinePhoneEdit?: boolean,
+    /**
+     * Shows the quick "paga en la casa" 🏠 toggle next to lastPaymentDate
+     * (specs/pays-at-house): the palanquero marks the walker who committed to
+     * pay on arrival. Palancas flow — only PalancasView turns it on.
+     */
+    inlinePaysAtHouseToggle?: boolean,
 }>(), {
     isCancelled: false,
     columnsToShowInTable: () => ['id_on_retreat', 'firstName', 'lastName', 'email', 'cellPhone', 'tableMesa.name'],
@@ -111,6 +118,7 @@ const props = withDefaults(defineProps<{
     defaultFilters: () => ({}),
     showAttendanceConfirmation: false,
     inlinePhoneEdit: false,
+    inlinePaysAtHouseToggle: false,
 });
 
 const { toast } = useToast();
@@ -761,7 +769,8 @@ const formatCell = (participant: any, colKey: string) => {
             'partial': 'Parcial',
             'unpaid': 'No pagado',
             'overpaid': 'Sobre-pagado',
-            'scholarship': 'Becado'
+            'scholarship': 'Becado',
+            'pays_at_house': '🏠 Paga en la casa'
         };
         return statusMap[status] || status;
     }
@@ -1965,6 +1974,12 @@ const handleKeyboardShortcuts = (event: KeyboardEvent) => {
                                     :country="retreatCountry"
                                 />
                             </div>
+                            <!-- Quick pays-at-house flag (palancas flow): next to the
+                                 financial column of the palancas table. -->
+                            <div v-else-if="colKey === 'lastPaymentDate' && props.inlinePaysAtHouseToggle" class="flex items-center gap-1">
+                                {{ getCellContent(participant, colKey).value }}
+                                <ParticipantPaysAtHouseToggle :participant="participant" />
+                            </div>
                             <!-- Default cell rendering for other columns -->
                             <div v-else class="flex items-center gap-1">
                                 {{ getCellContent(participant, colKey).value }}
@@ -1977,7 +1992,8 @@ const handleKeyboardShortcuts = (event: KeyboardEvent) => {
                                         'text-yellow-600': getCellContent(participant, colKey).paymentStatus === 'partial',
                                         'text-red-600': getCellContent(participant, colKey).paymentStatus === 'unpaid',
                                         'text-purple-600': getCellContent(participant, colKey).paymentStatus === 'overpaid',
-                                        'text-blue-600': getCellContent(participant, colKey).paymentStatus === 'scholarship'
+                                        'text-blue-600': getCellContent(participant, colKey).paymentStatus === 'scholarship',
+                                        'text-sky-600': getCellContent(participant, colKey).paymentStatus === 'pays_at_house'
                                       }"
                                       :title="`Estado: ${getCellContent(participant, colKey).paymentStatus}`">
                                     <span v-if="getCellContent(participant, colKey).paymentStatus === 'paid'">✅</span>
@@ -1985,6 +2001,7 @@ const handleKeyboardShortcuts = (event: KeyboardEvent) => {
                                     <span v-else-if="getCellContent(participant, colKey).paymentStatus === 'unpaid'">❌</span>
                                     <span v-else-if="getCellContent(participant, colKey).paymentStatus === 'overpaid'">💰</span>
                                     <span v-else-if="getCellContent(participant, colKey).paymentStatus === 'scholarship'">🎓</span>
+                                    <span v-else-if="getCellContent(participant, colKey).paymentStatus === 'pays_at_house'">🏠</span>
                                 </span>
                             </div>
                         </TableCell>

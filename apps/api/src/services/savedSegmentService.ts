@@ -109,6 +109,7 @@ export class SavedSegmentService {
 				(p as any).type = rp.type;
 				(p as any).retreat = retreat;
 				p.isScholarship = rp.isScholarship ?? false;
+				p.paysAtHouse = rp.paysAtHouse ?? false;
 				p.mealCount = rp.mealCount ?? null;
 				p.takesFridayMeal = rp.takesFridayMeal ?? null;
 				(p as any).__attendance = (rp as any).attendanceConfirmation ?? 'pending';

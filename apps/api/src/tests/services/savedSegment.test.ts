@@ -229,6 +229,92 @@ describe('SavedSegmentService', () => {
 		});
 
 		/**
+		 * specs/pays-at-house D2: igualdad exacta de estados ('unpaid', 'partial')
+		 * deja de matchear a los marcados; el pseudo-estado 'owing' (saldo > 0)
+		 * los sigue incluyendo. Cambio de membresía documentado: segmentos
+		 * guardados vivos con condición 'unpaid' dejan de incluir a quien se
+		 * marcó "paga en la casa".
+		 */
+		describe('pays_at_house en segmentos (specs/pays-at-house D2)', () => {
+			/** Marca "paga en la casa de retiro" en la fila del retiro evaluado. */
+			async function markPaysAtHouse(participantId: string, retreatId: string) {
+				await AppDataSource.getRepository(RetreatParticipant).update(
+					{ participantId, retreatId },
+					{ paysAtHouse: true },
+				);
+			}
+
+			it("'pays_at_house' matchea exactamente a los marcados con saldo pendiente", async () => {
+				const marcado = (await TestDataFactory.createTestParticipant(retreatA.id, {
+					type: 'server',
+					firstName: 'Marcado',
+					email: 'marcado@example.com',
+				} as any)) as Participant;
+				await markPaysAtHouse(marcado.id, retreatA.id);
+
+				const normal = (await TestDataFactory.createTestParticipant(retreatA.id, {
+					type: 'server',
+					firstName: 'Normal',
+					email: 'normal@example.com',
+				} as any)) as Participant;
+
+				const result = await service.evaluateFilters(retreatA.id, { paymentStatus: 'pays_at_house' });
+				const emails = result.map((p) => p.email);
+				expect(emails).toContain('marcado@example.com');
+				expect(emails).not.toContain('normal@example.com');
+			});
+
+			it("'unpaid' y 'partial' excluyen a los marcados (igualdad exacta, D2)", async () => {
+				const marcado = (await TestDataFactory.createTestParticipant(retreatA.id, {
+					type: 'server',
+					firstName: 'Marcado',
+					email: 'marcado2@example.com',
+				} as any)) as Participant;
+				await markPaysAtHouse(marcado.id, retreatA.id);
+
+				const unpaid = await service.evaluateFilters(retreatA.id, { paymentStatus: 'unpaid' });
+				expect(unpaid.map((p) => p.email)).not.toContain('marcado2@example.com');
+
+				// Con abono parcial tampoco: su estado derivado es pays_at_house.
+				await addPayment(marcado.id, retreatA.id, 1000);
+				const partial = await service.evaluateFilters(retreatA.id, { paymentStatus: 'partial' });
+				expect(partial.map((p) => p.email)).not.toContain('marcado2@example.com');
+			});
+
+			it("'owing' sigue incluyendo a los marcados (siguen debiendo)", async () => {
+				const marcado = (await TestDataFactory.createTestParticipant(retreatA.id, {
+					type: 'server',
+					firstName: 'Marcado',
+					email: 'marcado3@example.com',
+				} as any)) as Participant;
+				await markPaysAtHouse(marcado.id, retreatA.id);
+
+				const owing = await service.evaluateFilters(retreatA.id, { paymentStatus: 'owing' });
+				expect(owing.map((p) => p.email)).toContain('marcado3@example.com');
+			});
+
+			it('quien pagó todo deja de matchear pays_at_house aunque conserve la marca (D3)', async () => {
+				const marcado = (await TestDataFactory.createTestParticipant(retreatA.id, {
+					type: 'server',
+					firstName: 'Marcado',
+					email: 'marcado4@example.com',
+				} as any)) as Participant;
+				await markPaysAtHouse(marcado.id, retreatA.id);
+				await addPayment(marcado.id, retreatA.id, 2400); // exacto → paid
+
+				const still = await service.evaluateFilters(retreatA.id, { paymentStatus: 'pays_at_house' });
+				expect(still.map((p) => p.email)).not.toContain('marcado4@example.com');
+
+				// La marca persiste como auditoría de lo acordado (D3).
+				const rp = await AppDataSource.getRepository(RetreatParticipant).findOneBy({
+					participantId: marcado.id,
+					retreatId: retreatA.id,
+				});
+				expect(rp?.paysAtHouse).toBe(true);
+			});
+		});
+
+		/**
 		 * 'owing' = saldo pendiente > 0 (unpaid + partial), para condiciones de
 		 * recordatorio de pago: una condición 'unpaid' se salta a quien abonó
 		 * parcial (incidente Buen Despacho: Jaime Abel $2000 y Nicolás $1000

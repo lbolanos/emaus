@@ -12,6 +12,7 @@
 import { setupTestDatabase, teardownTestDatabase, clearTestData } from '../test-setup';
 import { TestDataFactory } from '../test-utils/testDataFactory';
 import { Payment } from '@/entities/payment.entity';
+import { RetreatParticipant } from '@/entities/retreatParticipant.entity';
 import { getReceptionStats, setParticipantCheckIn } from '@/services/participantService';
 
 const getDS = () => (TestDataFactory as any)['testDataSource'];
@@ -106,5 +107,35 @@ describe('getReceptionStats - totalPaid', () => {
 		expect(entry).toBeDefined();
 		expect(entry!.checkedIn).toBe(true);
 		expect(entry!.totalPaid).toBe(1200);
+	});
+
+	// specs/pays-at-house D7: recepción SOLO muestra el badge; necesita el bool
+	// en ambas listas. La marca sigue expuesta tras pagar (D3: auditoría) — la
+	// decisión de ocultar el badge con saldo 0 es del frontend, que conoce el costo.
+	it('expone paysAtHouse en pendingList y arrivedList (badge de recepción, D7)', async () => {
+		const retreat = await TestDataFactory.createTestRetreat();
+		const marcado = await TestDataFactory.createTestParticipant(retreat.id, {
+			firstName: 'Paga',
+			lastName: 'En La Casa',
+		});
+		const normal = await TestDataFactory.createTestParticipant(retreat.id, {
+			firstName: 'Normal',
+			lastName: 'Corriente',
+		});
+		const getDSrp = () => getDS().getRepository(RetreatParticipant);
+		await getDSrp().update(
+			{ participantId: marcado.id, retreatId: retreat.id },
+			{ paysAtHouse: true },
+		);
+		await setParticipantCheckIn(marcado.id, retreat.id, true);
+
+		const stats = await getReceptionStats(retreat.id);
+		const pendiente = stats.pendingList.find((p) => p.participantId === normal.id);
+		const llegado = stats.arrivedList.find((p) => p.participantId === marcado.id);
+
+		expect(pendiente).toBeDefined();
+		expect(pendiente!.paysAtHouse).toBe(false);
+		expect(llegado).toBeDefined();
+		expect(llegado!.paysAtHouse).toBe(true);
 	});
 });
