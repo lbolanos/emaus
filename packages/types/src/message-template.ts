@@ -46,6 +46,10 @@ export const messageTemplateTypes = z.enum([
 	// Santísimo ({participant.santisimoGuardiaLink}), despachado por la cola
 	// de WhatsApp (specs/santisimo-guardia-links).
 	'SANTISIMO_GUARDIA_INVITE',
+	// Tareas del servidor en el retiro: responsabilidades + equipos de servicio
+	// ({assignments.*}), enviadas una por una con revisión desde la vista de
+	// Responsabilidades.
+	'SERVER_ASSIGNMENTS_BRIEFING',
 	// Family invitation to closing mass
 	'FAMILY_CLOSING_INVITATION_WHATSAPP',
 	'FAMILY_CLOSING_INVITATION_EMAIL',
@@ -112,6 +116,7 @@ const MESSAGE_TEMPLATE_AUDIENCE_BY_TYPE: Record<string, MessageTemplateAudience>
 	SERVER_SHIRT_CONFIRMATION: 'server',
 	SERVER_SHIRT_CONFIRMATION_REMINDER: 'server',
 	SANTISIMO_GUARDIA_INVITE: 'server',
+	SERVER_ASSIGNMENTS_BRIEFING: 'server',
 	// Líder/colíder de mesa
 	TABLE_LEADER_BRIEFING: 'table_leader',
 	// Responsable (palanquero recibe el aviso de nuevo caminante)

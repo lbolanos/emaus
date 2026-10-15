@@ -432,6 +432,23 @@ export enum ResponsabilityType {
 	OTRO = 'otro',
 }
 
+/**
+ * Spanish labels for ResponsabilityType, shown to servers inside WhatsApp
+ * messages ({assignments.*} rosters). Single source of truth shared by the
+ * web builder and the sequence engine's backend mirror.
+ */
+export const RESPONSABILITY_TYPE_LABELS: Record<ResponsabilityType, string> = {
+	[ResponsabilityType.LIDER]: 'Liderazgo de mesa',
+	[ResponsabilityType.COLIDER]: 'Co-liderazgo de mesa',
+	[ResponsabilityType.SERVIDOR]: 'Servicio',
+	[ResponsabilityType.MUSICA]: 'Música',
+	[ResponsabilityType.ORACION]: 'Oración',
+	[ResponsabilityType.LIMPIEZA]: 'Limpieza',
+	[ResponsabilityType.COCINA]: 'Cocina',
+	[ResponsabilityType.CHARLISTA]: 'Charla',
+	[ResponsabilityType.OTRO]: 'Otro',
+};
+
 export const responsabilitySchema = z.object({
 	id: idSchema,
 	name: z.string(),
