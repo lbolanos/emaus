@@ -147,6 +147,84 @@ describe('MessageSequence — destinatarios invitador/responsabilidad + seed', (
 		expect(sm?.resolvedContent).toContain('Ana'); // roster del caminante de la mesa
 	});
 
+	it('briefing de tareas: resuelve {assignments.*} con responsabilidades y equipos del servidor', async () => {
+		const { ServiceTeam } = await import('@/entities/serviceTeam.entity');
+		const retreat = await TestDataFactory.createTestRetreat({ timezone: 'America/Mexico_City' });
+		const server = await TestDataFactory.createTestParticipant(retreat.id, {
+			type: 'server', firstName: 'Rosa', lastName: 'Martínez', cellPhone: '5577788888',
+		} as any);
+		// Una responsabilidad activa y una inactiva: la inactiva no entra al roster.
+		const respRepo = AppDataSource.getRepository(Responsability);
+		await respRepo.save(respRepo.create({
+			name: 'Música', responsabilityType: 'musica', isLeadership: false, priority: 0,
+			isActive: true, retreatId: retreat.id, participantId: server.id,
+		} as any));
+		await respRepo.save(respRepo.create({
+			name: 'Vieja', responsabilityType: 'otro', isLeadership: false, priority: 0,
+			isActive: false, retreatId: retreat.id, participantId: server.id,
+		} as any));
+		// Equipo que lidera, con un miembro debajo (entra al roster del equipo).
+		const member = await TestDataFactory.createTestParticipant(retreat.id, {
+			type: 'server', firstName: 'Beto', lastName: 'Suárez',
+		} as any);
+		const teamRepo = AppDataSource.getRepository(ServiceTeam);
+		await teamRepo.save(teamRepo.create({
+			name: 'Música y Alabanza', teamType: 'musica', retreatId: retreat.id,
+			leaderId: server.id, priority: 0, isActive: true,
+			members: [{ participantId: member.id, role: 'ayudante' } as any],
+		} as any));
+		await createTemplate(
+			retreat.id,
+			'SERVER_ASSIGNMENTS_BRIEFING',
+			'Tareas de {participant.firstName}: {assignments.responsibilitiesList} ({assignments.responsibilitiesCount}) · {assignments.teamsRoster}',
+		);
+		const seq = await svc.createSequence({
+			name: 'Tareas', retreatId: retreat.id, trigger: 'days_before_retreat', audience: 'server',
+			steps: [{ stepOrder: 0, offsetDays: 1, sendHour: 9, templateType: 'SERVER_ASSIGNMENTS_BRIEFING', channel: 'whatsapp', recipientTarget: 'participant' } as any],
+		});
+		const repo = AppDataSource.getRepository(ScheduledMessage);
+		await repo.save(repo.create({
+			sequenceId: seq.id, stepId: seq.steps![0].id, participantId: server.id, retreatId: retreat.id,
+			channel: 'whatsapp', templateType: 'SERVER_ASSIGNMENTS_BRIEFING', recipientTarget: 'participant',
+			scheduledFor: new Date(Date.now() - 3600_000), status: 'pending',
+		}));
+		await svc.processDue();
+		const sm = await repo.findOne({ where: { participantId: server.id } });
+		expect(sm?.status).toBe('queued');
+		expect(sm?.resolvedContent).toContain('Música'); // responsabilidad activa
+		expect(sm?.resolvedContent).not.toContain('Vieja'); // la inactiva no entra
+		expect(sm?.resolvedContent).toContain('Líder'); // rol del servidor en su equipo
+		expect(sm?.resolvedContent).toContain('Beto'); // miembro del equipo en el roster
+	});
+
+	it('briefing de tareas: servidor SIN asignaciones también despacha (vacío = contenido, no skip)', async () => {
+		const retreat = await TestDataFactory.createTestRetreat({ timezone: 'America/Mexico_City' });
+		const server = await TestDataFactory.createTestParticipant(retreat.id, {
+			type: 'server', firstName: 'Nadie', lastName: 'Nada', cellPhone: '5512312312',
+		} as any);
+		await createTemplate(
+			retreat.id,
+			'SERVER_ASSIGNMENTS_BRIEFING',
+			'{assignments.responsibilitiesCount} · {assignments.responsibilitiesList}',
+		);
+		const seq = await svc.createSequence({
+			name: 'Tareas vacías', retreatId: retreat.id, trigger: 'days_before_retreat', audience: 'server',
+			steps: [{ stepOrder: 0, offsetDays: 1, sendHour: 9, templateType: 'SERVER_ASSIGNMENTS_BRIEFING', channel: 'whatsapp', recipientTarget: 'participant' } as any],
+		});
+		const repo = AppDataSource.getRepository(ScheduledMessage);
+		await repo.save(repo.create({
+			sequenceId: seq.id, stepId: seq.steps![0].id, participantId: server.id, retreatId: retreat.id,
+			channel: 'whatsapp', templateType: 'SERVER_ASSIGNMENTS_BRIEFING', recipientTarget: 'participant',
+			scheduledFor: new Date(Date.now() - 3600_000), status: 'pending',
+		}));
+		await svc.processDue();
+		const sm = await repo.findOne({ where: { participantId: server.id } });
+		// La diferencia clave con {table.*} (que se skippea sin mesa): aquí el
+		// mensaje SÍ sale — "0 · Ninguna" es contenido válido del briefing.
+		expect(sm?.status).toBe('queued');
+		expect(sm?.resolvedContent).toContain('0 · Ninguna');
+	});
+
 	it('destinatario tableLeader: resuelve al líder de la mesa del participante', async () => {
 		const { TableMesa } = await import('@/entities/tableMesa.entity');
 		const { RetreatParticipant } = await import('@/entities/retreatParticipant.entity');

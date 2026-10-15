@@ -8,6 +8,7 @@ import { Participant } from '../entities/participant.entity';
 import { RetreatParticipant } from '../entities/retreatParticipant.entity';
 import { TableMesa } from '../entities/tableMesa.entity';
 import { Responsability } from '../entities/responsability.entity';
+import { ServiceTeam } from '../entities/serviceTeam.entity';
 import { Retreat } from '../entities/retreat.entity';
 import type { MessageRecipientTarget, MessageChannel } from '../entities/sequenceStep.entity';
 import { MessageTemplate } from '../entities/messageTemplate.entity';
@@ -23,11 +24,12 @@ import {
 	replaceAllVariables,
 	type CommunityData,
 	type TableData,
+	type AssignmentsData,
 	isPlaceholderBirthDate,
 	findEmptyVariables,
 } from '@repo/utils';
 import { buildSantisimoInviteUrl } from '../utils/santisimoInviteToken';
-import { getMessageTemplateAudience } from '@repo/types';
+import { getMessageTemplateAudience, RESPONSABILITY_TYPE_LABELS, type ResponsabilityType } from '@repo/types';
 import type { SequencePastStep, SequenceRunResult } from '@repo/types';
 import { savedSegmentService } from './savedSegmentService';
 import { CommunityMember } from '../entities/communityMember.entity';
@@ -821,6 +823,77 @@ export class MessageSequenceService {
 	}
 
 	/**
+	 * Contexto `{assignments.*}` (briefing de tareas del servidor): sus
+	 * responsabilidades y los equipos de servicio donde es líder o miembro.
+	 * Espejo del builder del cliente (`apps/web/src/utils/serverAssignments.ts`);
+	 * los nombres van completos (nombre + apellidos), igual que en `buildTableData`.
+	 *
+	 * A diferencia de `buildTableData`, SIEMPRE devuelve un objeto válido:
+	 * "sin tareas asignadas" es contenido legítimo del briefing, no un estado
+	 * de error — por eso `processDue` no tiene skip-guard para `{assignments.*}`
+	 * (una plantilla con el scope y un servidor sin tareas sí debe despacharse).
+	 */
+	private async buildAssignmentsData(participantId: string, retreatId: string): Promise<AssignmentsData> {
+		const responsibilities = await AppDataSource.getRepository(Responsability).find({
+			where: { retreatId, participantId, isActive: true },
+		});
+		responsibilities.sort((a, b) => a.priority - b.priority || a.name.localeCompare(b.name));
+		const teams = await AppDataSource.getRepository(ServiceTeam).find({
+			where: { retreatId },
+			relations: ['leader', 'members', 'members.participant'],
+		});
+		const relevant = teams
+			.filter((t) => t.isActive !== false)
+			.filter(
+				(t) =>
+					t.leaderId === participantId ||
+					(t.members || []).some((m) => m.participantId === participantId),
+			)
+			.sort((a, b) => a.priority - b.priority || a.name.localeCompare(b.name));
+		// Un solo fetch para todos los nombres que hacen falta (líderes y
+		// miembros de los equipos relevantes), en vez de uno por persona.
+		const nameIds = new Set<string>();
+		for (const t of relevant) {
+			if (t.leaderId) nameIds.add(t.leaderId);
+			for (const m of t.members || []) nameIds.add(m.participantId);
+		}
+		const nameParts = nameIds.size
+			? await AppDataSource.getRepository(Participant).findBy({ id: In([...nameIds]) })
+			: [];
+		const nameById = new Map(
+			nameParts.map((p) => [p.id, `${p.firstName || ''} ${p.lastName || ''}`.trim()]),
+		);
+		const nameOf = (id?: string | null): string => (id ? nameById.get(id) || '' : '');
+		return {
+			responsibilities: responsibilities.map((r) => ({
+				name: r.name,
+				// La columna guarda un string, no el enum: si llegara un valor fuera
+				// del catálogo, el label queda undefined y el roster omite el sufijo.
+				typeLabel: RESPONSABILITY_TYPE_LABELS[r.responsabilityType as ResponsabilityType],
+				isLeadership: !!r.isLeadership,
+			})),
+			teams: relevant.map((t) => {
+				const isLeader = t.leaderId === participantId;
+				const membership = (t.members || []).find((m) => m.participantId === participantId);
+				const role = isLeader
+					? 'Líder'
+					: membership?.role?.trim()
+						? `Miembro (${membership.role.trim()})`
+						: 'Miembro';
+				return {
+					name: t.name,
+					role,
+					leaderName: nameOf(t.leaderId) || undefined,
+					memberNames: (t.members || [])
+						.filter((m) => m.participantId !== t.leaderId)
+						.map((m) => nameOf(m.participantId))
+						.filter(Boolean),
+				};
+			}),
+		};
+	}
+
+	/**
 	 * Resuelve el contenido de una plantilla reemplazando variables. Si la
 	 * plantilla usa `{table.*}` (p. ej. el briefing de mesa), arma ese contexto
 	 * para el participante (líder).
@@ -840,6 +913,10 @@ export class MessageSequenceService {
 		// Ídem {community.*} para el email, que renderiza DOS veces (texto y
 		// HTML): sin esto `loadCommunityData` corría una vez por render (#6).
 		precomputedCommunityData?: CommunityData,
+		// Ídem {assignments.*} (briefing de tareas). `undefined` = "esta
+		// plantilla no usa el scope, no lo consultes"; el objeto (aunque vacío)
+		// es contenido válido y SÍ se pasa a `replaceAllVariables`.
+		precomputedAssignmentsData?: AssignmentsData,
 	): Promise<string> {
 		const tableData =
 			precomputedTableData !== undefined
@@ -847,6 +924,15 @@ export class MessageSequenceService {
 				: message.includes('{table.')
 					? await this.buildTableData(participant.id, retreatId)
 					: null;
+		// Mismo patrón lazy que {table.*}: las asignaciones sólo se consultan si
+		// la plantilla las usa. A diferencia de la mesa, aquí no hay null de
+		// "no aplica" — el builder siempre devuelve un objeto (vacío = contenido).
+		const assignmentsData =
+			precomputedAssignmentsData !== undefined
+				? precomputedAssignmentsData
+				: message.includes('{assignments.')
+					? await this.buildAssignmentsData(participant.id, retreatId)
+					: undefined;
 		// Mismo patrón lazy que {table.*}: el pedido de prendas sólo se consulta
 		// si la plantilla lo usa (confirmación de camisetas).
 		const shirtOrder =
@@ -915,6 +1001,14 @@ export class MessageSequenceService {
 			// `undefined` deja el placeholder literal.
 			tableData ?? undefined,
 			escapeHtmlValues,
+			// {spouse.*} aún no aplica al motor (sin retiros de parejas en cola):
+			// se pasa undefined para llegar posicionalmente al 9º argumento.
+			undefined,
+			// {assignments.*}: a diferencia de {table.*}/{community.*} NO hay que
+			// hacer `?? undefined` — el objeto vacío ES contenido ("Ninguna"),
+			// no un estado de error. `undefined` (plantilla sin el scope) deja el
+			// placeholder literal y la guarda de literales lo skippea.
+			assignmentsData,
 		);
 	}
 
@@ -1342,6 +1436,13 @@ export class MessageSequenceService {
 					template.message.includes('{community.') && retreat.communityId
 						? await this.loadCommunityData(retreat.communityId)
 						: undefined;
+				// {assignments.*} (briefing de tareas): SIN skip-guard a propósito
+				// (decisión D4) — a diferencia de {table.*}, "sin tareas" es
+				// contenido válido del mensaje, no un motivo de skip. Se precomputa
+				// aquí sólo para compartirlo entre los dos renders del email.
+				const assignmentsData = template.message.includes('{assignments.')
+					? await this.buildAssignmentsData(participant.id, sm.retreatId)
+					: undefined;
 				const content = await this.resolveContent(
 					template.message,
 					participantForTemplate,
@@ -1352,6 +1453,7 @@ export class MessageSequenceService {
 					precomputedTableData,
 					shirtOrder,
 					communityData,
+					assignmentsData,
 				);
 
 				if (sm.channel === 'whatsapp') {
@@ -1402,6 +1504,7 @@ export class MessageSequenceService {
 					precomputedTableData,
 					shirtOrder,
 					communityData,
+					assignmentsData,
 				);
 				const html = convertHtmlToEmail(htmlContent, { format: 'enhanced' });
 				const text = content.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
@@ -2336,6 +2439,11 @@ export class MessageSequenceService {
 		const shirtOrder = template.message.includes('{participant.shirt')
 			? await getParticipantShirtOrderSummary(participant.id, input.retreatId)
 			: null;
+		// Ídem {assignments.*} (briefing de tareas): un solo armado, compartido
+		// por render y chequeo de vacías. `undefined` si la plantilla no lo usa.
+		const assignmentsData = template.message.includes('{assignments.')
+			? await this.buildAssignmentsData(participantForTemplate.id, input.retreatId)
+			: undefined;
 		// Mismo motivo que en resolveContent: toJSON() en vez de spread para no
 		// perder los getters (paymentRemaining, chargeBreakdown, ...) cuando la
 		// plantilla combina {participant.shirt*} con otra variable calculada.
@@ -2358,6 +2466,10 @@ export class MessageSequenceService {
 			input.channel === 'email',
 			tableData,
 			shirtOrder,
+			// {community.*} sin precompute (lazy en resolveContent); las
+			// asignaciones ya están armadas arriba para no repetir consultas.
+			undefined,
+			assignmentsData,
 		);
 
 		// `findEmptyVariables` se evalúa sobre la plantilla CRUDA y su contexto,
@@ -2369,6 +2481,7 @@ export class MessageSequenceService {
 			recipient.contactKey,
 			null,
 			tableData,
+			assignmentsData,
 		);
 
 		const contact = input.channel === 'email' ? recipient.email : recipient.phone;
@@ -2844,6 +2957,12 @@ export class MessageSequenceService {
 				skipped++;
 				continue;
 			}
+			// {assignments.*} SIN skip-guard a propósito (decisión D4): a
+			// diferencia de la mesa, "sin tareas" es contenido válido del briefing
+			// — un servidor sin asignaciones sí debe regenerar su snapshot.
+			const assignmentsData = template.message.includes('{assignments.')
+				? await this.buildAssignmentsData(participant.id, retreatId)
+				: undefined;
 			sm.resolvedContent = await this.resolveContent(
 				template.message,
 				participantForTemplate,
@@ -2852,6 +2971,9 @@ export class MessageSequenceService {
 				retreatId,
 				false,
 				tableData,
+				undefined, // shirtOrder sin precompute (lazy en resolveContent)
+				undefined, // {community.*} sin precompute (guard propio arriba)
+				assignmentsData,
 			);
 			sm.resolvedContact = recipient.phone;
 			sm.recipientName = recipient.name;
