@@ -5,6 +5,7 @@ import { SantisimoSlot } from '../entities/santisimoSlot.entity';
 import { Participant } from '../entities/participant.entity';
 import { Retreat } from '../entities/retreat.entity';
 import { EmailService } from './emailService';
+import { guardiaPlaceLabel, guardiaRetreatSuffix } from '../utils/santisimoGuardiaPlace';
 
 /**
  * Envía recordatorios de email 24 horas antes de cada Guardia de la Capilla
@@ -72,6 +73,7 @@ export class SantisimoReminderService {
 				windowEnd: windowEnd.toISOString(),
 			})
 			.leftJoinAndSelect('slot.retreat', 'retreat')
+			.leftJoinAndSelect('retreat.house', 'house')
 			.getMany();
 
 		if (!slots.length) return { sent: 0 };
@@ -110,19 +112,20 @@ export class SantisimoReminderService {
 			if (!slot) continue;
 
 			const retreat = slot.retreat;
-			const retreatLabel = retreat ? retreat.parish : 'Retiro';
+			// La capilla es la de la casa de retiro, no la de la parroquia.
+			const place = guardiaPlaceLabel(retreat);
 
 			const startLabel = this.formatTime(slot.startTime, retreat);
 			const endLabel = this.formatTime(slot.endTime, retreat);
 
-			const subject = `⏰ Guardia de la Capilla mañana — ${retreatLabel}`;
+			const subject = `⏰ Guardia de la Capilla mañana — ${place}`;
 			const html = `
 				<p>Hola <strong>${participant.firstName}</strong>,</p>
-				<p>Recuerda que mañana tienes <strong>Guardia de la Capilla</strong> de <strong>${startLabel}</strong> a <strong>${endLabel}</strong>.</p>
+				<p>Recuerda que mañana tienes <strong>Guardia de la Capilla</strong> en <strong>${place}</strong>${guardiaRetreatSuffix(retreat)} de <strong>${startLabel}</strong> a <strong>${endLabel}</strong>.</p>
 				<p>¡Gracias por tu servicio! 🙏</p>
 			`.trim();
 			const text =
-				`Hola ${participant.firstName}, recuerda que mañana tienes Guardia de la Capilla de ${startLabel} a ${endLabel}. ¡Gracias por tu servicio!`;
+				`Hola ${participant.firstName}, recuerda que mañana tienes Guardia de la Capilla en ${place}${guardiaRetreatSuffix(retreat)} de ${startLabel} a ${endLabel}. ¡Gracias por tu servicio!`;
 
 			try {
 				await this.emailService.sendEmail({

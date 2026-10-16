@@ -208,6 +208,41 @@ describe('SantisimoReminderService (unit tests con mocks)', () => {
 		});
 	});
 
+	// ── Lugar de la guardia ───────────────────────────────────────────────────
+
+	describe('performReminders - lugar de la guardia', () => {
+		it('nombra la casa de retiro, no la parroquia (la capilla es la de la casa)', async () => {
+			const slot = makeFutureSlot({
+				retreat: {
+					parish: 'Buen Despacho',
+					timezone: 'America/Mexico_City',
+					house: { name: 'Casa de Retiro Emaús Del Valle' },
+				} as any,
+			});
+			setupRepositoryMocks([slot], [makeSignup()], [makeParticipant()]);
+
+			const svc = new (SantisimoReminderService as any)();
+			await svc.performReminders();
+
+			const sent = svc.emailService.sendEmail.mock.calls[0][0];
+			expect(sent.subject).toBe('⏰ Guardia de la Capilla mañana — Casa de Retiro Emaús Del Valle');
+			expect(sent.subject).not.toContain('Buen Despacho');
+			expect(sent.html).toContain('en <strong>Casa de Retiro Emaús Del Valle</strong> (retiro de Buen Despacho)');
+			expect(sent.text).toContain('en Casa de Retiro Emaús Del Valle (retiro de Buen Despacho)');
+		});
+
+		it('sin casa, cae a la parroquia', async () => {
+			setupRepositoryMocks([makeFutureSlot()], [makeSignup()], [makeParticipant()]);
+
+			const svc = new (SantisimoReminderService as any)();
+			await svc.performReminders();
+
+			const sent = svc.emailService.sendEmail.mock.calls[0][0];
+			expect(sent.subject).toBe('⏰ Guardia de la Capilla mañana — San Agustín');
+			expect(sent.html).not.toContain('(retiro de');
+		});
+	});
+
 	// ── Deduplicación / cleanOldEntries ───────────────────────────────────────
 
 	describe('cleanOldEntries', () => {

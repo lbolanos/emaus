@@ -11,6 +11,7 @@ import { participantAvailabilityService } from './participantAvailabilityService
 import { Responsability } from '../entities/responsability.entity';
 import { Retreat } from '../entities/retreat.entity';
 import { makeDateInTimezone, dayBoundsInTimezone } from '../utils/date.transformer';
+import { guardiaPlaceLabel, guardiaRetreatSuffix } from '../utils/santisimoGuardiaPlace';
 import { afterMidnightDayOffset } from '@repo/types';
 import archiver from 'archiver';
 import type { Readable, Writable } from 'stream';
@@ -1597,6 +1598,7 @@ export class RetreatScheduleService {
 
 		// Candidate angelitos: retreat_participants of this retreat with type='partial_server'
 		// (the system's canonical "Angelito"). We join to participants for full data.
+		// Cancelled ones are out: they would get a slot and the assignment email.
 		const angelitoLinks = await this.participantRepo.manager
 			.createQueryBuilder()
 			.select('rp.participantId', 'participantId')
@@ -1604,6 +1606,7 @@ export class RetreatScheduleService {
 			.where('rp.retreatId = :retreatId', { retreatId })
 			.andWhere('rp.type = :t', { t: 'partial_server' })
 			.andWhere('rp.participantId IS NOT NULL')
+			.andWhere('COALESCE(rp.isCancelled, 0) = 0')
 			.getRawMany();
 		const angelitoPids = angelitoLinks
 			.map((r: { participantId: string }) => r.participantId)
@@ -1742,7 +1745,10 @@ export class RetreatScheduleService {
 		const retreat = await this.participantRepo.manager
 			.getRepository(Retreat)
 			.findOne({ where: { id: retreatId }, relations: ['house'] });
-		const retreatLabel = retreat ? `${retreat.parish}` : 'el retiro';
+		// La guardia es en la capilla de la casa de retiro: nombrar la parroquia la
+		// hacía pasar por la capilla de la parroquia.
+		const place = guardiaPlaceLabel(retreat);
+		const retreatSuffix = guardiaRetreatSuffix(retreat);
 		// Sin tz explícito, el server en UTC formatea fechas de slots con offset.
 		const tz = retreat?.timezone || (retreat as any)?.house?.timezone || 'America/Mexico_City';
 
@@ -1770,7 +1776,7 @@ export class RetreatScheduleService {
 			const items = orderedSlots.map((s) => `<li>${formatSlot(s)}</li>`).join('');
 			const html = `
 				<p>Hola ${p.firstName},</p>
-				<p>Te asignamos los siguientes horarios de Guardia de la Capilla en <strong>${retreatLabel}</strong>:</p>
+				<p>Te asignamos los siguientes horarios de Guardia de la Capilla en <strong>${place}</strong>${retreatSuffix}:</p>
 				<ul>${items}</ul>
 				<p>Si no puedes cubrir alguno, por favor avísale a coordinación lo antes posible.</p>
 				<p>¡Gracias por tu servicio! 🙏</p>
@@ -1779,9 +1785,9 @@ export class RetreatScheduleService {
 			try {
 				await emailService.sendEmail({
 					to: p.email,
-					subject: `Guardia de la Capilla — ${retreatLabel}`,
+					subject: `Guardia de la Capilla — ${place}`,
 					html,
-					text: `Hola ${p.firstName},\n\nTe asignamos los siguientes horarios:\n${text}\n\n¡Gracias por tu servicio!`,
+					text: `Hola ${p.firstName},\n\nTe asignamos los siguientes horarios de Guardia de la Capilla en ${place}${retreatSuffix}:\n${text}\n\n¡Gracias por tu servicio!`,
 				});
 			} catch (err) {
 				console.error(`Email a ${p.email} falló:`, err);

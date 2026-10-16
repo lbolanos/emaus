@@ -560,6 +560,53 @@ describe('RetreatScheduleService.materializeFromTemplate — auto-generación de
 		expect(sigs.find((s: any) => s.participantId === inTable.id)).toBeUndefined();
 	});
 
+	test('angelito cancelado NO se asigna a un mealWindow slot (y recibiría el correo)', async () => {
+		const ds = getDS();
+		const tplRepo = ds.getRepository(ScheduleTemplate);
+
+		await tplRepo.save([
+			tplRepo.create({
+				templateSetId: setId,
+				name: 'Vigilia',
+				type: 'santisimo',
+				defaultDay: 1,
+				defaultOrder: 10,
+				defaultStartTime: '00:00',
+				defaultDurationMinutes: 120,
+				isActive: true,
+			}),
+			tplRepo.create({
+				templateSetId: setId,
+				name: 'Cena',
+				type: 'comida',
+				defaultDay: 1,
+				defaultOrder: 20,
+				defaultStartTime: '00:00',
+				defaultDurationMinutes: 60,
+				blocksSantisimoAttendance: true,
+				isActive: true,
+			}),
+		]);
+
+		// Único angelito del retiro, pero canceló su participación.
+		const cancelled = await TestDataFactory.createTestParticipant(testRetreat.id, {
+			firstName: 'Angelito Cancelado',
+			type: 'partial_server',
+			isCancelled: true,
+		} as any);
+
+		const baseDate = new Date('2026-06-01T00:00:00Z');
+		await service.materializeFromTemplate(testRetreat.id, baseDate, false, setId);
+
+		const slots = await ds
+			.getRepository(SantisimoSlot)
+			.find({ where: { retreatId: testRetreat.id }, relations: ['signups'], order: { startTime: 'ASC' } });
+
+		const meal = slots.find((s: any) => s.mealWindow);
+		expect(meal).toBeDefined();
+		expect((meal!.signups ?? []).find((s: any) => s.participantId === cancelled.id)).toBeUndefined();
+	});
+
 	test('sin items santisimo en el set → no crea slots, sin error', async () => {
 		const ds = getDS();
 		const tplRepo = ds.getRepository(ScheduleTemplate);
