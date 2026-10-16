@@ -73,8 +73,10 @@ jobs:
           RECAPTCHA_SITE_KEY: ${{ secrets.VITE_RECAPTCHA_SITE_KEY }}
         run: |
           set -e
-          # Short sha names the web release dir (releases/<sha>) for the atomic swap.
-          SHORT_SHA="${GITHUB_SHA:0:12}"
+          # Names the web release dir (releases/<id>) for the atomic swap. Unique
+          # per run attempt: a re-run of an already-published sha must not reuse
+          # (and wipe) the dir the live dist symlink points at.
+          RELEASE_ID="${GITHUB_SHA:0:12}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
 
           # Setup SSH key
           mkdir -p ~/.ssh
@@ -148,17 +150,19 @@ jobs:
             -e "ssh -i ~/.ssh/lightsail-emaus.pem" \
             ./apps/api/src/ ubuntu@$LIGHTSAIL_HOST:/var/www/emaus/apps/api/src/
 
-          # Web goes to releases/<sha> (not to dist/): the live symlink is only
+          # Web goes to releases/<id> (not to dist/): the live symlink is only
           # swapped after the API healthcheck, so the web keeps serving the
           # previous release while this one uploads.
-          echo "Uploading Web build to releases/$SHORT_SHA..."
+          echo "Uploading Web build to releases/$RELEASE_ID..."
           WEB_SRC=""
           if [ -d "./build-output/web/dist" ]; then WEB_SRC="./build-output/web/dist"
           elif [ -d "./build-output/apps/web/dist" ]; then WEB_SRC="./build-output/apps/web/dist"
           else echo "Warning: Web dist not found"; fi
           if [ -n "$WEB_SRC" ]; then
-            ssh -i ~/.ssh/lightsail-emaus.pem ubuntu@$LIGHTSAIL_HOST "rm -rf /var/www/emaus/apps/web/releases/$SHORT_SHA && mkdir -p /var/www/emaus/apps/web/releases/$SHORT_SHA"
-            scp -i ~/.ssh/lightsail-emaus.pem -r "$WEB_SRC"/* ubuntu@$LIGHTSAIL_HOST:/var/www/emaus/apps/web/releases/$SHORT_SHA/
+            # Trailing slash on the source: copies the dir contents, dotfiles included.
+            rsync -az --no-perms --no-owner --no-group \
+              -e "ssh -i ~/.ssh/lightsail-emaus.pem" \
+              "$WEB_SRC/" ubuntu@$LIGHTSAIL_HOST:/var/www/emaus/apps/web/releases/$RELEASE_ID/
           fi
 
           # Upload package.json files and lockfile so pnpm install picks up new deps.
@@ -196,7 +200,7 @@ jobs:
           echo "  isProduction: true," >> /tmp/runtime-config.js
           echo '};' >> /tmp/runtime-config.js
           echo "console.log('[CONFIG] Production runtime configuration loaded');" >> /tmp/runtime-config.js
-          scp -i ~/.ssh/lightsail-emaus.pem /tmp/runtime-config.js ubuntu@$LIGHTSAIL_HOST:/var/www/emaus/apps/web/releases/$SHORT_SHA/runtime-config.js
+          scp -i ~/.ssh/lightsail-emaus.pem /tmp/runtime-config.js ubuntu@$LIGHTSAIL_HOST:/var/www/emaus/apps/web/releases/$RELEASE_ID/runtime-config.js
           echo "runtime-config.js uploaded"
 
           # Snapshot current version for rollback
@@ -207,8 +211,10 @@ jobs:
           rm -rf "$PREV_DIR"
           mkdir -p "$PREV_DIR"
           cp -r /var/www/emaus/apps/api/dist "$PREV_DIR/api-dist" 2>/dev/null || true
-          cp -r /var/www/emaus/apps/web/dist "$PREV_DIR/web-dist" 2>/dev/null || true
-          # Which release dir the web symlink pointed at (empty pre-atomic-swap).
+          # The web needs no copy: its previous release stays in releases/ (the
+          # retention keeps 5), so recording which one dist points at is enough
+          # for scripts/rollback-production.sh. `cp -r` of the symlink would only
+          # copy a link that dangles from here.
           readlink /var/www/emaus/apps/web/dist > "$PREV_DIR/web-release.txt" 2>/dev/null || true
           cp /var/www/emaus/apps/api/package.json "$PREV_DIR/api-package.json" 2>/dev/null || true
           cp /var/www/emaus/apps/web/package.json "$PREV_DIR/web-package.json" 2>/dev/null || true
@@ -403,10 +409,10 @@ jobs:
           # path, so the symlink is transparent to it — no reload, and every
           # reader sees either the old release or the new one, never a mix.
           echo "Publishing web release (atomic swap)..."
-          ssh -i ~/.ssh/lightsail-emaus.pem ubuntu@$LIGHTSAIL_HOST "env SHORT_SHA=$SHORT_SHA bash -s" << 'SWAPEOF'
+          ssh -i ~/.ssh/lightsail-emaus.pem ubuntu@$LIGHTSAIL_HOST "env RELEASE_ID=$RELEASE_ID bash -s" << 'SWAPEOF'
           set -e
           cd /var/www/emaus/apps/web
-          REL="releases/$SHORT_SHA"
+          REL="releases/$RELEASE_ID"
 
           # Sanity: a publishable release carries its entrypoint.
           if [ ! -f "$REL/index.html" ]; then
@@ -438,7 +444,11 @@ jobs:
           echo "✅ dist -> $REL (previous: ${PREV:-none})"
 
           # Keep the last 5 releases for rollback; older ones are dead weight.
-          ls -1dt releases/*/ 2>/dev/null | tail -n +6 | xargs -r rm -rf --
+          # Best-effort: the new release is already live, so a cleanup failure
+          # (e.g. root-owned files in the bootstrapped pre-atomic-* dir) must not
+          # turn the deploy red.
+          ls -1dt releases/*/ 2>/dev/null | tail -n +6 | xargs -r rm -rf -- \
+            || echo "⚠️ Old release cleanup failed (non-fatal); the new release is live."
           SWAPEOF
 
       - name: Public URL smoke test (non-fatal)

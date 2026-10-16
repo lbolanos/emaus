@@ -125,9 +125,9 @@ grep -l 'useRekaDialogFix' apps/web/src/
 - `App.vue` MUST tener UN SOLO root element — multi-root fragments rompen DOM en Safari.
 
 **Deploy**:
-- Siempre limpiar `/dist/assets/` antes de copiar (evitar chunks viejos cacheados).
+- El deploy publica cada build en un release nuevo (`apps/web/releases/<id>`) y cambia el symlink `dist` de una vez, así que no se mezclan chunks viejos y nuevos. **No limpies ni copies nada dentro de `dist/` a mano**: es el release vivo. Rollback del web: README § Rollback.
 - Usar `?v=` cache bust en el entry JS.
-- SSH server: `ssh -i ~/.ssh/emaus-key.pem ubuntu@emaus.cc`, path `/var/www/emaus/apps/web/dist`.
+- SSH server: `ssh -i ~/.ssh/lightsail-emaus.pem ubuntu@18.116.102.104`, path `/var/www/emaus/apps/web/dist` (symlink al release vivo).
 
 **Detalle**: skill `safari-ios-compatibility` (`.ruler/skills/safari-ios-compatibility/SKILL.md`).
 
