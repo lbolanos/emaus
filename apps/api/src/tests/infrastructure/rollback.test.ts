@@ -35,10 +35,12 @@ describe('Production Rollback Mechanism', () => {
 			);
 		});
 
-		it('should snapshot web dist', () => {
+		it('should record the live web release instead of copying the dist symlink', () => {
 			expect(workflowContent).toContain(
-				'cp -r /var/www/emaus/apps/web/dist "$PREV_DIR/web-dist"'
+				'readlink /var/www/emaus/apps/web/dist > "$PREV_DIR/web-release.txt"'
 			);
+			// dist is a symlink into releases/: a copy of it dangles from previous/.
+			expect(workflowContent).not.toContain('cp -r /var/www/emaus/apps/web/dist');
 		});
 
 		it('should snapshot package.json files', () => {
@@ -85,6 +87,23 @@ describe('Production Rollback Mechanism', () => {
 			for (const line of cpLines) {
 				expect(line).toContain('|| true');
 			}
+		});
+	});
+
+	describe('Deploy workflow web release', () => {
+		it('should name the release dir uniquely per run attempt', () => {
+			// A re-run of an already-published sha must not reuse (and wipe) the live release.
+			expect(workflowContent).toMatch(/RELEASE_ID="\$\{GITHUB_SHA:0:12\}-\$\{GITHUB_RUN_ID\}-\$\{GITHUB_RUN_ATTEMPT\}"/);
+			expect(workflowContent).not.toMatch(/rm -rf \S*releases\/\$RELEASE_ID/);
+		});
+
+		it('should publish with an atomic symlink swap', () => {
+			expect(workflowContent).toContain('ln -sfn "$REL" dist.next');
+			expect(workflowContent).toContain('mv -T dist.next dist');
+		});
+
+		it('should not fail a live deploy when old-release cleanup fails', () => {
+			expect(workflowContent).toMatch(/xargs -r rm -rf -- \\\n\s*\|\| echo/);
 		});
 	});
 
@@ -139,7 +158,7 @@ describe('Production Rollback Mechanism', () => {
 
 		const snapshotCopies = [
 			{ src: 'api/dist', dest: 'api-dist' },
-			{ src: 'web/dist', dest: 'web-dist' },
+			{ src: 'web/dist (readlink)', dest: 'web-release.txt' },
 			{ src: 'api/package.json', dest: 'api-package.json' },
 			{ src: 'web/package.json', dest: 'web-package.json' },
 			{ src: 'package.json', dest: 'root-package.json' },
@@ -154,9 +173,19 @@ describe('Production Rollback Mechanism', () => {
 			});
 		}
 
-		it('should restore web dist with clean swap (rm then cp)', () => {
-			expect(rollbackScript).toContain('rm -rf "$APP_DIR/apps/web/dist"');
-			expect(rollbackScript).toContain('cp -r "$PREV_DIR/web-dist" "$APP_DIR/apps/web/dist"');
+		it('should restore web by swapping the dist symlink, never writing into dist', () => {
+			expect(rollbackScript).toContain('"$PREV_DIR/web-release.txt"');
+			expect(rollbackScript).toContain('ln -sfn "$PREV_REL" dist.next');
+			expect(rollbackScript).toContain('mv -T dist.next dist');
+			expect(rollbackScript).not.toContain('rm -rf "$APP_DIR/apps/web/dist"');
+		});
+
+		it('should pass the shell simulation of the snapshot + rollback cycle', () => {
+			const output = execSync('bash scripts/tests/test-rollback-logic.sh', {
+				cwd: ROOT,
+				encoding: 'utf-8',
+			});
+			expect(output).toMatch(/Results: \d+ passed, 0 failed/);
 		});
 
 		it('should restore api dist with clean swap (rm then cp)', () => {
@@ -236,7 +265,7 @@ describe('Production Rollback Mechanism', () => {
 		it('should snapshot/restore the same set of artifact names', () => {
 			const artifactNames = [
 				'api-dist',
-				'web-dist',
+				'web-release.txt',
 				'api-package.json',
 				'web-package.json',
 				'root-package.json',
