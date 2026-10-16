@@ -63,8 +63,8 @@ tareas **sí despacha**.
 ## Plantilla
 
 Un solo tipo: **`SERVER_ASSIGNMENTS_BRIEFING`** (audiencia `server`), sembrada por la
-migración y editable por retiro. El texto semilla es un **borrador en revisión** por
-la organización (regla: un documento que sale de la organización no está cerrado hasta
+migración y editable por retiro. El texto semilla lo **aprobó la organización el
+2026-10-16** (regla: un documento que sale de la organización no está cerrado hasta
 que lo lee quien lo firma).
 
 **No aparece en el selector manual** de plantillas del `MessageDialog`
