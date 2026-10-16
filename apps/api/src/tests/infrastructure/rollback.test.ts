@@ -54,16 +54,37 @@ describe('Production Rollback Mechanism', () => {
 			expect(workflowContent).toContain('"$PREV_DIR/pnpm-workspace.yaml"');
 		});
 
-		it('should record git commit hash', () => {
-			expect(workflowContent).toContain('"$PREV_DIR/git-commit.txt"');
+		it('should record the live commit from DEPLOYED_VERSION, not from the box git worktree', () => {
+			// The deploy never advances the server's git checkout, so `git rev-parse HEAD`
+			// there names a months-old commit instead of the version being replaced.
+			const snapshotStart = workflowContent.indexOf("<< 'SNAPSHOTEOF'");
+			const snapshotEnd = workflowContent.indexOf('SNAPSHOTEOF', snapshotStart + 20);
+			const snapshotBlock = workflowContent.slice(snapshotStart, snapshotEnd);
+
+			expect(snapshotBlock).toContain(
+				`sed -n 's/^commit=//p' /var/www/emaus/DEPLOYED_VERSION > "$PREV_DIR/git-commit.txt"`,
+			);
+			expect(snapshotBlock).not.toContain('rev-parse');
 		});
 
 		it('should record snapshot timestamp', () => {
 			expect(workflowContent).toContain('"$PREV_DIR/snapshot-timestamp.txt"');
 		});
 
+		it('should snapshot BEFORE uploading anything to the server', () => {
+			// The API dist, package files and lockfile are overwritten in place: a
+			// snapshot taken after any upload copies the new build, and the rollback
+			// would restore the version it is rolling back.
+			const snapshotStart = workflowContent.indexOf("<< 'SNAPSHOTEOF'");
+			const snapshotEnd = workflowContent.indexOf('SNAPSHOTEOF', snapshotStart + 20);
+			const firstUpload = workflowContent.search(/^\s*(scp|rsync)\s/m);
+
+			expect(snapshotStart).toBeGreaterThan(-1);
+			expect(firstUpload).toBeGreaterThan(snapshotEnd);
+		});
+
 		it('should place snapshot BEFORE database backup and deploy', () => {
-			const snapshotIndex = workflowContent.indexOf('Snapshot current version for rollback');
+			const snapshotIndex = workflowContent.indexOf("<< 'SNAPSHOTEOF'");
 			const backupIndex = workflowContent.indexOf('Backup database before deploy');
 			const restartIndex = workflowContent.indexOf('Deploy, restart, and validate application');
 

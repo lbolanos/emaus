@@ -129,6 +129,35 @@ jobs:
           # every deploy (visible 2026-10-15 with two deploys 5 min apart).
           CLEANEOF
 
+          # Snapshot current version for rollback. Must run BEFORE any upload: the API
+          # dist, the package files and the lockfile are overwritten in place, so a
+          # snapshot taken after them copies the new build and `pnpm prod:rollback`
+          # would "restore" the very version it is rolling back (found 2026-10-16).
+          echo "Creating rollback snapshot..."
+          ssh -i ~/.ssh/lightsail-emaus.pem ubuntu@$LIGHTSAIL_HOST << 'SNAPSHOTEOF'
+          set -e
+          PREV_DIR="/var/www/emaus/previous"
+          rm -rf "$PREV_DIR"
+          mkdir -p "$PREV_DIR"
+          cp -r /var/www/emaus/apps/api/dist "$PREV_DIR/api-dist" 2>/dev/null || true
+          # The web needs no copy: its previous release stays in releases/ (the
+          # retention keeps 5), so recording which one dist points at is enough
+          # for scripts/rollback-production.sh. `cp -r` of the symlink would only
+          # copy a link that dangles from here.
+          readlink /var/www/emaus/apps/web/dist > "$PREV_DIR/web-release.txt" 2>/dev/null || true
+          cp /var/www/emaus/apps/api/package.json "$PREV_DIR/api-package.json" 2>/dev/null || true
+          cp /var/www/emaus/apps/web/package.json "$PREV_DIR/web-package.json" 2>/dev/null || true
+          cp /var/www/emaus/package.json "$PREV_DIR/root-package.json" 2>/dev/null || true
+          cp /var/www/emaus/pnpm-lock.yaml "$PREV_DIR/pnpm-lock.yaml" 2>/dev/null || true
+          cp /var/www/emaus/pnpm-workspace.yaml "$PREV_DIR/pnpm-workspace.yaml" 2>/dev/null || true
+          # The live commit comes from the previous deploy's provenance file, not from
+          # the box's git checkout, which the deploy never advances (see the
+          # DEPLOYED_VERSION note further down).
+          sed -n 's/^commit=//p' /var/www/emaus/DEPLOYED_VERSION > "$PREV_DIR/git-commit.txt" 2>/dev/null || true
+          date -u > "$PREV_DIR/snapshot-timestamp.txt"
+          echo "Rollback snapshot saved to $PREV_DIR"
+          SNAPSHOTEOF
+
           # Upload new artifacts
           echo "Uploading API build..."
           if [ -d "./build-output/api/dist" ]; then
@@ -202,29 +231,6 @@ jobs:
           echo "console.log('[CONFIG] Production runtime configuration loaded');" >> /tmp/runtime-config.js
           scp -i ~/.ssh/lightsail-emaus.pem /tmp/runtime-config.js ubuntu@$LIGHTSAIL_HOST:/var/www/emaus/apps/web/releases/$RELEASE_ID/runtime-config.js
           echo "runtime-config.js uploaded"
-
-          # Snapshot current version for rollback
-          echo "Creating rollback snapshot..."
-          ssh -i ~/.ssh/lightsail-emaus.pem ubuntu@$LIGHTSAIL_HOST << 'SNAPSHOTEOF'
-          set -e
-          PREV_DIR="/var/www/emaus/previous"
-          rm -rf "$PREV_DIR"
-          mkdir -p "$PREV_DIR"
-          cp -r /var/www/emaus/apps/api/dist "$PREV_DIR/api-dist" 2>/dev/null || true
-          # The web needs no copy: its previous release stays in releases/ (the
-          # retention keeps 5), so recording which one dist points at is enough
-          # for scripts/rollback-production.sh. `cp -r` of the symlink would only
-          # copy a link that dangles from here.
-          readlink /var/www/emaus/apps/web/dist > "$PREV_DIR/web-release.txt" 2>/dev/null || true
-          cp /var/www/emaus/apps/api/package.json "$PREV_DIR/api-package.json" 2>/dev/null || true
-          cp /var/www/emaus/apps/web/package.json "$PREV_DIR/web-package.json" 2>/dev/null || true
-          cp /var/www/emaus/package.json "$PREV_DIR/root-package.json" 2>/dev/null || true
-          cp /var/www/emaus/pnpm-lock.yaml "$PREV_DIR/pnpm-lock.yaml" 2>/dev/null || true
-          cp /var/www/emaus/pnpm-workspace.yaml "$PREV_DIR/pnpm-workspace.yaml" 2>/dev/null || true
-          git -C /var/www/emaus rev-parse HEAD > "$PREV_DIR/git-commit.txt" 2>/dev/null || true
-          date -u > "$PREV_DIR/snapshot-timestamp.txt"
-          echo "Rollback snapshot saved to $PREV_DIR"
-          SNAPSHOTEOF
 
           # Backup database before deploy
           echo "Creating database backup..."
