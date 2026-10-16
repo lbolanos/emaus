@@ -22,6 +22,22 @@ Each participant can have one of these payment statuses:
 - **Scholarship**: Participant received a scholarship
 - **Scholarship Partial**: Scholarship + partial payment
 - **Overdue**: Payment is past due
+- **Pays at the house**: Promised to pay on Friday arrival at the retreat house (still owes)
+
+## Pays at the retreat house
+
+Some walkers let you know they will pay on Friday arrival at the retreat house. Mark them with
+the house button 🏠 next to their balance on this screen (it also exists in the payment dialog
+and in Palancas): their status changes from Pending to the **Pays at the house** label, so
+nobody chases them in advance.
+
+- The mark **does not waive the charge**: the balance stays and their payment can be recorded
+  at reception like anyone else's.
+- Marked participants **do not receive WhatsApp payment reminders**.
+- Once their first payment is registered the label disappears; if a balance shows up again, it
+  comes back.
+- If the participant has a **scholarship**, the scholarship wins: they are not charged and the
+  mark is ignored.
 
 ## Recording a Payment
 

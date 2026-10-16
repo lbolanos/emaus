@@ -22,6 +22,13 @@ Los campos editables por caminante son:
 - **Palancas recibidas**: cuántas ya llegaron.
 - **Notas de palancas**: observaciones libres (pendientes, acuerdos, recordatorios).
 
+## Paga en la casa
+
+Si un caminante avisó que pagará al llegar el viernes a la casa de retiro, el botón de la casa 🏠
+de su fila lo marca con un toque (pide confirmación). Su estado muestra entonces la etiqueta
+**Paga en la casa** en lugar de Pendiente, deja de recibir recordatorios de cobro y la marca se
+ve también en la vista Pagos. El mismo botón la quita. El saldo no cambia: sigue debiendo.
+
 ## Corregir teléfonos
 
 Cuando quien inscribe al caminante es otra persona (por ejemplo, su esposa), la ficha queda con el teléfono de quien llenó el registro. La columna **Celular** lo corrige en dos clics: el lápiz abre un editor con el celular del caminante y los de sus dos contactos de emergencia.
