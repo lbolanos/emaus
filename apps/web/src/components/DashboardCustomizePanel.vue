@@ -17,6 +17,7 @@ const LABELS: Record<SectionKey, string> = {
   assignmentStats: 'Habitaciones',
   reception: 'Recepción',
   palancas: 'Palancas',
+  specialCases: 'Casos especiales',
   bagsReport: 'Reporte de bolsas',
   additionalInfo: 'Información adicional',
   inventoryAlerts: 'Alertas de inventario',

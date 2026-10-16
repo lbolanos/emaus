@@ -841,6 +841,56 @@
         </div>
       </Card>
 
+      <!-- Casos especiales (health regime) -->
+      <Card
+        id="ds-section-specialCases"
+        v-if="dashSettings.visible.specialCases && canViewHealthData"
+        class="group hover:shadow-md transition-all duration-300"
+        :style="{ order: dashSettings.sectionOrder.indexOf('specialCases') }"
+        data-testid="special-cases-card"
+      >
+        <CardHeader
+          class="pb-3 cursor-pointer select-none"
+          @click="dashSettings.toggleCollapsed('specialCases')"
+        >
+          <CardTitle class="text-lg flex items-center justify-between">
+            <span class="flex items-center gap-2">
+              <Flag class="w-5 h-5 text-amber-600" />
+              {{ $t('retreatDashboard.specialCases') }}
+            </span>
+            <ChevronDown class="w-4 h-4 text-muted-foreground transition-transform duration-200" :class="{ '-rotate-90': dashSettings.collapsed.specialCases }" />
+          </CardTitle>
+        </CardHeader>
+        <div v-show="!dashSettings.collapsed.specialCases">
+          <CardContent class="cursor-pointer" data-testid="special-cases-card-content" @click="goToSpecialCases">
+            <template v-if="loadingParticipants">
+              <div class="animate-pulse grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div v-for="i in 4" :key="i" class="space-y-1">
+                  <div class="h-3 bg-muted rounded w-3/4"></div>
+                  <div class="h-7 bg-muted rounded w-1/2"></div>
+                </div>
+              </div>
+            </template>
+            <template v-else>
+              <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div>
+                  <p class="text-xs uppercase tracking-wider text-muted-foreground">{{ $t('retreatDashboard.specialCasesPending') }}</p>
+                  <p
+                    class="text-2xl font-bold mt-1"
+                    :class="specialCaseWalkers.length > 0 ? 'text-amber-600' : ''"
+                    data-testid="special-cases-card-count"
+                  >{{ specialCaseWalkers.length }}</p>
+                </div>
+                <div v-for="category in SPECIAL_CASE_CATEGORIES" :key="category">
+                  <p class="text-xs uppercase tracking-wider text-muted-foreground">{{ $t(`specialCases.categories.${category}`) }}</p>
+                  <p class="text-2xl font-bold mt-1">{{ specialCaseCountByCategory[category] }}</p>
+                </div>
+              </div>
+            </template>
+          </CardContent>
+        </div>
+      </Card>
+
       <!-- 6. Palancas -->
       <Card
         id="ds-section-palancas"
@@ -1308,7 +1358,8 @@ import {
 	todayISO,
 	type PreRetreatTaskCounts,
 } from '@/stores/preRetreatTaskStore';
-import type { RetreatBed, House } from '@repo/types';
+import type { RetreatBed, House, SpecialCaseCategory } from '@repo/types';
+import { SPECIAL_CASE_CATEGORIES } from '@repo/types';
 import { Button } from '@repo/ui';
 import {
   Dialog,
@@ -1356,6 +1407,7 @@ import {
   DoorOpen,
   ExternalLink,
   FileText,
+  Flag,
   Layers,
   LayoutGrid,
   Link,
@@ -1388,7 +1440,7 @@ import {
 import { useAuthPermissions } from '@/composables/useAuthPermissions';
 
 const { t } = useI18n();
-const { can } = useAuthPermissions();
+const { can, hasPermission } = useAuthPermissions();
 const route = useRoute();
 const router = useRouter();
 const retreatStore = useRetreatStore();
@@ -1624,6 +1676,21 @@ const walkersWithoutPalancasCount = computed(() => palancasBreakdown.value.none)
 /** Fichas con las cartas anotadas como texto: no se pueden contar. */
 const walkersWithUnknownPalancasCount = computed(() => palancasBreakdown.value.unknown);
 
+// Casos especiales (specs/special-case). Health regime: the card renders only
+// for participant:health — the dashboard is open to every retreat role, and
+// even the bare count tells someone without the permission that cases exist.
+const canViewHealthData = computed(() => hasPermission('participant:health'));
+const specialCaseWalkers = computed(() =>
+  activeWalkers.value.filter((p: any) => p.specialCase === true)
+);
+const specialCaseCountByCategory = computed(() => {
+  const counts: Record<SpecialCaseCategory, number> = { room: 0, health: 0, other: 0 };
+  for (const p of specialCaseWalkers.value as any[]) {
+    if (p.specialCaseCategory in counts) counts[p.specialCaseCategory as SpecialCaseCategory] += 1;
+  }
+  return counts;
+});
+
 const bagsCompletedCount = computed(() =>
   activeWalkers.value.filter((p: any) => p.bagMade === true).length
 );
@@ -1732,6 +1799,7 @@ const goToResponsibilities = () => {
 };
 
 const goToPalancas = () => router.push({ name: 'palancas' });
+const goToSpecialCases = () => router.push({ name: 'special-cases' });
 
 const goToMinutoAMinuto = () => {
   if (selectedRetreat.value?.id) {

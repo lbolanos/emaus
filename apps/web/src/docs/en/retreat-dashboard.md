@@ -16,6 +16,7 @@ Each card summarizes part of the retreat and is clickable to open its section:
 
 - **Participants**: walkers, servers, waiting list, and partial servers, with their capacity.
 - **Responsibilities**, **Tables**, **Beds** (assigned / unassigned / floors used), and **Palancas**.
+- **Special cases**: walkers the palanquero flagged for review, by category. Only profiles with the health-data permission see it.
 - **Pre-Retreat Tasks**: done, overdue, due this week, and unassigned.
 - During the retreat, **Minute by Minute**, **Reception**, **Blessed Sacrament + angelitos**, and **Bags Report** become active.
 

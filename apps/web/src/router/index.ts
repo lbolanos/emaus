@@ -8,6 +8,7 @@ const AngelitosView = () => import('../views/AngelitosView.vue');
 const CanceledView = () => import('../views/CanceledView.vue');
 const HousesView = () => import('../views/HousesView.vue');
 const PalancasView = () => import('../views/PalancasView.vue');
+const SpecialCasesView = () => import('../views/SpecialCasesView.vue');
 const PaymentsView = () => import('../views/PaymentsView.vue');
 const DomainAuditView = () => import('../views/DomainAuditView.vue');
 const NotesAndMeetingPointsView = () => import('../views/NotesAndMeetingPointsView.vue');
@@ -268,6 +269,14 @@ const router = createRouter({
 					name: 'palancas',
 					component: PalancasView,
 					meta: { requiresRetreat: true },
+				},
+				{
+					// Casos especiales (specs/special-case): health regime, like the
+					// medical views — the API only sends the fields to that set.
+					path: 'special-cases',
+					name: 'special-cases',
+					component: SpecialCasesView,
+					meta: { requiresRetreat: true, requiresPermission: 'participant:health' },
 				},
 				{
 					path: 'payments',
@@ -739,7 +748,7 @@ router.beforeEach(async (to, from, next) => {
 
 	// Defensa en profundidad: el Sidebar ya oculta estos enlaces, pero una URL
 	// escrita a mano no pasa por ahí. `requiresPermission` es 'resource:operation'
-	// (hoy solo 'participant:health' en food/medicines-report).
+	// (hoy solo 'participant:health' en food/medicines-report/special-cases).
 	const requiredPermission = to.matched
 		.map((record) => record.meta?.requiresPermission as string | undefined)
 		.find(Boolean);

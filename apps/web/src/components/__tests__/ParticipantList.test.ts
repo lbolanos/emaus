@@ -145,6 +145,9 @@ vi.mock('lucide-vue-next', () => ({
 	Pencil: { template: '<span>pencil</span>' },
 	// Imported by the real ParticipantPaysAtHouseToggle (inline 🏠 wiring).
 	Home: { template: '<span>home</span>' },
+	// Special-case badge (ParticipantList) and flag (ParticipantSpecialCaseToggle).
+	AlertTriangle: { template: '<span>alert</span>' },
+	Flag: { template: '<span>flag</span>' },
 }));
 
 // Mock child components
@@ -187,6 +190,16 @@ vi.mock('../TagBadge.vue', () => ({
 	default: {
 		name: 'TagBadge',
 		template: '<span class="tag-badge"><slot /></span>',
+	},
+}));
+
+// Its own gates and payloads are covered by ParticipantSpecialCaseToggle.test.ts;
+// here only where ParticipantList renders it.
+vi.mock('../ParticipantSpecialCaseToggle.vue', () => ({
+	default: {
+		name: 'ParticipantSpecialCaseToggle',
+		props: ['participant'],
+		template: '<span data-testid="special-case-toggle-stub" />',
 	},
 }));
 
@@ -1500,6 +1513,84 @@ describe('ParticipantList Component', () => {
 				newWrapper.find('button[title="paymentManagement.balances.markPaysAtHouse"]').exists(),
 			).toBe(false);
 			newWrapper.unmount();
+		});
+	});
+
+	describe('Special-case wiring (inlineSpecialCaseBadge prop)', () => {
+		// Same mounting mold as the pays-at-house wiring describe above.
+		const grantHealth = async (enabled = true) => {
+			setActivePinia(pinia);
+			const { useAuthStore: useAuthStoreImport } = await import('@/stores/authStore');
+			const authStore = useAuthStoreImport();
+			authStore.userProfile = {
+				...(authStore.userProfile as any),
+				permissions: enabled ? [{ resource: 'participant', operation: 'health' }] : [],
+			} as any;
+		};
+
+		async function mountWithRows(props: Record<string, any>) {
+			setActivePinia(pinia);
+			const { useParticipantStore } = await import('@/stores/participantStore');
+			const participantStore = useParticipantStore();
+			const w = mount(ParticipantList, {
+				props: {
+					type: 'walker',
+					columnsToShowInTable: ['id_on_retreat', 'firstName', 'lastName'],
+					...props,
+				},
+				global: {
+					plugins: [pinia],
+					stubs: { 'router-link': true, 'router-view': true, teleport: true },
+					mocks: {
+						$t: (key: string) => key,
+						$router: { push: vi.fn() },
+						$route: { name: 'palancas', params: {}, query: {} },
+					},
+				},
+			});
+			await flushPromises();
+			participantStore.loading = false;
+			participantStore.participants = [
+				createMockParticipant({
+					id: '1',
+					firstName: 'John',
+					lastName: 'Doe',
+					type: 'walker',
+					specialCase: true,
+					specialCaseCategory: 'room',
+					specialCaseNotes: 'needs a ground-floor room',
+				}),
+				createMockParticipant({ id: '2', firstName: 'Jane', lastName: 'Roe', type: 'walker', specialCase: false }),
+			];
+			await nextTick();
+			return w;
+		}
+
+		it('renders neither badge nor flag without the prop, even with participant:health', async () => {
+			await grantHealth();
+			const w = await mountWithRows({});
+			expect(w.find('[data-testid="special-case-badge"]').exists()).toBe(false);
+			expect(w.find('[data-testid="special-case-toggle-stub"]').exists()).toBe(false);
+			w.unmount();
+		});
+
+		it('with the prop and participant:health: badge on the flagged row, flag on every row', async () => {
+			await grantHealth();
+			const w = await mountWithRows({ inlineSpecialCaseBadge: true });
+			const badges = w.findAll('[data-testid="special-case-badge"]');
+			expect(badges).toHaveLength(1);
+			expect(badges[0].text()).toContain('specialCases.categories.room');
+			expect(w.text()).toContain('needs a ground-floor room');
+			expect(w.findAll('[data-testid="special-case-toggle-stub"]')).toHaveLength(2);
+			w.unmount();
+		});
+
+		it('with the prop but without participant:health: nothing renders (health regime)', async () => {
+			await grantHealth(false);
+			const w = await mountWithRows({ inlineSpecialCaseBadge: true });
+			expect(w.find('[data-testid="special-case-badge"]').exists()).toBe(false);
+			expect(w.find('[data-testid="special-case-toggle-stub"]').exists()).toBe(false);
+			w.unmount();
 		});
 	});
 });
