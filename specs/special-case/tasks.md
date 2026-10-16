@@ -23,7 +23,8 @@
 
 - [x] Migration `20261015180000_AddSpecialCaseToRetreatParticipants.ts` (timestamp del día real;
       up: 3 ADD COLUMN con guard PRAGMA idempotente; down: 3 DROP COLUMN; SQL plano)
-- [x] `CreateSchema.ts`: 3 columnas en el CREATE TABLE de `retreat_participants`
+- [x] ~~`CreateSchema.ts`: 3 columnas en el CREATE TABLE de `retreat_participants`~~ —
+      revertido en M4 (`891bd548`): esa línea es del CREATE TABLE de `participants`
 - [x] `retreatParticipant.entity.ts`: 3 `@Column` + comentario de régimen health
 - [x] `participant.entity.ts`: 3 virtuales + `toJSON`
 - [x] `packages/types/src/permissions.ts`: los 3 en `SENSITIVE_HEALTH_FIELDS`
@@ -170,7 +171,7 @@ coincide con desfases de 1-2 líneas.
 
 ## M4 — Verificación end-to-end + cierre
 
-- [ ] Dev del worktree (`start-worktree-dev.sh`, puertos libres) y guion con persistencia real:
+- [x] Dev del worktree (`start-worktree-dev.sh`, puertos libres) y guion con persistencia real:
   1. Migración aplicada (PRAGMA: 3 columnas)
   2. Marcar como perfil communications (badge ámbar en Palancas; retorno con los 3 campos)
   3. Bandeja lista al marcado con categoría/nota; tarjeta dashboard = 1 y navega
@@ -178,10 +179,35 @@ coincide con desfases de 1-2 líneas.
   5. Rol sin health: sin badge/ítem/tarjeta; payloads sin los campos
   6. Dos retiros: marca per-retiro sin mezclar
   7. Restaurar el estado de los participantes usados
-- [ ] E2E `tests/e2e/special-case.spec.ts` (overlay GET, PUT abortado asertado, sin persistir;
+- [x] E2E `tests/e2e/special-case.spec.ts` (overlay GET, PUT abortado asertado, sin persistir;
       login por UI con skip por respuesta del API)
-- [ ] `pnpm --filter api test` (2 shards) + `pnpm --filter web test` + `vue-tsc` limpio
-- [ ] `pnpm --filter api build` (gate bundle ESM)
-- [ ] `## Reconcile` en spec.md (cada CA contra lo implementado)
+- [x] `pnpm --filter api test` (2 shards) + `pnpm --filter web test` + `vue-tsc` limpio
+- [x] `pnpm --filter api build` (gate bundle ESM)
+- [x] `## Reconcile` en spec.md (cada CA contra lo implementado)
 - [ ] PR a master; esperar `gh pr checks` en verde antes de merge
-- [ ] Commit final `docs(specs): special-case reconcile`
+- [x] Commit final `docs(specs): special-case reconcile`
+
+**Done (salvo PR)**: 2026-10-15. Dev del worktree en 3004/5176 (3002/5174 y 3003 ocupados por
+otros worktrees), arrancado a mano tras sembrar usuarios `sc-comms@test.local`
+(communications) y `sc-regular@test.local` (regular_server) en San Agustín con contraseña
+aleatoria (solo en la DB copia del worktree). Guion 1-7 en verde (detalle en el Reconcile de
+spec.md); caminante usado restaurado (`specialCase=0`, motivo NULL, `notes` NULL como estaba).
+e2e 6/6 contra ese dev (el de `regular_server` real con `E2E_REGULAR_SERVER_*`; sin ellas se
+salta con motivo). Suites: api 2 shards 4675 tests, web 3342 tests, `vue-tsc` y build ok.
+
+### Desviaciones 2026-10-15
+
+- **`CreateSchema` revertido** (`891bd548`): la línea 154 que research/plan señalaban «junto a
+  `paysAtHouse`» es del `CREATE TABLE "participants"`; `retreat_participants` nace como
+  `participant_history` y recibe sus columnas por `ADD COLUMN`. Detectado al correr
+  `migration:run` sobre una DB vacía: las columnas salían con el tipo/default de la migración,
+  no de `CreateSchema`. Con el revert, la DB fresca queda con las 3 columnas en
+  `retreat_participants` y 0 en `participants`; mismos 3 fallos de siembra preexistentes
+  (`SeedInitialData`, `AssignSanAgustinTables`, `FixBuenDespachoPalancasSequence`).
+- **Nombre con espacios** (`2edf909d`): el confirm de desmarcar mostraba «Javier  Perez» (fila
+  legacy con `firstName` «Javier »); el toggle recorta cada parte.
+- **e2e, sin health**: la simulación del navegador sobre el superadmin no sirve para el sidebar
+  ni el guard (dejan pasar al superadmin por diseño); esas dos aserciones van en un test aparte
+  con un `regular_server` real (`E2E_REGULAR_SERVER_*` + `E2E_HEALTH_RETREAT_ID`, mismas
+  variables que `participant-health-permission-guard`).
+

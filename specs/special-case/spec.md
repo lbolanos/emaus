@@ -135,3 +135,45 @@ quitó.
   permiso si llega a pedirse).
 - Fix adyacente de `paysAtHouse` en `PARTICIPANT_AUDIT_FIELDS` (deuda del PR #8, otro PR).
 - Cambios de permisos: ningún rol gana o pierde `participant:health` aquí.
+
+## Reconcile (2026-10-15)
+
+Cada criterio contra lo implementado. Commits: `f2d1c751` (api), `b7a8ecfe` (tests api),
+`b6bc2be3` (web), `891bd548` (fix CreateSchema), `2edf909d` (fix nombre), `9a9ae59e` (e2e).
+Guion manual de M4 sobre la DB del worktree (copia de dev) con usuarios reales
+`communications` y `regular_server` sembrados en San Agustín.
+
+| # | Criterio | Estado | Evidencia |
+|---|----------|--------|-----------|
+| 1 | Migración: 3 columnas tras arrancar el API; DB fresca también | ✅ con desviación | Auto-run al arrancar el API del worktree aplicó `AddSpecialCaseToRetreatParticipants` (6 ms); `migration:run` desde una DB vacía deja las 3 columnas en `retreat_participants`. **FR-1 corregido**: `CreateSchema` NO crea `retreat_participants` (nace como `participant_history`); la línea que el plan señalaba es del `CREATE TABLE "participants"` — se revirtió en `891bd548`. La migración cubre las DBs frescas sola. |
+| 2 | Marcar con categoría y nota → fila rp, retorno, badge | ✅ | Manual (perfil communications): PUT `{specialCase, specialCaseCategory:'room', specialCaseNotes, contextRetreatId}` → 200 con los 3 campos; badge ámbar «Habitación aparte» con la nota en tooltip. `specialCaseWritePath.test.ts`; e2e «marcar abre el diálogo…». |
+| 3 | Bandeja exacta; tarjeta = 1 y navega | ✅ | Manual: tarjeta «Por atender 1 / Habitación aparte 1», badge del sidebar 1, clic → `/app/special-cases` con la única fila (teléfono, categoría, nota); «Contactar» abre el `MessageDialog`. e2e «la tarjeta cuenta 1…». |
+| 4 | Quitar → 0/NULL/NULL, `notes` intacto, todo a 0 | ✅ | Manual: PUT `{specialCase:false, contextRetreatId}`; API devuelve `null`/`null`; `notes` («Nota general de prueba M4») intacto; bandeja vacía, contador 0, sin badge. Test de integración idem con el DTO completo re-enviado. |
+| 5 | Re-envío con `specialCase:true` sin categoría no la borra | ✅ | `specialCaseWritePath.test.ts` (CA-5). |
+| 6 | Categoría fuera del enum → 422 | ✅ con desviación | Responde **400** (`validateRequest` usa 400 para todo error de zod). `participantHealthWriteGate.simple.test.ts`. |
+| 7 | Rol sin health: sin campos en ningún payload; PUT → 403; UI sin rastro | ✅ | Manual con `regular_server` real: lista, ficha, `/history/retreat/:id/participants` y `/history/participant/:id` sin los 3 campos (ni `notes` de la fila); sin tarjeta, sin ítem, URL directa redirige al dashboard. 403 (incl. `''` y desmarque solo) en el test de ruta. Ampliado a 11 handlers de `/history/*` y a `PUT /participants/self` (desviaciones M1). |
+| 8 | Dos retiros: per-retiro | ✅ | Manual: el caminante marcado en San Agustín tiene `specialCase:false`, categoría `null` en San Judas Tadeo (ficha con contexto B y fila de `/history`). Integración: escritura por `contextRetreatId` y overlay de lista/ficha. |
+| 9 | Audit con actor | ✅ | Manual: `/domain-audit` del retiro muestra las 4 escrituras con actor (`sc-comms` marca/desmarca, superadmin restaura) y old/new de los 3 campos. Integración idem. |
+| 10 | Regresión: suites y build | ✅ | api 2 shards: 301 suites, 4675 tests, 0 fallos; web 220 archivos, 3342 tests; `vue-tsc` limpio; `pnpm --filter api build` ok; e2e 6/6. |
+
+**Negativos**
+
+- `paymentStatus`/montos: sin cambios — el diff de `participant.entity.ts` solo agrega
+  virtuales y `toJSON`; el getter no lee los campos nuevos.
+- `regular_server` sin rastro: ver CA-7. Excepción aceptada: la fila «Casos especiales» del
+  panel «Personalizar» del dashboard es visible a todo rol (nombre de sección, sin datos).
+  El sidebar y el guard dejan pasar a un superadmin por diseño; por eso el e2e prueba el
+  sidebar con un `regular_server` real.
+- Sin `participant:update` no hay botón: gate doble en `ParticipantSpecialCaseToggle`
+  (test de componente).
+- `FilterDialog`/segmentos: no tocados (fuera del diff de M3).
+- `notes`: la feature no la lee ni la escribe; el desmarcado la deja intacta (CA-4).
+
+**Deuda detectada, fuera de alcance**
+
+- `paysAtHouse` está en el mismo sitio equivocado de `CreateSchema` (`participants`, PR #8);
+  inocuo hoy, pero confunde al próximo que copie el molde.
+- `POST/PUT /history` escriben el body crudo sin el 403 de salud (hoy no explotable: todo rol con
+  `participant:update` tiene `participant:health`).
+- `PUT /participants/:id` devuelve `dataDeleteToken` en la respuesta (visto en el guion manual;
+  preexistente).
