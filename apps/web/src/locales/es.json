@@ -837,7 +837,8 @@
     "scheduleTemplate": "Template Minuto a Minuto",
     "preRetreatTasks": "Tareas Pre-Retiro",
     "retreatPreparations": "Preparaciones",
-    "preRetreatTaskTemplate": "Template Tareas Pre-Retiro"
+    "preRetreatTaskTemplate": "Template Tareas Pre-Retiro",
+    "specialCases": "Casos especiales"
   },
   "changePassword": {
     "title": "Cambiar Contraseña",
@@ -1726,7 +1727,9 @@
     "copyWazeUrl": "Copiar Waze",
     "openMapsUrl": "Abrir Google Maps",
     "openWazeUrl": "Abrir Waze",
-    "addressCopied": "¡Dirección copiada al portapapeles!"
+    "addressCopied": "¡Dirección copiada al portapapeles!",
+    "specialCases": "Casos especiales",
+    "specialCasesPending": "Por atender"
   },
   "retreatFlyer": {
     "printButton": "Imprimir Flyer",
@@ -4311,6 +4314,35 @@
       "attendance": "Asistencia",
       "payment": "Pago",
       "palancas": "Cartas"
+    }
+  },
+  "specialCases": {
+    "title": "Casos especiales",
+    "subtitle": "Caminantes que el palanquero marcó para que el coordinador los revise",
+    "pendingCount": "Por atender: {count}",
+    "empty": "No hay casos especiales marcados",
+    "badge": "Caso especial",
+    "mark": "Marcar caso especial",
+    "markTitle": "Caso especial",
+    "markDescription": "Cuéntale al coordinador qué necesita revisar de {name}.",
+    "categoryLabel": "Categoría",
+    "categories": {
+      "room": "Habitación aparte",
+      "health": "Salud",
+      "other": "Otra"
+    },
+    "notes": "Nota (opcional)",
+    "notesPlaceholder": "p. ej. usa silla de ruedas, viaja con su mamá…",
+    "noNotes": "Sin nota",
+    "confirmRemove": "¿Quitar la marca de caso especial de {name}? Se borra el motivo.",
+    "remove": "Quitar marca",
+    "contact": "Contactar",
+    "columns": {
+      "name": "Caminante",
+      "phone": "Teléfono",
+      "category": "Categoría",
+      "notes": "Nota",
+      "actions": "Acciones"
     }
   }
 }

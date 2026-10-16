@@ -61,6 +61,7 @@ jest.mock('../../services/participantService', () => ({
 
 import { Request, Response, NextFunction } from 'express';
 import { updateSelfParticipant } from '../../controllers/participantController';
+import { authorizationService } from '../../middleware/authorization';
 
 describe('updateSelfParticipant controller', () => {
 	let mockReq: Partial<Request>;
@@ -183,5 +184,50 @@ describe('updateSelfParticipant controller', () => {
 
 		await updateSelfParticipant(mockReq as Request, mockRes as Response, mockNext);
 		expect(mockNext).toHaveBeenCalledWith(testError);
+	});
+
+	// specs/special-case: the response carries the per-retreat virtuals, and
+	// the special case is for the coordinator, not for the participant.
+	describe('special case in the response', () => {
+		const caseFields = {
+			specialCase: true,
+			specialCaseCategory: 'health',
+			specialCaseNotes: 'Usa silla de ruedas',
+		};
+
+		beforeEach(() => {
+			mockReq = {
+				user: { id: 'user-1' } as any,
+				body: { retreatId: 'retreat-1', phone: '555-0000', notes: 'Arrives late' },
+			};
+			mockFindAllParticipants.mockResolvedValue([{ id: 'p-1', userId: 'user-1' }]);
+			mockUpdateParticipant.mockResolvedValue({
+				id: 'p-1',
+				phone: '555-0000',
+				notes: 'Arrives late',
+				...caseFields,
+			});
+		});
+
+		// clearAllMocks does not restore spies.
+		afterEach(() => {
+			jest.restoreAllMocks();
+		});
+
+		it('drops only the case fields for a caller without participant:health', async () => {
+			jest.spyOn(authorizationService, 'hasPermission').mockResolvedValue(false);
+
+			await updateSelfParticipant(mockReq as Request, mockRes as Response, mockNext);
+
+			expect(jsonFn).toHaveBeenCalledWith({ id: 'p-1', phone: '555-0000', notes: 'Arrives late' });
+		});
+
+		it('keeps them for a caller with participant:health', async () => {
+			jest.spyOn(authorizationService, 'hasPermission').mockResolvedValue(true);
+
+			await updateSelfParticipant(mockReq as Request, mockRes as Response, mockNext);
+
+			expect(jsonFn).toHaveBeenCalledWith(expect.objectContaining(caseFields));
+		});
 	});
 });

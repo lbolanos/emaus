@@ -112,6 +112,21 @@ export class RetreatParticipant {
 	@Column({ type: 'boolean', default: false })
 	paysAtHouse!: boolean;
 
+	// Caso especial: el palanquero marca un caminante que el coordinador debe revisar
+	// antes del retiro (habitación aparte, salud, otra). Régimen de salud: los tres
+	// campos están en SENSITIVE_HEALTH_FIELDS, así que solo quien tiene
+	// `participant:health` los lee o escribe. Al desmarcar se limpian categoría y nota
+	// del caso (nunca `notes`); la traza queda en el domain-audit del update.
+	@Column({ type: 'boolean', default: false })
+	specialCase!: boolean;
+
+	// 'room' | 'health' | 'other' (validado por el zod de participantSchema).
+	@Column({ type: 'varchar', nullable: true })
+	specialCaseCategory?: string | null;
+
+	@Column({ type: 'text', nullable: true })
+	specialCaseNotes?: string | null;
+
 	// Informativo/auditoría: el monto de beca otorgado. NO afecta el cálculo de paz y
 	// salvo (isScholarship ya exime de todo); solo se usa como referencia y para validar
 	// que no supere el cobro del retiro.

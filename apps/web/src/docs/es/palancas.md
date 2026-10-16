@@ -28,6 +28,10 @@ Cuando quien inscribe al caminante es otra persona (por ejemplo, su esposa), la 
 
 Pega el número tal cual lo recibas (con `+52` y espacios): se guarda limpio, a diez dígitos. Un número inválido se bloquea antes de enviarse. El mismo lápiz vive en el detalle del caminante, junto al número del encabezado; al guardar, la fila o la ficha se actualizan al instante. Así los avisos de WhatsApp y las cartas llegan siempre al número correcto.
 
+## Casos especiales
+
+Si al hablar con el caminante te enteras de algo que el coordinador debe revisar (habitación aparte, salud u otra situación), toca la **banderita** junto a su nombre, elige la categoría y deja una nota. La fila queda con una etiqueta ámbar y el caso llega a la bandeja del coordinador. Solo lo ven los perfiles con permiso de datos de salud. Más detalle en la ayuda de **Casos especiales**.
+
 ## Cómo usarla
 
 Edita los datos directamente en la tabla o abriendo el formulario del caminante, y ve comparando **solicitadas** contra **recibidas** para detectar a quién le faltan palancas y darle seguimiento antes del retiro.

@@ -22,6 +22,7 @@ vi.mock('@/views/WalkersView.vue', () => ({ default: { template: '<div />' } }))
 vi.mock('@/views/LoginView.vue', () => ({ default: { template: '<div />' } }));
 vi.mock('@/views/FoodView.vue', () => ({ default: { template: '<div />' } }));
 vi.mock('@/views/MedicinesReportView.vue', () => ({ default: { template: '<div />' } }));
+vi.mock('@/views/SpecialCasesView.vue', () => ({ default: { template: '<div />' } }));
 vi.mock('@/views/RetreatDashboardView.vue', () => ({ default: { template: '<div />' } }));
 
 const hasPermissionMock = vi.hoisted(() => vi.fn(() => false));
@@ -100,7 +101,7 @@ describe('router guard — requiresPermission (participant:health)', () => {
 		expect(hasPermissionMock).not.toHaveBeenCalled();
 	});
 
-	it.each(['food', 'medicines-report'])(
+	it.each(['food', 'medicines-report', 'special-cases'])(
 		'denies %s without participant:health and falls back to walkers (no retreats)',
 		async (routeName) => {
 			await router.push(`/app/${routeName}`);
@@ -122,7 +123,7 @@ describe('router guard — requiresPermission (participant:health)', () => {
 		expect(router.currentRoute.value.params.id).toBe('retreat-1');
 	});
 
-	it.each(['food', 'medicines-report'])(
+	it.each(['food', 'medicines-report', 'special-cases'])(
 		'allows %s when hasPermission(participant:health) is true',
 		async (routeName) => {
 			hasPermissionMock.mockReturnValue(true);

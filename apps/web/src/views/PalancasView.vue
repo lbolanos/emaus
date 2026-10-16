@@ -31,6 +31,7 @@ const palancaFormExcludedColumns = ['cellPhone'];
     show-attendance-confirmation
     inline-phone-edit
     inline-pays-at-house-toggle
+    inline-special-case-badge
  />
   </div>
 </template>
