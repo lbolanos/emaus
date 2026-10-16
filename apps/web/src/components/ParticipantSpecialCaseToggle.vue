@@ -55,8 +55,13 @@ const canEdit = computed(
   () => hasPermission('participant:update') && hasPermission('participant:health'),
 );
 const marked = computed(() => props.participant.specialCase === true);
+// Trim each part: legacy rows carry trailing spaces ("Javier "), which showed
+// up as a double space in the native confirm().
 const participantName = computed(() =>
-  `${props.participant.firstName ?? ''} ${props.participant.lastName ?? ''}`.trim(),
+  [props.participant.firstName, props.participant.lastName]
+    .map((part) => (part ?? '').trim())
+    .filter(Boolean)
+    .join(' '),
 );
 const actionLabel = computed(() => (marked.value ? t('specialCases.remove') : t('specialCases.mark')));
 
