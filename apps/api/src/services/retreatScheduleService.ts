@@ -1647,6 +1647,18 @@ export class RetreatScheduleService {
 		// signups con autoAssigned=true; las inscripciones manuales (signups del
 		// admin con o sin participantId) se preservan. También limpia signups de
 		// servidores que ahora están en mesa (no pueden cubrir durante la comida).
+		// Antes de borrar se anota qué turnos automáticos tenía cada quien: todo
+		// cambio de horario pasa por aquí, y sin esa referencia cada rebalanceo le
+		// reenviaba el correo a todos los angelitos aunque nada les cambiara.
+		const previousAutoSlots = new Map<string, Set<string>>();
+		for (const slot of mealSlots) {
+			for (const sig of slot.signups ?? []) {
+				if (sig.autoAssigned !== true || !sig.participantId) continue;
+				const held = previousAutoSlots.get(sig.participantId) ?? new Set<string>();
+				held.add(slot.id);
+				previousAutoSlots.set(sig.participantId, held);
+			}
+		}
 		for (const slot of mealSlots) {
 			for (const sig of slot.signups ?? []) {
 				const isStaleAuto = sig.autoAssigned === true;
@@ -1715,10 +1727,15 @@ export class RetreatScheduleService {
 			if (need > candidates.length) unresolved.push(slot.id);
 		}
 
-		// Notificar por correo a los angelitos asignados en esta ejecución.
-		// Fire-and-forget: errores de email no rompen la auto-asignación.
-		this.notifyAngelitosOfNewAssignments(retreatId, pool, newAssignmentsByParticipant).catch(
-			(err) => console.error('Failed to notify angelitos of new assignments:', err),
+		// Notificar solo a quien ganó un turno que no tenía; el correo lleva su lista
+		// completa. Fire-and-forget: errores de email no rompen la auto-asignación.
+		const toNotify = new Map<string, SantisimoSlot[]>();
+		for (const [pid, slots] of newAssignmentsByParticipant) {
+			const held = previousAutoSlots.get(pid);
+			if (slots.some((s) => !held?.has(s.id))) toNotify.set(pid, slots);
+		}
+		this.notifyAngelitosOfNewAssignments(retreatId, pool, toNotify).catch((err) =>
+			console.error('Failed to notify angelitos of new assignments:', err),
 		);
 
 		return { assigned, unresolved };

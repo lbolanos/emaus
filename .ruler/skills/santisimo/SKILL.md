@@ -206,13 +206,15 @@ Implementado en `retreatScheduleService.notifyAngelitosOfNewAssignments(retreatI
 leía como la capilla de la parroquia (Del Valle II, 2026-10-16). Los cancelados (`rp.isCancelled`)
 no entran al pool.
 
-**Trampa: cualquier cambio de horario del Minuto a Minuto le reenvía el correo a TODOS los
-angelitos.** `create`, `update` (si toca hora o duración), `delete`, ±5 (`shiftDownstream`),
-`shiftDay`, `shiftAllItems` y `reorderDay` llaman a `resolveSantisimoConflicts` →
-`autoAssignAngelitos`, que borra las auto-asignaciones de las comidas y las recrea. Para la
-notificación, recreada = nueva, así que cada angelito recibe su lista otra vez aunque no haya cambiado nada.
-Pasó el 2026-10-16: acortar «Llevar maletas» de 70 a 30 min desde la UI mandó 8 correos. Sin
-arreglar a esa fecha. Si se arregla: notificar solo a quien gana un slot que no tenía.
+**Cualquier cambio de horario del Minuto a Minuto re-asigna angelitos.** `create`, `update` (si
+toca hora, duración o el bloqueo), `delete`, ±5 (`shiftDownstream`), `shiftDay`, `shiftAllItems` y
+`reorderDay` llaman a `resolveSantisimoConflicts` → `autoAssignAngelitos`, que borra las
+auto-asignaciones de las comidas y las recrea. Antes, recreada = nueva, y cada angelito recibía su
+lista otra vez aunque no le cambiara nada: el 2026-10-16, acortar «Llevar maletas» de 70 a 30 min
+mandó 8 correos. Ahora `autoAssignAngelitos` anota los turnos automáticos previos
+(`previousAutoSlots`) y solo notifica a quien gana un slot que no tenía, con su lista completa.
+Quien **pierde** un turno no recibe aviso. Guard: describe «correo a angelitos al re-asignar» en
+`santisimoMaterializeAutogen.test.ts`.
 
 ### Tests
 
