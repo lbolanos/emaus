@@ -90,6 +90,18 @@ rm -rf apps/web/node_modules/.vite   # la caché de deps queda con referencias m
 El script `start-worktree-dev.sh` ya lo hace si falta. Los otros paquetes (`@repo/types`,
 `@repo/utils`) apuntan directo a `src/*.ts` y no necesitan build.
 
+Atajo si no vas a levantar dev sino a **publicar desde el worktree** (tests + build): en vez de
+compilar, cloná el `dist` del main — el fuente es el mismo, el `dist` no está versionado:
+
+```bash
+git diff --quiet HEAD origin/master -- packages/ui \
+  && cp -ac <main>/packages/ui/dist packages/ui/dist
+```
+
+Ojo: sin el `dist` tampoco lo vas a ver en Vite — el síntoma ahí es otro. `vitest` muere con
+"Tests: no tests" (6/6 FAIL) y `vue-tsc` escupe cientos de TS2307 sobre `@repo/ui` (2026-10-15,
+al subir a prod el renombrado de mesas desde un worktree).
+
 > **La trampa de verdad no es el error, es no verlo.** Un e2e que use `APIRequestContext`
 > (Playwright hablando HTTP contra la API) **nunca monta el frontend**: sigue en verde con la
 > web caída. Si vas a dar por bueno un cambio con e2e, que al menos uno abra la app en el
