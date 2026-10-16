@@ -113,22 +113,60 @@ write gate, 6 en `healthDataExposureGuards`, 2 en `selfUpdateParticipant`.
 
 ## M3 — Frontend
 
-- [ ] `ParticipantSpecialCaseToggle.vue` nuevo (diálogo categoría+nota; gates update+health;
+- [x] `ParticipantSpecialCaseToggle.vue` nuevo (diálogo categoría+nota; gates update+health;
       desmarque con confirm)
-- [ ] `ParticipantList.vue`: prop `inlineSpecialCaseBadge` + badge ámbar + toggle en celda
+- [x] `ParticipantList.vue`: prop `inlineSpecialCaseBadge` + badge ámbar + toggle en celda
       propia (sin tocar la rama `lastPaymentDate`)
-- [ ] `PalancasView.vue`: encender el flag
-- [ ] `SpecialCasesView.vue` nueva (bandeja; plantilla WalkerView; contacto + quitar)
-- [ ] Router: ruta `special-cases` gated `participant:health`
-- [ ] Sidebar: ítem en `communications` (ícono `Flag`, gate health) + `Flag` al allowlist
-- [ ] `RetreatDashboardView.vue`: tarjeta gated health con contador computed; sección
+- [x] `PalancasView.vue`: encender el flag
+- [x] `SpecialCasesView.vue` nueva (bandeja; plantilla WalkerView; contacto + quitar)
+- [x] Router: ruta `special-cases` gated `participant:health`
+- [x] Sidebar: ítem en `communications` (ícono `Flag`, gate health) + `Flag` al allowlist
+- [x] `RetreatDashboardView.vue`: tarjeta gated health con contador computed; sección
       `specialCases` en `dashboardSettingsStore.ts`
-- [ ] i18n es + en (todas las keys de plan.md)
-- [ ] Docs `apps/web/src/docs/{es,en}/special-cases.md` + edición de `palancas.md` y
+- [x] i18n es + en (todas las keys de plan.md)
+- [x] Docs `apps/web/src/docs/{es,en}/special-cases.md` + edición de `palancas.md` y
       `retreat-dashboard.md`
-- [ ] Tests web: toggle, bandeja, `Sidebar.test.ts`, `ParticipantList.test.ts`
-- [ ] `pnpm --filter web test` en verde + `vue-tsc --noEmit`
-- [ ] Commit `feat(web): special-case flag, inbox and dashboard card`
+- [x] Tests web: toggle, bandeja, `Sidebar.test.ts`, `ParticipantList.test.ts`
+- [x] `pnpm --filter web test` en verde + `vue-tsc --noEmit`
+- [x] Commit `feat(web): special-case flag, inbox and dashboard card`
+
+**Done**: 2026-10-15, commit `b6bc2be3`. `pnpm --filter web test`: 220 archivos, 3342 tests en
+verde (2 skipped); `vue-tsc --noEmit --skipLibCheck` exit 0 (antes y después del `eslint --fix`
+de lint-staged). Re-verificado research.md: `RetreatDashboardView.vue` toma `can` de
+`useAuthPermissions()` (no `hasPermission`; se añadió), tarjeta Palancas 844-905; el resto
+coincide con desfases de 1-2 líneas.
+
+### Desviaciones 2026-10-15
+
+- **Keys de i18n**: `specialCases.category` no puede ser texto y objeto padre a la vez en JSON →
+  `specialCases.categoryLabel` + `specialCases.categories.{room,health,other}`;
+  `palancas.specialCase` → `specialCases.badge` (no existe namespace `palancas`). Keys de apoyo
+  añadidas: `subtitle`, `pendingCount`, `noNotes`, `columns.*`,
+  `retreatDashboard.specialCasesPending`. Test guard nuevo `specialCaseI18nKeys.test.ts` (el mock
+  global `t: key => key` no detecta keys inexistentes).
+- **Bandeja sin `ParticipantList`**: envolverla (molde WalkerView) filtra server-side, y el
+  spec prohíbe exponer la marca en filtros. Vista propia con el patrón de
+  `MedicinesReportView` + `MessageDialog` de `ShirtsReportView` (montado sin `v-if`, hidratado
+  del listado, `filters` reseteados, `retreatId` capturado al clic).
+- **Diálogo con radios y `<textarea>` nativos** en lugar de `Label`/`Textarea`/RadioGroup de
+  `@repo/ui`: varios mocks locales de `@repo/ui` no los exportan.
+- **Badge + bandera en la celda `firstName`** (dentro de su rama default, conserva el 🎂); la
+  rama `lastPaymentDate` intacta. Botón con `@click.stop`.
+- **Contador en el sidebar** (`ITEM_BADGE`): para roles sin `participant:health` siempre 0, porque
+  el API no les manda el campo.
+- **Cableado no listado en plan.md**: `special-cases` en `AppLayout` (título),
+  `useRouteContext` (sección), `helpIndex` (ayuda contextual) y la etiqueta en
+  `DashboardCustomizePanel`.
+- **Fila del panel «Personalizar» sin gate de salud**: muestra solo el nombre de la sección (como
+  `inventoryAlerts`); gatearla rompía el emparejamiento de índices del drag. Tarjeta, ítem, ruta
+  y badge sí exigen `participant:health`. Ojo con el negativo del spec «sin rastro del caso»: la
+  etiqueta no revela ningún caso, pero sí que la función existe.
+- **Tests extra**: mock de vue-router con `push` espiable en `RetreatDashboardView.test.ts`
+  (navegación de la tarjeta) y caso `special-cases` en `router/__tests__/index.test.ts`.
+- **Sin verificar (va a M4)**: el `Dialog` de reka-ui abierto desde la fila en un navegador real,
+  la navegación real de la tarjeta y el tooltip del badge. El orden por defecto (antes de
+  Palancas) solo aplica a quien no tiene orden guardado; a los demás la sección se les agrega al
+  final.
 
 ## M4 — Verificación end-to-end + cierre
 
