@@ -20,8 +20,8 @@ import { User } from './user.entity';
 export interface SegmentFilters {
 	participantType?: 'walker' | 'server' | 'waiting' | 'partial_server' | null;
 	tagIds?: string[];
-	// 'owing' = saldo pendiente > 0 (unpaid + partial + pays_at_house), no un
-	// estado del getter. 'pays_at_house' = comprometió pagar al llegar el viernes.
+	// 'owing' = pending balance > 0 (unpaid + partial + pays_at_house), not a
+	// getter status. 'pays_at_house' = promised to pay on Friday arrival.
 	paymentStatus?:
 		| 'paid'
 		| 'partial'

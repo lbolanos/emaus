@@ -91,18 +91,18 @@ describe('Paz y salvo per-retiro — pagos/deudas no cruzan retiros', () => {
 		expect(inB!.chargeBreakdown.retreatFee).toBe(9999);
 	});
 
-	it('la marca paysAtHouse es per-retiro: marcado en A, normal en B', async () => {
-		// specs/pays-at-house: el flag vive en retreat_participants; la hidratación
-		// (participantRetreatHydration) debe copiarlo solo del retiro de contexto.
+	it('the paysAtHouse flag is per-retreat: marked on A, normal on B', async () => {
+		// specs/pays-at-house: the flag lives on retreat_participants; hydration
+		// (participantRetreatHydration) must copy it only from the context retreat.
 		const { retreatA, retreatB, p } = await setupTwoRetreats();
-		// Cobro > 0 en ambos para que el estado derivado tenga saldo pendiente.
+		// Cost > 0 on both so the derived status has a pending balance.
 		await AppDataSource.getRepository(Retreat).update(retreatA.id, {
 			serverFeeAmount: 1000,
 		} as any);
 		await AppDataSource.getRepository(Retreat).update(retreatB.id, {
 			serverFeeAmount: 1000,
 		} as any);
-		// Marca SOLO en la fila de A
+		// Mark ONLY the row of retreat A.
 		await AppDataSource.getRepository(RetreatParticipant).update(
 			{ participantId: p.id, retreatId: retreatA.id },
 			{ paysAtHouse: true } as any,

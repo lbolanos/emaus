@@ -19,7 +19,7 @@ export const segmentFiltersSchema = z.object({
 	// Estado de pago derivado (Participant.paymentStatus getter). 'owing' NO es
 	// un estado: es el saldo pendiente > 0 (unpaid + partial + pays_at_house),
 	// para condiciones de "quien debe" sin importar si abonó algo.
-	// 'pays_at_house': comprometió pagar al llegar el viernes; sigue debiendo.
+	// 'pays_at_house': promised to pay on Friday arrival; still owes.
 	paymentStatus: z.enum(['paid', 'partial', 'unpaid', 'overpaid', 'scholarship', 'pays_at_house', 'owing']).nullish(),
 	maritalStatus: z.enum(['S', 'C', 'D', 'V', 'O']).nullish(),
 	// Confirmación de asistencia (retreat_participant.attendanceConfirmation).
