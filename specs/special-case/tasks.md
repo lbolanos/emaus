@@ -76,20 +76,40 @@ suites api relacionadas (incl. `tests/migrations`) en verde, 602 tests.
 
 ## M2 — Backend: tests
 
-- [ ] `specialCaseWritePath.test.ts` nuevo: marca con categoría (fila del retiro de contexto,
+- [x] `specialCaseWritePath.test.ts` nuevo: marca con categoría (fila del retiro de contexto,
       retorno la refleja); desmarcado persiste false Y limpia categoría+nota del caso (con
       `notes` del caminante intacto); payload sin los campos no borra; multi-retiro sin mezclar
-- [ ] `healthDataExposureGuards.test.ts`: strip en GET lista/ficha sin health; 403 en PUT con
+- [x] `healthDataExposureGuards.test.ts`: strip en GET lista/ficha sin health; 403 en PUT con
       cualquiera de los 3 (incl. `specialCaseNotes: ''`); respuesta del update strippeada;
       `/retreat-participants` sin las columnas (regresión FR-4)
-- [ ] Superficie extra de M1 (ver desviaciones): `/history/participant/:id` y
+- [x] Superficie extra de M1 (ver desviaciones): `/history/participant/:id` y
       `/history/my-retreats` sin `specialCase*` ni `notes` de la fila para rol sin health (y con
       ellos para rol con health); `PUT /participants/self` sin `specialCase*` en la respuesta
-- [ ] Audit: diff del update registra marca (con categoría) y desmarca
-- [ ] 400 con categoría fuera del enum (era 422 en el spec; ver desviaciones M1)
-- [ ] Suite api en verde — 2 shards secuenciales, `npx jest` directo con
+- [x] Audit: diff del update registra marca (con categoría) y desmarca
+- [x] 400 con categoría fuera del enum (era 422 en el spec; ver desviaciones M1)
+- [x] Suite api en verde — 2 shards secuenciales, `npx jest` directo con
       `--max-old-space-size`
-- [ ] Commit `test(api): special-case coverage`
+- [x] Commit `test(api): special-case coverage`
+
+**Done**: 2026-10-15. Suite api completa: shard 1/2 150 suites (1 skipped) y 2430 tests, shard
+2/2 151 suites y 2245 tests, 0 fallos. Lo nuevo: 8 tests en `specialCaseWritePath`, 5 en el
+write gate, 6 en `healthDataExposureGuards`, 2 en `selfUpdateParticipant`.
+
+### Desviaciones 2026-10-15
+
+- **Dónde vive cada caso** (el plan los repartía distinto):
+  - 403/400 y respuesta del update strippeada → `tests/routes/participantHealthWriteGate.simple.test.ts`,
+    no `healthDataExposureGuards`: esa suite pasa por el router real, `updateParticipantSchema` y
+    `validateRequest`, que es donde se decide el 400 y donde el body crudo con `''` llega al gate.
+  - Diff del audit → `specialCaseWritePath.test.ts` (integración, lee la fila de
+    `domain_audit_log`), no `participantHealthAudit.test.ts`: esa suite mockea
+    `participantService`, y el diff se calcula dentro de `updateParticipant`.
+  - `PUT /participants/self` → `selfUpdateParticipant.test.ts` (su suite existente).
+- **Overlay de `findAllParticipants` sí se prueba en jest**: el comentario de
+  `crossRetreatPayments.test.ts` que dice que el harness no lo soporta quedó viejo
+  (`participantListShirtOverride.test.ts` ya lo usa). Las columnas de motivo nulas se asertan
+  sobre la forma serializada (`JSON.stringify`): con `useDefineForClassFields` la instancia tiene
+  la clave en `undefined`, que el JSON descarta.
 
 ## M3 — Frontend
 
