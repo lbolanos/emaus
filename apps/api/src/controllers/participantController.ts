@@ -8,6 +8,7 @@ import {
   normalizeParticipantPhones,
   resolveCountryToIso,
   SENSITIVE_HEALTH_FIELDS,
+  SPECIAL_CASE_FIELDS,
 } from "@repo/types";
 import { z } from "zod";
 import { authorizationService, ensureRetreatAccess } from "../middleware/authorization";
@@ -632,7 +633,16 @@ export const updateSelfParticipant = async (
       safeData as any,
     );
     if (updatedParticipant) {
-      res.json(updatedParticipant);
+      // The response carries the per-retreat virtuals, including the special
+      // case the palanquero left for the coordinator, not for the participant.
+      // Only those fields go: the rest of the echo is the caller's own data,
+      // some of it written by this very request.
+      let result: any = updatedParticipant;
+      if (!(await canViewHealthData(req))) {
+        result = typeof result.toJSON === "function" ? result.toJSON() : { ...result };
+        for (const field of SPECIAL_CASE_FIELDS) delete result[field];
+      }
+      res.json(result);
     } else {
       res.status(404).json({ message: "Participant not found" });
     }

@@ -41,6 +41,11 @@ import {
 
 // Campos de participante que vale la pena auditar (allowlist). Excluye datos médicos
 // y otros campos sensibles que no aportan al "quién hizo qué".
+//
+// Excepción deliberada: el caso especial (régimen de salud) SÍ se audita, porque la
+// traza de quién marcó, con qué motivo y quién quitó la marca es justo lo que el
+// coordinador necesita (al desmarcar, la fila pierde el motivo). La auditoría solo la
+// leen audit:read, el creador y los admin del retiro, todos con participant:health.
 const PARTICIPANT_AUDIT_FIELDS = [
   "firstName",
   "lastName",
@@ -54,6 +59,9 @@ const PARTICIPANT_AUDIT_FIELDS = [
   "isScholarship",
   "scholarshipAmount",
   "paymentAmount",
+  "specialCase",
+  "specialCaseCategory",
+  "specialCaseNotes",
 ];
 
 /**
@@ -820,6 +828,9 @@ export const findAllParticipants = async (
         "bagMade",
         "isScholarship",
         "paysAtHouse",
+        "specialCase",
+        "specialCaseCategory",
+        "specialCaseNotes",
         "scholarshipAmount",
         "mealCount",
         "takesFridayMeal",
@@ -856,6 +867,10 @@ export const findAllParticipants = async (
         p.bagMade = h.bagMade ?? false;
         p.isScholarship = h.isScholarship ?? false;
         p.paysAtHouse = h.paysAtHouse ?? false;
+        p.specialCase = h.specialCase ?? false;
+        if (h.specialCaseCategory != null)
+          p.specialCaseCategory = h.specialCaseCategory;
+        if (h.specialCaseNotes != null) p.specialCaseNotes = h.specialCaseNotes;
         if (h.scholarshipAmount !== undefined)
           p.scholarshipAmount = h.scholarshipAmount;
         if (h.mealCount !== undefined) p.mealCount = h.mealCount;
@@ -3018,6 +3033,9 @@ export const updateParticipant = async (
     family_friend_color,
     isScholarship,
     paysAtHouse,
+    specialCase,
+    specialCaseCategory,
+    specialCaseNotes,
     scholarshipAmount,
     mealCount,
     takesFridayMeal,
@@ -3135,6 +3153,9 @@ export const updateParticipant = async (
     isScholarship: currentRp?.isScholarship,
     paysAtHouse: currentRp?.paysAtHouse,
     scholarshipAmount: currentRp?.scholarshipAmount,
+    specialCase: currentRp?.specialCase,
+    specialCaseCategory: currentRp?.specialCaseCategory,
+    specialCaseNotes: currentRp?.specialCaseNotes,
   };
 
   // Update personal data on participants table
@@ -3162,6 +3183,22 @@ export const updateParticipant = async (
     // keep it (caught by paysAtHouseWritePath.test.ts, D4).
     if (isScholarship === true) {
       rpUpdates.paysAtHouse = false;
+    }
+    // Caso especial (régimen de salud: el 403 del controller ya filtró a quien
+    // no tiene participant:health).
+    if (specialCase !== undefined) rpUpdates.specialCase = !!specialCase;
+    if (specialCaseCategory !== undefined)
+      rpUpdates.specialCaseCategory = specialCaseCategory || null;
+    if (specialCaseNotes !== undefined)
+      rpUpdates.specialCaseNotes = specialCaseNotes || null;
+    // Data hygiene: attending the case (unmarking) clears its reason; the
+    // audit diff of this update keeps the trace. Unconditional for the same
+    // reason as the scholarship rule above: the re-sent hydrated DTO carries
+    // the stale category/notes. Never touches `notes` (the walker's general
+    // notes are not part of the case).
+    if (specialCase === false) {
+      rpUpdates.specialCaseCategory = null;
+      rpUpdates.specialCaseNotes = null;
     }
     if (scholarshipAmount !== undefined)
       rpUpdates.scholarshipAmount =
@@ -3372,6 +3409,18 @@ export const updateParticipant = async (
         : paysAtHouse !== undefined
           ? !!paysAtHouse
           : (currentRp?.paysAtHouse ?? false);
+    updatedParticipant.specialCase =
+      rpUpdates.specialCase !== undefined
+        ? rpUpdates.specialCase
+        : (currentRp?.specialCase ?? false);
+    updatedParticipant.specialCaseCategory =
+      rpUpdates.specialCaseCategory !== undefined
+        ? rpUpdates.specialCaseCategory
+        : (currentRp?.specialCaseCategory ?? null);
+    updatedParticipant.specialCaseNotes =
+      rpUpdates.specialCaseNotes !== undefined
+        ? rpUpdates.specialCaseNotes
+        : (currentRp?.specialCaseNotes ?? null);
     updatedParticipant.scholarshipAmount =
       scholarshipAmount !== undefined
         ? scholarshipAmount === null || scholarshipAmount === ""

@@ -29,17 +29,29 @@ import { emitReceptionBagMade } from '../realtime';
  * `participantController.ts`). Estos dos endpoints solo estaban gateados por
  * acceso genérico al retiro (`requireRetreatAccess`), que cualquier rol —
  * incluido el más limitado — cumple.
+ *
+ * La propia fila `retreat_participants` también trae campos del régimen de
+ * salud (`notes` y el caso especial `specialCase*`), así que se strippan del
+ * item además de su `.participant`. Por eso pasan por aquí TODOS los handlers
+ * que devuelven filas rp: `/history/participant/*`, `/history/user/*` y
+ * `/history/charlistas` solo exigen `participant:read` (lo tiene
+ * `regular_server`), y `/history/my-retreats*` le devolvería al propio
+ * caminante la marca y el motivo que el palanquero dejó para el coordinador.
  */
-async function stripHealthFromRetreatParticipants(
-	req: Request,
-	items: RetreatParticipant[],
-): Promise<RetreatParticipant[]> {
-	if (await canViewHealthData(req)) return items;
-	return items.map((item) =>
-		item.participant
-			? ({ ...item, participant: stripSensitiveHealthFields(item.participant) } as RetreatParticipant)
-			: item,
-	);
+async function stripHealthFromRetreatParticipants<
+	T extends RetreatParticipant | RetreatParticipant[] | null,
+>(req: Request, data: T): Promise<T> {
+	if (data == null || (await canViewHealthData(req))) return data;
+	const strip = (item: RetreatParticipant): RetreatParticipant => {
+		const stripped = stripSensitiveHealthFields(item);
+		return item.participant
+			? ({
+					...stripped,
+					participant: stripSensitiveHealthFields(item.participant),
+				} as RetreatParticipant)
+			: stripped;
+	};
+	return (Array.isArray(data) ? data.map(strip) : strip(data)) as T;
 }
 
 // ==================== USER RETREAT HISTORY ====================
@@ -59,7 +71,7 @@ export const getUserRetreatHistoryController = async (
 		}
 
 		const history = await getUserRetreatHistory(user.id);
-		res.json(history);
+		res.json(await stripHealthFromRetreatParticipants(req, history));
 	} catch (error: any) {
 		res.status(500).json({ message: error.message });
 	}
@@ -81,7 +93,7 @@ export const getUserRetreatHistoryByRoleController = async (
 
 		const { role } = req.params;
 		const history = await getUserRetreatHistoryByRole(user.id, role as any);
-		res.json(history);
+		res.json(await stripHealthFromRetreatParticipants(req, history));
 	} catch (error: any) {
 		res.status(500).json({ message: error.message });
 	}
@@ -104,7 +116,7 @@ export const getPrimaryRetreatController = async (req: Request, res: Response): 
 			return;
 		}
 
-		res.json(primaryRetreat);
+		res.json(await stripHealthFromRetreatParticipants(req, primaryRetreat));
 	} catch (error: any) {
 		res.status(500).json({ message: error.message });
 	}
@@ -128,7 +140,7 @@ export const getUserRetreatHistoryByIdController = async (
 
 		const { userId } = req.params;
 		const history = await getUserRetreatHistory(userId);
-		res.json(history);
+		res.json(await stripHealthFromRetreatParticipants(req, history));
 	} catch (error: any) {
 		res.status(500).json({ message: error.message });
 	}
@@ -155,7 +167,7 @@ export const getUserHistoryForRetreatController = async (
 			return;
 		}
 
-		res.json(history);
+		res.json(await stripHealthFromRetreatParticipants(req, history));
 	} catch (error: any) {
 		res.status(500).json({ message: error.message });
 	}
@@ -199,7 +211,7 @@ export const getHistoryByParticipantIdController = async (
 
 		const { participantId } = req.params;
 		const history = await getHistoryByParticipantId(participantId);
-		res.json(history);
+		res.json(await stripHealthFromRetreatParticipants(req, history));
 	} catch (error: any) {
 		res.status(500).json({ message: error.message });
 	}
@@ -242,7 +254,7 @@ export const getCharlistasController = async (req: Request, res: Response): Prom
 
 		const { retreatId } = req.query;
 		const charlistas = await getCharlistas(retreatId as string | undefined);
-		res.json(charlistas);
+		res.json(await stripHealthFromRetreatParticipants(req, charlistas));
 	} catch (error: any) {
 		res.status(500).json({ message: error.message });
 	}
@@ -262,7 +274,7 @@ export const createHistoryEntryController = async (req: Request, res: Response):
 		}
 
 		const history = await createHistoryEntry(req.body);
-		res.status(201).json(history);
+		res.status(201).json(await stripHealthFromRetreatParticipants(req, history));
 	} catch (error: any) {
 		res.status(500).json({ message: error.message });
 	}
@@ -281,7 +293,7 @@ export const updateHistoryEntryController = async (req: Request, res: Response):
 
 		const { id } = req.params;
 		const history = await updateHistoryEntry(id, req.body);
-		res.json(history);
+		res.json(await stripHealthFromRetreatParticipants(req, history));
 	} catch (error: any) {
 		res.status(500).json({ message: error.message });
 	}
@@ -319,7 +331,7 @@ export const markPrimaryRetreatController = async (req: Request, res: Response):
 
 		const { userId, historyId } = req.params;
 		const history = await markPrimaryRetreat(userId, historyId);
-		res.json(history);
+		res.json(await stripHealthFromRetreatParticipants(req, history));
 	} catch (error: any) {
 		res.status(500).json({ message: error.message });
 	}
