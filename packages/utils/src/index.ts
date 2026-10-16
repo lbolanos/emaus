@@ -1358,6 +1358,128 @@ export const replaceTableVariables = (
 };
 
 /**
+ * Una responsabilidad asignada al servidor destinatario (scope
+ * `assignments.*`). `typeLabel` es la etiqueta en español de
+ * `ResponsabilityType` (`RESPONSABILITY_TYPE_LABELS` de `@repo/types`).
+ */
+export interface AssignmentResponsibilityData {
+	name: string;
+	typeLabel?: string;
+	isLeadership?: boolean;
+}
+
+/**
+ * Un equipo de servicio del destinatario: su `role` en el equipo
+ * ('Líder' / 'Miembro') y el roster mínimo del equipo.
+ */
+export interface AssignmentTeamData {
+	name: string;
+	role: string;
+	leaderName?: string;
+	memberNames: string[];
+}
+
+/**
+ * Variables del scope `assignments.*`: las tareas de un servidor en el retiro
+ * (responsabilidades + equipos de servicio), para el briefing que se le envía
+ * por WhatsApp desde la vista de Responsabilidades. Igual que `table.*`, es
+ * contextual: lo arma el caller (web o motor de secuencias) que ya consultó
+ * las filas y este módulo solo formatea.
+ */
+export interface AssignmentsData {
+	responsibilities: AssignmentResponsibilityData[];
+	teams: AssignmentTeamData[];
+}
+
+/**
+ * Bloque del roster de responsabilidades en sintaxis WhatsApp (`\n` +
+ * `*negrita*`), NO `<br>`: desde 20260914 el canal WhatsApp recibe el texto
+ * resuelto crudo (motor de secuencias), donde el HTML se vería literal.
+ */
+const buildResponsibilitiesRoster = (responsibilities: AssignmentResponsibilityData[]): string => {
+	if (!responsibilities.length) return '(sin responsabilidades asignadas)';
+	return responsibilities
+		.map((r, i) => {
+			// El typeLabel es la categoría; si ya está en el nombre, no repetir.
+			const sameAsName =
+				!!r.typeLabel &&
+				r.name.trim().toLowerCase() === r.typeLabel.trim().toLowerCase();
+			const type = r.typeLabel && !sameAsName ? ` — ${r.typeLabel}` : '';
+			const leadership = r.isLeadership ? ' (liderazgo)' : '';
+			return `${i + 1}. *${r.name}*${type}${leadership}`;
+		})
+		.join('\n');
+};
+
+/**
+ * Bloque del roster de equipos en sintaxis WhatsApp: una línea por equipo con
+ * el rol del destinatario, y debajo líder + miembros.
+ */
+const buildTeamsRoster = (teams: AssignmentTeamData[]): string => {
+	if (!teams.length) return '(sin equipos asignados)';
+	return teams
+		.map((t, i) => {
+			const members = t.memberNames.filter(Boolean).join(', ');
+			const detail: string[] = [`   Líder: ${t.leaderName || '—'}`];
+			if (members) detail.push(`   Miembros: ${members}`);
+			return [`${i + 1}. *${t.name}* — Tu rol: ${t.role}`, ...detail].join('\n');
+		})
+		.join('\n\n');
+};
+
+const buildAssignmentsReplacements = (data: AssignmentsData): Record<string, string> => {
+	const responsibilities = data.responsibilities ?? [];
+	const teams = data.teams ?? [];
+	return {
+		'assignments.responsibilitiesCount': responsibilities.length.toString(),
+		'assignments.responsibilitiesList':
+			responsibilities.map((r) => r.name).join(', ') || 'Ninguna',
+		'assignments.responsibilitiesRoster': buildResponsibilitiesRoster(responsibilities),
+		'assignments.teamsCount': teams.length.toString(),
+		'assignments.teamsList': teams.map((t) => t.name).join(', ') || 'Ninguno',
+		'assignments.teamsRoster': buildTeamsRoster(teams),
+	};
+};
+
+/**
+ * Default mock assignments used for previews in the template editor.
+ */
+const getMockAssignments = (): AssignmentsData => ({
+	responsibilities: [
+		{ name: 'Música', typeLabel: 'Música' },
+		{ name: 'Charla: De la Rosa', typeLabel: 'Charla' },
+	],
+	teams: [
+		{
+			name: 'Música y Alabanza',
+			role: 'Líder',
+			leaderName: 'Juan Pérez',
+			memberNames: ['María López', 'Carlos Gómez'],
+		},
+	],
+});
+
+/**
+ * Replaces assignments-scoped variables in a message template. Falls back to
+ * mock data when `assignments` is null/undefined so the UI preview shows
+ * placeholders (same semantics as `replaceTableVariables`).
+ */
+export const replaceAssignmentsVariables = (
+	message: string,
+	assignments: AssignmentsData | null | undefined,
+	escapeHtmlValues = false,
+): string => {
+	const data = assignments || getMockAssignments();
+	const replacements = buildAssignmentsReplacements(data);
+	let out = message;
+	for (const [k, v] of Object.entries(replacements)) {
+		const safe = escapeHtmlValues ? escapeHtmlValue(v) : v;
+		out = out.replace(new RegExp(`\\{${k}\\}`, 'g'), () => safe);
+	}
+	return out;
+};
+
+/**
  * Una entrada del calendario de preparaciones (las reuniones semanales del
  * equipo servidor previas al retiro). Espejo mínimo de la fila
  * `retreat_preparation`: solo lo necesario para imprimir el calendario.
@@ -1487,6 +1609,7 @@ export const findEmptyVariables = (
 	selectedContactKey?: string,
 	community?: CommunityData | null,
 	table?: TableData | null,
+	assignments?: AssignmentsData | null,
 ): string[] => {
 	const participantReplacements = buildParticipantReplacements(
 		participant ?? ({} as ParticipantData),
@@ -1500,11 +1623,15 @@ export const findEmptyVariables = (
 	// advertir `{table.name}`/`{table.walkersRoster}` con un consejo ("revisa los
 	// datos del caminante o del retiro") que no aplica a este scope.
 	const tableReplacements = table ? buildTableReplacements(table) : {};
+	// Mismo criterio para {assignments.*}: sin contexto de tareas no se reportan
+	// (y con contexto sus vacíos son contenido explícito, nunca '').
+	const assignmentsReplacements = assignments ? buildAssignmentsReplacements(assignments) : {};
 	const combined: Record<string, string> = {
 		...participantReplacements,
 		...retreatReplacements,
 		...communityReplacements,
 		...tableReplacements,
+		...assignmentsReplacements,
 	};
 
 	// Extract all unique placeholders from the message.
@@ -1542,6 +1669,9 @@ export const replaceAllVariables = (
 	// Cónyuge del destinatario (retiros de parejas). Va al final para no romper
 	// a los callers que pasan escapeHtmlValues posicional.
 	spouse?: SpouseData | null,
+	// Tareas del servidor (responsabilidades + equipos). Igual que spouse: se
+	// agrega al final de la firma posicional para no romper callers existentes.
+	assignments?: AssignmentsData | null,
 ): string => {
 	let processedMessage = message;
 
@@ -1574,6 +1704,12 @@ export const replaceAllVariables = (
 	// sin contexto de pareja, {spouse.*} queda sin resolver.
 	if (spouse !== undefined) {
 		processedMessage = replaceSpouseVariables(processedMessage, spouse, escapeHtmlValues);
+	}
+
+	// Replace assignments variables when provided (briefing de tareas del
+	// servidor). Sin contexto de tareas, {assignments.*} queda sin resolver.
+	if (assignments !== undefined) {
+		processedMessage = replaceAssignmentsVariables(processedMessage, assignments, escapeHtmlValues);
 	}
 
 	// A nullable variable wrapped in emphasis marks (`*{retreat.cost}*`)

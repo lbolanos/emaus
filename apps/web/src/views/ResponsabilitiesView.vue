@@ -35,6 +35,46 @@
             {{ $t('responsibilities.createResponsability') }}
           </Button>
 
+          <!-- Enviar tareas por WhatsApp (briefing por servidor, con revisión) -->
+          <Popover v-model:open="assignmentsBriefingOpen">
+            <PopoverTrigger as-child>
+              <Button
+                variant="outline"
+                size="sm"
+                :disabled="loading || assignmentsCandidates.length === 0"
+                :title="$t('responsibilities.sendTasks.button')"
+              >
+                <Send class="h-4 w-4 mr-1" />
+                {{ $t('responsibilities.sendTasks.button') }}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="end" class="w-80 p-1 max-h-[60vh] overflow-y-auto">
+              <p class="px-2 py-1.5 text-xs text-muted-foreground">
+                {{ $t('responsibilities.sendTasks.title', { count: assignmentsCandidates.length }) }}
+              </p>
+              <Input
+                v-model="assignmentsSearch"
+                :placeholder="$t('responsibilities.sendTasks.searchPlaceholder')"
+                class="mx-1 mb-1 w-[calc(100%-0.5rem)]"
+              />
+              <button
+                v-for="opt in assignmentsCandidates"
+                :key="opt.participant.id"
+                type="button"
+                class="w-full text-left px-2 py-1.5 text-sm rounded hover:bg-accent flex items-center gap-2"
+                @click="onChooseServer(opt.participant)"
+              >
+                <span class="truncate">{{ participantLabel(opt.participant) }}</span>
+                <span class="ml-auto text-xs text-muted-foreground shrink-0 whitespace-nowrap">
+                  {{ $t('responsibilities.sendTasks.counts', { responsibilities: opt.responsibilitiesCount, teams: opt.teamsCount }) }}
+                </span>
+              </button>
+              <p v-if="assignmentsCandidates.length === 0" class="px-2 py-3 text-sm text-muted-foreground text-center">
+                {{ $t('responsibilities.sendTasks.empty') }}
+              </p>
+            </PopoverContent>
+          </Popover>
+
           <!-- Actions Menu -->
           <DropdownMenu>
             <DropdownMenuTrigger as-child>
@@ -528,22 +568,33 @@
         </DialogFooter>
       </DialogContent>
     </Dialog>
+
+    <!-- Mensaje a participante (briefing de tareas del servidor). Montado sin
+         v-if: el watcher de forceTemplateType solo dispara si ya está montado. -->
+    <MessageDialog
+      v-model:open="messageDialogOpen"
+      context="retreat"
+      :retreat-id="retreatStore.selectedRetreatId ?? undefined"
+      :participant="messageParticipant"
+      :assignments-data="messageAssignmentsData ?? undefined"
+      :force-template-type="messageTemplateType ?? undefined"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed, watch } from 'vue';
+import { ref, onMounted, onUnmounted, computed, watch, nextTick } from 'vue';
 import { normalizeText, participantMatchesTokens, searchTokens } from '@/utils/participantSearch';
 import { useRetreatStore } from '@/stores/retreatStore';
 import { useParticipantStore } from '@/stores/participantStore';
 import { useResponsabilityStore } from '@/stores/responsabilityStore';
 import { useServiceTeamStore } from '@/stores/serviceTeamStore';
 import { storeToRefs } from 'pinia';
-import { Button, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@repo/ui';
+import { Button, Input, Popover, PopoverContent, PopoverTrigger, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@repo/ui';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@repo/ui';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@repo/ui';
 import { Label } from '@repo/ui';
-import { Check, ChevronLeft, Crown, Download, Edit, FileText, LayoutGrid, Loader2, MoreVertical, Paperclip, Plus, Printer, Trash2, UserPlus, X } from 'lucide-vue-next';
+import { Check, ChevronLeft, Crown, Download, Edit, FileText, LayoutGrid, Loader2, MoreVertical, Paperclip, Plus, Printer, Send, Trash2, UserPlus, X } from 'lucide-vue-next';
 import { useI18n } from 'vue-i18n';
 import {
   exportResponsibilitiesToDocx,
@@ -554,7 +605,11 @@ import {
 import { renderMarkdown } from '@/composables/useMarkdown';
 import { ResponsabilityType } from '@repo/types';
 import { findRelatedTeam } from '@/utils/serviceTeamLink';
+import { participantLabel } from '@/utils/participant';
+import { buildAssignmentsData } from '@/utils/serverAssignments';
 import ResponsabilityAttachmentsDialog from '@/components/ResponsabilityAttachmentsDialog.vue';
+import MessageDialog from '@/components/MessageDialog.vue';
+import { useParticipantMessageDialog } from '@/composables/useParticipantMessageDialog';
 import { useAuthPermissions } from '@/composables/useAuthPermissions';
 import { getSocket } from '@/services/realtime';
 import type { Responsability, Participant, ServiceTeam } from '@repo/types';
@@ -733,6 +788,82 @@ watch(selectedRetreatId, (newRetreatId) => {
     serviceTeamStore.fetchTeams();
   }
 }, { immediate: true });
+
+// --- Enviar tareas por WhatsApp (briefing por servidor, con revisión) ---
+const assignmentsBriefingOpen = ref(false);
+const assignmentsSearch = ref('');
+
+const {
+  isOpen: messageDialogOpen,
+  participant: messageParticipant,
+  assignmentsData: messageAssignmentsData,
+  templateType: messageTemplateType,
+  open: openMessageDialog,
+} = useParticipantMessageDialog();
+
+// Servidores activos con al menos una responsabilidad o equipo asignado,
+// con sus conteos para el Popover. Los datos ya están cargados por el watcher
+// de selectedRetreatId (responsabilidades + participantes + equipos).
+const assignmentsCandidates = computed(() => {
+  const teams = serviceTeamStore.teams || [];
+  const byId = new Map<string, { participant: Participant; responsibilitiesCount: number; teamsCount: number }>();
+  const ensure = (p: Participant) => {
+    let entry = byId.get(p.id);
+    if (!entry) {
+      entry = { participant: p, responsibilitiesCount: 0, teamsCount: 0 };
+      byId.set(p.id, entry);
+    }
+    return entry;
+  };
+  for (const r of responsibilities.value) {
+    if (r.isActive === false || !r.participantId) continue;
+    const p = availableParticipants.value.find((x) => x.id === r.participantId);
+    if (p) ensure(p).responsibilitiesCount += 1;
+  }
+  for (const team of teams) {
+    if (team.isActive === false) continue;
+    // Un mismo equipo cuenta UNA vez por persona: el líder suele repetirse en
+    // `members`, y sin este set el conteo duplicaría el equipo (el builder del
+    // briefing lo filtra una sola vez, líder O miembro).
+    const counted = new Set<string>();
+    const bump = (participantId?: string | null) => {
+      if (!participantId || counted.has(participantId)) return;
+      const p = availableParticipants.value.find((x) => x.id === participantId);
+      if (p) {
+        ensure(p).teamsCount += 1;
+        counted.add(participantId);
+      }
+    };
+    bump(team.leaderId);
+    for (const m of team.members ?? []) bump(m.participantId);
+  }
+  let list = [...byId.values()].filter((e) => e.responsibilitiesCount + e.teamsCount > 0);
+  const q = assignmentsSearch.value.trim();
+  if (q) {
+    // Búsqueda por tokens (misma que el buscador principal): "jose garcia"
+    // encuentra a "José Luis García Ramírez" aunque haya otro nombre en medio.
+    const tokens = searchTokens(q);
+    list = list.filter((e) => participantMatchesTokens(e.participant, tokens));
+  }
+  return list.sort((a, b) =>
+    participantLabel(a.participant).localeCompare(participantLabel(b.participant)),
+  );
+});
+
+// Cerrar el Popover ANTES de abrir el dialog (bug reka-ui pointer-events);
+// el participante sale hidratado del store (pagos incluidos), nunca de
+// GET /participants/:id.
+const onChooseServer = (participant: Participant) => {
+  assignmentsBriefingOpen.value = false;
+  assignmentsSearch.value = '';
+  const assignmentsData = buildAssignmentsData(
+    participant.id,
+    responsibilities.value,
+    serviceTeamStore.teams || [],
+  );
+  const target = participantStore.participants.find((x) => x.id === participant.id) ?? participant;
+  nextTick(() => openMessageDialog(target, { assignmentsData, templateType: 'SERVER_ASSIGNMENTS_BRIEFING' }));
+};
 
 // --- Agregar servidores al equipo de servicio relacionado con la responsabilidad ---
 const normalizeName = (text: string) => normalizeText(text).trim();
