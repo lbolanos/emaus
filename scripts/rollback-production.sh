@@ -50,17 +50,42 @@ $SSH_CMD << 'ROLLBACKEOF'
 set -e
 PREV_DIR="/var/www/emaus/previous"
 APP_DIR="/var/www/emaus"
+WEB_DIR="$APP_DIR/apps/web"
 
-# Verify snapshot directories exist
-if [ ! -d "$PREV_DIR/api-dist" ] || [ ! -d "$PREV_DIR/web-dist" ]; then
-  echo "Snapshot is incomplete (missing api-dist or web-dist). Cannot rollback."
+# The deploy publishes each web build to apps/web/releases/<id> and points the
+# apps/web/dist symlink at it; the snapshot records which release was live
+# before the deploy (web-release.txt). Snapshots taken before that layout carry
+# a full copy of the dist dir instead (web-dist).
+PREV_REL=$(cat "$PREV_DIR/web-release.txt" 2>/dev/null || true)
+WEB_SOURCE=""
+if [ -n "$PREV_REL" ] && [ -f "$WEB_DIR/$PREV_REL/index.html" ]; then
+  WEB_SOURCE="release"
+elif [ -d "$PREV_DIR/web-dist" ] && [ ! -L "$PREV_DIR/web-dist" ]; then
+  WEB_SOURCE="copy"
+fi
+
+# Verify the snapshot is complete before touching anything
+if [ ! -d "$PREV_DIR/api-dist" ] || [ -z "$WEB_SOURCE" ]; then
+  echo "Snapshot is incomplete (missing api-dist or the previous web release). Cannot rollback."
   exit 1
 fi
 
-# Restore web dist (clean assets first to avoid stale files)
+# Restore web: swap the dist symlink back. Never write into dist — it is the
+# live release dir, and the release being rolled back stays in releases/ so a
+# roll-forward is the same swap.
 echo "Restoring web dist..."
-rm -rf "$APP_DIR/apps/web/dist"
-cp -r "$PREV_DIR/web-dist" "$APP_DIR/apps/web/dist"
+cd "$WEB_DIR"
+if [ "$WEB_SOURCE" = "copy" ]; then
+  PREV_REL="releases/rollback-$(date +%Y%m%d%H%M%S)"
+  mkdir -p releases
+  cp -r "$PREV_DIR/web-dist" "$PREV_REL"
+fi
+if [ -e dist ] && [ ! -L dist ]; then
+  mv dist "releases/pre-rollback-$(date +%Y%m%d%H%M%S)"
+fi
+ln -sfn "$PREV_REL" dist.next
+mv -T dist.next dist   # rename(2): atomic for every reader
+echo "dist -> $PREV_REL"
 
 # Restore api dist
 echo "Restoring api dist..."

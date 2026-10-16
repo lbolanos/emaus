@@ -94,8 +94,11 @@ Atajo si no vas a levantar dev sino a **publicar desde el worktree** (tests + bu
 compilar, cloná el `dist` del main — el fuente es el mismo, el `dist` no está versionado:
 
 ```bash
-git diff --quiet HEAD origin/master -- packages/ui \
-  && cp -ac <main>/packages/ui/dist packages/ui/dist
+if git diff --quiet HEAD origin/master -- packages/ui; then
+  cp -ac <main>/packages/ui/dist packages/ui/dist
+else
+  echo "packages/ui difiere de master: compilalo con pnpm --filter @repo/ui build"
+fi
 ```
 
 Ojo: sin el `dist` tampoco lo vas a ver en Vite — el síntoma ahí es otro. `vitest` muere con
