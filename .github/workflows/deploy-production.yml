@@ -73,6 +73,8 @@ jobs:
           RECAPTCHA_SITE_KEY: ${{ secrets.VITE_RECAPTCHA_SITE_KEY }}
         run: |
           set -e
+          # Short sha names the web release dir (releases/<sha>) for the atomic swap.
+          SHORT_SHA="${GITHUB_SHA:0:12}"
 
           # Setup SSH key
           mkdir -p ~/.ssh
@@ -94,10 +96,11 @@ jobs:
           # (setup-aws.sh default). Give ubuntu write access to the top-level
           # + dist dirs + root config files we scp into. File mode stays 644,
           # so nginx (www-data) can still read everything.
-          sudo mkdir -p /var/www/emaus/apps/web/dist /var/www/emaus/apps/api/dist
+          sudo mkdir -p /var/www/emaus/apps/web/releases /var/www/emaus/apps/api/dist
           sudo chown ubuntu:ubuntu /var/www/emaus
           sudo chown ubuntu:ubuntu /var/www/emaus/apps /var/www/emaus/apps/web /var/www/emaus/apps/api 2>/dev/null || true
-          sudo chown -R ubuntu:ubuntu /var/www/emaus/apps/web/dist /var/www/emaus/apps/api/dist
+          sudo chown ubuntu:ubuntu /var/www/emaus/apps/web/releases
+          sudo chown -R ubuntu:ubuntu /var/www/emaus/apps/api/dist
           # Per-app and per-package manifests (scp targets from the runner checkout).
           for p in \
             /var/www/emaus/apps/api/package.json \
@@ -117,12 +120,11 @@ jobs:
             done
           fi
 
-          ASSETS_DIR="/var/www/emaus/apps/web/dist/assets"
-          if [ -d "$ASSETS_DIR" ]; then
-            rm -rf "$ASSETS_DIR"
-            mkdir -p "$ASSETS_DIR"
-            echo "✅ Cleaned assets directory"
-          fi
+          # NOTE: no live cleanup of web assets anymore. The web is uploaded to
+          # releases/<sha> and published with an atomic symlink swap at the end
+          # of the deploy. The old `rm -rf dist/assets` + scp-over-dist created
+          # a 404 window (index referencing assets that no longer exist) on
+          # every deploy (visible 2026-10-15 with two deploys 5 min apart).
           CLEANEOF
 
           # Upload new artifacts
@@ -146,13 +148,17 @@ jobs:
             -e "ssh -i ~/.ssh/lightsail-emaus.pem" \
             ./apps/api/src/ ubuntu@$LIGHTSAIL_HOST:/var/www/emaus/apps/api/src/
 
-          echo "Uploading Web build..."
-          if [ -d "./build-output/web/dist" ]; then
-            scp -i ~/.ssh/lightsail-emaus.pem -r ./build-output/web/dist ubuntu@$LIGHTSAIL_HOST:/var/www/emaus/apps/web/
-          elif [ -d "./build-output/apps/web/dist" ]; then
-            scp -i ~/.ssh/lightsail-emaus.pem -r ./build-output/apps/web/dist ubuntu@$LIGHTSAIL_HOST:/var/www/emaus/apps/web/
-          else
-            echo "Warning: Web dist not found"
+          # Web goes to releases/<sha> (not to dist/): the live symlink is only
+          # swapped after the API healthcheck, so the web keeps serving the
+          # previous release while this one uploads.
+          echo "Uploading Web build to releases/$SHORT_SHA..."
+          WEB_SRC=""
+          if [ -d "./build-output/web/dist" ]; then WEB_SRC="./build-output/web/dist"
+          elif [ -d "./build-output/apps/web/dist" ]; then WEB_SRC="./build-output/apps/web/dist"
+          else echo "Warning: Web dist not found"; fi
+          if [ -n "$WEB_SRC" ]; then
+            ssh -i ~/.ssh/lightsail-emaus.pem ubuntu@$LIGHTSAIL_HOST "rm -rf /var/www/emaus/apps/web/releases/$SHORT_SHA && mkdir -p /var/www/emaus/apps/web/releases/$SHORT_SHA"
+            scp -i ~/.ssh/lightsail-emaus.pem -r "$WEB_SRC"/* ubuntu@$LIGHTSAIL_HOST:/var/www/emaus/apps/web/releases/$SHORT_SHA/
           fi
 
           # Upload package.json files and lockfile so pnpm install picks up new deps.
@@ -190,7 +196,7 @@ jobs:
           echo "  isProduction: true," >> /tmp/runtime-config.js
           echo '};' >> /tmp/runtime-config.js
           echo "console.log('[CONFIG] Production runtime configuration loaded');" >> /tmp/runtime-config.js
-          scp -i ~/.ssh/lightsail-emaus.pem /tmp/runtime-config.js ubuntu@$LIGHTSAIL_HOST:/var/www/emaus/apps/web/dist/runtime-config.js
+          scp -i ~/.ssh/lightsail-emaus.pem /tmp/runtime-config.js ubuntu@$LIGHTSAIL_HOST:/var/www/emaus/apps/web/releases/$SHORT_SHA/runtime-config.js
           echo "runtime-config.js uploaded"
 
           # Snapshot current version for rollback
@@ -202,6 +208,8 @@ jobs:
           mkdir -p "$PREV_DIR"
           cp -r /var/www/emaus/apps/api/dist "$PREV_DIR/api-dist" 2>/dev/null || true
           cp -r /var/www/emaus/apps/web/dist "$PREV_DIR/web-dist" 2>/dev/null || true
+          # Which release dir the web symlink pointed at (empty pre-atomic-swap).
+          readlink /var/www/emaus/apps/web/dist > "$PREV_DIR/web-release.txt" 2>/dev/null || true
           cp /var/www/emaus/apps/api/package.json "$PREV_DIR/api-package.json" 2>/dev/null || true
           cp /var/www/emaus/apps/web/package.json "$PREV_DIR/web-package.json" 2>/dev/null || true
           cp /var/www/emaus/package.json "$PREV_DIR/root-package.json" 2>/dev/null || true
@@ -389,6 +397,49 @@ jobs:
           } > /var/www/emaus/DEPLOYED_VERSION
           echo "Recorded deployed version: ${{ github.sha }}"
           RESTARTEOF
+
+          # Atomic web publish: swap the dist symlink to the new release only
+          # after the API passed its healthcheck. nginx serves `dist` as a
+          # path, so the symlink is transparent to it — no reload, and every
+          # reader sees either the old release or the new one, never a mix.
+          echo "Publishing web release (atomic swap)..."
+          ssh -i ~/.ssh/lightsail-emaus.pem ubuntu@$LIGHTSAIL_HOST "env SHORT_SHA=$SHORT_SHA bash -s" << 'SWAPEOF'
+          set -e
+          cd /var/www/emaus/apps/web
+          REL="releases/$SHORT_SHA"
+
+          # Sanity: a publishable release carries its entrypoint.
+          if [ ! -f "$REL/index.html" ]; then
+            echo "❌ $REL/index.html missing — aborting swap; previous release keeps serving."
+            exit 1
+          fi
+          # Every asset the entrypoint references must exist in the release.
+          MISSING=$(grep -oE 'assets/[^"]*\.(js|css)' "$REL/index.html" | sort -u | while read -r a; do
+            [ -f "$REL/$a" ] || echo "$a"
+          done)
+          if [ -n "$MISSING" ]; then
+            echo "❌ Release incomplete, missing: $MISSING — aborting swap."
+            exit 1
+          fi
+
+          PREV=$(readlink dist 2>/dev/null || true)
+          # Bootstrap: on the first run after this change dist is a real dir.
+          if [ -e dist ] && [ ! -L dist ]; then
+            echo "Bootstrapping: moving the real dist/ dir into releases/"
+            mv dist "releases/pre-atomic-$(date +%Y%m%d%H%M%S)"
+          fi
+          ln -sfn "$REL" dist.next
+          mv -T dist.next dist   # rename(2): atomic for every reader
+          if [ ! -f dist/index.html ]; then
+            echo "❌ Post-swap verification failed — rolling back to ${PREV:-none}"
+            if [ -n "$PREV" ]; then ln -sfn "$PREV" dist.next && mv -T dist.next dist; fi
+            exit 1
+          fi
+          echo "✅ dist -> $REL (previous: ${PREV:-none})"
+
+          # Keep the last 5 releases for rollback; older ones are dead weight.
+          ls -1dt releases/*/ 2>/dev/null | tail -n +6 | xargs -r rm -rf --
+          SWAPEOF
 
       - name: Public URL smoke test (non-fatal)
         if: success()
