@@ -200,6 +200,20 @@ Tras `autoAssignAngelitos`, el servicio (best-effort, fire-and-forget) envía em
 
 Implementado en `retreatScheduleService.notifyAngelitosOfNewAssignments(retreatId, pool, assignments)`.
 
+**El lugar es la casa de retiro, no la parroquia.** El correo de asignación y el recordatorio de 24 h
+(`santisimoReminderService`) nombran `house.name` y ponen el retiro entre paréntesis
+(`utils/santisimoGuardiaPlace.ts`). Con `retreat.parish`, «Guardia de la Capilla — Buen Despacho» se
+leía como la capilla de la parroquia (Del Valle II, 2026-10-16). Los cancelados (`rp.isCancelled`)
+no entran al pool.
+
+**Trampa: cualquier cambio de horario del Minuto a Minuto le reenvía el correo a TODOS los
+angelitos.** `create`, `update` (si toca hora o duración), `delete`, ±5 (`shiftDownstream`),
+`shiftDay`, `shiftAllItems` y `reorderDay` llaman a `resolveSantisimoConflicts` →
+`autoAssignAngelitos`, que borra las auto-asignaciones de las comidas y las recrea. Para la
+notificación, recreada = nueva, así que cada angelito recibe su lista otra vez aunque no haya cambiado nada.
+Pasó el 2026-10-16: acortar «Llevar maletas» de 70 a 30 min desde la UI mandó 8 correos. Sin
+arreglar a esa fecha. Si se arregla: notificar solo a quien gana un slot que no tenía.
+
 ### Tests
 
 - `apps/api/src/tests/services/participantAvailability.simple.test.ts` — **24 tests** mirror puro:

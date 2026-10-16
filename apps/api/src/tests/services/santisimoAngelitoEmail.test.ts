@@ -42,10 +42,15 @@ describe('RetreatScheduleService — correo de asignación de angelitos', () => 
 			new Map([[angelito.id, [slot]]]),
 		);
 
+		// Other modules (santisimoReminderService) build their own EmailService at import
+		// time, so pick the instance that actually sent, not results[0].
 		const { EmailService } = jest.requireMock('@/services/emailService');
-		const sendEmail = EmailService.mock.results[0].value.sendEmail as jest.Mock;
-		expect(sendEmail).toHaveBeenCalledTimes(1);
-		const sent = sendEmail.mock.calls[0][0];
+		const senders = (EmailService.mock.results as Array<{ value: { sendEmail: jest.Mock } }>)
+			.map((r) => r.value.sendEmail)
+			.filter((fn) => fn.mock.calls.length > 0);
+		expect(senders).toHaveLength(1);
+		expect(senders[0]).toHaveBeenCalledTimes(1);
+		const sent = senders[0].mock.calls[0][0];
 		expect(sent.subject).toBe('Guardia de la Capilla — Test House');
 		expect(sent.subject).not.toContain(retreat.parish);
 		expect(sent.html).toContain(`en <strong>Test House</strong> (retiro de ${retreat.parish})`);

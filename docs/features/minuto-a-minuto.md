@@ -284,7 +284,7 @@ Sala: `retreat:${retreatId}:schedule`. Cliente envía `schedule:subscribe` con e
   Return: `{mealSlots, angelitosAssigned, unresolvedSlots, responsableConflicts}` (el último es count de signups eliminados por la regla #2).
 
 - **`autoAssignAngelitos(retreatId, slotIds?)`**
-  1. Pool de candidatos: `retreat_participants.type='partial_server' AND participantId IS NOT NULL` (filtrado por retiro).
+  1. Pool de candidatos: `retreat_participants.type='partial_server' AND participantId IS NOT NULL AND COALESCE(isCancelled, 0) = 0` (filtrado por retiro). Sin el filtro de cancelados, un angelito que se dio de baja recibía turno y correo (Del Valle II, 2026-10-16).
   2. Excluye los actualmente sentados a una mesa: `retreat_participants.tableId IS NOT NULL`.
   3. Para cada slot meal-window: borra `signups` cuyos `participantId` están en mesa, luego rellena hasta `capacity` con angelitos del pool, marcando `autoAssigned=true, isAngelito=true`.
 
