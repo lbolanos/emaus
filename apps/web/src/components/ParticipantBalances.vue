@@ -39,6 +39,7 @@ import { formatCurrency, formatDate } from '@repo/utils';
 import { useParticipantStore } from '@/stores/participantStore';
 import { useRetreatStore } from '@/stores/retreatStore';
 import { useAuthPermissions } from '@/composables/useAuthPermissions';
+import { usePaysAtHouseToggle } from '@/composables/usePaysAtHouseToggle';
 import { getPaymentsByParticipant } from '@/services/api';
 import { buildWhatsAppSendLink } from '@/utils/phone';
 import ParticipantDebtManager from '@/components/ParticipantDebtManager.vue';
@@ -83,8 +84,8 @@ const expectedOf = (p: any): number => p?.chargeBreakdown?.expected ?? 0;
 const paidOf = (p: any): number => p?.totalPaid ?? 0;
 const isPazYSalvo = (p: any): boolean => balanceOf(p) <= 0;
 
-// specs/pays-at-house D1/D4: la marca sustituye visualmente a "Pendiente"
-// mientras quede saldo (cubre unpaid y partial) y la beca tiene precedencia.
+// specs/pays-at-house D1/D4: the flag visually replaces "Pendiente" while
+// there is balance (covers unpaid and partial) and the scholarship wins.
 const isPaysAtHouse = (p: any): boolean =>
   !!p.paysAtHouse && !p.isScholarship && !isPazYSalvo(p);
 
@@ -196,8 +197,8 @@ const sortValue = (p: any, key: SortKey): string | number => {
     case 'balance':
       return balanceOf(p);
     case 'status':
-      // Becado < paz y salvo < pendiente < paga en la casa: los marcados van al
-      // final porque NO requieren recordatorio (specs/pays-at-house D5).
+      // Scholarship < paz y salvo < pending < pays-at-house: marked rows go
+      // last because they do NOT need a reminder (specs/pays-at-house D5).
       return p.isScholarship ? 0 : isPazYSalvo(p) ? 1 : isPaysAtHouse(p) ? 3 : 2;
   }
 };
@@ -215,8 +216,8 @@ const rows = computed(() => {
     .filter((p: any) => (typeFilter.value === 'all' ? true : p.type === typeFilter.value))
     .filter((p: any) => {
       if (statusFilter.value === 'all') return true;
-      // 'pending' aquí es "con saldo" (owing): los marcados siguen debiendo
-      // (specs/pays-at-house D6); 'house' aísla a los marcados.
+      // 'pending' here means "owing": marked participants still owe
+      // (specs/pays-at-house D6); 'house' isolates the marked ones.
       if (statusFilter.value === 'house') return isPaysAtHouse(p);
       return statusFilter.value === 'paz' ? isPazYSalvo(p) : !isPazYSalvo(p);
     })
@@ -321,34 +322,16 @@ const toggleScholarship = async (p: any) => {
   }
 };
 
-const togglingPaysAtHouseId = ref<string | null>(null);
+// specs/pays-at-house: gates and the write itself live in the composable,
+// shared with the payment modal and Palancas.
+const {
+  canToggle: canTogglePaysAtHouse,
+  isSaving: isSavingPaysAtHouse,
+  toggle: togglePaysAtHouse,
+} = usePaysAtHouseToggle();
 
-// Toggle "paga en la casa de retiro" (specs/pays-at-house): mismo camino de
-// escritura que la beca (PUT /participants/:id + contextRetreatId). Solo
-// visible con saldo pendiente y sin beca (D1/D4).
-const togglePaysAtHouse = async (p: any) => {
-  const name = `${p.firstName} ${p.lastName}`.trim();
-  const message = p.paysAtHouse
-    ? t('paymentManagement.balances.confirmRemovePaysAtHouse', { name })
-    : t('paymentManagement.balances.confirmPaysAtHouse', { name });
-  if (!window.confirm(message)) return;
-
-  try {
-    togglingPaysAtHouseId.value = p.id;
-    await participantStore.updateParticipant(p.id, {
-      paysAtHouse: !p.paysAtHouse,
-      contextRetreatId: activeRetreatId.value,
-    } as any);
-    await participantStore.fetchParticipants();
-  } catch (error) {
-    console.error('Error toggling pays-at-house:', error);
-  } finally {
-    togglingPaysAtHouseId.value = null;
-  }
-};
-
-// Recordatorio de pago por WhatsApp con el saldo pendiente. Los marcados
-// "paga en la casa" se excluyen: no hay que insistirle (specs/pays-at-house D5).
+// WhatsApp payment reminder with the pending balance. Pays-at-house marked
+// participants are excluded: no need to insist (specs/pays-at-house D5).
 const canWhatsapp = (p: any): boolean =>
   !isPazYSalvo(p) && !isPaysAtHouse(p) && !!p.cellPhone;
 
@@ -673,11 +656,11 @@ const exportToExcel = async () => {
                     <GraduationCap class="w-4 h-4" />
                   </Button>
                   <Button
-                    v-if="canEditParticipant && !p.isScholarship && !isPazYSalvo(p)"
+                    v-if="canTogglePaysAtHouse(p)"
                     variant="outline"
                     size="sm"
                     :class="isPaysAtHouse(p) ? 'text-sky-700 border-sky-300 hover:bg-sky-50' : 'text-gray-600'"
-                    :disabled="togglingPaysAtHouseId === p.id"
+                    :disabled="isSavingPaysAtHouse(p.id)"
                     :title="p.paysAtHouse ? $t('paymentManagement.balances.removePaysAtHouse') : $t('paymentManagement.balances.markPaysAtHouse')"
                     :aria-label="p.paysAtHouse ? $t('paymentManagement.balances.removePaysAtHouse') : $t('paymentManagement.balances.markPaysAtHouse')"
                     @click="togglePaysAtHouse(p)"
@@ -805,12 +788,12 @@ const exportToExcel = async () => {
             <GraduationCap class="w-4 h-4" />
           </Button>
           <Button
-            v-if="canEditParticipant && !p.isScholarship && !isPazYSalvo(p)"
+            v-if="canTogglePaysAtHouse(p)"
             variant="outline"
             size="sm"
             class="flex-1"
             :class="isPaysAtHouse(p) ? 'text-sky-700 border-sky-300' : 'text-gray-600'"
-            :disabled="togglingPaysAtHouseId === p.id"
+            :disabled="isSavingPaysAtHouse(p.id)"
             :aria-label="p.paysAtHouse ? $t('paymentManagement.balances.removePaysAtHouse') : $t('paymentManagement.balances.markPaysAtHouse')"
             @click="togglePaysAtHouse(p)"
           >

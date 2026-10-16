@@ -155,7 +155,10 @@ const fieldGroups: { key: string; label: string; icon: string; keys: string[] }[
   { key: 'inviter', label: 'Invitador', icon: 'users', keys: ['invitedBy', 'isInvitedByEmausMember', 'inviterHomePhone', 'inviterWorkPhone', 'inviterCellPhone', 'inviterEmail'] },
   { key: 'emergency', label: 'Emergencia', icon: 'heart', keys: ['emergencyContact1Name', 'emergencyContact1Relation', 'emergencyContact1HomePhone', 'emergencyContact1WorkPhone', 'emergencyContact1CellPhone', 'emergencyContact1Email', 'emergencyContact2Name', 'emergencyContact2Relation', 'emergencyContact2HomePhone', 'emergencyContact2WorkPhone', 'emergencyContact2CellPhone', 'emergencyContact2Email'] },
   { key: 'logistics', label: 'Log\u00edstica', icon: 'briefcase', keys: ['pickupLocation', 'arrivesOnOwn', 'requestsSingleRoom', 'retreatBed.roomNumber', 'tableMesa.name', 'tableId'] },
-  { key: 'financial', label: 'Financiero', icon: 'fileText', keys: ['totalPaid', 'paymentRemaining', 'lastPaymentDate', 'paymentStatus', 'isScholarship', 'paysAtHouse', 'scholarshipAmount', 'mealCount', 'takesFridayMeal'] },
+  // paysAtHouse intentionally absent: no view passes that column through
+  // columnsToShow, so it never rendered here — the flag lives in the balances
+  // table and the payment modal (specs/pays-at-house).
+  { key: 'financial', label: 'Financiero', icon: 'fileText', keys: ['totalPaid', 'paymentRemaining', 'lastPaymentDate', 'paymentStatus', 'isScholarship', 'scholarshipAmount', 'mealCount', 'takesFridayMeal'] },
   { key: 'palancas', label: 'Palancas', icon: 'clipboardList', keys: ['palancasCoordinator', 'palancasRequested', 'palancasReceived', 'palancasNotes'] },
   { key: 'admin', label: 'Administraci\u00f3n', icon: 'fileText', keys: ['isCancelled', 'notes', 'registrationDate', 'lastUpdatedDate', 'retreatId'] },
 ];

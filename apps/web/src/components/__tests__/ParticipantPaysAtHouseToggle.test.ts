@@ -127,6 +127,16 @@ describe('ParticipantPaysAtHouseToggle', () => {
 		expect(w.find('button').exists()).toBe(false);
 	});
 
+	it('renders nothing without a selected retreat (write-target guard)', async () => {
+		// Without a retreat the backend write would fall back to the primary
+		// retreat row — a row the user is not looking at. The composable hides
+		// the toggle instead.
+		const { useRetreatStore } = await import('@/stores/retreatStore');
+		useRetreatStore().selectedRetreatId = '';
+		const w = mountToggle();
+		expect(w.find('button').exists()).toBe(false);
+	});
+
 	it('renders for an owing walker and offers to mark', async () => {
 		const w = mountToggle();
 		const btn = w.find('button');
