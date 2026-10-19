@@ -49,7 +49,7 @@
                 <Map class="w-4 h-4 mr-1" />
                 Mapa
               </Button>
-              <Button variant="destructive" size="sm" @click="deleteHouse(house.id)">Eliminar</Button>
+              <Button variant="destructive" size="sm" @click="deleteHouse(house)">Eliminar</Button>
             </TableCell>
           </TableRow>
         </TableBody>
@@ -74,6 +74,7 @@
 
 <script setup lang="ts">
 import { onMounted, ref, computed } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { useHouseStore } from '@/stores/houseStore';
 import { Button } from '@repo/ui';
 import { Input } from '@repo/ui';
@@ -90,6 +91,7 @@ import HouseBedMap from '@/components/HouseBedMap.vue';
 import { Map } from 'lucide-vue-next';
 
 const store = useHouseStore();
+const { t } = useI18n();
 const isModalOpen = ref(false);
 const selectedHouse = ref<any | null>(null);
 const searchQuery = ref('');
@@ -132,9 +134,15 @@ const handleSubmit = async (data: any) => {
   }
 };
 
-const deleteHouse = (id: string) => {
-  if (confirm('¿Estás seguro que quieres eliminar esta casa?')) {
-    store.deleteHouse(id);
+// Deleting a house cascades to all its beds (houseService.remove), so the
+// confirm must state how many beds go away with it.
+const deleteHouse = (house: any) => {
+  const bedCount = house.beds?.length || 0;
+  const message = bedCount > 0
+    ? t('houses.deleteConfirmWithBeds', { name: house.name, count: bedCount })
+    : t('houses.deleteConfirm', { name: house.name });
+  if (confirm(message)) {
+    store.deleteHouse(house.id);
   }
 };
 

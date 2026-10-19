@@ -4001,5 +4001,9 @@
       "payment": "Payment",
       "palancas": "Letters"
     }
+  },
+  "houses": {
+    "deleteConfirm": "Delete house \"{name}\"? This action cannot be undone.",
+    "deleteConfirmWithBeds": "Delete house \"{name}\"? All of its beds ({count}) will be deleted too. This action cannot be undone."
   }
 }
