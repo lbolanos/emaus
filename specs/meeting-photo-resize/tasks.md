@@ -36,8 +36,10 @@ Desviaciones:
       - lista: sube como JPEG de 1600×1200 y 450 KB, `PUT /communities/meetings/:id/photo` 200,
         el botón pasa a «Cambiar foto»;
       - modal: la vista previa ya es la versión reducida (1600×1200, 450 KB) y se ve el texto de
-        ayuda nuevo. **No se guardó**: crear una reunión manda avisos a los miembros y la base de
-        dev es copia de datos reales. El guardado con foto queda cubierto por el test del modal.
+        ayuda nuevo. Al guardar una reunión nueva: `POST /communities/:id/meetings` 201,
+        `PUT /communities/meetings/:id/photo` 200, y la tarjeta muestra la foto en 1600×1200. No
+        sale ningún correo: los avisos automáticos de reunión están apagados salvo con
+        `MEETING_EMAIL_NOTIFICATIONS_ENABLED=true`, que dev no define (comprobado antes de guardar).
 - [x] `troubleshooting` §37: la foto de reunión ya no recorta; queda el fondo del volante
 - [x] Reconciliar spec ↔ código
 
