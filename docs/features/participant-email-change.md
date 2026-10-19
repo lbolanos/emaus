@@ -13,8 +13,12 @@ Ficha del participante (`ParticipantList` → editar) → grupo **Contacto** →
 Electrónico: read-only + botón **"Corregir correo"**. El botón solo aparece con el permiso
 `participant:identity:update` (superadmin y admin).
 
-Antes de esta feature el campo ni siquiera se mostraba: `formColumnsToEdit` ya excluía `email`
-de la edición genérica y el form pintaba la etiqueta sin campo.
+Antes de esta feature el campo no era editable: `formColumnsToEdit` ya excluía `email` de la
+edición genérica y el form lo mostraba como texto read-only, sin input ni botón.
+
+Ojo: el form refleja las columnas visibles del listado (`formColumnsToShow`). Si ocultas la
+columna Correo en el selector de columnas de `ParticipantList`, el campo —y con él el botón—
+desaparece del form; vuelve a mostrarla para corregir.
 
 ## Por qué una puerta propia (D1)
 
@@ -37,7 +41,8 @@ Editarlo como un campo más saltaba todas las consecuencias.
      pasa (el índice único lo permite), y queda avisado en `spouseShareRetreats`.
    - **Otra persona** (`isImportNameConflict`): 409 `EMAIL_OWNED_BY_OTHER` con mensaje
      pedagógico que nombra al dueño y aclara si está "inscrito en este retiro" o "registrado
-     fuera de este retiro".
+     fuera de este retiro" — "este retiro" es el retiro desde el que se corrige
+     (`contextRetreatId`), no cualquier retiro que las fichas compartan.
    - **Parece la misma persona**: 409 `EMAIL_OWNED_BY_SAME_PERSON` sugiriendo el flujo de
      fusión de fichas existente.
    - Carrera contra el índice único en el save → 409 `EMAIL_UNIQUE_VIOLATION` sin efectos
@@ -50,7 +55,10 @@ Editarlo como un campo más saltaba todas las consecuencias.
    `email` overlay sea el correo viejo quedan en `null` → `resolveMemberProfile` cae al correo
    corregido.
 5. **Cola de mensajes (D6)**: por cada retiro **activo** del participant
-   (`messageSequenceService.isRetreatClosed`, TZ-aware) corre `regenerateQueuedForRetreat`.
+   (`messageSequenceService.isRetreatClosed`, TZ-aware) corre `regenerateQueuedForRetreat`, y
+   también por cualquier retiro —cerrado o no— donde el participant tenga mensajes aún sin
+   despachar (`pending`/`processing`/`queued`): las secuencias `days_after_retreat` siguen
+   saliendo hasta 30 días después del retiro y la bandeja WhatsApp vive en `queued`.
    Falla tolerada (console.error): la corrección no revienta por la cola.
 6. **Auditoría**: evento `participant.email_change` con `oldEmailHash`/`newEmailHash`
    (SHA-256 truncado a 12), **nunca el correo en claro**, más los efectos

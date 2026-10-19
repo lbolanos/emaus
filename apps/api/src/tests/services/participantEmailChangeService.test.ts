@@ -22,6 +22,7 @@ const mockParticipantFindOneBy = jest.fn();
 const mockParticipantSave = jest.fn();
 const mockParticipantGetMany = jest.fn();
 const mockRpFind = jest.fn();
+const mockSmFind = jest.fn();
 const mockUserGetOne = jest.fn();
 const mockUserExecute = jest.fn();
 const mockMemberFind = jest.fn();
@@ -51,6 +52,8 @@ jest.mock('../../data-source', () => ({
 					};
 				case 'RetreatParticipant':
 					return { find: mockRpFind };
+				case 'ScheduledMessage':
+					return { find: mockSmFind };
 				case 'User':
 					return {
 						// getOne decides by the :email param captured at where().
@@ -153,6 +156,7 @@ describe('changeParticipantEmail — service', () => {
 		mockMemberFind.mockResolvedValue([]);
 		mockMemberUpdate.mockResolvedValue({ affected: 0 });
 		mockRetreatFind.mockResolvedValue([]);
+		mockSmFind.mockResolvedValue([]);
 		mockIsRetreatClosed.mockReturnValue(false);
 		mockRegenerate.mockResolvedValue({ regenerated: 0, skipped: 0 });
 		mockUserExecute.mockResolvedValue({ affected: 0 });
@@ -218,15 +222,33 @@ describe('changeParticipantEmail — service', () => {
 		expect(mockParticipantSave).not.toHaveBeenCalled();
 	});
 
-	it('D3: 409 EMAIL_OWNED_BY_OTHER scoped in-retreat (same retreat, same gender)', async () => {
+	it('D3: 409 EMAIL_OWNED_BY_OTHER scoped in-retreat (context retreat, same gender)', async () => {
 		mockParticipantGetMany.mockResolvedValue([makeOther({ gender: 'M' })]);
-		mockRpFind.mockResolvedValueOnce([
-			{ participantId: PARTICIPANT_ID, retreatId: RETREAT_A },
-			{ participantId: OTHER_ID, retreatId: RETREAT_A },
-		]);
+		// First rpFind call = the participant's own participations; second =
+		// the other fichas' (loaded only on collision).
+		mockRpFind
+			.mockResolvedValueOnce([{ participantId: PARTICIPANT_ID, retreatId: RETREAT_A }])
+			.mockResolvedValueOnce([{ participantId: OTHER_ID, retreatId: RETREAT_A }]);
 
-		const msg = await runAndCaptureMessage(PARTICIPANT_ID, NEW_EMAIL);
+		const msg = await runAndCaptureMessage(PARTICIPANT_ID, NEW_EMAIL, RETREAT_A);
 		expect(msg).toContain('inscrito en este retiro');
+		expect(mockParticipantSave).not.toHaveBeenCalled();
+	});
+
+	it('D3: "este retiro" is the context retreat, not any shared retreat', async () => {
+		// The two fichas share only RETREAT_B, but the admin corrects from
+		// RETREAT_A → the owner must read as outside THIS retreat.
+		mockParticipantGetMany.mockResolvedValue([makeOther({ gender: 'M' })]);
+		mockRpFind
+			.mockResolvedValueOnce([
+				{ participantId: PARTICIPANT_ID, retreatId: RETREAT_A },
+				{ participantId: PARTICIPANT_ID, retreatId: RETREAT_B },
+			])
+			.mockResolvedValueOnce([{ participantId: OTHER_ID, retreatId: RETREAT_B }]);
+
+		const msg = await runAndCaptureMessage(PARTICIPANT_ID, NEW_EMAIL, RETREAT_A);
+		expect(msg).toContain('registrado fuera de este retiro');
+		expect(msg).not.toContain('inscrito en este retiro');
 		expect(mockParticipantSave).not.toHaveBeenCalled();
 	});
 
@@ -246,13 +268,9 @@ describe('changeParticipantEmail — service', () => {
 
 	it('D3: spouse exception — same retreat, different gender passes with a warning', async () => {
 		mockParticipantGetMany.mockResolvedValue([makeOther()]);
-		mockRpFind.mockResolvedValueOnce([
-			{ participantId: PARTICIPANT_ID, retreatId: RETREAT_A },
-			{ participantId: OTHER_ID, retreatId: RETREAT_A },
-		]);
-		mockRpFind.mockResolvedValueOnce([
-			{ participantId: PARTICIPANT_ID, retreatId: RETREAT_A },
-		]);
+		mockRpFind
+			.mockResolvedValueOnce([{ participantId: PARTICIPANT_ID, retreatId: RETREAT_A }])
+			.mockResolvedValueOnce([{ participantId: OTHER_ID, retreatId: RETREAT_A }]);
 		mockRetreatFind.mockResolvedValue([{ id: RETREAT_A, endDate: new Date() }]);
 
 		const result = await changeParticipantEmail(PARTICIPANT_ID, NEW_EMAIL);
@@ -260,6 +278,27 @@ describe('changeParticipantEmail — service', () => {
 		expect(result.changed).toBe(true);
 		expect(result.effects.spouseShareRetreats).toEqual([RETREAT_A]);
 		expect(mockParticipantSave).toHaveBeenCalledTimes(1);
+	});
+
+	it('D3: spouse share retreats are deduped (two opposite-gender fichas, one retreat)', async () => {
+		// A family address shared by two F fichas in RETREAT_A: the effect must
+		// name the retreat once, not once per sharing ficha.
+		const OTHER_ID_2 = '00000000-0000-0000-0000-000000000005';
+		mockParticipantGetMany.mockResolvedValue([
+			makeOther(),
+			makeOther({ id: OTHER_ID_2, firstName: 'Ana' }),
+		]);
+		mockRpFind
+			.mockResolvedValueOnce([{ participantId: PARTICIPANT_ID, retreatId: RETREAT_A }])
+			.mockResolvedValueOnce([
+				{ participantId: OTHER_ID, retreatId: RETREAT_A },
+				{ participantId: OTHER_ID_2, retreatId: RETREAT_A },
+			]);
+		mockRetreatFind.mockResolvedValue([{ id: RETREAT_A, endDate: new Date() }]);
+
+		const result = await changeParticipantEmail(PARTICIPANT_ID, NEW_EMAIL);
+
+		expect(result.effects.spouseShareRetreats).toEqual([RETREAT_A]);
 	});
 
 	it('D4: links the matching user only when the ficha has no link', async () => {
@@ -338,6 +377,34 @@ describe('changeParticipantEmail — service', () => {
 		]);
 	});
 
+	it('D6: regenerates a CLOSED retreat when the participant still has undispatched rows', async () => {
+		// days_after_retreat sequences keep dispatching AFTER_RETREAT_GRACE_DAYS
+		// past the end; WhatsApp rows sit in the tray as `queued`. Those frozen
+		// rows must be re-resolved even though isRetreatClosed says closed.
+		mockRpFind.mockResolvedValueOnce([
+			{ participantId: PARTICIPANT_ID, retreatId: RETREAT_A },
+		]);
+		mockSmFind.mockResolvedValue([{ retreatId: RETREAT_B }]);
+		mockRetreatFind.mockResolvedValue([
+			{ id: RETREAT_A, endDate: new Date() },
+			{ id: RETREAT_B, endDate: new Date('2020-01-01') },
+		]);
+		mockIsRetreatClosed.mockImplementation(
+			(retreat: { id: string }) => retreat.id === RETREAT_B,
+		);
+		mockRegenerate.mockResolvedValue({ regenerated: 2, skipped: 0 });
+
+		const result = await changeParticipantEmail(PARTICIPANT_ID, NEW_EMAIL);
+
+		expect(mockRegenerate).toHaveBeenCalledTimes(2);
+		expect(mockRegenerate).toHaveBeenCalledWith(RETREAT_A);
+		expect(mockRegenerate).toHaveBeenCalledWith(RETREAT_B);
+		expect(result.effects.queueRegenerated).toEqual([
+			{ retreatId: RETREAT_A, regenerated: 2, skipped: 0 },
+			{ retreatId: RETREAT_B, regenerated: 2, skipped: 0 },
+		]);
+	});
+
 	it('D6: a failing regeneration does not fail the request', async () => {
 		mockRpFind.mockResolvedValueOnce([
 			{ participantId: PARTICIPANT_ID, retreatId: RETREAT_A },
@@ -386,9 +453,13 @@ describe('changeParticipantEmail — service', () => {
 });
 
 /** Runs a rejected call and returns the message (for message-shape asserts). */
-async function runAndCaptureMessage(id: string, email: string): Promise<string> {
+async function runAndCaptureMessage(
+	id: string,
+	email: string,
+	contextRetreatId?: string,
+): Promise<string> {
 	try {
-		await changeParticipantEmail(id, email);
+		await changeParticipantEmail(id, email, contextRetreatId);
 		return '';
 	} catch (e) {
 		return (e as Error).message;

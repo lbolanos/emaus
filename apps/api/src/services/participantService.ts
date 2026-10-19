@@ -80,6 +80,7 @@ import {
   CreateHistoryData,
 } from "./retreatParticipantService";
 import { RetreatParticipant } from "../entities/retreatParticipant.entity";
+import { ScheduledMessage } from "../entities/scheduledMessage.entity";
 import { User } from "../entities/user.entity";
 import { Responsability } from "../entities/responsability.entity";
 import { ParticipantCommunication } from "../entities/participantCommunication.entity";
@@ -5743,15 +5744,20 @@ export const changeParticipantEmail = async (
     .andWhere("participant.id != :id", { id: participantId })
     .getMany();
 
+  // Participations of this participant, loaded once: the collision branch needs
+  // them for the shared-retreat math and the queue branch reuses them below
+  // (the email change never touches memberships).
+  const rpRepo = AppDataSource.getRepository(RetreatParticipant);
+  const participations = await rpRepo.find({ where: { participantId } });
+  const selfRetreatIds = new Set(participations.map((r) => r.retreatId));
+
   const spouseShareRetreats: string[] = [];
   if (others.length > 0) {
-    const rpRepo = AppDataSource.getRepository(RetreatParticipant);
     const rows = await rpRepo.find({
-      where: { participantId: In([participantId, ...others.map((o) => o.id)]) },
+      where: { participantId: In(others.map((o) => o.id)) },
     });
     const retreatIdsOf = (pid: string): Set<string> =>
       new Set(rows.filter((r) => r.participantId === pid).map((r) => r.retreatId));
-    const selfRetreatIds = retreatIdsOf(participantId);
 
     for (const other of others) {
       const otherRetreatIds = retreatIdsOf(other.id);
@@ -5760,25 +5766,33 @@ export const changeParticipantEmail = async (
       // Spouse exception: same retreat with both genders set and different.
       // UQ_participants_email_retreat carves exactly this case out so a couple
       // can share a family address — allowed, but reported back so the admin
-      // can catch a data-entry slip.
+      // can catch a data-entry slip. Deduped: several opposite-gender fichas
+      // sharing the family address in one retreat must not double-count it.
       const spouseCase =
         shared.length > 0 &&
         !!participant.gender &&
         !!other.gender &&
         participant.gender !== other.gender;
       if (spouseCase) {
-        spouseShareRetreats.push(...shared);
+        for (const rid of shared) {
+          if (!spouseShareRetreats.includes(rid)) spouseShareRetreats.push(rid);
+        }
         continue;
       }
 
       // Clearly another person → pedagogical 409, same shape as the import
       // (importEmailReuse): whose the address is, where that ficha lives, and
-      // that nothing was touched.
+      // that nothing was touched. "Este retiro" means the retreat the caller
+      // is correcting FROM (contextRetreatId), not any retreat the two fichas
+      // happen to share — otherwise the admin hunts for the owner in the
+      // wrong retreat.
       if (isImportNameConflict(other, participant)) {
+        const inContextRetreat =
+          !!contextRetreatId && shared.includes(contextRetreatId);
         throw new ParticipantEmailChangeError(
           "EMAIL_OWNED_BY_OTHER",
           `el correo ya es de ${fullName(other)}, ` +
-            (shared.length > 0
+            (inContextRetreat
               ? "inscrito en este retiro"
               : "registrado fuera de este retiro") +
             `, y la ficha que corriges es de ${fullName(participant)}. No se tocó la ficha de ${fullName(other)}: ` +
@@ -5875,16 +5889,40 @@ export const changeParticipantEmail = async (
   // regenerateQueuedForRetreat is the existing audited remedy; it works per
   // retreat, so run it for every ACTIVE retreat of this participant. "Active"
   // uses the same TZ-aware rule as the message engine (the retreat lives its
-  // last day in its own timezone).
+  // last day in its own timezone) — plus any retreat, closed or not, where
+  // THIS participant still has undispatched rows: days_after_retreat sequences
+  // keep dispatching AFTER_RETREAT_GRACE_DAYS past the end (and WhatsApp rows
+  // sit in the coordinator's tray as `queued`), so those frozen rows must not
+  // keep leaving for the old address either.
   const queueRegenerated: ChangeParticipantEmailEffects["queueRegenerated"] = [];
-  const rpRepo = AppDataSource.getRepository(RetreatParticipant);
   const retreatRepo = AppDataSource.getRepository(Retreat);
-  const participations = await rpRepo.find({ where: { participantId: saved.id } });
-  const retreatIds = [...new Set(participations.map((rp) => rp.retreatId))];
+  const smRepo = AppDataSource.getRepository(ScheduledMessage);
+  const undispatchedRetreatIds = new Set(
+    (
+      await smRepo.find({
+        where: {
+          participantId: saved.id,
+          status: In(["pending", "processing", "queued"]),
+        },
+        select: { retreatId: true },
+      })
+    ).map((m) => m.retreatId),
+  );
+  const retreatIds = [
+    ...new Set([
+      ...participations.map((rp) => rp.retreatId),
+      ...undispatchedRetreatIds,
+    ]),
+  ];
   if (retreatIds.length > 0) {
     const retreats = await retreatRepo.find({ where: { id: In(retreatIds) } });
     for (const retreat of retreats) {
-      if (messageSequenceService.isRetreatClosed(retreat, undefined)) continue;
+      if (
+        messageSequenceService.isRetreatClosed(retreat, undefined) &&
+        !undispatchedRetreatIds.has(retreat.id)
+      ) {
+        continue;
+      }
       try {
         const r = await messageSequenceService.regenerateQueuedForRetreat(retreat.id);
         queueRegenerated.push({ retreatId: retreat.id, ...r });

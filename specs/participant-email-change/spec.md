@@ -25,9 +25,10 @@ corregirla con lo que conlleva. Y lo que existía era una trampa:
 1. **El correo era editable por API.** El update general
    (`participantController.updateParticipant`, permiso `participant:update`) aceptaba `email`,
    lo normalizaba y lo persistía (`participantService.updateParticipant` lo dejaba caer en
-   `personalData`). El form de edición ni siquiera mostraba el campo — `formColumnsToEdit`
-   (`ParticipantList`) ya excluía `email` en `nonEditableSystemKeys`, así que pintaba la
-   etiqueta sin input — pero el DTO viajaba igual por cualquier cliente con el permiso.
+   `personalData`). El form de edición no lo ofrecía como campo — `formColumnsToEdit`
+   (`ParticipantList`) ya excluía `email` en `nonEditableSystemKeys`, así que la ficha lo
+   mostraba como texto read-only, sin input ni botón — pero el DTO viajaba igual por cualquier
+   cliente con el permiso.
 2. **No validaba ninguna consecuencia.** Un correo que ya usa otra ficha (en este u otro
    retiro) se aceptaba sin aviso — dentro del retiro con el mismo género revienta con el error
    crudo del índice único; fuera del retiro pasa en silencio y **siembra el bug de identidad
@@ -94,7 +95,9 @@ la vía genérica para que las consecuencias no se salten).
      en `spouseShareRetreats`.
   3. Otra ficha con `LOWER(email)` igual y nombre de otra persona (`isImportNameConflict`) →
      409 `EMAIL_OWNED_BY_OTHER` con el texto pedagógico del import: nombra al dueño y aclara
-     si está "inscrito en este retiro" o "registrado fuera de este retiro".
+     si está "inscrito en este retiro" o "registrado fuera de este retiro" — el scope es el
+     `contextRetreatId` (el retiro desde el que se corrige), no cualquier retiro que las dos
+     fichas compartan.
   4. Otra ficha que parece la misma persona → 409 `EMAIL_OWNED_BY_SAME_PERSON` sugiriendo el
      flujo de fusión existente (`participantMergeService`) — dos fichas de la misma persona
      con un correo compartido rompen el reuso global y eso se arregla fusionando, no
@@ -111,13 +114,17 @@ la vía genérica para que las consecuencias no se salten).
   `community_member` del participant cuyo `email` overlay sea (lowercase) el correo viejo
   quedan en `null`, para que el fallback de `resolveMemberProfile` caiga al correo corregido.
   Va en el mismo cambio y se reporta en la respuesta y la auditoría (`overlaysCleared`).
-- **D6 — Cola de mensajes: regenerar los retiros activos.** Tras el cambio, por cada retiro
-  del participant que **no** esté cerrado según `messageSequenceService.isRetreatClosed`
-  (TZ-aware — no un simple `endDate >= hoy`), corre `regenerateQueuedForRetreat` (remedio
-  existente, ya auditado como `MESSAGE_SEQUENCE_REGENERATE_QUEUE`). Las fallas de la
-  regeneración se toleran (log + reporte `skipped`): la corrección no revienta por la cola.
-  *Alternativa descartada* (en diseño): regeneración selectiva por participante — código
-  nuevo para lo que el por-retiro ya resuelve.
+- **D6 — Cola de mensajes: regenerar los retiros con cola viva.** Tras el cambio, corre
+  `regenerateQueuedForRetreat` (remedio existente, ya auditado como
+  `MESSAGE_SEQUENCE_REGENERATE_QUEUE`) por cada retiro del participant que **no** esté
+  cerrado según `messageSequenceService.isRetreatClosed` (TZ-aware — no un simple
+  `endDate >= hoy`), **y además** por cualquier retiro —cerrado o no— donde el participant
+  tenga mensajes aún sin despachar (`pending`/`processing`/`queued`): las secuencias
+  `days_after_retreat` siguen saliendo `AFTER_RETREAT_GRACE_DAYS` (30) después del fin y la
+  bandeja WhatsApp vive en `queued`, así que esas filas congeladas tampoco deben salir al
+  correo viejo. Las fallas de la regeneración se toleran (log + reporte `skipped`): la
+  corrección no revienta por la cola. *Alternativa descartada* (en diseño): regeneración
+  selectiva por participante — código nuevo para lo que el por-retiro ya resuelve.
 - **D7 — Confirmación en UI: type-to-confirm.** `ParticipantEmailChangeDialog.vue` pide
   teclear el correo nuevo dos veces, muestra un resumen de consecuencias antes de aceptar y
   el resultado detallado después (una línea por efecto, o "nada más tocó"). La validación
@@ -175,12 +182,13 @@ función. Lo que cambió respecto de la spec aprobada:
 1. **D2 — Coordinator no existe.** La v1.0 concedía el permiso a "Admin y Coordinator"; el
    rol Coordinator no está en la base de datos. Concesión real: superadmin + admin
    (migración data-only). No se creó el rol: "administrador del retiro" ya es `admin`.
-2. **D1 — el schema ganó `contextRetreatId` opcional**, y el descubrimiento de que **el form
-   nunca mostró el campo email**: `formColumnsToEdit` ya lo excluía
-   (`nonEditableSystemKeys`), de modo que la v1.0 describía un campo editable en la pestaña
-   Contacto que en realidad pintaba etiqueta sin input. La rama de email del form se
-   renderiza FUERA del gate de `columnsToEdit` para que la dirección quede visible read-only
-   + botón aunque el campo no sea editable. El vector de takeover era por API, no por UI.
+2. **D1 — el schema ganó `contextRetreatId` opcional**, y el descubrimiento de que **el campo
+   nunca fue editable en el form**: `formColumnsToEdit` ya lo excluía
+   (`nonEditableSystemKeys`) y la rama «Read-only field display» pintaba el **valor** como
+   texto read-only — la v1.0 describía un campo editable en la pestaña Contacto que no
+   existía. M2 reemplaza ese texto por un `Input` disabled + botón «Corregir correo» en una
+   rama propia, fuera del gate de `columnsToEdit`, para que la dirección siga visible aunque
+   el campo no sea editable. El vector de takeover era por API, no por UI.
 3. **D3 — el orden de evaluación se fijó**: la excepción cónyuge se evalúa **primero** (la
    v1.0 la mencionaba dentro del índice pero sin orden), y se añadió el manejo de la carrera
    contra el índice único (409 `EMAIL_UNIQUE_VIOLATION` sin efectos colaterales).
@@ -193,6 +201,12 @@ función. Lo que cambió respecto de la spec aprobada:
 6. **Nada de lo descartado en diseño se construyó** — correcto: la regeneración selectiva
    por participante y la validación dentro del update general siguen descartadas por las
    mismas razones.
+7. **Cierre (review de la misma fecha) — tres ajustes al as-built de D3/D6**: el scope del
+   «inscrito en este retiro» del 409 se fijó al `contextRetreatId` (no a cualquier retiro
+   compartido); D6 se amplió a regenerar también retiros cerrados con filas aún sin
+   despachar del participant (`pending`/`processing`/`queued`); y `spouseShareRetreats`
+   quedó deduplicado por retiro. Las participaciones se cargan una sola vez, antes de la
+   rama de colisión.
 
 Desviaciones menores registradas por milestone en `tasks.md` (tests de auditoría con el
 mock del service en vez de `awaitAuditRow`; self-update verificado por inspección;

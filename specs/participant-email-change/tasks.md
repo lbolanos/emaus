@@ -64,10 +64,11 @@ los archivos de fuente limpio.
 
 ### Desviaciones 2026-10-19
 
-- **El correo no se mostraba**: `ParticipantList.formColumnsToEdit` ya excluía
-  `email` (`nonEditableSystemKeys`), así que el form pintaba la etiqueta sin
-  campo. La rama de email se renderiza FUERA del gate de `columnsToEdit`: la
-  dirección queda visible read-only + botón aunque el campo no sea editable.
+- **El correo no era editable**: `ParticipantList.formColumnsToEdit` ya excluía
+  `email` (`nonEditableSystemKeys`) y la rama «Read-only field display» del form
+  mostraba el **valor** como texto read-only — no etiqueta huérfana. M2 la
+  reemplaza por una rama propia fuera del gate de `columnsToEdit`: `Input`
+  disabled + botón «Corregir correo» aunque el campo no sea editable.
 - **Catálogo de permisos del web**: `participant:identity:update` no existía en
   `apps/web/src/utils/permissions.ts` (unión cerrada, el build fallaba). Añadido
   a `RESOURCES.participant` y a `OperationType`, mismo patrón que `health`.
@@ -95,3 +96,35 @@ seis deltas contra la v1.0.
   M1/M2. El spec v1.1 los absorbe (D2 sin Coordinator, `contextRetreatId` aditivo, orden de
   D3 con la raza del índice, gate TZ-aware de D6, zod compartido de D7, email fuera del gate
   de `columnsToEdit`).
+
+## Cierre — review de código 2026-10-19
+
+Hallazgos del review (`cierre` pasos 3-4) sobre el diff de la feature; los arreglos van en
+un commit aparte.
+
+**Arreglados en código** (`participantService.changeParticipantEmail` + tests):
+
+- El 409 `EMAIL_OWNED_BY_OTHER` decía «inscrito en este retiro» por cualquier retiro
+  compartido → scope fijado al `contextRetreatId` (el retiro desde el que se corrige).
+- D6 solo miraba retiros no cerrados → también regenera retiros **cerrados** donde el
+  participant tenga filas sin despachar (`pending`/`processing`/`queued`): las secuencias
+  `days_after_retreat` siguen 30 días después del fin y la bandeja WhatsApp vive en `queued`.
+- Las participaciones se cargan una sola vez (antes de la rama de colisión) en vez de una
+  query por cada ficha en colisión.
+- `spouseShareRetreats` queda deduplicado por retiro (antes repetía con dos fichas del otro
+  género en el mismo retiro).
+
+Tests del servicio: 13 → 18 (scope del «este retiro», cónyuges deduplicados, regeneración de
+retiro cerrado con filas vivas); 18/18 verdes.
+
+**Corregidos en docs**: la afirmación «el form pintaba la etiqueta sin campo» era falsa (la
+rama read-only ya mostraba el valor como texto) — corregida en `docs/features/`, `spec.md`
+(Problema + Reconciliación) y aquí; añadido el aviso de que ocultar la columna Correo del
+listado esconde el campo —y el botón— del form (`formColumnsToShow`).
+
+**Descartados** (con motivo): `requireRetreatAccess` en la ruta del email — diseño aprobado
+en D2, el permiso es global por naturaleza del correo y el PUT genérico tampoco lo lleva; la
+regeneración por retiro completo en vez de solo el participant — aceptado explícitamente en
+D6; el gate de cónyuges vs el índice único pueden discrepar en géneros no seteados — caso de
+borde que termina en 409 seguro, no en corrupción; `ChangeParticipantEmailBody` exportado sin
+consumidor — convención del paquete.
