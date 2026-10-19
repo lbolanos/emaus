@@ -1,7 +1,8 @@
 # Spec: retiros favoritos en el sidebar
 
-> SDD spec — versión 1.0 (2026-10-19). Estado: **borrador para revisión de Leonardo** (gate de M0:
-> no se codea M1 sin visto bueno de D1-D8).
+> SDD spec — versión 1.1 (2026-10-19). Estado: **implementada** en
+> `worktree-retreat-favorites`; Reconcile cerrado abajo (v1.0 = borrador aprobado por Leonardo
+> el 2026-10-19, gate de M0).
 
 **Branch**: por crear (worktree `.claude/worktrees/retreat-favorites` al implementar) ·
 **Fecha**: 2026-10-19 · **Para**: acceso rápido al retiro de turno desde cualquier dispositivo.
@@ -138,4 +139,65 @@ la dev DB (Buen Despacho, San Miguel Arcángel, Celaya, San Agustín… — rese
 
 ## Reconcile
 
-(Pendiente. Se llena al cerrar: cada criterio verificado contra lo implementado, con desviaciones.)
+Cerrado el 2026-10-19 contra la app corriendo en el worktree (`worktree-retreat-favorites`,
+dev :5175/:3003). Evidencia por criterio; las desviaciones van al final.
+
+1. **✓** Estrella marca, persiste tras recarga y el chip aparece. En vivo (M3): PUT real contra
+   el API del worktree; al recargar, los favoritos sembrados por API aparecen como chips. E2E
+   (`sidebar-favorites.spec.ts`): tras `page.reload()` los chips vienen del GET del perfil. QA
+   móvil: tras recarga completa, estrella y chips idénticos.
+2. **✓** Clic en chip cambia el retiro seleccionado con el mismo efecto que el select. En vivo
+   (M3): navegó al dashboard del retiro nuevo. QA móvil (M4): chip «Buen Despacho» → ruta
+   `e9b3c568…/dashboard`, conteos del retiro nuevo, y el drawer se cerró solo al navegar. E2E:
+   `selectedRetreatId` en localStorage y `aria-current` del chip.
+3. **✓** Desmarcar quita el chip (E2E: `toHaveCount(1)` tras clic de estrella) y el PUT manda
+   `[]` al quitar el último, nunca `null` (unit test del store: PUT con `[]` exacto; el store
+   siempre manda array).
+4. **✓** (por unit tests) Favorito huérfano: no renderiza chip (test del Sidebar con
+   `getUserProfile` devolviendo un id fuera de `retreatStore.retreats` → 1 chip) y el id queda
+   en el perfil: el join es solo de render, el store no elimina ids y el PUT manda el array
+   completo. No se sembró un huérfano real en vivo — cubierto por tests, no por datos.
+5. **✓** localStorage viejo sin clave de una sección: arranca colapsada y nunca quedan dos
+   abiertas. Unit tests `ui.test.ts` (siembra de faltantes, reparación >1 dejando la primera,
+   invariante ≤1 tras toggles), regresión en `Sidebar.test.ts` con record de 2 claves, y E2E en
+   navegador limpio (todas colapsadas al arrancar; abrir la segunda cierra la primera). En vivo
+   (M2): record inyectado de 2 claves se sembró a 10.
+6. **✓** Móvil (QA M4, 390x844 + touch): drawer abre/cierra; chips de 40px exactos con
+   `overflow-x` real (contenido 435px en 240px visibles, scroll verificado); estrella conmuta
+   con toggle optimista y persiste tras recarga; tocar PERSONAS cerró ASIGNACIONES. La
+   consistencia desktop/drawer se verificó más fuerte que «al volver a desktop»: ambas
+   instancias del DOM concuerdan en el mismo instante (`aria-expanded` idéntico por categoría) —
+   mismo store pinia (D7). 0 errores/warnings de consola.
+7. **✓** (por tests del API) `getPublicProfile` y `searchUsers` no devuelven el campo: tests
+   controller/service del M1 (no sale en público) + strip explícito en ambos métodos.
+
+**Negativos**:
+
+- **✓** PUT parcial: el toggle manda solo `{ favoriteRetreatIds }`; el controller hace
+  destructure y TypeORM salta `undefined` (tests del service; en vivo, varios toggles seguidos
+  no tocaron bio/avatar del perfil de prueba).
+- **✓** Payload inválido → 400 sin escribir: test de rutas del M1 (uuid corrupto, >100) vía el
+  schema real + wire de `validateRequest`.
+- **✓** Página de perfil intacta: schema permisivo con bounds ≥ payloads existentes (gate M1) y
+  suite web completa verde (3363 passed, incluye vistas de perfil).
+- **✗ → corregido en esta spec** (desviación 1 abajo): sin retiro seleccionado la estrella no
+  existe (v-if, no «deshabilitada») y **los chips sí se muestran** si hay favoritos.
+
+**R5/R6 adicionales verificados en vivo (M4)**: estrella rail bajo el header «Retiro» con
+`aria-pressed` y toggle funcionando; chips ocultos en rail.
+
+### Desviaciones del cierre
+
+1. **El negativo «sin retiro seleccionado … no hay chips» estaba mal pensado y no se implementó
+   así.** Los chips se muestran siempre que haya favoritos accesibles — sin retiro seleccionado
+   son precisamente el atajo para elegir uno; ocultarlos empeora el caso de uso que motivó la
+   feature. La estrella, en cambio, no se renderiza sin retiro seleccionado (`v-if` en vez de
+   botón deshabilitado). El spec se corrige en este Reconcile; no hay cambio de código.
+2. **CA4 y CA7 cerrados por tests, no por datos en vivo**: no se sembró un favorito huérfano
+   real ni se curioseó el perfil público de otro usuario en la demo — los tests del API y del
+   Sidebar cubren ambos caminos.
+3. **El e2e corrió solo en `--project=chromium`** (entorno del worktree); los projects móvil del
+   config no se corrieron. El QA móvil real se hizo con chrome-devtools (emulación iPhone +
+   touch), que ejercita lo mismo que haría el project Mobile Chrome.
+4. Screenshots del QA en `apps/web/test-results/mobile-qa/` (gitignored), no en `/tmp/chrome`
+   (chrome-devtools MCP no escribe fuera del workspace).

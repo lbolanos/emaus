@@ -110,15 +110,19 @@ Estado del browser dev restaurado (favoritos y retiro seleccionado originales).
 
 ## M5 — Cierre
 
-- [ ] Reconcile en `spec.md` (cada CA verificada ✓, negativos incluidos)
-- [ ] `**Done**` por milestone + desviaciones
+- [x] Reconcile en `spec.md` (cada CA verificada ✓, negativos incluidos)
+- [x] `**Done**` por milestone + desviaciones
 - [ ] Merge a master con `gh pr checks` verde y OK de Leonardo (push a master deploya prod)
 - [ ] Cerrar worktree (skill `cerrar-worktree`)
 
+**Done parcial** (2026-10-19): Reconcile cerrado con 4 desviaciones documentadas (la principal:
+el negativo «sin retiro seleccionado no hay chips» estaba mal pensado — ver spec). Pendiente el
+PR y el merge, que esperan el OK de Leonardo.
+
 ## Checklist de verificación final
 
-- [ ] `pnpm --filter web test` verde
-- [ ] Suite API afectada verde (una corrida de jest a la vez)
-- [ ] E2E M4 verde
-- [ ] Criterios 1-7 + negativos del spec verificados contra la app del worktree
-- [ ] `git status` limpio de archivos ajenos a la feature antes de cada commit
+- [x] `pnpm --filter web test` verde (225 archivos, 3363 passed / 2 skipped preexistentes)
+- [x] Suite API afectada verde (31/31 en M1; una sola corrida de jest a la vez)
+- [x] E2E M4 verde (2/2 chromium contra el dev del worktree)
+- [x] Criterios 1-7 + negativos del spec verificados contra la app del worktree (Reconcile)
+- [x] `git status` limpio de archivos ajenos a la feature antes de cada commit
