@@ -25,6 +25,8 @@ class ImageService {
 	private readonly MAX_SIZE = 512; // pixels
 	/** Flyer backgrounds are exported at pixelRatio 2, so they need more than 512px. */
 	private readonly MAX_FLYER_BACKGROUND_SIZE = 1600; // pixels
+	/** Retreat memory photos are viewed full screen, so they keep far more than an avatar. */
+	private readonly MAX_MEMORY_PHOTO_SIZE = 1600; // pixels
 	private readonly QUALITY = 85; // webp quality
 	private readonly MAX_FILE_SIZE = 2 * 1024 * 1024; // 2MB
 
@@ -154,6 +156,24 @@ class ImageService {
 		contentType: string,
 		kind: FlyerAssetKind,
 	): Promise<ProcessedImage> {
+		const maxSide = kind === 'logo' ? this.MAX_SIZE : this.MAX_FLYER_BACKGROUND_SIZE;
+		return this.processWithoutCrop(buffer, contentType, maxSide);
+	}
+
+	/**
+	 * Processes a retreat memory photo. Never crops: these are mostly group
+	 * photos, and the square crop of processAvatar cut off the people at the edges.
+	 */
+	async processMemoryPhoto(buffer: Buffer, contentType: string): Promise<ProcessedImage> {
+		return this.processWithoutCrop(buffer, contentType, this.MAX_MEMORY_PHOTO_SIZE);
+	}
+
+	/** Fits the image inside `maxSide` × `maxSide` keeping its aspect ratio, never enlarging it. */
+	private async processWithoutCrop(
+		buffer: Buffer,
+		contentType: string,
+		maxSide: number,
+	): Promise<ProcessedImage> {
 		if (buffer.length > this.MAX_FILE_SIZE) {
 			throw new FlyerAssetError('File size exceeds maximum (2MB)');
 		}
@@ -161,8 +181,6 @@ class ImageService {
 		if (!this.verifyMagicBytes(buffer, contentType)) {
 			throw new FlyerAssetError('File content does not match declared MIME type');
 		}
-
-		const maxSide = kind === 'logo' ? this.MAX_SIZE : this.MAX_FLYER_BACKGROUND_SIZE;
 
 		try {
 			const image = sharp(buffer);

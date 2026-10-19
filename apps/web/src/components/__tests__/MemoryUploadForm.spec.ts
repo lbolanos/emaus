@@ -56,12 +56,52 @@ vi.mock('@/services/api', () => ({
 	importRetreatMemorySongsFromMam: (...a: any[]) => mocks.importRetreatMemorySongsFromMam(...a),
 }));
 
+// The global `@repo/ui` mock hands out a fresh `vi.fn()` per `useToast()` call,
+// so the toasts could not be asserted. The component only uses `useToast`.
+const mockToast = vi.fn();
+vi.mock('@repo/ui', () => ({ useToast: () => ({ toast: mockToast }) }));
+
+const mockPickFiles = vi.fn();
+vi.mock('@/utils/filePicker', () => ({ pickFiles: (...a: any[]) => mockPickFiles(...a) }));
+
+// The real resize draws on a <canvas>, which happy-dom lacks. What matters here
+// is that every upload goes through it, and with which bound.
+const mockResize = vi.fn();
+vi.mock('@/utils/imageResize', () => ({
+	resizeImageToDataUrl: (...a: any[]) => mockResize(...a),
+}));
+
+const MB = 1024 * 1024;
+/** A `File` that reports `size` without allocating it. */
+const makeFile = (name: string, size = 1 * MB, type = 'image/jpeg') => {
+	const file = new File([new Uint8Array([1, 2, 3])], name, { type });
+	Object.defineProperty(file, 'size', { value: size });
+	return file;
+};
+
 const importBtn = (wrapper: any) =>
 	wrapper.findAll('button').find((b: any) => b.text().includes('Importar música del minuto a minuto'));
+const addPhotoBtn = (wrapper: any) =>
+	wrapper.findAll('button').find((b: any) => b.text().includes('Agregar'));
+
+/** Mounts the form, picks `files` through the add tile and waits for the batch. */
+const uploadFiles = async (files: File[]) => {
+	const wrapper = mount(MemoryUploadForm, { props: { retreatId: 'r1' } });
+	await flushPromises();
+	mockPickFiles.mockResolvedValueOnce(files);
+	await addPhotoBtn(wrapper).trigger('click');
+	await flushPromises();
+	return wrapper;
+};
 
 describe('MemoryUploadForm', () => {
 	beforeEach(() => {
 		Object.values(mocks).forEach((m) => m.mockReset());
+		mockToast.mockReset();
+		mockPickFiles.mockReset();
+		mockResize.mockReset();
+		mockResize.mockImplementation(async (file: File) => `data:image/jpeg;base64,SMALL-${file.name}`);
+		mocks.addRetreatMemoryPhoto.mockResolvedValue(photo('new', 'urlNew'));
 		mocks.getRetreatMemories.mockResolvedValue({
 			photos: [photo('p1', 'urlA', true, 0)],
 			songs: [song('s1', 'https://a.com', true, 0, 'Cantos')],
@@ -163,5 +203,94 @@ describe('MemoryUploadForm', () => {
 		// La canción del MAM aparece en la lista read-only.
 		expect(wrapper.text()).toContain('Música del minuto a minuto');
 		expect(wrapper.find('a[href="https://mam1.com"]').exists()).toBe(true);
+	});
+
+	describe('photo upload', () => {
+		it('shrinks a photo larger than 5MB to 1600px and uploads the shrunk version', async () => {
+			const big = makeFile('celular.jpg', 8 * MB);
+			await uploadFiles([big]);
+
+			expect(mockResize).toHaveBeenCalledWith(big, { maxSide: 1600 });
+			expect(mocks.addRetreatMemoryPhoto).toHaveBeenCalledWith('r1', 'data:image/jpeg;base64,SMALL-celular.jpg');
+			expect(mockToast).not.toHaveBeenCalled();
+			// Mount + reload after the batch.
+			expect(mocks.getRetreatMemories).toHaveBeenCalledTimes(2);
+		});
+
+		it('rejects a file larger than 30MB without shrinking or uploading it', async () => {
+			await uploadFiles([makeFile('enorme.jpg', 31 * MB)]);
+
+			expect(mockResize).not.toHaveBeenCalled();
+			expect(mocks.addRetreatMemoryPhoto).not.toHaveBeenCalled();
+			expect(mockToast).toHaveBeenCalledWith(
+				expect.objectContaining({ title: 'Archivo muy grande', description: 'enorme.jpg supera los 30MB' }),
+			);
+		});
+
+		it('rejects a format other than JPG, PNG or WebP', async () => {
+			await uploadFiles([makeFile('animada.gif', 1 * MB, 'image/gif')]);
+
+			expect(mocks.addRetreatMemoryPhoto).not.toHaveBeenCalled();
+			expect(mockToast).toHaveBeenCalledWith(expect.objectContaining({ title: 'Formato no válido' }));
+		});
+
+		it('keeps uploading the rest of the batch when one photo fails, and reloads the gallery', async () => {
+			mocks.addRetreatMemoryPhoto
+				.mockResolvedValueOnce(photo('a', 'urlA2'))
+				.mockRejectedValueOnce(new Error('boom'))
+				.mockResolvedValueOnce(photo('c', 'urlC'));
+
+			await uploadFiles([makeFile('uno.jpg'), makeFile('dos.jpg'), makeFile('tres.jpg')]);
+
+			expect(mocks.addRetreatMemoryPhoto).toHaveBeenCalledTimes(3);
+			expect(mocks.addRetreatMemoryPhoto).toHaveBeenLastCalledWith('r1', 'data:image/jpeg;base64,SMALL-tres.jpg');
+			expect(mockToast).toHaveBeenCalledTimes(1);
+			expect(mockToast).toHaveBeenCalledWith(expect.objectContaining({ title: 'No se pudo subir dos.jpg' }));
+			expect(mocks.getRetreatMemories).toHaveBeenCalledTimes(2);
+		});
+
+		it('reports several failures in a single toast instead of one per photo', async () => {
+			mocks.addRetreatMemoryPhoto.mockRejectedValue(new Error('Sesión expirada'));
+
+			await uploadFiles([makeFile('uno.jpg'), makeFile('dos.jpg'), makeFile('tres.jpg')]);
+
+			expect(mocks.addRetreatMemoryPhoto).toHaveBeenCalledTimes(3);
+			expect(mockToast).toHaveBeenCalledTimes(1);
+			expect(mockToast).toHaveBeenCalledWith(
+				expect.objectContaining({
+					title: 'No se pudieron subir 3 fotos',
+					description: 'uno.jpg, dos.jpg, tres.jpg. Sesión expirada',
+				}),
+			);
+		});
+
+		it('also keeps going when shrinking a photo fails', async () => {
+			mockResize.mockRejectedValueOnce(new Error('No se pudo leer la imagen'));
+
+			await uploadFiles([makeFile('dañada.jpg'), makeFile('buena.jpg')]);
+
+			expect(mocks.addRetreatMemoryPhoto).toHaveBeenCalledTimes(1);
+			expect(mocks.addRetreatMemoryPhoto).toHaveBeenCalledWith('r1', 'data:image/jpeg;base64,SMALL-buena.jpg');
+			expect(mockToast).toHaveBeenCalledWith(expect.objectContaining({ title: 'No se pudo subir dañada.jpg' }));
+		});
+
+		it('uploads only as many photos as there are free slots', async () => {
+			mocks.getRetreatMemories.mockResolvedValue({
+				photos: Array.from({ length: 29 }, (_, i) => photo(`p${i}`, `url${i}`, i === 0, i)),
+				songs: [],
+			});
+
+			await uploadFiles([makeFile('a.jpg'), makeFile('b.jpg'), makeFile('c.jpg')]);
+
+			expect(mocks.addRetreatMemoryPhoto).toHaveBeenCalledTimes(1);
+			expect(mocks.addRetreatMemoryPhoto).toHaveBeenCalledWith('r1', 'data:image/jpeg;base64,SMALL-a.jpg');
+			// The two left out are reported, not dropped silently.
+			expect(mockToast).toHaveBeenCalledWith(
+				expect.objectContaining({
+					title: 'Máximo 30 fotos por retiro',
+					description: 'No se subieron 2 foto(s) por falta de espacio.',
+				}),
+			);
+		});
 	});
 });
