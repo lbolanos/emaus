@@ -1,6 +1,6 @@
 # Spec: Fondo del volante de la comunidad con fotos grandes
 
-**Estado**: en curso · **Branch**: `worktree-flyer-background-resize` · **Fecha**: 2026-10-19
+**Estado**: implementado · **Branch**: `worktree-flyer-background-resize` · **Fecha**: 2026-10-19
 
 Tercera instancia del defecto de `specs/memory-photo-resize/` y `specs/meeting-photo-resize/`,
 ahora en el fondo del volante de una reunión (`/app/communities/:id/meetings/:meetingId/flyer`,
@@ -41,10 +41,22 @@ navegador. No se toca.
 
 ## Plan y tareas
 
-- [ ] `imageResize.ts`: los comentarios de `PHOTO_MAX_SIDE` y `MAX_PHOTO_SOURCE_BYTES` incluyen el fondo del volante
-- [ ] `handlePickBackground`: tope de 30 MB, reducir si pasa de 2 MB, «Guardando...» desde antes de reducir
-- [ ] Tests (los tres criterios); suite de la vista, `vue-tsc` y lint
-- [ ] `troubleshooting` §37: el fondo del volante ya no es el caso pendiente
+- [x] `imageResize.ts`: los comentarios de `PHOTO_MAX_SIDE` y `MAX_PHOTO_SOURCE_BYTES` incluyen el fondo del volante
+- [x] `handlePickBackground`: tope de 30 MB, reducir si pasa de 2 MB, «Guardando...» desde antes de reducir
+- [x] Tests (los tres criterios y R4); suite web completa (224 archivos, 3351 tests), `vue-tsc` y lint
+- [x] `troubleshooting` §37: el fondo del volante ya no es el caso pendiente
+
+Desviaciones:
+
+- `imageResize.ts` exporta además `SERVER_MAX_IMAGE_BYTES` y `readAsDataUrl` (antes privada), para
+  que D3 no repita el `FileReader` en la vista.
+- Se agregó un cuarto test, para R4 («Guardando...» mientras se reduce). Los cuatro se comprobaron por
+  mutación: con la vista de master fallan los cuatro, y si «Guardando...» se activa después de
+  reducir falla el de R4.
+- Probado en vivo en el dev del worktree: una foto de 4032×3024 y 6.5 MB, con el estilo Poster, se
+  guardó como WebP de 1600×1200 y el volante la muestra de fondo.
+- La auditoría de §37 encontró otro caso: la foto de perfil (`AvatarUpload.vue`) corta en 2 MB y sube
+  el archivo crudo. Queda fuera de este cambio y anotada en §37.
 
 ## Fuera de alcance
 
