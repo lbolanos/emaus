@@ -38,6 +38,8 @@ vi.mock('lucide-vue-next', () => ({
 	Plus: { name: 'Plus', template: '<svg></svg>' },
 	Trash2: { name: 'Trash2', template: '<svg></svg>' },
 	Edit: { name: 'Edit', template: '<svg></svg>' },
+	Copy: { name: 'Copy', template: '<svg></svg>' },
+	Pencil: { name: 'Pencil', template: '<svg></svg>' },
 	Loader2: { name: 'Loader2', template: '<svg></svg>' },
 	CheckCircle: { name: 'CheckCircle', template: '<svg></svg>' },
 	AlertTriangle: { name: 'AlertTriangle', template: '<svg></svg>' },
@@ -95,7 +97,7 @@ vi.mock('@repo/ui', () => ({
 	TooltipContent: { name: 'TooltipContent', template: '<div><slot /></div>' },
 	TooltipProvider: { name: 'TooltipProvider', template: '<div><slot /></div>' },
 	TooltipTrigger: { name: 'TooltipTrigger', template: '<div><slot /></div>' },
-	useToast: () => ({ toast: vi.fn() }),
+	useToast: () => ({ toast: mockToast }),
 }));
 
 // Mock API services
@@ -159,8 +161,10 @@ vi.mock('../ParticipantQuickPhoneEditor.vue', () => ({
 }));
 
 // Permission gate of the email correction button (D2/D7): mutable per test.
-const { mockHasPermission } = vi.hoisted(() => ({
+// mockToast backs the @repo/ui useToast mock (clipboard feedback).
+const { mockHasPermission, mockToast } = vi.hoisted(() => ({
 	mockHasPermission: vi.fn<(permission: string) => boolean>(() => false),
+	mockToast: vi.fn(),
 }));
 vi.mock('@/composables/useAuthPermissions', () => ({
 	useAuthPermissions: () => ({
@@ -644,7 +648,40 @@ describe('EditParticipantForm – email field', () => {
 		const wrapper = mountWithEmail();
 		await nextTick();
 
-		expect(wrapper.text()).not.toContain('participants.emailChange.openButton');
+		// Icon-only button: the affordance is the aria-label, not text.
+		const correct = wrapper
+			.findAll('button')
+			.find((b) => b.attributes('aria-label') === 'participants.emailChange.openButton');
+		expect(correct).toBeUndefined();
+		// Copy needs no permission: the address is already on screen.
+		const copy = wrapper
+			.findAll('button')
+			.find((b) => b.attributes('aria-label') === 'participants.emailChange.copy');
+		expect(copy).toBeDefined();
+		wrapper.unmount();
+	});
+
+	it('copies the address to the clipboard and confirms with a toast', async () => {
+		const writeText = vi.fn().mockResolvedValue(undefined);
+		// jsdom ships no clipboard; navigator.clipboard is a read-only getter,
+		// so it has to be defined (not assigned).
+		Object.defineProperty(navigator, 'clipboard', {
+			value: { writeText },
+			configurable: true,
+		});
+		mockHasPermission.mockImplementation(() => false);
+		const wrapper = mountWithEmail();
+		await nextTick();
+
+		const copy = wrapper
+			.findAll('button')
+			.find((b) => b.attributes('aria-label') === 'participants.emailChange.copy');
+		await copy!.trigger('click');
+
+		expect(writeText).toHaveBeenCalledWith('viejo@mail.test');
+		expect(mockToast).toHaveBeenCalledWith({
+			description: 'participants.emailChange.copied',
+		});
 		wrapper.unmount();
 	});
 
@@ -653,9 +690,9 @@ describe('EditParticipantForm – email field', () => {
 		const wrapper = mountWithEmail();
 		await nextTick();
 
-		const button = wrapper.findAll('button').find((b) =>
-			b.text().includes('participants.emailChange.openButton'),
-		);
+		const button = wrapper
+			.findAll('button')
+			.find((b) => b.attributes('aria-label') === 'participants.emailChange.openButton');
 		expect(button).toBeDefined();
 
 		const dialog = wrapper.findComponent({ name: 'ParticipantEmailChangeDialog' });

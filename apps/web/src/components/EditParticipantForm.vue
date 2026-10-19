@@ -15,7 +15,7 @@ import { useI18n } from 'vue-i18n';
 import { useToast } from '@repo/ui';
 import { useRetreatStore } from '@/stores/retreatStore';
 import type { Tag } from '@repo/types';
-import { ChevronDown, ChevronUp, User, Phone, Users, Heart, ClipboardList, MapPin, Briefcase, FileText, Shield, Tag as TagIcon } from 'lucide-vue-next';
+import { ChevronDown, ChevronUp, User, Phone, Users, Heart, ClipboardList, MapPin, Briefcase, FileText, Shield, Tag as TagIcon, Copy, Pencil } from 'lucide-vue-next';
 
 type ShirtType = {
   id: string; name: string; color?: string | null; requiredForWalkers: boolean;
@@ -82,6 +82,20 @@ const onQuickPhonesSaved = (result: unknown) => emit('participant-patched', resu
 const { hasPermission } = useAuthPermissions();
 const canCorrectEmail = computed(() => hasPermission('participant:identity:update'));
 const emailDialogOpen = ref(false);
+// Icon-only copy: the address is readable right there, this saves the
+// select-all dance. Clipboard can be unavailable (no https / permissions) —
+// same tolerance as WhatsAppSendQueue, but here the click was explicit, so
+// the failure gets a toast instead of passing in silence.
+const copyEmail = async () => {
+  const email = String(localParticipant.value?.email ?? '');
+  if (!email) return;
+  try {
+    await navigator.clipboard.writeText(email);
+    toast({ description: t('participants.emailChange.copied') });
+  } catch {
+    toast({ description: t('participants.emailChange.copyFailed') });
+  }
+};
 const onEmailChanged = (result: ParticipantEmailChangeResult) => {
   if (!result.changed) return;
   localParticipant.value.email = result.participant.email;
@@ -791,23 +805,36 @@ const calculateAge = (birthDate: string | Date) => {
             <!-- Email: global identity, shown read-only with its own audited
                  door (D1/D7). Outside the columnsToEdit gate on purpose: the
                  generic edit never carries email (ParticipantList already
-                 excluded it), but the address must stay visible. -->
-            <div v-if="key === 'email'" class="flex items-center gap-2">
+                 excluded it), but the address must stay visible. Copy is open
+                 to anyone who can see the field; the pencil (correction) stays
+                 behind participant:identity:update. -->
+            <div v-if="key === 'email'" class="flex items-center gap-1.5">
               <Input
                 :id="key"
                 :model-value="localParticipant[key]"
                 disabled
-                class="w-full"
+                class="w-full flex-1 min-w-0"
               />
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                class="shrink-0 h-8 w-8 text-gray-500 hover:text-gray-700"
+                :aria-label="t('participants.emailChange.copy')"
+                @click="copyEmail"
+              >
+                <Copy class="h-4 w-4" />
+              </Button>
               <Button
                 v-if="canCorrectEmail"
                 type="button"
-                variant="outline"
-                size="sm"
-                class="shrink-0"
+                variant="ghost"
+                size="icon"
+                class="shrink-0 h-8 w-8 text-gray-500 hover:text-blue-600 hover:bg-blue-50"
+                :aria-label="t('participants.emailChange.openButton')"
                 @click="emailDialogOpen = true"
               >
-                {{ t('participants.emailChange.openButton') }}
+                <Pencil class="h-4 w-4" />
               </Button>
               <ParticipantEmailChangeDialog
                 :open="emailDialogOpen"

@@ -10,8 +10,12 @@ Spec SDD: `specs/participant-email-change/` (aprobada 2026-10-19, D1-D7).
 ## Dónde está
 
 Ficha del participante (`ParticipantList` → editar) → grupo **Contacto** → campo Correo
-Electrónico: read-only + botón **"Corregir correo"**. El botón solo aparece con el permiso
-`participant:identity:update` (superadmin y admin).
+Electrónico: read-only con **dos botones de ícono** a la derecha:
+
+- **Copiar** (siempre visible): copia el correo al portapapeles y lo confirma con un toast.
+  No pide permiso — la dirección ya está a la vista.
+- **Corregir** (lápiz): abre el diálogo de corrección. Solo aparece con el permiso
+  `participant:identity:update` (superadmin y admin).
 
 Antes de esta feature el campo no era editable: `formColumnsToEdit` ya excluía `email` de la
 edición genérica y el form lo mostraba como texto read-only, sin input ni botón.

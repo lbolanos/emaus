@@ -1008,6 +1008,9 @@
     },
     "emailChange": {
       "openButton": "Correct email",
+      "copy": "Copy email",
+      "copied": "Email copied",
+      "copyFailed": "Could not copy the email",
       "title": "Correct email",
       "description": "Email is the participant's identity: changing it relinks their account, clears community aliases and renews pending messages.",
       "current": "Current email",

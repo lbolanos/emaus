@@ -128,3 +128,16 @@ regeneración por retiro completo en vez de solo el participant — aceptado exp
 D6; el gate de cónyuges vs el índice único pueden discrepar en géneros no seteados — caso de
 borde que termina en 409 seguro, no en corrupción; `ChangeParticipantEmailBody` exportado sin
 consumidor — convención del paquete.
+
+## Post-cierre — feedback de UI del demo (2026-10-19)
+
+En la prueba con el dev server (worktree, 5174) el campo de correo con el botón «Corregir
+correo» con texto apretaba la dirección. Cambio a dos botones de ícono `ghost`:
+
+- **Copiar** (`Copy`), sin permiso: `navigator.clipboard.writeText` + toast; el fallo del
+  clipboard también avisa (el clic fue explícito).
+- **Corregir** (`Pencil`), con el mismo gate `participant:identity:update`; `aria-label`
+  reusa `emailChange.openButton`.
+
+Tests del form: describe de email 3 → 4 (copiar al clipboard + toast; el gate del lápiz por
+`aria-label`, no por texto). Spec: punto 8 de la Reconciliación.

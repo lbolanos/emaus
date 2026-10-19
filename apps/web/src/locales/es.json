@@ -1063,6 +1063,9 @@
     },
     "emailChange": {
       "openButton": "Corregir correo",
+      "copy": "Copiar correo",
+      "copied": "Correo copiado",
+      "copyFailed": "No se pudo copiar el correo",
       "title": "Corregir correo",
       "description": "El correo es la identidad de la ficha: cambiarlo re-vincula su cuenta, limpia los alias de comunidad y renueva los mensajes pendientes.",
       "current": "Correo actual",

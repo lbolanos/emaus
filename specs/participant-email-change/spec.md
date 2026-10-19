@@ -74,7 +74,9 @@ la vía genérica para que las consecuencias no se salten).
   El update general **stripea** `email` en silencio (`delete body.email` en
   `participantController.updateParticipant`, mismo patrón que `scholarshipAmount` sin
   permiso); el self-update nunca lo incluyó (`SELF_UPDATE_ALLOWED_FIELDS`). El form general
-  muestra el correo read-only con botón "Corregir correo" que abre el diálogo dedicado.
+  muestra el correo read-only con dos botones de ícono: **copiar** (sin permiso — la dirección
+  ya está a la vista; clipboard + toast) y **corregir** (lápiz, con permiso) que abre el
+  diálogo dedicado.
   *Alternativa descartada* (en diseño): validar consecuencias dentro del update general — el
   cliente reenvía el DTO completo por spread y dispararía las validaciones sin intención; y
   mezcla dos contratos.
@@ -188,7 +190,9 @@ función. Lo que cambió respecto de la spec aprobada:
    texto read-only — la v1.0 describía un campo editable en la pestaña Contacto que no
    existía. M2 reemplaza ese texto por un `Input` disabled + botón «Corregir correo» en una
    rama propia, fuera del gate de `columnsToEdit`, para que la dirección siga visible aunque
-   el campo no sea editable. El vector de takeover era por API, no por UI.
+   el campo no sea editable. El vector de takeover era por API, no por UI. En el demo del
+   mismo día el botón con texto apretaba el correo: quedó como dos botones de ícono
+   (copiar, siempre; lápiz para corregir, con permiso).
 3. **D3 — el orden de evaluación se fijó**: la excepción cónyuge se evalúa **primero** (la
    v1.0 la mencionaba dentro del índice pero sin orden), y se añadió el manejo de la carrera
    contra el índice único (409 `EMAIL_UNIQUE_VIOLATION` sin efectos colaterales).
@@ -207,6 +211,12 @@ función. Lo que cambió respecto de la spec aprobada:
    despachar del participant (`pending`/`processing`/`queued`); y `spouseShareRetreats`
    quedó deduplicado por retiro. Las participaciones se cargan una sola vez, antes de la
    rama de colisión.
+8. **Feedback de UI del demo (mismo día)**: el botón «Corregir correo» con texto apretaba el
+   campo y el correo se veía mal. El bloque pasó a dos botones de ícono `ghost` (patrón del
+   lápiz de `ParticipantList`): **copiar** sin gate de permiso (clipboard + toast de
+   confirmación, tolerancia al fallo del clipboard como `WhatsAppSendQueue` pero avisando,
+   porque el clic fue explícito) y **corregir** (`Pencil`) con `aria-label` y el mismo gate
+   `canCorrectEmail`. Keys nuevas `emailChange.copy/copied/copyFailed` en es/en.
 
 Desviaciones menores registradas por milestone en `tasks.md` (tests de auditoría con el
 mock del service en vez de `awaitAuditRow`; self-update verificado por inspección;
