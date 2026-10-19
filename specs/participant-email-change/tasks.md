@@ -80,5 +80,18 @@ los archivos de fuente limpio.
 
 ## M3 — Cierre
 
-- [ ] `docs/features/participant-email-change.md`
-- [ ] Reconciliación retroactiva del spec + desviaciones por milestone
+- [x] `docs/features/participant-email-change.md`
+- [x] Reconciliación retroactiva del spec + desviaciones por milestone
+
+**Done**: 2026-10-19. Doc de feature en el formato de `docs/features/` (propósito, dónde
+vive, contrato, permisos, riesgo cerrado, tests). Spec reescrito en modo retroactivo →
+**v1.1** (regla de la skill `especificaciones`): estado "implementada y reconciliada"
+contra 67205b48/c6029a66, D1-D7 en as-built, sección "Reconciliación 2026-10-19" con los
+seis deltas contra la v1.0.
+
+### Desviaciones 2026-10-19
+
+- Ninguna nueva: los deltas de la reconciliación ya estaban registrados como desviaciones de
+  M1/M2. El spec v1.1 los absorbe (D2 sin Coordinator, `contextRetreatId` aditivo, orden de
+  D3 con la raza del índice, gate TZ-aware de D6, zod compartido de D7, email fuera del gate
+  de `columnsToEdit`).

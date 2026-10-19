@@ -1,7 +1,10 @@
 # Spec: corrección del correo de un participante por el administrador del retiro
 
-> SDD spec — versión 1.0 (2026-10-19). Estado: **aprobado por Leonardo el 2026-10-19**, D1-D7
-> tal como están (D2 con Coordinator incluido). Gate de M0 cerrado: se puede empezar M1.
+> SDD spec — versión 1.1 (2026-10-19). Estado: **implementada y reconciliada** contra
+> 67205b48 (M1, API) y c6029a66 (M2, web) en `worktree-participant-email-change`.
+> La v1.0 fue aprobada por Leonardo el 2026-10-19 (D1-D7); esta versión reescribe las
+> decisiones en modo retroactivo — lo que dice es lo que está construido. Los deltas contra
+> la v1.0 están en "Reconciliación 2026-10-19", al final.
 
 **Branch**: `worktree-participant-email-change` · **Fecha**: 2026-10-19
 
@@ -16,32 +19,34 @@ angelitos, avisos) le escribe a quien no es, o a nadie.
 
 El problema ya está reconocido a medias: el importador de Excel detecta el "correo prestado" y se
 niega a sobrescribir la ficha (`importEmailReuse.isImportNameConflict`). Pero una vez que la fila
-mala **ya entró** (por import, por registro público o por alta manual), no hay vía para
-corregirla con lo que conlleva. Y lo que existe hoy es una trampa:
+mala **ya entró** (por import, por registro público o por alta manual), no había vía para
+corregirla con lo que conlleva. Y lo que existía era una trampa:
 
-1. **El correo ya es editable** — el PATCH general (`participantController.updateParticipant`,
-   permiso `participant:update`) acepta `email`, lo normaliza y lo persiste
-   (`participantService.updateParticipant` lo deja caer en `personalData`). El form de edición lo
-   muestra en la pestaña Contacto. Parece que se puede… pero:
-2. **No valida ninguna consecuencia.** Un correo que ya usa otra ficha (en este u otro retiro)
-   se acepta sin aviso — dentro del retiro con el mismo género revienta con el error crudo del
-   índice único; fuera del retiro pasa en silencio y **siembra el bug de identidad global**: el
-   próximo registro/import con ese correo reutiliza "la ficha más reciente" y sobrescribe a una
-   de las dos personas (`findParticipantByEmail`).
-3. **No re-vincula la cuenta de usuario** ni limpia el **overlay de comunidad**
-   (`community_member.email` gana sobre el participant: si quedó con el correo malo, la comunidad
-   sigue escribiendo al correo viejo aunque la ficha ya esté corregida).
-4. **No renueva la cola de mensajes**: `scheduledMessage` congela `resolvedContact` (con el
-   correo) al encolar. Los pendientes siguen saliendo al correo viejo. El remedio existe pero es
-   manual (`regenerate-queue` por retiro).
-5. **No deja traza**: el update general no emite evento de auditoría de dominio.
+1. **El correo era editable por API.** El update general
+   (`participantController.updateParticipant`, permiso `participant:update`) aceptaba `email`,
+   lo normalizaba y lo persistía (`participantService.updateParticipant` lo dejaba caer en
+   `personalData`). El form de edición ni siquiera mostraba el campo — `formColumnsToEdit`
+   (`ParticipantList`) ya excluía `email` en `nonEditableSystemKeys`, así que pintaba la
+   etiqueta sin input — pero el DTO viajaba igual por cualquier cliente con el permiso.
+2. **No validaba ninguna consecuencia.** Un correo que ya usa otra ficha (en este u otro
+   retiro) se aceptaba sin aviso — dentro del retiro con el mismo género revienta con el error
+   crudo del índice único; fuera del retiro pasa en silencio y **siembra el bug de identidad
+   global**: el próximo registro/import con ese correo reutiliza "la ficha más reciente" y
+   sobrescribe a una de las dos personas (`findParticipantByEmail`).
+3. **No re-vinculaba la cuenta de usuario** ni limpiaba el **overlay de comunidad**
+   (`community_member.email` gana sobre el participant: si quedó con el correo malo, la
+   comunidad sigue escribiendo al correo viejo aunque la ficha esté corregida).
+4. **No renovaba la cola de mensajes**: `scheduledMessage` congela `resolvedContact` (con el
+   correo) al encolar. Los pendientes siguen saliendo al correo viejo. El remedio existía pero
+   era manual (`regenerate-queue` por retiro).
+5. **No dejaba traza**: el update general no emite evento de auditoría de dominio.
 
 ## Objetivo
 
 Que el administrador del retiro corrija el correo de un participante **por una vía única y
 explícita**, que: valida colisiones contra otras fichas, limpia los overlays de comunidad que
 quedaron con el correo viejo, renueva la cola de mensajes pendientes de los retiros activos, y
-deja auditoría con hash del correo nuevo. El PATCH general deja de aceptar `email` (se quita de
+deja auditoría con hash de los correos. El update general deja de aceptar `email` (se quita de
 la vía genérica para que las consecuencias no se salten).
 
 ## Historias de usuario
@@ -58,42 +63,77 @@ la vía genérica para que las consecuencias no se salten).
 5. Como servidor del equipo de mensajes, los pendientes de la cola salen al correo corregido sin
    regenerar a mano.
 
-## Decisiones de diseño (aprobadas 2026-10-19)
+## Decisiones de diseño (as-built)
 
-- **D1 — Vía única: endpoint dedicado.** `PATCH /api/participants/:id/email` con schema propio
-  (`{ email }`, `requiredEmailSchema`). El PATCH general **stripea** `email` en silencio (mismo
-  patrón que `scholarshipAmount` sin permiso), y el form general muestra el correo read-only con
-  botón "Corregir correo" que abre el diálogo dedicado. *Alternativa descartada*: validar
-  consecuencias dentro del update general — el cliente reenvía el DTO completo por spread y
-  dispararía las validaciones sin intención; y mezcla dos contratos.
-- **D2 — Quién puede: permiso dedicado `participant:identity:update`.** Heredado por Superadmin,
-  Admin **y Coordinator** (quien atiende inscripciones en la práctica). *Alternativa*: excluir
-  Coordinator (sube el listón del vector de takeover, pero la corrección diaria queda bloqueada
-  en quien no está viendo inscripciones).
-- **D3 — Colisiones: siempre rechazo, nunca fusión.** Contra `LOWER(email)`: (a) igual al correo
-  actual → no-op con aviso; (b) otra ficha en el mismo retiro y género → 409 con nombre de quién
-  lo tiene (el índice `UQ_participants_email_retreat` hoy lo revienta crudo); (c) otra ficha en
-  otro retiro → 409 con el mismo texto pedagógico del import (`importEmailReuse`): si el nombre
-  es de otra persona, "el correo ya es de X"; si parece la misma persona, sugerir el flujo de
-  fusión existente (`participantMergeService.previewMerge`) — dos fichas de la misma persona con
-  un correo compartido rompen el reuso global y eso se arregla fusionando, no re-correando.
-- **D4 — Cuenta de usuario: link solo si la ficha no tiene.** Si existe user con ese correo y
-  `participant.userId` es null → vincular (mismo criterio que el auto-link del alta). Si ya hay
-  vínculo → no se toca (`users.email` es identidad de login, fuera de alcance). Si existe user
-  con el correo VIEJO → avisar en la respuesta: esa cuenta quedó con un correo que no controla
-  su dueño; la corrección de `users.email` es flujo aparte.
+- **D1 — Vía única: endpoint dedicado.** `PATCH /api/participants/:id/email`
+  (`participantRoutes`, antes del update general) con schema propio
+  `changeParticipantEmailSchema` (`packages/types/src/index.ts`): body
+  `{ email, contextRetreatId? }` — el `contextRetreatId` opcional es aditivo respecto a la
+  v1.0 y alimenta el `retreatId` del evento de auditoría cuando la ficha no tiene uno fijo.
+  El update general **stripea** `email` en silencio (`delete body.email` en
+  `participantController.updateParticipant`, mismo patrón que `scholarshipAmount` sin
+  permiso); el self-update nunca lo incluyó (`SELF_UPDATE_ALLOWED_FIELDS`). El form general
+  muestra el correo read-only con botón "Corregir correo" que abre el diálogo dedicado.
+  *Alternativa descartada* (en diseño): validar consecuencias dentro del update general — el
+  cliente reenvía el DTO completo por spread y dispararía las validaciones sin intención; y
+  mezcla dos contratos.
+- **D2 — Quién puede: permiso dedicado `participant:identity:update`, concedido a superadmin y
+  admin.** La v1.0 decía "Admin y Coordinator"; **el rol Coordinator no existe en la base** —
+  los roles reales son globales (`superadmin`, `region_admin`, `regular`) y por retiro
+  (`admin`, `treasurer`, `logistics`, `communications`, `regular_server`). En la operación,
+  quien atiende inscripciones es `admin`, así que la concesión es **superadmin + admin**.
+  Migración data-only idempotente
+  (`20261019120000_AddParticipantIdentityUpdatePermission`), tolerante a roles ausentes. El
+  permiso también entró al catálogo del frontend (`apps/web/src/utils/permissions.ts`,
+  unión cerrada — sin eso el build falla).
+- **D3 — Colisiones: siempre rechazo, nunca fusión.** Orden de evaluación en
+  `changeParticipantEmail` (`participantService`):
+  1. Igual al correo actual (case-insensitive) → no-op (`changed: false`), sin auditoría.
+  2. **Excepción cónyuge primero**: comparten retiro y ambos tienen género set y distinto →
+     pasa (el índice `UQ_participants_email_retreat` lo permite), y el retiro queda reportado
+     en `spouseShareRetreats`.
+  3. Otra ficha con `LOWER(email)` igual y nombre de otra persona (`isImportNameConflict`) →
+     409 `EMAIL_OWNED_BY_OTHER` con el texto pedagógico del import: nombra al dueño y aclara
+     si está "inscrito en este retiro" o "registrado fuera de este retiro".
+  4. Otra ficha que parece la misma persona → 409 `EMAIL_OWNED_BY_SAME_PERSON` sugiriendo el
+     flujo de fusión existente (`participantMergeService`) — dos fichas de la misma persona
+     con un correo compartido rompen el reuso global y eso se arregla fusionando, no
+     re-correando.
+  5. Carrera contra el índice único en el save → 409 `EMAIL_UNIQUE_VIOLATION`, sin efectos
+     colaterales.
+- **D4 — Cuenta de usuario: link solo si la ficha no tiene.** Si existe user con ese correo
+  (mismo criterio que el auto-link del alta: `LOWER(email)`) y `participant.userId` es null →
+  vincular, con actualización recíproca de `users.participantId` tras el save. Si ya hay
+  vínculo → no se toca (`users.email` es identidad de login, fuera de alcance). Si existe
+  user con el correo VIEJO → `userWithOldEmail: true` en la respuesta: esa cuenta quedó con
+  un correo que no controla su dueño; la corrección de `users.email` es flujo aparte.
 - **D5 — Overlay de comunidad: limpiar los que apuntan al correo viejo.** Todas las filas de
-  `community_member` del participant cuyo `email` (overlay) sea el correo viejo quedan en `null`,
-  para que el fallback de `resolveMemberProfile` caiga al correo corregido. Va en el mismo
-  cambio y se reporta en la respuesta y la auditoría (`overlaysCleared`).
-- **D6 — Cola de mensajes: regenerar los retiros activos.** Tras el cambio, por cada retiro del
-  participant con `endDate` >= hoy, correr `regenerateQueuedForRetreat` (remedio existente, ya
-  auditado como `MESSAGE_SEQUENCE_REGENERATE_QUEUE`). *Alternativa descartada*: regeneración
-  selectiva por participante — código nuevo para lo que el por-retiro ya resuelve.
-- **D7 — Confirmación en UI: type-to-confirm.** Diálogo que pide teclear el correo nuevo dos
-  veces (o pegar + confirmar), muestra un resumen de consecuencias antes de aceptar y el
-  resultado detallado después. El correo es identidad: el doble tecleo evita repetir el error
-  original (dedo, autocomplete).
+  `community_member` del participant cuyo `email` overlay sea (lowercase) el correo viejo
+  quedan en `null`, para que el fallback de `resolveMemberProfile` caiga al correo corregido.
+  Va en el mismo cambio y se reporta en la respuesta y la auditoría (`overlaysCleared`).
+- **D6 — Cola de mensajes: regenerar los retiros activos.** Tras el cambio, por cada retiro
+  del participant que **no** esté cerrado según `messageSequenceService.isRetreatClosed`
+  (TZ-aware — no un simple `endDate >= hoy`), corre `regenerateQueuedForRetreat` (remedio
+  existente, ya auditado como `MESSAGE_SEQUENCE_REGENERATE_QUEUE`). Las fallas de la
+  regeneración se toleran (log + reporte `skipped`): la corrección no revienta por la cola.
+  *Alternativa descartada* (en diseño): regeneración selectiva por participante — código
+  nuevo para lo que el por-retiro ya resuelve.
+- **D7 — Confirmación en UI: type-to-confirm.** `ParticipantEmailChangeDialog.vue` pide
+  teclear el correo nuevo dos veces, muestra un resumen de consecuencias antes de aceptar y
+  el resultado detallado después (una línea por efecto, o "nada más tocó"). La validación
+  cliente reusa `changeParticipantEmailSchema.shape.body` (zod compartido con el server), así
+  el botón habilita exactamente lo que el API acepta; el 409 se muestra inline con el
+  mensaje del server. Montado desde el arranque y reseteado por watch de `open` (regla
+  `MessageDialog`); sin íconos lucide.
+
+## Contrato de la respuesta
+
+`{ participant: { id, email }, changed, effects }` con `effects = { userLinked,
+userWithOldEmail, overlaysCleared, queueRegenerated: [{ retreatId, regenerated, skipped }],
+spouseShareRetreats }`. El evento de auditoría
+(`DomainAuditAction.PARTICIPANT_EMAIL_CHANGE`) lleva `oldEmailHash`/`newEmailHash`
+(SHA-256 truncado a 12) — nunca el correo en claro, mismo criterio que
+`communityService.updateMemberProfile` — más los efectos.
 
 ## Fuera de alcance
 
@@ -108,13 +148,12 @@ la vía genérica para que las consecuencias no se salten).
 ## Riesgos y mitigaciones
 
 - **Account takeover por correo malicioso** (documentado en el skill `community-overlay`):
-  quien puede poner `participants.email` puede lograr que una cuenta nueva se auto-vinlucle a la
-  ficha (`authService.linkParticipantToExistingUser` busca por `LOWER(participant.email)`).
-  El vector **ya existe hoy** vía el PATCH general (D1 lo cierra al stripear el email).
-  Mitigaciones: permiso dedicado (D2), auditoría con hash del correo nuevo (patrón
-  `newEmailHash` del overlay), confirmación explícita (D7).
-- **PII en logs**: el evento de auditoría lleva `newEmailHash` (SHA-256 truncado), nunca el
-  correo en claro — mismo criterio que `communityService.updateMemberProfile`.
+  quien puede poner `participants.email` puede lograr que una cuenta nueva se auto-vincule a
+  la ficha (`authService.linkParticipantToExistingUser` busca por `LOWER(participant.email)`).
+  El vector existía vía el update general; D1 lo cierra (strip). Quedan como mitigaciones el
+  permiso dedicado (D2), la auditoría con hash y la confirmación explícita (D7).
+- **PII en logs**: el evento de auditoría lleva hashes truncados, nunca el correo en claro
+  (testeado explícitamente).
 - **Regeneración de cola ruidosa**: `regenerateQueuedForRetreat` toca todos los pendientes del
   retiro, no solo los del participante. Aceptado (D6): renueva snapshots contra plantilla
   vigente; el evento agregado ya existe.
@@ -122,7 +161,39 @@ la vía genérica para que las consecuencias no se salten).
 ## Puntos de extensión
 
 - Añadir consecuencias nuevas al cambio de correo → servicio dedicado
-  (`changeParticipantEmail`), una sola puerta: validación de colisión, link de cuenta, overlay,
-  cola, auditoría.
+  (`changeParticipantEmail`), una sola puerta: validación de colisión, link de cuenta,
+  overlay, cola, auditoría.
 - Otros campos de identidad (teléfono ya tiene su mini-editor `ParticipantQuickPhoneEditor`):
-  si algún día se les exigen consecuencias, mismo patrón de endpoint dedicado + strip del general.
+  si algún día se les exigen consecuencias, mismo patrón de endpoint dedicado + strip del
+  general.
+
+## Reconciliación 2026-10-19 (v1.0 → v1.1)
+
+Verificado leyendo el código de 67205b48 (API) y c6029a66 (web); anclas por archivo y
+función. Lo que cambió respecto de la spec aprobada:
+
+1. **D2 — Coordinator no existe.** La v1.0 concedía el permiso a "Admin y Coordinator"; el
+   rol Coordinator no está en la base de datos. Concesión real: superadmin + admin
+   (migración data-only). No se creó el rol: "administrador del retiro" ya es `admin`.
+2. **D1 — el schema ganó `contextRetreatId` opcional**, y el descubrimiento de que **el form
+   nunca mostró el campo email**: `formColumnsToEdit` ya lo excluía
+   (`nonEditableSystemKeys`), de modo que la v1.0 describía un campo editable en la pestaña
+   Contacto que en realidad pintaba etiqueta sin input. La rama de email del form se
+   renderiza FUERA del gate de `columnsToEdit` para que la dirección quede visible read-only
+   + botón aunque el campo no sea editable. El vector de takeover era por API, no por UI.
+3. **D3 — el orden de evaluación se fijó**: la excepción cónyuge se evalúa **primero** (la
+   v1.0 la mencionaba dentro del índice pero sin orden), y se añadió el manejo de la carrera
+   contra el índice único (409 `EMAIL_UNIQUE_VIOLATION` sin efectos colaterales).
+4. **D6 — el gate de "retiro activo" es `isRetreatClosed` (TZ-aware)**, no el
+   `endDate >= hoy` que la v1.0 esbozaba; y las fallas de regeneración se toleran en vez de
+   abortar la corrección.
+5. **D7 — la validación cliente reusa el schema zod del server** (en vez de una regex
+   propia), y el diálogo sigue las reglas de `MessageDialog` (montado desde arranque, sin
+   íconos lucide por el mock global de tests).
+6. **Nada de lo descartado en diseño se construyó** — correcto: la regeneración selectiva
+   por participante y la validación dentro del update general siguen descartadas por las
+   mismas razones.
+
+Desviaciones menores registradas por milestone en `tasks.md` (tests de auditoría con el
+mock del service en vez de `awaitAuditRow`; self-update verificado por inspección;
+`onParticipantPatched` ensanchado en `ParticipantList`).
