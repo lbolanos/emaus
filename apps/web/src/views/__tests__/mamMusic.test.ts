@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { musicLink } from '../mamMusic';
+import { musicLink, isPlayableMusicUrl } from '../mamMusic';
 
 // Rule D3 of specs/mam-canciones: only http(s) URLs render an anchor, with the
 // same regex the API applies in importSongsFromMam. Rule D2: the label is the
@@ -38,5 +38,25 @@ describe('musicLink', () => {
     expect(musicLink({ musicTrackUrl: '' })).toBeNull();
     expect(musicLink({ musicTrackUrl: null })).toBeNull();
     expect(musicLink({})).toBeNull();
+  });
+});
+
+// Same D3 rule, exposed for the edit modal's inline warning: only http(s)
+// counts as playable, so a song name typed in the URL field is flagged
+// before save instead of silently rendering no anchor.
+describe('isPlayableMusicUrl', () => {
+  it('accepts http and https, case-insensitive, with surrounding whitespace', () => {
+    expect(isPlayableMusicUrl('https://open.spotify.com/track/abc')).toBe(true);
+    expect(isPlayableMusicUrl('http://example.com/x')).toBe(true);
+    expect(isPlayableMusicUrl('HTTPS://example.com/x')).toBe(true);
+    expect(isPlayableMusicUrl('  https://example.com/x  ')).toBe(true);
+  });
+
+  it('rejects non-URL values, empties and whitespace', () => {
+    expect(isPlayableMusicUrl('Pretorio')).toBe(false);
+    expect(isPlayableMusicUrl('')).toBe(false);
+    expect(isPlayableMusicUrl('   ')).toBe(false);
+    expect(isPlayableMusicUrl(null)).toBe(false);
+    expect(isPlayableMusicUrl(undefined)).toBe(false);
   });
 });
