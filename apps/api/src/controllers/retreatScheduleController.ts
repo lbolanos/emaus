@@ -4,6 +4,7 @@ import {
 	ScheduleNotFoundError,
 } from '../services/retreatScheduleService';
 import { authorizationService } from '../middleware/authorization';
+import { assignmentDocumentsService } from '../services/assignmentDocumentsService';
 import { emitScheduleBell } from '../realtime';
 import { suggestForItems } from '../services/responsabilityMatcher';
 import { AppDataSource } from '../data-source';
@@ -215,6 +216,23 @@ export const dashboardStats = async (req: Request, res: Response) => {
 	try {
 		const r = await retreatScheduleService.dashboardStats(retreatId);
 		res.json(r);
+	} catch (err) {
+		mapError(res, err);
+	}
+};
+
+/**
+ * Momentos del Minuto a Minuto y documentos de cada servidor del retiro, para
+ * el briefing de tareas: `{ [participantId]: { moments, responsibilityDocuments, table } }`.
+ */
+export const assignmentDocuments = async (req: Request, res: Response) => {
+	const { retreatId } = req.params;
+	if (!(await checkRetreatAccess(req, retreatId))) {
+		return res.status(403).json({ message: 'Forbidden' });
+	}
+	try {
+		const byParticipant = await assignmentDocumentsService.forRetreat(retreatId);
+		res.json(Object.fromEntries(byParticipant));
 	} catch (err) {
 		mapError(res, err);
 	}

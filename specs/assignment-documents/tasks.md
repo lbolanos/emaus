@@ -59,10 +59,26 @@
 
 ## M3 — Servicio y endpoint de documentos por servidor
 
-- [ ] `assignmentDocumentsService.forRetreat` / `forParticipant` (D2, D3, D4, R6, R7)
-- [ ] `GET /api/schedule/retreats/:retreatId/assignment-documents` + verificación de acceso
-      por retiro
-- [ ] Tests del service (DB de test) y del controller (401/403 y acceso cruzado entre retiros)
+- [x] `assignmentDocumentsService.forRetreat` / `forParticipant` (D2, D3, D4, R6, R7)
+- [x] `GET /api/schedule/retreats/:retreatId/assignment-documents` + verificación de acceso
+      por retiro (`checkRetreatAccess` en el handler, el patrón del controller)
+- [x] Tipos compartidos en `packages/utils` (`AssignmentDocumentsData` y relacionados;
+      `AssignmentsData` los extiende como opcionales)
+- [x] Tests del service (DB de test, 5 casos) y del controller (403 sin leer, 200, 500)
+
+**Done**: 2026-10-19.
+
+### Desviaciones 2026-10-19
+
+- **La verificación de acceso va en el handler, no en la ruta.** Así lo hace todo
+  `retreatScheduleController` (`checkRetreatAccess`); `requirePermission` es global (junta los
+  roles de cualquier retiro) y no basta solo.
+- **`table` y `forTable` en los datos**: el bloque de la mesa (D5) necesita saber la mesa y el
+  rol del servidor y qué momentos le llegan por ser de mesa.
+- **Hallazgo previo, fuera de alcance**: los handlers por id de momento (`updateItem`,
+  `deleteItem`, `startItem`, `completeItem`, `shiftItem`) no verifican a qué retiro pertenece el
+  momento; con `schedule:manage` de cualquier retiro se pueden mutar momentos de otro. Reportado
+  a Leonardo para un fix aparte.
 
 ## M4 — Variables `{assignments.*}` nuevas
 

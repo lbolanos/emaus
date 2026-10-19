@@ -1380,13 +1380,58 @@ export interface AssignmentTeamData {
 }
 
 /**
+ * Un documento con link que se puede abrir desde el celular (S3). `label` es
+ * la descripción del adjunto o, si no tiene, su nombre de archivo sin extensión.
+ */
+export interface AssignmentDocumentData {
+	label: string;
+	url: string;
+}
+
+/**
+ * Un momento del Minuto a Minuto que le toca al servidor, con día y hora ya
+ * formateados en la zona del retiro. `forTable` = le llega por ser líder o
+ * colíder de mesa (dinámicas de oración), no por ser responsable del momento.
+ */
+export interface AssignmentMomentData {
+	dayLabel: string;
+	time: string;
+	name: string;
+	documents: AssignmentDocumentData[];
+	forTable?: boolean;
+}
+
+/** Documentos de una responsabilidad del servidor que no pasa por ningún momento. */
+export interface AssignmentResponsibilityDocumentsData {
+	name: string;
+	documents: AssignmentDocumentData[];
+}
+
+/** La mesa del servidor, para encabezar el bloque de dinámicas de mesa. */
+export interface AssignmentTableData {
+	name: string;
+	role: string;
+}
+
+/**
+ * Momentos y documentos de un servidor (specs/assignment-documents). Lo calcula
+ * el API (`assignmentDocumentsService`) para los tres caminos de resolución.
+ */
+export interface AssignmentDocumentsData {
+	moments: AssignmentMomentData[];
+	responsibilityDocuments: AssignmentResponsibilityDocumentsData[];
+	table?: AssignmentTableData | null;
+}
+
+/**
  * Variables del scope `assignments.*`: las tareas de un servidor en el retiro
  * (responsabilidades + equipos de servicio), para el briefing que se le envía
  * por WhatsApp desde la vista de Responsabilidades. Igual que `table.*`, es
  * contextual: lo arma el caller (web o motor de secuencias) que ya consultó
- * las filas y este módulo solo formatea.
+ * las filas y este módulo solo formatea. Los momentos y documentos son
+ * opcionales: sin ellos, las variables de documentos salen vacías.
  */
-export interface AssignmentsData {
+export interface AssignmentsData extends Partial<AssignmentDocumentsData> {
 	responsibilities: AssignmentResponsibilityData[];
 	teams: AssignmentTeamData[];
 }

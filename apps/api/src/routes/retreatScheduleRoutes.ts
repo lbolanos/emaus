@@ -19,6 +19,7 @@ import {
 	canonicalResponsabilities,
 	publicGetSchedule,
 	downloadRetreatBundle,
+	assignmentDocuments,
 } from '../controllers/retreatScheduleController';
 import { isAuthenticated } from '../middleware/isAuthenticated';
 import { requirePermission } from '../middleware/authorization';
@@ -53,6 +54,11 @@ router.get(
 	'/retreats/:retreatId/dashboard',
 	requirePermission('schedule:read'),
 	dashboardStats,
+);
+router.get(
+	'/retreats/:retreatId/assignment-documents',
+	requirePermission('schedule:read'),
+	assignmentDocuments,
 );
 router.post(
 	'/retreats/:retreatId/items',
