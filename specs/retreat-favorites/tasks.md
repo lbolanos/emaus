@@ -66,13 +66,18 @@ búsqueda con expansión forzada intactos.
 
 ## M3 — Favoritos en el sidebar
 
-- [ ] `favoriteRetreatsStore.ts` (load / toggle optimista / rollback + toast)
-- [ ] `services/api.ts`: tipo de `updateUserProfile` + `favoriteRetreatIds`
-- [ ] `Sidebar.vue`: estrella (expandido + rail) y chips (join con `retreatStore.retreats`,
+- [x] `favoriteRetreatsStore.ts` (load / toggle optimista / rollback + toast)
+- [x] `services/api.ts`: tipo de `updateUserProfile` + `favoriteRetreatIds`
+- [x] `Sidebar.vue`: estrella (expandido + rail) y chips (join con `retreatStore.retreats`,
       huérfanos ocultos, `selectRetreat` al clic)
-- [ ] i18n es **y** en (4 keys)
-- [ ] Tests: store nuevo; `Sidebar.test.ts` con mocks ampliados (`Star`, funciones del service);
+- [x] i18n es **y** en (4 keys)
+- [x] Tests: store nuevo; `Sidebar.test.ts` con mocks ampliados (`Star`, funciones del service);
       chips huérfanos; estrella conmuta/llama PUT
+
+**Done**: 2026-10-19 — 49/49 tests (store 7, Sidebar 42); `vue-tsc` 0 errores. En vivo contra el
+dev del worktree: los favoritos sembrados por API en la demo del M1 aparecen como chips (persistencia
+de punta a punta), clic de chip cambia el retiro seleccionado y navega, estrella quita/repone con
+PUT real.
 
 **Gate**: commit `feat(web): favorite retreat star and quick-jump chips` (con OK).
 

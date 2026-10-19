@@ -3,7 +3,7 @@ import { mount, VueWrapper, flushPromises } from '@vue/test-utils';
 import { nextTick } from 'vue';
 import { createPinia, setActivePinia } from 'pinia';
 import Sidebar from '../layout/Sidebar.vue';
-import { api } from '@/services/api';
+import { api, getUserProfile, updateUserProfile } from '@/services/api';
 import {
 	createTestWrapper,
 	createMockUser,
@@ -69,6 +69,8 @@ vi.mock('@/services/api', () => ({
 		put: vi.fn(() => Promise.resolve(mockApiResponse)),
 		delete: vi.fn(() => Promise.resolve(mockApiResponse)),
 	},
+	getUserProfile: vi.fn(() => Promise.resolve({ favoriteRetreatIds: [] })),
+	updateUserProfile: vi.fn(() => Promise.resolve({})),
 }));
 
 // Mock vue-router
@@ -177,6 +179,7 @@ vi.mock('lucide-vue-next', () => ({
 	User: { template: '<div data-icon="User" />' },
 	Languages: { template: '<div data-icon="Languages" />' },
 	DoorOpen: { template: '<div data-icon="DoorOpen" />' },
+	Star: { template: '<div data-icon="Star" />' },
 }));
 
 // Mock the composables
@@ -696,6 +699,99 @@ describe('Sidebar Component', () => {
 			expect(persisted.logistics).toBe(true);
 
 			regressionWrapper.unmount();
+		});
+	});
+
+	describe('Favorite retreats (star + quick-jump chips)', () => {
+		// Mounts a sidebar with two retreats and a favorites profile.
+		const mountWithFavorites = async (favoriteRetreatIds: string[]) => {
+			const testPinia = createPinia();
+			setActivePinia(testPinia);
+
+			const { useRetreatStore: useRetreatStoreImport } = await import('@/stores/retreatStore');
+			const retreatStore = useRetreatStoreImport();
+			const retreats = [
+				createMockRetreat({ parish: 'Buen Despacho' }),
+				createMockRetreat({ id: 'other-retreat-id', parish: 'San Agustín' }),
+			];
+			retreatStore.retreats = retreats as any;
+			retreatStore.selectRetreat('test-retreat-id');
+
+			// onMounted fetchRetreats() would otherwise replace the list with []
+			// (same trap the domain-audit tests handle).
+			vi.mocked(api.get).mockImplementation(((url: string) =>
+				Promise.resolve(url === '/retreats' ? { data: retreats } : mockApiResponse)) as any);
+			vi.mocked(getUserProfile).mockResolvedValue({ favoriteRetreatIds } as any);
+
+			const w = createTestWrapper(Sidebar, {
+				pinia: testPinia,
+				global: { mocks: { $t: (key: string) => key } },
+			});
+			// The favorites load runs from onMounted.
+			await flushPromises();
+			return w;
+		};
+
+		afterEach(() => {
+			// clearAllMocks (outer afterEach) keeps implementations: restore the
+			// defaults so they do not leak into other tests.
+			vi.mocked(api.get).mockImplementation(() => Promise.resolve(mockApiResponse) as any);
+			vi.mocked(getUserProfile).mockResolvedValue({ favoriteRetreatIds: [] } as any);
+		});
+
+		it('renders one chip per existing favorite and hides orphan ids', async () => {
+			const w = await mountWithFavorites(['test-retreat-id', 'orphan-id']);
+
+			const chips = w.findAll('[data-testid="favorite-retreat-chip"]');
+			expect(chips).toHaveLength(1);
+			expect(chips[0].text()).toContain('Buen Despacho');
+
+			w.unmount();
+		});
+
+		it('highlights the chip of the selected retreat', async () => {
+			const w = await mountWithFavorites(['test-retreat-id', 'other-retreat-id']);
+
+			const chips = w.findAll('[data-testid="favorite-retreat-chip"]');
+			expect(chips).toHaveLength(2);
+			expect(chips[0].classes()).toContain('ring-amber-400');
+			expect(chips[1].classes()).not.toContain('ring-amber-400');
+
+			w.unmount();
+		});
+
+		it('clicking a chip selects that retreat', async () => {
+			const w = await mountWithFavorites(['test-retreat-id', 'other-retreat-id']);
+
+			const chips = w.findAll('[data-testid="favorite-retreat-chip"]');
+			await chips[1].trigger('click');
+
+			const { useRetreatStore: useRetreatStoreImport } = await import('@/stores/retreatStore');
+			expect(useRetreatStoreImport().selectedRetreatId).toBe('other-retreat-id');
+
+			w.unmount();
+		});
+
+		it('star click marks the selected retreat and persists via PUT', async () => {
+			const w = await mountWithFavorites([]);
+
+			await w.find('[data-testid="favorite-retreat-star"]').trigger('click');
+
+			expect(updateUserProfile).toHaveBeenCalledWith({
+				favoriteRetreatIds: ['test-retreat-id'],
+			});
+
+			w.unmount();
+		});
+
+		it('star click on a favorite removes it', async () => {
+			const w = await mountWithFavorites(['test-retreat-id']);
+
+			await w.find('[data-testid="favorite-retreat-star"]').trigger('click');
+
+			expect(updateUserProfile).toHaveBeenCalledWith({ favoriteRetreatIds: [] });
+
+			w.unmount();
 		});
 	});
 

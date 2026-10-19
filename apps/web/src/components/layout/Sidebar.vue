@@ -267,6 +267,26 @@
                       </TooltipTrigger>
                       <TooltipContent>{{ $t('common.delete') }}</TooltipContent>
                     </Tooltip>
+                    <!-- Favorite toggle: personal preference, no RBAC -->
+                    <Tooltip v-if="retreatStore.selectedRetreatId">
+                      <TooltipTrigger as-child>
+                        <Button
+                          @click="favoriteRetreatsStore.toggleFavorite(retreatStore.selectedRetreatId)"
+                          variant="outline"
+                          size="icon"
+                          :aria-label="isSelectedRetreatFavorite ? $t('sidebar.unmarkFavorite') : $t('sidebar.markAsFavorite')"
+                          :aria-pressed="isSelectedRetreatFavorite"
+                          class="h-8 w-8 border-gray-600 text-gray-300 hover:text-white hover:bg-gray-700"
+                          data-testid="favorite-retreat-star"
+                        >
+                          <Star
+                            class="w-4 h-4"
+                            :class="isSelectedRetreatFavorite ? 'fill-amber-400 text-amber-400' : 'text-gray-300'"
+                          />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>{{ isSelectedRetreatFavorite ? $t('sidebar.unmarkFavorite') : $t('sidebar.markAsFavorite') }}</TooltipContent>
+                    </Tooltip>
                   </TooltipProvider>
                   <!-- Fecha de inicio del retiro seleccionado (junto a los botones) -->
                   <span
@@ -286,6 +306,56 @@
                   Updating permissions...
                 </div>
               </div>
+            </div>
+
+            <!-- Favorite retreat quick-jump chips (hidden in rail mode) -->
+            <div
+              v-if="!isCollapsedView && favoriteRetreatChips.length > 0"
+              class="flex gap-1.5 overflow-x-auto px-4 pb-1 mb-1"
+              :aria-label="$t('sidebar.favoriteRetreats')"
+            >
+              <button
+                v-for="chip in favoriteRetreatChips"
+                :key="chip.id"
+                type="button"
+                @click="retreatStore.selectRetreat(chip.id)"
+                class="flex-shrink-0 inline-flex items-center min-h-[40px] px-3 rounded-full text-xs whitespace-nowrap border transition-colors"
+                :class="chip.id === retreatStore.selectedRetreatId
+                  ? 'border-amber-400 text-amber-300 bg-amber-400/10 ring-1 ring-amber-400'
+                  : 'border-gray-600 text-gray-300 hover:text-white hover:bg-gray-700'"
+                :aria-current="chip.id === retreatStore.selectedRetreatId ? 'true' : undefined"
+                data-testid="favorite-retreat-chip"
+              >
+                {{ chip.label }}
+              </button>
+            </div>
+
+            <!-- Favorite star in rail mode: standalone icon under the Retiro header -->
+            <div
+              v-if="isCollapsedView && retreatStore.selectedRetreatId"
+              class="flex justify-center pb-1"
+            >
+              <TooltipProvider :delay-duration="100">
+                <Tooltip>
+                  <TooltipTrigger as-child>
+                    <button
+                      @click="favoriteRetreatsStore.toggleFavorite(retreatStore.selectedRetreatId)"
+                      class="p-2 rounded hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                      :aria-label="isSelectedRetreatFavorite ? $t('sidebar.unmarkFavorite') : $t('sidebar.markAsFavorite')"
+                      :aria-pressed="isSelectedRetreatFavorite"
+                      data-testid="favorite-retreat-star-rail"
+                    >
+                      <Star
+                        class="w-5 h-5"
+                        :class="isSelectedRetreatFavorite ? 'fill-amber-400 text-amber-400' : 'text-gray-300'"
+                      />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="right">
+                    {{ isSelectedRetreatFavorite ? $t('sidebar.unmarkFavorite') : $t('sidebar.markAsFavorite') }}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </div>
 
             <!-- Retreat sub-sections -->
@@ -369,7 +439,7 @@
 <script setup lang="ts">
 import { storeToRefs } from 'pinia';
 import { ref, computed, nextTick, onMounted, watch } from 'vue';
-import { LogOut, Users, UtensilsCrossed, LayoutDashboard, ChevronLeft, Home, Ban, Bed, HandHeart, DollarSign, NotebookPen, Building, UsersRound, Salad, FileX, UserCheck, ShoppingBag, Pill, Shirt, UserCog, Table, Settings, Package, Globe, Briefcase, Search, X, ArrowRight, ChevronDown, Lock, CreditCard, Activity, KeyRound, Heart, UserPlus, UserCircle, MessageSquare, Clock, ClipboardList, BookOpen, Plus, Edit as EditIcon, HelpCircle, Cross, User as UserIcon, Languages, DoorOpen, Trash2 } from 'lucide-vue-next';
+import { LogOut, Users, UtensilsCrossed, LayoutDashboard, ChevronLeft, Home, Ban, Bed, HandHeart, DollarSign, NotebookPen, Building, UsersRound, Salad, FileX, UserCheck, ShoppingBag, Pill, Shirt, UserCog, Table, Settings, Package, Globe, Briefcase, Search, X, ArrowRight, ChevronDown, Lock, CreditCard, Activity, KeyRound, Heart, UserPlus, UserCircle, MessageSquare, Clock, ClipboardList, BookOpen, Plus, Edit as EditIcon, HelpCircle, Cross, User as UserIcon, Languages, DoorOpen, Trash2, Star } from 'lucide-vue-next';
 import { useAuthStore } from '@/stores/authStore';
 import { useReceptionStore } from '@/stores/receptionStore';
 import { useRouter, useRoute } from 'vue-router';
@@ -396,6 +466,7 @@ import {
   DropdownMenuTrigger,
 } from '@repo/ui';
 import { useRetreatStore } from '@/stores/retreatStore';
+import { useFavoriteRetreatsStore } from '@/stores/favoriteRetreatsStore';
 import { useParticipantStore } from '@/stores/participantStore';
 import { useUIStore } from '@/stores/ui';
 import { useAuthPermissions } from '@/composables/useAuthPermissions';
@@ -442,6 +513,7 @@ const auth = useAuthStore();
 const authStore = useAuthStore();
 const router = useRouter();
 const retreatStore = useRetreatStore();
+const favoriteRetreatsStore = useFavoriteRetreatsStore();
 const communityStore = useCommunityStore();
 const uiStore = useUIStore();
 const receptionStore = useReceptionStore();
@@ -538,6 +610,23 @@ const selectedRetreatStartDate = computed(() => {
 	const r = retreatStore.selectedRetreat;
 	return r?.startDate ? formatDate(r.startDate) : '';
 });
+
+// Quick-jump chips for favorite retreats, in profile order. Orphan ids (a
+// retreat no longer in retreatStore.retreats) are hidden but kept in the
+// profile, so they come back if the retreat is listed again.
+const favoriteRetreatChips = computed(() => {
+	const byId = new Map(retreatStore.retreats.map((r) => [r.id, r]));
+	return favoriteRetreatsStore.favoriteIds.flatMap((id) => {
+		const retreat = byId.get(id);
+		return retreat
+			? [{ id: retreat.id, label: `${retreat.parish} - ${formatDate(retreat.startDate)}` }]
+			: [];
+	});
+});
+
+const isSelectedRetreatFavorite = computed(() =>
+	!!retreatStore.selectedRetreatId && favoriteRetreatsStore.isFavorite(retreatStore.selectedRetreatId),
+);
 
 // Puede borrar el retiro seleccionado: superadmin siempre; admin solo si lo creó.
 // El backend valida la matriz real (403/409); esto controla la visibilidad.
@@ -1391,6 +1480,10 @@ watch(isSidebarCollapsed, (isCollapsed) => {
 
 onMounted(() => {
   uiStore.initSidebarAccordion(menuSections.map(section => section.category));
+
+  // Favorite retreat chips (background load; the sidebar renders fine
+  // without them if the profile request fails).
+  favoriteRetreatsStore.load();
 
   // Fetch retreats (moved from Header)
   retreatStore.fetchRetreats();
