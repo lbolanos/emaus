@@ -155,23 +155,23 @@
                   <Loader2 v-else class="mr-2 h-4 w-4 animate-spin" />
                   {{ isExporting ? $t('tables.exporting') : $t('tables.exportDocx') }}
                 </DropdownMenuItem>
-                <DropdownMenuItem @click="handlePrintTables">
+                <DropdownMenuItem @select="deferOpen(handlePrintTables)">
                   <Printer class="mr-2 h-4 w-4" />
                   {{ $t('tables.printTables') }}
                 </DropdownMenuItem>
-                <DropdownMenuItem @click="handlePrintTablesSimple">
+                <DropdownMenuItem @select="deferOpen(handlePrintTablesSimple)">
                   <Printer class="mr-2 h-4 w-4" />
                   {{ $t('tables.printTablesSimple') }}
                 </DropdownMenuItem>
-                <DropdownMenuItem @click="handlePrintTablesContacts">
+                <DropdownMenuItem @select="deferOpen(handlePrintTablesContacts)">
                   <Printer class="mr-2 h-4 w-4" />
                   {{ $t('tables.printTablesContacts') }}
                 </DropdownMenuItem>
-                <DropdownMenuItem @click="handlePrintTablesContactsPerParticipant">
+                <DropdownMenuItem @select="deferOpen(handlePrintTablesContactsPerParticipant)">
                   <Printer class="mr-2 h-4 w-4" />
                   {{ $t('tables.printTablesContactsPerParticipant') }}
                 </DropdownMenuItem>
-                <DropdownMenuItem @click="handlePrintWalkerContactsVerification">
+                <DropdownMenuItem @select="deferOpen(handlePrintWalkerContactsVerification)">
                   <Printer class="mr-2 h-4 w-4" />
                   {{ $t('tables.printWalkerContactsVerification') }}
                 </DropdownMenuItem>
@@ -570,6 +570,7 @@ import MessageDialog from '@/components/MessageDialog.vue';
 import LotteryCardsDialog from '@/components/LotteryCardsDialog.vue';
 import TablesHelpDialog from '@/components/TablesHelpDialog.vue';
 import { useParticipantMessageDialog } from '@/composables/useParticipantMessageDialog';
+import { useRekaDialogFix } from '@/composables/useRekaDialogFix';
 import { useToast } from '@repo/ui';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from '@repo/ui';
 import { ChevronLeft, ChevronRight, Download, HelpCircle, LayoutGrid, Loader2, MoreVertical, Plus, Printer, RefreshCw, Scissors, Send, Trash2, TrendingUp, UserX, X } from 'lucide-vue-next';
@@ -641,6 +642,9 @@ const {
 } = useParticipantMessageDialog();
 const { toast } = useToast();
 const { t } = useI18n();
+// The print items in the ⋮ menu call window.print as the menu closes; without
+// the deferral reka-ui leaves pointer-events:none on <body> and the page freezes.
+const { deferOpen } = useRekaDialogFix();
 
 // --- Enviar briefing a todos los líderes (consolidado a nivel retiro) ---
 const leadersBriefingOpen = ref(false);

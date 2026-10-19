@@ -107,8 +107,18 @@ grep -l 'useRekaDialogFix' apps/web/src/
 - 2026-05-14 — `InventoryView.vue`: historial y delete congelaban UI.
 - 2026-05-14 — `HouseBedMap.vue`: bulkDeleteBeds, bulkChangeType, startEditFloorLabel, openChangeSector.
 - 2026-05-14 — `BedAssignmentsView.vue`: isAutoAssignDialogOpen, isClearAssignmentsDialogOpen.
+- 2026-10-19 — `ParticipantList.vue` (7 ítems: bulk mensaje/edición/delete, columnas, importar, exportar, imprimir), `TablesView.vue` (5 ítems de impresión), `ResponsabilitiesView.vue` (imprimir e imprimir-doc), `ServiceTeamsView.vue` (imprimir).
 
-**Tests del composable**: `apps/web/src/composables/__tests__/useRekaDialogFix.test.ts` (9 tests). Nota: happy-dom tiene un quirk donde `style.foo = ''` envenena la propiedad para reasignaciones posteriores en el mismo describe — los tests usan spies sobre `setInterval`/`removeAttribute` en lugar de leer back styles para evitarlo.
+**`window.print` desde el menú congela igual que un Dialog** — misma causa (el body lock de reka al cerrar el menú), mismo fix (`deferOpen`). La excepción son los handlers que arman su **propia ventana** (`window.open` + `win.print()`, patrón `usePrintableDocument`): el diálogo de impresión corre en la otra ventana y esta página no se ve afectada — `HouseBedMap.printMap` es el ejemplo.
+
+**Guard anti-regresión**: `apps/web/src/test/dropdownMenuFreezeGuard.test.ts` escanea los `.vue` y falla si un `DropdownMenuItem @click` imprime o abre un overlay (`= true` / nombre con Dialog|Modal) sin `deferOpen`. Los modales `<Teleport>` custom y los prints en ventana nueva van en allowlists con motivo; el test también detecta entradas huérfanas (ítem migrado a `deferOpen` → borrar la entrada).
+
+**Al auditar "papel sucio" al imprimir, el grep de `print:` no alcanza** (lección del falso positivo de `MedicinesReportView`, 2026-10-19: se declaró "cero reglas print" con un patrón incompleto). Las reglas de impresión del repo viven en tres sitios que un grep de utilidades Tailwind no ve:
+- clases custom tipo `no-print` (sin dos puntos — `@media print { .no-print { display:none } }`),
+- `<style>` **global** (no scoped) de componentes madre — `ParticipantList.vue` define el print de sus wrappers,
+- el layout: `AppLayout.vue` oculta sidebar/botones/fixed al imprimir.
+
+Antes de afirmar que una vista "no tiene estilos de impresión", buscar `no-print`, `@media print` y revisar el componente que la envuelve.
 
 ---
 

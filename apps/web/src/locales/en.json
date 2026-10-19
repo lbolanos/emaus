@@ -3094,6 +3094,8 @@
     "enable": "Enable public sign-up",
     "copyPublicLink": "Copy public link",
     "linkCopied": "Link copied",
+    "printTitle": "Chapel Guard Schedule — {name}",
+    "printTitleNoName": "Chapel Guard Schedule",
     "print": "Print",
     "generate": "Generate slots",
     "generateHint": "Automatically creates slots between two dates. Existing slots at the same hour are preserved.",
@@ -3117,6 +3119,7 @@
     "empty": "free",
     "confirmRemove": "Remove this sign-up?",
     "confirmDeleteSlot": "Delete this slot and all its sign-ups?",
+    "confirmDeleteSlotWithSignups": "This slot has {count} sign-up. Deleting it removes its sign-up too; to remove a single person, use the ✕ next to their name. Delete the whole slot? | This slot has {count} sign-ups. Deleting it removes its sign-ups too; to remove a single person, use the ✕ next to their name. Delete the whole slot?",
     "publicHeading": "Chapel Watch Schedule",
     "signupHeading": "Sign me up",
     "signupHint": "Pick the hours you can accompany the Blessed Sacrament. Only the name is required.",
@@ -4000,5 +4003,9 @@
       "payment": "Payment",
       "palancas": "Letters"
     }
+  },
+  "houses": {
+    "deleteConfirm": "Delete house \"{name}\"? This action cannot be undone.",
+    "deleteConfirmWithBeds": "Delete house \"{name}\"? All of its beds ({count}) will be deleted too. This action cannot be undone."
   }
 }

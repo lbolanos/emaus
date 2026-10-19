@@ -3416,6 +3416,8 @@
     "enable": "Activar inscripciones públicas",
     "copyPublicLink": "Copiar enlace público",
     "linkCopied": "Enlace copiado",
+    "printTitle": "Guardias de la Capilla — {name}",
+    "printTitleNoName": "Guardias de la Capilla",
     "print": "Imprimir",
     "generate": "Generar horarios",
     "generateHint": "Crea automáticamente slots entre dos fechas. Los slots ya existentes en las mismas horas no se duplicarán.",
@@ -3439,6 +3441,7 @@
     "empty": "libre",
     "confirmRemove": "¿Quitar esta inscripción?",
     "confirmDeleteSlot": "¿Eliminar este horario y todas sus inscripciones?",
+    "confirmDeleteSlotWithSignups": "Este horario tiene {count} inscripción. Al eliminarlo se borra también su inscripción; para quitar solo a una persona, usa la ✕ junto a su nombre. ¿Eliminar el horario completo? | Este horario tiene {count} inscripciones. Al eliminarlo se borran también sus inscripciones; para quitar solo a una persona, usa la ✕ junto a su nombre. ¿Eliminar el horario completo?",
     "publicHeading": "Horario de Guardias de la Capilla",
     "signupHeading": "Inscribirme",
     "signupHint": "Selecciona los horarios en los que puedes acompañar al Santísimo. Sólo el nombre es obligatorio.",
@@ -4322,5 +4325,9 @@
       "payment": "Pago",
       "palancas": "Cartas"
     }
+  },
+  "houses": {
+    "deleteConfirm": "¿Eliminar la casa «{name}»? Esta acción no se puede deshacer.",
+    "deleteConfirmWithBeds": "¿Eliminar la casa «{name}»? Se eliminarán también todas sus camas ({count}). Esta acción no se puede deshacer."
   }
 }

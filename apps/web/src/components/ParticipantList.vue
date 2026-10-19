@@ -71,6 +71,7 @@ import {
 
 import { ArrowUpDown, Trash2, Edit, FileUp, FileDown, Columns, ListFilter, MoreVertical, Plus, X, Printer, RefreshCw, Search, Users, MessageSquare, RotateCcw, Send, Bookmark } from 'lucide-vue-next';
 import { useToast } from '@repo/ui';
+import { useRekaDialogFix } from '@/composables/useRekaDialogFix';
 
 // Traducción (simulada, usa tu sistema de i18n)
 //const $t = (key: string) => key.split('.').pop()?.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase()) || key;
@@ -123,6 +124,9 @@ const props = withDefaults(defineProps<{
 
 const { toast } = useToast();
 const { t: $t } = useI18n();
+// Menu items that open a dialog or print must be deferred past the menu close,
+// or reka-ui leaves pointer-events:none on <body> and the page freezes.
+const { deferOpen } = useRekaDialogFix();
 
 // Get current route for view identification
 const route = useRoute();
@@ -1788,7 +1792,7 @@ const handleKeyboardShortcuts = (event: KeyboardEvent) => {
                             </DropdownMenuLabel>
 
                             <!-- Bulk Message -->
-                            <DropdownMenuItem @click="bulkMessageSelected">
+                            <DropdownMenuItem @select="deferOpen(bulkMessageSelected)">
                                 <svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path>
                                 </svg>
@@ -1796,13 +1800,13 @@ const handleKeyboardShortcuts = (event: KeyboardEvent) => {
                             </DropdownMenuItem>
 
                             <!-- Bulk Edit -->
-                            <DropdownMenuItem @click="bulkEditSelected">
+                            <DropdownMenuItem @select="deferOpen(bulkEditSelected)">
                                 <Edit class="mr-2 h-4 w-4" />
                                 {{ $t('participants.bulkActions.editSelected') }}
                             </DropdownMenuItem>
 
                             <!-- Bulk Delete -->
-                            <DropdownMenuItem @click="bulkDeleteSelected" class="text-red-600">
+                            <DropdownMenuItem @select="deferOpen(bulkDeleteSelected)" class="text-red-600">
                                 <Trash2 class="mr-2 h-4 w-4" />
                                 {{ $t('participants.bulkActions.deleteSelected') }}
                             </DropdownMenuItem>
@@ -1817,25 +1821,25 @@ const handleKeyboardShortcuts = (event: KeyboardEvent) => {
                         </DropdownMenuItem>
 
                         <!-- Column Selector -->
-                        <DropdownMenuItem @click="isColumnDialogOpen = true">
+                        <DropdownMenuItem @select="deferOpen(() => { isColumnDialogOpen = true; })">
                             <Columns class="mr-2 h-4 w-4" />
                             {{ $t('common.columns') }}
                         </DropdownMenuItem>
 
                         <!-- Import -->
-                        <DropdownMenuItem @click="isImportDialogOpen = true">
+                        <DropdownMenuItem @select="deferOpen(() => { isImportDialogOpen = true; })">
                             <FileUp class="mr-2 h-4 w-4" />
                             {{ $t('participants.import.title') }}
                         </DropdownMenuItem>
 
                         <!-- Export -->
-                        <DropdownMenuItem @click="isExportDialogOpen = true">
+                        <DropdownMenuItem @select="deferOpen(() => { isExportDialogOpen = true; })">
                             <FileDown class="h-4 w-4 mr-2" />
                             {{ $t('participants.export.title') }}
                         </DropdownMenuItem>
                         
                         <!-- Print -->
-                        <DropdownMenuItem @click="handlePrint">
+                        <DropdownMenuItem @select="deferOpen(handlePrint)">
                             <Printer class="h-4 w-4 mr-2" />
                             {{ $t('common.actions.print') || 'Print' }}
                         </DropdownMenuItem>
