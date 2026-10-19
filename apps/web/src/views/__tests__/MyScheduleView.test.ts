@@ -187,3 +187,55 @@ describe('MyScheduleView — resolución de myParticipantId', () => {
     expect(wrapper.text()).toContain('No tienes actividades próximas asignadas');
   });
 });
+
+describe('MyScheduleView — row music link (spec mam-canciones R2)', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia());
+    authState.user = { id: 'U1', participantId: 'P1' };
+    authState.userProfile = { roles: [], permissions: [] };
+    scheduleState.items = [];
+    scheduleState.connected = false;
+    responsabilityState.responsibilities = [{ id: 'R1', name: 'Comedor', participantId: 'P1' }];
+    mockLoadForRetreat.mockClear();
+    mockSubscribeRealtime.mockClear();
+    mockFetchResponsibilities.mockClear();
+  });
+
+  it('renders the 🎵 as an anchor when the item has a valid music URL', async () => {
+    scheduleState.items = [
+      makeItem({
+        responsabilityId: 'R1',
+        name: 'Charla: Las Máscaras',
+        palanquitaNotes: 'Huracán',
+        musicTrackUrl: 'https://open.spotify.com/track/abc',
+      }),
+    ];
+
+    const wrapper = mount(MyScheduleView);
+    await flushPromises();
+
+    const link = wrapper.find('a[href="https://open.spotify.com/track/abc"]');
+    expect(link.exists()).toBe(true);
+    expect(link.attributes('target')).toBe('_blank');
+    expect(link.attributes('rel')).toBe('noopener noreferrer');
+    expect(link.attributes('aria-label')).toBe('Abrir Huracán');
+    expect(link.text()).toContain('🎵 Huracán');
+  });
+
+  it('keeps the plain-text 🎵 when the URL is not http(s) (D3)', async () => {
+    scheduleState.items = [
+      makeItem({
+        responsabilityId: 'R1',
+        name: 'Charla: Las Máscaras',
+        palanquitaNotes: 'Pretorio',
+        musicTrackUrl: 'Pretorio',
+      }),
+    ];
+
+    const wrapper = mount(MyScheduleView);
+    await flushPromises();
+
+    expect(wrapper.find('a').exists()).toBe(false);
+    expect(wrapper.text()).toContain('🎵 Pretorio');
+  });
+});
