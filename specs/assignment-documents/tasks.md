@@ -40,10 +40,22 @@
 
 ## M2 — Minuto a Minuto muestra los documentos heredados
 
-- [ ] `listFilesForNames` en `responsabilityAttachmentService`
-- [ ] `populateTemplateAttachments` con `documentName(item)`; `documentName` en el DTO
-- [ ] `MinuteByMinuteView.onShowAttachments` usa `documentName`
-- [ ] Tests (service + vista)
+- [x] `listShareableFilesForNames` en `responsabilityAttachmentService`
+- [x] Helper puro `utils/scheduleItemDocument.ts` (`resolveScheduleItemDocumentName`, regla D1)
+- [x] `populateTemplateAttachments` con el helper; `documentName` en el DTO
+- [x] `MinuteByMinuteView.onShowAttachments` usa `documentName`
+- [x] Tests: service (DB de test) y vista (comprobado que falla sin el fix)
+
+**Done**: 2026-10-19.
+
+### Desviaciones 2026-10-19
+
+- **Renombre**: `listFilesForNames` → `listShareableFilesForNames`. El nombre dice qué filtra
+  (solo links http(s)).
+- **Alcance extra, misma regla D1**: `streamRetreatBundle` (el `bundle.zip` del Minuto a Minuto)
+  y `scheduleTemplateService.listAll` (adjuntos en la vista de plantillas) resolvían el
+  documento solo por la responsabilidad del momento, así que tenían la misma brecha: el ZIP no
+  incluía la Pared ni la Carta de Jesús. Ahora usan el helper.
 
 ## M3 — Servicio y endpoint de documentos por servidor
 

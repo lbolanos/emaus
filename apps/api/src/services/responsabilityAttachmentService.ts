@@ -181,6 +181,45 @@ class ResponsabilityAttachmentService {
 	 * mostrar el badge `📎 N`; cuando el usuario abre el dialog, el frontend
 	 * llama a `list(name)` que sí trae el contenido completo.
 	 */
+	/**
+	 * Archivos (`kind='file'`) de varios nombres canónicos, **con** `storageUrl`,
+	 * y solo los que tienen un link http(s) que se pueda compartir (S3). Para el
+	 * briefing de tareas por WhatsApp: los markdown y los archivos guardados
+	 * inline (`data:`) no tienen link que abrir desde el celular
+	 * (specs/assignment-documents, D4).
+	 */
+	async listShareableFilesForNames(
+		responsabilityNames: string[],
+	): Promise<Map<string, ResponsabilityAttachment[]>> {
+		const map = new Map<string, ResponsabilityAttachment[]>();
+		const normalized = Array.from(
+			new Set(responsabilityNames.map(normalizeName).filter((n) => !!n)),
+		);
+		if (!normalized.length) return map;
+		const rows = await this.repo.find({
+			where: { responsabilityName: In(normalized), kind: 'file' },
+			order: { sortOrder: 'ASC', createdAt: 'ASC' },
+			select: [
+				'id',
+				'responsabilityName',
+				'kind',
+				'fileName',
+				'mimeType',
+				'storageUrl',
+				'description',
+				'sortOrder',
+				'createdAt',
+			],
+		});
+		for (const r of rows) {
+			if (!/^https?:\/\//i.test(r.storageUrl ?? '')) continue;
+			const arr = map.get(r.responsabilityName) ?? [];
+			arr.push(r);
+			map.set(r.responsabilityName, arr);
+		}
+		return map;
+	}
+
 	async listForNames(
 		responsabilityNames: string[],
 	): Promise<Map<string, ResponsabilityAttachment[]>> {

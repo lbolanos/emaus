@@ -3293,6 +3293,9 @@ export interface RetreatScheduleItemDTO {
     role?: string | null;
     participant?: { id: string; firstName: string; lastName: string; nickname: string };
   }>;
+  // Nombre canónico del documento del momento (propio de la plantilla, de su
+  // responsabilidad o, si el retiro no la tiene, el de la plantilla).
+  documentName?: string | null;
   attachments?: ResponsabilityAttachmentDTO[];
 }
 

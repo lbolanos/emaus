@@ -12,6 +12,7 @@ import { Responsability } from '../entities/responsability.entity';
 import { Retreat } from '../entities/retreat.entity';
 import { makeDateInTimezone, dayBoundsInTimezone } from '../utils/date.transformer';
 import { guardiaPlaceLabel, guardiaRetreatSuffix } from '../utils/santisimoGuardiaPlace';
+import { resolveScheduleItemDocumentName } from '../utils/scheduleItemDocument';
 import { afterMidnightDayOffset } from '@repo/types';
 import archiver from 'archiver';
 import type { Readable, Writable } from 'stream';
@@ -88,41 +89,48 @@ export class RetreatScheduleService {
 
 	/**
 	 * Carga attachments para una lista de items por nombre canónico de
-	 * Responsabilidad. Los archivos viven globalmente vinculados a
+	 * documento (`resolveScheduleItemDocumentName`: el documento propio de la
+	 * plantilla, la Responsabilidad del item o, si el retiro no la tiene, la de
+	 * la plantilla). Los archivos viven globalmente vinculados a
 	 * `responsability_attachment.responsabilityName`.
 	 */
 	private async populateTemplateAttachments<T extends RetreatScheduleItem>(
 		items: T[],
 	): Promise<T[]> {
-		// Attachments by responsability name
-		const names = items
-			.map((i) => i.responsability?.name)
-			.filter((n): n is string => !!n && n.trim().length > 0);
-		const byName = names.length
-			? await responsabilityAttachmentService.listForNames(names)
-			: new Map();
-
 		// Template descriptions: read-only, copied at query time so the UI
 		// can show the original guidance from the template (e.g. "Eucaristía
 		// privada del equipo para encomendar el retiro al Señor antes de la
 		// llegada de los caminantes") without storing duplicates per retreat.
+		// The same read brings the template's document fields.
 		const templateIds = Array.from(
 			new Set(items.map((i) => i.scheduleTemplateId).filter((x): x is string => !!x)),
 		);
-		const descriptionByTemplateId = new Map<string, string | null>();
+		const templateById = new Map<string, ScheduleTemplate>();
 		if (templateIds.length) {
 			const templates = await this.templateRepo.find({
 				where: { id: In(templateIds) },
-				select: ['id', 'description'],
+				select: ['id', 'description', 'documentName', 'responsabilityName'],
 			});
-			templates.forEach((t) => descriptionByTemplateId.set(t.id, t.description ?? null));
+			templates.forEach((t) => templateById.set(t.id, t));
 		}
 
-		items.forEach((i) => {
-			const n = i.responsability?.name?.trim();
-			(i as any).attachments = n ? (byName.get(n) ?? []) : [];
+		const documentNames = items.map((i) =>
+			resolveScheduleItemDocumentName(
+				i.responsability?.name,
+				i.scheduleTemplateId ? templateById.get(i.scheduleTemplateId) : null,
+			),
+		);
+		const names = documentNames.filter((n): n is string => !!n);
+		const byName = names.length
+			? await responsabilityAttachmentService.listForNames(names)
+			: new Map();
+
+		items.forEach((i, idx) => {
+			const documentName = documentNames[idx];
+			(i as any).documentName = documentName;
+			(i as any).attachments = documentName ? (byName.get(documentName) ?? []) : [];
 			(i as any).templateDescription = i.scheduleTemplateId
-				? descriptionByTemplateId.get(i.scheduleTemplateId) ?? null
+				? templateById.get(i.scheduleTemplateId)?.description ?? null
 				: null;
 		});
 		return items;
@@ -505,8 +513,8 @@ export class RetreatScheduleService {
 	/**
 	 * Stream a ZIP of all attachments associated with the retreat's items.
 	 *
-	 * For each item with `responsabilityId`, fetch its attachments via the
-	 * canonical name JOIN. Markdowns become `.md` files (`<rol>/<title>.md`),
+	 * For each item with a document name (`resolveScheduleItemDocumentName`),
+	 * fetch its attachments via the canonical name JOIN. Markdowns become `.md` files (`<rol>/<title>.md`),
 	 * binary files are streamed as-is from S3 or decoded from data URL.
 	 *
 	 * Use case: coordinator quiere imprimir o leer offline todos los guiones
@@ -530,12 +538,29 @@ export class RetreatScheduleService {
 			order: { day: 'ASC', startTime: 'ASC' },
 		});
 
-		// Collect unique responsability names to avoid duplicates (the same
+		// Document name per item (same rule as the schedule view), so moments
+		// that only inherit their document from the template are bundled too.
+		const templateIds = Array.from(
+			new Set(items.map((i) => i.scheduleTemplateId).filter((x): x is string => !!x)),
+		);
+		const templateById = new Map<string, ScheduleTemplate>();
+		if (templateIds.length) {
+			const templates = await this.templateRepo.find({
+				where: { id: In(templateIds) },
+				select: ['id', 'documentName', 'responsabilityName'],
+			});
+			templates.forEach((t) => templateById.set(t.id, t));
+		}
+
+		// Collect unique document names to avoid duplicates (the same
 		// guion can be referenced by multiple items in the same day).
 		const seen = new Set<string>();
 		const respNames: string[] = [];
 		for (const it of items) {
-			const name = it.responsability?.name;
+			const name = resolveScheduleItemDocumentName(
+				it.responsability?.name,
+				it.scheduleTemplateId ? templateById.get(it.scheduleTemplateId) : null,
+			);
 			if (name && !seen.has(name)) {
 				seen.add(name);
 				respNames.push(name);

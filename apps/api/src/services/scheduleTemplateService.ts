@@ -3,6 +3,7 @@ import { ScheduleTemplate } from '../entities/scheduleTemplate.entity';
 import { ScheduleTemplateSet } from '../entities/scheduleTemplateSet.entity';
 import { responsabilityAttachmentService } from './responsabilityAttachmentService';
 import { domainAuditService } from './domainAuditService';
+import { resolveScheduleItemDocumentName } from '../utils/scheduleItemDocument';
 
 export class ScheduleTemplateService {
 	private repo = AppDataSource.getRepository(ScheduleTemplate);
@@ -42,14 +43,14 @@ export class ScheduleTemplateService {
 			where,
 			order: { defaultDay: 'ASC', defaultOrder: 'ASC', defaultStartTime: 'ASC' },
 		});
-		// Adjunta `attachments` por nombre canónico de responsabilidad.
-		const names = items
-			.map((i) => i.responsabilityName)
-			.filter((n): n is string => !!n && n.trim().length > 0);
+		// Adjunta `attachments` por nombre canónico del documento del momento
+		// (`documentName` propio o, si no tiene, el de su responsabilidad).
+		const documentNames = items.map((i) => resolveScheduleItemDocumentName(null, i));
+		const names = documentNames.filter((n): n is string => !!n);
 		if (names.length) {
 			const byName = await responsabilityAttachmentService.listForNames(names);
-			items.forEach((i) => {
-				const n = i.responsabilityName?.trim();
+			items.forEach((i, idx) => {
+				const n = documentNames[idx];
 				(i as any).attachments = n ? (byName.get(n) ?? []) : [];
 			});
 		} else {
