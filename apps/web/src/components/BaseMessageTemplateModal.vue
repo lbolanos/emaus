@@ -832,6 +832,9 @@ const assignmentsVariables = computed(() => [
   { key: 'teamsCount', label: 'Cantidad de equipos de servicio' },
   { key: 'teamsList', label: 'Equipos de servicio (lista)' },
   { key: 'teamsRoster', label: 'Roster de equipos: rol + líder + miembros' },
+  { key: 'momentsRoster', label: 'Momentos del Minuto a Minuto (día + hora)' },
+  { key: 'documentsRoster', label: 'Documentos con link, por momento (mesa al final)' },
+  { key: 'documentsCount', label: 'Cantidad de documentos' },
 ]);
 
 const isCommunityScope = computed(

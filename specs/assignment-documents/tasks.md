@@ -82,9 +82,20 @@
 
 ## M4 — Variables `{assignments.*}` nuevas
 
-- [ ] Tipos + `buildAssignmentsReplacements` + mock en `packages/utils`
-- [ ] Categoría "Tareas" del editor de plantillas + i18n es/en
-- [ ] Tests unitarios (dedup de URL, vacíos, mock)
+- [x] `momentsRoster`, `documentsRoster`, `documentsCount` en `buildAssignmentsReplacements` +
+      mock en `packages/utils`
+- [x] Categoría "Tareas" del editor de plantillas + re-export de tipos en `utils/message.ts`
+- [x] Tests unitarios (orden, dedup de URL, bloque de mesa, vacíos, mock)
+
+**Done**: 2026-10-19.
+
+### Desviaciones 2026-10-19
+
+- **Sin keys i18n**: las etiquetas de la categoría "Tareas" de `BaseMessageTemplateModal` son
+  texto fijo en español, igual que las seis variables existentes del scope.
+- **Bloque de mesa**: sus momentos van como encabezado y los documentos debajo, todos juntos. Un
+  documento por momento habría puesto el documento del domingo bajo el título del sábado (los
+  dos momentos comparten el mismo nombre de documento).
 
 ## M5 — Los tres caminos de resolución
 

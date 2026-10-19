@@ -654,6 +654,9 @@ export type {
 	AssignmentResponsibilityData,
 	AssignmentTeamData,
 	AssignmentsData,
+	AssignmentDocumentData,
+	AssignmentMomentData,
+	AssignmentDocumentsData,
 } from '@repo/utils';
 export {
 	replaceAllVariables,

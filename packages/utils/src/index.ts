@@ -1472,9 +1472,61 @@ const buildTeamsRoster = (teams: AssignmentTeamData[]): string => {
 		.join('\n\n');
 };
 
+/**
+ * Momentos del Minuto a Minuto del destinatario, uno por línea, en sintaxis
+ * WhatsApp. Los que le llegan por ser de mesa llevan "(mesa)".
+ */
+const buildMomentsRoster = (moments: AssignmentMomentData[]): string => {
+	if (!moments.length) return '(sin momentos asignados en el Minuto a Minuto)';
+	return moments
+		.map((m) => `• ${m.dayLabel} ${m.time} · ${m.name}${m.forTable ? ' (mesa)' : ''}`)
+		.join('\n');
+};
+
+/**
+ * Documentos con link del destinatario, en sintaxis WhatsApp
+ * (specs/assignment-documents, D5): un bloque por momento propio en orden
+ * cronológico, luego las responsabilidades sin momento y al final el bloque de
+ * la mesa (sus momentos como encabezado y los documentos debajo). Una URL sale
+ * una sola vez por mensaje; un bloque cuyos documentos ya salieron se omite.
+ */
+const buildDocumentsRoster = (data: AssignmentsData): { roster: string; count: number } => {
+	const seen = new Set<string>();
+	const bullets = (documents: AssignmentDocumentData[]) =>
+		documents
+			.filter((d) => !seen.has(d.url))
+			.map((d) => {
+				seen.add(d.url);
+				return `• ${d.label}: ${d.url}`;
+			});
+	const blocks: string[] = [];
+	const moments = data.moments ?? [];
+
+	for (const m of moments.filter((x) => !x.forTable)) {
+		const lines = bullets(m.documents);
+		if (lines.length) blocks.push([`*${m.dayLabel} ${m.time} · ${m.name}*`, ...lines].join('\n'));
+	}
+	for (const r of data.responsibilityDocuments ?? []) {
+		const lines = bullets(r.documents);
+		if (lines.length) blocks.push([`*${r.name}*`, ...lines].join('\n'));
+	}
+	const tableMoments = moments.filter((x) => x.forTable);
+	const tableLines = tableMoments.flatMap((m) => bullets(m.documents));
+	if (tableLines.length) {
+		const header = data.table
+			? `*${data.table.name} (${data.table.role}) · Dinámicas de mesa*`
+			: '*Dinámicas de mesa*';
+		const when = tableMoments.map((m) => `${m.dayLabel} ${m.time} · ${m.name}`);
+		blocks.push([header, ...when, ...tableLines].join('\n'));
+	}
+
+	return { roster: blocks.join('\n\n') || '(sin documentos)', count: seen.size };
+};
+
 const buildAssignmentsReplacements = (data: AssignmentsData): Record<string, string> => {
 	const responsibilities = data.responsibilities ?? [];
 	const teams = data.teams ?? [];
+	const documents = buildDocumentsRoster(data);
 	return {
 		'assignments.responsibilitiesCount': responsibilities.length.toString(),
 		'assignments.responsibilitiesList':
@@ -1483,6 +1535,9 @@ const buildAssignmentsReplacements = (data: AssignmentsData): Record<string, str
 		'assignments.teamsCount': teams.length.toString(),
 		'assignments.teamsList': teams.map((t) => t.name).join(', ') || 'Ninguno',
 		'assignments.teamsRoster': buildTeamsRoster(teams),
+		'assignments.momentsRoster': buildMomentsRoster(data.moments ?? []),
+		'assignments.documentsRoster': documents.roster,
+		'assignments.documentsCount': documents.count.toString(),
 	};
 };
 
@@ -1502,6 +1557,23 @@ const getMockAssignments = (): AssignmentsData => ({
 			memberNames: ['María López', 'Carlos Gómez'],
 		},
 	],
+	moments: [
+		{
+			dayLabel: 'Viernes',
+			time: '20:57',
+			name: 'Explicación de las Palancas',
+			documents: [{ label: 'Palancas', url: 'https://ejemplo.com/palancas.pdf' }],
+		},
+		{
+			dayLabel: 'Sábado',
+			time: '14:40',
+			name: 'Dinámica: Oración en Grupo',
+			forTable: true,
+			documents: [{ label: 'Dinámica 1 (sábado)', url: 'https://ejemplo.com/dinamica-1.pdf' }],
+		},
+	],
+	responsibilityDocuments: [],
+	table: { name: 'Mesa 3', role: 'colíder' },
 });
 
 /**
