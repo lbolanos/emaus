@@ -83,11 +83,28 @@ PUT real.
 
 ## M4 — E2E y QA móvil
 
-- [ ] `apps/web/tests/e2e/sidebar-favorites.spec.ts`: regresión acordeón + flujo favoritos
-- [ ] QA con chrome-devtools MCP (viewport iPhone + touch) sobre el dev del worktree: drawer,
+- [x] `apps/web/tests/e2e/sidebar-favorites.spec.ts`: regresión acordeón + flujo favoritos
+- [x] QA con chrome-devtools MCP (viewport iPhone + touch) sobre el dev del worktree: drawer,
       acordeón entre instancias, chips táctiles ≥40px con scroll, estrella persiste tras recarga
-- [ ] Screenshots a `/tmp/chrome`; checklist firmado acá
+- [x] Screenshots del QA; checklist firmado acá
 - [ ] Leonardo abre la feature (URL del worktree) antes de darla por entregada
+
+**Done**: 2026-10-19 — e2e 2/2 en chromium contra el dev del worktree (login dev con fallback
+`E2E_LOCAL_*`, patrón `sequences-inbox`; restore del perfil verificado por el dato: el perfil
+quedó con los 2 favoritos originales). QA móvil (390x844, touch): drawer abre; chips de 40px
+exactos con `overflow-x` real (435px/240px, scroll verificado); tocar PERSONAS cerró
+ASIGNACIONES y las dos instancias del DOM quedaron consistentes (`["true","true"]` /
+`["false","false"]`) — fix D7 confirmado en móvil; estrella toggle optimista + PUT persistido
+tras recarga; chip navegó de retiro y el drawer cerró solo; 0 errores/warnings de consola.
+Estado del browser dev restaurado (favoritos y retiro seleccionado originales).
+
+### Desviaciones 2026-10-19
+
+- Screenshots a `apps/web/test-results/mobile-qa/` (ignorado por git), no a `/tmp/chrome`:
+  chrome-devtools MCP solo escribe dentro del workspace (denegado en /tmp).
+- El spec se declaró `test.describe.configure({ mode: 'serial' })`: con `fullyParallel` del repo
+  los 2 tests caían en workers distintos y el `afterAll` de un worker podía restaurar el perfil
+  mientras el otro aún lo testeaba (estado compartido = perfil del usuario).
 
 **Gate**: commit `test(e2e): sidebar accordion regression and favorites` (con OK).
 
