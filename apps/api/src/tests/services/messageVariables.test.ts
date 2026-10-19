@@ -412,6 +412,12 @@ describe('Message variable replacement', () => {
 			expect(result).toBe(message);
 		});
 
+		it('never touches a URL: a __ inside a document link is part of the file name', () => {
+			const message = '• Dinámica: https://bucket.s3/docs/abc-Dinamica__1.pdf y ~~x~~';
+			const result = replaceAllVariables(message, buildParticipant({}), null);
+			expect(result).toBe(message);
+		});
+
 		it('collapses an empty pair even when the markers have spaces between them', () => {
 			const result = replaceAllVariables(
 				'* {participant.firstName} *',

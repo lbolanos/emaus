@@ -190,10 +190,14 @@ export class RetreatScheduleService {
 		}
 		const participantIds = Array.from(new Set(data.responsableParticipantIds ?? []));
 		if (participantIds.length) {
-			const own = await AppDataSource.getRepository(RetreatParticipant).count({
+			// Distinct ids found, not rows: a duplicated retreat_participant row
+			// must not turn a valid list into a rejection.
+			const rows = await AppDataSource.getRepository(RetreatParticipant).find({
 				where: { retreatId, participantId: In(participantIds) },
+				select: ['id', 'participantId'],
 			});
-			if (own !== participantIds.length) {
+			const found = new Set(rows.map((r) => r.participantId));
+			if (participantIds.some((pid) => !found.has(pid))) {
 				throw new ScheduleForeignReferenceError('responsables must be participants of this retreat');
 			}
 		}
@@ -286,15 +290,19 @@ export class RetreatScheduleService {
 		const existing = await this.itemRepo.findOne({ where: { id } });
 		if (!existing) throw new ScheduleNotFoundError('item not found');
 		// Only what the edit adds is checked: links that already exist stay valid.
-		const currentResponsables = new Set(
-			(await this.respRepo.find({ where: { scheduleItemId: id } })).map((r) => r.participantId),
-		);
+		// The current responsables are read only when the edit sends a list (start,
+		// complete and shift never do).
+		let newResponsables: string[] = [];
+		if (data.responsableParticipantIds?.length) {
+			const current = new Set(
+				(await this.respRepo.find({ where: { scheduleItemId: id } })).map((r) => r.participantId),
+			);
+			newResponsables = data.responsableParticipantIds.filter((pid) => !current.has(pid));
+		}
 		await this.assertSameRetreatReferences(existing.retreatId, {
 			responsabilityId:
 				data.responsabilityId !== existing.responsabilityId ? data.responsabilityId : undefined,
-			responsableParticipantIds: (data.responsableParticipantIds ?? []).filter(
-				(pid) => !currentResponsables.has(pid),
-			),
+			responsableParticipantIds: newResponsables,
 		});
 
 		const update: Partial<RetreatScheduleItem> = {};

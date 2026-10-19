@@ -80,7 +80,11 @@ a cada servidor. Spec, decisiones D1-D6 y desviaciones: `specs/assignment-docume
   marcarlo igual.
 - **Negritas consecutivas**: el colapso de énfasis vacíos de `replaceAllVariables` usaba
   `\s*` y borraba el `*\n*` entre una línea en negrita y la siguiente (`*Tus documentos:*`
-  + `*Viernes 20:57 · …*` salían pegadas). Ahora solo cuenta el espacio horizontal.
+  + `*Viernes 20:57 · …*` salían pegadas). Ahora solo cuenta el espacio horizontal, y las
+  URLs se saltan: un `__` dentro del nombre de un archivo es parte del link.
+- **Rendimiento del motor**: `assignmentDocumentsService.forParticipant` reutiliza durante
+  30 s el cálculo del retiro, así que una corrida de secuencias con N servidores no lo arma N
+  veces. Los archivos inline (`data:`) se descartan en SQL, sin leer su contenido.
 
 **Los rosters van en sintaxis WhatsApp** (`\n` + `*negrita*`), no `<br>`/`<strong>`:
 desde la migración `20260914120000_FormatWhatsappMessageTemplates` el formato canónico

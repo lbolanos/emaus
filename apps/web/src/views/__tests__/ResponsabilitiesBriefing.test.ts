@@ -247,6 +247,19 @@ describe('ResponsabilitiesView - enviar tareas por servidor', () => {
 			expect(ids).not.toContain('s3');
 		});
 
+		it('al cambiar de retiro descarta los documentos del anterior', async () => {
+			assignmentDocumentsSpy.mockResolvedValue({ s2: docsFor('https://s3/pared.pdf') });
+			wrapper = await mountView();
+			wrapper.vm.assignmentsBriefingOpen = true;
+			await flushPromises();
+			expect(Object.keys(wrapper.vm.assignmentDocuments)).toEqual(['s2']);
+
+			const { useRetreatStore } = await import('@/stores/retreatStore');
+			useRetreatStore().selectedRetreatId = 'retreat-2';
+			await flushPromises();
+			expect(wrapper.vm.assignmentDocuments).toEqual({});
+		});
+
 		it('si la carga falla avisa con un toast y abre el mensaje sin documentos', async () => {
 			assignmentDocumentsSpy.mockRejectedValue(new Error('500'));
 			wrapper = await mountView();

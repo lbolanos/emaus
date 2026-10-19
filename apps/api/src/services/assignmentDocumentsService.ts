@@ -120,7 +120,9 @@ export class AssignmentDocumentsService {
 			...Array.from(documentNameByItem.values()).filter((n): n is string => !!n),
 			...responsibilities.map((r) => r.name),
 		]);
-		const documentsOf = (name: string | null) => (name ? (files.get(name) ?? []) : []).map(toDocument);
+		// The map is keyed by trimmed names (listShareableFilesForNames normalizes).
+		const documentsOf = (name: string | null) =>
+			(name ? (files.get(name.trim()) ?? []) : []).map(toDocument);
 
 		const entryFor = (participantId: string) => {
 			let entry = result.get(participantId);
@@ -169,18 +171,37 @@ export class AssignmentDocumentsService {
 
 		for (const r of responsibilities) {
 			if (!r.participantId || !activeServers.has(r.participantId)) continue;
-			if (coveredNames.get(r.participantId)?.has(r.name)) continue;
+			if (coveredNames.get(r.participantId)?.has(r.name.trim())) continue;
 			const documents = documentsOf(r.name);
 			if (!documents.length) continue;
-			entryFor(r.participantId).responsibilityDocuments.push({ name: r.name, documents });
+			entryFor(r.participantId).responsibilityDocuments.push({ name: r.name.trim(), documents });
 		}
 
 		return result;
 	}
 
+	// The sequence engine resolves recipients one at a time; without this each
+	// one rebuilt the whole retreat. A short window keeps a run on one build.
+	private static readonly RETREAT_CACHE_TTL_MS = 30_000;
+	private retreatCache = new Map<
+		string,
+		{ at: number; data: Promise<Map<string, AssignmentDocumentsData>> }
+	>();
+
 	/** Lo de un servidor; vacío para quien no sea servidor activo del retiro (R6). */
 	async forParticipant(retreatId: string, participantId: string): Promise<AssignmentDocumentsData> {
-		return (await this.forRetreat(retreatId)).get(participantId) ?? emptyDocuments();
+		const now = Date.now();
+		let cached = this.retreatCache.get(retreatId);
+		if (!cached || now - cached.at > AssignmentDocumentsService.RETREAT_CACHE_TTL_MS) {
+			const entry = { at: now, data: this.forRetreat(retreatId) };
+			this.retreatCache.set(retreatId, entry);
+			// A failed build must not be served from the cache.
+			entry.data.catch(() => {
+				if (this.retreatCache.get(retreatId) === entry) this.retreatCache.delete(retreatId);
+			});
+			cached = entry;
+		}
+		return (await cached.data).get(participantId) ?? emptyDocuments();
 	}
 }
 

@@ -666,6 +666,7 @@ export {
 	replaceTableVariables,
 	replaceSpouseVariables,
 	replaceAssignmentsVariables,
+	countAssignmentDocuments,
 	findEmptyVariables,
 	convertHtmlToEmail,
 	detectEmailClient,

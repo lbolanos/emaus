@@ -1,5 +1,5 @@
 import { randomUUID } from 'crypto';
-import { In } from 'typeorm';
+import { In, Like } from 'typeorm';
 import { AppDataSource } from '../data-source';
 import { ResponsabilityAttachment } from '../entities/responsabilityAttachment.entity';
 import { ResponsabilityAttachmentHistory } from '../entities/responsabilityAttachmentHistory.entity';
@@ -172,21 +172,12 @@ class ResponsabilityAttachmentService {
 	}
 
 	/**
-	 * Carga attachments para múltiples nombres canónicos en una sola query y
-	 * los devuelve agrupados. Usado por list/get del schedule para popular
-	 * `attachments` en cada item sin N+1.
-	 *
-	 * **Variante "lite"**: excluye `content` y `storageUrl` (que para markdown
-	 * inline puede pesar hasta 200KB). El timeline solo necesita metadata para
-	 * mostrar el badge `📎 N`; cuando el usuario abre el dialog, el frontend
-	 * llama a `list(name)` que sí trae el contenido completo.
-	 */
-	/**
 	 * Archivos (`kind='file'`) de varios nombres canónicos, **con** `storageUrl`,
 	 * y solo los que tienen un link http(s) que se pueda compartir (S3). Para el
 	 * briefing de tareas por WhatsApp: los markdown y los archivos guardados
 	 * inline (`data:`) no tienen link que abrir desde el celular
-	 * (specs/assignment-documents, D4).
+	 * (specs/assignment-documents, D4). El filtro va en SQL: un archivo inline
+	 * es un `data:` de hasta 10MB y no debe ni leerse.
 	 */
 	async listShareableFilesForNames(
 		responsabilityNames: string[],
@@ -197,7 +188,7 @@ class ResponsabilityAttachmentService {
 		);
 		if (!normalized.length) return map;
 		const rows = await this.repo.find({
-			where: { responsabilityName: In(normalized), kind: 'file' },
+			where: { responsabilityName: In(normalized), kind: 'file', storageUrl: Like('http%') },
 			order: { sortOrder: 'ASC', createdAt: 'ASC' },
 			select: [
 				'id',
@@ -220,6 +211,16 @@ class ResponsabilityAttachmentService {
 		return map;
 	}
 
+	/**
+	 * Carga attachments para múltiples nombres canónicos en una sola query y
+	 * los devuelve agrupados. Usado por list/get del schedule para popular
+	 * `attachments` en cada item sin N+1.
+	 *
+	 * **Variante "lite"**: excluye `content` y `storageUrl` (que para markdown
+	 * inline puede pesar hasta 200KB). El timeline solo necesita metadata para
+	 * mostrar el badge `📎 N`; cuando el usuario abre el dialog, el frontend
+	 * llama a `list(name)` que sí trae el contenido completo.
+	 */
 	async listForNames(
 		responsabilityNames: string[],
 	): Promise<Map<string, ResponsabilityAttachment[]>> {

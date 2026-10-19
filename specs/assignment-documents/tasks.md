@@ -118,6 +118,24 @@
 - **Aserciones del toast específicas**: el mock de `@repo/ui` comparte el spy de `useToast`
   con los stores, así que el test verifica el aviso de documentos por su `title`.
 
+## Cierre 2026-10-19 — hallazgos del code-review (high)
+
+Nueve hallazgos, todos reales, todos arreglados en el commit de cierre:
+
+1. `forParticipant` rearmaba el retiro entero por destinatario → memo de 30 s por retiro.
+2. `listShareableFilesForNames` leía el `storageUrl` de archivos `data:` de hasta 10 MB → filtro
+   `Like('http%')` en SQL.
+3. La limpieza de énfasis vacíos borraba `__`/`**`/`~~` dentro de URLs → las URLs se saltan.
+4. El JSDoc de `listForNames` había quedado sobre el método nuevo → devuelto a su sitio.
+5. Nombres de responsabilidad con espacios sobrantes no encontraban sus documentos → `trim`.
+6. Los documentos del retiro anterior quedaban visibles al cambiar de retiro → se vacían al
+   cambiar de retiro y al abrir el Popover.
+7. `update()` leía los responsables actuales aunque la edición no trajera lista → solo cuando
+   la trae.
+8. La validación de responsables contaba filas en vez de ids distintos → compara ids.
+9. El conteo de documentos de la vista duplicaba el del mensaje → `countAssignmentDocuments`
+   compartido en `packages/utils`.
+
 ## M6 — Contenido, docs y cierre
 
 - [x] Migración de contenido de la semilla (solo filas sin editar, D6):

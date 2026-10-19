@@ -603,7 +603,7 @@ import {
   responsabilityAttachmentApi,
   retreatScheduleApi,
 } from '@/services/api';
-import type { AssignmentDocumentsData } from '@/utils/message';
+import { countAssignmentDocuments, type AssignmentDocumentsData } from '@/utils/message';
 import { renderMarkdown } from '@/composables/useMarkdown';
 import { ResponsabilityType } from '@repo/types';
 import { findRelatedTeam } from '@/utils/serviceTeamLink';
@@ -811,10 +811,17 @@ const assignmentDocuments = ref<Record<string, AssignmentDocumentsData>>({});
 const assignmentDocumentsFailed = ref(false);
 let assignmentDocumentsLoad: Promise<void> | null = null;
 
+// Participant ids are global: another retreat's documents must never show here.
+watch(selectedRetreatId, () => {
+  assignmentDocuments.value = {};
+  assignmentDocumentsLoad = null;
+});
+
 watch(assignmentsBriefingOpen, (open) => {
   const retreatId = selectedRetreatId.value;
   if (!open || !retreatId) return;
   assignmentDocumentsFailed.value = false;
+  assignmentDocuments.value = {};
   assignmentDocumentsLoad = retreatScheduleApi
     .assignmentDocuments(retreatId)
     .then((data) => {
@@ -827,14 +834,10 @@ watch(assignmentsBriefingOpen, (open) => {
     });
 });
 
-// Documentos distintos (por URL) que le llegan a un servidor.
+// Same count as {assignments.documentsCount} in the message.
 const documentsCountOf = (participantId: string) => {
   const data = assignmentDocuments.value[participantId];
-  if (!data) return 0;
-  const urls = new Set<string>();
-  for (const m of data.moments) for (const d of m.documents) urls.add(d.url);
-  for (const r of data.responsibilityDocuments) for (const d of r.documents) urls.add(d.url);
-  return urls.size;
+  return data ? countAssignmentDocuments(data) : 0;
 };
 
 // Equipo servidor completo: los parciales (angelitos) también reciben tareas.

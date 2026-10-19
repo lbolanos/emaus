@@ -1484,13 +1484,24 @@ const buildMomentsRoster = (moments: AssignmentMomentData[]): string => {
 };
 
 /**
+ * Documentos distintos (por URL) que le llegan a un servidor: el número de
+ * `{assignments.documentsCount}` y el "· N documentos" de "Enviar tareas".
+ */
+export const countAssignmentDocuments = (data: Partial<AssignmentDocumentsData>): number => {
+	const urls = new Set<string>();
+	for (const m of data.moments ?? []) for (const d of m.documents) urls.add(d.url);
+	for (const r of data.responsibilityDocuments ?? []) for (const d of r.documents) urls.add(d.url);
+	return urls.size;
+};
+
+/**
  * Documentos con link del destinatario, en sintaxis WhatsApp
  * (specs/assignment-documents, D5): un bloque por momento propio en orden
  * cronológico, luego las responsabilidades sin momento y al final el bloque de
  * la mesa (sus momentos como encabezado y los documentos debajo). Una URL sale
  * una sola vez por mensaje; un bloque cuyos documentos ya salieron se omite.
  */
-const buildDocumentsRoster = (data: AssignmentsData): { roster: string; count: number } => {
+const buildDocumentsRoster = (data: AssignmentsData): string => {
 	const seen = new Set<string>();
 	const bullets = (documents: AssignmentDocumentData[]) =>
 		documents
@@ -1520,13 +1531,12 @@ const buildDocumentsRoster = (data: AssignmentsData): { roster: string; count: n
 		blocks.push([header, ...when, ...tableLines].join('\n'));
 	}
 
-	return { roster: blocks.join('\n\n') || '(sin documentos)', count: seen.size };
+	return blocks.join('\n\n') || '(sin documentos)';
 };
 
 const buildAssignmentsReplacements = (data: AssignmentsData): Record<string, string> => {
 	const responsibilities = data.responsibilities ?? [];
 	const teams = data.teams ?? [];
-	const documents = buildDocumentsRoster(data);
 	return {
 		'assignments.responsibilitiesCount': responsibilities.length.toString(),
 		'assignments.responsibilitiesList':
@@ -1536,8 +1546,8 @@ const buildAssignmentsReplacements = (data: AssignmentsData): Record<string, str
 		'assignments.teamsList': teams.map((t) => t.name).join(', ') || 'Ninguno',
 		'assignments.teamsRoster': buildTeamsRoster(teams),
 		'assignments.momentsRoster': buildMomentsRoster(data.moments ?? []),
-		'assignments.documentsRoster': documents.roster,
-		'assignments.documentsCount': documents.count.toString(),
+		'assignments.documentsRoster': buildDocumentsRoster(data),
+		'assignments.documentsCount': countAssignmentDocuments(data).toString(),
 	};
 };
 
@@ -1837,8 +1847,12 @@ export const replaceAllVariables = (
 	// Double backticks are never touched: they carry their own meaning there.
 	// Only horizontal whitespace counts as "nothing between": with `\s` a bold
 	// line followed by a line that starts in bold (`*Título:*\n*Viernes…*`)
-	// lost both markers and the line break.
-	processedMessage = processedMessage.replace(/(\*[ \t]*\*|_[ \t]*_|~~[ \t]*~~)/g, '');
+	// lost both markers and the line break. URLs are matched first and kept
+	// as-is: a `__` inside a document link is part of the file name.
+	processedMessage = processedMessage.replace(
+		/(https?:\/\/\S+)|\*[ \t]*\*|_[ \t]*_|~~[ \t]*~~/g,
+		(_match, url: string | undefined) => url ?? '',
+	);
 
 	return processedMessage;
 };

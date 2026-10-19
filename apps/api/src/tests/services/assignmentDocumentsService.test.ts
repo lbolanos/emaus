@@ -76,7 +76,8 @@ describe('AssignmentDocumentsService.forRetreat', () => {
 			},
 			{
 				retreatId,
-				name: 'Reglamento de la Casa',
+				// Trailing space on purpose: the attachments are keyed by the trimmed name.
+				name: 'Reglamento de la Casa ',
 				responsabilityType: ResponsabilityType.OTRO,
 				participantId: ids.dave,
 			},
@@ -181,6 +182,20 @@ describe('AssignmentDocumentsService.forRetreat', () => {
 				documents: [{ label: 'Reglas para el retiro', url: 'https://bucket/reglas.pdf' }],
 			},
 		]);
+	});
+
+	it('forParticipant builds the retreat once for a run of recipients', async () => {
+		const fresh = new AssignmentDocumentsService();
+		const spy = jest.spyOn(fresh, 'forRetreat');
+		const [alice, bob] = await Promise.all([
+			fresh.forParticipant(retreatId, ids.alice),
+			fresh.forParticipant(retreatId, ids.bob),
+		]);
+		await fresh.forParticipant(retreatId, ids.dave);
+		expect(spy).toHaveBeenCalledTimes(1);
+		expect(alice.moments.length).toBeGreaterThan(0);
+		expect(bob.moments.length).toBeGreaterThan(0);
+		spy.mockRestore();
 	});
 
 	it('leaves out cancelled servers and walkers (R6)', async () => {
