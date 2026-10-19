@@ -1718,14 +1718,24 @@ archivos con bytes NUL, y `retreatMemoryService.ts` los tiene):
 ```
 
 Hoy (2026-10-19) `processAvatar` queda solo en el avatar de usuario y la foto de rostro del miembro
-(correcto: son caras). Fotos del recuerdo y de reunión ya van por `processPhoto`. Queda el **fondo
-del volante de la comunidad** (`CommunityMeetingFlyerView.vue`, `handlePickBackground`): el servidor
-no recorta, pero el navegador sigue cortando en 2 MB sin reducir.
+(correcto: son caras). Fotos del recuerdo y de reunión ya van por `processPhoto`, y el fondo del
+volante y la foto de perfil (`AvatarUpload.vue`) ya se reducen en el navegador. El comando de
+arriba debe listar solo el `readAsDataURL` de `PhotoAssignmentDialog.vue` (el servidor acepta
+10 MB) y el de `AiChatWidget.vue` (reduce por su cuenta).
+
+**Para una cara, reducir a 512 px de lado mayor** (el default de `resizeImageToDataUrl`), no a 1600:
+`processAvatar` solo recorta si el ancho pasa de 512, así que con 512 el servidor la guarda tal cual
+y no agranda el lado corto.
+
+**Si la imagen puede traer transparencia** (fondos, logos), reducir solo lo que pase de
+`SERVER_MAX_IMAGE_BYTES` y mandar lo demás tal cual con `readAsDataUrl`: la reducción produce JPEG
+y pinta de negro lo transparente, mientras que el WebP del servidor lo conserva.
 
 **Comprobar en prod por el dato**: bajar un objeto del prefijo con `aws s3 cp … --profile emaus`
 a un temporal y medirlo con `sips -g pixelWidth -g pixelHeight`. 512×512 = pasó por el recorte.
 
-**Casos**: 2026-10-19 — fotos de reunión de la comunidad (`specs/meeting-photo-resize/`): 2 MB en
+**Casos**: 2026-10-19 — foto de perfil (`specs/avatar-photo-resize/`) y fondo del volante de la
+comunidad (`specs/flyer-background-resize/`): 2 MB en el navegador; el servidor estaba bien. Ese mismo día, fotos de reunión de la comunidad (`specs/meeting-photo-resize/`): 2 MB en
 el navegador y cuadrado de 512 en S3; 12 objetos en `community-meetings/`. Ese mismo día, fotos del recuerdo del retiro: el formulario decía "máx. 5MB", el servidor
 cortaba en 2 MB y las 10 fotos de `retreat-memories/` eran de 512×512. Spec y decisiones:
 `specs/memory-photo-resize/`.

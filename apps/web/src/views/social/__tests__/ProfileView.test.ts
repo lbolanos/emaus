@@ -71,7 +71,7 @@ vi.mock('@/stores/authStore', () => ({
 vi.mock('@/components/social/AvatarUpload.vue', () => ({
 	default: {
 		name: 'AvatarUpload',
-		props: ['currentAvatar', 'displayName', 'size', 'editable', 'maxSize'],
+		props: ['currentAvatar', 'displayName', 'size', 'editable'],
 		emits: ['upload', 'remove'],
 		template:
 			'<div data-testid="avatar-upload">' +

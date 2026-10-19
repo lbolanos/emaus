@@ -3265,8 +3265,8 @@
       "remove": "Eliminar foto",
       "uploading": "Subiendo...",
       "uploadError": "Error al subir",
-      "uploadInfo": "PNG, JPG, GIF o WebP (máx {maxSize}MB)",
-      "fileTooLarge": "El archivo es muy grande. El tamaño máximo es {maxSize}KB",
+      "uploadInfo": "PNG, JPG, GIF o WebP. Las fotos grandes se reducen solas.",
+      "fileTooLarge": "El archivo es muy grande. El tamaño máximo es {maxSize}MB",
       "invalidFileType": "Solo se permiten archivos de imagen",
       "readError": "Error al leer el archivo"
     },

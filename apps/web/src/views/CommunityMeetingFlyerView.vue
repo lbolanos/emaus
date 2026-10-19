@@ -276,6 +276,13 @@ import { Button, Popover, PopoverContent, PopoverTrigger } from '@repo/ui';
 import { Printer, Pencil, ArrowLeft, LayoutTemplate, Image, MessageCircle, Copy, Check, Loader2, ChevronRight, RotateCcw, Upload, Palette, Share2 } from 'lucide-vue-next';
 import { FLYER_BACKGROUND_PRESETS, type FlyerBackgroundPreset } from '@repo/types';
 import { pickFile } from '@/utils/filePicker';
+import {
+  MAX_PHOTO_SOURCE_BYTES,
+  PHOTO_MAX_SIDE,
+  SERVER_MAX_IMAGE_BYTES,
+  readAsDataUrl,
+  resizeImageToDataUrl,
+} from '@/utils/imageResize';
 import { innerAvailableWidth } from '@/utils/flyerScale';
 import { useI18n } from 'vue-i18n';
 import DefaultFlyer from '@/components/flyers/DefaultFlyer.vue';
@@ -515,20 +522,18 @@ const handlePickBackground = async () => {
     toast({ title: 'Error', description: 'El archivo debe ser una imagen', variant: 'destructive' });
     return;
   }
-  if (file.size > 2 * 1024 * 1024) {
-    toast({ title: 'Error', description: 'La imagen no puede exceder 2MB', variant: 'destructive' });
+  if (file.size > MAX_PHOTO_SOURCE_BYTES) {
+    toast({ title: 'Error', description: 'La imagen no puede exceder 30MB', variant: 'destructive' });
     return;
   }
 
-  const imageDataUrl = await new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = (e) => resolve(e.target?.result as string);
-    reader.onerror = () => reject(new Error('No se pudo leer la imagen'));
-    reader.readAsDataURL(file);
-  });
-
   isSavingBackground.value = true;
   try {
+    // Only what the server would reject (2MB) is shrunk: the resize outputs JPEG,
+    // which drops the transparency a PNG keeps in the server's WebP.
+    const imageDataUrl = file.size > SERVER_MAX_IMAGE_BYTES
+      ? await resizeImageToDataUrl(file, { maxSide: PHOTO_MAX_SIDE, quality: 0.9 })
+      : await readAsDataUrl(file);
     const updated = await communityStore.setFlyerBackground(community.value.id, { imageDataUrl });
     community.value = updated;
     toast({ title: 'Fondo actualizado', description: 'El flyer ya usa tu imagen de fondo.' });

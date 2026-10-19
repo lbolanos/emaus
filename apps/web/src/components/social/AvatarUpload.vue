@@ -26,6 +26,7 @@
 				v-if="editable"
 				type="button"
 				:class="editButtonClasses"
+				:disabled="isProcessing"
 				@click="triggerFileInput"
 				:aria-label="$t('social.avatar.upload')"
 			>
@@ -49,7 +50,7 @@
 
 		<!-- Upload Info -->
 		<p v-if="editable" class="text-xs text-muted-foreground text-center">
-			{{ $t('social.avatar.uploadInfo', { maxSize: Math.round(props.maxSize / 1024) }) }}
+			{{ $t('social.avatar.uploadInfo') }}
 		</p>
 	</div>
 </template>
@@ -60,19 +61,23 @@ import { pickFile } from '@/utils/filePicker';
 import { useI18n } from 'vue-i18n';
 import { Camera, Pencil, X } from 'lucide-vue-next';
 import { useToast } from '@repo/ui';
+import {
+	MAX_PHOTO_SOURCE_BYTES,
+	SERVER_MAX_IMAGE_BYTES,
+	readAsDataUrl,
+	resizeImageToDataUrl,
+} from '@/utils/imageResize';
 
 interface Props {
 	currentAvatar?: string;
 	displayName: string;
 	size?: 'sm' | 'md' | 'lg' | 'xl';
 	editable?: boolean;
-	maxSize?: number; // in KB
 }
 
 const props = withDefaults(defineProps<Props>(), {
 	size: 'md',
 	editable: true,
-	maxSize: 2048, // 2MB default
 });
 
 const emit = defineEmits<{
@@ -126,25 +131,16 @@ const initials = computed(() => {
 const triggerFileInput = async () => {
 	// El input se crea al vuelo: ni un `display:none` que Safari ignora, ni una
 	// referencia que el hot-reload dejó apuntando a un nodo desconectado.
-	applySelectedFile(
+	await applySelectedFile(
 		await pickFile({ accept: 'image/png,image/jpeg,image/jpg,image/gif,image/webp' }),
 	);
 };
 
-const applySelectedFile = (file: File | null) => {
+const isProcessing = ref(false);
+
+const applySelectedFile = async (file: File | null) => {
 	if (!file) return;
 
-	// Validate file size
-	if (file.size > props.maxSize * 1024) {
-		toast({
-			title: t('social.avatar.uploadError'),
-			description: t('social.avatar.fileTooLarge', { maxSize: props.maxSize }),
-			variant: 'destructive',
-		});
-		return;
-	}
-
-	// Validate file type
 	if (!file.type.startsWith('image/')) {
 		toast({
 			title: t('social.avatar.uploadError'),
@@ -154,21 +150,35 @@ const applySelectedFile = (file: File | null) => {
 		return;
 	}
 
-	// Create preview
-	const reader = new FileReader();
-	reader.onload = (e) => {
-		const result = e.target?.result as string;
+	if (file.size > MAX_PHOTO_SOURCE_BYTES) {
+		toast({
+			title: t('social.avatar.uploadError'),
+			description: t('social.avatar.fileTooLarge', { maxSize: MAX_PHOTO_SOURCE_BYTES / (1024 * 1024) }),
+			variant: 'destructive',
+		});
+		return;
+	}
+
+	isProcessing.value = true;
+	try {
+		// Only what the server would reject (2MB) is shrunk: the resize outputs JPEG,
+		// which drops the transparency a PNG keeps in the server's WebP. 512px (the
+		// default) keeps the width at most 512, so processAvatar neither re-crops nor
+		// enlarges it.
+		const result = file.size > SERVER_MAX_IMAGE_BYTES
+			? await resizeImageToDataUrl(file)
+			: await readAsDataUrl(file);
 		previewUrl.value = result;
 		emit('upload', result);
-	};
-	reader.onerror = () => {
+	} catch {
 		toast({
 			title: t('social.avatar.uploadError'),
 			description: t('social.avatar.readError'),
 			variant: 'destructive',
 		});
-	};
-	reader.readAsDataURL(file);
+	} finally {
+		isProcessing.value = false;
+	}
 
 	// Sin reset: cada apertura crea un input nuevo.
 };
