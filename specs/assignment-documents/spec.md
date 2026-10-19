@@ -1,7 +1,7 @@
 # Spec: documentos de cada servidor en el briefing de tareas
 
-> SDD spec — versión 1.0 (2026-10-16). Estado: borrador para revisión de Leonardo (gate de M0:
-> no se codea M1 sin visto bueno de las Decisiones D1-D6).
+> SDD spec — versión 1.0 (2026-10-16). Estado: **aprobado por Leonardo el 2026-10-19**, D1-D6
+> tal como están. Gate de M0 cerrado: se puede empezar M1.
 
 **Branch**: por crear (worktree al implementar) · **Fecha**: 2026-10-16 · **Para**: el próximo
 retiro (no se toca el retiro de oct-2026, en curso y con Minuto a Minuto alineado por SQL).
@@ -49,7 +49,7 @@ Minuto muestre esos mismos documentos en cada momento.
 4. Como coordinador, en el Minuto a Minuto el momento "Dinámica La Pared" muestra `📎 1` y abre
    el documento, aunque el retiro no tenga una responsabilidad "Texto: Dinámica de la Pared".
 
-## Decisiones de diseño (propuestas, por cerrar con Leonardo)
+## Decisiones de diseño (aprobadas 2026-10-19)
 
 - **D1 — De dónde sale el documento de un momento.** Nombre de documento del momento, en
   orden: `scheduleTemplate.documentName` (columna nueva, D3) → `responsability.name` del momento

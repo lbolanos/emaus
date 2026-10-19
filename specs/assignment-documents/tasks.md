@@ -10,7 +10,9 @@
 - [x] `specs/assignment-documents/research.md`
 - [x] `specs/assignment-documents/plan.md`
 - [x] `specs/assignment-documents/tasks.md`
-- [ ] **Gate**: Leonardo revisa D1-D6 antes de codear M1
+- [x] **Gate**: Leonardo revisa D1-D6 antes de codear M1 — aprobado 2026-10-19, las cuatro
+      preguntas con la opción recomendada (D1 plantilla, D2/D3 responsables + regla de mesa,
+      D4 solo archivos con link, D5/D6 variables + actualizar la semilla sin editar)
 - [ ] Worktree + branch al arrancar M1
 
 ## M1 — Modelo: columnas de documento en la plantilla
