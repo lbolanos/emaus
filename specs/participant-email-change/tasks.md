@@ -52,10 +52,31 @@
 
 ## M2 — Web: diálogo de corrección
 
-- [ ] `ParticipantEmailChangeDialog.vue` (type-to-confirm D7, resumen y resultado)
-- [ ] `EditParticipantForm`: email read-only + botón "Corregir correo" con permiso
-- [ ] Servicio en `apps/web/src/services/api` + i18n es
-- [ ] Tests Vitest del diálogo (éxito, 409 con mensaje, permiso)
+- [x] `ParticipantEmailChangeDialog.vue` (type-to-confirm D7, resumen y resultado)
+- [x] `EditParticipantForm`: email read-only + botón "Corregir correo" con permiso
+- [x] Servicio en `apps/web/src/services/api` + i18n es
+- [x] Tests Vitest del diálogo (éxito, 409 con mensaje, permiso)
+
+**Done**: 2026-10-19. Tests: diálogo 4/4, `EditParticipantForm` 20/20 (3 nuevos
+del gate de email), `ParticipantList` 72/72, parity + guards de locales 96/96
+(corrida conjunta). `pnpm --filter web build` (vue-tsc + vite) verde; eslint de
+los archivos de fuente limpio.
+
+### Desviaciones 2026-10-19
+
+- **El correo no se mostraba**: `ParticipantList.formColumnsToEdit` ya excluía
+  `email` (`nonEditableSystemKeys`), así que el form pintaba la etiqueta sin
+  campo. La rama de email se renderiza FUERA del gate de `columnsToEdit`: la
+  dirección queda visible read-only + botón aunque el campo no sea editable.
+- **Catálogo de permisos del web**: `participant:identity:update` no existía en
+  `apps/web/src/utils/permissions.ts` (unión cerrada, el build fallaba). Añadido
+  a `RESOURCES.participant` y a `OperationType`, mismo patrón que `health`.
+- La validación cliente reusa `changeParticipantEmailSchema.shape.body` (zod
+  compartido con el server) en vez de una regex propia.
+- El diálogo se monta desde el arranque (regla MessageDialog) y no usa íconos
+  lucide (el mock global del setup es un allowlist fijo).
+- `onParticipantPatched` (ParticipantList) se ensanchó: cada flujo manda solo
+  sus campos (`email` para este, teléfonos para el quick editor).
 
 ## M3 — Cierre
 

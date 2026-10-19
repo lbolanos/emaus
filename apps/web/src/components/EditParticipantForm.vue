@@ -5,8 +5,10 @@ import { formatCurrency, resolvePalancas } from '@repo/utils';
 import TagSelector from './TagSelector.vue';
 import AngelitoAvailabilityEditor from './AngelitoAvailabilityEditor.vue';
 import ParticipantQuickPhoneEditor from './ParticipantQuickPhoneEditor.vue';
+import ParticipantEmailChangeDialog from './ParticipantEmailChangeDialog.vue';
 import ParticipantPaysAtHouseToggle from './ParticipantPaysAtHouseToggle.vue';
-import { getParticipantTags, assignTagToParticipant, removeTagFromParticipant, getPalanqueroOptions as fetchPalanqueroOptions, santisimoApi } from '@/services/api';
+import { getParticipantTags, assignTagToParticipant, removeTagFromParticipant, getPalanqueroOptions as fetchPalanqueroOptions, santisimoApi, type ParticipantEmailChangeResult } from '@/services/api';
+import { useAuthPermissions } from '@/composables/useAuthPermissions';
 import { PICKUP_LOCATIONS } from '@/constants/pickupLocations';
 import { inferFieldControl, PARTICIPANT_TYPE_OPTIONS } from '@/constants/participantFieldControls';
 import { useI18n } from 'vue-i18n';
@@ -73,6 +75,21 @@ const participantCountry = computed<string | null>(
 // the dialog syncs its copy (participantToEdit) with the server's canonical
 // response.
 const onQuickPhonesSaved = (result: unknown) => emit('participant-patched', result);
+
+// Email is the participant's global identity (D1): read-only in this form,
+// corrected through its own dialog behind participant:identity:update. The
+// generic PUT also strips it server-side, so a stale client cannot write it.
+const { hasPermission } = useAuthPermissions();
+const canCorrectEmail = computed(() => hasPermission('participant:identity:update'));
+const emailDialogOpen = ref(false);
+const onEmailChanged = (result: ParticipantEmailChangeResult) => {
+  if (!result.changed) return;
+  localParticipant.value.email = result.participant.email;
+  emit('participant-patched', {
+    id: result.participant.id,
+    email: result.participant.email,
+  });
+};
 
 async function loadAvailability() {
   const retreatId = props.participant?.retreatId;
@@ -771,7 +788,35 @@ const calculateAge = (birthDate: string | Date) => {
             ]"
           >
             <Label v-if="getColumnType(key) !== 'tags'" :for="key" class="text-xs font-medium text-gray-500">{{ getColumnLabel(key) }}</Label>
-            <template v-if="columnsToEdit.includes(key) && !READ_ONLY_COMPUTED_FIELDS.includes(key)">
+            <!-- Email: global identity, shown read-only with its own audited
+                 door (D1/D7). Outside the columnsToEdit gate on purpose: the
+                 generic edit never carries email (ParticipantList already
+                 excluded it), but the address must stay visible. -->
+            <div v-if="key === 'email'" class="flex items-center gap-2">
+              <Input
+                :id="key"
+                :model-value="localParticipant[key]"
+                disabled
+                class="w-full"
+              />
+              <Button
+                v-if="canCorrectEmail"
+                type="button"
+                variant="outline"
+                size="sm"
+                class="shrink-0"
+                @click="emailDialogOpen = true"
+              >
+                {{ t('participants.emailChange.openButton') }}
+              </Button>
+              <ParticipantEmailChangeDialog
+                :open="emailDialogOpen"
+                :participant="participant"
+                @close="emailDialogOpen = false"
+                @saved="onEmailChanged"
+              />
+            </div>
+            <template v-else-if="columnsToEdit.includes(key) && !READ_ONLY_COMPUTED_FIELDS.includes(key)">
               <Input
                 v-if="getColumnType(key) === 'text'"
                 :id="key"

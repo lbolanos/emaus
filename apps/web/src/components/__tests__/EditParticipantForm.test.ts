@@ -53,7 +53,7 @@ vi.mock('@repo/ui', () => ({
 	},
 	Input: {
 		name: 'Input',
-		template: '<input :value="modelValue" @input="$emit(\'update:modelValue\', $event.target.value)" />',
+		template: '<input :value="modelValue" :disabled="disabled" @input="$emit(\'update:modelValue\', $event.target.value)" />',
 		props: ['modelValue', 'type', 'id', 'placeholder', 'disabled', 'min', 'max', 'step', 'class'],
 		emits: ['update:modelValue'],
 	},
@@ -155,6 +155,27 @@ vi.mock('../ParticipantQuickPhoneEditor.vue', () => ({
 			'<button class="quick-phone-stub" @click="$emit(\'saved\', { id: participant.id, cellPhone: \'5500000000\', emergencyContact1CellPhone: \'5587654321\', emergencyContact2CellPhone: null })">✏</button>',
 		props: ['participant', 'country'],
 		emits: ['saved'],
+	},
+}));
+
+// Permission gate of the email correction button (D2/D7): mutable per test.
+const { mockHasPermission } = vi.hoisted(() => ({
+	mockHasPermission: vi.fn<(permission: string) => boolean>(() => false),
+}));
+vi.mock('@/composables/useAuthPermissions', () => ({
+	useAuthPermissions: () => ({
+		hasPermission: (permission: string) => mockHasPermission(permission),
+	}),
+}));
+
+// Stub for the email change dialog: exposes `open` so the gate test can check
+// the button opens it, and lets tests fire `saved` directly.
+vi.mock('../ParticipantEmailChangeDialog.vue', () => ({
+	default: {
+		name: 'ParticipantEmailChangeDialog',
+		template: '<div class="email-change-dialog-stub" />',
+		props: ['open', 'participant'],
+		emits: ['close', 'saved'],
 	},
 }));
 
@@ -578,6 +599,87 @@ describe('EditParticipantForm – external patch while editing', () => {
 		await nextTick();
 
 		expect((firstName.element as HTMLInputElement).value).toBe('Beto');
+		wrapper.unmount();
+	});
+});
+
+// --------------------------------------------------------------------------
+// Email correction gate (D1/D7 of specs/participant-email-change)
+// --------------------------------------------------------------------------
+
+describe('EditParticipantForm – email field', () => {
+	afterEach(() => {
+		vi.clearAllMocks();
+		mockHasPermission.mockImplementation(() => false);
+	});
+
+	function mountWithEmail() {
+		// Mirrors the real caller: ParticipantList never puts email in
+		// columnsToEdit (nonEditableSystemKeys), so the field must render
+		// read-only through its own branch, not the generic inputs.
+		return mountForm({
+			participant: makeParticipant({ email: 'viejo@mail.test' }),
+			columnsToShow: ['email'],
+			columnsToEdit: [],
+			allColumns: [{ key: 'email', label: 'Correo Electrónico' }],
+		});
+	}
+
+	it('renders the email input disabled — never a plain editable field', async () => {
+		const wrapper = mountWithEmail();
+		await nextTick();
+
+		const emailInput = wrapper.findAll('input').find(
+			(i) => (i.element as HTMLInputElement).value === 'viejo@mail.test',
+		);
+		// Before this feature the label rendered with NO field at all; now the
+		// address is visible, read-only.
+		expect(emailInput).toBeDefined();
+		expect(emailInput!.attributes('disabled')).toBeDefined();
+		wrapper.unmount();
+	});
+
+	it('hides the correction button without participant:identity:update', async () => {
+		mockHasPermission.mockImplementation((p) => p === 'participant:update');
+		const wrapper = mountWithEmail();
+		await nextTick();
+
+		expect(wrapper.text()).not.toContain('participants.emailChange.openButton');
+		wrapper.unmount();
+	});
+
+	it('opens the dialog with the permission and re-emits the result', async () => {
+		mockHasPermission.mockImplementation((p) => p === 'participant:identity:update');
+		const wrapper = mountWithEmail();
+		await nextTick();
+
+		const button = wrapper.findAll('button').find((b) =>
+			b.text().includes('participants.emailChange.openButton'),
+		);
+		expect(button).toBeDefined();
+
+		const dialog = wrapper.findComponent({ name: 'ParticipantEmailChangeDialog' });
+		expect(dialog.props('open')).toBe(false);
+		await button!.trigger('click');
+		expect(dialog.props('open')).toBe(true);
+
+		// The dialog saved: the form patches its copy and re-emits so the
+		// hosting view syncs participantToEdit.
+		dialog.vm.$emit('saved', {
+			participant: { id: 'p-1', email: 'nuevo@mail.test' },
+			changed: true,
+			effects: {
+				userLinked: false,
+				userWithOldEmail: false,
+				overlaysCleared: 0,
+				queueRegenerated: [],
+				spouseShareRetreats: [],
+			},
+		});
+		await nextTick();
+
+		const patched = wrapper.emitted('participant-patched');
+		expect(patched).toEqual([[{ id: 'p-1', email: 'nuevo@mail.test' }]]);
 		wrapper.unmount();
 	});
 });
