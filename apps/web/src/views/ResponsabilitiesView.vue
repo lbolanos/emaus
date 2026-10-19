@@ -88,7 +88,7 @@
                 <Loader2 v-else class="mr-2 h-4 w-4 animate-spin" />
                 {{ isExporting ? $t('responsibilities.exporting') : $t('responsibilities.exportDocx') }}
               </DropdownMenuItem>
-              <DropdownMenuItem @click="handlePrint">
+              <DropdownMenuItem @select="deferOpen(handlePrint)">
                 <Printer class="mr-2 h-4 w-4" />
                 {{ $t('responsibilities.print') }}
               </DropdownMenuItem>
@@ -173,7 +173,7 @@
                     {{ file }}
                   </a>
                 </DropdownMenuItem>
-                <DropdownMenuItem v-if="documentationKeys.has(resp.name)" @click="openAndPrintDoc(resp)">
+                <DropdownMenuItem v-if="documentationKeys.has(resp.name)" @select="deferOpen(() => openAndPrintDoc(resp))">
                   <Printer class="h-3.5 w-3.5 mr-2" />
                   {{ $t('responsibilities.generatePdf') || 'Imprimir / Guardar como PDF' }}
                 </DropdownMenuItem>
@@ -610,9 +610,14 @@ import { buildAssignmentsData } from '@/utils/serverAssignments';
 import ResponsabilityAttachmentsDialog from '@/components/ResponsabilityAttachmentsDialog.vue';
 import MessageDialog from '@/components/MessageDialog.vue';
 import { useParticipantMessageDialog } from '@/composables/useParticipantMessageDialog';
+import { useRekaDialogFix } from '@/composables/useRekaDialogFix';
 import { useAuthPermissions } from '@/composables/useAuthPermissions';
 import { getSocket } from '@/services/realtime';
 import type { Responsability, Participant, ServiceTeam } from '@repo/types';
+
+// Print items in the ⋮ menus call window.print as the menu closes; without the
+// deferral reka-ui leaves pointer-events:none on <body> and the page freezes.
+const { deferOpen } = useRekaDialogFix();
 
 const retreatStore = useRetreatStore();
 const participantStore = useParticipantStore();
