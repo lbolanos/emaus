@@ -77,8 +77,9 @@
   rol del servidor y qué momentos le llegan por ser de mesa.
 - **Hallazgo previo, fuera de alcance**: los handlers por id de momento (`updateItem`,
   `deleteItem`, `startItem`, `completeItem`, `shiftItem`) no verifican a qué retiro pertenece el
-  momento; con `schedule:manage` de cualquier retiro se pueden mutar momentos de otro. Reportado
-  a Leonardo para un fix aparte.
+  momento; con `schedule:manage` de cualquier retiro se pueden mutar momentos de otro.
+  Arreglado el 2026-10-19 en un commit aparte del mismo branch (`ensureItemAccess` + rechazo de
+  responsabilidades y responsables de otro retiro al crear/editar).
 
 ## M4 — Variables `{assignments.*}` nuevas
 

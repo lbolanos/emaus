@@ -9,6 +9,7 @@ import { SantisimoSignup } from '../entities/santisimoSignup.entity';
 import { Participant } from '../entities/participant.entity';
 import { participantAvailabilityService } from './participantAvailabilityService';
 import { Responsability } from '../entities/responsability.entity';
+import { RetreatParticipant } from '../entities/retreatParticipant.entity';
 import { Retreat } from '../entities/retreat.entity';
 import { makeDateInTimezone, dayBoundsInTimezone } from '../utils/date.transformer';
 import { guardiaPlaceLabel, guardiaRetreatSuffix } from '../utils/santisimoGuardiaPlace';
@@ -29,6 +30,13 @@ import { domainAuditService } from './domainAuditService';
 import { DomainAuditAction } from '@repo/types';
 
 export class ScheduleNotFoundError extends Error {}
+
+/**
+ * A schedule item may only point at its own retreat's responsibility and
+ * participants. Without this, a coordinator could link a participant of another
+ * retreat to one of their items and read that person's name in their schedule.
+ */
+export class ScheduleForeignReferenceError extends Error {}
 
 type ResponsablePayload = { participantId: string; role?: string | null };
 
@@ -163,10 +171,39 @@ export class RetreatScheduleService {
 		return populated;
 	}
 
+	/** Retreat of a schedule item, for the access guard of the /items/:id routes. */
+	async findItemRetreatId(id: string): Promise<string | null> {
+		const item = await this.itemRepo.findOne({ where: { id }, select: ['id', 'retreatId'] });
+		return item?.retreatId ?? null;
+	}
+
+	/** Rejects a responsibility or responsables that belong to another retreat. */
+	private async assertSameRetreatReferences(
+		retreatId: string,
+		data: { responsabilityId?: string | null; responsableParticipantIds?: string[] },
+	): Promise<void> {
+		if (data.responsabilityId) {
+			const own = await AppDataSource.getRepository(Responsability).count({
+				where: { id: data.responsabilityId, retreatId },
+			});
+			if (!own) throw new ScheduleForeignReferenceError('responsability does not belong to this retreat');
+		}
+		const participantIds = Array.from(new Set(data.responsableParticipantIds ?? []));
+		if (participantIds.length) {
+			const own = await AppDataSource.getRepository(RetreatParticipant).count({
+				where: { retreatId, participantId: In(participantIds) },
+			});
+			if (own !== participantIds.length) {
+				throw new ScheduleForeignReferenceError('responsables must be participants of this retreat');
+			}
+		}
+	}
+
 	async create(
 		retreatId: string,
 		data: Partial<RetreatScheduleItem> & { responsableParticipantIds?: string[] },
 	): Promise<RetreatScheduleItem> {
+		await this.assertSameRetreatReferences(retreatId, data);
 		const rawStart = data.startTime
 			? data.startTime instanceof Date
 				? data.startTime
@@ -248,6 +285,17 @@ export class RetreatScheduleService {
 	): Promise<RetreatScheduleItem | null> {
 		const existing = await this.itemRepo.findOne({ where: { id } });
 		if (!existing) throw new ScheduleNotFoundError('item not found');
+		// Only what the edit adds is checked: links that already exist stay valid.
+		const currentResponsables = new Set(
+			(await this.respRepo.find({ where: { scheduleItemId: id } })).map((r) => r.participantId),
+		);
+		await this.assertSameRetreatReferences(existing.retreatId, {
+			responsabilityId:
+				data.responsabilityId !== existing.responsabilityId ? data.responsabilityId : undefined,
+			responsableParticipantIds: (data.responsableParticipantIds ?? []).filter(
+				(pid) => !currentResponsables.has(pid),
+			),
+		});
 
 		const update: Partial<RetreatScheduleItem> = {};
 		const dateFields = new Set(['startTime', 'endTime', 'actualStartTime', 'actualEndTime']);

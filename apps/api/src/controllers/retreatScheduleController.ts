@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import {
 	retreatScheduleService,
 	ScheduleNotFoundError,
+	ScheduleForeignReferenceError,
 } from '../services/retreatScheduleService';
 import { authorizationService } from '../middleware/authorization';
 import { assignmentDocumentsService } from '../services/assignmentDocumentsService';
@@ -20,8 +21,30 @@ const checkRetreatAccess = async (req: Request, retreatId: string): Promise<bool
 const mapError = (res: Response, err: unknown) => {
 	if (err instanceof ScheduleNotFoundError)
 		return res.status(404).json({ message: err.message });
+	if (err instanceof ScheduleForeignReferenceError)
+		return res.status(400).json({ message: err.message });
 	const msg = err instanceof Error ? err.message : 'Unexpected error';
 	return res.status(500).json({ message: msg });
+};
+
+/**
+ * The /items/:id routes carry a global permission (`schedule:manage` merges
+ * the roles of every retreat), so a coordinator of one retreat could act on
+ * another retreat's items by id. Resolve the item's retreat and gate with it,
+ * the same check the /retreats/:retreatId routes do. 404 before 403, like the
+ * table routes. Sends the response and returns false when the caller must stop.
+ */
+const ensureItemAccess = async (req: Request, res: Response, itemId: string): Promise<boolean> => {
+	const retreatId = await retreatScheduleService.findItemRetreatId(itemId);
+	if (!retreatId) {
+		res.status(404).json({ message: 'Item not found' });
+		return false;
+	}
+	if (!(await checkRetreatAccess(req, retreatId))) {
+		res.status(403).json({ message: 'Forbidden' });
+		return false;
+	}
+	return true;
 };
 
 export const listItems = async (req: Request, res: Response) => {
@@ -48,6 +71,7 @@ export const createItem = async (req: Request, res: Response) => {
 
 export const updateItem = async (req: Request, res: Response) => {
 	try {
+		if (!(await ensureItemAccess(req, res, req.params.id))) return;
 		const item = await retreatScheduleService.update(req.params.id, req.body);
 		if (!item) return res.status(404).json({ message: 'Item not found' });
 		res.json(item);
@@ -57,13 +81,19 @@ export const updateItem = async (req: Request, res: Response) => {
 };
 
 export const deleteItem = async (req: Request, res: Response) => {
-	const ok = await retreatScheduleService.delete(req.params.id);
-	if (!ok) return res.status(404).json({ message: 'Item not found' });
-	res.status(204).send();
+	try {
+		if (!(await ensureItemAccess(req, res, req.params.id))) return;
+		const ok = await retreatScheduleService.delete(req.params.id);
+		if (!ok) return res.status(404).json({ message: 'Item not found' });
+		res.status(204).send();
+	} catch (err) {
+		mapError(res, err);
+	}
 };
 
 export const startItem = async (req: Request, res: Response) => {
 	try {
+		if (!(await ensureItemAccess(req, res, req.params.id))) return;
 		const item = await retreatScheduleService.startItem(req.params.id);
 		res.json(item);
 	} catch (err) {
@@ -73,6 +103,7 @@ export const startItem = async (req: Request, res: Response) => {
 
 export const completeItem = async (req: Request, res: Response) => {
 	try {
+		if (!(await ensureItemAccess(req, res, req.params.id))) return;
 		const item = await retreatScheduleService.completeItem(req.params.id);
 		res.json(item);
 	} catch (err) {
@@ -82,6 +113,7 @@ export const completeItem = async (req: Request, res: Response) => {
 
 export const shiftItem = async (req: Request, res: Response) => {
 	try {
+		if (!(await ensureItemAccess(req, res, req.params.id))) return;
 		const items = await retreatScheduleService.shiftDownstream(
 			req.params.id,
 			req.body.minutesDelta,
