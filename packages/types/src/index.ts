@@ -1030,7 +1030,10 @@ export type {
 	UserPermission as UserPermissionType,
 	UserRoleDetail,
 	UserProfile,
+	UpdateSocialProfile,
 } from './user';
+// Value export: the API wires this schema into validateRequest (PUT /social/profile).
+export { UpdateSocialProfileSchema } from './user';
 
 export * from './message-template';
 // Shared flyer schemas: re-exported so @repo/types consumers keep seeing them

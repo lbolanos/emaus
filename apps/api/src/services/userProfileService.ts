@@ -8,6 +8,14 @@ const userRepository = AppDataSource.getRepository(User);
 const userProfileRepository = AppDataSource.getRepository(UserProfile);
 const participantRepository = AppDataSource.getRepository(Participant);
 
+// favoriteRetreatIds is a private sidebar preference and must never leave the
+// owner's own GET /social/profile.
+const toPublicProfile = (profile: UserProfile | null): UserProfile => {
+	if (!profile) return {} as UserProfile;
+	const { favoriteRetreatIds, ...publicProfile } = profile;
+	return publicProfile as UserProfile;
+};
+
 export interface UserProfileData {
 	bio?: string | null;
 	location?: string | null;
@@ -17,6 +25,7 @@ export interface UserProfileData {
 	showRetreats?: boolean;
 	interests?: string[];
 	skills?: string[];
+	favoriteRetreatIds?: string[] | null;
 }
 
 export const getUserProfile = async (userId: string): Promise<UserProfile | null> => {
@@ -43,7 +52,14 @@ export const updateUserProfile = async (
 		throw new Error('Profile not found');
 	}
 
-	Object.assign(profile, data);
+	const dataToAssign = { ...data };
+	// Private UI preference: dedupe and cap so a buggy client cannot grow it
+	// unbounded (the zod schema caps at 100 too — this is defense in depth).
+	if (Array.isArray(dataToAssign.favoriteRetreatIds)) {
+		dataToAssign.favoriteRetreatIds = [...new Set(dataToAssign.favoriteRetreatIds)].slice(0, 100);
+	}
+
+	Object.assign(profile, dataToAssign);
 	return await userProfileRepository.save(profile);
 };
 
@@ -87,6 +103,8 @@ export const getPublicProfile = async (
 	if (!profile.showPhone) {
 		delete (filteredProfile as any).phone;
 	}
+	// favoriteRetreatIds is a private UI preference, never shown to other users.
+	delete (filteredProfile as any).favoriteRetreatIds;
 
 	// Check friendship and follow status
 	let isFriend = false;
@@ -195,7 +213,8 @@ export const searchUsers = async (
 
 		results.push({
 			user,
-			profile: user.profile || (await getUserProfile(user.id)),
+			// Strip the private UI preference from search results too.
+			profile: toPublicProfile(user.profile || (await getUserProfile(user.id))),
 			participant,
 		});
 	}

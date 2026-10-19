@@ -6,27 +6,45 @@
 
 ## M0 — specs SDD
 
-- [ ] `specs/retreat-favorites/spec.md` (D1-D8 con defaults propuestos)
-- [ ] `specs/retreat-favorites/research.md`
-- [ ] `specs/retreat-favorites/plan.md`
-- [ ] `specs/retreat-favorites/tasks.md`
-- [ ] **Gate**: Leonardo revisa D1-D8 antes de codear M1 — pendiente. Decisión previa ya tomada en
-      conversación: persistencia backend en el perfil (D1) y UI estrella + chips (D6/R5-R6).
-- [ ] Commit `docs(specs)` en master (con OK de Leonardo)
-- [ ] Worktree `.claude/worktrees/retreat-favorites`, branch `worktree-retreat-favorites`
+- [x] `specs/retreat-favorites/spec.md` (D1-D8 con defaults propuestos)
+- [x] `specs/retreat-favorites/research.md`
+- [x] `specs/retreat-favorites/plan.md`
+- [x] `specs/retreat-favorites/tasks.md`
+- [x] **Gate**: Leonardo revisa D1-D8 antes de codear M1 — aprobado («si», 2026-10-19). Decisión
+      previa tomada en conversación: persistencia backend en el perfil (D1) y UI estrella + chips
+      (D6/R5-R6).
+- [x] Commit `docs(specs)` en master (con OK de Leonardo)
+- [x] Worktree `.claude/worktrees/retreat-favorites`, branch `worktree-retreat-favorites`
       (skill `worktree-testing`: `.env`, DB con `-wal`/`-shm`, `packages/ui/dist`, puertos 3002/5174)
+
+**Done**: 2026-10-19 — specs commiteadas en master como `e1248283`; worktree creado desde ese
+commit (`git worktree add` + EnterWorktree por path).
 
 ## M1 — API: columna, validación y privacidad
 
-- [ ] Migración `20261019120000_AddFavoriteRetreatIdsToUserProfile.ts` (idempotente, `down`)
-- [ ] Entidad `userProfile.entity.ts` (`simple-array`, nullable)
-- [ ] `UpdateSocialProfileSchema` en `packages/types/src/user.ts` + export + wire
+- [x] Migración `20261019200000_AddFavoriteRetreatIdsToUserProfile.ts` (idempotente, `down`)
+- [x] Entidad `userProfile.entity.ts` (`simple-array`, nullable)
+- [x] `UpdateSocialProfileSchema` en `packages/types/src/user.ts` + export + wire
       `validateRequest` en `userSocial.routes.ts`
-- [ ] Controller + service: destructure, `UserProfileData`, sanitización dedupe/cap
-- [ ] Strip de `favoriteRetreatIds` en `getPublicProfile` y `searchUsers`
-- [ ] Tests: migración (idempotencia/down), schema (400 por uuid/>100), controller/service
+- [x] Controller + service: destructure, `UserProfileData`, sanitización dedupe/cap
+- [x] Strip de `favoriteRetreatIds` en `getPublicProfile` y `searchUsers`
+- [x] Tests: migración (idempotencia/down), schema (400 por uuid/>100), controller/service
       (pasa el campo; no sale en público)
-- [ ] Una sola corrida de jest a la vez; suite API afectada verde
+- [x] Una sola corrida de jest a la vez; suite API afectada verde (31/31)
+
+**Done**: 2026-10-19 — 3 suites nuevas/extendidas verdes; `tsc --noEmit` del API queda en 145
+errores vs 146 de master (no es gate del repo; sin errores netos añadidos, se arregló uno
+preexistente en la línea del strip).
+
+### Desviaciones 2026-10-19
+
+- El timestamp de la migración pasó de `20261019120000` (plan) a `20261019200000`: el mismo día
+  ya existían `20261019120000`/`130000`/`140000` (assignment-documents) y el runner exige orden
+  estricto. Spec y tasks corregidos en este mismo commit.
+- El test del schema zod se implementó como test de rutas
+  (`src/tests/routes/userSocialProfileRoutes.simple.test.ts`, patrón `communityUpdateRoutes`):
+  ejercita el schema real **y** el wire de `validateRequest` en la ruta — cubre lo planeado y el
+  medio de montaje, que un test de schema puro no pisa.
 
 **Gate**: commit `feat(api): favorite retreat ids in user profile` (con OK de Leonardo).
 

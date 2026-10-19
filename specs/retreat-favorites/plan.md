@@ -9,7 +9,7 @@
 
 | Archivo | Cambio |
 |---|---|
-| `apps/api/src/migrations/sqlite/20261019120000_AddFavoriteRetreatIdsToUserProfile.ts` | Nueva. Patrón `AddShirtOrderEstimateToRetreat`: `PRAGMA table_info("user_profiles")` + `ALTER TABLE … ADD COLUMN "favoriteRetreatIds" text` condicional; `down` con `DROP COLUMN`. Sin `@repo/types`. |
+| `apps/api/src/migrations/sqlite/20261019200000_AddFavoriteRetreatIdsToUserProfile.ts` | Nueva. Patrón `AddShirtOrderEstimateToRetreat`: `PRAGMA table_info("user_profiles")` + `ALTER TABLE … ADD COLUMN "favoriteRetreatIds" text` condicional; `down` con `DROP COLUMN`. Sin `@repo/types`. (Timestamp ajustado a 200000: el 120000 del plan original colisionaba con tres migraciones de assignment-documents del mismo día.) |
 | `apps/api/src/entities/userProfile.entity.ts` | Columna `favoriteRetreatIds?: string[] \| null` (`simple-array`, nullable) tras `skills`. |
 | `packages/types/src/user.ts` | `UpdateSocialProfileSchema` (zod, shape `{ body: … }` como `CreateRoleRequestSchema`) con los campos actuales del PUT, permisivos, + `favoriteRetreatIds: z.array(z.string().uuid()).max(100).optional()`. Exportar del index. |
 | `apps/api/src/routes/userSocial.routes.ts` | Wire `validateRequest(UpdateSocialProfileSchema)` en `PUT /profile`. |

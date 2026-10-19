@@ -26,6 +26,8 @@ import {
 	getBlockedUsersController,
 } from '../controllers/userSocialController';
 import { isAuthenticated } from '../middleware/authentication';
+import { validateRequest } from '../middleware/validateRequest';
+import { UpdateSocialProfileSchema } from '@repo/types';
 
 const router = Router();
 
@@ -38,7 +40,7 @@ router.use(isAuthenticated);
 router.get('/profile', getMyProfile);
 
 // Update my profile
-router.put('/profile', updateMyProfile);
+router.put('/profile', validateRequest(UpdateSocialProfileSchema), updateMyProfile);
 
 // Update avatar
 router.put('/profile/avatar', updateAvatar);

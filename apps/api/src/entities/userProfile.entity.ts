@@ -38,6 +38,11 @@ export class UserProfile {
 	@Column({ type: 'simple-array', nullable: true })
 	skills?: string[] | null;
 
+	// Retreat UUIDs the user starred for quick access in the sidebar.
+	// Private UI preference: stripped from public profiles (userProfileService).
+	@Column({ type: 'simple-array', nullable: true })
+	favoriteRetreatIds?: string[] | null;
+
 	@Column({ type: 'varchar', nullable: true })
 	avatarUrl?: string | null;
 

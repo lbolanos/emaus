@@ -1,6 +1,6 @@
 // Tests for userProfileController - Avatar endpoints
 import { Request, Response } from 'express';
-import { updateAvatar, removeAvatar } from '../../controllers/userProfileController';
+import { updateAvatar, removeAvatar, updateMyProfile } from '../../controllers/userProfileController';
 
 // Mock dependencies
 jest.mock('../../utils/auth');
@@ -332,6 +332,54 @@ describe('UserProfileController - Avatar Endpoints', () => {
 			mockGetUserProfile.mockRejectedValue(new Error('Database error'));
 
 			await removeAvatar(mockRequest as Request, mockResponse as Response);
+
+			expect(responseStatus).toHaveBeenCalledWith(500);
+			expect(responseJson).toHaveBeenCalledWith({ message: 'Database error' });
+		});
+	});
+
+	describe('updateMyProfile', () => {
+		test('should pass favoriteRetreatIds through to the service', async () => {
+			const favoriteRetreatIds = ['9b2d4c6e-8f10-4a3b-9c7d-5e6f7a8b9c0d'];
+			mockRequest.body = { favoriteRetreatIds };
+
+			await updateMyProfile(mockRequest as Request, mockResponse as Response);
+
+			expect(mockUpdateUserProfile).toHaveBeenCalledWith(
+				'user-123',
+				expect.objectContaining({ favoriteRetreatIds }),
+			);
+			expect(responseJson).toHaveBeenCalledWith(expect.anything());
+		});
+
+		test('should pass an explicit empty array through (clear all favorites)', async () => {
+			mockRequest.body = { favoriteRetreatIds: [] };
+
+			await updateMyProfile(mockRequest as Request, mockResponse as Response);
+
+			// [] must reach the service as [] — undefined would skip the key in
+			// TypeORM and leave the old favorites in place.
+			expect(mockUpdateUserProfile).toHaveBeenCalledWith(
+				'user-123',
+				expect.objectContaining({ favoriteRetreatIds: [] }),
+			);
+		});
+
+		test('should return 401 if user is not authenticated', async () => {
+			mockGetUserFromRequest.mockReturnValue(null);
+
+			await updateMyProfile(mockRequest as Request, mockResponse as Response);
+
+			expect(responseStatus).toHaveBeenCalledWith(401);
+			expect(responseJson).toHaveBeenCalledWith({ message: 'Usuario no autenticado' });
+			expect(mockUpdateUserProfile).not.toHaveBeenCalled();
+		});
+
+		test('should return 500 when the service throws', async () => {
+			mockRequest.body = { bio: 'hola' };
+			mockUpdateUserProfile.mockRejectedValue(new Error('Database error'));
+
+			await updateMyProfile(mockRequest as Request, mockResponse as Response);
 
 			expect(responseStatus).toHaveBeenCalledWith(500);
 			expect(responseJson).toHaveBeenCalledWith({ message: 'Database error' });
