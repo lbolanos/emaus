@@ -25,8 +25,8 @@ class ImageService {
 	private readonly MAX_SIZE = 512; // pixels
 	/** Flyer backgrounds are exported at pixelRatio 2, so they need more than 512px. */
 	private readonly MAX_FLYER_BACKGROUND_SIZE = 1600; // pixels
-	/** Retreat memory photos are viewed full screen, so they keep far more than an avatar. */
-	private readonly MAX_MEMORY_PHOTO_SIZE = 1600; // pixels
+	/** Event photos (retreat memories, community meetings) are viewed full screen. */
+	private readonly MAX_PHOTO_SIZE = 1600; // pixels
 	private readonly QUALITY = 85; // webp quality
 	private readonly MAX_FILE_SIZE = 2 * 1024 * 1024; // 2MB
 
@@ -161,11 +161,12 @@ class ImageService {
 	}
 
 	/**
-	 * Processes a retreat memory photo. Never crops: these are mostly group
-	 * photos, and the square crop of processAvatar cut off the people at the edges.
+	 * Processes an event photo (retreat memory, community meeting). Never crops:
+	 * these are mostly group photos, and the square crop of processAvatar cut off
+	 * the people at the edges. processAvatar is only for faces.
 	 */
-	async processMemoryPhoto(buffer: Buffer, contentType: string): Promise<ProcessedImage> {
-		return this.processWithoutCrop(buffer, contentType, this.MAX_MEMORY_PHOTO_SIZE);
+	async processPhoto(buffer: Buffer, contentType: string): Promise<ProcessedImage> {
+		return this.processWithoutCrop(buffer, contentType, this.MAX_PHOTO_SIZE);
 	}
 
 	/** Fits the image inside `maxSide` × `maxSide` keeping its aspect ratio, never enlarging it. */

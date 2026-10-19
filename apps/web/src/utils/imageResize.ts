@@ -10,6 +10,19 @@
  * Devuelve un data-URI listo para mandar al endpoint.
  */
 
+/**
+ * Longest side for event photos (retreat memories, community meetings): the
+ * same bound the server keeps, so it only re-encodes and never rescales.
+ */
+export const PHOTO_MAX_SIDE = 1600;
+
+/**
+ * Largest original accepted for an event photo. It is shrunk before upload, so
+ * it can be far above the server's 2MB; the cap bounds the worst case of
+ * decoding on a phone. It measures bytes, not pixels: a guard, not a guarantee.
+ */
+export const MAX_PHOTO_SOURCE_BYTES = 30 * 1024 * 1024;
+
 interface ResizeOptions {
 	/** Lado mayor de la imagen resultante, en píxeles. */
 	maxSide?: number;

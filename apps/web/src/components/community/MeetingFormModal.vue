@@ -126,13 +126,15 @@
               <button
                 v-else
                 type="button"
+                :disabled="isProcessingPhoto"
                 @click="triggerPhotoInput"
-                class="flex flex-col items-center justify-center w-full max-w-sm h-32 border-2 border-dashed rounded-lg text-muted-foreground hover:bg-muted/50 transition-colors"
+                class="flex flex-col items-center justify-center w-full max-w-sm h-32 border-2 border-dashed rounded-lg text-muted-foreground hover:bg-muted/50 transition-colors disabled:opacity-50"
               >
-                <ImagePlus class="w-6 h-6 mb-1" />
-                <span class="text-sm">Agregar foto</span>
+                <Loader2 v-if="isProcessingPhoto" class="w-6 h-6 mb-1 animate-spin" />
+                <ImagePlus v-else class="w-6 h-6 mb-1" />
+                <span class="text-sm">{{ isProcessingPhoto ? 'Procesando foto...' : 'Agregar foto' }}</span>
               </button>
-              <p class="text-xs text-muted-foreground">Imagen opcional (máx. 2MB). PNG, JPG, GIF o WebP.</p>
+              <p class="text-xs text-muted-foreground">Imagen opcional. PNG, JPG, GIF o WebP; las fotos grandes se reducen solas.</p>
             </div>
 
             <!-- Edit Scope (when editing recurring meeting) -->
@@ -264,7 +266,7 @@
             <Button type="button" variant="outline" @click="handleClose" :disabled="isSaving">
               Cancelar
             </Button>
-            <Button type="submit" :disabled="!isFormValid || isSaving" class="min-w-[100px]">
+            <Button type="submit" :disabled="!isFormValid || isSaving || isProcessingPhoto" class="min-w-[100px]">
               <Loader2 v-if="isSaving" class="w-4 h-4 mr-2 animate-spin" />
               {{ isSaving ? 'Guardando...' : editingMeeting ? 'Guardar cambios' : 'Crear reunión' }}
             </Button>
@@ -312,6 +314,7 @@ import {
 } from '@repo/ui';
 import { useToast } from '@repo/ui';
 import { pickFile } from '@/utils/filePicker';
+import { MAX_PHOTO_SOURCE_BYTES, PHOTO_MAX_SIDE, resizeImageToDataUrl } from '@/utils/imageResize';
 import type { MeetingType, RecurrenceFrequency } from '@repo/types';
 import { MEETING_TYPES } from '@/constants/meetingTypes';
 import MeetingDateTimeForm from './forms/MeetingDateTimeForm.vue';
@@ -383,39 +386,40 @@ const errors = ref<Record<string, string>>({});
 const photoPreview = ref<string>('');
 const pendingPhotoData = ref<string | null>(null);
 const pendingPhotoRemove = ref(false);
-const MAX_PHOTO_BYTES = 2 * 1024 * 1024;
+// True while the chosen photo is being shrunk: saving then would drop it silently.
+const isProcessingPhoto = ref(false);
 
 const triggerPhotoInput = async () => {
   // Input creado al vuelo: inmune a Safari con display:none y a que el
   // hot-reload deje la referencia apuntando a un nodo desconectado.
   const file = await pickFile({ accept: 'image/png,image/jpeg,image/jpg,image/gif,image/webp' });
-  applyPhotoFile(file);
+  await applyPhotoFile(file);
 };
 
-const applyPhotoFile = (file: File | null) => {
+const applyPhotoFile = async (file: File | null) => {
   if (!file) return;
 
   if (!file.type.startsWith('image/')) {
     toast({ title: 'Error', description: 'El archivo debe ser una imagen', variant: 'destructive' });
     return;
   }
-  if (file.size > MAX_PHOTO_BYTES) {
-    toast({ title: 'Error', description: 'La imagen no puede exceder 2MB', variant: 'destructive' });
+  if (file.size > MAX_PHOTO_SOURCE_BYTES) {
+    toast({ title: 'Error', description: 'La imagen no puede exceder 30MB', variant: 'destructive' });
     return;
   }
 
-  const reader = new FileReader();
-  reader.onload = (e) => {
-    const result = e.target?.result as string;
-    photoPreview.value = result;
-    pendingPhotoData.value = result;
+  isProcessingPhoto.value = true;
+  try {
+    // Shrunk in the browser: the server takes at most 2MB and a phone photo weighs 3-8MB.
+    const dataUrl = await resizeImageToDataUrl(file, { maxSide: PHOTO_MAX_SIDE });
+    photoPreview.value = dataUrl;
+    pendingPhotoData.value = dataUrl;
     pendingPhotoRemove.value = false;
-  };
-  reader.onerror = () => {
-    toast({ title: 'Error', description: 'No se pudo leer la imagen', variant: 'destructive' });
-  };
-  reader.readAsDataURL(file);
-
+  } catch (error: any) {
+    toast({ title: 'Error', description: error?.message || 'No se pudo leer la imagen', variant: 'destructive' });
+  } finally {
+    isProcessingPhoto.value = false;
+  }
 };
 
 const handleRemovePhoto = () => {

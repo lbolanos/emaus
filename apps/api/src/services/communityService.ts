@@ -1679,7 +1679,7 @@ export class CommunityService {
 	 * Sube/reemplaza la foto única de una reunión. Espera un data-URI base64
 	 * (`photoData`). En modo S3 procesa la imagen (resize + webp) y la sube con
 	 * key fija por meeting; en modo base64 persiste el data-URI ya validado.
-	 * Reutiliza el mismo flujo de imágenes que avatares y retreat-memories.
+	 * Same image flow as retreat memories (processPhoto), not the avatar one.
 	 */
 	async setMeetingPhoto(meetingId: string, photoData: string) {
 		const meeting = await this.getMeetingById(meetingId);
@@ -1691,8 +1691,10 @@ export class CommunityService {
 		let s3Key: string | null = null;
 
 		if (avatarStorageService.isS3Storage()) {
+			// processPhoto, not processAvatar: the avatar flow crops to a 512px
+			// square, which cut the people at the edges out of group photos.
 			const { buffer, contentType } = imageService.base64ToBuffer(photoData);
-			const processed = await imageService.processAvatar(buffer, contentType);
+			const processed = await imageService.processPhoto(buffer, contentType);
 			const result = await s3Service.uploadCommunityMeetingPhoto(
 				meetingId,
 				processed.buffer,

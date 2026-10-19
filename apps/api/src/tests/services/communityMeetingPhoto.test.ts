@@ -1,3 +1,4 @@
+import sharp from 'sharp';
 import { setupTestDatabase, teardownTestDatabase, clearTestData } from '../test-setup';
 import { TestDataFactory } from '../test-utils/testDataFactory';
 import { User } from '@/entities/user.entity';
@@ -5,6 +6,8 @@ import { Community } from '@/entities/community.entity';
 import { CommunityService } from '@/services/communityService';
 import { CommunityMeeting } from '@/entities/communityMeeting.entity';
 import { AppDataSource } from '@/data-source';
+import { avatarStorageService } from '@/services/avatarStorageService';
+import { s3Service } from '@/services/s3Service';
 
 // Mock EmailService antes de cargar el servicio (regla ESM del proyecto): el
 // service dispara notificaciones fire-and-forget al crear reuniones.
@@ -77,6 +80,39 @@ describe('Community Meeting Photo', () => {
 			await expect(
 				service.setMeetingPhoto('00000000-0000-0000-0000-000000000000', PNG_DATA_URI),
 			).rejects.toThrow('Meeting not found');
+		});
+
+		describe('with S3 storage (production)', () => {
+			afterEach(() => {
+				jest.restoreAllMocks();
+			});
+
+			it('stores a group photo whole, fitted to 1600px, without the avatar square crop', async () => {
+				jest.spyOn(avatarStorageService, 'isS3Storage').mockReturnValue(true);
+				const upload = jest
+					.spyOn(s3Service, 'uploadCommunityMeetingPhoto')
+					.mockResolvedValue({ url: 'https://s3/community-meetings/x.webp', key: 'community-meetings/x.webp' });
+
+				const landscape = await sharp({
+					create: { width: 3000, height: 2000, channels: 3, background: { r: 120, g: 90, b: 60 } },
+				})
+					.jpeg()
+					.toBuffer();
+				const meeting = await createMeeting();
+
+				const updated = await service.setMeetingPhoto(
+					meeting.id,
+					`data:image/jpeg;base64,${landscape.toString('base64')}`,
+				);
+
+				expect(upload).toHaveBeenCalledTimes(1);
+				const [, uploaded, contentType] = upload.mock.calls[0];
+				expect(contentType).toBe('image/webp');
+				const stored = await sharp(uploaded).metadata();
+				expect(stored.format).toBe('webp');
+				expect([stored.width, stored.height]).toEqual([1600, 1067]);
+				expect(updated?.photoS3Key).toBe('community-meetings/x.webp');
+			});
 		});
 	});
 

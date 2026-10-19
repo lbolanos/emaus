@@ -65,9 +65,11 @@ const mockPickFiles = vi.fn();
 vi.mock('@/utils/filePicker', () => ({ pickFiles: (...a: any[]) => mockPickFiles(...a) }));
 
 // The real resize draws on a <canvas>, which happy-dom lacks. What matters here
-// is that every upload goes through it, and with which bound.
+// is that every upload goes through it, and with which bound. The size
+// constants stay real: the form imports them from the same module.
 const mockResize = vi.fn();
-vi.mock('@/utils/imageResize', () => ({
+vi.mock('@/utils/imageResize', async (importOriginal) => ({
+	...(await importOriginal<typeof import('@/utils/imageResize')>()),
 	resizeImageToDataUrl: (...a: any[]) => mockResize(...a),
 }));
 
