@@ -1695,23 +1695,27 @@ borrosa: en una foto de grupo faltan las personas de las orillas.
 
 **Fix**: en el cliente, `resizeImageToDataUrl(file, { maxSide })` de
 `apps/web/src/utils/imageResize.ts` antes de subir (JPEG; ya resuelve la CSP sin `blob:` y el WebP
-falso de Safari). En el servidor, para lo que no es una cara, `processMemoryPhoto` o
-`processFlyerAsset`, que comparten `processWithoutCrop` (`fit: 'inside'`, sin agrandar).
+falso de Safari), con `PHOTO_MAX_SIDE` y `MAX_PHOTO_SOURCE_BYTES` del mismo módulo. En el servidor,
+para lo que no es una cara, `processPhoto` (fotos de evento) o `processFlyerAsset`, que comparten
+`processWithoutCrop` (`fit: 'inside'`, sin agrandar).
 
-**Auditar el repo**:
+**Auditar el repo** (con `/usr/bin/grep`: el `grep` de la shell de Claude se salta en silencio los
+archivos con bytes NUL, y `retreatMemoryService.ts` los tiene):
 
 ```bash
-grep -rn "processAvatar(" apps/api/src --include='*.ts' | grep -v tests
-grep -rn "readAsDataURL" apps/web/src --include='*.vue' | grep -v __tests__
+/usr/bin/grep -rn "processAvatar(" apps/api/src --include='*.ts' | /usr/bin/grep -v tests
+/usr/bin/grep -rn "readAsDataURL\|2 \* 1024 \* 1024" apps/web/src --include='*.vue' | /usr/bin/grep -v __tests__
 ```
 
-Hoy (2026-10-19) `processAvatar` queda en el avatar de usuario y la foto de rostro del miembro
-(correcto: son caras) y en la **foto de reunión de la comunidad**
-(`communityService.ts`, `uploadCommunityMeetingPhoto`), que sigue saliendo cuadrada.
+Hoy (2026-10-19) `processAvatar` queda solo en el avatar de usuario y la foto de rostro del miembro
+(correcto: son caras). Fotos del recuerdo y de reunión ya van por `processPhoto`. Queda el **fondo
+del volante de la comunidad** (`CommunityMeetingFlyerView.vue`, `handlePickBackground`): el servidor
+no recorta, pero el navegador sigue cortando en 2 MB sin reducir.
 
 **Comprobar en prod por el dato**: bajar un objeto del prefijo con `aws s3 cp … --profile emaus`
 a un temporal y medirlo con `sips -g pixelWidth -g pixelHeight`. 512×512 = pasó por el recorte.
 
-**Caso**: 2026-10-19 — fotos del recuerdo del retiro: el formulario decía "máx. 5MB", el servidor
+**Casos**: 2026-10-19 — fotos de reunión de la comunidad (`specs/meeting-photo-resize/`): 2 MB en
+el navegador y cuadrado de 512 en S3; 12 objetos en `community-meetings/`. Ese mismo día, fotos del recuerdo del retiro: el formulario decía "máx. 5MB", el servidor
 cortaba en 2 MB y las 10 fotos de `retreat-memories/` eran de 512×512. Spec y decisiones:
 `specs/memory-photo-resize/`.

@@ -322,6 +322,7 @@ import { useI18n } from 'vue-i18n';
 import { useRoute, useRouter } from 'vue-router';
 import { useCommunityStore } from '@/stores/communityStore';
 import { pickFile } from '@/utils/filePicker';
+import { MAX_PHOTO_SOURCE_BYTES, PHOTO_MAX_SIDE, resizeImageToDataUrl } from '@/utils/imageResize';
 import { storeToRefs } from 'pinia';
 import { Loader2, CalendarPlus, Calendar, Clock, CheckSquare, ChevronRight, Pencil, Trash2, RefreshCw, Share, FileText, UserCheck, UserX, Search, ImagePlus, TrendingUp } from 'lucide-vue-next';
 import {
@@ -551,7 +552,6 @@ const openPhotoPreview = (meeting: any) => {
 // --- Subida directa de foto desde la lista (sin abrir el modal de edición) ---
 const photoTargetMeetingId = ref<string | null>(null);
 const uploadingPhotoId = ref<string | null>(null);
-const MAX_PHOTO_BYTES = 2 * 1024 * 1024;
 
 const triggerPhotoUpload = async (meeting: any) => {
   photoTargetMeetingId.value = meeting.id;
@@ -559,10 +559,10 @@ const triggerPhotoUpload = async (meeting: any) => {
   // apuntando a un nodo que el hot-reload desconectó, ni input en display:none
   // que Safari ignore.
   const file = await pickFile({ accept: 'image/png,image/jpeg,image/jpg,image/gif,image/webp' });
-  handlePhotoFile(file);
+  await handlePhotoFile(file);
 };
 
-const handlePhotoFile = (file: File | null) => {
+const handlePhotoFile = async (file: File | null) => {
   const meetingId = photoTargetMeetingId.value;
   if (!file || !meetingId) return;
 
@@ -570,34 +570,29 @@ const handlePhotoFile = (file: File | null) => {
     toast({ title: 'Error', description: 'El archivo debe ser una imagen', variant: 'destructive' });
     return;
   }
-  if (file.size > MAX_PHOTO_BYTES) {
-    toast({ title: 'Error', description: 'La imagen no puede exceder 2MB', variant: 'destructive' });
+  if (file.size > MAX_PHOTO_SOURCE_BYTES) {
+    toast({ title: 'Error', description: 'La imagen no puede exceder 30MB', variant: 'destructive' });
     return;
   }
 
-  const reader = new FileReader();
-  reader.onload = async (e) => {
-    const dataUrl = e.target?.result as string;
-    uploadingPhotoId.value = meetingId;
-    try {
-      await communityStore.setMeetingPhoto(meetingId, dataUrl);
-      toast({ title: 'Foto actualizada', description: 'La foto de la reunión se guardó exitosamente.' });
-    } catch (error: any) {
-      console.error('Failed to upload meeting photo:', error);
-      toast({
-        title: 'Error',
-        description: error.response?.data?.message || error.message || 'No se pudo subir la foto.',
-        variant: 'destructive',
-      });
-    } finally {
-      uploadingPhotoId.value = null;
-      photoTargetMeetingId.value = null;
-    }
-  };
-  reader.onerror = () => {
-    toast({ title: 'Error', description: 'No se pudo leer la imagen', variant: 'destructive' });
-  };
-  reader.readAsDataURL(file);
+  // Busy from the start: shrinking a phone photo takes a moment before the upload.
+  uploadingPhotoId.value = meetingId;
+  try {
+    // Shrunk in the browser: the server takes at most 2MB and a phone photo weighs 3-8MB.
+    const dataUrl = await resizeImageToDataUrl(file, { maxSide: PHOTO_MAX_SIDE });
+    await communityStore.setMeetingPhoto(meetingId, dataUrl);
+    toast({ title: 'Foto actualizada', description: 'La foto de la reunión se guardó exitosamente.' });
+  } catch (error: any) {
+    console.error('Failed to upload meeting photo:', error);
+    toast({
+      title: 'Error',
+      description: error.response?.data?.message || error.message || 'No se pudo subir la foto.',
+      variant: 'destructive',
+    });
+  } finally {
+    uploadingPhotoId.value = null;
+    photoTargetMeetingId.value = null;
+  }
 };
 
 const handleCreateNextInstance = async (meeting: any) => {

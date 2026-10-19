@@ -1,6 +1,6 @@
 # Spec: Fotos de reunión grandes
 
-**Estado**: en desarrollo, D1-D3 heredadas y aprobadas · **Branch**: `worktree-meeting-photo-resize` · **Fecha**: 2026-10-19
+**Estado**: implementado, D1-D3 heredadas y aprobadas · **Branch**: `worktree-meeting-photo-resize` · **Fecha**: 2026-10-19
 
 Segunda instancia del defecto de `specs/memory-photo-resize/`, ahora en la foto de una reunión de la
 comunidad (`/app/communities/:id/meetings`). El usuario pidió el arreglo el 2026-10-19 («ok arregla»).

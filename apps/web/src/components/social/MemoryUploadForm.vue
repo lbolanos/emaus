@@ -182,7 +182,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
 import { pickFiles } from '@/utils/filePicker';
-import { resizeImageToDataUrl } from '@/utils/imageResize';
+import { MAX_PHOTO_SOURCE_BYTES, PHOTO_MAX_SIDE, resizeImageToDataUrl } from '@/utils/imageResize';
 import { Star, Trash2, Plus, Loader2, Music, Download } from 'lucide-vue-next';
 import { useToast } from '@repo/ui';
 import type { RetreatMemoryPhoto, RetreatMemorySong } from '@repo/types';
@@ -201,12 +201,6 @@ import { apiErrorMessage } from '@/services/apiError';
 
 const MAX_PHOTOS = 30;
 const MAX_SONGS = 30;
-// The photo is shrunk in the browser before upload (the server caps it at 2MB),
-// so the original can be much larger. The cap bounds the worst case of decoding
-// on a phone; it measures bytes, not pixels, so it is a guard, not a guarantee.
-const MAX_SOURCE_BYTES = 30 * 1024 * 1024;
-// Same longest side the server keeps, so it only re-encodes and never rescales.
-const PHOTO_MAX_SIDE = 1600;
 
 interface Props {
 	retreatId: string;
@@ -279,7 +273,7 @@ const triggerFileInput = async () => {
 };
 
 const validateFile = (file: File): boolean => {
-	if (file.size > MAX_SOURCE_BYTES) {
+	if (file.size > MAX_PHOTO_SOURCE_BYTES) {
 		toast({ title: 'Archivo muy grande', description: `${file.name} supera los 30MB`, variant: 'destructive' });
 		return false;
 	}
