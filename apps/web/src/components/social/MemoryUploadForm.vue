@@ -202,8 +202,8 @@ import { apiErrorMessage } from '@/services/apiError';
 const MAX_PHOTOS = 30;
 const MAX_SONGS = 30;
 // The photo is shrunk in the browser before upload (the server caps it at 2MB),
-// so the original can be much larger. The cap only keeps a huge file from
-// exhausting the phone's memory while it is decoded.
+// so the original can be much larger. The cap bounds the worst case of decoding
+// on a phone; it measures bytes, not pixels, so it is a guard, not a guarantee.
 const MAX_SOURCE_BYTES = 30 * 1024 * 1024;
 // Same longest side the server keeps, so it only re-encodes and never rescales.
 const PHOTO_MAX_SIDE = 1600;
@@ -293,28 +293,50 @@ const validateFile = (file: File): boolean => {
 const handleFiles = async (files: File[]) => {
 	if (!files.length) return;
 
+	const valid = files.filter(validateFile);
 	// Only as many as there are free slots; the server would reject the rest one by one.
-	const slots = Math.max(0, MAX_PHOTOS - photos.value.length);
+	const toUpload = valid.slice(0, Math.max(0, MAX_PHOTOS - photos.value.length));
+	const failed: string[] = [];
+	let firstError: unknown;
 	uploading.value = true;
 	try {
 		// One at a time: decoding several large photos at once can exhaust a phone's memory.
-		for (const file of files.filter(validateFile).slice(0, slots)) {
+		for (const file of toUpload) {
 			try {
 				const photoData = await resizeImageToDataUrl(file, { maxSide: PHOTO_MAX_SIDE });
 				await addRetreatMemoryPhoto(props.retreatId, photoData);
 			} catch (error) {
 				// Keep going: the photos already uploaded must not look lost.
-				toast({
-					title: `No se pudo subir ${file.name}`,
-					description: apiErrorMessage(error),
-					variant: 'destructive',
-				});
+				failed.push(file.name);
+				firstError ??= error;
 			}
 		}
 	} finally {
 		await load();
 		emitDerived();
 		uploading.value = false;
+	}
+
+	// One toast per batch: an error that hits every photo (an expired session)
+	// would otherwise fire one per file.
+	if (failed.length) {
+		toast({
+			title:
+				failed.length === 1 ? `No se pudo subir ${failed[0]}` : `No se pudieron subir ${failed.length} fotos`,
+			description:
+				failed.length === 1
+					? apiErrorMessage(firstError)
+					: `${failed.join(', ')}. ${apiErrorMessage(firstError)}`,
+			variant: 'destructive',
+		});
+	}
+	const skipped = valid.length - toUpload.length;
+	if (skipped > 0) {
+		toast({
+			title: `Máximo ${MAX_PHOTOS} fotos por retiro`,
+			description: `No se subieron ${skipped} foto(s) por falta de espacio.`,
+			variant: 'destructive',
+		});
 	}
 };
 

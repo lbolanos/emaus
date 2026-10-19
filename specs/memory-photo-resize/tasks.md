@@ -23,6 +23,9 @@ Desviaciones:
 - El cupo se aplica **después** de descartar los archivos inválidos (`files.filter(validateFile).slice(0, slots)`),
   no antes como decía el plan. Así un archivo rechazado no ocupa el lugar de uno bueno.
 - Test extra: si la **reducción** falla (no solo la subida), el lote sigue.
+- Tras el code review del cierre: las fallas del lote se reportan en **un solo toast** al final
+  (antes, uno por foto: con la sesión vencida, 10 fotos daban 10 toasts), y las fotos que no caben
+  en el cupo se avisan con «Máximo 30 fotos por retiro» en vez de descartarse en silencio.
 
 ## M2 — API: no recortar (D2) [P]
 
@@ -46,7 +49,12 @@ Desviaciones:
       sube como JPEG de 1600×1200 y 451 KB, `POST /memory-photos` 201, contador 1/30, sin toasts.
       La imagen de prueba es ruido sintético, el peor caso para comprimir: una foto real queda más chica.
 - [x] Reconciliar spec ↔ código y anotar desviaciones aquí
-- [ ] Avisar que las 10 fotos de prod se quedan cuadradas hasta que se vuelvan a subir
+- [ ] Avisar que las 10 fotos de prod se quedan cuadradas hasta que se vuelvan a subir (borrador listo, sin enviar)
+
+Encontrado al cerrar, fuera de alcance: la **foto de reunión de la comunidad**
+(`communityService.ts`, `uploadCommunityMeetingPhoto`) también pasa por `processAvatar` y se
+guarda como cuadrado de 512 px (12 objetos en `community-meetings/`); su formulario limita a 2 MB
+sin reducir. Mismo arreglo que aquí; queda para otra tarea.
 
 Lo que no se probó: D2 en el navegador. El dev local guarda en base64 y no pasa por `sharp`; el
 camino S3 queda cubierto por el test de integración. Se verá en prod con la primera foto que se

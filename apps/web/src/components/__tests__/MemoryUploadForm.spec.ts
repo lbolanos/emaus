@@ -249,6 +249,21 @@ describe('MemoryUploadForm', () => {
 			expect(mocks.getRetreatMemories).toHaveBeenCalledTimes(2);
 		});
 
+		it('reports several failures in a single toast instead of one per photo', async () => {
+			mocks.addRetreatMemoryPhoto.mockRejectedValue(new Error('Sesión expirada'));
+
+			await uploadFiles([makeFile('uno.jpg'), makeFile('dos.jpg'), makeFile('tres.jpg')]);
+
+			expect(mocks.addRetreatMemoryPhoto).toHaveBeenCalledTimes(3);
+			expect(mockToast).toHaveBeenCalledTimes(1);
+			expect(mockToast).toHaveBeenCalledWith(
+				expect.objectContaining({
+					title: 'No se pudieron subir 3 fotos',
+					description: 'uno.jpg, dos.jpg, tres.jpg. Sesión expirada',
+				}),
+			);
+		});
+
 		it('also keeps going when shrinking a photo fails', async () => {
 			mockResize.mockRejectedValueOnce(new Error('No se pudo leer la imagen'));
 
@@ -269,6 +284,13 @@ describe('MemoryUploadForm', () => {
 
 			expect(mocks.addRetreatMemoryPhoto).toHaveBeenCalledTimes(1);
 			expect(mocks.addRetreatMemoryPhoto).toHaveBeenCalledWith('r1', 'data:image/jpeg;base64,SMALL-a.jpg');
+			// The two left out are reported, not dropped silently.
+			expect(mockToast).toHaveBeenCalledWith(
+				expect.objectContaining({
+					title: 'Máximo 30 fotos por retiro',
+					description: 'No se subieron 2 foto(s) por falta de espacio.',
+				}),
+			);
 		});
 	});
 });

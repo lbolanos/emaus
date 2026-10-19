@@ -2,7 +2,8 @@
  * Redimensiona una imagen en el navegador antes de subirla.
  *
  * Por qué existe: el servidor acepta como máximo 2 MB y de todas formas reduce
- * la imagen a 512 px, pero una foto tomada con el móvil pesa entre 3 y 8 MB.
+ * la imagen (a 512 px la foto de perfil, a 1600 px volantes y recuerdos), pero
+ * una foto tomada con el móvil pesa entre 3 y 8 MB.
  * Sin este paso, subir la foto de alguien desde el teléfono —que es el caso
  * normal— falla siempre con "la imagen no puede exceder 2MB".
  *
