@@ -8,7 +8,7 @@
 #    (limpiar el working tree después NO des-expone nada; hay que rotar). Falsos positivos:
 #    agregarlos a .gitleaks.toml, no saltar el hook.
 if command -v gitleaks >/dev/null 2>&1; then
-  if ! gitleaks git --staged --no-banner --redact -c .gitleaks.toml; then
+  if ! gitleaks protect --staged --no-banner --redact -c .gitleaks.toml; then
     echo ""
     echo "🔒 gitleaks encontró un posible secreto en los archivos staged (ver arriba)."
     echo "   • Si es real: sacalo del código (usar variable de entorno) y re-stagea."
