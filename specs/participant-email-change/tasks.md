@@ -16,16 +16,39 @@
 
 ## M1 — API: servicio y endpoint dedicados
 
-- [ ] `DomainAuditAction.PARTICIPANT_EMAIL_CHANGE` en `packages/types/src/audit.ts` + i18n key
-- [ ] `changeParticipantEmail` en `participantService` (colisiones D3, link D4, overlay D5,
+- [x] `DomainAuditAction.PARTICIPANT_EMAIL_CHANGE` en `packages/types/src/audit.ts` + i18n key
+- [x] `changeParticipantEmail` en `participantService` (colisiones D3, link D4, overlay D5,
       cola D6, auditoría con hashes)
-- [ ] `changeParticipantEmailSchema` en `packages/types` + ruta
+- [x] `changeParticipantEmailSchema` en `packages/types` + ruta
       `PATCH /participants/:id/email` con `participant:identity:update`
-- [ ] Permiso nuevo en la herencia de roles (D2) + tests RBAC (coordinator según D2)
-- [ ] Strip de `email` en el PATCH general (`participantController.updateParticipant`)
-- [ ] Tests: 409 por caso de colisión con razón correcta; no-op; link condicional; overlay
+- [x] Permiso nuevo en la herencia de roles (D2) + tests RBAC (coordinator según D2)
+- [x] Strip de `email` en el PATCH general (`participantController.updateParticipant`)
+- [x] Tests: 409 por caso de colisión con razón correcta; no-op; link condicional; overlay
       limpiado; cola regenerada (`awaitAuditRow`); auditoría sin correo en claro; self-update
       sin email; import/couples no regresionan (`importEmailReuse`, `createParticipantForCouple`)
+
+**Done**: 2026-10-19. Tests: servicio 13/13, rutas 4/4, migración 4/4, regresiones
+(`couplesNonRegression`, `coupleRegistration`, `importEmailReuse.simple`,
+`importEmailReuseWiring.simple`, `participantQuickPhones`) 43/43, locale guard 6/6.
+`tsc --noEmit`: 0 errores atribuibles al diff (146 preexistentes fuera de los hunks tocados);
+`packages/types` tsc limpio; eslint de los archivos de fuente limpio.
+
+### Desviaciones 2026-10-19
+
+- **D2**: el rol `Coordinator` no existe en la base. Roles reales: globales
+  (`superadmin`, `region_admin`, `regular`) y por retiro (`admin`, `treasurer`, `logistics`,
+  `communications`, `regular_server`). El permiso `participant:identity:update` se concedió a
+  **superadmin + admin** — en la operación, "administrador del retiro" es `admin`. Migración
+  data-only idempotente (`20261019120000_AddParticipantIdentityUpdatePermission`), tolerante a
+  roles ausentes.
+- **Tests de auditoría**: la spec pedía `awaitAuditRow`; los tests unitarios mockean
+  `domainAuditService.log` (el log es fire-and-forget y el suite es DB-independiente). Se
+  assertan los hashes y que el correo en claro nunca entra al evento.
+- **Self-update sin email**: verificado por inspección — `SELF_UPDATE_ALLOWED_FIELDS`
+  (`participantController.ts`) nunca incluyó `email`. El strip del PUT genérico sí tiene test
+  de ruta.
+- **Aditivo**: el schema del body acepta `contextRetreatId` opcional (retiro desde el que se
+  corrige, para el `retreatId` del evento de auditoría cuando la ficha no tiene uno fijo).
 
 ## M2 — Web: diálogo de corrección
 

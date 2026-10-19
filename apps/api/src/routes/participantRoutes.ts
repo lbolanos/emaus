@@ -15,6 +15,7 @@ import {
 	checkInParticipant,
 	updateAttendanceConfirmation,
 	updateParticipantPhones,
+	changeParticipantEmail,
 	getReceptionStats,
 	getParticipantByDeleteToken,
 	deleteParticipantByDeleteToken,
@@ -26,6 +27,7 @@ import {
 	createCoupleParticipantSchema,
 	updateParticipantSchema,
 	updateParticipantPhonesSchema,
+	changeParticipantEmailSchema,
 	logHealthDataExportSchema,
 } from '@repo/types';
 import { isAuthenticated } from '../middleware/isAuthenticated';
@@ -102,6 +104,18 @@ router.patch(
 	requirePermission('participant:update'),
 	requireRetreatAccess('retreatId', 'body'),
 	updateParticipantPhones,
+);
+// Email correction (specs/participant-email-change, D1): the email is global
+// identity, so it lives behind its own permission and schema. `assignParsedBody`
+// so the controller receives the normalized email (invisible-chars stripped)
+// and nothing else. contextRetreatId is optional context for the audit event;
+// access to the participant itself is guarded by the permission, not by a
+// retreat check — the email change is global by nature.
+router.patch(
+	'/:id/email',
+	validateRequest(changeParticipantEmailSchema, { assignParsedBody: true }),
+	requirePermission('participant:identity:update'),
+	changeParticipantEmail,
 );
 router.put(
 	'/:id',

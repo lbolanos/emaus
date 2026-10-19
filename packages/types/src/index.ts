@@ -976,6 +976,22 @@ export const updateParticipantPhonesSchema = z.object({
 	params: z.object({ id: idSchema }),
 });
 
+// PATCH /participants/:id/email — corrección del correo (identidad global del
+// participante; specs/participant-email-change). El correo JAMÁS viaja por el
+// update general (el controller lo stripa): toda corrección pasa por acá, que
+// valida colisiones y arrastra las consecuencias (link de cuenta, overlays de
+// comunidad, cola de mensajes, auditoría).
+export const changeParticipantEmailSchema = z.object({
+	body: z.object({
+		email: participantSchema.shape.email,
+		// Retiro de contexto para los mensajes de colisión; opcional — el
+		// service resuelve los retiros del participante por su cuenta.
+		contextRetreatId: idSchema.optional(),
+	}),
+	params: z.object({ id: idSchema }),
+});
+export type ChangeParticipantEmailBody = z.infer<typeof changeParticipantEmailSchema.shape.body>;
+
 // POST /retreats — createdBy is assigned server-side from the authenticated user, never from the body.
 export const createRetreatSchema = z.object({
 	body: retreatSchema.omit({ id: true, createdBy: true, memoryPhotos: true, memorySongs: true }),
