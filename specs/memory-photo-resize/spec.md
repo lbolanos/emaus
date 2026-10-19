@@ -1,6 +1,6 @@
 # Spec: Fotos del recuerdo grandes
 
-**Estado**: borrador, esperando aprobación de D1-D4 · **Branch**: `worktree-memory-photo-resize` · **Fecha**: 2026-10-19
+**Estado**: implementado, D1-D4 aprobadas el 2026-10-19 · **Branch**: `worktree-memory-photo-resize` · **Fecha**: 2026-10-19
 
 ## Problema
 

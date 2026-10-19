@@ -62,7 +62,7 @@
 					<span class="text-[10px]">{{ uploading ? 'Subiendo...' : 'Agregar' }}</span>
 				</button>
 			</div>
-			<p class="text-xs text-muted-foreground">JPG, PNG o WebP (máx. 5MB c/u). La principal se muestra primero en "Mis Retiros".</p>
+			<p class="text-xs text-muted-foreground">JPG, PNG o WebP. Las fotos grandes se reducen solas. La principal se muestra primero en "Mis Retiros".</p>
 		</div>
 
 		<!-- ===================== SONGS ===================== -->
@@ -182,6 +182,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
 import { pickFiles } from '@/utils/filePicker';
+import { resizeImageToDataUrl } from '@/utils/imageResize';
 import { Star, Trash2, Plus, Loader2, Music, Download } from 'lucide-vue-next';
 import { useToast } from '@repo/ui';
 import type { RetreatMemoryPhoto, RetreatMemorySong } from '@repo/types';
@@ -200,6 +201,12 @@ import { apiErrorMessage } from '@/services/apiError';
 
 const MAX_PHOTOS = 30;
 const MAX_SONGS = 30;
+// The photo is shrunk in the browser before upload (the server caps it at 2MB),
+// so the original can be much larger. The cap only keeps a huge file from
+// exhausting the phone's memory while it is decoded.
+const MAX_SOURCE_BYTES = 30 * 1024 * 1024;
+// Same longest side the server keeps, so it only re-encodes and never rescales.
+const PHOTO_MAX_SIDE = 1600;
 
 interface Props {
 	retreatId: string;
@@ -272,8 +279,8 @@ const triggerFileInput = async () => {
 };
 
 const validateFile = (file: File): boolean => {
-	if (file.size > 5 * 1024 * 1024) {
-		toast({ title: 'Archivo muy grande', description: `${file.name} supera los 5MB`, variant: 'destructive' });
+	if (file.size > MAX_SOURCE_BYTES) {
+		toast({ title: 'Archivo muy grande', description: `${file.name} supera los 30MB`, variant: 'destructive' });
 		return false;
 	}
 	if (!file.type.match(/^image\/(jpeg|png|webp)$/)) {
@@ -283,30 +290,30 @@ const validateFile = (file: File): boolean => {
 	return true;
 };
 
-const readAsDataURL = (file: File): Promise<string> =>
-	new Promise((resolve, reject) => {
-		const reader = new FileReader();
-		reader.onload = (e) => resolve(e.target?.result as string);
-		reader.onerror = reject;
-		reader.readAsDataURL(file);
-	});
-
 const handleFiles = async (files: File[]) => {
 	if (!files.length) return;
 
+	// Only as many as there are free slots; the server would reject the rest one by one.
+	const slots = Math.max(0, MAX_PHOTOS - photos.value.length);
 	uploading.value = true;
 	try {
-		for (const file of files) {
-			if (photos.value.length >= MAX_PHOTOS) break;
-			if (!validateFile(file)) continue;
-			const photoData = await readAsDataURL(file);
-			await addRetreatMemoryPhoto(props.retreatId, photoData);
+		// One at a time: decoding several large photos at once can exhaust a phone's memory.
+		for (const file of files.filter(validateFile).slice(0, slots)) {
+			try {
+				const photoData = await resizeImageToDataUrl(file, { maxSide: PHOTO_MAX_SIDE });
+				await addRetreatMemoryPhoto(props.retreatId, photoData);
+			} catch (error) {
+				// Keep going: the photos already uploaded must not look lost.
+				toast({
+					title: `No se pudo subir ${file.name}`,
+					description: apiErrorMessage(error),
+					variant: 'destructive',
+				});
+			}
 		}
+	} finally {
 		await load();
 		emitDerived();
-	} catch (error) {
-		toast({ title: 'Error al subir foto', description: apiErrorMessage(error), variant: 'destructive' });
-	} finally {
 		uploading.value = false;
 	}
 };

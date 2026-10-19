@@ -6,14 +6,18 @@
  * retreat (memoryPhotoUrl / musicPlaylistUrl) en cada mutación.
  *
  * En tests AVATAR_STORAGE=base64 (default), así que addPhoto NO toca S3 y la
- * url guardada es el propio data URI.
+ * url guardada es el propio data URI. The S3 path (production) is covered in
+ * its own block, which forces S3 mode and stubs only the upload.
  */
 
+import sharp from 'sharp';
 import { setupTestDatabase, teardownTestDatabase, clearTestData } from '../test-setup';
 import { TestDataFactory } from '../test-utils/testDataFactory';
 import { Retreat } from '@/entities/retreat.entity';
 import { RetreatScheduleItem } from '@/entities/retreatScheduleItem.entity';
 import { retreatMemoryService } from '@/services/retreatMemoryService';
+import { avatarStorageService } from '@/services/avatarStorageService';
+import { s3Service } from '@/services/s3Service';
 
 const getDS = () => (TestDataFactory as any)['testDataSource'];
 
@@ -103,6 +107,64 @@ describe('retreatMemoryService', () => {
 			memories = await retreatMemoryService.listMemories(retreat.id, getDS());
 			expect(memories.photos).toHaveLength(0);
 			expect((await derivedUrls(retreat.id)).photo).toBeNull();
+		});
+
+		describe('with S3 storage (production)', () => {
+			afterEach(() => {
+				jest.restoreAllMocks();
+			});
+
+			it('stores a group photo whole, fitted to 1600px, without the avatar square crop', async () => {
+				jest.spyOn(avatarStorageService, 'isS3Storage').mockReturnValue(true);
+				const upload = jest
+					.spyOn(s3Service, 'uploadRetreatMemoryPhotoById')
+					.mockResolvedValue({ url: 'https://s3/retreat-memories/x.webp', key: 'retreat-memories/x.webp' });
+
+				const landscape = await sharp({
+					create: { width: 3000, height: 2000, channels: 3, background: { r: 120, g: 90, b: 60 } },
+				})
+					.jpeg()
+					.toBuffer();
+				const retreat = await TestDataFactory.createTestRetreat();
+
+				const photo = await retreatMemoryService.addPhoto(
+					retreat.id,
+					`data:image/jpeg;base64,${landscape.toString('base64')}`,
+					getDS(),
+				);
+
+				expect(upload).toHaveBeenCalledTimes(1);
+				const [, , uploaded, contentType] = upload.mock.calls[0];
+				expect(contentType).toBe('image/webp');
+				const stored = await sharp(uploaded).metadata();
+				expect(stored.format).toBe('webp');
+				expect([stored.width, stored.height]).toEqual([1600, 1067]);
+				expect(photo.url).toBe('https://s3/retreat-memories/x.webp');
+				expect(photo.s3Key).toBe('retreat-memories/x.webp');
+			});
+
+			it('does not enlarge a photo smaller than 1600px', async () => {
+				jest.spyOn(avatarStorageService, 'isS3Storage').mockReturnValue(true);
+				const upload = jest
+					.spyOn(s3Service, 'uploadRetreatMemoryPhotoById')
+					.mockResolvedValue({ url: 'https://s3/retreat-memories/y.webp', key: 'retreat-memories/y.webp' });
+
+				const small = await sharp({
+					create: { width: 800, height: 600, channels: 3, background: { r: 10, g: 20, b: 30 } },
+				})
+					.png()
+					.toBuffer();
+				const retreat = await TestDataFactory.createTestRetreat();
+
+				await retreatMemoryService.addPhoto(
+					retreat.id,
+					`data:image/png;base64,${small.toString('base64')}`,
+					getDS(),
+				);
+
+				const stored = await sharp(upload.mock.calls[0][2]).metadata();
+				expect([stored.width, stored.height]).toEqual([800, 600]);
+			});
 		});
 	});
 
