@@ -9,7 +9,7 @@ The **live retreat agenda**, split by day. Each item is an activity with its tim
 - **▶ Start**: marks the item as "in progress". Notifies the owner and shows as NOW on the public screen.
 - **✓ Complete**: closes the active item. Only appears while the item is in progress.
 - **−5 / +5**: shifts the item (and the rest of the day) 5 minutes back or forward.
-- **📎 Documents**: opens the role scripts (editable markdown, PDF, images). The number is the count.
+- **📎 Documents**: opens the role scripts (editable markdown, PDF, images). The number is the count. Moments that the template links to a text (the Wall, the Letter from Jesus, the palancas explanation…) show that document even if the retreat has no responsibility with that name.
 - **Click the row**: opens the full modal (time, duration, owner, notes, status, actual times).
 
 ## Reordering items (drag & drop)

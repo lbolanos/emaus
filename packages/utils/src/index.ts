@@ -1835,7 +1835,10 @@ export const replaceAllVariables = (
 	// (markers with nothing but whitespace between them): a pair around real
 	// content is legitimate formatting and must survive (`~~struck~~`).
 	// Double backticks are never touched: they carry their own meaning there.
-	processedMessage = processedMessage.replace(/(\*\s*\*|_\s*_|~~\s*~~)/g, '');
+	// Only horizontal whitespace counts as "nothing between": with `\s` a bold
+	// line followed by a line that starts in bold (`*Título:*\n*Viernes…*`)
+	// lost both markers and the line break.
+	processedMessage = processedMessage.replace(/(\*[ \t]*\*|_[ \t]*_|~~[ \t]*~~)/g, '');
 
 	return processedMessage;
 };

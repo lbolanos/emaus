@@ -403,6 +403,15 @@ describe('Message variable replacement', () => {
 			expect(result).toBe('~~Juan~~ llegó');
 		});
 
+		it('keeps consecutive bold lines: a line break is not an empty pair', () => {
+			// Briefing de tareas: "*Tus documentos:*" followed by a roster whose first
+			// line is bold. With `\s` the closing and opening markers collapsed across
+			// the newline and the two lines merged.
+			const message = '*Tus documentos (2):*\n*Viernes 20:57 · Palancas*\n• Palancas: https://x/p.pdf';
+			const result = replaceAllVariables(message, buildParticipant({}), null);
+			expect(result).toBe(message);
+		});
+
 		it('collapses an empty pair even when the markers have spaces between them', () => {
 			const result = replaceAllVariables(
 				'* {participant.firstName} *',

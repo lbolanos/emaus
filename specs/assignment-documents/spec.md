@@ -138,4 +138,30 @@ Minuto muestre esos mismos documentos en cada momento.
 
 ## Reconcile
 
-*(Se llena al cerrar: cada criterio verificado contra lo implementado.)*
+Cerrado el 2026-10-19 (M6). Cada criterio verificado contra lo implementado. El E2E corrió en
+el dev del worktree (API 3006 / web 5178) sobre una copia de la DB del main, que ya traía el
+Minuto a Minuto y los PDFs del retiro de oct-2026 sincronizados desde prod, más 4 adjuntos de
+ejemplo (`https://example.com/e2e/…`).
+
+1. **📎 heredado** ✓: "Explicación de las Palancas" (sin responsabilidad en el retiro)
+   muestra `📎 3` y abre "Documentos · Texto: Explicación de La Palanca"; antes el clic
+   salía en silencio. Test de vista que falla sin el fix.
+2. **Responsable + colíder** ✓: el servidor que explica las palancas recibe ese momento con
+   su link y el bloque "Mesa 7 (colíder) · Dinámicas de mesa" con los documentos de mesa.
+3. **Una URL una vez** ✓: los 5 documentos de mesa salen una sola vez aunque llegan por dos
+   momentos; test unitario con la Pared repetida.
+4. **Markdown y `data:` fuera** ✓: el guion `.md` de Palancas no aparece en el mensaje;
+   test de servicio con `data:` y markdown.
+5. **Caminante vacío** ✓: test de servicio (`forParticipant` de un caminante → vacío) y de
+   vista (un caminante con datos no es candidato).
+6. **Snapshot de secuencias** ✓: `sequenceRecipientsAndSeed.test.ts`, el snapshot de la cola
+   trae momento y link.
+7. **Forma del mensaje del 2026-10-16** ✓: momentos con día/hora en negrita, viñetas
+   `• etiqueta: url`, mesa al final con su rol. Diferencia aceptada: el bloque de mesa lista
+   los momentos como encabezado (research §6 los nombraba en la etiqueta del documento).
+
+### Notas de cierre
+
+- Desviaciones por milestone en `tasks.md` (M1-M6). Las dos que cazó el E2E (conjuntos
+  clonados y negritas consecutivas) no se habrían visto con los tests unitarios: los datos
+  de prueba no tenían clones y los tests del roster no pasaban por `replaceAllVariables`.

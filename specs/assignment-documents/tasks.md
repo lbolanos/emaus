@@ -119,7 +119,27 @@
 
 ## M6 — Contenido, docs y cierre
 
-- [ ] Migración de contenido de la semilla (solo filas sin editar, D6)
-- [ ] `docs/features/server-assignments-briefing.md` + ayuda in-app es/en
-- [ ] E2E manual en el worktree (criterios 1-7)
-- [ ] Reconcile en `spec.md`
+- [x] Migración de contenido de la semilla (solo filas sin editar, D6):
+      `20261019130000_AddDocumentsToServerAssignmentsBriefing`
+- [x] `docs/features/server-assignments-briefing.md` + ayuda in-app es/en (Responsabilidades
+      y Minuto a Minuto)
+- [x] E2E manual en el worktree (API 3006 / web 5178, DB del main sincronizada con prod)
+- [x] Reconcile en `spec.md`
+
+**Done**: 2026-10-19.
+
+### Desviaciones 2026-10-19
+
+- **Conjuntos clonados (lo cazó el E2E)**: el retiro de oct-2026 corre sobre "Emaús — Del
+  Valle", un clon de "Emaús — México" que el seeder no sincroniza, así que D3 no le llegaba
+  y nadie recibía las dinámicas de mesa. Migración nueva
+  `20261019140000_MarkTablePrayerDocumentOnAllTemplateSets`: marca esas filas en todos los
+  conjuntos, sin pisar las personalizadas. No hay código de clonado en el repo (el clon se
+  hizo por fuera), así que no hay nada más que arreglar ahí.
+- **Bug previo de formato (lo cazó el E2E)**: `replaceAllVariables` colapsaba `*\n*` como
+  "énfasis vacío" (`\s*` incluye el salto de línea), y el encabezado `*Tus documentos:*`
+  quedaba pegado al primer bloque. Ahora solo cuenta el espacio horizontal; test de
+  regresión en `messageVariables.test.ts`.
+- **`momentsRoster` fuera de la semilla**: D6 solo agrega `documentsRoster`. En datos reales
+  un titular de "Música" tiene 17 momentos ("Tiempo para meditar"…), demasiado ruido para
+  el mensaje por defecto. La variable queda disponible en el editor.
