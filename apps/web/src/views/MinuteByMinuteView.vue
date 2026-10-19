@@ -291,8 +291,21 @@
                         👤
                         <span v-for="(r, i) in item.responsables" :key="r.id || i">{{ isMeaninglessNickname(r.participant?.nickname) ? (r.participant?.firstName || '—') : r.participant?.nickname }}<template v-if="i < (item.responsables?.length ?? 0) - 1">, </template></span>
                       </span>
-                      <!-- Palanquita: solo desktop -->
-                      <span v-if="item.palanquitaNotes" class="hidden sm:inline text-gray-400 truncate">🎵 {{ item.palanquitaNotes }}</span>
+                      <!-- Música: con URL válida (mamMusic, misma regla que
+                           importSongsFromMam) el 🎵 es un ancla tocable, visible
+                           también en móvil (spec mam-canciones D2/D3). Sin URL,
+                           texto plano como hoy: solo desktop. -->
+                      <a
+                        v-if="musicLink(item)"
+                        :href="musicLink(item)?.url"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="inline-flex items-center py-2 -my-1 sm:py-0.5 sm:my-0 px-1.5 -mx-1.5 rounded text-gray-400 hover:text-gray-600 hover:underline truncate min-w-0"
+                        :title="`Abrir ${musicLink(item)?.label}`"
+                        :aria-label="`Abrir ${musicLink(item)?.label}`"
+                        @click.stop
+                      >🎵 {{ musicLink(item)?.label }}</a>
+                      <span v-else-if="item.palanquitaNotes" class="hidden sm:inline text-gray-400 truncate">🎵 {{ item.palanquitaNotes }}</span>
                       <button
                         v-if="item.attachments?.length"
                         type="button"
@@ -449,6 +462,7 @@ import { api, retreatScheduleApi, apiErrorMessage, type RetreatScheduleItemDTO }
 import { participantLabel, isMeaninglessNickname } from '@/utils/participant';
 import type { Participant, Responsability } from '@repo/types';
 import { durationToFill, retreatGapAfter, computeCompactPlan } from '@/views/mamTime';
+import { musicLink } from '@/views/mamMusic';
 
 const route = useRoute();
 const router = useRouter();
