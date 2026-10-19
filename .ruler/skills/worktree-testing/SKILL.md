@@ -354,6 +354,20 @@ Corregidos el 2026-09-12 directamente en los scripts; quedan documentados para n
 - **Faltaba `apps/api/.env`**: sin `MIGRATIONS_AUTO_RUN=true` el API del worktree arrancaba y se
   apagaba solo ("Migration verification failed"). Fix: el script lo copia del main si no existe.
 
+## El script de parada deja vivo el nodemon (sin corregir)
+
+`stop-worktree-dev.sh` mata los PIDs que **escuchan** en los puertos. El `nodemon` padre no
+escucha en ninguno: sobrevive, ve morir al hijo y relanza el API. Pasó dos veces (2026-10-16 y
+2026-10-19); uno siguió vivo tres días y bloqueó el `git worktree remove`. Después del script,
+buscá lo que quede **con la ruta de tu worktree** y matalo:
+
+```bash
+ps -Ao pid,args | grep "worktrees/<nombre>" | grep -E "nodemon|vite|esbuild" | grep -v grep
+kill <pids>   # y repetir el ps: tiene que salir vacío
+```
+
+Solo los de tu worktree: los demás son de otras sesiones.
+
 ## Scripts incluidos
 
 - [`scripts/start-worktree-dev.sh`](scripts/start-worktree-dev.sh) — automatiza todo el setup

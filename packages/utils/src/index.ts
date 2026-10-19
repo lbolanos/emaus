@@ -1380,13 +1380,58 @@ export interface AssignmentTeamData {
 }
 
 /**
+ * Un documento con link que se puede abrir desde el celular (S3). `label` es
+ * la descripción del adjunto o, si no tiene, su nombre de archivo sin extensión.
+ */
+export interface AssignmentDocumentData {
+	label: string;
+	url: string;
+}
+
+/**
+ * Un momento del Minuto a Minuto que le toca al servidor, con día y hora ya
+ * formateados en la zona del retiro. `forTable` = le llega por ser líder o
+ * colíder de mesa (dinámicas de oración), no por ser responsable del momento.
+ */
+export interface AssignmentMomentData {
+	dayLabel: string;
+	time: string;
+	name: string;
+	documents: AssignmentDocumentData[];
+	forTable?: boolean;
+}
+
+/** Documentos de una responsabilidad del servidor que no pasa por ningún momento. */
+export interface AssignmentResponsibilityDocumentsData {
+	name: string;
+	documents: AssignmentDocumentData[];
+}
+
+/** La mesa del servidor, para encabezar el bloque de dinámicas de mesa. */
+export interface AssignmentTableData {
+	name: string;
+	role: string;
+}
+
+/**
+ * Momentos y documentos de un servidor (specs/assignment-documents). Lo calcula
+ * el API (`assignmentDocumentsService`) para los tres caminos de resolución.
+ */
+export interface AssignmentDocumentsData {
+	moments: AssignmentMomentData[];
+	responsibilityDocuments: AssignmentResponsibilityDocumentsData[];
+	table?: AssignmentTableData | null;
+}
+
+/**
  * Variables del scope `assignments.*`: las tareas de un servidor en el retiro
  * (responsabilidades + equipos de servicio), para el briefing que se le envía
  * por WhatsApp desde la vista de Responsabilidades. Igual que `table.*`, es
  * contextual: lo arma el caller (web o motor de secuencias) que ya consultó
- * las filas y este módulo solo formatea.
+ * las filas y este módulo solo formatea. Los momentos y documentos son
+ * opcionales: sin ellos, las variables de documentos salen vacías.
  */
-export interface AssignmentsData {
+export interface AssignmentsData extends Partial<AssignmentDocumentsData> {
 	responsibilities: AssignmentResponsibilityData[];
 	teams: AssignmentTeamData[];
 }
@@ -1427,6 +1472,68 @@ const buildTeamsRoster = (teams: AssignmentTeamData[]): string => {
 		.join('\n\n');
 };
 
+/**
+ * Momentos del Minuto a Minuto del destinatario, uno por línea, en sintaxis
+ * WhatsApp. Los que le llegan por ser de mesa llevan "(mesa)".
+ */
+const buildMomentsRoster = (moments: AssignmentMomentData[]): string => {
+	if (!moments.length) return '(sin momentos asignados en el Minuto a Minuto)';
+	return moments
+		.map((m) => `• ${m.dayLabel} ${m.time} · ${m.name}${m.forTable ? ' (mesa)' : ''}`)
+		.join('\n');
+};
+
+/**
+ * Documentos distintos (por URL) que le llegan a un servidor: el número de
+ * `{assignments.documentsCount}` y el "· N documentos" de "Enviar tareas".
+ */
+export const countAssignmentDocuments = (data: Partial<AssignmentDocumentsData>): number => {
+	const urls = new Set<string>();
+	for (const m of data.moments ?? []) for (const d of m.documents) urls.add(d.url);
+	for (const r of data.responsibilityDocuments ?? []) for (const d of r.documents) urls.add(d.url);
+	return urls.size;
+};
+
+/**
+ * Documentos con link del destinatario, en sintaxis WhatsApp
+ * (specs/assignment-documents, D5): un bloque por momento propio en orden
+ * cronológico, luego las responsabilidades sin momento y al final el bloque de
+ * la mesa (sus momentos como encabezado y los documentos debajo). Una URL sale
+ * una sola vez por mensaje; un bloque cuyos documentos ya salieron se omite.
+ */
+const buildDocumentsRoster = (data: AssignmentsData): string => {
+	const seen = new Set<string>();
+	const bullets = (documents: AssignmentDocumentData[]) =>
+		documents
+			.filter((d) => !seen.has(d.url))
+			.map((d) => {
+				seen.add(d.url);
+				return `• ${d.label}: ${d.url}`;
+			});
+	const blocks: string[] = [];
+	const moments = data.moments ?? [];
+
+	for (const m of moments.filter((x) => !x.forTable)) {
+		const lines = bullets(m.documents);
+		if (lines.length) blocks.push([`*${m.dayLabel} ${m.time} · ${m.name}*`, ...lines].join('\n'));
+	}
+	for (const r of data.responsibilityDocuments ?? []) {
+		const lines = bullets(r.documents);
+		if (lines.length) blocks.push([`*${r.name}*`, ...lines].join('\n'));
+	}
+	const tableMoments = moments.filter((x) => x.forTable);
+	const tableLines = tableMoments.flatMap((m) => bullets(m.documents));
+	if (tableLines.length) {
+		const header = data.table
+			? `*${data.table.name} (${data.table.role}) · Dinámicas de mesa*`
+			: '*Dinámicas de mesa*';
+		const when = tableMoments.map((m) => `${m.dayLabel} ${m.time} · ${m.name}`);
+		blocks.push([header, ...when, ...tableLines].join('\n'));
+	}
+
+	return blocks.join('\n\n') || '(sin documentos)';
+};
+
 const buildAssignmentsReplacements = (data: AssignmentsData): Record<string, string> => {
 	const responsibilities = data.responsibilities ?? [];
 	const teams = data.teams ?? [];
@@ -1438,6 +1545,9 @@ const buildAssignmentsReplacements = (data: AssignmentsData): Record<string, str
 		'assignments.teamsCount': teams.length.toString(),
 		'assignments.teamsList': teams.map((t) => t.name).join(', ') || 'Ninguno',
 		'assignments.teamsRoster': buildTeamsRoster(teams),
+		'assignments.momentsRoster': buildMomentsRoster(data.moments ?? []),
+		'assignments.documentsRoster': buildDocumentsRoster(data),
+		'assignments.documentsCount': countAssignmentDocuments(data).toString(),
 	};
 };
 
@@ -1457,6 +1567,23 @@ const getMockAssignments = (): AssignmentsData => ({
 			memberNames: ['María López', 'Carlos Gómez'],
 		},
 	],
+	moments: [
+		{
+			dayLabel: 'Viernes',
+			time: '20:57',
+			name: 'Explicación de las Palancas',
+			documents: [{ label: 'Palancas', url: 'https://ejemplo.com/palancas.pdf' }],
+		},
+		{
+			dayLabel: 'Sábado',
+			time: '14:40',
+			name: 'Dinámica: Oración en Grupo',
+			forTable: true,
+			documents: [{ label: 'Dinámica 1 (sábado)', url: 'https://ejemplo.com/dinamica-1.pdf' }],
+		},
+	],
+	responsibilityDocuments: [],
+	table: { name: 'Mesa 3', role: 'colíder' },
 });
 
 /**
@@ -1718,7 +1845,14 @@ export const replaceAllVariables = (
 	// (markers with nothing but whitespace between them): a pair around real
 	// content is legitimate formatting and must survive (`~~struck~~`).
 	// Double backticks are never touched: they carry their own meaning there.
-	processedMessage = processedMessage.replace(/(\*\s*\*|_\s*_|~~\s*~~)/g, '');
+	// Only horizontal whitespace counts as "nothing between": with `\s` a bold
+	// line followed by a line that starts in bold (`*Título:*\n*Viernes…*`)
+	// lost both markers and the line break. URLs are matched first and kept
+	// as-is: a `__` inside a document link is part of the file name.
+	processedMessage = processedMessage.replace(
+		/(https?:\/\/\S+)|\*[ \t]*\*|_[ \t]*_|~~[ \t]*~~/g,
+		(_match, url: string | undefined) => url ?? '',
+	);
 
 	return processedMessage;
 };

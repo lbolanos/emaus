@@ -2349,6 +2349,8 @@
       "title": "Send tasks to a server ({count}):",
       "searchPlaceholder": "Search server...",
       "counts": "{responsibilities} responsibilities · {teams} teams",
+      "documentsCount": "{count} documents",
+      "documentsError": "Could not load the documents: the message will go without the links.",
       "empty": "No servers with assigned tasks"
     },
     "addToTeam": "Add servers to team",

@@ -11,6 +11,8 @@ import { nextTick } from 'vue';
 
 // Spy del singleton del MessageDialog: asserts sobre (participant, opts).
 const openSpy = vi.fn();
+const toastSpy = vi.fn();
+const assignmentDocumentsSpy = vi.fn();
 vi.mock('@/composables/useParticipantMessageDialog', () => ({
 	useParticipantMessageDialog: () => ({ open: openSpy }),
 }));
@@ -26,7 +28,7 @@ vi.mock('@repo/ui', () => new Proxy(
 		get: (_t, name) => {
 			const n = String(name);
 			if (n === '__esModule') return false;
-			if (n === 'useToast') return () => ({ toast: vi.fn() });
+			if (n === 'useToast') return () => ({ toast: toastSpy });
 			if (n === 'toast') return vi.fn();
 			if (n.startsWith('use')) return () => ({});
 			return { name: n, template: '<div><slot /></div>' };
@@ -49,6 +51,7 @@ vi.mock('@/services/api', () => ({
 	getResponsibilityDocumentation: vi.fn(async () => ({ content: '' })),
 	listResponsibilityDocumentationKeys: vi.fn(async () => ({ keys: [] })),
 	responsabilityAttachmentApi: { list: vi.fn(async () => []), upload: vi.fn(), remove: vi.fn() },
+	retreatScheduleApi: { assignmentDocuments: (...args: unknown[]) => assignmentDocumentsSpy(...args) },
 }));
 
 // El dialog real arrastra media app; basta un stub para el mount.
@@ -185,5 +188,94 @@ describe('ResponsabilitiesView - enviar tareas por servidor', () => {
 		expect(opts.assignmentsData.teams).toHaveLength(1);
 		expect(opts.assignmentsData.teams[0].name).toBe('Música y Alabanza');
 		expect(opts.assignmentsData.teams[0].role).toBe('Miembro (ayudante)');
+	});
+
+	// specs/assignment-documents: momentos y documentos del Minuto a Minuto.
+	describe('documentos del Minuto a Minuto', () => {
+		const docsFor = (url: string) => ({
+			moments: [
+				{ dayLabel: 'Sábado', time: '20:15', name: 'Dinámica La Pared', documents: [{ label: 'Pared', url }] },
+			],
+			responsibilityDocuments: [],
+			table: null,
+		});
+		const clickServer = async (name: string) => {
+			const btn = wrapper.findAll('button').find((b) => b.text().includes(name));
+			expect(btn).toBeTruthy();
+			await btn!.trigger('click');
+			await flushPromises();
+		};
+
+		it('al abrir el Popover carga los documentos y los mezcla en assignmentsData', async () => {
+			assignmentDocumentsSpy.mockResolvedValue({ s2: docsFor('https://s3/pared.pdf') });
+			wrapper = await mountView();
+			wrapper.vm.assignmentsBriefingOpen = true;
+			await flushPromises();
+
+			expect(assignmentDocumentsSpy).toHaveBeenCalledWith(RETREAT_ID);
+			const maria = wrapper.vm.assignmentsCandidates.find((c: any) => c.participant.id === 's2');
+			expect(maria.documentsCount).toBe(1);
+
+			await clickServer('María');
+			const [, opts] = openSpy.mock.calls[0];
+			expect(opts.assignmentsData.moments.map((m: any) => m.name)).toEqual(['Dinámica La Pared']);
+			// Lo que arma la vista se conserva.
+			expect(opts.assignmentsData.teams).toHaveLength(1);
+			// El spy de toast lo comparten los stores: aseguro sobre el aviso de documentos.
+			expect(toastSpy).not.toHaveBeenCalledWith(
+				expect.objectContaining({ title: 'responsibilities.sendTasks.documentsError' }),
+			);
+		});
+
+		it('incluye a los servidores parciales y a quien solo tiene momentos', async () => {
+			const angel = { id: 'p1', firstName: 'Ángel', lastName: 'Parcial', type: 'partial_server', isCancelled: false };
+			const pablo = { id: 's4', firstName: 'Pablo', lastName: 'Mesa', type: 'server', isCancelled: false };
+			assignmentDocumentsSpy.mockResolvedValue({ s4: docsFor('https://s3/d1.pdf'), w1: docsFor('https://s3/x.pdf') });
+			wrapper = await mountView();
+			wrapper.vm.participants = [jose, maria, cancelled, walker, angel, pablo];
+			wrapper.vm.responsibilities = [
+				...responsibilities,
+				{ id: 'r4', name: 'Palanquitas', responsabilityType: 'other', participantId: 'p1', isActive: true, priority: 0, retreatId: RETREAT_ID },
+			];
+			wrapper.vm.assignmentsBriefingOpen = true;
+			await flushPromises();
+
+			const ids = wrapper.vm.assignmentsCandidates.map((c: any) => c.participant.id);
+			expect(ids).toEqual(expect.arrayContaining(['p1', 's4']));
+			// Un caminante nunca es candidato, aunque le llegaran datos.
+			expect(ids).not.toContain('w1');
+			expect(ids).not.toContain('s3');
+		});
+
+		it('al cambiar de retiro descarta los documentos del anterior', async () => {
+			assignmentDocumentsSpy.mockResolvedValue({ s2: docsFor('https://s3/pared.pdf') });
+			wrapper = await mountView();
+			wrapper.vm.assignmentsBriefingOpen = true;
+			await flushPromises();
+			expect(Object.keys(wrapper.vm.assignmentDocuments)).toEqual(['s2']);
+
+			const { useRetreatStore } = await import('@/stores/retreatStore');
+			useRetreatStore().selectedRetreatId = 'retreat-2';
+			await flushPromises();
+			expect(wrapper.vm.assignmentDocuments).toEqual({});
+		});
+
+		it('si la carga falla avisa con un toast y abre el mensaje sin documentos', async () => {
+			assignmentDocumentsSpy.mockRejectedValue(new Error('500'));
+			wrapper = await mountView();
+			wrapper.vm.assignmentsBriefingOpen = true;
+			await flushPromises();
+
+			await clickServer('María');
+			expect(toastSpy).toHaveBeenCalledWith(
+				expect.objectContaining({
+					title: 'responsibilities.sendTasks.documentsError',
+					variant: 'destructive',
+				}),
+			);
+			const [, opts] = openSpy.mock.calls[0];
+			expect(opts.assignmentsData.moments).toBeUndefined();
+			expect(opts.assignmentsData.teams).toHaveLength(1);
+		});
 	});
 });

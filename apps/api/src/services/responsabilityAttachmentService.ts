@@ -1,5 +1,5 @@
 import { randomUUID } from 'crypto';
-import { In } from 'typeorm';
+import { In, Like } from 'typeorm';
 import { AppDataSource } from '../data-source';
 import { ResponsabilityAttachment } from '../entities/responsabilityAttachment.entity';
 import { ResponsabilityAttachmentHistory } from '../entities/responsabilityAttachmentHistory.entity';
@@ -169,6 +169,46 @@ class ResponsabilityAttachmentService {
 			where: { responsabilityName: name },
 			order: { sortOrder: 'ASC', createdAt: 'ASC' },
 		});
+	}
+
+	/**
+	 * Archivos (`kind='file'`) de varios nombres canónicos, **con** `storageUrl`,
+	 * y solo los que tienen un link http(s) que se pueda compartir (S3). Para el
+	 * briefing de tareas por WhatsApp: los markdown y los archivos guardados
+	 * inline (`data:`) no tienen link que abrir desde el celular
+	 * (specs/assignment-documents, D4). El filtro va en SQL: un archivo inline
+	 * es un `data:` de hasta 10MB y no debe ni leerse.
+	 */
+	async listShareableFilesForNames(
+		responsabilityNames: string[],
+	): Promise<Map<string, ResponsabilityAttachment[]>> {
+		const map = new Map<string, ResponsabilityAttachment[]>();
+		const normalized = Array.from(
+			new Set(responsabilityNames.map(normalizeName).filter((n) => !!n)),
+		);
+		if (!normalized.length) return map;
+		const rows = await this.repo.find({
+			where: { responsabilityName: In(normalized), kind: 'file', storageUrl: Like('http%') },
+			order: { sortOrder: 'ASC', createdAt: 'ASC' },
+			select: [
+				'id',
+				'responsabilityName',
+				'kind',
+				'fileName',
+				'mimeType',
+				'storageUrl',
+				'description',
+				'sortOrder',
+				'createdAt',
+			],
+		});
+		for (const r of rows) {
+			if (!/^https?:\/\//i.test(r.storageUrl ?? '')) continue;
+			const arr = map.get(r.responsabilityName) ?? [];
+			arr.push(r);
+			map.set(r.responsabilityName, arr);
+		}
+		return map;
 	}
 
 	/**

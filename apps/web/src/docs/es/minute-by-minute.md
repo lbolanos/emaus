@@ -9,7 +9,7 @@ La **agenda en vivo del retiro**, dividida por días. Cada item es una actividad
 - **▶ Iniciar**: marca el item como "en curso". Notifica al responsable y aparece como AHORA en la pantalla pública.
 - **✓ Completar**: cierra el item activo. Solo aparece cuando el item está en curso.
 - **−5 / +5**: corre el item (y los siguientes del día) por 5 minutos hacia atrás o adelante.
-- **📎 Documentos**: abre los guiones del rol (markdown editable, PDF, imágenes). El número es el conteo.
+- **📎 Documentos**: abre los guiones del rol (markdown editable, PDF, imágenes). El número es el conteo. Los momentos que la plantilla liga a un texto (la Pared, la Carta de Jesús, la explicación de las palancas…) muestran ese documento aunque el retiro no tenga una responsabilidad con ese nombre.
 - **Click en la fila**: abre el modal completo (hora, duración, responsable, notas, status, horarios reales).
 
 ## Reordenar items (drag & drop)

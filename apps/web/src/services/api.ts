@@ -28,6 +28,7 @@ import type {
   Participant,
   FlyerTemplate,
 } from "@repo/types";
+import type { AssignmentDocumentsData } from "@repo/utils";
 import { setupCsrfInterceptor } from "@/utils/csrf";
 import { getApiUrl } from "@/config/runtimeConfig";
 
@@ -3251,6 +3252,8 @@ export interface ScheduleTemplateDTO {
   requiresResponsable: boolean;
   allowedResponsibilityTypes?: string | null;
   responsabilityName?: string | null;
+  documentName?: string | null;
+  documentAudience?: 'responsables' | 'table_leaders';
   musicTrackUrl?: string | null;
   palanquitaNotes?: string | null;
   planBNotes?: string | null;
@@ -3291,6 +3294,9 @@ export interface RetreatScheduleItemDTO {
     role?: string | null;
     participant?: { id: string; firstName: string; lastName: string; nickname: string };
   }>;
+  // Nombre canónico del documento del momento (propio de la plantilla, de su
+  // responsabilidad o, si el retiro no la tiene, el de la plantilla).
+  documentName?: string | null;
   attachments?: ResponsabilityAttachmentDTO[];
 }
 
@@ -3772,6 +3778,12 @@ export const responsabilityAttachmentApi = {
 export const retreatScheduleApi = {
   async list(retreatId: string): Promise<RetreatScheduleItemDTO[]> {
     const r = await api.get(`/schedule/retreats/${retreatId}/items`);
+    return r.data;
+  },
+  // Momentos del Minuto a Minuto y documentos con link de cada servidor del
+  // retiro, por participantId (briefing "Enviar tareas").
+  async assignmentDocuments(retreatId: string): Promise<Record<string, AssignmentDocumentsData>> {
+    const r = await api.get(`/schedule/retreats/${retreatId}/assignment-documents`);
     return r.data;
   },
   async create(

@@ -27,8 +27,16 @@ participa (indicando si es líder o miembro, y quién más está en cada equipo)
    registrada en su historial. (Con **Abrir WhatsApp** se abre la conversación sin
    registrar el envío.)
 
-Si un servidor no aparece en la lista, es porque no tiene ninguna responsabilidad ni
-equipo asignado (o está cancelado).
+El mensaje incluye también los **documentos** de lo que le toca, con link para
+abrirlos desde el celular: los de sus momentos del Minuto a Minuto (por ejemplo, la
+explicación de las palancas o la dinámica de la Pared), los de sus responsabilidades y,
+si es líder o colíder de mesa, las dinámicas de oración de mesa. Solo viajan los
+archivos subidos (PDF, Word, imágenes); los guiones escritos en la app no tienen link.
+En la lista, junto a cada servidor, verás cuántos documentos le llegan.
+
+Si un servidor no aparece en la lista, es porque no tiene ninguna responsabilidad,
+equipo ni momento del Minuto a Minuto asignado (o está cancelado). Los servidores de
+apoyo parcial (angelitos) también aparecen.
 
 ## Equipos de servicio
 

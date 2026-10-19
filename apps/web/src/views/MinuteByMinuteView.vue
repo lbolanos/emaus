@@ -584,7 +584,9 @@ const attachmentsDialogOpen = ref(false);
 const attachmentsTarget = ref<{ responsabilityName: string; contextLabel: string } | null>(null);
 
 function onShowAttachments(item: RetreatScheduleItemDTO) {
-  const name = responsabilityName(item.responsabilityId);
+  // El API resuelve el documento del momento aunque el retiro no tenga la
+  // responsabilidad del template (ej. "Texto: Dinámica de la Pared").
+  const name = item.documentName ?? responsabilityName(item.responsabilityId);
   if (!name) return;
   attachmentsTarget.value = { responsabilityName: name, contextLabel: item.name };
   attachmentsDialogOpen.value = true;

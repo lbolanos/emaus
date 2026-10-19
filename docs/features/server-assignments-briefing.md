@@ -45,6 +45,46 @@ e integrado en `replaceAllVariables` (9º param, tras `spouse`) / `findEmptyVari
 | `{assignments.teamsCount}` | Cantidad de equipos | `0` |
 | `{assignments.teamsList}` | Nombres de equipo por coma | `Ninguno` |
 | `{assignments.teamsRoster}` | Por equipo: `*Equipo* — Tu rol: Líder/Miembro (rol)` + líder + miembros | `(sin equipos asignados)` |
+| `{assignments.momentsRoster}` | `• Viernes 20:57 · Momento` por momento del Minuto a Minuto; los de mesa con `(mesa)` | `(sin momentos asignados en el Minuto a Minuto)` |
+| `{assignments.documentsRoster}` | Documentos con link: un bloque por momento, luego responsabilidades sin momento, mesa al final; cada URL una vez | `(sin documentos)` |
+| `{assignments.documentsCount}` | Cantidad de URLs distintas | `0` |
+
+## Documentos del Minuto a Minuto (specs/assignment-documents)
+
+Desde 2026-10-19 el briefing lleva también los **documentos con link** de lo que le toca
+a cada servidor. Spec, decisiones D1-D6 y desviaciones: `specs/assignment-documents/`.
+
+- **Documento de un momento** (`utils/scheduleItemDocument.ts`):
+  `scheduleTemplate.documentName` → responsabilidad del momento →
+  `scheduleTemplate.responsabilityName`. El último paso cubre los momentos cuyo nombre
+  canónico (`Texto: Dinámica de la Pared`…) no es una responsabilidad del retiro: al
+  materializar quedan sin vínculo, pero la plantilla sigue nombrando su documento. La
+  misma regla usan el `📎` del Minuto a Minuto, el `bundle.zip` y la vista de plantillas.
+- **Quién lo recibe**: los responsables del momento y el titular de su responsabilidad;
+  con `schedule_template.documentAudience = 'table_leaders'` (las dinámicas de oración de
+  mesa), todos los líderes y colíderes de mesa. Solo servidores activos
+  (`server` + `partial_server`).
+- **Qué viaja**: solo archivos con link http(s) (S3). Markdown y archivos inline
+  (`data:`) no tienen link que abrir desde el celular.
+- **Una sola fuente**: `assignmentDocumentsService` (API) alimenta el endpoint
+  `GET /api/schedule/retreats/:retreatId/assignment-documents` (envío manual, una llamada
+  al abrir el Popover) y `messageSequenceService.buildAssignmentsData` (motor). Si la
+  llamada falla, el mensaje sale sin documentos y un toast lo dice.
+- **Plantilla**: `20261019130000_AddDocumentsToServerAssignmentsBriefing` agrega el bloque
+  `*Tus documentos*` solo donde el texto sigue igual a la semilla.
+- **Conjuntos clonados**: el seeder sincroniza solo los dos conjuntos que siembra. Un clon
+  ("Emaús — Del Valle", `sourceTag = clon:emaus_mexico`) no recibe esos campos, así que
+  `20261019140000_MarkTablePrayerDocumentOnAllTemplateSets` marca las dinámicas de oración
+  de mesa en todos los conjuntos (solo si siguen ligadas a "Oración de Intercesión" y sin
+  documento propio). Un clon creado después de esa migración no la hereda: hay que
+  marcarlo igual.
+- **Negritas consecutivas**: el colapso de énfasis vacíos de `replaceAllVariables` usaba
+  `\s*` y borraba el `*\n*` entre una línea en negrita y la siguiente (`*Tus documentos:*`
+  + `*Viernes 20:57 · …*` salían pegadas). Ahora solo cuenta el espacio horizontal, y las
+  URLs se saltan: un `__` dentro del nombre de un archivo es parte del link.
+- **Rendimiento del motor**: `assignmentDocumentsService.forParticipant` reutiliza durante
+  30 s el cálculo del retiro, así que una corrida de secuencias con N servidores no lo arma N
+  veces. Los archivos inline (`data:`) se descartan en SQL, sin leer su contenido.
 
 **Los rosters van en sintaxis WhatsApp** (`\n` + `*negrita*`), no `<br>`/`<strong>`:
 desde la migración `20260914120000_FormatWhatsappMessageTemplates` el formato canónico

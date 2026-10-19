@@ -225,6 +225,57 @@ describe('MessageSequence — destinatarios invitador/responsabilidad + seed', (
 		expect(sm?.resolvedContent).toContain('0 · Ninguna');
 	});
 
+	it('briefing de tareas: el snapshot trae los momentos y links del Minuto a Minuto (specs/assignment-documents)', async () => {
+		const { ScheduleTemplate } = await import('@/entities/scheduleTemplate.entity');
+		const { RetreatScheduleItem } = await import('@/entities/retreatScheduleItem.entity');
+		const { RetreatScheduleItemResponsable } = await import('@/entities/retreatScheduleItemResponsable.entity');
+		const { ResponsabilityAttachment } = await import('@/entities/responsabilityAttachment.entity');
+		const retreat = await TestDataFactory.createTestRetreat({ timezone: 'America/Mexico_City' });
+		const server = await TestDataFactory.createTestParticipant(retreat.id, {
+			type: 'server', firstName: 'Tomás', lastName: 'Palancas', cellPhone: '5544433322',
+		} as any);
+		// El retiro no tiene la responsabilidad del template: el documento sale de la plantilla.
+		const tplRepo = AppDataSource.getRepository(ScheduleTemplate);
+		const tpl = await tplRepo.save(tplRepo.create({
+			name: 'Explicación de las Palancas (seq test)', responsabilityName: 'Texto: Palancas (seq test)',
+		}));
+		const itemRepo = AppDataSource.getRepository(RetreatScheduleItem);
+		const item = await itemRepo.save(itemRepo.create({
+			retreatId: retreat.id, scheduleTemplateId: tpl.id, name: 'Explicación de las Palancas', day: 1,
+			// Viernes 20:57 en CDMX.
+			startTime: new Date('2026-10-17T02:57:00.000Z'), endTime: new Date('2026-10-17T03:00:00.000Z'),
+		}));
+		await AppDataSource.getRepository(RetreatScheduleItemResponsable).save({
+			scheduleItemId: item.id, participantId: server.id,
+		} as any);
+		const attRepo = AppDataSource.getRepository(ResponsabilityAttachment);
+		await attRepo.save(attRepo.create({
+			responsabilityName: 'Texto: Palancas (seq test)', kind: 'file', fileName: 'palancas.pdf',
+			mimeType: 'application/pdf', sizeBytes: 10, storageUrl: 'https://bucket/palancas.pdf', description: 'Palancas',
+		}));
+		await createTemplate(
+			retreat.id,
+			'SERVER_ASSIGNMENTS_BRIEFING',
+			'{assignments.momentsRoster}\n{assignments.documentsRoster}',
+		);
+		const seq = await svc.createSequence({
+			name: 'Tareas con documentos', retreatId: retreat.id, trigger: 'days_before_retreat', audience: 'server',
+			steps: [{ stepOrder: 0, offsetDays: 1, sendHour: 9, templateType: 'SERVER_ASSIGNMENTS_BRIEFING', channel: 'whatsapp', recipientTarget: 'participant' } as any],
+		});
+		const repo = AppDataSource.getRepository(ScheduledMessage);
+		await repo.save(repo.create({
+			sequenceId: seq.id, stepId: seq.steps![0].id, participantId: server.id, retreatId: retreat.id,
+			channel: 'whatsapp', templateType: 'SERVER_ASSIGNMENTS_BRIEFING', recipientTarget: 'participant',
+			scheduledFor: new Date(Date.now() - 3600_000), status: 'pending',
+		}));
+		await svc.processDue();
+		const sm = await repo.findOne({ where: { participantId: server.id } });
+		expect(sm?.status).toBe('queued');
+		expect(sm?.resolvedContent).toContain('• Viernes 20:57 · Explicación de las Palancas');
+		expect(sm?.resolvedContent).toContain('*Viernes 20:57 · Explicación de las Palancas*');
+		expect(sm?.resolvedContent).toContain('• Palancas: https://bucket/palancas.pdf');
+	});
+
 	it('destinatario tableLeader: resuelve al líder de la mesa del participante', async () => {
 		const { TableMesa } = await import('@/entities/tableMesa.entity');
 		const { RetreatParticipant } = await import('@/entities/retreatParticipant.entity');

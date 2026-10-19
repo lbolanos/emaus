@@ -32,6 +32,11 @@ export const ScheduleItemTypeSchema = z.enum([
 ]);
 export type ScheduleItemType = z.infer<typeof ScheduleItemTypeSchema>;
 
+// Quién recibe el documento de un momento: sus responsables (default) o todos
+// los líderes y colíderes de mesa del retiro (dinámicas de oración de mesa).
+export const ScheduleDocumentAudienceSchema = z.enum(['responsables', 'table_leaders']);
+export type ScheduleDocumentAudience = z.infer<typeof ScheduleDocumentAudienceSchema>;
+
 export const ScheduleItemStatusSchema = z.enum([
 	'pending',
 	'active',
@@ -100,6 +105,8 @@ export const ScheduleTemplateSchema = z.object({
 	requiresResponsable: z.boolean().default(false),
 	allowedResponsibilityTypes: z.string().nullable().optional(),
 	responsabilityName: z.string().nullable().optional(),
+	documentName: z.string().nullable().optional(),
+	documentAudience: ScheduleDocumentAudienceSchema.default('responsables'),
 	musicTrackUrl: z.string().nullable().optional(),
 	palanquitaNotes: z.string().nullable().optional(),
 	planBNotes: z.string().nullable().optional(),

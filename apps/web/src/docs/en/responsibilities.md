@@ -27,8 +27,16 @@ leader or member, with the other members of each team):
    communication is recorded in their history. (With **Open WhatsApp** the
    conversation opens without recording the send.)
 
-If a server is not on the list, it is because they have no responsibility and no
-team assigned (or they are cancelled).
+The message also includes the **documents** for what they do, with a link to open
+them from the phone: those of their Minute by Minute moments (for example, the
+palancas explanation or the Wall dynamic), those of their responsibilities and, for
+table leaders and co-leaders, the table prayer dynamics. Only uploaded files travel
+(PDF, Word, images); scripts written in the app have no link. Next to each server
+in the list you'll see how many documents they get.
+
+If a server is not on the list, it is because they have no responsibility, team or
+Minute by Minute moment assigned (or they are cancelled). Partial-support servers
+(angelitos) are listed too.
 
 ## Service Teams
 

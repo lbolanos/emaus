@@ -139,3 +139,70 @@ describe('findEmptyVariables con scope assignments', () => {
 		expect(empty).not.toContain('assignments.responsibilitiesRoster');
 	});
 });
+
+// specs/assignment-documents (D5): moments and documents of the server.
+describe('replaceAssignmentsVariables — moments and documents', () => {
+	const pared = { label: 'Pared, lavado de manos y palancas', url: 'https://s3/pared.pdf' };
+	const d1 = { label: 'Dinámica 1 (sábado)', url: 'https://s3/d1.pdf' };
+	const d2 = { label: 'Dinámica 2 (domingo)', url: 'https://s3/d2.pdf' };
+	const withDocuments = (): AssignmentsData => ({
+		...baseAssignments(),
+		moments: [
+			{ dayLabel: 'Sábado', time: '14:40', name: 'Dinámica: Oración en Grupo', forTable: true, documents: [d1, d2] },
+			{ dayLabel: 'Sábado', time: '20:15', name: 'Dinámica La Pared', documents: [pared] },
+			// Same document as the Pared: its URL must not repeat.
+			{ dayLabel: 'Sábado', time: '21:40', name: 'Dinámica: Lavado de Manos', documents: [pared] },
+			{ dayLabel: 'Domingo', time: '15:00', name: 'Dinámica: Oración Compartida', forTable: true, documents: [d1, d2] },
+		],
+		responsibilityDocuments: [
+			{ name: 'Reglamento de la Casa', documents: [{ label: 'Reglas para el retiro', url: 'https://s3/reglas.pdf' }] },
+		],
+		table: { name: 'Mesa 4', role: 'colíder' },
+	});
+
+	it('lists every moment, marking the table ones', () => {
+		expect(replaceAssignmentsVariables('{assignments.momentsRoster}', withDocuments())).toBe(
+			[
+				'• Sábado 14:40 · Dinámica: Oración en Grupo (mesa)',
+				'• Sábado 20:15 · Dinámica La Pared',
+				'• Sábado 21:40 · Dinámica: Lavado de Manos',
+				'• Domingo 15:00 · Dinámica: Oración Compartida (mesa)',
+			].join('\n'),
+		);
+	});
+
+	it('groups documents by moment, then responsibilities, table block last, each URL once', () => {
+		const out = replaceAssignmentsVariables('{assignments.documentsRoster}', withDocuments());
+		expect(out).toBe(
+			[
+				'*Sábado 20:15 · Dinámica La Pared*',
+				'• Pared, lavado de manos y palancas: https://s3/pared.pdf',
+				'',
+				'*Reglamento de la Casa*',
+				'• Reglas para el retiro: https://s3/reglas.pdf',
+				'',
+				'*Mesa 4 (colíder) · Dinámicas de mesa*',
+				'Sábado 14:40 · Dinámica: Oración en Grupo',
+				'Domingo 15:00 · Dinámica: Oración Compartida',
+				'• Dinámica 1 (sábado): https://s3/d1.pdf',
+				'• Dinámica 2 (domingo): https://s3/d2.pdf',
+			].join('\n'),
+		);
+		expect(out.match(/https:\/\/s3\/pared\.pdf/g)).toHaveLength(1);
+		expect(replaceAssignmentsVariables('{assignments.documentsCount}', withDocuments())).toBe('4');
+	});
+
+	it('renders explicit empty states without moments or documents', () => {
+		const out = replaceAssignmentsVariables(
+			'{assignments.momentsRoster}|{assignments.documentsRoster}|{assignments.documentsCount}',
+			baseAssignments(),
+		);
+		expect(out).toBe('(sin momentos asignados en el Minuto a Minuto)|(sin documentos)|0');
+	});
+
+	it('the preview mock shows a moment and a table block', () => {
+		const out = replaceAssignmentsVariables('{assignments.documentsRoster}', null);
+		expect(out).toContain('*Viernes 20:57 · Explicación de las Palancas*');
+		expect(out).toContain('*Mesa 3 (colíder) · Dinámicas de mesa*');
+	});
+});

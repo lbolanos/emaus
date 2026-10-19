@@ -9,9 +9,11 @@ import { SantisimoSignup } from '../entities/santisimoSignup.entity';
 import { Participant } from '../entities/participant.entity';
 import { participantAvailabilityService } from './participantAvailabilityService';
 import { Responsability } from '../entities/responsability.entity';
+import { RetreatParticipant } from '../entities/retreatParticipant.entity';
 import { Retreat } from '../entities/retreat.entity';
 import { makeDateInTimezone, dayBoundsInTimezone } from '../utils/date.transformer';
 import { guardiaPlaceLabel, guardiaRetreatSuffix } from '../utils/santisimoGuardiaPlace';
+import { resolveScheduleItemDocumentName } from '../utils/scheduleItemDocument';
 import { afterMidnightDayOffset } from '@repo/types';
 import archiver from 'archiver';
 import type { Readable, Writable } from 'stream';
@@ -28,6 +30,13 @@ import { domainAuditService } from './domainAuditService';
 import { DomainAuditAction } from '@repo/types';
 
 export class ScheduleNotFoundError extends Error {}
+
+/**
+ * A schedule item may only point at its own retreat's responsibility and
+ * participants. Without this, a coordinator could link a participant of another
+ * retreat to one of their items and read that person's name in their schedule.
+ */
+export class ScheduleForeignReferenceError extends Error {}
 
 type ResponsablePayload = { participantId: string; role?: string | null };
 
@@ -88,41 +97,48 @@ export class RetreatScheduleService {
 
 	/**
 	 * Carga attachments para una lista de items por nombre canónico de
-	 * Responsabilidad. Los archivos viven globalmente vinculados a
+	 * documento (`resolveScheduleItemDocumentName`: el documento propio de la
+	 * plantilla, la Responsabilidad del item o, si el retiro no la tiene, la de
+	 * la plantilla). Los archivos viven globalmente vinculados a
 	 * `responsability_attachment.responsabilityName`.
 	 */
 	private async populateTemplateAttachments<T extends RetreatScheduleItem>(
 		items: T[],
 	): Promise<T[]> {
-		// Attachments by responsability name
-		const names = items
-			.map((i) => i.responsability?.name)
-			.filter((n): n is string => !!n && n.trim().length > 0);
-		const byName = names.length
-			? await responsabilityAttachmentService.listForNames(names)
-			: new Map();
-
 		// Template descriptions: read-only, copied at query time so the UI
 		// can show the original guidance from the template (e.g. "Eucaristía
 		// privada del equipo para encomendar el retiro al Señor antes de la
 		// llegada de los caminantes") without storing duplicates per retreat.
+		// The same read brings the template's document fields.
 		const templateIds = Array.from(
 			new Set(items.map((i) => i.scheduleTemplateId).filter((x): x is string => !!x)),
 		);
-		const descriptionByTemplateId = new Map<string, string | null>();
+		const templateById = new Map<string, ScheduleTemplate>();
 		if (templateIds.length) {
 			const templates = await this.templateRepo.find({
 				where: { id: In(templateIds) },
-				select: ['id', 'description'],
+				select: ['id', 'description', 'documentName', 'responsabilityName'],
 			});
-			templates.forEach((t) => descriptionByTemplateId.set(t.id, t.description ?? null));
+			templates.forEach((t) => templateById.set(t.id, t));
 		}
 
-		items.forEach((i) => {
-			const n = i.responsability?.name?.trim();
-			(i as any).attachments = n ? (byName.get(n) ?? []) : [];
+		const documentNames = items.map((i) =>
+			resolveScheduleItemDocumentName(
+				i.responsability?.name,
+				i.scheduleTemplateId ? templateById.get(i.scheduleTemplateId) : null,
+			),
+		);
+		const names = documentNames.filter((n): n is string => !!n);
+		const byName = names.length
+			? await responsabilityAttachmentService.listForNames(names)
+			: new Map();
+
+		items.forEach((i, idx) => {
+			const documentName = documentNames[idx];
+			(i as any).documentName = documentName;
+			(i as any).attachments = documentName ? (byName.get(documentName) ?? []) : [];
 			(i as any).templateDescription = i.scheduleTemplateId
-				? descriptionByTemplateId.get(i.scheduleTemplateId) ?? null
+				? templateById.get(i.scheduleTemplateId)?.description ?? null
 				: null;
 		});
 		return items;
@@ -155,10 +171,43 @@ export class RetreatScheduleService {
 		return populated;
 	}
 
+	/** Retreat of a schedule item, for the access guard of the /items/:id routes. */
+	async findItemRetreatId(id: string): Promise<string | null> {
+		const item = await this.itemRepo.findOne({ where: { id }, select: ['id', 'retreatId'] });
+		return item?.retreatId ?? null;
+	}
+
+	/** Rejects a responsibility or responsables that belong to another retreat. */
+	private async assertSameRetreatReferences(
+		retreatId: string,
+		data: { responsabilityId?: string | null; responsableParticipantIds?: string[] },
+	): Promise<void> {
+		if (data.responsabilityId) {
+			const own = await AppDataSource.getRepository(Responsability).count({
+				where: { id: data.responsabilityId, retreatId },
+			});
+			if (!own) throw new ScheduleForeignReferenceError('responsability does not belong to this retreat');
+		}
+		const participantIds = Array.from(new Set(data.responsableParticipantIds ?? []));
+		if (participantIds.length) {
+			// Distinct ids found, not rows: a duplicated retreat_participant row
+			// must not turn a valid list into a rejection.
+			const rows = await AppDataSource.getRepository(RetreatParticipant).find({
+				where: { retreatId, participantId: In(participantIds) },
+				select: ['id', 'participantId'],
+			});
+			const found = new Set(rows.map((r) => r.participantId));
+			if (participantIds.some((pid) => !found.has(pid))) {
+				throw new ScheduleForeignReferenceError('responsables must be participants of this retreat');
+			}
+		}
+	}
+
 	async create(
 		retreatId: string,
 		data: Partial<RetreatScheduleItem> & { responsableParticipantIds?: string[] },
 	): Promise<RetreatScheduleItem> {
+		await this.assertSameRetreatReferences(retreatId, data);
 		const rawStart = data.startTime
 			? data.startTime instanceof Date
 				? data.startTime
@@ -240,6 +289,21 @@ export class RetreatScheduleService {
 	): Promise<RetreatScheduleItem | null> {
 		const existing = await this.itemRepo.findOne({ where: { id } });
 		if (!existing) throw new ScheduleNotFoundError('item not found');
+		// Only what the edit adds is checked: links that already exist stay valid.
+		// The current responsables are read only when the edit sends a list (start,
+		// complete and shift never do).
+		let newResponsables: string[] = [];
+		if (data.responsableParticipantIds?.length) {
+			const current = new Set(
+				(await this.respRepo.find({ where: { scheduleItemId: id } })).map((r) => r.participantId),
+			);
+			newResponsables = data.responsableParticipantIds.filter((pid) => !current.has(pid));
+		}
+		await this.assertSameRetreatReferences(existing.retreatId, {
+			responsabilityId:
+				data.responsabilityId !== existing.responsabilityId ? data.responsabilityId : undefined,
+			responsableParticipantIds: newResponsables,
+		});
 
 		const update: Partial<RetreatScheduleItem> = {};
 		const dateFields = new Set(['startTime', 'endTime', 'actualStartTime', 'actualEndTime']);
@@ -505,8 +569,8 @@ export class RetreatScheduleService {
 	/**
 	 * Stream a ZIP of all attachments associated with the retreat's items.
 	 *
-	 * For each item with `responsabilityId`, fetch its attachments via the
-	 * canonical name JOIN. Markdowns become `.md` files (`<rol>/<title>.md`),
+	 * For each item with a document name (`resolveScheduleItemDocumentName`),
+	 * fetch its attachments via the canonical name JOIN. Markdowns become `.md` files (`<rol>/<title>.md`),
 	 * binary files are streamed as-is from S3 or decoded from data URL.
 	 *
 	 * Use case: coordinator quiere imprimir o leer offline todos los guiones
@@ -530,12 +594,29 @@ export class RetreatScheduleService {
 			order: { day: 'ASC', startTime: 'ASC' },
 		});
 
-		// Collect unique responsability names to avoid duplicates (the same
+		// Document name per item (same rule as the schedule view), so moments
+		// that only inherit their document from the template are bundled too.
+		const templateIds = Array.from(
+			new Set(items.map((i) => i.scheduleTemplateId).filter((x): x is string => !!x)),
+		);
+		const templateById = new Map<string, ScheduleTemplate>();
+		if (templateIds.length) {
+			const templates = await this.templateRepo.find({
+				where: { id: In(templateIds) },
+				select: ['id', 'documentName', 'responsabilityName'],
+			});
+			templates.forEach((t) => templateById.set(t.id, t));
+		}
+
+		// Collect unique document names to avoid duplicates (the same
 		// guion can be referenced by multiple items in the same day).
 		const seen = new Set<string>();
 		const respNames: string[] = [];
 		for (const it of items) {
-			const name = it.responsability?.name;
+			const name = resolveScheduleItemDocumentName(
+				it.responsability?.name,
+				it.scheduleTemplateId ? templateById.get(it.scheduleTemplateId) : null,
+			);
 			if (name && !seen.has(name)) {
 				seen.add(name);
 				respNames.push(name);
