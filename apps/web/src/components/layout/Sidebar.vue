@@ -447,7 +447,7 @@ const uiStore = useUIStore();
 const receptionStore = useReceptionStore();
 const participantStore = useParticipantStore();
 const { participants } = storeToRefs(participantStore);
-const { isSidebarCollapsed, isMobile } = storeToRefs(uiStore);
+const { isSidebarCollapsed, isMobile, collapsedSections, isRetreatGroupCollapsed } = storeToRefs(uiStore);
 const { can, isSuperadmin, currentRetreatRole, canAccessResource, canManageRetreatById, userPermissions } =
   useAuthPermissions();
 const route = useRoute();
@@ -514,29 +514,11 @@ const focusedIndex = ref(-1);
 const focusSource = ref<'mouse' | 'keyboard' | null>(null);
 const isSearchFocused = ref(false);
 const isSearchOpen = ref(false);
-const collapsedSections = ref<Record<string, boolean>>({});
 const expandedWhenCollapsed = ref<string | null>(null);
 
-// Retreat parent group state
-const isRetreatGroupCollapsed = ref(
-  JSON.parse(localStorage.getItem('sidebar-retreat-group-collapsed') || 'false')
-);
-
-watch(isRetreatGroupCollapsed, (val) => {
-  localStorage.setItem('sidebar-retreat-group-collapsed', JSON.stringify(val));
-});
-
-const toggleRetreatGroup = () => {
-  const wasCollapsed = isRetreatGroupCollapsed.value;
-  if (wasCollapsed) {
-    // Opening retreat group: collapse all other sections
-    Object.keys(collapsedSections.value).forEach(key => {
-      collapsedSections.value[key] = true;
-    });
-    saveCollapsedState();
-  }
-  isRetreatGroupCollapsed.value = !wasCollapsed;
-};
+// Retreat parent group state lives in useUIStore (shared with the mobile
+// drawer instance of this sidebar); this thin wrapper keeps the template call.
+const toggleRetreatGroup = () => uiStore.toggleRetreatGroup();
 
 // Header-absorbed state
 const isAddModalOpen = ref(false);
@@ -617,41 +599,6 @@ watch(
   },
   { immediate: true },
 );
-
-// Load collapsed state from localStorage
-const loadCollapsedState = () => {
-  try {
-    const saved = localStorage.getItem('sidebar-collapsed-sections');
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      // Ensure only one section is open (accordion)
-      const openKeys = Object.keys(parsed).filter(k => !parsed[k]);
-      if (openKeys.length > 1) {
-        Object.keys(parsed).forEach(k => { parsed[k] = true; });
-        parsed[openKeys[0]] = false;
-      }
-      collapsedSections.value = parsed;
-    } else {
-      menuSections.forEach(section => {
-        collapsedSections.value[section.category] = true;
-      });
-      saveCollapsedState();
-    }
-  } catch (error) {
-    console.error('Failed to load collapsed state:', error);
-    menuSections.forEach(section => {
-      collapsedSections.value[section.category] = true;
-    });
-  }
-};
-
-const saveCollapsedState = () => {
-  try {
-    localStorage.setItem('sidebar-collapsed-sections', JSON.stringify(collapsedSections.value));
-  } catch (error) {
-    console.error('Failed to save collapsed state:', error);
-  }
-};
 
 const menuSections: MenuSection[] = [
   {
@@ -1205,7 +1152,10 @@ const isSectionCollapsed = (category: string) => {
     if (currentActiveSection.value === category) return false;
     return true;
   }
-  return collapsedSections.value[category] ?? false;
+  // A category without a key counts as COLLAPSED (initSidebarAccordion seeds
+  // every rendered category; before the store migration a missing key fell
+  // through to "open" and could never be closed by the accordion).
+  return collapsedSections.value[category] ?? true;
 };
 
 const toggleSection = (category: string) => {
@@ -1218,24 +1168,13 @@ const toggleSection = (category: string) => {
     return;
   }
 
-  const isCurrentlyCollapsed = collapsedSections.value[category] ?? false;
-  const isOpening = isCurrentlyCollapsed;
-
-  // Accordion: collapse all sections first
-  Object.keys(collapsedSections.value).forEach(key => {
-    collapsedSections.value[key] = true;
-  });
-
-  // Toggle the clicked section
-  collapsedSections.value[category] = !isCurrentlyCollapsed;
+  const isOpen = uiStore.toggleSidebarSection(category);
 
   // If opening a non-retreat section, collapse the retreat group
-  // If opening a retreat sub-section, collapse non-retreat sections (already done above)
-  if (isOpening && !RETREAT_CATEGORIES.includes(category)) {
+  // If opening a retreat sub-section, collapse non-retreat sections (done in the store)
+  if (isOpen && !RETREAT_CATEGORIES.includes(category)) {
     isRetreatGroupCollapsed.value = true;
   }
-
-  saveCollapsedState();
 };
 
 const getGlobalItemIndex = (item: MenuItem) => {
@@ -1451,7 +1390,7 @@ watch(isSidebarCollapsed, (isCollapsed) => {
 });
 
 onMounted(() => {
-  loadCollapsedState();
+  uiStore.initSidebarAccordion(menuSections.map(section => section.category));
 
   // Fetch retreats (moved from Header)
   retreatStore.fetchRetreats();

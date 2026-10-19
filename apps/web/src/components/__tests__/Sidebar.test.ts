@@ -662,6 +662,43 @@ describe('Sidebar Component', () => {
 		});
 	});
 
+	describe('Accordion regression (saved record without a newer category key)', () => {
+		// Before the uiStore migration, a category missing from the saved
+		// localStorage record counted as OPEN (`?? false`) and the accordion
+		// toggle only collapsed keys already present — so that section could
+		// never be closed by opening another one.
+		const getCollapsedSections = (w: VueWrapper<any>): Record<string, boolean> => {
+			const raw = (w.vm as any).$.setupState?.collapsedSections;
+			return raw?.value ?? raw ?? {};
+		};
+
+		it('seeds the missing category collapsed on mount and persists it', async () => {
+			// Record written by the pre-store Sidebar: 'logistics' not in it.
+			localStorage.setItem(
+				'sidebar-collapsed-sections',
+				JSON.stringify({ community: false, assignments: true }),
+			);
+			localStorage.setItem('sidebar-retreat-group-collapsed', 'false');
+
+			const regressionWrapper = createTestWrapper(Sidebar, {
+				global: { mocks: { $t: (key: string) => key } },
+			});
+			await nextTick();
+
+			const collapsed = getCollapsedSections(regressionWrapper);
+			expect(collapsed.logistics).toBe(true);
+			// The one open section from the record stays open (accordion invariant).
+			expect(collapsed.community).toBe(false);
+
+			const persisted = JSON.parse(
+				localStorage.getItem('sidebar-collapsed-sections') || 'null',
+			);
+			expect(persisted.logistics).toBe(true);
+
+			regressionWrapper.unmount();
+		});
+	});
+
 	describe('Health data guard (medicines-report / food)', () => {
 		// Regla de negocio: la ficha de salud (medicación, dieta) solo la ve
 		// quien tiene `participant:health` (admin/treasurer/logistics/superadmin),
