@@ -2443,6 +2443,8 @@
       "title": "Enviar tareas a un servidor ({count}):",
       "searchPlaceholder": "Buscar servidor...",
       "counts": "{responsibilities} responsabilidades · {teams} equipos",
+      "documentsCount": "{count} documentos",
+      "documentsError": "No se pudieron cargar los documentos: el mensaje saldrá sin los links.",
       "empty": "No hay servidores con tareas asignadas"
     },
     "addToTeam": "Agregar servidores al equipo",

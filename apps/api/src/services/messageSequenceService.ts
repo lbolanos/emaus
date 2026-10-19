@@ -32,6 +32,7 @@ import { buildSantisimoInviteUrl } from '../utils/santisimoInviteToken';
 import { getMessageTemplateAudience, RESPONSABILITY_TYPE_LABELS, type ResponsabilityType } from '@repo/types';
 import type { SequencePastStep, SequenceRunResult } from '@repo/types';
 import { savedSegmentService } from './savedSegmentService';
+import { assignmentDocumentsService } from './assignmentDocumentsService';
 import { CommunityMember } from '../entities/communityMember.entity';
 import { Community } from '../entities/community.entity';
 import { EMAIL_SILENT_STATES } from './communityService';
@@ -864,7 +865,11 @@ export class MessageSequenceService {
 			nameParts.map((p) => [p.id, `${p.firstName || ''} ${p.lastName || ''}`.trim()]),
 		);
 		const nameOf = (id?: string | null): string => (id ? nameById.get(id) || '' : '');
+		// Momentos del Minuto a Minuto y documentos: misma fuente que el envío
+		// manual (specs/assignment-documents), vacío para quien no sea servidor.
+		const documents = await assignmentDocumentsService.forParticipant(retreatId, participantId);
 		return {
+			...documents,
 			responsibilities: responsibilities.map((r) => ({
 				name: r.name,
 				// La columna guarda un string, no el enum: si llegara un valor fuera

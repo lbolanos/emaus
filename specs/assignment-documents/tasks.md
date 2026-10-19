@@ -99,10 +99,23 @@
 
 ## M5 — Los tres caminos de resolución
 
-- [ ] Envío manual: `ResponsabilitiesView` (llamada al abrir el Popover, toast si falla)
-- [ ] Motor de secuencias: `buildAssignmentsData` usa el service
-- [ ] Preview del editor: mock
-- [ ] Tests de vista y de secuencias (criterio 6)
+- [x] Envío manual: `ResponsabilitiesView` (llamada al abrir el Popover, toast si falla,
+      "· N documentos" en el conteo, candidatos con solo momentos)
+- [x] Motor de secuencias: `buildAssignmentsData` usa el service
+- [x] Preview del editor: mock (M4)
+- [x] Tests de vista (carga, mezcla, parciales, solo momentos, falla) y de secuencias
+      (criterio 6)
+
+**Done**: 2026-10-19.
+
+### Desviaciones 2026-10-19
+
+- **Los servidores parciales ya son candidatos de "Enviar tareas".** Los candidatos salían de
+  `availableParticipants` (`type === 'server'`), que dejaba fuera a los `partial_server`
+  (angelitos) aunque tuvieran responsabilidades. Ahora usan `server` + `partial_server`, igual
+  que el servicio. `availableParticipants` no se toca (lo usan otras partes de la vista).
+- **Aserciones del toast específicas**: el mock de `@repo/ui` comparte el spy de `useToast`
+  con los stores, así que el test verifica el aviso de documentos por su `title`.
 
 ## M6 — Contenido, docs y cierre
 

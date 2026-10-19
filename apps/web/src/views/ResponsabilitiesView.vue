@@ -66,7 +66,7 @@
               >
                 <span class="truncate">{{ participantLabel(opt.participant) }}</span>
                 <span class="ml-auto text-xs text-muted-foreground shrink-0 whitespace-nowrap">
-                  {{ $t('responsibilities.sendTasks.counts', { responsibilities: opt.responsibilitiesCount, teams: opt.teamsCount }) }}
+                  {{ $t('responsibilities.sendTasks.counts', { responsibilities: opt.responsibilitiesCount, teams: opt.teamsCount }) }}<template v-if="opt.documentsCount"> · {{ $t('responsibilities.sendTasks.documentsCount', { count: opt.documentsCount }) }}</template>
                 </span>
               </button>
               <p v-if="assignmentsCandidates.length === 0" class="px-2 py-3 text-sm text-muted-foreground text-center">
@@ -590,7 +590,7 @@ import { useParticipantStore } from '@/stores/participantStore';
 import { useResponsabilityStore } from '@/stores/responsabilityStore';
 import { useServiceTeamStore } from '@/stores/serviceTeamStore';
 import { storeToRefs } from 'pinia';
-import { Button, Input, Popover, PopoverContent, PopoverTrigger, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@repo/ui';
+import { Button, Input, Popover, PopoverContent, PopoverTrigger, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, useToast } from '@repo/ui';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@repo/ui';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@repo/ui';
 import { Label } from '@repo/ui';
@@ -601,7 +601,9 @@ import {
   getResponsibilityDocumentation,
   listResponsibilityDocumentationKeys,
   responsabilityAttachmentApi,
+  retreatScheduleApi,
 } from '@/services/api';
+import type { AssignmentDocumentsData } from '@/utils/message';
 import { renderMarkdown } from '@/composables/useMarkdown';
 import { ResponsabilityType } from '@repo/types';
 import { findRelatedTeam } from '@/utils/serviceTeamLink';
@@ -801,24 +803,75 @@ const {
   open: openMessageDialog,
 } = useParticipantMessageDialog();
 
-// Servidores activos con al menos una responsabilidad o equipo asignado,
-// con sus conteos para el Popover. Los datos ya están cargados por el watcher
-// de selectedRetreatId (responsabilidades + participantes + equipos).
+// Momentos del Minuto a Minuto y documentos de cada servidor
+// (specs/assignment-documents): una llamada al abrir el Popover. Si falla, el
+// mensaje sale sin documentos y se avisa con un toast, nunca en silencio.
+const { toast } = useToast();
+const assignmentDocuments = ref<Record<string, AssignmentDocumentsData>>({});
+const assignmentDocumentsFailed = ref(false);
+let assignmentDocumentsLoad: Promise<void> | null = null;
+
+watch(assignmentsBriefingOpen, (open) => {
+  const retreatId = selectedRetreatId.value;
+  if (!open || !retreatId) return;
+  assignmentDocumentsFailed.value = false;
+  assignmentDocumentsLoad = retreatScheduleApi
+    .assignmentDocuments(retreatId)
+    .then((data) => {
+      // El retiro pudo cambiar mientras cargaba.
+      if (selectedRetreatId.value === retreatId) assignmentDocuments.value = data;
+    })
+    .catch(() => {
+      assignmentDocuments.value = {};
+      assignmentDocumentsFailed.value = true;
+    });
+});
+
+// Documentos distintos (por URL) que le llegan a un servidor.
+const documentsCountOf = (participantId: string) => {
+  const data = assignmentDocuments.value[participantId];
+  if (!data) return 0;
+  const urls = new Set<string>();
+  for (const m of data.moments) for (const d of m.documents) urls.add(d.url);
+  for (const r of data.responsibilityDocuments) for (const d of r.documents) urls.add(d.url);
+  return urls.size;
+};
+
+// Equipo servidor completo: los parciales (angelitos) también reciben tareas.
+const briefingParticipants = computed(() =>
+  (participants.value || []).filter(
+    (p) => (p.type === 'server' || p.type === 'partial_server') && !p.isCancelled,
+  ),
+);
+
+// Servidores activos con al menos una responsabilidad, equipo o momento del
+// Minuto a Minuto, con sus conteos para el Popover. Responsabilidades,
+// participantes y equipos ya los cargó el watcher de selectedRetreatId.
 const assignmentsCandidates = computed(() => {
   const teams = serviceTeamStore.teams || [];
-  const byId = new Map<string, { participant: Participant; responsibilitiesCount: number; teamsCount: number }>();
+  const byId = new Map<
+    string,
+    { participant: Participant; responsibilitiesCount: number; teamsCount: number; documentsCount: number }
+  >();
+  const findParticipant = (id: string) => briefingParticipants.value.find((x) => x.id === id);
   const ensure = (p: Participant) => {
     let entry = byId.get(p.id);
     if (!entry) {
-      entry = { participant: p, responsibilitiesCount: 0, teamsCount: 0 };
+      entry = { participant: p, responsibilitiesCount: 0, teamsCount: 0, documentsCount: documentsCountOf(p.id) };
       byId.set(p.id, entry);
     }
     return entry;
   };
   for (const r of responsibilities.value) {
     if (r.isActive === false || !r.participantId) continue;
-    const p = availableParticipants.value.find((x) => x.id === r.participantId);
+    const p = findParticipant(r.participantId);
     if (p) ensure(p).responsibilitiesCount += 1;
+  }
+  // Quien solo tiene momentos (ej. un colíder con las dinámicas de mesa).
+  for (const [participantId, data] of Object.entries(assignmentDocuments.value)) {
+    if (!data.moments.length && !data.responsibilityDocuments.length) continue;
+    const p = findParticipant(participantId);
+    if (p) ensure(p);
   }
   for (const team of teams) {
     if (team.isActive === false) continue;
@@ -828,7 +881,7 @@ const assignmentsCandidates = computed(() => {
     const counted = new Set<string>();
     const bump = (participantId?: string | null) => {
       if (!participantId || counted.has(participantId)) return;
-      const p = availableParticipants.value.find((x) => x.id === participantId);
+      const p = findParticipant(participantId);
       if (p) {
         ensure(p).teamsCount += 1;
         counted.add(participantId);
@@ -837,7 +890,7 @@ const assignmentsCandidates = computed(() => {
     bump(team.leaderId);
     for (const m of team.members ?? []) bump(m.participantId);
   }
-  let list = [...byId.values()].filter((e) => e.responsibilitiesCount + e.teamsCount > 0);
+  let list = [...byId.values()];
   const q = assignmentsSearch.value.trim();
   if (q) {
     // Búsqueda por tokens (misma que el buscador principal): "jose garcia"
@@ -853,14 +906,18 @@ const assignmentsCandidates = computed(() => {
 // Cerrar el Popover ANTES de abrir el dialog (bug reka-ui pointer-events);
 // el participante sale hidratado del store (pagos incluidos), nunca de
 // GET /participants/:id.
-const onChooseServer = (participant: Participant) => {
+const onChooseServer = async (participant: Participant) => {
   assignmentsBriefingOpen.value = false;
   assignmentsSearch.value = '';
-  const assignmentsData = buildAssignmentsData(
-    participant.id,
-    responsibilities.value,
-    serviceTeamStore.teams || [],
-  );
+  // Si los documentos siguen cargando, esperarlos: el mensaje los necesita.
+  await assignmentDocumentsLoad;
+  if (assignmentDocumentsFailed.value) {
+    toast({ title: t('responsibilities.sendTasks.documentsError'), variant: 'destructive' });
+  }
+  const assignmentsData = {
+    ...buildAssignmentsData(participant.id, responsibilities.value, serviceTeamStore.teams || []),
+    ...(assignmentDocuments.value[participant.id] ?? {}),
+  };
   const target = participantStore.participants.find((x) => x.id === participant.id) ?? participant;
   nextTick(() => openMessageDialog(target, { assignmentsData, templateType: 'SERVER_ASSIGNMENTS_BRIEFING' }));
 };
