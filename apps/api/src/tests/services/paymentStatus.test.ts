@@ -182,22 +182,22 @@ describe('Participant.paymentStatus', () => {
 	});
 });
 
-// Especificación: specs/pays-at-house (D1-D8). La marca "paga en la casa de
-// retiro" sustituye visualmente a Pendiente mientras quede saldo; NO exime
-// del cobro (a diferencia de la beca) y el estado sigue siendo derivado.
+// Spec: specs/pays-at-house (D1-D8). The "pays at the retreat house" flag
+// visually replaces Pending while there is balance; it does NOT waive the
+// charge (unlike the scholarship) and the status stays derived.
 describe('Participant.paymentStatus — pays_at_house', () => {
-	it('marca + sin pagos → "pays_at_house" (sustituye visualmente a "unpaid")', () => {
+	it('flag + no payments → "pays_at_house" (visually replaces "unpaid")', () => {
 		const p = makeParticipant({
 			paysAtHouse: true,
 			payments: [],
 			retreat: makeRetreat('1500'),
 		});
 		expect(p.paymentStatus).toBe('pays_at_house');
-		// Sigue debiendo: no exime del cobro (D6).
+		// Still owes: the flag does not waive the charge (D6).
 		expect(p.paymentRemaining).toBe(1500);
 	});
 
-	it('marca + pago parcial → "pays_at_house" (D1: cubre unpaid y partial)', () => {
+	it('flag + partial payment → "pays_at_house" (D1: covers unpaid and partial)', () => {
 		const p = makeParticipant({
 			paysAtHouse: true,
 			payments: [makePayment(500)],
@@ -207,18 +207,18 @@ describe('Participant.paymentStatus — pays_at_house', () => {
 		expect(p.paymentRemaining).toBe(1000);
 	});
 
-	it('marca + pago completo → "paid" (D3: la marca persiste, el estado deriva a paid)', () => {
+	it('flag + full payment → "paid" (D3: the flag persists, the status derives to paid)', () => {
 		const p = makeParticipant({
 			paysAtHouse: true,
 			payments: [makePayment(1500)],
 			retreat: makeRetreat('1500'),
 		});
-		// La marca queda como auditoría de lo acordado, pero ya no debe nada.
+		// The flag remains as an audit of what was agreed, but they owe nothing.
 		expect(p.paysAtHouse).toBe(true);
 		expect(p.paymentStatus).toBe('paid');
 	});
 
-	it('marca + pago de más → "overpaid" (el pago de más domina)', () => {
+	it('flag + overpayment → "overpaid" (the overpayment wins)', () => {
 		const p = makeParticipant({
 			paysAtHouse: true,
 			payments: [makePayment(2000)],
@@ -227,7 +227,7 @@ describe('Participant.paymentStatus — pays_at_house', () => {
 		expect(p.paymentStatus).toBe('overpaid');
 	});
 
-	it('beca gana sobre la marca (D4: precedencia scholarship > pays_at_house)', () => {
+	it('scholarship wins over the flag (D4: scholarship > pays_at_house precedence)', () => {
 		const p = makeParticipant({
 			isScholarship: true,
 			paysAtHouse: true,
@@ -237,7 +237,7 @@ describe('Participant.paymentStatus — pays_at_house', () => {
 		expect(p.paymentStatus).toBe('scholarship');
 	});
 
-	it('expected 0 (angelito sin comidas) → "paid" aunque esté marcado', () => {
+	it('expected 0 (angelito without meals) → "paid" even when marked', () => {
 		const p = makeParticipant({
 			type: 'partial_server',
 			paysAtHouse: true,
@@ -248,7 +248,7 @@ describe('Participant.paymentStatus — pays_at_house', () => {
 		expect(p.paymentStatus).toBe('paid');
 	});
 
-	it('sin marca: regresión exacta de los estados previos (unpaid/partial/paid)', () => {
+	it('without the flag: exact regression of the previous statuses (unpaid/partial/paid)', () => {
 		const unpaid = makeParticipant({ payments: [], retreat: makeRetreat('1500') });
 		const partial = makeParticipant({ payments: [makePayment(500)], retreat: makeRetreat('1500') });
 		const paid = makeParticipant({ payments: [makePayment(1500)], retreat: makeRetreat('1500') });
@@ -258,7 +258,7 @@ describe('Participant.paymentStatus — pays_at_house', () => {
 		expect(paid.paymentStatus).toBe('paid');
 	});
 
-	it('toJSON serializa paysAtHouse y el estado nuevo', () => {
+	it('toJSON serializes paysAtHouse and the new status', () => {
 		const p = makeParticipant({
 			paysAtHouse: true,
 			payments: [],
@@ -656,8 +656,8 @@ describe('RetreatParticipant overlay onto Participant', () => {
 	});
 
 	it('produces different pays-at-house state for the same participant on different retreats', () => {
-		// specs/pays-at-house: la marca es per-retiro. Mismo participante marcado
-		// en A y normal en B → estados derivados distintos por retiro.
+		// specs/pays-at-house: the flag is per-retreat. Same participant marked
+		// on A and unmarked on B → different derived statuses per retreat.
 		const onA = new Participant();
 		onA.id = 'pid-1';
 		(onA as any).retreat = makeRetreat('1500');

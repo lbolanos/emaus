@@ -6,12 +6,12 @@ import { updateParticipant } from '@/services/participantService';
 import { Participant } from '@/entities/participant.entity';
 
 /**
- * Camino de escritura de la marca "paga en la casa de retiro"
- * (specs/pays-at-house). El toggle viaja por PUT /participants/:id como
- * `paysAtHouse` + `contextRetreatId`, y aterriza en la fila de
- * retreat_participants del retiro de contexto — mismo camino que la beca.
+ * Write path for the "pays at the retreat house" flag (specs/pays-at-house).
+ * The toggle travels through PUT /participants/:id as `paysAtHouse` +
+ * `contextRetreatId` and lands on the retreat_participants row of the context
+ * retreat — same path as the scholarship flag.
  */
-describe('pays-at-house: camino de escritura', () => {
+describe('pays-at-house: write path', () => {
 	let retreatId: string;
 	let participantId: string;
 
@@ -23,7 +23,7 @@ describe('pays-at-house: camino de escritura', () => {
 	});
 	beforeEach(async () => {
 		await clearTestData();
-		// Cobro > 0 para que la marca derive a pays_at_house (saldo pendiente).
+		// Cost > 0 so the marked participant still owes (pays_at_house status).
 		const retreat = await TestDataFactory.createTestRetreat({ cost: '1500' } as any);
 		retreatId = retreat.id;
 		const p = await TestDataFactory.createTestParticipant(retreatId, { type: 'walker' } as any);
@@ -35,7 +35,7 @@ describe('pays-at-house: camino de escritura', () => {
 			where: { participantId, retreatId: rId },
 		});
 
-	/** Ficha tal como la hidrata el listado (campos per-retiro aplanados). */
+	/** DTO as the list hydrates it (per-retreat fields flattened). */
 	const fromList = async () => {
 		const p = await AppDataSource.getRepository(Participant).findOne({
 			where: { id: participantId },
@@ -44,7 +44,7 @@ describe('pays-at-house: camino de escritura', () => {
 		return { ...p, paysAtHouse: rp?.paysAtHouse ?? false, isScholarship: rp?.isScholarship ?? false } as any;
 	};
 
-	it('paysAtHouse=true escribe la fila del retiro de contexto y el retorno lo refleja', async () => {
+	it('paysAtHouse=true writes the context retreat row and the return value carries it', async () => {
 		const updated = await updateParticipant(participantId, {
 			...(await fromList()),
 			paysAtHouse: true,
@@ -53,12 +53,12 @@ describe('pays-at-house: camino de escritura', () => {
 
 		const row = await readRow();
 		expect(row?.paysAtHouse).toBe(true);
-		// El virtual del retorno ya lleva el valor nuevo (lo que la UI muestra
-		// tras guardar, sin re-fetch).
+		// The returned virtual already carries the new value (what the UI shows
+		// after saving, without a refetch).
 		expect((updated as any)?.paysAtHouse).toBe(true);
 	});
 
-	it('paysAtHouse=false persiste el desmarcado', async () => {
+	it('paysAtHouse=false persists the unmark', async () => {
 		await AppDataSource.getRepository(RetreatParticipant).update(
 			{ participantId, retreatId },
 			{ paysAtHouse: true },
@@ -74,21 +74,21 @@ describe('pays-at-house: camino de escritura', () => {
 		expect(row?.paysAtHouse).toBe(false);
 	});
 
-	it('un guardado que no incluye el campo NO borra la marca (payload legacy)', async () => {
+	it('a save that omits the field does NOT clear the flag (legacy payload)', async () => {
 		await AppDataSource.getRepository(RetreatParticipant).update(
 			{ participantId, retreatId },
 			{ paysAtHouse: true },
 		);
-		const ficha = await fromList();
-		delete ficha.paysAtHouse;
+		const dto = await fromList();
+		delete dto.paysAtHouse;
 
-		await updateParticipant(participantId, { ...ficha, cellPhone: '5551112233' } as any);
+		await updateParticipant(participantId, { ...dto, cellPhone: '5551112233' } as any);
 
 		const row = await readRow();
 		expect(row?.paysAtHouse).toBe(true);
 	});
 
-	it('marcar la beca limpia la marca (D4: higiene espejo de scholarshipAmount)', async () => {
+	it('marking the scholarship clears the flag (D4: mirror hygiene of scholarshipAmount)', async () => {
 		await AppDataSource.getRepository(RetreatParticipant).update(
 			{ participantId, retreatId },
 			{ paysAtHouse: true },
@@ -102,12 +102,12 @@ describe('pays-at-house: camino de escritura', () => {
 
 		const row = await readRow();
 		expect(row?.isScholarship).toBe(true);
-		// El becado queda exento de todo: el compromiso de pagar en la casa
-		// carece de sentido y se limpia en el mismo guardado.
+		// A scholarshipped participant is exempt from everything: the promise
+		// to pay at the house makes no sense and is cleared on the same save.
 		expect(row?.paysAtHouse).toBe(false);
 	});
 
-	it('con contextRetreatId de OTRO retiro, escribe esa fila y no la del primario', async () => {
+	it('with a contextRetreatId from ANOTHER retreat, writes that row and not the primary one', async () => {
 		const retreatB = await TestDataFactory.createTestRetreat({ cost: '999' } as any);
 		await AppDataSource.getRepository(RetreatParticipant).save(
 			AppDataSource.getRepository(RetreatParticipant).create({
@@ -127,7 +127,7 @@ describe('pays-at-house: camino de escritura', () => {
 		} as any);
 
 		expect((await readRow(retreatB.id))?.paysAtHouse).toBe(true);
-		// La fila del retiro primario queda intacta.
+		// The primary retreat row stays untouched.
 		expect((await readRow())?.paysAtHouse).toBe(false);
 	});
 });

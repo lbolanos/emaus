@@ -16,6 +16,8 @@ En la lista de **pendientes**, pulsa **Llegó** junto a la persona para registra
 
 Junto a cada caminante ves cuánto ha pagado: en **verde** si ya pagó, o el botón **Cobrar** si aún debe. Pulsa **Cobrar** para registrar el pago ahí mismo —escribes el monto y eliges efectivo, transferencia o tarjeta— sin salir de Recepción. Si el caminante viene **becado**, en lugar del botón aparece la etiqueta **Beca**: a él no se le cobra.
 
+Quienes avisaron que pagarán al llegar muestran la etiqueta celeste **Paga en la casa** junto al botón **Cobrar**: es solo informativa —cobra igual al recibir su pago. La etiqueta desaparece en cuanto registras un pago.
+
 ## Buscar y ordenar
 
 - **Busca** escribiendo como te salga: nombre y apellido juntos ("adan perez"), en cualquier orden ("perez adan"), sin acentos ("jose" encuentra a José, "perez" a Pérez), por número de participante o por apodo. Hay buscador en pendientes y en llegados.

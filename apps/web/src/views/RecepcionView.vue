@@ -416,9 +416,9 @@ onUnmounted(() => {
               >
                 {{ t('reception.scholarship') }}
               </span>
-              <!-- Solo el badge (D7): la marca vive en Pagos/Palancas. Se oculta
-                   con cualquier pago registrado — mismo umbral que Cobrar, que
-                   es lo único que esta superficie sabe del saldo. -->
+              <!-- Badge only (D7): the flag lives in Pagos/Palancas. Hidden
+                   once any payment is registered — same threshold as Cobrar,
+                   the only thing this surface knows about the balance. -->
               <span
                 v-if="p.paysAtHouse && !p.isScholarship && !p.totalPaid"
                 class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300"

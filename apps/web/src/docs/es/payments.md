@@ -22,6 +22,20 @@ Cada participante puede tener uno de estos estados de pago:
 - **Beca**: El participante recibió una beca
 - **Beca Parcial**: Beca + pago parcial
 - **Atrasado**: El pago está vencido
+- **Paga en la casa**: Prometió pagar al llegar el viernes a la casa de retiro (sigue debiendo)
+
+## Paga en la casa
+
+Algunos caminantes avisan que pagarán al llegar el viernes a la casa de retiro. Márcalos con el
+botón de la casa 🏠 junto a su saldo en esta pantalla (también existe en el modal de pago y en
+Palancas): su estado cambia de Pendiente a la etiqueta **Paga en la casa**, para que nadie les
+insista por adelantado.
+
+- La marca **no exime del cobro**: el saldo se conserva y puede registrarse su pago en la
+  recepción como a cualquier otro.
+- Los participantes marcados **no reciben recordatorios de cobro** por WhatsApp.
+- Al registrar su primer pago la etiqueta desaparece; si vuelve a deber, reaparece.
+- Si el participante tiene **beca**, la beca manda: no se le cobra y la marca se ignora.
 
 ## Registrar un Pago
 

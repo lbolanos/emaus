@@ -533,9 +533,9 @@ export const participantSchema = z.object({
 	// Confirmación de asistencia per-retiro (la marca el líder/coordinador).
 	attendanceConfirmation: z.enum(['pending', 'confirmed', 'declined']).optional(),
 	isScholarship: z.boolean().optional(),
-	// Comprometió pagar al llegar el viernes a la casa de retiro (per-retiro,
-	// retreat_participants). No exime del cobro: cambia el estado derivado a
-	// 'pays_at_house' mientras haya saldo pendiente.
+	// Promised to pay on Friday arrival at the retreat house (per-retreat,
+	// retreat_participants). Does not waive the charge: switches the derived
+	// status to 'pays_at_house' while there is a pending balance.
 	paysAtHouse: z.boolean().optional(),
 	scholarshipAmount: z.preprocess(
 		(val) => (val === '' || val === null || val === undefined ? null : Number(val)),

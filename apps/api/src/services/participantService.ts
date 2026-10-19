@@ -52,6 +52,7 @@ const PARTICIPANT_AUDIT_FIELDS = [
   "isCancelled",
   "tableId",
   "isScholarship",
+  "paysAtHouse",
   "scholarshipAmount",
   "paymentAmount",
 ];

@@ -209,8 +209,9 @@ export class Participant {
 	// Virtual — populated from retreat_participants at query time.
 	scholarshipAmount?: number | null;
 
-	// Virtual — populated from retreat_participants at query time. El participante
-	// comprometió pagar al llegar el viernes a la casa de retiro; no exime del cobro.
+	// Virtual — populated from retreat_participants at query time. The
+	// participant promised to pay on arrival at the retreat house; it does
+	// not waive the charge.
 	paysAtHouse?: boolean;
 
 	// Source of truth lives in retreat_participants; legacy column kept for
@@ -499,8 +500,8 @@ export class Participant {
 	 * "Paz y salvo" = balance en 0 (totalPaid >= expected).
 	 * 'paid': a paz y salvo · 'partial': pago parcial · 'unpaid': sin pagos y con deuda
 	 * 'overpaid': pagó de más · 'scholarship': becado (exento de todo)
-	 * 'pays_at_house': comprometió pagar al llegar el viernes a la casa de retiro;
-	 * sigue debiendo (sustituye visualmente a unpaid/partial), beca gana si coinciden.
+	 * 'pays_at_house': promised to pay on Friday arrival at the retreat house;
+	 * still owes (visually replaces unpaid/partial), scholarship wins if both.
 	 */
 	get paymentStatus():
 		| 'paid'
