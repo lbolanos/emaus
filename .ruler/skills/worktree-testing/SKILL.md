@@ -354,25 +354,35 @@ Corregidos el 2026-09-12 directamente en los scripts; quedan documentados para n
 - **Faltaba `apps/api/.env`**: sin `MIGRATIONS_AUTO_RUN=true` el API del worktree arrancaba y se
   apagaba solo ("Migration verification failed"). Fix: el script lo copia del main si no existe.
 
-## El script de parada deja vivo el nodemon (sin corregir)
+## El script de parada dejaba vivo el nodemon (corregido 2026-10-19)
 
-`stop-worktree-dev.sh` mata los PIDs que **escuchan** en los puertos. El `nodemon` padre no
-escucha en ninguno: sobrevive, ve morir al hijo y relanza el API. Pasó dos veces (2026-10-16 y
-2026-10-19); uno siguió vivo tres días y bloqueó el `git worktree remove`. Después del script,
-buscá lo que quede **con la ruta de tu worktree** y matalo:
+`stop-worktree-dev.sh` mataba solo los PIDs que **escuchan** en los puertos. El `nodemon` padre
+no escucha en ninguno: sobrevivía, veía morir al hijo y relanzaba el API. Pasó dos veces
+(2026-10-16 y 2026-10-19); uno siguió vivo tres días y bloqueó el `git worktree remove`.
 
-```bash
-ps -Ao pid,args | grep "worktrees/<nombre>" | grep -E "nodemon|vite|esbuild" | grep -v grep
-kill <pids>   # y repetir el ps: tiene que salir vacío
-```
+Ahora el script además barre por línea de comando todo proceso de dev (`nodemon`/`vite`/
+`esbuild`/`tsx`) cuya ruta apunte **a este worktree**, se excluye a sí mismo y a quien lo
+invocó, y al final verifica que no quede nada en los puertos ni en la ruta (exit 1 si sobrevive
+algo). El barrido solo corre cuando el script vive dentro de `.claude/worktrees/`: ejecutado
+desde el checkout principal no toca los dev del main.
 
-Solo los de tu worktree: los demás son de otras sesiones.
+> Si igual queda algo vivo (el script avisa con `⚠️`), el remedio a mano sigue siendo buscar
+> por la ruta del worktree y matar solo los tuyos:
+>
+> ```bash
+> ps -Ao pid,args | grep "worktrees/<nombre>" | grep -E "nodemon|vite|esbuild" | grep -v grep
+> kill <pids>   # y repetir el ps: tiene que salir vacío
+> ```
+
+> `lsof -ti :3002,:5174` (puertos separados por coma) **falla en macOS** con "unknown service"
+> y devuelve vacío — parece "puertos libres" cuando no lo son. Un `lsof` por puerto, siempre.
+> El script ya lo hace así.
 
 ## Scripts incluidos
 
 - [`scripts/start-worktree-dev.sh`](scripts/start-worktree-dev.sh) — automatiza todo el setup
   arriba. Puertos configurables: `API_PORT`/`WEB_PORT` (defaults 3002/5174).
 - [`scripts/stop-worktree-dev.sh`](scripts/stop-worktree-dev.sh) — mata API+web en los puertos
-  configurados (mismos defaults/overrides).
+  configurados **y todo proceso de dev cuya ruta apunte al worktree**, con verificación final.
 
 Ambos asumen que estás corriendo desde la raíz del worktree (donde está `pnpm-workspace.yaml`).
