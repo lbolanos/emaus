@@ -922,14 +922,16 @@ const reactivateParticipant = async (participant: any) => {
     }
 };
 
-// El mini-editor de teléfonos (tabla o diálogo) actualizó la fila vía el
-// store. Para walkers participantToEdit comparte referencia con la fila, así
-// que esto es defensa ante copias (servers abren el diálogo con un spread).
+// El mini-editor de teléfonos (tabla o diálogo) o el diálogo de corrección de
+// correo actualizaron la ficha. Para walkers participantToEdit comparte
+// referencia con la fila, así que esto es defensa ante copias (servers abren
+// el diálogo con un spread). Cada flujo manda solo sus campos.
 const onParticipantPatched = (result: {
     id: string;
-    cellPhone: string;
-    emergencyContact1CellPhone: string;
-    emergencyContact2CellPhone: string | null;
+    email?: string;
+    cellPhone?: string;
+    emergencyContact1CellPhone?: string;
+    emergencyContact2CellPhone?: string | null;
 }) => {
     if (participantToEdit.value?.id === result.id) {
         Object.assign(participantToEdit.value, result);
