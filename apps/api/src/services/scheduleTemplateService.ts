@@ -20,6 +20,8 @@ export class ScheduleTemplateService {
 		'defaultDurationMinutes',
 		'requiresResponsable',
 		'responsabilityName',
+		'documentName',
+		'documentAudience',
 		'locationHint',
 		'isActive',
 	];

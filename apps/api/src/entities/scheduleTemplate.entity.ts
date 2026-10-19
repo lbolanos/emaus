@@ -25,6 +25,12 @@ export type ScheduleItemType =
 	| 'oracion'
 	| 'otro';
 
+/**
+ * Who receives a moment's document: its responsables (default) or every table
+ * leader and co-leader of the retreat (table prayer dynamics).
+ */
+export type ScheduleDocumentAudience = 'responsables' | 'table_leaders';
+
 @Entity('schedule_template')
 @Index('IDX_schedule_template_set', ['templateSetId'])
 export class ScheduleTemplate {
@@ -72,6 +78,18 @@ export class ScheduleTemplate {
 	 */
 	@Column('varchar', { nullable: true })
 	responsabilityName?: string | null;
+
+	/**
+	 * Nombre canónico del documento del momento cuando no coincide con su
+	 * responsabilidad (ej. las dinámicas de oración de mesa: responsabilidad
+	 * 'Oración de Intercesión', documento 'Texto: Dinámicas de Oración en Grupo').
+	 * Null → el documento es el de la responsabilidad.
+	 */
+	@Column('varchar', { nullable: true })
+	documentName?: string | null;
+
+	@Column('varchar', { default: 'responsables' })
+	documentAudience!: ScheduleDocumentAudience;
 
 	@Column('text', { nullable: true })
 	musicTrackUrl?: string | null;

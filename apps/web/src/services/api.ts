@@ -3251,6 +3251,8 @@ export interface ScheduleTemplateDTO {
   requiresResponsable: boolean;
   allowedResponsibilityTypes?: string | null;
   responsabilityName?: string | null;
+  documentName?: string | null;
+  documentAudience?: 'responsables' | 'table_leaders';
   musicTrackUrl?: string | null;
   palanquitaNotes?: string | null;
   planBNotes?: string | null;

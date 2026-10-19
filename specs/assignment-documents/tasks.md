@@ -13,15 +13,30 @@
 - [x] **Gate**: Leonardo revisa D1-D6 antes de codear M1 — aprobado 2026-10-19, las cuatro
       preguntas con la opción recomendada (D1 plantilla, D2/D3 responsables + regla de mesa,
       D4 solo archivos con link, D5/D6 variables + actualizar la semilla sin editar)
-- [ ] Worktree + branch al arrancar M1
+- [x] Worktree `.claude/worktrees/assignment-documents`, branch `worktree-assignment-documents`
 
 ## M1 — Modelo: columnas de documento en la plantilla
 
-- [ ] Migración `<ts>_AddDocumentFieldsToScheduleTemplate.ts` (columnas + datos de los dos
-      momentos de mesa; idempotente; `down`)
-- [ ] `CreateSchema.ts`: columnas en `schedule_template`
-- [ ] Entidad `scheduleTemplate.entity.ts` + esquemas de `packages/types/src/schedule.ts`
-- [ ] Test de migración
+- [x] Migración `20261019120000_AddDocumentFieldsToScheduleTemplate.ts` (columnas; idempotente;
+      `down`)
+- [x] Entidad `scheduleTemplate.entity.ts` + esquemas de `packages/types/src/schedule.ts` + DTO
+      web + `ITEM_FIELDS` de auditoría
+- [x] Seeder: las 4 filas de oración de mesa (2 por conjunto) con `documentName` +
+      `documentAudience`; ambos campos en `SYNCABLE_FIELDS`
+- [x] Tests: migración (down/up/idempotencia) y seeder (datos + sync al arrancar)
+
+**Done**: 2026-10-19.
+
+### Desviaciones 2026-10-19
+
+- **Los datos no van en la migración, van en el seeder.** `createDefaultScheduleTemplate` corre
+  al arrancar el API y `syncTemplateFields` propaga los campos de `SYNCABLE_FIELDS` a la DB; es
+  el camino de todos los demás campos de la plantilla. Un `UPDATE` por nombre en la migración
+  habría sido un segundo camino, frágil ante renombres.
+- **Son 4 filas, no 2**: el conjunto Colombia (Sta Clara) también tiene sus dos dinámicas de
+  oración (`Dinámica de Oración de Intercesión`, `Dinámica Oración Compartida`).
+- **Sin `CreateSchema.ts`**: `schedule_template` nace en `20260423120000_CreateMinutoAMinuto`,
+  no en el baseline. Esa migración no se toca; la DB de test sincroniza desde la entidad.
 
 ## M2 — Minuto a Minuto muestra los documentos heredados
 

@@ -54,6 +54,19 @@ const R = {
 	reglamento: 'Reglamento de la Casa',
 } as const;
 
+// Documentos que no son responsabilidad de nadie: viajan en `documentName`
+// del momento, no en `responsabilityName` (specs/assignment-documents, D3).
+const DOC = {
+	dinamicasOracionMesa: 'Texto: Dinámicas de Oración en Grupo',
+} as const;
+
+// Las dinámicas de oración de mesa las dirigen todos los líderes y colíderes:
+// conservan su responsabilidad (Oración de Intercesión) y su documento va a las mesas.
+const TABLE_PRAYER_DOC = {
+	documentName: DOC.dinamicasOracionMesa,
+	documentAudience: 'table_leaders',
+} as const;
+
 /**
  * Based on the PDF "Minuto a minuto Retiro Sta Clara NOV 2019 v2" (Emaús Hombres 3 días, Bogotá).
  */
@@ -107,7 +120,7 @@ const STA_CLARA_ITEMS: SeedRow[] = [
 	{ defaultDay: 2, defaultOrder: 140, defaultStartTime: '13:25', defaultDurationMinutes: 60, name: 'Testimonio 6 — Los Sacramentos', type: 'testimonio', requiresResponsable: true, palanquitaNotes: 'Sacerdote Para Siempre', responsabilityName: R.sacramentos },
 	{ defaultDay: 2, defaultOrder: 145, defaultStartTime: '14:25', defaultDurationMinutes: 5, name: 'Tiempo para meditar (post Testimonio 6)', type: 'descanso', responsabilityName: R.musica },
 	{ defaultDay: 2, defaultOrder: 150, defaultStartTime: '14:30', defaultDurationMinutes: 5, name: 'Reiteración de confidencialidad', type: 'logistica', responsabilityName: R.textoConfidencialidad },
-	{ defaultDay: 2, defaultOrder: 160, defaultStartTime: '14:35', defaultDurationMinutes: 40, name: 'Dinámica de Oración de Intercesión', type: 'dinamica', blocksSantisimoAttendance: true, responsabilityName: R.oracion },
+	{ defaultDay: 2, defaultOrder: 160, defaultStartTime: '14:35', defaultDurationMinutes: 40, name: 'Dinámica de Oración de Intercesión', type: 'dinamica', blocksSantisimoAttendance: true, responsabilityName: R.oracion, ...TABLE_PRAYER_DOC },
 	{ defaultDay: 2, defaultOrder: 170, defaultStartTime: '15:25', defaultDurationMinutes: 10, name: 'Refrigerio de la tarde', type: 'refrigerio', blocksSantisimoAttendance: true, responsabilityName: R.snacks },
 	{ defaultDay: 2, defaultOrder: 180, defaultStartTime: '15:45', defaultDurationMinutes: 60, name: 'Testimonio 7 — Sanación de Recuerdos', type: 'testimonio', requiresResponsable: true, responsabilityName: R.sanacion },
 	{ defaultDay: 2, defaultOrder: 185, defaultStartTime: '16:45', defaultDurationMinutes: 5, name: 'Tiempo para meditar (post Testimonio 7)', type: 'descanso', responsabilityName: R.musica },
@@ -142,7 +155,7 @@ const STA_CLARA_ITEMS: SeedRow[] = [
 	{ defaultDay: 3, defaultOrder: 110, defaultStartTime: '11:40', defaultDurationMinutes: 5, name: 'Explicación Rosario y entrega', type: 'logistica', responsabilityName: R.rosarios },
 	{ defaultDay: 3, defaultOrder: 120, defaultStartTime: '11:45', defaultDurationMinutes: 35, name: 'Dinámica Carta de Jesús', type: 'dinamica', locationHint: 'Capilla', responsabilityName: R.textoCartaJesus },
 	{ defaultDay: 3, defaultOrder: 130, defaultStartTime: '12:35', defaultDurationMinutes: 35, name: 'Almuerzo', type: 'comida', blocksSantisimoAttendance: true, locationHint: 'Comedor', responsabilityName: R.comedor },
-	{ defaultDay: 3, defaultOrder: 140, defaultStartTime: '13:10', defaultDurationMinutes: 30, name: 'Dinámica Oración Compartida', type: 'dinamica', responsabilityName: R.oracion },
+	{ defaultDay: 3, defaultOrder: 140, defaultStartTime: '13:10', defaultDurationMinutes: 30, name: 'Dinámica Oración Compartida', type: 'dinamica', responsabilityName: R.oracion, ...TABLE_PRAYER_DOC },
 	{ defaultDay: 3, defaultOrder: 150, defaultStartTime: '13:40', defaultDurationMinutes: 10, name: 'Entrega de bolsas/kits de salida', type: 'logistica', responsabilityName: R.bolsas },
 	{ defaultDay: 3, defaultOrder: 160, defaultStartTime: '13:50', defaultDurationMinutes: 15, name: 'Campana — pasar a Capilla', type: 'campana', responsabilityName: R.campanero },
 	{ defaultDay: 3, defaultOrder: 170, defaultStartTime: '14:05', defaultDurationMinutes: 30, name: 'Dinámica del Perdón', type: 'dinamica', locationHint: 'Capilla', responsabilityName: R.logistica },
@@ -235,7 +248,7 @@ const POLANCO_ITEMS: SeedRow[] = [
 	{ defaultDay: 2, defaultOrder: 93, defaultStartTime: '13:53', defaultDurationMinutes: 2, name: 'Campana — pasar al comedor (Día 2)', type: 'campana', description: 'Toque de campana para llamar a los caminantes al comedor para la comida del sábado.', responsabilityName: R.campanero },
 	{ defaultDay: 2, defaultOrder: 95, defaultStartTime: '13:55', defaultDurationMinutes: 40, name: 'Comida (Día 2)', type: 'comida', blocksSantisimoAttendance: true, description: 'Comida del sábado; énfasis en mantener el ánimo de oración. Líderes reciben instrucciones de la dinámica de oración en grupo.', responsabilityName: R.comedor },
 	{ defaultDay: 2, defaultOrder: 100, defaultStartTime: '14:35', defaultDurationMinutes: 5, name: 'Traslado al lugar de oración', type: 'traslado', description: 'Mesas se trasladan al lugar exterior asignado para la dinámica de oración en grupo.', responsabilityName: R.transporte },
-	{ defaultDay: 2, defaultOrder: 105, defaultStartTime: '14:40', defaultDurationMinutes: 60, name: 'Dinámica: Oración en Grupo (Mateo 18:19-20)', type: 'dinamica', description: 'Cada líder de mesa lee Mateo 18:19-20. Comienza el coordinador con su ayudante. NO DAMOS CONSEJOS, SOLO ESCUCHAMOS Y ORAMOS POR ELLOS.', planBNotes: 'Salones donde hacer la dinámica si llueve', responsabilityName: R.oracion },
+	{ defaultDay: 2, defaultOrder: 105, defaultStartTime: '14:40', defaultDurationMinutes: 60, name: 'Dinámica: Oración en Grupo (Mateo 18:19-20)', type: 'dinamica', description: 'Cada líder de mesa lee Mateo 18:19-20. Comienza el coordinador con su ayudante. NO DAMOS CONSEJOS, SOLO ESCUCHAMOS Y ORAMOS POR ELLOS.', planBNotes: 'Salones donde hacer la dinámica si llueve', responsabilityName: R.oracion, ...TABLE_PRAYER_DOC },
 	{ defaultDay: 2, defaultOrder: 110, defaultStartTime: '15:40', defaultDurationMinutes: 15, name: 'Break 4 (Día 2)', type: 'refrigerio', palanquitaNotes: 'Palanquita Cuartos: Yo Confío en Ti, Coronilla y Chocolate', description: 'Pausa después de la oración en grupo. Equipo de cuartos deja palanquita: Yo Confío en Ti, Coronilla y Chocolate.', responsabilityName: R.snacks },
 	{ defaultDay: 2, defaultOrder: 113, defaultStartTime: '15:52', defaultDurationMinutes: 3, name: 'Campana — reanudar tras Break 4 (Día 2)', type: 'campana', description: 'Toque de campana al terminar el Break 4 para llamar a los caminantes a la práctica de la canción.', responsabilityName: R.campanero },
 	{ defaultDay: 2, defaultOrder: 115, defaultStartTime: '15:55', defaultDurationMinutes: 15, name: 'Práctica Canción de entrada (Caminamos en la Luz de Dios)', type: 'logistica', description: 'Práctica de la canción "Caminamos en la Luz de Dios" mientras llegan todas las mesas al salón.', responsabilityName: R.musica },
@@ -295,7 +308,7 @@ const POLANCO_ITEMS: SeedRow[] = [
 	{ defaultDay: 3, defaultOrder: 102, defaultStartTime: '15:00', defaultDurationMinutes: 60, name: 'Limpiar comedor y área de snack (post-comida)', type: 'logistica', locationHint: 'Comedor', description: 'Equipo de Comedor y Snacks: limpiar mesas, recoger inventario sobrante, lavar utensilios.', responsabilityName: R.comedor },
 	{ defaultDay: 3, defaultOrder: 103, defaultStartTime: '15:00', defaultDurationMinutes: 60, name: 'Recoger audio y sonido (post-comida)', type: 'logistica', description: 'Equipo de Música: empacar micrófonos, mezcladora, parlantes y cables del salón y la capilla.', responsabilityName: R.musica },
 	{ defaultDay: 3, defaultOrder: 104, defaultStartTime: '15:00', defaultDurationMinutes: 60, name: 'Preparar entrega de celulares y despedida (post-comida)', type: 'logistica', description: 'Equipo de Bolsas: preparar la devolución de celulares, relojes y medicinas; coordinar la salida final de los caminantes.', responsabilityName: R.bolsas },
-	{ defaultDay: 3, defaultOrder: 105, defaultStartTime: '15:00', defaultDurationMinutes: 60, name: 'Dinámica: Oración Compartida (líder bendice con Números 6:24-26)', type: 'dinamica', description: 'El líder de mesa comparte lo que ha sido este fin de semana y hace petición especial. Al final, bendice a la persona a su derecha con Números 6:24-26.', responsabilityName: R.oracion },
+	{ defaultDay: 3, defaultOrder: 105, defaultStartTime: '15:00', defaultDurationMinutes: 60, name: 'Dinámica: Oración Compartida (líder bendice con Números 6:24-26)', type: 'dinamica', description: 'El líder de mesa comparte lo que ha sido este fin de semana y hace petición especial. Al final, bendice a la persona a su derecha con Números 6:24-26.', responsabilityName: R.oracion, ...TABLE_PRAYER_DOC },
 	{ defaultDay: 3, defaultOrder: 110, defaultStartTime: '16:00', defaultDurationMinutes: 1, name: 'Vuelven al salón de charlas', type: 'traslado', description: 'Caminantes regresan al salón de charlas para el cierre del retiro.', responsabilityName: R.cuartos },
 	{ defaultDay: 3, defaultOrder: 115, defaultStartTime: '16:00', defaultDurationMinutes: 10, name: 'Maletas listas para subir a camiones', type: 'logistica', description: 'Equipo deja las maletas listas en la zona de embarque para subirlas a los camiones.', responsabilityName: R.logistica },
 	{ defaultDay: 3, defaultOrder: 120, defaultStartTime: '16:10', defaultDurationMinutes: 15, name: 'Break 4 (Día 3)', type: 'refrigerio', description: 'Pausa antes del cierre formal del retiro.', responsabilityName: R.snacks },
@@ -363,6 +376,8 @@ async function seedSet(
  */
 const SYNCABLE_FIELDS: Array<keyof SeedRow> = [
 	'responsabilityName',
+	'documentName',
+	'documentAudience',
 	'defaultStartTime',
 	'defaultDurationMinutes',
 	'defaultOrder',
