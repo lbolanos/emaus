@@ -50,12 +50,17 @@ preexistente en la línea del strip).
 
 ## M2 — Fix del acordeón
 
-- [ ] `useUIStore`: state + `initSidebarAccordion` / `toggleSidebarSection` / `toggleRetreatGroup`
+- [x] `useUIStore`: state + `initSidebarAccordion` / `toggleSidebarSection` / `toggleRetreatGroup`
       + persistencia (mismas keys)
-- [ ] `Sidebar.vue`: delegar en el store; `onMounted` siembra desde `menuSections`
-- [ ] Tests: `ui.test.ts` (siembra, >1 abierta, idempotencia, ≤1 abierta) + regresión en
+- [x] `Sidebar.vue`: delegar en el store; `onMounted` siembra desde `menuSections`
+- [x] Tests: `ui.test.ts` (siembra, >1 abierta, idempotencia, ≤1 abierta) + regresión en
       `Sidebar.test.ts` con localStorage viejo
-- [ ] Verificar en la app que el modo rail (flyout) y la búsqueda siguen igual
+- [x] Verificar en la app que el modo rail (flyout) y la búsqueda siguen igual
+
+**Done**: 2026-10-19 — 51/51 tests (ui 9, Sidebar 37, SidebarFocusState 5); `vue-tsc` 0 errores.
+En vivo contra el dev del worktree: record viejo de 2 claves se sembró a 10 (faltantes
+colapsadas); abrir una sección sin clave cerró la abierta (el bug reportado); rail `w-20` y
+búsqueda con expansión forzada intactos.
 
 **Gate**: commit `fix(web): sidebar accordion shared in uiStore with key seeding` (con OK).
 
