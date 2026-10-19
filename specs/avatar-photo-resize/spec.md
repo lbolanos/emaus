@@ -1,6 +1,6 @@
 # Spec: Foto de perfil grande
 
-**Estado**: en curso · **Branch**: `worktree-flyer-background-resize` · **Fecha**: 2026-10-19
+**Estado**: implementado · **Branch**: `worktree-flyer-background-resize` · **Fecha**: 2026-10-19
 
 Cuarta instancia del defecto de `specs/memory-photo-resize/`, ahora en la foto de perfil («Mi Perfil»,
 `/app/profile`, botón de la cámara sobre el avatar). La encontró la auditoría de `troubleshooting` §37
@@ -43,11 +43,20 @@ El servidor está bien y no cambia: `avatarStorageService.uploadAvatar` → `pro
 
 ## Plan y tareas
 
-- [ ] `AvatarUpload.vue`: tope de 30 MB, reducir si pasa de 2 MB, botón deshabilitado mientras tanto; sin `maxSize`
-- [ ] `ProfileView.vue` y su test: sin `:max-size`
-- [ ] `es.json`: `uploadInfo` y `fileTooLarge`
-- [ ] Tests (los cuatro criterios); suite web, `vue-tsc` y lint
-- [ ] `troubleshooting` §37: ya no queda la foto de perfil como pendiente
+- [x] `AvatarUpload.vue`: tope de 30 MB, reducir si pasa de 2 MB, botón deshabilitado mientras tanto; sin `maxSize`
+- [x] `ProfileView.vue` y su test: sin `:max-size`
+- [x] `es.json`: `uploadInfo` y `fileTooLarge`
+- [x] Tests (los cuatro criterios); suite web completa (225 archivos, 3357 tests), `vue-tsc` y lint
+- [x] `troubleshooting` §37: ya no queda la foto de perfil como pendiente
+
+Desviaciones:
+
+- Dos tests más de los cuatro del criterio: el aviso cuando la reducción falla, y el texto en español
+  (no promete un tope en MB y `fileTooLarge` dice MB). Con el componente de master fallan los cinco
+  de comportamiento.
+- Probado en vivo en el dev del worktree: la foto de 4032×3024 y 6.5 MB se guardó como JPEG de
+  512×384 y unos 48 KB, y el avatar la muestra. En dev el avatar se guarda en base64 tal como llega;
+  el paso por `processAvatar` (prod, S3) no se probó en vivo. Con ancho 512 no entra en su recorte.
 
 ## Fuera de alcance
 

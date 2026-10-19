@@ -21,8 +21,8 @@ export const PHOTO_MAX_SIDE = 1600;
 export const SERVER_MAX_IMAGE_BYTES = 2 * 1024 * 1024;
 
 /**
- * Largest original accepted for an event photo or a flyer background. It is
- * shrunk before upload, so it can be far above the server's 2MB; the cap bounds
+ * Largest original accepted for an event photo, a flyer background or a
+ * profile photo. It is shrunk before upload, so it can be far above the server's 2MB; the cap bounds
  * the worst case of decoding on a phone. It measures bytes, not pixels: a
  * guard, not a guarantee.
  */
