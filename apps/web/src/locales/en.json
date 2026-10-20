@@ -1840,6 +1840,8 @@
     },
     "photoAssignment": "Assign by Photo (AI)",
     "tapUnassign": "Remove from table",
+    "tapBanner": "Tap the destination table to assign {name}",
+    "tapZoneHint": "· Tap here to assign",
     "photoAssign": {
       "title": "Photo Assignment",
       "description": "Take a photo of the walker cards and AI will assign walkers to tables.",

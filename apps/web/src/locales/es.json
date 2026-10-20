@@ -1931,6 +1931,8 @@
     },
     "photoAssignment": "Asignar por Foto (IA)",
     "tapUnassign": "Quitar de mesa",
+    "tapBanner": "Toca la mesa de destino para asignar a {name}",
+    "tapZoneHint": "· Toca aquí para asignar",
     "photoAssign": {
       "title": "Asignación por Foto",
       "description": "Toma una foto de las tarjetas de los caminantes y la IA asignará los caminantes a las mesas.",

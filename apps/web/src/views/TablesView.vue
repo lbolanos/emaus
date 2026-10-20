@@ -204,6 +204,30 @@
     <!-- Unassigned Areas (inside same glass panel) -->
     <div class="px-2 sm:px-3 lg:px-4 py-1.5 md:py-2">
 
+      <!-- Banner de tap-to-assign: reemplaza al botón flotante (tapaba
+           contenido y no explicaba qué hacer). Dice el paso siguiente y, si el
+           seleccionado ya estaba en una mesa, ofrece quitarlo. -->
+      <div
+        v-if="tappedParticipant"
+        data-testid="tap-assign-banner"
+        class="mb-2 flex flex-wrap items-center gap-2 rounded-lg border border-green-300 bg-green-50 px-3 py-1.5 text-sm dark:border-green-800 dark:bg-green-900/30"
+      >
+        <span class="min-w-0 flex-1 truncate">
+          {{ $t('tables.tapBanner', { name: `${tappedParticipant.firstName} ${tappedParticipant.lastName}` }) }}
+        </span>
+        <Button
+          v-if="(tappedParticipant as any).sourceTableId"
+          size="sm"
+          variant="destructive"
+          @click="onTapUnassign"
+        >
+          {{ $t('tables.tapUnassign') }}
+        </Button>
+        <Button size="sm" variant="outline" @click="clearTap">
+          {{ $t('common.cancel') }}
+        </Button>
+      </div>
+
       <!-- Mobile: tab buttons (hidden on md+). El toggle colapsa el bloque de
            pastillas para recuperar pantalla; nace expandido porque el flujo de
            tap-to-assign necesita las pastillas visibles. -->
@@ -553,22 +577,6 @@
     :table-data="messageTableData ?? undefined"
     :force-template-type="messageTemplateType ?? undefined"
   />
-
-  <!-- Floating unassign button — shown when an assigned participant is tap-selected -->
-  <Teleport to="body">
-    <div
-      v-if="tappedParticipant && (tappedParticipant as any).sourceTableId"
-      class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex gap-2 shadow-lg"
-    >
-      <Button size="sm" variant="destructive" @click="onTapUnassign">
-        <X class="w-4 h-4 mr-1" />
-        {{ $t('tables.tapUnassign') }}
-      </Button>
-      <Button size="sm" variant="outline" @click="clearTap">
-        {{ $t('common.cancel') }}
-      </Button>
-    </div>
-  </Teleport>
 </template>
 
 <script setup lang="ts">

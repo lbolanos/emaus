@@ -236,9 +236,19 @@
             @touchend="tapZone($event, () => onTapAssign('walkers'))"
             @click="tapZoneClick(() => onTapAssign('walkers'))"
             class="p-2 border-2 border-dashed rounded-md transition-colors min-h-[100px]"
-            :class="{ 'border-primary bg-primary/10': isOverWalker, 'border-green-400 bg-green-50 dark:bg-green-900/20': tappedParticipant?.type === 'walker' }"
+            :class="{
+              'border-primary bg-primary/10': isOverWalker,
+              'border-green-400 bg-green-50 dark:bg-green-900/20 ring-2 ring-green-500 ring-offset-1': tappedParticipant?.type === 'walker',
+            }"
           >
-            <h4 class="text-sm font-medium text-gray-500 dark:text-gray-400">{{ $t('tables.walkers') }} ({{ table.walkers?.length || 0 }})</h4>
+            <h4 class="text-sm font-medium text-gray-500 dark:text-gray-400">
+              {{ $t('tables.walkers') }} ({{ table.walkers?.length || 0 }})
+              <!-- Contextual hint while a walker is tap-selected: the zone is a
+                   live destination, make it say so. -->
+              <span v-if="tappedParticipant?.type === 'walker'" class="ml-1 text-xs text-green-700 dark:text-green-300">
+                {{ $t('tables.tapZoneHint') }}
+              </span>
+            </h4>
             <transition-group v-if="table.walkers && table.walkers.length > 0" tag="div" name="list-item" class="mt-2 flex flex-wrap gap-2 min-h-[34px]">
               <span
                 v-for="walker in table.walkers"
@@ -278,38 +288,69 @@
         <DialogHeader>
           <DialogTitle>{{ $t('tables.tableCard.dialogTitle') }}</DialogTitle>
         </DialogHeader>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>{{ $t('tables.tableCard.retreatId') }}</TableHead>
-              <TableHead>{{ $t('tables.tableCard.walkerName') }}</TableHead>
-              <TableHead>{{ $t('tables.tableCard.invitedBy') }}</TableHead>
-              <TableHead>{{ $t('tables.tableCard.bedLocation') }}</TableHead>
-              <TableHead>{{ $t('tables.tableCard.parish') }}</TableHead>
-              <TableHead>{{ $t('tables.tableCard.phones') }}</TableHead>
-              <TableHead>{{ $t('tables.tableCard.emausMember') }}</TableHead>
-              <!-- <TableHead>Home Phone</TableHead> -->
-              <!-- <TableHead>Work Phone</TableHead>
-              <TableHead>Cell Phone</TableHead>-->
-              <TableHead>{{ $t('tables.tableCard.email') }}</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            <TableRow v-for="walker in table.walkers" :key="walker.id">
-              <TableCell>{{ walker.id_on_retreat || $t('tables.tableCard.notAvailable') }}</TableCell>
-              <TableCell>{{ walker.firstName }} {{ walker.lastName }}</TableCell>
-              <TableCell>{{ walker.invitedBy || $t('tables.tableCard.notAvailable') }}</TableCell>
-              <TableCell>{{ getBedLocation(walker.retreatBed) || $t('tables.tableCard.notAvailable') }}</TableCell>
-              <TableCell>{{ walker.parish || $t('tables.tableCard.notAvailable') }}</TableCell>
-              <TableCell>{{ getPhones(walker) || $t('tables.tableCard.notAvailable') }}</TableCell>
-              <TableCell>{{ walker.isInvitedByEmausMember ? $t('common.yes') : $t('common.no') }}</TableCell>
-              <!--TableCell>{{ walker.inviterHomePhone || 'N/A' }}</TableCell>
-              <TableCell>{{ walker.inviterWorkPhone || 'N/A' }}</TableCell>
-              <TableCell>{{ walker.cellPhone || 'N/A' }}</TableCell-->
-              <TableCell>{{ walker.email || $t('tables.tableCard.notAvailable') }}</TableCell>
-            </TableRow>
-          </TableBody>
-        </Table>
+        <!-- Desktop: 8-column table. -->
+        <div class="hidden sm:block">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>{{ $t('tables.tableCard.retreatId') }}</TableHead>
+                <TableHead>{{ $t('tables.tableCard.walkerName') }}</TableHead>
+                <TableHead>{{ $t('tables.tableCard.invitedBy') }}</TableHead>
+                <TableHead>{{ $t('tables.tableCard.bedLocation') }}</TableHead>
+                <TableHead>{{ $t('tables.tableCard.parish') }}</TableHead>
+                <TableHead>{{ $t('tables.tableCard.phones') }}</TableHead>
+                <TableHead>{{ $t('tables.tableCard.emausMember') }}</TableHead>
+                <!-- <TableHead>Home Phone</TableHead> -->
+                <!-- <TableHead>Work Phone</TableHead>
+                <TableHead>Cell Phone</TableHead>-->
+                <TableHead>{{ $t('tables.tableCard.email') }}</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              <TableRow v-for="walker in table.walkers" :key="walker.id">
+                <TableCell>{{ walker.id_on_retreat || $t('tables.tableCard.notAvailable') }}</TableCell>
+                <TableCell>{{ walker.firstName }} {{ walker.lastName }}</TableCell>
+                <TableCell>{{ walker.invitedBy || $t('tables.tableCard.notAvailable') }}</TableCell>
+                <TableCell>{{ getBedLocation(walker.retreatBed) || $t('tables.tableCard.notAvailable') }}</TableCell>
+                <TableCell>{{ walker.parish || $t('tables.tableCard.notAvailable') }}</TableCell>
+                <TableCell>{{ getPhones(walker) || $t('tables.tableCard.notAvailable') }}</TableCell>
+                <TableCell>{{ walker.isInvitedByEmausMember ? $t('common.yes') : $t('common.no') }}</TableCell>
+                <!--TableCell>{{ walker.inviterHomePhone || 'N/A' }}</TableCell>
+                <TableCell>{{ walker.inviterWorkPhone || 'N/A' }}</TableCell>
+                <TableCell>{{ walker.cellPhone || 'N/A' }}</TableCell-->
+                <TableCell>{{ walker.email || $t('tables.tableCard.notAvailable') }}</TableCell>
+              </TableRow>
+            </TableBody>
+          </Table>
+        </div>
+        <!-- Mobile: 8 columns never fit a phone screen; one compact card per
+             walker with the same data and the same i18n keys. -->
+        <ul v-if="table.walkers && table.walkers.length > 0" class="sm:hidden flex flex-col gap-3">
+          <li
+            v-for="walker in table.walkers"
+            :key="walker.id"
+            class="rounded-lg border p-3"
+          >
+            <p class="text-sm font-medium">
+              <span v-if="walker.id_on_retreat" class="mr-1 font-bold">{{ walker.id_on_retreat }}</span>
+              {{ walker.firstName }} {{ walker.lastName }}
+            </p>
+            <dl class="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs">
+              <dt class="text-muted-foreground">{{ $t('tables.tableCard.invitedBy') }}</dt>
+              <dd>{{ walker.invitedBy || $t('tables.tableCard.notAvailable') }}</dd>
+              <dt class="text-muted-foreground">{{ $t('tables.tableCard.bedLocation') }}</dt>
+              <dd>{{ getBedLocation(walker.retreatBed) || $t('tables.tableCard.notAvailable') }}</dd>
+              <dt class="text-muted-foreground">{{ $t('tables.tableCard.parish') }}</dt>
+              <dd>{{ walker.parish || $t('tables.tableCard.notAvailable') }}</dd>
+              <dt class="text-muted-foreground">{{ $t('tables.tableCard.phones') }}</dt>
+              <dd class="break-words">{{ getPhones(walker) || $t('tables.tableCard.notAvailable') }}</dd>
+              <dt class="text-muted-foreground">{{ $t('tables.tableCard.emausMember') }}</dt>
+              <dd>{{ walker.isInvitedByEmausMember ? $t('common.yes') : $t('common.no') }}</dd>
+              <dt class="text-muted-foreground">{{ $t('tables.tableCard.email') }}</dt>
+              <dd class="break-words">{{ walker.email || $t('tables.tableCard.notAvailable') }}</dd>
+            </dl>
+          </li>
+        </ul>
       </DialogContent>
     </Dialog>
 
