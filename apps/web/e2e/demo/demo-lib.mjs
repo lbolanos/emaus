@@ -443,6 +443,18 @@ export function anchorTimelineToCaptions(timeline, changes, { fallbackScale = 1 
   });
 }
 
+// Clips that would still be talking when the next one starts (the video lost
+// frames there, so two voices overlap). Entries need offsetMs and duration (s).
+export function clipOverlaps(timeline, { toleranceMs = 150 } = {}) {
+  const out = [];
+  for (let i = 0; i < timeline.length - 1; i++) {
+    const end = timeline[i].offsetMs + Math.round((timeline[i].duration || 0) * 1000);
+    const next = timeline[i + 1].offsetMs;
+    if (end - next > toleranceMs) out.push({ id: timeline[i].id, next: timeline[i + 1].id, overlapMs: end - next });
+  }
+  return out;
+}
+
 // ── Metadata para YouTube ─────────────────────────────────────────────────────
 // mm:ss a partir de milisegundos.
 function fmtTimestamp(ms) {

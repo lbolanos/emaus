@@ -27,10 +27,11 @@
 import pw from '@playwright/test';
 const { chromium } = pw;
 import path from 'node:path';
+import { writeFileSync } from 'node:fs';
 import {
   loadEnv, ensureOutputDir, genTts, OVERLAY_INIT, Narrator, muxVideo,
   computeSyncScale, audioDuration, buildYoutubeChapters, alignChapterTimeline,
-  writeVideoMeta, OUTPUT_DIR, maskRoute, detectCaptionChanges, anchorTimelineToCaptions,
+  writeVideoMeta, OUTPUT_DIR, maskRoute, detectCaptionChanges, anchorTimelineToCaptions, fakeFor, clipOverlaps,
 } from './demo-lib.mjs';
 
 const cfg = loadEnv();
@@ -62,6 +63,51 @@ const SCENE_INIT = `
 })();
 `;
 
+// Printing on camera without the OS print dialog (it would block a headed page
+// and never shows in the page video): window.print only counts, and the table
+// sheets, which the app writes into a window.open() popup, are kept to be shown
+// inside the page instead.
+const PRINT_INIT = `
+(() => {
+  window.__printCalls = 0;
+  window.print = () => { window.__printCalls += 1; };
+  window.open = () => ({
+    document: { open() {}, write(html) { window.__printHtml = html; }, close() {} },
+    focus() {}, print() {}, close() {},
+  });
+})();
+`;
+
+/** Shows the sheet the app "printed" over the page; returns its text for the PII gate. */
+async function showPrintedSheet(page) {
+  return page.evaluate(() => {
+    const html = (window.__printHtml || '').replace(/<script[\s\S]*?<\/script>/gi, '');
+    window.__printHtml = '';
+    const wrap = document.createElement('div');
+    wrap.id = '__demo_sheet';
+    wrap.style.cssText = 'position:fixed;inset:70px 70px 120px 70px;z-index:2147483646;background:#fff;border-radius:10px;box-shadow:0 12px 44px rgba(0,0,0,.45);overflow:hidden;';
+    const frame = document.createElement('iframe');
+    frame.setAttribute('sandbox', '');
+    frame.style.cssText = 'width:100%;height:100%;border:0;';
+    frame.srcdoc = html;
+    wrap.appendChild(frame);
+    document.body.appendChild(wrap);
+    const text = new DOMParser().parseFromString(html, 'text/html').body.innerText || '';
+    return text;
+  });
+}
+const hidePrintedSheet = (page) => page.evaluate(() => document.getElementById('__demo_sheet')?.remove()).catch(() => {});
+
+// Toasts sit bottom right, under the centred subtitle: move the subtitle left for
+// those beats (still inside the strip detectCaptionChanges reads).
+const captionAside = (page, aside) =>
+  page.evaluate((a) => {
+    const cap = document.getElementById('__demo_cap');
+    if (!cap) return;
+    cap.style.left = a ? '36%' : '50%';
+    cap.style.maxWidth = a ? '52%' : '82%';
+  }, aside).catch(() => {});
+
 const LINES = [
   // ── Wednesday at home ──
   { id: 'intro', text: 'En muchas casas de retiro casi no hay señal. Emaús sigue funcionando sin conexión y envía tus cambios cuando vuelve.' },
@@ -78,30 +124,40 @@ const LINES = [
   { id: 'offlineBanner', text: 'Y arriba ves de hace cuánto son los datos guardados en el teléfono.' },
   { id: 'chargeIntro', text: 'Llega una caminante que no ha pagado. Toca Cobrar.' },
   { id: 'chargeForm', text: 'Escribes el monto, eliges la forma de pago y registras, igual que con señal.' },
-  { id: 'chargeSaved', text: 'El cobro ya aparece en su renglón, guardado en el teléfono. Se enviará solo cuando vuelva la señal.' },
+  { id: 'chargeSaved', text: 'El aviso dice que el pago quedó guardado en el teléfono. Se enviará solo cuando vuelva la señal.' },
   { id: 'arrive', text: 'Marca su llegada. Se guarda la hora en que tocaste el botón, no la hora en que se envía.' },
   { id: 'chipPending', text: 'La etiqueta cuenta los cambios que esperan señal.' },
   // ── Saturday morning ──
   { id: 'noShow', text: 'Se espera hasta el viernes en la noche. El sábado en la mañana, a quien no llegó lo cancelas con No llegó.' },
   { id: 'noShowDone', text: 'Confirmas, y se libera su cama y su mesa. También queda guardado en el teléfono.' },
+  { id: 'editIntro', text: '¿Hay que corregir un dato? En Personas, Caminantes, abre su ficha.' },
+  { id: 'editNotice', text: 'Sin señal te avisa qué se puede guardar: nombre, apodo, teléfonos, parroquia, dirección, talla y si ronca.' },
+  { id: 'editSave', text: 'Cambias la parroquia y guardas.' },
+  { id: 'editSaved', text: 'Queda guardado en el teléfono. Si alguien más cambió ese mismo dato, tu cambio no lo pisa.' },
   { id: 'sidebarFood', text: 'En Reportes, Alimentos y medicinas necesitan conexión.' },
   { id: 'health', text: 'Las dietas, los medicamentos y los contactos de emergencia nunca se guardan en el teléfono.' },
+  { id: 'printIntro', text: 'Sin señal también imprimes. En Reportes, Gafetes Caminantes.' },
+  { id: 'printBadges', text: 'Los gafetes salen completos, con su mesa, su cuarto y el logo.' },
+  { id: 'printTablesNav', text: 'En Asignaciones, Mesas, el menú Imprimir arma las hojas de cada mesa.' },
+  { id: 'printTables', text: 'Sale con roles y teléfonos. Lo de salud dice Solo con conexión, porque no se guarda en el teléfono.' },
+  { id: 'printMam', text: 'Y en Logística, el minuto a minuto se imprime desde este menú, listo para pegarlo en la pared.' },
   { id: 'reload', text: 'Aunque recargues la página sin señal, la app abre y tus cambios siguen ahí.' },
   { id: 'panelIntro', text: 'Toca la etiqueta para ver lo que hiciste sin señal, en el orden en que lo hiciste.' },
   { id: 'conflictNote', text: 'Si el servidor rechaza alguno, por ejemplo una cama que ya ocupó otro, queda aquí con el motivo para reintentar o descartar.' },
   // ── Signal back ──
   { id: 'signalBack', text: 'Cuando vuelve la señal, los cambios se envían solos y en orden. No tienes que hacer nada.' },
   { id: 'synced', text: 'La lista queda vacía y la etiqueta vuelve a En línea. Un cobro nunca se registra dos veces.' },
-  { id: 'outro', text: 'Así trabajas el fin de semana: preparas el teléfono antes, trabajas sin señal y todo se envía al volver.' },
+  { id: 'outro', text: 'Así trabajas el fin de semana: preparas el teléfono, trabajas e imprimes sin señal, y todo se envía al volver.' },
 ];
 
 const YT_TITLE = 'Trabajar sin conexión en la casa de retiro con Emaús';
 const YT_DESCRIPTION =
   'Cómo seguir trabajando cuando en la casa de retiro no hay señal. Antes de salir preparas el teléfono ' +
   'desde el Dashboard del Retiro; sin señal consultas Recepción con los datos guardados, cobras, marcas ' +
-  'llegadas y cancelas a quien no llegó; al volver la señal todo se envía solo, en orden y con la hora real. ' +
-  'Los datos de salud nunca se guardan en el teléfono. Los nombres mostrados son ficticios.';
-const YT_TAGS = ['Emaús', 'retiro', 'sin conexión', 'offline', 'recepción', 'sincronización', 'tutorial'];
+  'llegadas, cancelas a quien no llegó, corriges datos de la ficha e imprimes gafetes, hojas de mesas y el ' +
+  'minuto a minuto; al volver la señal todo se envía solo, en orden y con la hora real, sin pisar lo que otra ' +
+  'persona haya cambiado. Los datos de salud nunca se guardan en el teléfono. Los nombres mostrados son ficticios.';
+const YT_TAGS = ['Emaús', 'retiro', 'sin conexión', 'offline', 'recepción', 'imprimir', 'sincronización', 'tutorial'];
 const CHAPTER_LABELS = {
   intro: 'Sin señal en la casa de retiro', chipOnline: 'Dónde ves la conexión', sidebarDashboard: 'Preparar el teléfono',
   prepareCard: 'La tarjeta Trabajar sin conexión', prepareClick: 'Descargar el retiro', prepareDone: 'Qué se descarga',
@@ -112,6 +168,9 @@ const CHAPTER_LABELS = {
   sidebarFood: 'Los datos de salud', health: 'Salud solo con conexión', reload: 'Recargar sin señal',
   panelIntro: 'Los cambios sin enviar', conflictNote: 'Si el servidor rechaza un cambio', signalBack: 'Cuando vuelve la señal',
   synced: 'Todo enviado', outro: 'Resumen',
+  editIntro: 'Corregir un dato de la ficha', editNotice: 'Qué se guarda sin señal', editSave: 'Guardar la corrección',
+  editSaved: 'Nadie pisa el cambio de otro', printIntro: 'Imprimir sin señal', printBadges: 'Gafetes',
+  printTablesNav: 'Hojas de mesas', printTables: 'La hoja de mesas impresa', printMam: 'Minuto a minuto impreso',
 };
 
 const log = (...a) => console.log(...a);
@@ -240,6 +299,18 @@ async function main() {
   const noShow = reception.pendingList.find((w) => w !== unpaid);
   if (!unpaid || !noShow) throw new Error('needs two pending walkers, one with nothing paid');
   const paymentsBefore = new Set(((await api.get(`/payments/participant/${unpaid.participantId}`)) || []).map((p) => p.id));
+  // The walker whose record gets corrected: one with a unique masked name (the
+  // list on screen is masked, so the search uses the name it shows).
+  const everyone = await api.get(`/participants?retreatId=${RID}`);
+  const activeWalkers = everyone.filter((p) => p.type === 'walker' && !p.isCancelled);
+  const shownName = (p) => `${fakeFor(p.id).first} ${fakeFor(p.id).last}`;
+  const corrected = activeWalkers.find(
+    (p) =>
+      p.id !== unpaid.participantId && p.id !== noShow.participantId && p.parish &&
+      activeWalkers.filter((q) => shownName(q) === shownName(p)).length === 1,
+  );
+  if (!corrected) throw new Error('needs a walker whose record can be corrected');
+  const NEW_PARISH = corrected.parish === 'San Judas Tadeo' ? 'Santa Teresita' : 'San Judas Tadeo';
   const ids = await realIdentities(api);
   log(`🛡  gate watches ${ids.names.length} names, ${ids.emails.length} emails, ${ids.phones.length} phones`);
 
@@ -247,13 +318,14 @@ async function main() {
     storageState: state, viewport: { width: W, height: H }, locale: 'es-MX',
     recordVideo: { dir: OUTPUT_DIR, size: { width: W, height: H } },
   });
-  await ctx.clock.setFixedTime(times.wednesdayEvening);
+  await ctx.clock.setSystemTime(times.wednesdayEvening);
   await ctx.addInitScript((rid) => {
     localStorage.setItem('preferred-locale', 'es');
     localStorage.setItem('selectedRetreatId', rid);
   }, RID);
   await ctx.addInitScript(OVERLAY);
   await ctx.addInitScript(SCENE_INIT);
+  await ctx.addInitScript(PRINT_INIT);
   const page = await ctx.newPage();
   page.setDefaultTimeout(6000);
   page.setDefaultNavigationTimeout(30000);
@@ -325,7 +397,7 @@ async function main() {
 
     // ═══════════════ 2. FRIDAY AT THE DOOR, NO SIGNAL ═══════════════
     await setSignal(false);
-    await ctx.clock.setFixedTime(times.fridayDoor);
+    await ctx.clock.setSystemTime(times.fridayDoor);
     await scene('Viernes 6:30 p. m. · sin señal');
     await expandSection(page, 'Personas');
     const recepLink = sidebarLink(page, /^Recepción/);
@@ -353,15 +425,16 @@ async function main() {
     await cueBox(nar, register);
     await say('chargeForm');
     await register.click().catch(() => log('⚠ register failed'));
-    // Reception's own success toast replaces the "Guardado en el teléfono" one
-    // (TOAST_LIMIT = 1), so the beat points at what the screen really shows.
-    const paid = rowA.getByText(`$${AMOUNT.toLocaleString('en-US')}.00`).first();
-    await paid.waitFor({ timeout: 6000 }).catch(() => log('⚠ payment not painted'));
-    await cueBox(nar, paid);
+    // Reception's own toast carries the "saved on the phone" note (queuedToast.ts).
+    const savedNote = page.getByText(/Guardado en el teléfono: se enviará/).first();
+    await savedNote.waitFor({ timeout: 6000 }).catch(() => log('⚠ no saved-on-the-phone note'));
+    await cueBox(nar, savedNote);
+    await captionAside(page, true);
     await say('chargeSaved');
 
     const arrived = rowA.getByRole('button', { name: 'Llegó', exact: true });
     await cueBox(nar, arrived);
+    await captionAside(page, false);
     await say('arrive');
     await arrived.click().catch(() => log('⚠ arrival failed'));
     await sleep(page, 1000);
@@ -369,7 +442,7 @@ async function main() {
     await say('chipPending');
 
     // ═══════════════ 3. SATURDAY MORNING, STILL NO SIGNAL ═══════════════
-    await ctx.clock.setFixedTime(times.saturdayMorning);
+    await ctx.clock.setSystemTime(times.saturdayMorning);
     await scene('Sábado 8:30 a. m. · sin señal');
     const cancel = receptionRow(page, noShow.idOnRetreat).getByTestId('reception-cancel-no-show');
     await cueBox(nar, cancel);
@@ -379,9 +452,38 @@ async function main() {
     await nar.clearCue();
     await say('noShowDone');
 
+    // Correct a record without signal (D13).
+    await expandSection(page, 'Personas');
+    const walkersLink = sidebarLink(page, /^Caminantes/);
+    await cueBox(nar, walkersLink);
+    await say('editIntro');
+    await walkersLink.click().catch(() => {});
+    const search = page.locator('input[placeholder="Buscar..."]').first();
+    await search.waitFor({ timeout: 15000 }).catch(() => log('⚠ walkers not shown'));
+    await search.fill(shownName(corrected)).catch(() => {});
+    await sleep(page, 900);
+    await page.getByRole('button', { name: 'Editar Participante' }).first().click().catch(() => log('⚠ no edit button'));
+    const notice = page.getByTestId('offline-edit-notice');
+    await notice.waitFor({ timeout: 10000 }).catch(() => log('⚠ no offline edit notice'));
+    await cueBox(nar, notice);
+    await say('editNotice');
+    const parish = page.locator('#parish');
+    await parish.fill(NEW_PARISH).catch(() => log('⚠ no parish field'));
+    const save = page.getByRole('button', { name: 'Guardar' }).last();
+    await cueBox(nar, save);
+    await say('editSave');
+    await save.click().catch(() => {});
+    const editToast = page.getByText('Guardado en el teléfono').first();
+    await editToast.waitFor({ timeout: 6000 }).catch(() => log('⚠ no edit toast'));
+    await cueBox(nar, editToast);
+    await captionAside(page, true);
+    await say('editSaved');
+    await nar.clearCue();
+
     await expandSection(page, 'Reportes');
     const foodLink = sidebarLink(page, /^Alimentos/);
     await cueBox(nar, foodLink);
+    await captionAside(page, false);
     await say('sidebarFood');
     await foodLink.click().catch(() => {});
     const healthNote = page.getByTestId('health-needs-connection');
@@ -389,6 +491,63 @@ async function main() {
     await sleep(page, 500);
     await cueBox(nar, healthNote);
     await say('health');
+
+    // Printing without signal: badges, table sheets, minuto a minuto.
+    await expandSection(page, 'Reportes');
+    const badgesLink = sidebarLink(page, /^Gafetes Caminantes/);
+    await cueBox(nar, badgesLink);
+    await say('printIntro');
+    await badgesLink.click().catch(() => {});
+    await page.locator('.badge-item').first().waitFor({ timeout: 15000 }).catch(() => log('⚠ no badges'));
+    await sleep(page, 700);
+    await page.locator('main button[aria-haspopup="menu"]:visible').last().click().catch(() => {});
+    await sleep(page, 500);
+    await page.getByRole('menuitem', { name: /^\s*Imprimir Gafetes\s*$/ }).first().click().catch(() => log('⚠ no badge print'));
+    await nar.clearCue();
+    await page.emulateMedia({ media: 'print' });
+    await sleep(page, 600);
+    await say('printBadges');
+    await page.emulateMedia({ media: 'screen' });
+
+    await expandSection(page, 'Asignaciones');
+    const tablesLink = sidebarLink(page, /^Mesas/);
+    await cueBox(nar, tablesLink);
+    await tablesLink.click().catch(() => {});
+    await page.getByText(/Mesa\s+\d/).first().waitFor({ timeout: 15000 }).catch(() => log('⚠ no tables'));
+    await sleep(page, 700);
+    await page.locator('main button[aria-haspopup="menu"]:visible').last().click().catch(() => {});
+    const printSub = page.getByRole('menuitem', { name: /^\s*Imprimir\s*$/ }).first();
+    await printSub.focus().catch(() => {});
+    await printSub.press('ArrowRight').catch(() => {});
+    const sheetItem = page.getByRole('menuitem', { name: 'Imprimir Mesas', exact: true }).first();
+    await sheetItem.waitFor({ timeout: 4000 }).catch(() => log('⚠ no table print item'));
+    await cueBox(nar, sheetItem);
+    await say('printTablesNav');
+    await sheetItem.click().catch(() => {});
+    await sleep(page, 600);
+    await nar.clearCue();
+    const sheetText = await showPrintedSheet(page);
+    seen.push({ beat: 'printTables-sheet', text: sheetText });
+    if (!/Solo con conexión/.test(sheetText)) log('⚠ the sheet does not say "Solo con conexión"');
+    await sleep(page, 500);
+    await say('printTables');
+    await hidePrintedSheet(page);
+
+    await expandSection(page, 'Logística');
+    const mamLink = sidebarLink(page, /^Minuto a Minuto/);
+    await cueBox(nar, mamLink);
+    await mamLink.click().catch(() => {});
+    await page.locator('[id^="schedule-item-"]').first().waitFor({ timeout: 15000 }).catch(() => log('⚠ no MAM'));
+    await sleep(page, 700);
+    // Point at the print action instead of rendering the whole agenda as print:
+    // that relayout made the recorder drop ~4 s of frames (2026-10-20).
+    await page.locator('main button[aria-haspopup="menu"]:visible').last().click().catch(() => {});
+    const mamPrint = page.getByRole('menuitem', { name: /Imprimir/ }).first();
+    await mamPrint.waitFor({ timeout: 4000 }).catch(() => log('⚠ no MAM print item'));
+    await cueBox(nar, mamPrint);
+    await say('printMam');
+    await page.keyboard.press('Escape').catch(() => {});
+    await nar.clearCue();
 
     await expandSection(page, 'Personas');
     await sidebarLink(page, /^Recepción/).click().catch(() => {});
@@ -409,7 +568,7 @@ async function main() {
     await say('conflictNote');
 
     // ═══════════════ 4. THE SIGNAL COMES BACK ═══════════════
-    await ctx.clock.setFixedTime(times.saturdaySignal);
+    await ctx.clock.setSystemTime(times.saturdaySignal);
     await scene('Sábado 9:15 a. m. · volvió la señal');
     await setSignal(true);
     await say('signalBack');
@@ -448,6 +607,11 @@ async function main() {
   for (const p of newPayments) await api.send('delete', `/payments/${p.id}`).catch((e) => log('⚠ cleanup', e.message));
   await api.send('put', `/participants/${unpaid.participantId}/checkin`, { retreatId: RID, checkedIn: false }).catch((e) => log('⚠ cleanup', e.message));
   await api.send('put', `/participants/${noShow.participantId}`, { isCancelled: false, contextRetreatId: RID }).catch((e) => log('⚠ cleanup', e.message));
+  const correctedAfter = await api.get(`/participants/${corrected.id}?retreatId=${RID}`);
+  log(`🗄  server: corrected parish saved=${correctedAfter.parish === NEW_PARISH}`);
+  await api.send('put', `/participants/${corrected.id}`, { parish: corrected.parish, contextRetreatId: RID }).catch((e) => log('⚠ cleanup', e.message));
+  const parishBack = (await api.get(`/participants/${corrected.id}?retreatId=${RID}`)).parish === corrected.parish;
+  log(`🗄  cleanup: parish restored=${parishBack}`);
 
   // The gate must be able to fail: an unmasked page of the same retreat has to trip it.
   const probePage = await setup.newPage();
@@ -471,6 +635,9 @@ async function main() {
   // scale misplaces the voice, so every clip starts where its subtitle appears.
   const anchored = anchorTimelineToCaptions(nar.timeline, await detectCaptionChanges(cfg, videoPath), { fallbackScale: syncScale });
   log(`🎯 clips anchored to their subtitle: ${anchored.filter((t) => t.anchored).length}/${anchored.length}`);
+  const overlaps = clipOverlaps(anchored);
+  log(`🔊 overlapping voices: ${overlaps.length === 0 ? 'none' : overlaps.map((o) => `${o.id}→${o.next} ${o.overlapMs} ms`).join(', ')}`);
+  writeFileSync(path.join(OUTPUT_DIR, 'offline-mode-demo.timeline.json'), JSON.stringify(anchored, null, 1));
   const out = path.join(OUTPUT_DIR, 'offline-mode-demo.mp4');
   await muxVideo(cfg, { video: videoPath, timeline: anchored, out, syncOffsetMs: SYNC_OFFSET_MS, syncScale: 1 });
   const chapters = buildYoutubeChapters(alignChapterTimeline(anchored, { syncScale: 1 }), { labels: CHAPTER_LABELS });

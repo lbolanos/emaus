@@ -252,6 +252,17 @@ test('anchorTimelineToCaptions: each clip starts at its own subtitle change desp
   assert.ok(anchored.every((t) => t.anchored && t.file));
 });
 
+test('clipOverlaps: names the clip still talking when the next one starts', async () => {
+  const { clipOverlaps } = await import('./demo-lib.mjs');
+  const timeline = [
+    { id: 'a', offsetMs: 0, duration: 4 },
+    { id: 'b', offsetMs: 4100, duration: 5 }, // starts after a ends
+    { id: 'c', offsetMs: 7000, duration: 2 }, // b still talking until 9100
+    { id: 'd', offsetMs: 9050, duration: 1 }, // 50 ms over: within tolerance
+  ];
+  assert.deepEqual(clipOverlaps(timeline), [{ id: 'b', next: 'c', overlapMs: 2100 }]);
+});
+
 test('anchorTimelineToCaptions: a beat with no detected change keeps the previous drift', async () => {
   const { anchorTimelineToCaptions } = await import('./demo-lib.mjs');
   const timeline = [{ id: 'a', offsetMs: 2000 }, { id: 'b', offsetMs: 10000 }, { id: 'c', offsetMs: 20000 }];
