@@ -133,16 +133,55 @@ describe('useUIStore — sidebar accordion', () => {
 		expect(localStorage.getItem('sidebar-favorites-collapsed')).toBe('true');
 	});
 
-	it('favorites section stays independent of the section accordion', () => {
-		// initSidebarAccordion seeds unknown keys as collapsed and the full
-		// accordion closes everything else when a section opens — neither must
-		// touch the favorites flag (that is why it lives outside the record).
+	it('folds favorites when a section opens', () => {
 		const store = useUIStore();
 		store.initSidebarAccordion(['main', 'people']);
+		// No open sections → favorites keeps its default expanded state.
+		expect(store.favoritesCollapsed).toBe(false);
+
 		store.toggleSidebarSection('main');
-		store.toggleRetreatGroup();
+		expect(store.favoritesCollapsed).toBe(true);
+
+		// Closing that section does not silently re-expand favorites.
+		store.toggleSidebarSection('main');
+		expect(store.favoritesCollapsed).toBe(true);
+	});
+
+	it('folds favorites when the retreat group opens', () => {
+		const store = useUIStore();
+		store.initSidebarAccordion(['main', 'people']);
+
+		store.toggleRetreatGroup(); // group starts expanded: collapsing it leaves favorites alone
+		expect(store.favoritesCollapsed).toBe(false);
+
+		store.toggleRetreatGroup(); // opening the group folds favorites
+		expect(store.favoritesCollapsed).toBe(true);
+	});
+
+	it('opening favorites collapses the retreat group and every open section', () => {
+		const store = useUIStore();
+		store.initSidebarAccordion(['main', 'people']);
+		store.toggleSidebarSection('main'); // main open → favorites folded
+
+		store.toggleFavoritesSection(); // expand favorites → everything else folds
 
 		expect(store.favoritesCollapsed).toBe(false);
+		expect(store.collapsedSections.main).toBe(true);
+		expect(store.collapsedSections.people).toBe(true);
+		expect(store.isRetreatGroupCollapsed).toBe(true);
+		// Favorites never leaks into the sections record (own storage key).
 		expect('favorites' in store.collapsedSections).toBe(false);
+	});
+
+	it('init folds favorites when the saved record has a section open (legacy state)', () => {
+		// Legal before favorites joined the full accordion: a section open AND
+		// favorites expanded. initSidebarAccordion repairs it to one panel.
+		localStorage.setItem('sidebar-collapsed-sections', JSON.stringify({ main: false }));
+		localStorage.setItem('sidebar-favorites-collapsed', 'false');
+
+		const store = useUIStore();
+		store.initSidebarAccordion(['main', 'people']);
+
+		expect(store.favoritesCollapsed).toBe(true);
 	});
 });

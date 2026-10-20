@@ -206,6 +206,30 @@ estrella, que las excluía): quitar el pin directo desde arriba, sin cazar la fi
 
 **Gate**: commit `feat(web)`.
 
+## M4e — Favoritos entra al acordeón completo (feedback ronda 4)
+
+- [x] `ui.ts`: `toggleSidebarSection` y `toggleRetreatGroup` pliegan Favoritos al abrir;
+      `toggleFavoritesSection` al expandir pliega el grupo «Retiro» y todas las secciones;
+      `initSidebarAccordion` repara el estado legacy (sección abierta + Favoritos expandida)
+      plegando Favoritos. Key de localStorage propia conservada (dentro del record de secciones,
+      la siembra la cerraría y la reparación de >1 la plegaría).
+- [x] Tests `ui.test.ts`: 4 nuevos (sección pliega favoritos sin re-expandirla al cerrar, grupo
+      Retiro pliega favoritos, expandir favoritos pliega todo + no filtra al record, init repara
+      legacy) — el test de independencia de M4b reescrito a la semántica inversa.
+- [x] e2e: test nuevo «favoritos entra al acordeón» (exclusión mutua bidireccional + reload) y el
+      del menú por hover ajustado (re-expandir Favoritos antes de ver la copia pineada).
+- [x] QA vivo: caso exacto del feedback (Favoritos abierta → clic en sección → se pliega),
+      dirección inversa, persistencia tras reload, consola limpia.
+
+**Done**: 2026-10-20 — unit 68/68 (14+46+8), `vue-tsc --noEmit` exit 0, e2e 3/3 (nuevo acordeón +
+menú por hover + regresión). Desviaciones: (a) la reparación del legacy pliega Favoritos cuando
+hay una sección abierta (conserva la sección que el usuario dejó abierta, pliega la sección de
+arriba) — sin ella, un localStorage previo al cambio mostraría dos abiertas; (b) cerrar una
+sección NO re-expande Favoritos (el acordeón nunca abre paneles por sí solo, igual que entre
+secciones).
+
+**Gate**: commit `feat(web)`.
+
 ## M5 — Cierre
 
 - [ ] Reconcile en `spec.md` (cada CA verificada ✓, negativos incluidos).

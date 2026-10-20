@@ -11,7 +11,8 @@ import { loginAs, withCsrf, E2E_USERS, type AuthSession } from './helpers/auth';
  *   estado local). afterAll restaura el perfil capturado en beforeAll.
  * - Acordeón: abrir una sección colapsa la que estaba abierta (regresión del
  *   cherry-pick fec75d89 — antes una sección sin clave en el record guardado
- *   quedaba abierta para siempre).
+ *   quedaba abierta para siempre) y pliega Favoritos, que a su vez pliega todo
+ *   lo demás al expandirse (acordeón completo).
  *
  * Credenciales: los fixtures @test.local no existen en la DB del worktree, así
  * que depende de E2E_LOCAL_* (dev DB copiada del main). El skip se decide por
@@ -165,6 +166,30 @@ test.describe.serial('Sidebar — favoritos del menú', () => {
 		).not.toBeInViewport();
 	});
 
+	test('favoritos entra al acordeón: una sección abierta a la vez, Favoritos incluido', async ({ page }) => {
+		await openApp(page);
+
+		const favoritesHeader = page.locator('button[aria-controls="section-favorites"]');
+		const communityToggle = page.locator('button[aria-controls="section-community"]');
+		// Fresh context: favorites starts expanded (default in uiStore).
+		await expect(favoritesHeader).toHaveAttribute('aria-expanded', 'true');
+
+		// Opening a menu section folds favorites.
+		await communityToggle.click();
+		await expect(communityToggle).toHaveAttribute('aria-expanded', 'true');
+		await expect(favoritesHeader).toHaveAttribute('aria-expanded', 'false');
+
+		// Re-expanding favorites folds the open section.
+		await favoritesHeader.click();
+		await expect(favoritesHeader).toHaveAttribute('aria-expanded', 'true');
+		await expect(communityToggle).toHaveAttribute('aria-expanded', 'false');
+
+		// The mutual exclusion survives a reload.
+		await page.reload();
+		await expect(favoritesHeader).toHaveAttribute('aria-expanded', 'true');
+		await expect(communityToggle).toHaveAttribute('aria-expanded', 'false');
+	});
+
 	test('clic en una copia navega a esa vista', async ({ page }) => {
 		await openApp(page);
 
@@ -212,6 +237,10 @@ test.describe.serial('Sidebar — favoritos del menú', () => {
 		).toHaveAttribute('aria-expanded', 'true');
 		const menuAfterReload = await openRowMenu(page, 'Mis Comunidades');
 		await menuAfterReload.getByRole('menuitem', { name: 'Añadir a favoritos' }).click();
+
+		// Opening the community section folded favorites (full accordion);
+		// re-expand it to see the pinned copy.
+		await page.locator('button[aria-controls="section-favorites"]').click();
 		await expect(
 			page.locator('[data-testid="sidebar-favorites"] a[data-menu-item-index="-1"]', {
 				hasText: 'Mis Comunidades',

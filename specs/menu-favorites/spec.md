@@ -88,7 +88,13 @@ divergían en móvil).
   lateral (sin header ni colapso en rail). En móvil (drawer) es la misma sección, targets
   táctiles ≥40px (el header mide lo mismo que los headers de sección existentes, ~24px —
   consistencia con `SidebarSection` por encima del criterio de 40px, que sí aplica al botón del
-  menú de favoritos: ~46px de alto por el ancho completo del menú).
+  menú de favoritos: ~46px de alto por el ancho completo del menú). **Revisión 2026-10-20
+  (feedback de Leonardo, ronda 4):** Favoritos entra al **acordeón completo** — abrir una sección
+  del menú o el grupo «Retiro» pliega Favoritos, y expandir Favoritos pliega todo lo demás; una
+  sola sección abierta a la vez, Favoritos incluido. Mantiene su key de localStorage propia
+  (dentro del record de secciones, la siembra de `initSidebarAccordion` la cerraría y la
+  reparación de >1 abiertas la plegaría); `initSidebarAccordion` repara el estado legacy
+  (sección abierta + Favoritos expandida) plegando Favoritos.
 - **D7 — Menú de favoritos por dwell sobre la fila** (`SidebarMenuItem`). **Revisión 2026-10-20
   (feedback de Leonardo, ronda 3):** la estrella siempre-visible se eliminó — el toggle vive en un
   menú pequeño que se despliega al **dejar el puntero sobre el item ~1s** (1000ms mouse; 500ms de
@@ -139,7 +145,8 @@ divergían en móvil).
 - **R5** — Sección «Favoritos» arriba (D6): solo items visibles según `filteredMenuSections`,
   navegación vía `getRouteWithParams`, badge igual que el item original, activo destacado por ruta;
   oculta sin favoritos visibles y durante búsqueda; íconos en rail; header colapsable (estado
-  propio en `uiStore`, default expandida, persistido).
+  propio en `uiStore`, default expandida, persistido) y **dentro del acordeón completo**
+  (una sección abierta a la vez, Favoritos incluido).
 - **R6** — Menú de favoritos por dwell (D7): hover 1000ms / long-press 500ms / focus-dwell
   1000ms; `role="menu"` + `menuitem` con i18n es+en; toggle = PUT parcial; al quitar el último
   manda `[]`; el `<a>` de la fila sigue navegando (el menú no intercepta su click).
@@ -173,8 +180,10 @@ telemetría propia en la DB del worktree — research §7):
 7. `GET /social/profile/:userId` (perfil público de otro usuario) y `GET /social/search` no
    devuelven `favoriteMenuItems`.
 8. El header de «Favoritos» colapsa la sección (chevron rota, `aria-expanded` false, contenido
-   recortado) y el colapso **sobrevive un reload** (localStorage) — sin que el acordeón de
-   secciones lo abra ni lo cierre nunca.
+   recortado) y el colapso **sobrevive un reload** (localStorage). **Revisión 2026-10-20:**
+   Favoritos participa del acordeón completo — con Favoritos abierta, clic en una sección del
+   menú la pliega; expandir Favoritos pliega la sección abierta; una sola abierta a la vez y
+   sobrevive el reload.
 9. Hover sobre el header de «Favoritos» (400ms) o clic en el `+` abre el popover de sugerencias
    con vistas frecuentes **no fijadas** (telemetría propia, cap 5); clic en una la fija (PUT
    parcial), la sugestión se gradúa del popover y aparece en la sección; el pin **sobrevive un

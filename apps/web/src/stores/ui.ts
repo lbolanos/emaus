@@ -71,7 +71,9 @@ export const useUIStore = defineStore('ui', () => {
 	// fixed list — RETREAT_CATEGORIES drags a 'services' ghost with no section).
 	// Categories absent from a saved record are seeded COLLAPSED, and records
 	// with more than one open section are repaired to keep the first one.
-	// Idempotent: both Sidebar instances call it on mount.
+	// Favorites joins the full accordion: a saved state with a section open and
+	// favorites expanded (legal before it joined) folds favorites. Idempotent:
+	// both Sidebar instances call it on mount.
 	function initSidebarAccordion(categories: string[]) {
 		try {
 			const saved = localStorage.getItem('sidebar-collapsed-sections');
@@ -86,6 +88,8 @@ export const useUIStore = defineStore('ui', () => {
 				});
 				next[openKeys[0]] = false;
 			}
+			// Any open section folds favorites — only one panel open at a time.
+			if (openKeys.length > 0) favoritesCollapsed.value = true;
 			collapsedSections.value = next;
 			persistCollapsedSections();
 		} catch (error) {
@@ -98,15 +102,17 @@ export const useUIStore = defineStore('ui', () => {
 		}
 	}
 
-	// Full accordion: opening a section closes every other one. Returns
-	// whether the section ended up open (the sidebar uses it to collapse the
-	// retreat group when a non-retreat section opens).
+	// Full accordion: opening a section closes every other one — the retreat
+	// group AND the favorites section included. Returns whether the section
+	// ended up open (the sidebar uses it to collapse the retreat group when a
+	// non-retreat section opens).
 	function toggleSidebarSection(category: string): boolean {
 		const isCurrentlyCollapsed = collapsedSections.value[category] ?? true;
 		Object.keys(collapsedSections.value).forEach((key) => {
 			collapsedSections.value[key] = true;
 		});
 		collapsedSections.value[category] = !isCurrentlyCollapsed;
+		if (isCurrentlyCollapsed) favoritesCollapsed.value = true;
 		persistCollapsedSections();
 		// Whether the section ended up OPEN: collapsed→open returns true,
 		// open→collapsed returns false. (The new collapsed value is
@@ -121,15 +127,17 @@ export const useUIStore = defineStore('ui', () => {
 			Object.keys(collapsedSections.value).forEach((key) => {
 				collapsedSections.value[key] = true;
 			});
+			favoritesCollapsed.value = true;
 			persistCollapsedSections();
 		}
 		isRetreatGroupCollapsed.value = !wasCollapsed;
 	}
 
-	// Favorites section: collapsible, but deliberately OUTSIDE the section
-	// accordion — initSidebarAccordion seeds unknown keys as collapsed (it
-	// would default closed) and the full accordion would close it whenever
-	// another section opens. Default: expanded, like the retreat group.
+	// Favorites section: part of the full accordion (opening it collapses the
+	// retreat group and every menu section; opening any of those collapses
+	// it), but stored under its OWN localStorage key — inside the sections
+	// record, initSidebarAccordion would seed the unknown key as collapsed and
+	// the >1-open repair would fold it. Default: expanded.
 	const favoritesCollapsed = ref(
 		JSON.parse(localStorage.getItem('sidebar-favorites-collapsed') || 'false'),
 	);
@@ -139,7 +147,16 @@ export const useUIStore = defineStore('ui', () => {
 	});
 
 	function toggleFavoritesSection() {
-		favoritesCollapsed.value = !favoritesCollapsed.value;
+		const wasCollapsed = favoritesCollapsed.value;
+		if (wasCollapsed) {
+			// Opening favorites closes the retreat group and every menu section.
+			isRetreatGroupCollapsed.value = true;
+			Object.keys(collapsedSections.value).forEach((key) => {
+				collapsedSections.value[key] = true;
+			});
+			persistCollapsedSections();
+		}
+		favoritesCollapsed.value = !wasCollapsed;
 	}
 
 	return {
