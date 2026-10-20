@@ -6,6 +6,16 @@ import { apiErrorMessage } from '@/services/apiError';
 import { useRouter } from 'vue-router';
 import { useToast } from '@repo/ui';
 import { telemetryService } from '../services/telemetryService';
+import { isOfflineModeEnabled } from '@/offline/flag';
+import { clearAuthProfile, loadAuthProfile, saveAuthProfile } from '@/offline/authProfile';
+import { clearSavedResponses, setCacheUser } from '@/offline/readCache';
+
+/**
+ * `/auth/status` runs inside the router guard before the first screen paints.
+ * With a bad signal it must give up quickly so the app can start from the saved
+ * profile (specs/offline-mode, D8) instead of hanging on a blank page.
+ */
+const AUTH_STATUS_TIMEOUT_MS = 8_000;
 
 // Auth input types
 interface RegisterUserInput {
@@ -30,8 +40,36 @@ export const useAuthStore = defineStore('auth', () => {
 	const loading = ref(false);
 	const refreshingProfile = ref(false);
 	const isAuthenticated = ref(false);
+	/** Where the session state came from: the server, or the copy saved on the device. */
+	const authSource = ref<'server' | 'cache' | null>(null);
 	const router = useRouter();
 	const { toast } = useToast();
+
+	/** Remember the confirmed profile so the app can start without signal (D8). */
+	function rememberProfile(status: any) {
+		setCacheUser(status?.id ?? null);
+		authSource.value = 'server';
+		if (isOfflineModeEnabled() && status?.id) void saveAuthProfile(status);
+	}
+
+	function forgetProfile() {
+		setCacheUser(null);
+		authSource.value = null;
+		void clearAuthProfile();
+	}
+
+	/** Without signal: start from the last profile the server confirmed, if any. */
+	async function restoreSavedProfile(): Promise<boolean> {
+		if (!isOfflineModeEnabled() || isAuthenticated.value) return false;
+		const saved = await loadAuthProfile<any>();
+		if (!saved?.id) return false;
+		user.value = saved;
+		userProfile.value = saved.profile;
+		isAuthenticated.value = true;
+		authSource.value = 'cache';
+		setCacheUser(saved.id);
+		return true;
+	}
 
 	async function login(email: string, password: string, recaptchaToken?: string): Promise<void> {
 		try {
@@ -40,6 +78,7 @@ export const useAuthStore = defineStore('auth', () => {
 			user.value = response.data;
 			userProfile.value = response.data.profile;
 			isAuthenticated.value = true;
+			rememberProfile(response.data);
 
 			// Initialize telemetry session
 			if (response.data.id) {
@@ -85,11 +124,12 @@ export const useAuthStore = defineStore('auth', () => {
 
 	async function checkAuthStatus() {
 		try {
-			const response = await api.get('/auth/status');
+			const response = await api.get('/auth/status', { timeout: AUTH_STATUS_TIMEOUT_MS });
 			if (response.data && response.data.authenticated !== false) {
 				user.value = response.data;
 				userProfile.value = response.data.profile;
 				isAuthenticated.value = true;
+				rememberProfile(response.data);
 
 				// Initialize telemetry if not already active (e.g. page refresh)
 				if (!telemetryService.isTelemetryActive() && response.data.id) {
@@ -99,6 +139,7 @@ export const useAuthStore = defineStore('auth', () => {
 				user.value = null;
 				userProfile.value = null;
 				isAuthenticated.value = false;
+				forgetProfile();
 			}
 		} catch (error: any) {
 			// Don't reset auth state on rate-limit or network errors —
@@ -107,11 +148,16 @@ export const useAuthStore = defineStore('auth', () => {
 			const status = error?.response?.status;
 			if (status === 429 || !error?.response) {
 				console.warn('[Auth] checkAuthStatus failed (rate-limit or network), keeping current state');
+				// On a cold start the state "kept" is logged out, which sends the team
+				// to the login screen. Both cases mean "unknown", not "logged out":
+				// start from the last profile the server confirmed (specs/offline-mode, D8).
+				await restoreSavedProfile();
 				return;
 			}
 			user.value = null;
 			userProfile.value = null;
 			isAuthenticated.value = false;
+			forgetProfile();
 		}
 	}
 
@@ -124,6 +170,10 @@ export const useAuthStore = defineStore('auth', () => {
 			isAuthenticated.value = false;
 			user.value = null;
 			userProfile.value = null;
+			// Saved data leaves the device with the session (D9). Pending writes
+			// are not touched here: they are never dropped without the user saying so.
+			forgetProfile();
+			await clearSavedResponses().catch(() => {});
 
 			// Reset data stores to prevent stale data leaking across sessions
 			const { useInventoryStore } = await import('./inventoryStore');
@@ -234,6 +284,7 @@ export const useAuthStore = defineStore('auth', () => {
 		loading,
 		refreshingProfile,
 		isAuthenticated,
+		authSource,
 		checkAuthStatus,
 		login,
 		register,

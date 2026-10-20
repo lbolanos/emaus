@@ -31,6 +31,26 @@ import type {
 import type { AssignmentDocumentsData } from "@repo/utils";
 import { setupCsrfInterceptor } from "@/utils/csrf";
 import { getApiUrl } from "@/config/runtimeConfig";
+import { isOfflineModeEnabled } from "@/offline/flag";
+import {
+  answerFromCache,
+  applyOverlay,
+  getCacheUser,
+  matchCacheableRoute,
+  OfflineNoDataError,
+  pathOf,
+  saveResponse,
+  waitForOverlay,
+  type RequestLike,
+} from "@/offline/readCache";
+import {
+  connectivity,
+  isNetworkError,
+  reportNetworkFailure,
+  reportSuccess,
+} from "@/offline/connectivity";
+import { enqueue, newIdempotencyKey } from "@/offline/outbox";
+import { matchQueueable, type QueueableMatch } from "@/offline/outboxKinds";
 
 // Helper de mensajes de error legibles (módulo puro, sin side-effects).
 export { apiErrorMessage } from "./apiError";
@@ -88,6 +108,149 @@ api.interceptors.response.use(
     return Promise.reject(error);
   },
 );
+
+// ── Working without signal (specs/offline-mode, M2) ─────────────────────────
+// The GETs of the retreat views (offline/readCache.ts) get a timeout — with a bad
+// signal a request can otherwise hang until nginx gives up at 60 s — and their
+// answers are saved on the device. When one of them fails for lack of signal,
+// the saved answer is returned instead, marked `fromCache`.
+const READ_TIMEOUT_MS = 15_000;
+
+api.interceptors.request.use((config) => {
+  if (
+    isOfflineModeEnabled() &&
+    !config.timeout &&
+    matchCacheableRoute(config as RequestLike)
+  ) {
+    config.timeout = READ_TIMEOUT_MS;
+  }
+  return config;
+});
+
+api.interceptors.response.use(
+  async (response) => {
+    reportSuccess();
+    // Only with a session: public pages never touch the device storage.
+    if (isOfflineModeEnabled() && getCacheUser() && matchCacheableRoute(response.config as RequestLike)) {
+      // Save the server's truth; show it with the writes still waiting on top.
+      void saveResponse(response.config as RequestLike, response.data);
+      await waitForOverlay().catch(() => {});
+      response.data = applyOverlay(response.config as RequestLike, response.data);
+    }
+    return response;
+  },
+  async (error) => {
+    if (error?.response) {
+      // The server answered (even with an error): there is connection.
+      reportSuccess();
+      return Promise.reject(error);
+    }
+    if (isNetworkError(error)) reportNetworkFailure();
+    if (!isOfflineModeEnabled() || !error?.config) return Promise.reject(error);
+    const answer = await answerFromCache(error.config as RequestLike, error);
+    if (answer === null) return Promise.reject(error);
+    if (answer instanceof OfflineNoDataError) return Promise.reject(answer);
+    return answer;
+  },
+);
+
+// ── Writes that can wait for signal (specs/offline-mode, M4) ─────────────────
+// The 11 writes of offline/outboxKinds.ts always travel with an Idempotency-Key
+// and the device time. Without signal they are queued on the device and the
+// caller gets the answer it expects (status 202, `queued: true`); with a bad
+// signal, a write that gets no answer within 10 s is queued with the SAME key, so
+// if the first attempt did reach the server the resend is replayed, not repeated.
+const WRITE_TIMEOUT_MS = 10_000;
+
+interface OfflineOpConfig {
+  key: string;
+  occurredAt: string;
+  path: string;
+  match: QueueableMatch;
+}
+
+const parseBody = (data: unknown): any => {
+  if (typeof data !== "string") return data;
+  try {
+    return JSON.parse(data);
+  } catch {
+    return data;
+  }
+};
+
+let lastQueuedToastAt = 0;
+function notifyQueued() {
+  // At most one toast every 10 s: a burst of check-ins should not bury the screen.
+  if (Date.now() - lastQueuedToastAt < 10_000) return;
+  lastQueuedToastAt = Date.now();
+  void import("@/i18n")
+    .then(({ default: i18n }) => {
+      const t = (i18n as any).global.t as (key: string) => string;
+      useToast().toast({
+        title: t("offline.queued.title"),
+        description: t("offline.queued.description"),
+      });
+    })
+    .catch(() => {});
+}
+
+async function queueWrite(config: any) {
+  const op: OfflineOpConfig = config.offlineOp;
+  const { response } = await enqueue({
+    match: op.match,
+    method: config.method,
+    path: op.path,
+    body: parseBody(config.data),
+    key: op.key,
+    occurredAt: op.occurredAt,
+  });
+  notifyQueued();
+  return {
+    data: response,
+    status: 202,
+    statusText: "Queued offline",
+    headers: {},
+    config,
+    request: {},
+    queued: true,
+  };
+}
+
+api.interceptors.request.use((config) => {
+  const cfg = config as any;
+  if (!isOfflineModeEnabled() || cfg.outboxReplay) return config;
+  const path = pathOf(cfg as RequestLike);
+  const body = parseBody(cfg.data);
+  const match = matchQueueable(cfg.method, path, body);
+  if (!match) return config;
+
+  const occurredAt = new Date().toISOString();
+  const key = newIdempotencyKey();
+  config.headers["Idempotency-Key"] = key;
+  config.headers["X-Client-Time"] = occurredAt;
+  if (match.def.stampBody) cfg.data = { ...(body ?? {}), occurredAt };
+  if (!config.timeout) config.timeout = WRITE_TIMEOUT_MS;
+  cfg.offlineOp = { key, occurredAt, path, match } satisfies OfflineOpConfig;
+
+  if (!connectivity.online) {
+    // Known to be offline: do not even try (and do not wait for a CSRF token).
+    cfg.offlineQueued = true;
+    cfg.adapter = (adapterConfig: any) => queueWrite(adapterConfig);
+  }
+  return config;
+});
+
+api.interceptors.response.use(undefined, async (error) => {
+  const cfg = error?.config as any;
+  if (!cfg?.offlineOp || error?.response || !isNetworkError(error)) {
+    return Promise.reject(error);
+  }
+  try {
+    return await queueWrite(cfg);
+  } catch {
+    return Promise.reject(error);
+  }
+});
 
 export default api;
 
@@ -3164,6 +3327,24 @@ export interface ReceptionStats {
 
 export async function getReceptionStats(retreatId: string): Promise<ReceptionStats> {
   const r = await api.get(`/participants/reception/${retreatId}`);
+  return r.data;
+}
+
+/**
+ * Cancels (or reactivates) a participant in one retreat with an explicit body —
+ * never the full record. The server frees their bed and table. This exact shape
+ * is the one the offline outbox can queue (specs/offline-mode, FR-15b): the
+ * no-show is cancelled on Saturday morning at the retreat house.
+ */
+export async function setParticipantCancelled(
+  participantId: string,
+  retreatId: string,
+  isCancelled: boolean,
+): Promise<{ id: string; isCancelled: boolean }> {
+  const r = await api.put(`/participants/${participantId}`, {
+    isCancelled,
+    contextRetreatId: retreatId,
+  });
   return r.data;
 }
 

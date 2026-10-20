@@ -49,15 +49,19 @@
                   </DropdownMenuSubContent>
                 </DropdownMenuSub>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem @select="deferOpen(() => isAutoAssignDialogOpen = true)">
+                <!-- Server-only actions: off without signal (specs/offline-mode, D11) -->
+                <DropdownMenuItem :disabled="!online" @select="deferOpen(() => isAutoAssignDialogOpen = true)">
                   {{ $t('bedAssignments.autoAssign') }}
+                  <span v-if="!online" class="ml-auto pl-2 text-xs text-muted-foreground">{{ $t('offline.needsConnection') }}</span>
                 </DropdownMenuItem>
-                <DropdownMenuItem @click="exportAssignments">
+                <DropdownMenuItem :disabled="!online" @click="exportAssignments">
                   {{ $t('bedAssignments.export') }}
+                  <span v-if="!online" class="ml-auto pl-2 text-xs text-muted-foreground">{{ $t('offline.needsConnection') }}</span>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem @select="deferOpen(() => isClearAssignmentsDialogOpen = true)" class="text-red-600">
+                <DropdownMenuItem :disabled="!online" @select="deferOpen(() => isClearAssignmentsDialogOpen = true)" class="text-red-600">
                   {{ $t('bedAssignments.clearAll') }}
+                  <span v-if="!online" class="ml-auto pl-2 text-xs text-muted-foreground">{{ $t('offline.needsConnection') }}</span>
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -128,10 +132,10 @@
                 </DropdownMenuSubContent>
               </DropdownMenuSub>
               <DropdownMenuSeparator />
-              <DropdownMenuItem @select="deferOpen(() => isAutoAssignDialogOpen = true)">{{ $t('bedAssignments.autoAssign') }}</DropdownMenuItem>
-              <DropdownMenuItem @click="exportAssignments">{{ $t('bedAssignments.export') }}</DropdownMenuItem>
+              <DropdownMenuItem :disabled="!online" @select="deferOpen(() => isAutoAssignDialogOpen = true)">{{ $t('bedAssignments.autoAssign') }}<span v-if="!online" class="ml-auto pl-2 text-xs text-muted-foreground">{{ $t('offline.needsConnection') }}</span></DropdownMenuItem>
+              <DropdownMenuItem :disabled="!online" @click="exportAssignments">{{ $t('bedAssignments.export') }}<span v-if="!online" class="ml-auto pl-2 text-xs text-muted-foreground">{{ $t('offline.needsConnection') }}</span></DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem @select="deferOpen(() => isClearAssignmentsDialogOpen = true)" class="text-red-600">{{ $t('bedAssignments.clearAll') }}</DropdownMenuItem>
+              <DropdownMenuItem :disabled="!online" @select="deferOpen(() => isClearAssignmentsDialogOpen = true)" class="text-red-600">{{ $t('bedAssignments.clearAll') }}<span v-if="!online" class="ml-auto pl-2 text-xs text-muted-foreground">{{ $t('offline.needsConnection') }}</span></DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -564,6 +568,7 @@ import { useRetreatStore } from '@/stores/retreatStore';
 import { useParticipantStore } from '@/stores/participantStore';
 import { useToast } from '@repo/ui';
 import { api } from '@/services/api';
+import { connectivity } from '@/offline/connectivity';
 import { Button } from '@repo/ui';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@repo/ui';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from '@repo/ui';
@@ -588,6 +593,8 @@ import RoomCard from './RoomCard.vue';
 const props = defineProps<{ id: string }>();
 const retreatStore = useRetreatStore();
 const participantStore = useParticipantStore();
+// Assign/move/free a bed can wait for signal; auto-assign, clear and export cannot.
+const online = computed(() => connectivity.online);
 const { toast } = useToast();
 const { deferOpen } = useRekaDialogFix();
 const { t } = useI18n();

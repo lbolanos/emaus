@@ -18,6 +18,10 @@ Next to each walker you see how much they've paid: **green** if already paid, or
 
 Walkers who said they will pay on arrival show the sky **Pays at the house** label next to the **Charge** button: it is informative only — charge them as usual when they pay. The label disappears as soon as a payment is registered.
 
+## Cancel who did not arrive
+
+The team waits until Friday night; on Saturday morning, whoever is still **pending** is cancelled with **Did not arrive** on their row. Their bed and table are freed. Write the reason later in their record. It also works without signal (see **Working without a connection**).
+
 ## Search and sort
 
 - **Search** however it comes out: first and last name together ("adan perez"), in any order ("perez adan"), without accents ("jose" finds José, "perez" finds Pérez), by participant number or by nickname. Search is available in both pending and arrived.

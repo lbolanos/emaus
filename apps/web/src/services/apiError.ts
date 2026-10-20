@@ -55,8 +55,18 @@ export function serverErrorMessage(err: any): string | null {
   return null;
 }
 
+/** Shown when a write that cannot wait for signal fails for lack of it (specs/offline-mode). */
+export const NO_CONNECTION_MESSAGE =
+  "Sin conexión con el servidor: esta acción necesita señal. Inténtalo cuando vuelva.";
+
 export function apiErrorMessage(err: any, fallback = "Ocurrió un error"): string {
-  return serverErrorMessage(err) ?? (err?.message || fallback);
+  const fromServer = serverErrorMessage(err);
+  if (fromServer) return fromServer;
+  // axios' "Network Error" / "timeout of 10000ms exceeded" tell the team nothing.
+  if (isNetworkError(err) && err?.code !== "ERR_CANCELED" && !err?.isOfflineNoData) {
+    return NO_CONNECTION_MESSAGE;
+  }
+  return err?.message || fallback;
 }
 
 /**

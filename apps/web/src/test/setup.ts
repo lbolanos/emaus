@@ -471,6 +471,10 @@ vi.mock('lucide-vue-next', () => ({
 	Search: { name: 'Search', template: '<svg></svg>' },
 	X: { name: 'X', template: '<svg></svg>' },
 	RefreshCw: { name: 'RefreshCw', template: '<svg></svg>' },
+	// specs/offline-mode: offline banner, pending-sync panel
+	CloudUpload: { name: 'CloudUpload', template: '<svg></svg>' },
+	CloudOff: { name: 'CloudOff', template: '<svg></svg>' },
+	ListChecks: { name: 'ListChecks', template: '<svg></svg>' },
 	MoreVertical: { name: 'MoreVertical', template: '<svg></svg>' },
 	ArrowRight: { name: 'ArrowRight', template: '<svg></svg>' },
 	ChevronDown: { name: 'ChevronDown', template: '<svg></svg>' },

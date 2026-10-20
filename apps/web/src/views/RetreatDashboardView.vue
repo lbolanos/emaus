@@ -77,6 +77,9 @@
         </div>
       </Card>
 
+      <!-- Working without signal at the retreat house (specs/offline-mode, D4) -->
+      <OfflinePrepareCard :retreat="selectedRetreat" />
+
       <!-- reorderable sections -->
       <div class="flex flex-col gap-6">
 
@@ -1337,6 +1340,7 @@ import { Progress } from '@repo/ui';
 import InviteUsersModal from '@/components/InviteUsersModal.vue';
 import DashboardCustomizePanel from '@/components/DashboardCustomizePanel.vue';
 import DashboardMiniStats from '@/components/DashboardMiniStats.vue';
+import OfflinePrepareCard from '@/components/offline/OfflinePrepareCard.vue';
 import MemoryPhotoCarousel from '@/components/social/MemoryPhotoCarousel.vue';
 import {
   AlertTriangle,

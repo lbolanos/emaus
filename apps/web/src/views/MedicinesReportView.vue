@@ -4,6 +4,7 @@ import { useRetreatStore } from '@/stores/retreatStore'
 import { useParticipantStore } from '@/stores/participantStore'
 import { storeToRefs } from 'pinia'
 import ParticipantList from '@/components/ParticipantList.vue'
+import HealthNeedsConnection from '@/components/offline/HealthNeedsConnection.vue'
 import { Pill, Printer } from 'lucide-vue-next'
 
 const tableColumns = ['id_on_retreat','firstName', 'lastName', 'hasMedication', 'medicationDetails', 'medicationSchedule', 'disabilitySupport']
@@ -13,7 +14,7 @@ const formEditColumns = tableColumns.filter(c => !nonEditableColumns.includes(c)
 
 const retreatStore = useRetreatStore()
 const participantStore = useParticipantStore()
-const { participants: allParticipants } = storeToRefs(participantStore)
+const { participants: allParticipants, fromCache } = storeToRefs(participantStore)
 
 const walkers = computed(() =>
   (allParticipants.value || []).filter((p: any) => p.type === 'walker')
@@ -75,7 +76,10 @@ onMounted(async () => {
       </div>
     </div>
 
-    <ParticipantList type="walker"
+    <!-- Health data is never saved on the device (specs/offline-mode): without
+         signal the list would be missing exactly the medication columns. -->
+    <HealthNeedsConnection v-if="fromCache" />
+    <ParticipantList v-else type="walker"
       :columns-to-show-in-table="tableColumns"
       :columns-to-show-in-form="formShowColumns"
       :columns-to-edit-in-form="formEditColumns"

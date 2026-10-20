@@ -179,7 +179,8 @@ describe('AuthStore', () => {
 
 			await store.checkAuthStatus();
 
-			expect(api.get).toHaveBeenCalledWith('/auth/status');
+			// With a timeout so a bad signal cannot hang the first screen (specs/offline-mode).
+			expect(api.get).toHaveBeenCalledWith('/auth/status', { timeout: expect.any(Number) });
 			expect(store.userProfile).toEqual(mockUser);
 			expect(store.isAuthenticated).toBe(true);
 			expect(store.user).toHaveProperty('profile');

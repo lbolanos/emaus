@@ -10,9 +10,13 @@ axios.defaults.withCredentials = true;
 /**
  * Obtiene un token CSRF del servidor
  */
+// With a bad signal the token request can hang until nginx gives up at 60 s, and
+// every write waits on it (specs/offline-mode).
+const CSRF_FETCH_TIMEOUT_MS = 8_000;
+
 export async function fetchCsrfToken(): Promise<string> {
 	try {
-		const response = await axios.get('/csrf-token');
+		const response = await axios.get('/csrf-token', { timeout: CSRF_FETCH_TIMEOUT_MS });
 		// Prioritize header token over body token since headers are set by middleware
 		const headerToken = response.headers['x-csrf-token'];
 		const bodyToken = response.data.csrfToken;
@@ -59,6 +63,9 @@ export async function setupCsrfHeaders(
 export function setupCsrfInterceptor(axiosInstance: any = axios) {
 	axiosInstance.interceptors.request.use(
 		async (config: any) => {
+			// A write queued for later never reaches the server now: no token needed
+			// (the sync sends it with a fresh one). specs/offline-mode.
+			if (config.offlineQueued) return config;
 			// Solo agregar token a peticiones que modifican datos
 			if (['post', 'put', 'patch', 'delete'].includes(config.method?.toLowerCase() || '')) {
 				try {
