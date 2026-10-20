@@ -835,7 +835,8 @@
     "scheduleTemplate": "Minute by Minute Template",
     "preRetreatTasks": "Pre-Retreat Tasks",
     "retreatPreparations": "Preparations",
-    "preRetreatTaskTemplate": "Pre-Retreat Task Template"
+    "preRetreatTaskTemplate": "Pre-Retreat Task Template",
+    "specialCases": "Special cases"
   },
   "communityTemplates": {
     "title": "Community Message Templates",
@@ -1663,7 +1664,9 @@
     "copyWazeUrl": "Copy Waze",
     "openMapsUrl": "Open Google Maps",
     "openWazeUrl": "Open Waze",
-    "addressCopied": "Address copied to clipboard!"
+    "addressCopied": "Address copied to clipboard!",
+    "specialCases": "Special cases",
+    "specialCasesPending": "To attend"
   },
   "reception": {
     "paysAtHouse": "Pays at the house"
@@ -4054,6 +4057,35 @@
       "attendance": "Attendance",
       "payment": "Payment",
       "palancas": "Letters"
+    }
+  },
+  "specialCases": {
+    "title": "Special cases",
+    "subtitle": "Walkers the palanquero flagged for the coordinator to review",
+    "pendingCount": "To attend: {count}",
+    "empty": "No special cases flagged",
+    "badge": "Special case",
+    "mark": "Flag as special case",
+    "markTitle": "Special case",
+    "markDescription": "Tell the coordinator what needs reviewing about {name}.",
+    "categoryLabel": "Category",
+    "categories": {
+      "room": "Separate room",
+      "health": "Health",
+      "other": "Other"
+    },
+    "notes": "Note (optional)",
+    "notesPlaceholder": "e.g. uses a wheelchair, travels with their mother…",
+    "noNotes": "No note",
+    "confirmRemove": "Remove the special-case flag from {name}? The reason is erased.",
+    "remove": "Remove flag",
+    "contact": "Contact",
+    "columns": {
+      "name": "Walker",
+      "phone": "Phone",
+      "category": "Category",
+      "notes": "Note",
+      "actions": "Actions"
     }
   },
   "houses": {

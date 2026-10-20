@@ -16,6 +16,7 @@ Cada tarjeta resume una parte del retiro y es clickeable para abrir su sección:
 
 - **Participantes**: caminantes, servidores, lista de espera y servidores parciales, con su capacidad.
 - **Responsabilidades**, **Mesas**, **Camas** (asignadas / sin asignar / pisos usados) y **Palancas**.
+- **Casos especiales**: caminantes que el palanquero marcó para revisión, por categoría. Solo la ven los perfiles con permiso de datos de salud.
 - **Tareas Pre-Retiro**: listas, vencidas, de esta semana y sin asignar.
 - Durante el retiro se activan **Minuto a Minuto**, **Recepción**, **Santísimo + angelitos** y **Reporte de Bolsas**.
 

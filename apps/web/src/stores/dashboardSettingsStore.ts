@@ -9,6 +9,7 @@ export type SectionKey =
   | 'tableAssignments'
   | 'responsibilities'
   | 'palancas'
+  | 'specialCases'
   | 'registrationLinks'
   | 'additionalInfo'
   | 'inventoryAlerts'
@@ -30,6 +31,7 @@ const ALL_VISIBLE: SectionRecord = {
   tableAssignments: true,
   responsibilities: true,
   palancas: true,
+  specialCases: true,
   registrationLinks: true,
   additionalInfo: true,
   inventoryAlerts: true,
@@ -46,6 +48,7 @@ const ALL_EXPANDED: SectionRecord = {
   tableAssignments: false,
   responsibilities: false,
   palancas: false,
+  specialCases: false,
   registrationLinks: false,
   additionalInfo: false,
   inventoryAlerts: false,
@@ -64,6 +67,7 @@ export const DEFAULT_ORDER: SectionKey[] = [
   'assignmentStats',
   'reception',
   'santisimo',
+  'specialCases',
   'palancas',
   'bagsReport',
   'additionalInfo',

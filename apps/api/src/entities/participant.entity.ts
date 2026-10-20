@@ -214,6 +214,12 @@ export class Participant {
 	// not waive the charge.
 	paysAtHouse?: boolean;
 
+	// Virtual — populated from retreat_participants at query time. Caso especial
+	// pendiente de revisión del coordinador; régimen de salud (SENSITIVE_HEALTH_FIELDS).
+	specialCase?: boolean;
+	specialCaseCategory?: string | null;
+	specialCaseNotes?: string | null;
+
 	// Source of truth lives in retreat_participants; legacy column kept for
 	// backward compatibility (overlay reads from retreat_participants).
 	@Column({ type: 'varchar', nullable: true })
@@ -559,6 +565,10 @@ export class Participant {
 		if (this.mealCount !== undefined) plainObject.mealCount = this.mealCount;
 		if (this.takesFridayMeal !== undefined) plainObject.takesFridayMeal = this.takesFridayMeal;
 		if (this.paysAtHouse !== undefined) plainObject.paysAtHouse = this.paysAtHouse;
+		if (this.specialCase !== undefined) plainObject.specialCase = this.specialCase;
+		if (this.specialCaseCategory !== undefined)
+			plainObject.specialCaseCategory = this.specialCaseCategory;
+		if (this.specialCaseNotes !== undefined) plainObject.specialCaseNotes = this.specialCaseNotes;
 
 		return plainObject;
 	}

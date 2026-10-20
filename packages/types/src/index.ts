@@ -519,6 +519,10 @@ export const participantTagSchema = z.object({
 export type ParticipantTag = z.infer<typeof participantTagSchema>;
 
 // Participant Schema
+// Motivo del caso especial: habitación aparte / salud / otra.
+export const SPECIAL_CASE_CATEGORIES = ['room', 'health', 'other'] as const;
+export type SpecialCaseCategory = (typeof SPECIAL_CASE_CATEGORIES)[number];
+
 export const participantSchema = z.object({
 	id: idSchema,
 	id_on_retreat: z.number().int().positive().optional(),
@@ -537,6 +541,12 @@ export const participantSchema = z.object({
 	// retreat_participants). Does not waive the charge: switches the derived
 	// status to 'pays_at_house' while there is a pending balance.
 	paysAtHouse: z.boolean().optional(),
+	// Caso especial per-retiro (retreat_participants): el palanquero marca un
+	// caminante que el coordinador debe revisar. Régimen de salud
+	// (SENSITIVE_HEALTH_FIELDS). Categoría fuera del enum → 400 de validateRequest.
+	specialCase: z.boolean().optional(),
+	specialCaseCategory: z.enum(SPECIAL_CASE_CATEGORIES).nullable().optional(),
+	specialCaseNotes: z.string().nullable().optional(),
 	scholarshipAmount: z.preprocess(
 		(val) => (val === '' || val === null || val === undefined ? null : Number(val)),
 		z.number().nonnegative().nullable().optional(),

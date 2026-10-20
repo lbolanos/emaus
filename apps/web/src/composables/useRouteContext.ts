@@ -27,6 +27,7 @@ const routeSectionMap: Record<string, string> = {
 	'walker-badges': 'sidebar.sections.reports',
 	// Services
 	palancas: 'sidebar.sections.services',
+	'special-cases': 'sidebar.sections.services',
 	'notes-and-meeting-points': 'sidebar.sections.services',
 	food: 'sidebar.sections.services',
 	'cancellation-and-notes': 'sidebar.sections.services',

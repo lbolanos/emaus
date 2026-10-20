@@ -32,6 +32,10 @@ When someone else registers the walker (for example, their spouse), the record k
 
 Paste the number exactly as you receive it (with `+52` and spaces): it is stored clean, as a ten-digit national number. An invalid number is blocked before anything is sent. The same pencil lives in the walker's detail dialog, next to the number in the header; after saving, the row or the dialog refresh instantly. This way WhatsApp notices and letters always reach the right number.
 
+## Special cases
+
+If, while talking to the walker, you learn something the coordinator must review (separate room, health, or another situation), tap the **flag** next to their name, pick the category, and leave a note. The row gets an amber tag and the case reaches the coordinator's inbox. Only profiles with the health-data permission see it. More in the **Special cases** help.
+
 ## How to use it
 
 Edit the data directly in the table or by opening the walker's form, and compare **requested** against **received** to spot who is missing palancas and follow up before the retreat.
