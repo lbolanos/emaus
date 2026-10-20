@@ -1141,6 +1141,23 @@ export const verifySmtpConnection = async () => {
   return response.data;
 };
 
+export type LatestSendByParticipant = Record<
+  string,
+  { sentAt: string; messageType: "whatsapp" | "email" }
+>;
+
+/** Last send per participant of one template type ("ya enviado" marks). */
+export const getLatestSendsByTemplateType = async (
+  retreatId: string,
+  type: string,
+): Promise<LatestSendByParticipant> => {
+  const response = await api.get(
+    `/participant-communications/retreat/${retreatId}/latest-by-template-type`,
+    { params: { type } },
+  );
+  return response.data;
+};
+
 // Community Communication API functions
 export const sendCommunityEmailViaBackend = async (data: {
   to: string;

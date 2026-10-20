@@ -55,7 +55,8 @@
     <Card v-if="store.items.length" class="border-blue-100 sticky top-0 z-20 bg-white shadow-sm">
       <CardContent class="pt-4 pb-4">
         <div class="flex flex-wrap items-center gap-2">
-          <div class="relative flex-1 min-w-[200px]">
+          <!-- min-w chico: a 390px el ⋮ no baja a otra línea (D5b). -->
+          <div class="relative flex-1 min-w-[120px]">
             <Input
               v-model="searchQuery"
               placeholder="🔍 Buscar por hora, nombre, responsabilidad, participante..."
@@ -103,10 +104,13 @@
           >⏱</Button>
           <MamMoreActions
             icon-only
+            collapsible
             :can-manage="canManage.schedule.value"
             :public-mam-url="publicMamUrl"
             v-model:group-by="groupBy"
             v-model:open="moreActionsOpen"
+            @collapse-all="collapseAllDays"
+            @expand-all="expandAllDays"
             @ring-bell="onRingBell"
             @print="onPrint"
             @download-bundle="onDownloadBundle"
@@ -117,6 +121,25 @@
             @resolve-santisimo="onResolveSantisimo"
             @materialize="onMaterialize"
           />
+        </div>
+        <!-- Chips de día (D5a): abren el día y lo llevan arriba. Hoy, resaltado. -->
+        <div
+          v-if="groupBy === 'day' && dayKeys.length > 1"
+          class="flex items-center gap-1.5 mt-2 overflow-x-auto"
+          role="group"
+          aria-label="Ir a un día"
+        >
+          <button
+            v-for="d in dayKeys"
+            :key="d"
+            type="button"
+            class="shrink-0 px-2.5 py-1 rounded-full text-xs font-medium border"
+            :class="d === todayDay
+              ? 'border-blue-500 bg-blue-50 text-blue-700'
+              : 'border-gray-200 text-gray-600 hover:bg-gray-50'"
+            :title="`Ir al Día ${d} · ${dayDateLabel(d)}`"
+            @click="jumpToDay(d)"
+          >Día {{ d }}<span v-if="isDayCollapsed(d)" class="text-gray-400" aria-label="contraído"> ▸</span></button>
         </div>
       </CardContent>
     </Card>
@@ -130,13 +153,32 @@
         </div>
         <div v-else>
           <div v-for="[groupKey, items] in groupedItems" :key="groupKey" class="mb-8">
-            <!-- Day / Responsibility header con resumen -->
-            <div class="flex flex-wrap items-baseline gap-2 sm:gap-3 mb-2 pb-1 border-b border-gray-200">
+            <!-- Day / Responsibility header con resumen. Por día, el título
+                 contrae/expande el día (spec ux-mam-responsabilidades, D4);
+                 el resumen sigue visible contraído. scroll-mt: los chips
+                 de día lo dejan debajo de la barra sticky. -->
+            <div
+              :id="groupBy === 'day' ? `mam-day-${groupKey}` : undefined"
+              class="flex flex-wrap items-baseline gap-2 sm:gap-3 mb-2 pb-1 border-b border-gray-200 scroll-mt-36"
+            >
               <h2 class="text-lg font-semibold">
-                <span v-if="groupBy === 'day'">
+                <button
+                  v-if="groupBy === 'day'"
+                  type="button"
+                  class="inline-flex items-baseline gap-1 text-left hover:text-blue-700"
+                  :aria-expanded="!isDayCollapsed(groupKey)"
+                  :aria-controls="`mam-day-rows-${groupKey}`"
+                  :title="isDayCollapsed(groupKey) ? 'Expandir el día' : 'Contraer el día'"
+                  @click="toggleDay(Number(groupKey))"
+                >
+                  <span
+                    class="print-hide inline-block w-4 text-gray-400 transition-transform"
+                    :class="isDayCollapsed(groupKey) ? '' : 'rotate-90'"
+                    aria-hidden="true"
+                  >▸</span>
                   Día {{ groupKey }}
                   <span class="text-sm text-gray-500 font-normal ml-2">{{ dayDateLabel(Number(groupKey)) }}</span>
-                </span>
+                </button>
                 <span v-else>🎤 {{ groupKey }}</span>
               </h2>
               <span class="text-xs text-gray-500">
@@ -172,8 +214,14 @@
                 </button>
               </div>
             </div>
-            <!-- Compact rows -->
-            <div class="border border-gray-200 rounded-lg overflow-hidden bg-white">
+            <!-- Compact rows. Contraído = clase, no v-if/v-show: Ctrl/Cmd+P
+                 imprime sin pasar por onPrint y el papel lleva todos los días
+                 (regla .mam-day-collapsed en @media print). -->
+            <div
+              :id="`mam-day-rows-${groupKey}`"
+              class="border border-gray-200 rounded-lg overflow-hidden bg-white"
+              :class="{ 'mam-day-collapsed': isDayCollapsed(groupKey) }"
+            >
               <template v-for="(item, idx) in items" :key="item.id">
                 <!-- "Ahora" line: solo en grouping by day, entre items pasado/futuro del día actual -->
                 <div
@@ -204,12 +252,14 @@
                   @dragend="onDragEnd()"
                   @click="canManage.schedule.value && onEditItem(item)"
                 >
-                  <!-- HORA: fila completa pequeña en móvil (horizontal); columna a la
-                       izquierda en desktop. relative-time oculto en print. -->
-                  <div class="flex items-center gap-2 text-gray-400 sm:flex-col sm:items-start sm:gap-0 sm:w-[72px] sm:shrink-0 sm:order-1 leading-tight">
+                  <!-- HORA: fila pequeña en móvil (horizontal); columna a la
+                       izquierda en desktop. relative-time oculto en print.
+                       En móvil crece y envuelve por dentro, así las acciones
+                       quedan en su misma línea en vez de bajar a otra (D5b). -->
+                  <div class="flex flex-1 min-w-0 flex-wrap items-center gap-x-2 text-gray-400 sm:flex-none sm:flex-nowrap sm:flex-col sm:items-start sm:gap-0 sm:w-[72px] sm:shrink-0 sm:order-1 leading-tight">
                     <span class="text-sm font-mono font-semibold whitespace-nowrap text-gray-900">{{ clockParts(item.startTime).hm }}<span class="text-[9px] font-normal text-gray-500 ml-0.5">{{ clockParts(item.startTime).mer }}</span></span>
                     <span class="text-[11px] sm:text-[10px] whitespace-nowrap">{{ item.durationMinutes }}m · {{ clockParts(item.endTime).hm }}</span>
-                    <span class="text-[11px] sm:text-[9px] print:hidden relative-time">{{ relativeTime(item) }}</span>
+                    <span v-if="relativeTime(item)" class="text-[11px] sm:text-[9px] print:hidden relative-time whitespace-nowrap">{{ relativeTime(item) }}</span>
                   </div>
 
                   <!-- Acciones: en móvil van a la derecha de la hora (misma fila);
@@ -463,6 +513,13 @@ import { participantLabel, isMeaninglessNickname } from '@/utils/participant';
 import type { Participant, Responsability } from '@repo/types';
 import { durationToFill, retreatGapAfter, computeCompactPlan } from '@/views/mamTime';
 import { musicLink } from '@/views/mamMusic';
+import {
+  initialCollapsedDays,
+  isRetreatOver,
+  readCollapsedDays,
+  retreatDayToday,
+  writeCollapsedDays,
+} from '@/views/mamCollapse';
 
 const route = useRoute();
 const router = useRouter();
@@ -516,6 +573,66 @@ const groupedItems = computed<Array<[string | number, any[]]>>(() => {
   });
 });
 
+// Collapsed days (specs/ux-mam-responsabilidades, D4). An array, not a Set:
+// a Set inside a ref is not reactive.
+const collapsedDays = ref<number[]>([]);
+const collapseLoadedFor = ref<string | null>(null);
+const dayKeys = computed<number[]>(() => Array.from(store.itemsByDay.keys()).map(Number));
+const retreatDates = computed(() => {
+  const r = (retreatStore as any).selectedRetreat;
+  if (!r) return null;
+  return {
+    startDate: r.startDate ?? null,
+    endDate: r.endDate ?? null,
+    timezone: r.timezone || r.house?.timezone || null,
+  };
+});
+// Load once per retreat, when both its days and its dates are known.
+watch(
+  [retreatId, dayKeys, retreatDates],
+  () => {
+    const id = retreatId.value;
+    if (!id || !dayKeys.value.length || !retreatDates.value?.startDate) return;
+    if (collapseLoadedFor.value === id) return;
+    collapseLoadedFor.value = id;
+    collapsedDays.value =
+      readCollapsedDays(id) ??
+      initialCollapsedDays(dayKeys.value, retreatDayToday(retreatDates.value, dayKeys.value));
+  },
+  { immediate: true },
+);
+
+function isDayCollapsed(day: string | number): boolean {
+  return groupBy.value === 'day' && collapsedDays.value.includes(Number(day));
+}
+function setCollapsedDays(days: number[]) {
+  collapsedDays.value = days;
+  if (retreatId.value) writeCollapsedDays(retreatId.value, days);
+}
+function toggleDay(day: number) {
+  setCollapsedDays(
+    collapsedDays.value.includes(day)
+      ? collapsedDays.value.filter((d) => d !== day)
+      : [...collapsedDays.value, day],
+  );
+}
+function expandDay(day: number) {
+  if (collapsedDays.value.includes(day)) setCollapsedDays(collapsedDays.value.filter((d) => d !== day));
+}
+function collapseAllDays() {
+  setCollapsedDays([...dayKeys.value]);
+}
+function expandAllDays() {
+  setCollapsedDays([]);
+}
+// Day chips (D5a): open the day and bring its header to the top.
+function jumpToDay(day: number) {
+  expandDay(day);
+  nextTick(() =>
+    document.getElementById(`mam-day-${day}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }),
+  );
+}
+
 // Search state
 const searchQuery = ref('');
 const searchIndex = ref(0);
@@ -554,6 +671,10 @@ watch(searchQuery, (q) => {
 let highlightClearTimer: ReturnType<typeof setTimeout> | null = null;
 function scrollToItem(id: string, autoClear = false) {
   highlightedItemId.value = id;
+  // Search, ⏱ and create/edit all land here: a row in a collapsed day has
+  // nowhere to scroll to, so its day opens first.
+  const target = store.items.find((i: any) => i.id === id);
+  if (target && groupBy.value === 'day') expandDay(Number(target.day));
   const doScroll = () => {
     const el = document.getElementById(`schedule-item-${id}`);
     if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -1000,7 +1121,13 @@ function typeBadgeClass(t: string): string {
 //   - resto se calcula contra now: items con horario actual (pero status pending)
 //     muestran 'ahora' o tiempo relativo, NO 'en curso'. Solo el item que el
 //     coordinador marcó con ▶ está realmente activo.
+// D5c: once the retreat is over, "hace 3d" on every row says nothing.
+const retreatOver = computed(() => isRetreatOver(retreatDates.value, new Date(now.value)));
+// Today's chip is highlighted during the retreat.
+const todayDay = computed(() => retreatDayToday(retreatDates.value, dayKeys.value, new Date(now.value)));
+
 function relativeTime(item: any): string {
+  if (retreatOver.value) return '';
   const start = new Date(item.startTime).getTime();
   const end = new Date(item.endTime).getTime();
   const diff = start - now.value;
@@ -1363,6 +1490,11 @@ watch(retreatId, (id) => setup(id));
 </script>
 
 <style>
+/* Collapsed day (spec ux-mam-responsabilidades, D4): hidden on screen only. */
+.mam-day-collapsed {
+  display: none;
+}
+
 /* Print stylesheet — activado solo cuando el usuario hace Ctrl/Cmd+P o
    click en "🖨 Imprimir". Convierte la vista MaM en un layout limpio
    formateado para A4 / carta:
@@ -1384,6 +1516,11 @@ watch(retreatId, (id) => setup(id));
   .print-mam .print-hide,                       /* header buttons row (explicit class — earlier .flex.flex-wrap.gap-2.items-center selector accidentally matched item name wrapper too because Tailwind class order is irrelevant in CSS) */
   .print-mam .relative-time {                   /* "en 5h 30m" / "hace 11d" — irrelevant on paper, the absolute time is already shown */
     display: none !important;
+  }
+
+  /* Paper always carries every day, collapsed or not */
+  .print-mam .mam-day-collapsed {
+    display: block !important;
   }
 
   /* Layout limpio sin chrome */

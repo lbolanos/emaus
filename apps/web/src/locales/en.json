@@ -1735,10 +1735,6 @@
       "colider1": "Co-Leader 1",
       "colider2": "Co-Leader 2"
     },
-    "briefing": {
-      "button": "Send info to leaders",
-      "chooseLeader": "Choose who to send to:"
-    },
     "unassignedServers": "Unassigned Servers",
     "unassignedWalkers": "Unassigned Walkers",
     "rebalanceWalkers": "Rebalance Walkers",
@@ -1950,7 +1946,18 @@
       "scope": "{count} preparations held",
       "notSynced": "Sync this retreat’s preparations to see attendance",
       "hide": "Hide preparation attendance"
-    }
+    },
+    "byLeader": {
+      "empty": "No leaders or co-leaders assigned",
+      "walkersCount": "{count} walkers",
+      "menuItem": "Send info to leaders",
+      "title": "Send each leader their table info",
+      "description": "Walkers, contacts and call script, to each leader and co-leader. When each message closes you come back to this list.",
+      "searchPlaceholder": "Search leader or table..."
+    },
+    "moreActions": "More actions",
+    "cardActions": "Actions for {name}",
+    "briefingSendTo": "Send info to {role} · {name}"
   },
   "bedAssignments": {
     "title": "Bed Assignments",
@@ -2368,19 +2375,36 @@
     "xlsx": "Export to XLSX",
     "csv": "Export to CSV"
   },
+  "briefingList": {
+    "summary": "{sent} of {total} already got it",
+    "filterAll": "All",
+    "filterPending": "Not sent",
+    "sentOn": "Sent on {date} by {channel}",
+    "notSent": "Not sent",
+    "send": "Send",
+    "resend": "Resend",
+    "emptyPending": "Everyone already got it",
+    "sentError": "Could not load who already got it.",
+    "channels": {
+      "whatsapp": "WhatsApp",
+      "email": "email"
+    }
+  },
   "responsibilities": {
     "title": "Retreat Responsibilities",
     "description": "Manage retreat responsibilities and assign servers to each one",
     "createResponsability": "Create Responsability",
     "sendTasks": {
-      "button": "Send tasks",
-      "title": "Send tasks to a server ({count}):",
-      "searchPlaceholder": "Search server...",
       "counts": "{responsibilities} responsibilities · {teams} teams",
       "documentsCount": "{count} documents",
       "documentsError": "Could not load the documents: the message will go without the links.",
       "empty": "No servers with assigned tasks"
     },
+    "byServer": {
+      "tab": "By server"
+    },
+    "moreActions": "More actions",
+    "cardActions": "Actions for {name}",
     "addToTeam": "Add servers to team",
     "addToTeamDescription": "Choose the active servers to add to this service team",
     "teamLabel": "Team",

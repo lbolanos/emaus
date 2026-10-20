@@ -38,6 +38,9 @@ vi.mock('lucide-vue-next', () => new Proxy(
 
 vi.mock('@/services/api', () => ({
 	api: { get: vi.fn(async () => ({ data: [] })), post: vi.fn(), put: vi.fn(), delete: vi.fn() },
+	// La vista carga documentos y marcas de "Por servidor" con el retiro.
+	retreatScheduleApi: { assignmentDocuments: vi.fn(async () => ({})) },
+	getLatestSendsByTemplateType: vi.fn(async () => ({})),
 }));
 
 const RETREAT_ID = 'retreat-1';

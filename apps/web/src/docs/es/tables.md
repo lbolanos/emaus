@@ -106,6 +106,24 @@ La vista de mesas muestra:
 - Cuenta total
 - Cualquier conflicto (miembros de familia juntos)
 
+En el menú **⋮** de cada mesa: enviar la info de la mesa a su líder o a un colíder, **Ver
+Caminantes**, **Asignar por Foto** y **Eliminar** (solo con la mesa sin caminantes). El número de
+columnas de la vista está en el **⋮** de arriba, en computadora.
+
+## Enviar la Info de su Mesa a Cada Líder
+
+En el menú **⋮** de arriba, **Enviar info a líderes** abre una lista con cada líder y colíder,
+su mesa, su rol, sus caminantes y **si ya se le mandó la info de su mesa**:
+
+1. Busque por nombre o por mesa; **Sin enviar** deja solo a los que faltan.
+2. Pulse **Enviar** en su fila: se abre el mensaje con su mesa, sus caminantes y sus contactos.
+   Revíselo y pulse **Enviar Mensaje**, que abre la conversación de WhatsApp.
+3. Al cerrar el mensaje vuelve a la lista, con su búsqueda y su filtro: la fila queda marcada
+   **Enviado el …** y el botón cambia a **Reenviar**.
+
+La marca sale del historial de mensajes del retiro: la ve cualquier coordinador y se mantiene al
+recargar.
+
 ## Imprimir Reportes de Mesas
 
 Genere reportes que muestran:
