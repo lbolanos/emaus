@@ -143,6 +143,32 @@
     <nav class="flex flex-col flex-1 min-h-0">
       <div class="flex-1 px-2 py-1 space-y-0 overflow-y-auto min-h-0">
 
+        <!-- Favorites: pinned items, fixed at the top. Not part of the
+             accordion (no collapse state) and hidden while searching. The
+             rows are plain copies: no star of their own (toggle lives in the
+             real sections) and global-index -1 so DOM indices don't collide. -->
+        <div v-if="visibleFavoriteItems.length > 0" class="mt-1" data-testid="sidebar-favorites">
+          <div
+            v-if="!isCollapsedView"
+            class="px-4 pt-2 pb-1 text-xs font-bold text-amber-400 uppercase tracking-wider"
+          >
+            {{ $t('sidebar.favorites') }}
+          </div>
+          <SidebarMenuItem
+            v-for="item in visibleFavoriteItems"
+            :key="`favorite-${item.name}`"
+            :item="item"
+            :is-collapsed-view="isCollapsedView"
+            :is-focused="isItemFocused(item)"
+            :global-index="-1"
+            :route-with-params="getRouteWithParams(item)"
+            :badge="itemBadge(item.name)" :badge-color="itemBadgeColor(item.name)"
+            @mouseenter="setFocusedIndex(item, 'mouse')"
+            @mouseleave="clearMouseFocus"
+            @focus="setFocusedIndex(item)"
+          />
+        </div>
+
         <!-- Non-retreat top sections (community, social) -->
         <template v-for="section in topNonRetreatSections" :key="section.category">
           <SidebarSection
@@ -159,6 +185,9 @@
                 :global-index="getGlobalItemIndex(item)"
                 :route-with-params="getRouteWithParams(item)"
                 :badge="itemBadge(item.name)" :badge-color="itemBadgeColor(item.name)"
+                show-favorite-star
+                :is-favorite="menuFavoritesStore.isFavorite(item.routeName)"
+                @toggle-favorite="menuFavoritesStore.toggleFavorite(item.routeName)"
                 @mouseenter="setFocusedIndex(item, 'mouse')"
                 @mouseleave="clearMouseFocus"
                 @focus="setFocusedIndex(item)"
@@ -305,6 +334,9 @@
                       :global-index="getGlobalItemIndex(item)"
                       :route-with-params="getRouteWithParams(item)"
                       :badge="itemBadge(item.name)" :badge-color="itemBadgeColor(item.name)"
+                      show-favorite-star
+                      :is-favorite="menuFavoritesStore.isFavorite(item.routeName)"
+                      @toggle-favorite="menuFavoritesStore.toggleFavorite(item.routeName)"
                       @mouseenter="setFocusedIndex(item, 'mouse')"
                       @mouseleave="clearMouseFocus"
                       @focus="setFocusedIndex(item)"
@@ -334,6 +366,9 @@
                 :global-index="getGlobalItemIndex(item)"
                 :route-with-params="getRouteWithParams(item)"
                 :badge="itemBadge(item.name)" :badge-color="itemBadgeColor(item.name)"
+                show-favorite-star
+                :is-favorite="menuFavoritesStore.isFavorite(item.routeName)"
+                @toggle-favorite="menuFavoritesStore.toggleFavorite(item.routeName)"
                 @mouseenter="setFocusedIndex(item, 'mouse')"
                 @mouseleave="clearMouseFocus"
                 @focus="setFocusedIndex(item)"
@@ -398,6 +433,7 @@ import {
 import { useRetreatStore } from '@/stores/retreatStore';
 import { useParticipantStore } from '@/stores/participantStore';
 import { useUIStore } from '@/stores/ui';
+import { useMenuFavoritesStore } from '@/stores/menuFavoritesStore';
 import { useAuthPermissions } from '@/composables/useAuthPermissions';
 import { useCommunityStore } from '@/stores/communityStore';
 import { useRouteContext } from '@/composables/useRouteContext';
@@ -446,6 +482,7 @@ const communityStore = useCommunityStore();
 const uiStore = useUIStore();
 const receptionStore = useReceptionStore();
 const participantStore = useParticipantStore();
+const menuFavoritesStore = useMenuFavoritesStore();
 const { participants } = storeToRefs(participantStore);
 const { isSidebarCollapsed, isMobile, collapsedSections, isRetreatGroupCollapsed } = storeToRefs(uiStore);
 const { can, isSuperadmin, currentRetreatRole, canAccessResource, canManageRetreatById, userPermissions } =
@@ -1129,6 +1166,19 @@ const allMenuItems = computed(() => {
   return filteredMenuSections.value.flatMap(section => section.items);
 });
 
+// Favorites section rows: pinned route names joined against the items that
+// survived gating, in the user's pin order (not menu order). A favorite the
+// user can't see in its real section never appears here either. Hidden
+// entirely while searching — the search already filters the real sections.
+const visibleFavoriteItems = computed<MenuItem[]>(() => {
+  if (searchQuery.value.trim()) return [];
+  const favorites = menuFavoritesStore.favoriteMenuItems;
+  if (!favorites.length) return [];
+  return favorites
+    .map(routeName => allMenuItems.value.find(item => item.routeName === routeName))
+    .filter((item): item is MenuItem => Boolean(item));
+});
+
 const currentActiveSection = computed(() => {
   const currentRouteName = route.name as string;
   return filteredMenuSections.value.find(section =>
@@ -1399,6 +1449,8 @@ onMounted(() => {
     communityStore.fetchCommunities().catch(err => {
       console.error('Failed to fetch communities for sidebar:', err);
     });
+    // loadFavorites never rejects (it toasts on failure internally).
+    menuFavoritesStore.loadFavorites();
   }
 
   const handleKeyDown = (event: KeyboardEvent) => {

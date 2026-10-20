@@ -11,6 +11,7 @@ import {
 	cleanupMocks,
 } from '../../test/utils';
 import { useAuthPermissions } from '@/composables/useAuthPermissions';
+import { useMenuFavoritesStore } from '@/stores/menuFavoritesStore';
 
 // Mock axios first
 vi.mock('axios', () => {
@@ -62,6 +63,8 @@ vi.mock('@/services/telemetryService', () => ({
 
 // Mock the API service
 const mockApiResponse = { data: [] };
+const mockGetUserProfile = vi.fn(() => Promise.resolve({}));
+const mockUpdateUserProfile = vi.fn(() => Promise.resolve({}));
 vi.mock('@/services/api', () => ({
 	api: {
 		get: vi.fn(() => Promise.resolve(mockApiResponse)),
@@ -69,6 +72,8 @@ vi.mock('@/services/api', () => ({
 		put: vi.fn(() => Promise.resolve(mockApiResponse)),
 		delete: vi.fn(() => Promise.resolve(mockApiResponse)),
 	},
+	getUserProfile: () => mockGetUserProfile(),
+	updateUserProfile: (...args: unknown[]) => mockUpdateUserProfile(...args),
 }));
 
 // Mock vue-router
@@ -104,8 +109,37 @@ vi.mock('@/components/HelpPanel.vue', () => ({
 vi.mock('@/components/layout/SidebarSection.vue', () => ({
 	default: { template: '<div><slot /></div>' },
 }));
+// Item stub: mirrors the props/emits the favorites feature relies on, so the
+// tests can click a real row's star and inspect the favorites-section copies.
+// The boolean types matter: the real component declares them via defineProps
+// (type-inferred), and only then does Vue cast a valueless `show-favorite-star`
+// attribute to true instead of leaving it as "".
 vi.mock('@/components/layout/SidebarMenuItem.vue', () => ({
-	default: { template: '<div><slot /></div>' },
+	default: {
+		name: 'SidebarMenuItemStub',
+		props: {
+			item: Object,
+			isCollapsedView: Boolean,
+			isFocused: Boolean,
+			globalIndex: Number,
+			routeWithParams: null,
+			badge: Number,
+			badgeColor: String,
+			showFavoriteStar: Boolean,
+			isFavorite: Boolean,
+		},
+		emits: ['toggleFavorite', 'mouseenter', 'mouseleave', 'focus'],
+		template: `
+			<div
+				class="menu-item-stub"
+				:data-name="item?.name"
+				:data-route="item?.routeName"
+				:data-index="globalIndex"
+				:data-star="showFavoriteStar ? 'true' : 'false'"
+				:data-favorite="isFavorite ? 'true' : 'false'"
+				@click="$emit('toggleFavorite')"
+			/>`,
+	},
 }));
 
 // Mock @repo/ui components
@@ -696,6 +730,142 @@ describe('Sidebar Component', () => {
 			expect(persisted.logistics).toBe(true);
 
 			regressionWrapper.unmount();
+		});
+	});
+
+	describe('Menu favorites section', () => {
+		// createTestWrapper installs its own pinia unless one is passed, so the
+		// favorites store must live in the SAME pinia the component mounts with.
+		let favoritesWrapper: VueWrapper<any>;
+		let favoritesStore: ReturnType<typeof useMenuFavoritesStore>;
+
+		const getFavoritesSection = (w: VueWrapper<any>) => w.find('[data-testid="sidebar-favorites"]');
+		const sectionRoutes = (w: VueWrapper<any>): string[] =>
+			getFavoritesSection(w)
+				.findAll('.menu-item-stub')
+				.map((stub: any) => stub.attributes('data-route'));
+
+		beforeEach(async () => {
+			const testPinia = createPinia();
+			setActivePinia(testPinia);
+
+			const { useAuthStore: useAuthStoreImport } = await import('@/stores/authStore');
+			const authStore = useAuthStoreImport();
+			const saUser = {
+				id: 'sa-id',
+				email: 'sa@test.com',
+				displayName: 'Super Admin',
+				roles: [{ id: 'role-sa', role: { name: 'superadmin' }, retreats: [], globalPermissions: [] }],
+				isActive: true,
+				emailVerified: true,
+				permissions: [],
+			};
+			authStore.user = saUser as any;
+			authStore.userProfile = saUser as any;
+			authStore.isAuthenticated = true;
+			authStore.refreshUserProfile = vi.fn().mockResolvedValue(undefined) as any;
+
+			const { useRetreatStore: useRetreatStoreImport } = await import('@/stores/retreatStore');
+			useRetreatStoreImport().selectRetreat('test-retreat-id');
+
+			favoritesWrapper = createTestWrapper(Sidebar, {
+				pinia: testPinia,
+				global: { mocks: { $t: (key: string) => key } },
+			});
+			favoritesStore = useMenuFavoritesStore(testPinia);
+			await nextTick();
+		});
+
+		afterEach(() => {
+			favoritesWrapper?.unmount();
+		});
+
+		it('renders pinned items at the top in pin order (not menu order)', async () => {
+			favoritesStore.favoriteMenuItems = ['retreat-dashboard', 'my-communities'];
+			await nextTick();
+
+			expect(getFavoritesSection(favoritesWrapper).exists()).toBe(true);
+			// In the menu my-communities (community section) comes first; the
+			// favorites section keeps the user's pin order.
+			expect(sectionRoutes(favoritesWrapper)).toEqual(['retreat-dashboard', 'my-communities']);
+		});
+
+		it('renders the header and copies without star and with index -1', async () => {
+			favoritesStore.favoriteMenuItems = ['walkers'];
+			await nextTick();
+
+			const section = getFavoritesSection(favoritesWrapper);
+			expect(section.text()).toContain('sidebar.favorites');
+			const copies = section.findAll('.menu-item-stub');
+			expect(copies).toHaveLength(1);
+			expect(copies[0].attributes('data-star')).toBe('false');
+			expect(copies[0].attributes('data-index')).toBe('-1');
+		});
+
+		it('hides favorites whose item is filtered out (no selected retreat)', async () => {
+			favoritesStore.favoriteMenuItems = ['retreat-dashboard', 'my-communities'];
+			await nextTick();
+			expect(getFavoritesSection(favoritesWrapper).exists()).toBe(true);
+
+			const { useRetreatStore: useRetreatStoreImport } = await import('@/stores/retreatStore');
+			useRetreatStoreImport().selectRetreat(null);
+			await nextTick();
+
+			// retreat-dashboard requires a selected retreat; the other pin survives.
+			expect(sectionRoutes(favoritesWrapper)).toEqual(['my-communities']);
+
+			// With no visible favorites left the whole section disappears.
+			favoritesStore.favoriteMenuItems = ['retreat-dashboard'];
+			await nextTick();
+			expect(getFavoritesSection(favoritesWrapper).exists()).toBe(false);
+		});
+
+		it('toggles from a real row (star) and PUTs; the section copy does not toggle', async () => {
+			favoritesStore.favoriteMenuItems = [];
+			await nextTick();
+			mockUpdateUserProfile.mockClear();
+
+			const realRow = favoritesWrapper
+				.findAll('.menu-item-stub')
+				.find(
+					(stub: any) =>
+						stub.attributes('data-route') === 'walkers' &&
+						stub.attributes('data-star') === 'true',
+				);
+			expect(realRow).toBeDefined();
+			await realRow!.trigger('click');
+
+			expect(mockUpdateUserProfile).toHaveBeenCalledWith({
+				favoriteMenuItems: ['walkers'],
+			});
+			await flushPromises();
+			await nextTick();
+
+			// The copy appeared in the favorites section, starless.
+			const copy = getFavoritesSection(favoritesWrapper)
+				.findAll('.menu-item-stub')
+				.find((stub: any) => stub.attributes('data-route') === 'walkers');
+			expect(copy).toBeDefined();
+			expect(copy!.attributes('data-star')).toBe('false');
+
+			mockUpdateUserProfile.mockClear();
+			await copy!.trigger('click');
+			expect(mockUpdateUserProfile).not.toHaveBeenCalled();
+		});
+
+		it('hides the section while searching', async () => {
+			favoritesStore.favoriteMenuItems = ['my-communities'];
+			await nextTick();
+			expect(getFavoritesSection(favoritesWrapper).exists()).toBe(true);
+
+			(favoritesWrapper.vm.$.setupState as any).openSearch();
+			await nextTick();
+			const input = favoritesWrapper.find('#sidebar-search');
+			expect(input.exists()).toBe(true);
+			await input.setValue('communities');
+			await nextTick();
+
+			expect(getFavoritesSection(favoritesWrapper).exists()).toBe(false);
 		});
 	});
 

@@ -53,16 +53,29 @@ verificados iguales en master): no es gate, ts-jest y `pnpm build` (vite) no los
 
 ## M3 — Favoritos en el sidebar
 
-- [ ] `menuFavoritesStore.ts` (load / toggle optimista / rollback + toast).
-- [ ] `services/api.ts`: `favoriteMenuItems` en el tipo de `updateUserProfile`.
-- [ ] `SidebarMenuItem.vue`: estrella opcional (wrapper flex, botón fuera del `<a>`,
+- [x] `menuFavoritesStore.ts` (load / toggle optimista / rollback + toast).
+- [x] `services/api.ts`: `favoriteMenuItems` en el tipo de `updateUserProfile`.
+- [x] `SidebarMenuItem.vue`: estrella opcional (wrapper flex, botón fuera del `<a>`,
       `showFavoriteStar`/`isFavorite` + emit `toggle-favorite`, defaults seguros).
-- [ ] `Sidebar.vue`: sección «Favoritos» arriba (fija, fuera del acordeón; filas con
+- [x] `Sidebar.vue`: sección «Favoritos» arriba (fija, fuera del acordeón; filas con
       `SidebarMenuItem` índice -1, badge y `getRouteWithParams`; rail con íconos + tooltip; oculta
       sin favoritos visibles y en búsqueda); sin nada de retiros favoritos.
-- [ ] i18n es **y** en (4 keys).
-- [ ] Tests: store; `Sidebar.test.ts` — sección render del seed, toggle de estrella emite + PUT,
-      favorito no visible oculto, rail; mocks ampliados.
+- [x] i18n es **y** en (3 keys — ver desviaciones).
+- [x] Tests: store; `Sidebar.test.ts` — sección render del seed, toggle de estrella emite + PUT,
+      favorito no visible oculto, búsqueda; mocks ampliados.
+
+**Done**: 2026-10-19 — suite web completa 230 archivos / 3395 tests verde; `vue-tsc --noEmit`
+exit 0. El test del store cazó un bug real: `slice(0, LIMIT)` descartaba el pin NUEVO al llenar
+la lista (toggle no-op silencioso); corregido a `slice(-LIMIT)` (el nuevo entra, el más viejo
+sale). Desviaciones: (a) 3 keys de i18n (`sidebar.favorites`/`addFavorite`/`removeFavorite`) en
+vez de 4 — la spec listaba `favoriteToggleFailed`, pero los stores del repo no usan i18n: los
+toasts de error van en inglés vía `apiErrorMessage` (convención verificada en `retreatStore`);
+(b) el stub de `SidebarMenuItem` en `Sidebar.test.ts` declara las props booleanas con `type:
+Boolean` — con props-array el runtime no castea el atributo sin valor `show-favorite-star` y todo
+llegaba como `""` (el componente real usa `defineProps` tipado, en producción no ocurre);
+(c) `runtimeConfig.test.ts` ("falls back to development default") falla en el worktree porque el
+`.env.local` del dev (worktree-testing) define `VITE_API_URL`: verificado pasando al moverlo
+fuera — fallo del entorno local, no del branch (en CI no existe el archivo).
 
 **Gate**: commit `feat(web)`.
 
