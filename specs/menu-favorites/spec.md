@@ -244,4 +244,45 @@ telemetría propia en la DB del worktree — research §7):
 
 ## Reconcile
 
-(vacío — se cierra al terminar la implementación)
+Cierre 2026-10-20 — branch `worktree-menu-favorites`, `12452fb0..e5a9b92f`, verificado contra la
+app corriendo en el dev del worktree (web :5175, API :3003) y su automatización:
+
+1. ✓ Seed por telemetría en el primer GET (orden por vistas, solo items de menú) — tests del
+   service; en vivo el perfil arrancó con el top-5 propio (QA M4).
+2. ✓ Clic en una copia navega igual que el item original — e2e «clic en una copia navega»; en
+   móvil el drawer cierra solo (QA, 390×844 touch).
+3. ✓ Menú por dwell añade/quita con PUT real y sobrevive reload — e2e M4d/M4e; `[]` al quitar el
+   último cubierto por test del store y schema del API.
+4. ✓ Sin retiro seleccionado los favoritos `requiresRetreat` se ocultan sin tocar el perfil —
+   unit «hides favorites whose item is filtered out (no selected retreat)».
+5. ✓ localStorage legacy sin clave: sección colapsada, nunca dos abiertas — tests `ui.test.ts` +
+   e2e de regresión del acordeón.
+6. ✓ Móvil: drawer, targets táctiles ≥40px, long-press 500ms con el menú dentro del viewport
+   (clamp de M4d), estado consistente entre instancias — QA M4/M4d/M4f.
+7. ✓ Ni el perfil público ni la búsqueda devuelven `favoriteMenuItems` — tests del API (M1/M4c).
+8. ✓ Colapso del header, acordeón completo con Favoritos dentro, ambos sobreviven reload — e2e
+   M4b/M4e; reparación del estado legacy testeada en `initSidebarAccordion`.
+9. ✓ Popover: hover 400ms o clic en `+`, cap 5, graduación al fijar, persistencia tras reload,
+   cierre al vaciarse y `+` desaparece — e2e M4c/M4f; conteos de vistas en cada sugerencia (M4f).
+10. ✓ Toggle anuncia con toast con deshacer **sin recargar la página**; hint solo en la primera
+    visita — e2e M4f (bandera de `window` como tripwire) + QA desktop/móvil.
+
+Negativos ✓: PUT parcial (el controller solo pasa el campo) · payload inválido → 400 sin escribir
+(tests de rutas: string vacío, >64, >12) · payload de la página de perfil sigue aceptado (bio +
+interests en el test de rutas) · favorito invisible no renderiza pero el route name queda en el
+perfil · `[]` no re-siembra ni reordena (tests del service) · el menú no abre a 600ms, un tap que
+navegó no lo abre, y el touchend del long-press no navega (`SidebarMenuItem.test.ts`) · las
+sugerencias nunca se persisten ni salen del GET propio · el toast jamás recarga la página.
+
+Lo descartado en el camino: la **estrella siempre-visible** (ronda 3 de feedback — una estrella
+por cada uno de ~40 items era ruido permanente; el dwell la reemplazó), la **sección fija fuera
+del acordeón** (ronda 4 — consistencia del acordeón primero), y los **favoritos de retiros** del
+spec v1 (giro del pedido 2026-10-19; PR #14 cerrado sin llegar a master). El acceso por teclado
+quedó como dwell-por-focus (1000ms), no atajo de teclado.
+
+Suites al cierre: web **3416 pasados** + 2 skipped (único rojo: `runtimeConfig.test.ts`, falso
+positivo del `.env.local` del worktree — no existe en CI, documentado en M3); API userProfile
+**37/37**; e2e **8/8 por cuerpo** el mismo día (5 en corrida completa + toast/popover/regresión
+en corridas grep; la corrida completa de una pieza aborta en el 6º porque el `apiLimiter` global
+satura — 429 en el PUT del afterAll, limitación del entorno documentada en M4c, no del branch);
+`vue-tsc --noEmit` exit 0.

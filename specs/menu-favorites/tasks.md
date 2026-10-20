@@ -270,16 +270,27 @@ dos elementos.
 
 ## M5 — Cierre
 
-- [ ] Reconcile en `spec.md` (cada CA verificada ✓, negativos incluidos).
-- [ ] `**Done**` por milestone + desviaciones.
+- [x] Reconcile en `spec.md` (cada CA verificada ✓, negativos incluidos, lo descartado).
+- [x] `**Done**` por milestone + desviaciones (M0-M4f).
+- [x] Suite web completa + API afectada + e2e re-verificados al cierre (ver abajo).
 - [ ] PR nuevo (con switch de cuenta gh), `gh pr checks` verde.
 - [ ] Merge a master con OK de Leonardo (push a master deploya prod).
 - [ ] Cerrar worktree (skill `cerrar-worktree`).
 
+**Done (parcial)**: 2026-10-20 — Reconcile completo contra tests/QA de los milestones, con las
+verificaciones puntuales de los dos criterios sin evidencia fresca (CA4 → test «hides favorites
+whose item is filtered out (no selected retreat)»; payload de la página de perfil → bio+interests
+en el test de rutas). Verificación final: web **3416 pasados** (único rojo: `runtimeConfig.test.ts`,
+falso positivo del `.env.local` del worktree, documentado en M3); API userProfile **37/37**; e2e
+**8/8 por cuerpo** el mismo día (la corrida completa de una pieza aborta en el 6º por el
+`apiLimiter` global — 429 en el afterAll, como en M4c; tras ella el perfil de Leonardo quedó en
+SEED y se restauró a mano por PUT verificado por el dato a su top-5 de telemetría real);
+`vue-tsc --noEmit` exit 0.
+
 ## Checklist de verificación final
 
-- [ ] `pnpm --filter web test` verde.
-- [ ] Suite API afectada verde (una corrida de jest a la vez).
-- [ ] E2E M4 verde (chromium contra el dev del worktree).
-- [ ] Criterios 1-7 + negativos del spec verificados contra la app del worktree (Reconcile).
-- [ ] `git status` limpio de archivos ajenos a la feature antes de cada commit.
+- [x] `pnpm --filter web test` verde (3416 + el falso rojo de entorno documentado).
+- [x] Suite API afectada verde (userProfile 37/37, una corrida a la vez).
+- [x] E2E verde (chromium contra el dev del worktree, 8/8 por cuerpo).
+- [x] Criterios 1-10 + negativos del spec verificados contra la app del worktree (Reconcile).
+- [x] `git status` limpio de archivos ajenos a la feature antes de cada commit.
