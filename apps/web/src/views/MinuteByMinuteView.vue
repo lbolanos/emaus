@@ -41,6 +41,7 @@
           @update:open="moreActionsOpen = $event"
           @ring-bell="onRingBell"
           @print="onPrint"
+          @print-compact="onPrintCompact"
           @download-bundle="onDownloadBundle"
           @copy-public-link="onCopyPublicLink"
           @help="helpOpen = true"
@@ -109,6 +110,7 @@
             v-model:open="moreActionsOpen"
             @ring-bell="onRingBell"
             @print="onPrint"
+            @print-compact="onPrintCompact"
             @download-bundle="onDownloadBundle"
             @copy-public-link="onCopyPublicLink"
             @help="helpOpen = true"
@@ -463,6 +465,7 @@ import { participantLabel, isMeaninglessNickname } from '@/utils/participant';
 import type { Participant, Responsability } from '@repo/types';
 import { durationToFill, retreatGapAfter, computeCompactPlan } from '@/views/mamTime';
 import { musicLink } from '@/views/mamMusic';
+import { openMamCompactPrint } from '@/views/mamCompactPrint';
 
 const route = useRoute();
 const router = useRouter();
@@ -885,6 +888,37 @@ function onPrint() {
   // Pequeño delay para que el menú se cierre antes de imprimir
   // (algunos browsers capturan el menú abierto como overlay).
   setTimeout(() => window.print(), 50);
+}
+
+/**
+ * Hoja operativa compacta (formato Excel: Hora | Actividad | Responsables,
+ * un día por página) en una ventana propia. No toca el `@media print` de esta
+ * vista — "🖨 Imprimir" sigue sacando la vista del coordinador.
+ */
+function onPrintCompact() {
+  closeMore();
+  const retreat = retreatStore.selectedRetreat;
+  const retreatLabel =
+    [retreat?.parish, retreat?.retreat_number_version?.trim()].filter(Boolean).join(' — ') ||
+    'Retiro';
+  openMamCompactPrint(
+    {
+      items: store.items,
+      responsabilities: responsibilities.value,
+      retreatLabel,
+      startDateIso: retreatStartDate.value ? retreatStartDate.value.toISOString() : null,
+      timeZone: retreat?.timezone ?? undefined,
+    },
+    {
+      onPopupBlocked: () => {
+        toast({
+          title: 'No se pudo abrir la hoja de impresión',
+          description: 'El navegador bloqueó la ventana emergente. Permití pop-ups para este sitio y volvé a intentar.',
+          variant: 'destructive',
+        });
+      },
+    },
+  );
 }
 
 async function onDeleteItem(id: string) {
