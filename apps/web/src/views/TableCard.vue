@@ -3,7 +3,10 @@
     <Card class="flex flex-col" :class="{ 'opacity-50 pointer-events-none': !table.id }">
       <!-- Card Header: compact on mobile so the table name — which carries the
            table number — stays readable; full size from sm: up. -->
-      <CardHeader class="flex-row items-center justify-between gap-1.5 p-3 sm:gap-2 sm:p-6">
+      <CardHeader
+        ref="cardHeaderRef"
+        class="flex-row items-center justify-between gap-1.5 p-3 sm:gap-2 sm:p-6"
+      >
         <form
           v-if="isEditingName"
           class="flex flex-1 items-center gap-1 min-w-0"
@@ -45,7 +48,7 @@
           </Button>
         </form>
         <CardTitle v-else class="flex items-center gap-1 min-w-0 text-base leading-tight sm:text-2xl">
-          <span class="truncate">{{ table.name }}</span>
+          <span ref="titleTextRef" class="truncate">{{ table.name }}</span>
           <Button
             variant="ghost"
             size="icon"
@@ -62,8 +65,9 @@
           <span class="text-xs font-normal text-gray-500 dark:text-gray-400 tabular-nums shrink-0 sm:text-sm">
             {{ table.walkers?.length || 0 }} / 7
           </span>
-          <!-- Desktop: direct icon buttons. -->
-          <div class="hidden sm:flex items-center gap-1">
+          <!-- Desktop: direct icon buttons — but the table name always wins:
+               when it would truncate, they collapse into the "⋮" menu too. -->
+          <div v-show="!actionsOverflowing" ref="desktopActionsRef" class="hidden sm:flex items-center gap-1">
             <Popover v-if="leaderOptions.length > 0" v-model:open="briefingOpen">
               <PopoverTrigger as-child>
                 <Button variant="outline" size="icon" class="h-8 w-8" :title="$t('tables.briefing.button')">
@@ -125,7 +129,7 @@
           <!-- Mobile: the same actions collapse into one menu. Dialogs open
                through deferOpen so the closing menu doesn't leave reka-ui's
                pointer-events bug behind. -->
-          <div class="sm:hidden">
+          <div ref="moreMenuWrapRef" :class="actionsOverflowing ? '' : 'sm:hidden'">
             <DropdownMenu>
               <DropdownMenuTrigger as-child>
                 <Button
@@ -412,7 +416,7 @@
 </style>
 
 <script setup lang="ts">
-import { ref, computed, nextTick } from 'vue';
+import { ref, computed, nextTick, watch } from 'vue';
 import type { PropType } from 'vue';
 import type { Participant, ParticipationFrequency, TableMesa } from '@repo/types';
 import type { ServerAttendanceState } from '@/composables/useServerAttendance';
@@ -436,6 +440,7 @@ import { Trash2, Eye, Camera, ImagePlus, Send, Pencil, Check, X, MoreVertical } 
 import { apiErrorMessage } from '@/services/apiError';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@repo/ui';
 import { useRekaDialogFix } from '@/composables/useRekaDialogFix';
+import { useDesktopActionsOverflow } from '@/composables/useDesktopActionsOverflow';
 import PhotoAssignmentDialog from '@/components/PhotoAssignmentDialog.vue';
 import TableMemoryPhotoDialog from '@/components/TableMemoryPhotoDialog.vue';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@repo/ui';
@@ -556,6 +561,26 @@ const leaderOptions = computed(() => {
     opts.push({ role: 'colider2', label: t('tables.roles.colider2'), participant: props.table.colider2 });
   return opts;
 });
+
+// --- Desktop actions overflow: the table name always wins ------------------
+// If the direct action buttons would truncate the title, they collapse into
+// the "⋮" menu (the same one mobile uses) and come back when there is room.
+const titleTextRef = ref<HTMLElement | null>(null);
+const desktopActionsRef = ref<HTMLElement | null>(null);
+const moreMenuWrapRef = ref<HTMLElement | null>(null);
+const cardHeaderRef = ref<{ $el?: HTMLElement } | null>(null);
+const { overflowing: actionsOverflowing, measure: measureHeaderActions } = useDesktopActionsOverflow(
+  titleTextRef,
+  desktopActionsRef,
+  moreMenuWrapRef,
+  cardHeaderRef,
+);
+// A rename changes the natural title width, and gaining/losing a leader
+// toggles the briefing button — both resize the actions group.
+watch(
+  () => [props.table.name, leaderOptions.value.length] as const,
+  () => nextTick(measureHeaderActions),
+);
 
 // Enriquece un participante con sus datos completos del store (tags, contactos
 // de emergencia) que el payload de mesas no incluye. Fallback al objeto base.

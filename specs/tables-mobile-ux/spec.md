@@ -35,7 +35,7 @@ scroll horizontal ni contenido tapado. El desktop se mantiene como está.
 | # | Decisión | Alternativa descartada |
 | --- | --- | --- |
 | D1 | **Título compacto en móvil**: `text-base sm:text-2xl` y `CardHeader` con `p-3 sm:p-6`, `gap-1.5 sm:gap-2`. "Mesa 12" pasa a disponer de ~200 px y cabe entera. Referencia: `BedCard.vue`, que ya resuelve igual el número de cama. | Extraer el número a un badge aparte: el nombre es texto libre ("Mesa de la Virgen") y no hay número garantizado que extraer. |
-| D2 | **Acciones en menú "⋮" en móvil**: dual layout por CSS (`hidden sm:flex` / `sm:hidden`, patrón de `BedAssignmentsView.vue`). Desktop conserva los botones actuales (a `h-8 w-8`); móvil los colapsa en un `DropdownMenu`. Los ítems que abren dialog usan `useRekaDialogFix` + `@select="deferOpen(...)"` (bug conocido de reka-ui). | Solo achicar los botones: cuatro botones de 32 px + contador siguen comiendo ~150 px del título; el problema de fondo es la cantidad de acciones, no su tamaño. |
+| D2 | **Acciones en menú "⋮" en móvil**: dual layout por CSS (`hidden sm:flex` / `sm:hidden`, patrón de `BedAssignmentsView.vue`). Desktop conserva los botones actuales (a `h-8 w-8`); móvil los colapsa en un `DropdownMenu`. Los ítems que abren dialog usan `useRekaDialogFix` + `@select="deferOpen(...)"` (bug conocido de reka-ui). **Adenda 2026-10-20**: en desktop el nombre manda — si los botones truncarían el título, también colapsan al "⋮" y vuelven cuando hay espacio (medición por `useDesktopActionsOverflow`). | Solo achicar los botones: cuatro botones de 32 px + contador siguen comiendo ~150 px del título; el problema de fondo es la cantidad de acciones, no su tamaño. |
 | D3 | **Panel sticky colapsable**: toggle en la fila de tabs que colapsa el bloque de sin asignar (default expandido — el flujo de tap-assign necesita las pastillas visibles) + paddings reducidos. | Mover el panel a un Sheet/Drawer: `@repo/ui` no tiene ese componente; introducirlo es alcance mayor para esta spec. |
 | D4 | **Dialog de caminantes dual**: tabla actual `hidden sm:block`; en móvil, lista de cards con `<dl>` por walker usando las mismas keys `tables.tableCard.*` y los helpers `getBedLocation`/`getPhones` existentes. Máximo 7 walkers ⇒ lista corta sin scroll horizontal. | Achicar u ocultar columnas de la tabla: son datos útiles (teléfonos, cama, parroquia) y 8 columnas no caben en 390 px digan lo que digan los tamaños. |
 | D5 | **Banner de tap-to-assign en el panel sticky** ("Toca la mesa de destino…" + Quitar/Cancelar) que reemplaza al botón flotante `Teleport fixed bottom-6`, más `ring-2` en las zonas destino y un hint textual en la zona de walkers. | Conservar el flotante y solo reforzar los rings: el flotante tapa contenido, queda lejos de donde está la pastilla seleccionada y no explica qué hacer. |
@@ -67,7 +67,9 @@ scroll horizontal ni contenido tapado. El desktop se mantiene como está.
   y acciones Quitar/Cancelar, `ring-2` en zonas destino, y el botón flotante de desasignar
   eliminado (D5).
 - **R6** Desktop (`≥ sm`) se comporta y ve igual que hoy, salvo el tamaño del padding/título que
-  pasa a estar explícito (`sm:` conserva los valores actuales) (D1, D2).
+  pasa a estar explícito (`sm:` conserva los valores actuales) (D1, D2) — **y desde la adenda
+  2026-10-20**: si los botones directos truncarían el título, colapsan al "⋮" y el nombre se ve
+  completo (el título nunca pierde contra las acciones).
 
 ## Criterios de aceptación
 
@@ -140,3 +142,26 @@ Desviaciones:
 
 Lo descartado se mantiene descartado (D1–D5): sin badge de número extraído, sin Sheet/Drawer en
 `@repo/ui`, sin achicar la tabla de caminantes, sin conservar el flotante.
+
+### Adenda 2026-10-20 (mismo worktree, pre-merge): el nombre manda también en desktop
+
+Pedido del usuario tras la revisión: en desktop el nombre de mesa debe verse **siempre**; si no
+hay espacio, las acciones van al "⋮". Implementado con `useDesktopActionsOverflow`
+(`apps/web/src/composables/useDesktopActionsOverflow.ts`):
+
+- Colapsa cuando el título truncaría con los botones visibles (`scrollWidth > clientWidth`).
+- Re-expande cuando el hueco real entre título y bloque derecho (`rightBlock.left -
+  titleBlock.right`) cabe la diferencia acciones−"⋮". Medir ese hueco —y no el ancho del span,
+  que con `justify-between` no crece al colapsar— fue la corrección clave: la primera versión
+  medía sobre el span y quedaba pegada en colapsado.
+- Reacciona a resize (window + ResizeObserver del título/header) y al rename / alta-baja de
+  líderes (watch). Histéresis de 2 px y re-chequeo post-toggle acotado (≤4 rAF) contra
+  oscilación en el borde.
+
+Verificado por dato (Playwright, Buen Despacho): a 1280×900 con cards de 299 px los 10 cards
+colapsan al "⋮" y los títulos se ven enteros (antes "Mesa 1" quedaba en ~50 px: "Mes…"); a
+1920×1080 (cards de 512 px) los 10 muestran botones; rename a nombre largo (331 px) colapsa en
+el acto sin truncar; rename de vuelta a corto re-expande sin cambiar el viewport; móvil 390×844
+sin regresión (⋮, título entero). Tests: `useDesktopActionsOverflow.test.ts` (7, decisión pura)
++ Rename/Briefing/TablesView 29/29, vue-tsc limpio. Screenshots:
+`.playwright-mcp/mesas-desktop-{1280-colapsado,1920-expandido}.png`.
