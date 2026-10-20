@@ -108,6 +108,11 @@ onMounted(() => {
   mainRef.value?.addEventListener('scroll', handleScroll, { passive: true })
   updatePageTitle()
   versionStore.startPolling()
+  // Offline app shell (specs/offline-mode): only inside /app, after mount, and
+  // through a dynamic import so it adds nothing to the boot chain.
+  import('@/pwa/registerSw')
+    .then(({ registerServiceWorker }) => registerServiceWorker())
+    .catch((error) => console.warn('[PWA]', error))
 })
 
 onUnmounted(() => {
