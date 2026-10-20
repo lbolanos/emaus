@@ -169,6 +169,43 @@ botón `+` lleva `relative z-10` acompañante — sin él, el stacking del DOM t
 
 **Gate**: commit `feat(api)` + `feat(web)`.
 
+## M4d — Sin estrella: menú de favoritos por dwell (feedback ronda 3)
+
+- [x] `SidebarMenuItem.vue`: estrella eliminada de las filas; menú con `role="menu"` + un
+      `menuitem` («Añadir/Quitar de favoritos», keys i18n de M3) que se despliega tras dwell:
+      **hover 1000ms** (mouse), **long-press 500ms** (touch, tolerancia 10px), **focus-dwell
+      1000ms** (teclado). Teleport a `<body>` + `position:fixed` posicionado a mano del rect de la
+      fila (derecha +8, centrado vertical, **clampeado al viewport**), grace 250ms para cruzar,
+      cierre por Escape (devuelve focus) / click fuera / scroll / click en la fila.
+- [x] Guardas táctiles: supresión de mouseenter post-touch (800ms), `preventDefault` del click
+      sintético tras long-press, context-menu solo durante hold, `select-none` +
+      `[-webkit-touch-callout:none]`.
+- [x] `Sidebar.vue`: copias de Favoritos togglables (`is-favorite` + `toggle-favorite` en el site
+      índice -1); los 3 sites de secciones sin `show-favorite-star`; prop eliminada del componente.
+- [x] Tests unit: `SidebarMenuItem.test.ts` nuevo (8 — abre tras 1s y no a 600ms, leave cancela,
+      acción remove para pineado, grace al cruzar, long-press táctil, Escape, click fuera, rail
+      nunca); `Sidebar.test.ts` (46 — stub sin estrella, wiring desde fila real y copia).
+- [x] e2e reescrito: el menú por hover quita y repone el pin desde la fila real, sobrevive reload.
+- [x] QA desktop + móvil (chrome-devtools MCP): dwell 1s, posición right+8 centrada, Escape +
+      focus; móvil 390×844 touch: long-press 500ms (no a 200ms), touchend no navega ni cierra,
+      tap en acción → PUT real, tap fuera cierra; consola limpia; perfil restaurado por PUT.
+
+**Done**: 2026-10-20 — unit 54/54 (8+46), `vue-tsc --noEmit` exit 0, e2e «el menú por hover quita
+y repone el pin» verde (5.2s). El QA móvil cazó un bug real: el menú desplegado a la derecha de la
+fila se salía del viewport en el drawer (390px) — clamp horizontal + vertical en `openMenu`
+(`left = min(row.right+8, innerWidth-232)`), re-verificado en vivo (158→382 de 390) y re-tests.
+Desviaciones: (a) **posicionamiento manual en vez de `Popover` de `@repo/ui`** — el paquete no
+exporta `PopoverAnchor` y encadenar `as-child` (TooltipTrigger→Popover→router-link) secuestra el
+click de navegación del `<a>`; el menú mide el rect del wrapper exterior (sin el
+`transform hover:scale-105` del anchor); (b) **touch 500ms vs mouse 1000ms** — el long-press
+estándar de móvil es más corto que el dwell de mouse pedido («a second»); (c) teclado = dwell por
+focus (1000ms): el toggle es alcanzable sin puntero y un tab rápido nunca lo abre; (d)
+`createTestWrapper` **descarta `options.props`** (nunca los pasa a `mount`) — `SidebarMenuItem.test.ts`
+monta directo con VTU; (e) las copias de Favoritos quedaron togglables (cambio de diseño vs. la
+estrella, que las excluía): quitar el pin directo desde arriba, sin cazar la fila en su sección.
+
+**Gate**: commit `feat(web)`.
+
 ## M5 — Cierre
 
 - [ ] Reconcile en `spec.md` (cada CA verificada ✓, negativos incluidos).

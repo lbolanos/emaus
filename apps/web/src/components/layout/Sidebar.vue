@@ -146,8 +146,8 @@
         <!-- Favorites: pinned items, fixed at the top. Collapsible through
              its own uiStore flag (independent of the section accordion —
              see the store) and hidden while searching. The rows are plain
-             copies: no star of their own (toggle lives in the real sections)
-             and global-index -1 so DOM indices don't collide. -->
+             copies with global-index -1 so DOM indices don't collide; the
+             hover menu unpins straight from the copy. -->
         <div v-if="visibleFavoriteItems.length > 0" data-testid="sidebar-favorites">
           <div
             v-if="!isCollapsedView"
@@ -230,6 +230,8 @@
                 :global-index="-1"
                 :route-with-params="getRouteWithParams(item)"
                 :badge="itemBadge(item.name)" :badge-color="itemBadgeColor(item.name)"
+                :is-favorite="menuFavoritesStore.isFavorite(item.routeName)"
+                @toggle-favorite="menuFavoritesStore.toggleFavorite(item.routeName)"
                 @mouseenter="setFocusedIndex(item, 'mouse')"
                 @mouseleave="clearMouseFocus"
                 @focus="setFocusedIndex(item)"
@@ -254,7 +256,6 @@
                 :global-index="getGlobalItemIndex(item)"
                 :route-with-params="getRouteWithParams(item)"
                 :badge="itemBadge(item.name)" :badge-color="itemBadgeColor(item.name)"
-                show-favorite-star
                 :is-favorite="menuFavoritesStore.isFavorite(item.routeName)"
                 @toggle-favorite="menuFavoritesStore.toggleFavorite(item.routeName)"
                 @mouseenter="setFocusedIndex(item, 'mouse')"
@@ -403,7 +404,6 @@
                       :global-index="getGlobalItemIndex(item)"
                       :route-with-params="getRouteWithParams(item)"
                       :badge="itemBadge(item.name)" :badge-color="itemBadgeColor(item.name)"
-                      show-favorite-star
                       :is-favorite="menuFavoritesStore.isFavorite(item.routeName)"
                       @toggle-favorite="menuFavoritesStore.toggleFavorite(item.routeName)"
                       @mouseenter="setFocusedIndex(item, 'mouse')"
@@ -435,7 +435,6 @@
                 :global-index="getGlobalItemIndex(item)"
                 :route-with-params="getRouteWithParams(item)"
                 :badge="itemBadge(item.name)" :badge-color="itemBadgeColor(item.name)"
-                show-favorite-star
                 :is-favorite="menuFavoritesStore.isFavorite(item.routeName)"
                 @toggle-favorite="menuFavoritesStore.toggleFavorite(item.routeName)"
                 @mouseenter="setFocusedIndex(item, 'mouse')"

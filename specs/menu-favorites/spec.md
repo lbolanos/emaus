@@ -34,8 +34,9 @@ divergían en móvil).
 
 1. Como coordinador, abro el sidebar y **mis 5 vistas más usadas ya están arriba** («Favoritos»),
    sin abrir ninguna sección; clic en una me lleva igual que desde su sección.
-2. Como coordinador, toco la **estrella** de un item del menú (p. ej. «Palancas») y aparece arriba;
-   vuelvo a tocarla y se quita. En móvil funciona igual.
+2. Como coordinador, **dejo el puntero sobre un item del menú ~1s** (p. ej. «Palancas»), se
+   despliega un menú pequeño y «Añadir a favoritos» lo pone arriba; el mismo menú lo quita. En
+   móvil, long-press; con teclado, mantener el focus.
 3. Como coordinador, marco favoritos en la laptop y al abrir el celular **ya están**: el dato vive
    en mi perfil.
 4. Como cualquier usuario, al abrir una sección del sidebar las demás se cierran — siempre
@@ -86,20 +87,31 @@ divergían en móvil).
   no hay favoritos visibles o durante una búsqueda activa. Modo rail: íconos apilados con Tooltip
   lateral (sin header ni colapso en rail). En móvil (drawer) es la misma sección, targets
   táctiles ≥40px (el header mide lo mismo que los headers de sección existentes, ~24px —
-  consistencia con `SidebarSection` por encima del criterio de 40px, que sí aplica a las
-  estrellas).
-- **D7 — Estrella por item en `SidebarMenuItem`.** Props opcionales `isFavorite` /
-  `showFavoriteStar` + emit `toggle-favorite`. El botón va **fuera del `<a>`** (wrapper flex):
-  anidar un botón dentro del link es HTML inválido y rota el clic. Siempre visible (gris discreto;
-  no depender de hover — móvil no lo tiene), amber con relleno cuando es favorito, `aria-pressed` +
-  `aria-label` con i18n. Oculta en modo rail (sin espacio; se toggla desde la vista expandida) y en
-  las copias de la sección Favoritos (el toggle vive junto al item real en su sección).
+  consistencia con `SidebarSection` por encima del criterio de 40px, que sí aplica al botón del
+  menú de favoritos: ~46px de alto por el ancho completo del menú).
+- **D7 — Menú de favoritos por dwell sobre la fila** (`SidebarMenuItem`). **Revisión 2026-10-20
+  (feedback de Leonardo, ronda 3):** la estrella siempre-visible se eliminó — el toggle vive en un
+  menú pequeño que se despliega al **dejar el puntero sobre el item ~1s** (1000ms mouse; 500ms de
+  long-press en touch, con tolerancia de 10px de movimiento; dwell de focus 1000ms para teclado).
+  Prop `isFavorite` + emit `toggle-favorite`; la acción es «Añadir a favoritos»/«Quitar de
+  favoritos» (keys i18n de M3) con la estrella dentro del menú. El menú se teletransporta a
+  `<body>` con `position:fixed` **posicionado a mano** del rect de la fila (derecha +8px, centrado
+  vertical, clampeado al viewport) — `@repo/ui` no exporta `PopoverAnchor` y anidar el trigger en
+  el `<a>` de navegación secuestraría su click; así el `<a>` navega intacto. Cierre: grace 250ms
+  para cruzar al menú, Escape (devuelve el focus a la fila), click/tap fuera, scroll, o click en
+  la propia fila. Guardas táctiles: un tap que navegó no abre el menú 1s después (supresión de
+  mouseenter post-touch 800ms), el touchend tras long-press previene el click sintético, y el
+  context-menu solo se suprime durante el hold (right-click de desktop libre). **Deshabilitado en
+  modo rail** (el Tooltip lateral ya es dueño del hover; se toggla desde la vista expandida). Las
+  **copias de la sección Favoritos también togglables** (cambio vs. la estrella: quitar el pin
+  directo desde arriba, sin cazar la fila en su sección).
 - **D8 — Store pinia nuevo `menuFavoritesStore`** (`load()` tras auth en el `onMounted` del
   Sidebar, `toggleFavorite(routeName)` optimista con rollback + toast si falla el PUT). Sin RBAC:
   preferencia personal. *Alternativa descartada*: `localStorage` — no seguiría al usuario de
   dispositivo; o un `profileStore` completo (sobre-ingeniería para un campo).
 - **D9 — E2E mínimo de Playwright**: regresión del acordeón (conservada del spec anterior) + flujo
-  de favoritos de menú (seed por PUT, sección arriba, clic navega, estrella conmuta, persiste tras
+  de favoritos de menú (seed por PUT, sección arriba, clic navega, el menú por dwell quita/repone
+  el pin, persiste tras
   recarga; restore del perfil en `afterAll`).
 - **D10 — Popover de sugerencias por telemetría sobre el header de «Favoritos»** (feedback de
   Leonardo, 2026-10-19, punto 3). Hover sobre la sección (intent 400ms para abrir, 250ms para
@@ -112,7 +124,7 @@ divergían en móvil).
   PUT). El popover se cierra solo al quedarse sin sugerencias, y el botón `+` desaparece cuando
   no hay ninguna. Privacidad: solo el GET propio lo devuelve (`getPublicProfile`/`searchUsers`
   no lo exponen, cubierto por tests). Hit area del `+`: 40px vía `::before -inset-[6px]` (mismo
-  estándar que la estrella) sin engordar el header compacto.
+  estándar táctil de 40px) sin engordar el header compacto.
 
 ## Requerimientos
 
@@ -128,8 +140,9 @@ divergían en móvil).
   navegación vía `getRouteWithParams`, badge igual que el item original, activo destacado por ruta;
   oculta sin favoritos visibles y durante búsqueda; íconos en rail; header colapsable (estado
   propio en `uiStore`, default expandida, persistido).
-- **R6** — Estrella por item (D7): fuera del link, siempre visible, `aria-pressed`, i18n es+en,
-  targets táctiles cómodos; toggle = PUT parcial; al quitar el último manda `[]`.
+- **R6** — Menú de favoritos por dwell (D7): hover 1000ms / long-press 500ms / focus-dwell
+  1000ms; `role="menu"` + `menuitem` con i18n es+en; toggle = PUT parcial; al quitar el último
+  manda `[]`; el `<a>` de la fila sigue navegando (el menú no intercepta su click).
 - **R7** — Acordeón determinista (ya implementado, commit absorbido): a lo sumo una sección
   abierta; claves faltantes se siembran colapsadas; estado compartido desktop/drawer; mismas keys
   de localStorage.
@@ -147,14 +160,16 @@ telemetría propia en la DB del worktree — research §7):
    arriba sin abrir secciones.
 2. Clic en un favorito navega igual que el item original (misma ruta, con `:id` del retiro
    seleccionado cuando corresponde; en móvil el drawer se cierra solo).
-3. La estrella de un item de sección lo agrega a Favoritos (PUT parcial); recarga y sigue; tocarla
-   de nuevo lo quita; al quitar el último el PUT manda `[]`, nunca `null`.
+3. Dejar el puntero ~1s sobre un item de sección despliega el menú de favoritos; «Añadir a
+   favoritos» lo agrega (PUT parcial), recarga y sigue; el mismo menú lo quita; al quitar el
+   último el PUT manda `[]`, nunca `null`.
 4. Sin retiro seleccionado, los favoritos `requiresRetreat` desaparecen de la sección (igual que
    sus items) y reaparecen al seleccionar uno; el array del perfil no se toca.
 5. localStorage viejo sin clave de una sección: esa sección arranca colapsada y el acordeón nunca
    deja dos secciones abiertas (regresión, ya cubierta por tests).
-6. En emulación móvil: drawer abre/cierra, Favoritos con targets ≥40px, la estrella conmuta, y
-   abrir una sección en el drawer deja consistente el estado al volver a desktop.
+6. En emulación móvil: drawer abre/cierra, Favoritos con targets ≥40px, el menú por long-press
+   (500ms) conmuta **sin salirse del viewport**, y abrir una sección en el drawer deja consistente
+   el estado al volver a desktop.
 7. `GET /social/profile/:userId` (perfil público de otro usuario) y `GET /social/search` no
    devuelven `favoriteMenuItems`.
 8. El header de «Favoritos» colapsa la sección (chevron rota, `aria-expanded` false, contenido
@@ -174,6 +189,8 @@ telemetría propia en la DB del worktree — research §7):
 - Un favorito cuyo item no es visible (sin permiso, sin retiro, página sin item) no renderiza; el
   route name sigue en el perfil (GET lo devuelve).
 - El seed no corre sobre un perfil con `[]` ni reordena favoritos ya guardados.
+- El menú de favoritos no abre antes del dwell completo (600ms de mouse no alcanzan), un tap que
+  navegó no lo abre un segundo después, y el touchend del long-press no navega la fila.
 - Las sugerencias nunca se persisten ni salen del GET propio (no son un campo del perfil público
   ni de la búsqueda de usuarios).
 
@@ -185,7 +202,8 @@ telemetría propia en la DB del worktree — research §7):
 - Sembrar favoritos con telemetría **de otros** usuarios o recomendaciones globales: solo el
   historial propio.
 - Telemetría nueva: se usa la existente, no se instrumenta nada adicional.
-- Estrella en modo rail (D7): se toggla desde la vista expandida.
+- Menú de favoritos en modo rail (D7): el Tooltip lateral ya ocupa el hover; se toggla desde la
+  vista expandida.
 
 ## Reconcile
 

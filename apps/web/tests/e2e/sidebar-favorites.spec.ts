@@ -6,9 +6,9 @@ import { loginAs, withCsrf, E2E_USERS, type AuthSession } from './helpers/auth';
  *
  * - Favoritos: se siembra el perfil por PUT (my-communities + retreat-dashboard),
  *   la sección fija arriba renderiza las copias en pin order, clic en una copia
- *   navega, la estrella de una fila REAL quita/repone el pin y el cambio
- *   sobrevive un reload (PUT real, no solo estado local). afterAll restaura el
- *   perfil capturado en beforeAll.
+ *   navega, el menú que se despliega al dejar el mouse ~1s sobre una fila REAL
+ *   quita/repone el pin y el cambio sobrevive un reload (PUT real, no solo
+ *   estado local). afterAll restaura el perfil capturado en beforeAll.
  * - Acordeón: abrir una sección colapsa la que estaba abierta (regresión del
  *   cherry-pick fec75d89 — antes una sección sin clave en el record guardado
  *   quedaba abierta para siempre).
@@ -74,16 +74,20 @@ async function openApp(page: Page): Promise<void> {
 }
 
 /**
- * The star of a REAL row: the anchor whose data-menu-item-index is >= 0
- * (favorites copies carry -1) and the sibling button next to it.
+ * The favorite menu of a REAL row: hovering its anchor ~1s unfolds the
+ * toggle menu (favorites copies carry index -1). Returns the open menu.
  */
-function realRowStar(page: Page, label: string) {
+async function openRowMenu(page: Page, label: string) {
 	const anchor = page
 		.locator(`a[data-menu-item-index]:not([data-menu-item-index="-1"])`, {
 			hasText: label,
 		})
 		.first();
-	return anchor.locator('xpath=following-sibling::button[@data-testid="favorite-star"]');
+	await anchor.hover();
+	const menu = page.locator('[data-testid="favorite-item-menu"]');
+	// The menu unfolds after a full second of dwell, not on entry.
+	await expect(menu).toBeVisible({ timeout: 4000 });
+	return menu;
 }
 
 test.beforeAll(async ({ baseURL }) => {
@@ -172,7 +176,7 @@ test.describe.serial('Sidebar — favoritos del menú', () => {
 		await page.waitForURL(/communit/i, { timeout: 10000 });
 	});
 
-	test('la estrella quita y repone el pin, y el cambio sobrevive un reload', async ({ page }) => {
+	test('el menú por hover quita y repone el pin, y el cambio sobrevive un reload', async ({ page }) => {
 		await openApp(page);
 
 		// The real row lives inside its collapsible section, and the accordion
@@ -181,17 +185,15 @@ test.describe.serial('Sidebar — favoritos del menú', () => {
 		await communityToggle.click();
 		await expect(communityToggle).toHaveAttribute('aria-expanded', 'true');
 
-		// Unpin from the real row (the favorites copies have no star).
-		const star = realRowStar(page, 'Mis Comunidades');
-		await expect(star).toHaveAttribute('aria-pressed', 'true');
-		await star.click();
+		// Unpin from the real row's hover menu.
+		const menu = await openRowMenu(page, 'Mis Comunidades');
+		await menu.getByRole('menuitem', { name: 'Quitar de favoritos' }).click();
 
 		const favoritesCopies = page.locator(
 			'[data-testid="sidebar-favorites"] a[data-menu-item-index="-1"]',
 			{ hasText: 'Mis Comunidades' },
 		);
 		await expect(favoritesCopies).toHaveCount(0);
-		await expect(star).toHaveAttribute('aria-pressed', 'false');
 
 		// The PUT is real: the pin stays gone after a reload.
 		await page.reload();
@@ -202,13 +204,14 @@ test.describe.serial('Sidebar — favoritos del menú', () => {
 			}),
 		).toHaveCount(0);
 
-		// Pin it back and verify it survives too. The accordion keeps the
-		// community section open across reloads (uiStore persistence).
+		// Pin it back from the same menu and verify it survives too. The
+		// accordion keeps the community section open across reloads (uiStore
+		// persistence).
 		await expect(
 			page.locator('button[aria-controls="section-community"]'),
 		).toHaveAttribute('aria-expanded', 'true');
-		const starAfterReload = realRowStar(page, 'Mis Comunidades');
-		await starAfterReload.click();
+		const menuAfterReload = await openRowMenu(page, 'Mis Comunidades');
+		await menuAfterReload.getByRole('menuitem', { name: 'Añadir a favoritos' }).click();
 		await expect(
 			page.locator('[data-testid="sidebar-favorites"] a[data-menu-item-index="-1"]', {
 				hasText: 'Mis Comunidades',

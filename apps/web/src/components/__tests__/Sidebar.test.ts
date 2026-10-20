@@ -110,10 +110,9 @@ vi.mock('@/components/layout/SidebarSection.vue', () => ({
 	default: { template: '<div><slot /></div>' },
 }));
 // Item stub: mirrors the props/emits the favorites feature relies on, so the
-// tests can click a real row's star and inspect the favorites-section copies.
-// The boolean types matter: the real component declares them via defineProps
-// (type-inferred), and only then does Vue cast a valueless `show-favorite-star`
-// attribute to true instead of leaving it as "".
+// tests can toggle from a real row (emit) and inspect the favorites-section
+// copies. The favorite toggle itself lives inside the real component's hover
+// menu — its interaction is covered by SidebarMenuItem.test.ts.
 vi.mock('@/components/layout/SidebarMenuItem.vue', () => ({
 	default: {
 		name: 'SidebarMenuItemStub',
@@ -125,7 +124,6 @@ vi.mock('@/components/layout/SidebarMenuItem.vue', () => ({
 			routeWithParams: null,
 			badge: Number,
 			badgeColor: String,
-			showFavoriteStar: Boolean,
 			isFavorite: Boolean,
 		},
 		emits: ['toggleFavorite', 'mouseenter', 'mouseleave', 'focus'],
@@ -135,7 +133,6 @@ vi.mock('@/components/layout/SidebarMenuItem.vue', () => ({
 				:data-name="item?.name"
 				:data-route="item?.routeName"
 				:data-index="globalIndex"
-				:data-star="showFavoriteStar ? 'true' : 'false'"
 				:data-favorite="isFavorite ? 'true' : 'false'"
 				@click="$emit('toggleFavorite')"
 			/>`,
@@ -827,7 +824,7 @@ describe('Sidebar Component', () => {
 			expect(sectionRoutes(favoritesWrapper)).toEqual(['retreat-dashboard', 'my-communities']);
 		});
 
-		it('renders the header and copies without star and with index -1', async () => {
+		it('renders the header and copies with favorite state and index -1', async () => {
 			favoritesStore.favoriteMenuItems = ['walkers'];
 			await nextTick();
 
@@ -835,7 +832,8 @@ describe('Sidebar Component', () => {
 			expect(section.text()).toContain('sidebar.favorites');
 			const copies = section.findAll('.menu-item-stub');
 			expect(copies).toHaveLength(1);
-			expect(copies[0].attributes('data-star')).toBe('false');
+			// The copy carries the pinned state (its hover menu offers unpin).
+			expect(copies[0].attributes('data-favorite')).toBe('true');
 			expect(copies[0].attributes('data-index')).toBe('-1');
 		});
 
@@ -857,18 +855,15 @@ describe('Sidebar Component', () => {
 			expect(getFavoritesSection(favoritesWrapper).exists()).toBe(false);
 		});
 
-		it('toggles from a real row (star) and PUTs; the section copy does not toggle', async () => {
+		it('toggles from a real row and from a section copy, each PUTs', async () => {
 			favoritesStore.favoriteMenuItems = [];
 			await nextTick();
 			mockUpdateUserProfile.mockClear();
 
+			// A real row (the stub's click emits the item's hover-menu toggle).
 			const realRow = favoritesWrapper
 				.findAll('.menu-item-stub')
-				.find(
-					(stub: any) =>
-						stub.attributes('data-route') === 'walkers' &&
-						stub.attributes('data-star') === 'true',
-				);
+				.find((stub: any) => stub.attributes('data-route') === 'walkers');
 			expect(realRow).toBeDefined();
 			await realRow!.trigger('click');
 
@@ -878,16 +873,20 @@ describe('Sidebar Component', () => {
 			await flushPromises();
 			await nextTick();
 
-			// The copy appeared in the favorites section, starless.
+			// The copy appeared in the favorites section, also togglable —
+			// unpinning from the top beats hunting the row in its section.
 			const copy = getFavoritesSection(favoritesWrapper)
 				.findAll('.menu-item-stub')
 				.find((stub: any) => stub.attributes('data-route') === 'walkers');
 			expect(copy).toBeDefined();
-			expect(copy!.attributes('data-star')).toBe('false');
+			expect(copy!.attributes('data-favorite')).toBe('true');
 
 			mockUpdateUserProfile.mockClear();
 			await copy!.trigger('click');
-			expect(mockUpdateUserProfile).not.toHaveBeenCalled();
+			await flushPromises();
+			expect(mockUpdateUserProfile).toHaveBeenCalledWith({
+				favoriteMenuItems: [],
+			});
 		});
 
 		it('hides the section while searching', async () => {
