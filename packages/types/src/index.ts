@@ -259,6 +259,11 @@ export const retreatMemoryPhotoSchema = z.object({
 	isPrimary: z.boolean(),
 	sortOrder: z.number().int(),
 	createdAt: z.coerce.date(),
+	// 'gallery' = uploaded in the memories gallery; 'table' = a table group photo
+	// synthesized from `tables.photoUrl` at read time (not a row of this table).
+	source: z.enum(['gallery', 'table']).default('gallery'),
+	// Display label — the table name ("Mesa 3") for source='table' items.
+	label: z.string().nullable().optional(),
 });
 export type RetreatMemoryPhoto = z.infer<typeof retreatMemoryPhotoSchema>;
 

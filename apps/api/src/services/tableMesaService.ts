@@ -6,12 +6,14 @@ import { Retreat } from '../entities/retreat.entity';
 import { RetreatParticipant } from '../entities/retreatParticipant.entity';
 import { getRepositories } from '../utils/repositoryHelpers';
 import { v4 as uuidv4 } from 'uuid';
-import { In } from 'typeorm';
 import { tableMesaSchema } from '@repo/types';
 import { formatDate as formatDateUtil } from '@repo/utils';
 import { sortByName as sortByTableName } from '../utils/naturalSort';
 import { nextTableName } from '../utils/tableNaming';
 import { domainAuditService, DomainAuditAction } from './domainAuditService';
+import { imageService } from './imageService';
+import { avatarStorageService } from './avatarStorageService';
+import { s3Service } from './s3Service';
 
 export const MAX_WALKERS_PER_TABLE = 7;
 export const MAX_TABLE_NAME_LENGTH = 60;
@@ -61,7 +63,13 @@ export const findTablesByRetreatId = async (retreatId: string, dataSource?: Data
 
 	const orderedTables = sortByTableName(tables);
 
-	// Flatten walker RetreatParticipant objects to look like Participant for API compat
+	// Presign private table-photo URLs before the schema parse (no-op for
+	// data-URIs and for base64-mode deployments).
+	for (const table of orderedTables) {
+		if (table.photoUrl) {
+			table.photoUrl = await s3Service.presignPrivateUrl(table.photoUrl);
+		}
+	}
 	for (const table of orderedTables) {
 		if (table.walkers) {
 			table.walkers = table.walkers.map((rp: any) => {
@@ -99,6 +107,15 @@ export const findTableById = async (id: string, dataSource?: DataSource) => {
 			}
 			return rp;
 		}) as any;
+	}
+
+	// Presign the private table-photo URL for the response (no-op for data-URIs
+	// and base64 mode) and never expose the S3 object key to the client.
+	if (table?.photoUrl) {
+		table.photoUrl = await s3Service.presignPrivateUrl(table.photoUrl);
+	}
+	if (table) {
+		table.photoS3Key = undefined;
 	}
 
 	return table;
@@ -188,11 +205,85 @@ export const updateTable = async (
 	return saved;
 };
 
+/** Best-effort S3 cleanup shared by every path that removes a table photo (spec table-memory-photo). */
+const deleteTablePhotoObject = async (table: TableMesa) => {
+	if (!table.photoS3Key || !avatarStorageService.isS3Storage()) return;
+	try {
+		await s3Service.deleteRetreatMemoryPhotoByKey(table.photoS3Key);
+	} catch (err) {
+		// Warn, don't block: an orphaned S3 object is cheap; a failed delete is not.
+		console.warn(`[tableMesaService] S3 delete failed for table photo ${table.id}:`, err);
+	}
+};
+
+/**
+ * Uploads or replaces the group photo of a table (spec table-memory-photo).
+ * `photoData` is a base64 data-URI. S3 mode processes the image (resize + webp)
+ * and stores it under a per-table key; base64 mode persists the data-URI as-is.
+ * Returns the updated table (presigned) or null when the table does not exist.
+ */
+export const setTablePhoto = async (
+	tableId: string,
+	photoData: string,
+	dataSource?: DataSource,
+) => {
+	const repos = getRepositories(dataSource);
+	const table = await repos.tableMesa.findOneBy({ id: tableId });
+	if (!table) return null;
+
+	let url: string;
+	let s3Key: string | null = null;
+	if (avatarStorageService.isS3Storage()) {
+		// processPhoto, NOT processAvatar: the avatar flow crops to a 512px square
+		// and would cut off the people at the edges of the group photo.
+		const { buffer, contentType } = imageService.base64ToBuffer(photoData);
+		const processed = await imageService.processPhoto(buffer, contentType);
+		const uploaded = await s3Service.uploadTablePhoto(
+			table.retreatId,
+			tableId,
+			processed.buffer,
+			processed.contentType,
+		);
+		url = uploaded.url;
+		s3Key = uploaded.key;
+	} else {
+		// Base64 mode: size/format are validated at the boundary
+		// (createRetreatMemoryPhotoSchema); here we just persist the data-URI.
+		url = photoData;
+	}
+
+	const oldSnapshot = { ...table };
+	await repos.tableMesa.update(tableId, { photoUrl: url, photoS3Key: s3Key });
+	void domainAuditService.logUpdate('table', tableId, oldSnapshot, { photoUrl: url }, {
+		retreatId: table.retreatId,
+		fields: ['photoUrl'],
+	});
+	return findTableById(tableId, dataSource);
+};
+
+/** Removes the table photo: best-effort S3 delete + null columns. Null when the table is missing. */
+export const removeTablePhoto = async (tableId: string, dataSource?: DataSource) => {
+	const repos = getRepositories(dataSource);
+	const table = await repos.tableMesa.findOneBy({ id: tableId });
+	if (!table) return null;
+
+	await deleteTablePhotoObject(table);
+	const oldSnapshot = { ...table };
+	await repos.tableMesa.update(tableId, { photoUrl: null, photoS3Key: null });
+	void domainAuditService.logUpdate('table', tableId, oldSnapshot, { photoUrl: null }, {
+		retreatId: table.retreatId,
+		fields: ['photoUrl'],
+	});
+	return findTableById(tableId, dataSource);
+};
+
 export const deleteTable = async (id: string, dataSource?: DataSource) => {
 	const repos = getRepositories(dataSource);
 	const table = await repos.tableMesa.findOneBy({ id });
 	await repos.tableMesa.delete(id);
 	if (table) {
+		// The row is gone; its S3 photo object must not stay behind (spec table-memory-photo).
+		await deleteTablePhotoObject(table);
 		void domainAuditService.logDelete('table', id, table, {
 			retreatId: table.retreatId,
 			fields: ['name', 'retreatId'],
@@ -544,9 +635,10 @@ export const rebalanceTablesForRetreat = async (retreatId: string, dataSource?: 
 			const walkersAtTable = walkers.filter((w) => w.tableId === t.id);
 			return walkersAtTable.length === 0;
 		});
-		const tableIdsToDelete = emptyTablesToDelete.map((t) => t.id);
-		if (tableIdsToDelete.length > 0) {
-			await repos.tableMesa.delete({ id: In(tableIdsToDelete) });
+		// Route through deleteTable instead of a bulk delete: each deleted table may
+		// own an S3 photo object that must go away with the row (no orphans).
+		for (const table of emptyTablesToDelete) {
+			await deleteTable(table.id, dataSource);
 		}
 		// This splice is optimistic. A better approach would be to refetch.
 		tables.splice(idealTableCount);

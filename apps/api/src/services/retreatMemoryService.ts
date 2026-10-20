@@ -5,6 +5,8 @@ import { Retreat } from '../entities/retreat.entity';
 import { RetreatMemoryPhoto } from '../entities/retreatMemoryPhoto.entity';
 import { RetreatMemorySong } from '../entities/retreatMemorySong.entity';
 import { RetreatScheduleItem } from '../entities/retreatScheduleItem.entity';
+import { TableMesa } from '../entities/tableMesa.entity';
+import { sortByName } from '../utils/naturalSort';
 import { imageService } from './imageService';
 import { avatarStorageService } from './avatarStorageService';
 import { s3Service } from './s3Service';
@@ -69,17 +71,65 @@ async function syncDerivedSongUrl(retreatId: string, ds?: DataSource): Promise<v
 	);
 }
 
+/**
+ * Table group photos (spec table-memory-photo), synthesized at read time from
+ * `tables.photoUrl`: they are NOT rows of retreat_memory_photo, so they don't
+ * count against MAX_MEMORY_PHOTOS, can never be primary and never touch the
+ * `retreat.memoryPhotoUrl` mirror. Shape matches a memory photo plus `label`
+ * (the table name) and `source: 'table'` so the gallery can badge them.
+ */
+export async function tablePhotosForRetreat(
+	retreatId: string,
+	ds?: DataSource,
+): Promise<
+	{
+		id: string;
+		retreatId: string;
+		url: string;
+		isPrimary: boolean;
+		sortOrder: number;
+		createdAt: Date;
+		label: string;
+		source: 'table';
+	}[]
+> {
+	const tableRepo = getRepository(TableMesa, ds);
+	const tables = await tableRepo.find({
+		where: { retreatId },
+		select: ['id', 'retreatId', 'name', 'photoUrl'],
+	});
+	const withPhoto = sortByName(tables.filter((t) => !!t.photoUrl));
+	return Promise.all(
+		withPhoto.map(async (t, i) => ({
+			id: t.id,
+			retreatId,
+			url: (await s3Service.presignPrivateUrl(t.photoUrl)) as string,
+			isPrimary: false,
+			sortOrder: 1000 + i, // always after the gallery photos
+			createdAt: new Date(),
+			label: t.name,
+			source: 'table' as const,
+		})),
+	);
+}
+
 export const retreatMemoryService = {
 	async listMemories(retreatId: string, ds?: DataSource) {
 		const photoRepo = getRepository(RetreatMemoryPhoto, ds);
 		const songRepo = getRepository(RetreatMemorySong, ds);
-		const [photos, songs] = await Promise.all([
+		const [photos, songs, tablePhotos] = await Promise.all([
 			photoRepo.find({ where: { retreatId }, order: photoOrder }),
 			songRepo.find({ where: { retreatId }, order: songOrder }),
+			tablePhotosForRetreat(retreatId, ds),
 		]);
 		// Photos live under a private S3 prefix: hand the client presigned URLs.
-		const signedPhotos = await Promise.all(photos.map(presignMemoryPhoto));
-		return { photos: signedPhotos, songs };
+		const signedPhotos = await Promise.all(
+			photos.map(async (p) =>
+				presignMemoryPhoto({ ...p, source: 'gallery' as const, label: null }),
+			),
+		);
+		// Table photos ride along at the end, outside the gallery's cap and invariants.
+		return { photos: [...signedPhotos, ...tablePhotos], songs };
 	},
 
 	async addPhoto(retreatId: string, photoData: string, ds?: DataSource) {
