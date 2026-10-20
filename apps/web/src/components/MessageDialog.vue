@@ -793,7 +793,7 @@ const historyCountry = computed(
 // Plantillas que solo deben usarse vía un flujo dedicado (no en el selector
 // manual): TABLE_LEADER_BRIEFING únicamente se envía con el botón "Enviar info a
 // líderes" (que pasa el contexto de mesa) y SERVER_ASSIGNMENTS_BRIEFING con el
-// botón "Enviar tareas" de la vista de Responsabilidades (que pasa el contexto
+// botón "Enviar" de la pestaña "Por servidor" de Responsabilidades (que pasa el contexto
 // de tareas). Sin ese contexto sus variables {table.*}/{assignments.*}
 // quedarían vacías/literales. Se ocultan del dropdown EXCEPTO cuando el
 // diálogo se abrió justo para ese tipo (forceTemplateType).

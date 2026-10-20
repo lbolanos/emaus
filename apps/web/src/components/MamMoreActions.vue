@@ -80,6 +80,21 @@
         <span>🎤 Agrupar por responsabilidad</span>
         <span v-if="groupBy === 'responsibility'" class="text-blue-600">✓</span>
       </button>
+      <!-- Contraer/expandir días (spec ux-mam-responsabilidades, D4) -->
+      <template v-if="collapsible && groupBy === 'day'">
+        <button
+          type="button"
+          role="menuitem"
+          class="w-full text-left px-3 py-2 hover:bg-gray-50"
+          @click="run('collapse-all')"
+        >▸ Contraer todos los días</button>
+        <button
+          type="button"
+          role="menuitem"
+          class="w-full text-left px-3 py-2 hover:bg-gray-50"
+          @click="run('expand-all')"
+        >▾ Expandir todos los días</button>
+      </template>
       <!-- Acciones de gestión (manage) -->
       <template v-if="canManage">
         <div class="border-t border-gray-100 my-1"></div>
@@ -116,10 +131,12 @@
 <script setup lang="ts">
 import { Button } from '@repo/ui';
 
+// `collapsible` off by default: the empty-list instance has no days to fold.
 defineProps<{
   canManage: boolean;
   publicMamUrl: string | null;
   iconOnly?: boolean;
+  collapsible?: boolean;
 }>();
 
 // Menú visible a todos; acciones gateadas por `canManage` arriba.
@@ -135,6 +152,8 @@ type MoreAction =
   | 'download-bundle'
   | 'copy-public-link'
   | 'help'
+  | 'collapse-all'
+  | 'expand-all'
   | 'relink'
   | 'assign-responsables'
   | 'resolve-santisimo'

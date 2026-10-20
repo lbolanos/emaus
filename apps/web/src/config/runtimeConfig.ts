@@ -5,19 +5,6 @@
  * allowing the same build artifact to work across different environments
  * without requiring rebuilds.
  */
-// Simplified type-safe runtime configuration
-interface ImportMetaEnv {
-	VITE_API_URL: string;
-	VITE_GOOGLE_MAPS_API_KEY?: string;
-	VITE_RECAPTCHA_SITE_KEY?: string;
-	MODE: 'development' | 'production';
-}
-
-// Runtime-safe environment access
-declare const import_meta: {
-	env: ImportMetaEnv;
-};
-
 export interface EnvironmentConfig {
 	apiUrl: string;
 	googleMapsApiKey?: string;
@@ -133,47 +120,19 @@ class RuntimeConfigManager {
 				source: 'runtime-injected',
 			});
 		} else {
-			// 2. Build-time environment variables (with runtime safety check)
-			try {
-				// Check if import_meta is available (build environment)
-				if (typeof import_meta !== 'undefined' && import_meta.env) {
-					apiUrl = import_meta.env.VITE_API_URL || this.getDefaultApiUrl(environment);
-					googleMapsApiKey = import_meta.env.VITE_GOOGLE_MAPS_API_KEY;
-					recaptchaSiteKey = import_meta.env.VITE_RECAPTCHA_SITE_KEY;
-					console.log('[CONFIG] Loaded from build-time environment:', {
-						environment,
-						apiUrl,
-						googleMapsApiKey,
-						recaptchaSiteKey,
-						source: 'build-time',
-					});
-				} else {
-					// Fallback to environment-based defaults
-					apiUrl = this.getDefaultApiUrl(environment);
-					googleMapsApiKey = undefined;
-					recaptchaSiteKey = undefined;
-					console.log('[CONFIG] Build-time environment not available, using defaults:', {
-						environment,
-						apiUrl,
-						googleMapsApiKey,
-						recaptchaSiteKey,
-						source: 'defaults',
-					});
-				}
-			} catch (error) {
-				// Fallback for runtime environments where import_meta is not available
-				apiUrl = this.getDefaultApiUrl(environment);
-				googleMapsApiKey = undefined;
-				recaptchaSiteKey = undefined;
-				console.log('[CONFIG] Build-time environment access failed, using defaults:', {
-					environment,
-					apiUrl,
-					googleMapsApiKey,
-					recaptchaSiteKey,
-					source: 'fallback',
-					error: error instanceof Error ? error.message : String(error),
-				});
-			}
+			// 2. Build-time environment variables. Vite statically replaces
+			// import.meta.env.* in the dev server and the bundle, so this is
+			// how VITE_API_URL actually reaches the app.
+			apiUrl = import.meta.env.VITE_API_URL || this.getDefaultApiUrl(environment);
+			googleMapsApiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+			recaptchaSiteKey = import.meta.env.VITE_RECAPTCHA_SITE_KEY;
+			console.log('[CONFIG] Loaded from build-time environment:', {
+				environment,
+				apiUrl,
+				googleMapsApiKey,
+				recaptchaSiteKey,
+				source: 'build-time',
+			});
 		}
 
 		// Validate configuration

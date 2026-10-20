@@ -5,29 +5,54 @@ Permite, una vez asignadas responsabilidades y equipos, enviar por WhatsApp a ca
 los que participa (como líder o miembro), para que sepa qué le toca en el retiro.
 
 Es el patrón del [briefing de mesa](./table-leader-briefing.md) aplicado al equipo
-servidor: botón → Popover de servidores → `MessageDialog` prellenado → envío asistido
-WhatsApp (clipboard + deep link `wa.me` + registro en `participant_communications`).
+servidor: pestaña de servidores → `MessageDialog` prellenado → envío asistido WhatsApp
+(clipboard + deep link `wa.me` + registro en `participant_communications`).
 
-## Disparador
+## Disparador: la pestaña "Por servidor"
 
-En la vista **Responsabilidades** (`ResponsabilitiesView.vue`), el header tiene el
-botón **"Enviar tareas"** (icono `Send`), deshabilitado si ningún servidor tiene
-asignaciones.
+Desde 2026-10-19 (`specs/ux-mam-responsabilidades`, D1) el disparador es la pestaña
+**"Por servidor"** de la vista **Responsabilidades** (`ResponsabilitiesView.vue`), al
+final de la barra de filtros. Reemplazó a un Popover del encabezado que, al sumar
+"· N documentos", recortaba los nombres a cero, y que obligaba a reabrirlo y buscar de
+nuevo después de cada envío.
 
-Al pulsarlo abre un **Popover** con solo los servidores activos con ≥1 asignación
-(responsabilidad activa o equipo, líder o miembro), con buscador tolerante (mismo
-normalizador que el buscador principal de la vista) y el conteo
-"N responsabilidades · M equipos" por servidor. Al elegir uno se abre el
-`MessageDialog` con:
+`BriefingSendList.vue` (la lista genérica, que también usa el diálogo «Enviar info a líderes» de Mesas) lista solo
+los servidores activos con ≥1 asignación
+(responsabilidad activa, equipo como líder o miembro, o momento del Minuto a Minuto),
+cada uno con:
+
+- el nombre completo y los nombres de sus responsabilidades,
+- "N responsabilidades · M equipos · K documentos",
+- la marca **"Enviado el … por WhatsApp/correo"** o "Sin enviar", y el botón
+  **Enviar** / **Reenviar**,
+- un filtro **Todos / Sin enviar**.
+
+El buscador del encabezado filtra la pestaña, por nombre (tokens normalizados, el mismo
+normalizador de las tarjetas) o por responsabilidad. "Enviar" abre el `MessageDialog` con:
 
 - el servidor elegido como destinatario (su teléfono),
 - la plantilla **"Tareas del Servidor — responsabilidades y equipos"**
   (`SERVER_ASSIGNMENTS_BRIEFING`) preseleccionada,
 - las variables `{assignments.*}` resueltas con los datos de ese servidor.
 
-Se cierra el Popover **antes** de abrir el Dialog (patrón `nextTick`) para evitar el
-bug de `pointer-events:none` huérfano de reka-ui, y el Dialog va **montado sin `v-if`**
-(el watcher de `forceTemplateType` solo dispara si ya estaba montado).
+El Dialog se abre desde un botón, no desde un menú: no hay overlay de reka-ui que
+cerrar antes. Va **montado sin `v-if`** (el watcher de `forceTemplateType` solo dispara
+si ya estaba montado). Al cerrarlo, la pestaña sigue en pantalla y recarga la marca.
+
+### La marca de "ya enviado" (D3)
+
+Sale del historial, así que la ven todos los coordinadores y sobrevive a recargar:
+`GET /api/participant-communications/retreat/:retreatId/latest-by-template-type?type=SERVER_ASSIGNMENTS_BRIEFING`
+(`participantCommunicationController.getLatestByTemplateType`) devuelve
+`{ [participantId]: { sentAt, messageType } }` con el último envío por servidor. Une
+`participant_communications.templateId` con `message_templates.type`, solo selecciona
+participante, fecha y canal (nunca el cuerpo), valida `type` contra el catálogo (400) y
+exige acceso al retiro en la ruta (`requireRetreatAccess`) y en el handler (403). Un
+envío hecho con otra plantilla, o sin plantilla, no marca.
+
+Documentos y marcas se cargan con el retiro, no al abrir la pestaña: quien solo tiene
+momentos del Minuto a Minuto aparece con los documentos, y el contador de la pestaña no
+salta al abrirla.
 
 ## Scope de variables `assignments.*`
 
@@ -68,8 +93,9 @@ a cada servidor. Spec, decisiones D1-D6 y desviaciones: `specs/assignment-docume
   (`data:`) no tienen link que abrir desde el celular.
 - **Una sola fuente**: `assignmentDocumentsService` (API) alimenta el endpoint
   `GET /api/schedule/retreats/:retreatId/assignment-documents` (envío manual, una llamada
-  al abrir el Popover) y `messageSequenceService.buildAssignmentsData` (motor). Si la
-  llamada falla, el mensaje sale sin documentos y un toast lo dice.
+  al cargar el retiro en la vista) y `messageSequenceService.buildAssignmentsData` (motor).
+  Si la llamada falla, la pestaña lo avisa, el mensaje sale sin documentos y un toast lo
+  dice.
 - **Plantilla**: `20261019130000_AddDocumentsToServerAssignmentsBriefing` agrega el bloque
   `*Tus documentos*` solo donde el texto sigue igual a la semilla.
 - **Conjuntos clonados**: el seeder sincroniza solo los dos conjuntos que siembra. Un clon
@@ -109,7 +135,7 @@ que lo lee quien lo firma).
 
 **No aparece en el selector manual** de plantillas del `MessageDialog`
 (`MANUAL_HIDDEN_TEMPLATE_TYPES`, junto a `TABLE_LEADER_BRIEFING`): sus variables solo
-se llenan vía el botón "Enviar tareas" (que pasa el `assignmentsData`). Se selecciona
+se llenan vía la pestaña "Por servidor" (que pasa el `assignmentsData`). Se selecciona
 solo cuando el diálogo se abre con `forceTemplateType='SERVER_ASSIGNMENTS_BRIEFING'`.
 Tampoco se **persiste ni se restaura** como preferencia de plantilla del contexto
 (`emaus.messageDialog.lastTemplate.*`): sin el `assignmentsData` del flujo, restaurarla
@@ -168,7 +194,11 @@ la práctica el camino activo es el manual.
   `assignmentsData` + `templateType`.
 - `apps/web/src/components/MessageDialog.vue` — props `assignmentsData` +
   `forceTemplateType`; tipo oculto del selector manual.
-- `apps/web/src/views/ResponsabilitiesView.vue` — botón + Popover + `onChooseServer`.
+- `apps/web/src/views/ResponsabilitiesView.vue` — pestaña, carga de documentos y marcas,
+  `onChooseServer`.
+- `apps/web/src/components/BriefingSendList.vue` — la lista de la pestaña (compartida con Mesas).
+- `apps/api/src/controllers/participantCommunicationController.ts` —
+  `getLatestByTemplateType` (la marca de enviado).
 - `apps/web/src/components/BaseMessageTemplateModal.vue` — categoría "Tareas".
 
 ## Tests
@@ -178,7 +208,12 @@ la práctica el camino activo es el manual.
 - `apps/web/src/utils/__tests__/serverAssignments.test.ts` — líder vs miembro,
   etiquetas de tipo, apodos, inactivos fuera, orden.
 - `apps/web/src/views/__tests__/ResponsabilitiesBriefing.test.ts` — candidatos,
-  búsqueda, apertura del dialog con plantilla + `assignmentsData`.
+  búsqueda, apertura del dialog con plantilla + `assignmentsData`, marca de enviado
+  (carga, recarga al cerrar el dialog, fallo).
+- `apps/web/src/components/__tests__/BriefingSendList.test.ts` — nombres visibles,
+  marca, filtro "Sin enviar", emit de `send`.
+- `apps/api/src/tests/controllers/participantCommunicationLatestByType.test.ts` — último
+  envío por tipo, sin cuerpos, 400 y 403.
 - `apps/api/src/tests/migrations/addServerAssignmentsBriefingTemplate.test.ts` —
   seed global + copia a retiros + idempotencia + down.
 - `apps/api/src/tests/services/sequenceRecipientsAndSeed.test.ts` — resolución del

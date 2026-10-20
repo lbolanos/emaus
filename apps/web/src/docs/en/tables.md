@@ -98,6 +98,24 @@ The table view shows:
 - Total count
 - Any conflicts (family members together)
 
+In each table's **⋮** menu: send the table info to its leader or a co-leader, **View Walkers**,
+**Assign by Photo** and **Delete** (only while the table has no walkers). The number of columns
+is in the top **⋮**, on a computer.
+
+## Send Each Leader Their Table Info
+
+In the top **⋮** menu, **Send info to leaders** opens a list with each leader and co-leader,
+their table, role, walkers and **whether they already got their table info**:
+
+1. Search by name or table; **Not sent** leaves only the ones still pending.
+2. Press **Send** on their row: the message opens with their table, walkers and contacts.
+   Review it and press **Enviar Mensaje** (Send message), which opens the WhatsApp conversation.
+3. When the message closes you are back on the list, with your search and filter: the row is
+   marked **Sent on …** and the button turns into **Resend**.
+
+The mark comes from the retreat's message history: every coordinator sees it, and it stays after
+reloading.
+
 ## Printing Table Reports
 
 Generate reports showing:

@@ -47,7 +47,7 @@
                 <Loader2 v-else class="mr-2 h-4 w-4 animate-spin" />
                 {{ isExporting ? $t('serviceTeams.exporting') : $t('serviceTeams.exportDocx') }}
               </DropdownMenuItem>
-              <DropdownMenuItem @click="handlePrint">
+              <DropdownMenuItem @select="deferOpen(handlePrint)">
                 <Printer class="mr-2 h-4 w-4" />
                 {{ $t('serviceTeams.print') }}
               </DropdownMenuItem>
@@ -226,6 +226,7 @@ import { ServiceTeamType } from '@repo/types';
 import { useI18n } from 'vue-i18n';
 import { exportServiceTeamsToDocx } from '@/services/api';
 import { useDragState } from '@/composables/useDragState';
+import { useRekaDialogFix } from '@/composables/useRekaDialogFix';
 
 const serviceTeamStore = useServiceTeamStore();
 const retreatStore = useRetreatStore();
@@ -233,6 +234,9 @@ const participantStore = useParticipantStore();
 const { toast } = useToast();
 const { t } = useI18n();
 const { startDrag: startDragState, endDrag } = useDragState();
+// The print item in the ⋮ menu calls window.print as the menu closes; without
+// the deferral reka-ui leaves pointer-events:none on <body> and the page freezes.
+const { deferOpen } = useRekaDialogFix();
 
 const isOverUnassigned = ref(false);
 const isExporting = ref(false);

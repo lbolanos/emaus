@@ -67,6 +67,13 @@ vi.mock('vue-i18n', () => ({
 	createI18n: vi.fn(),
 }));
 
+// Print actions are deferred via useRekaDialogFix so the dropdown closes before
+// window.print() blocks the thread. Run them synchronously here; the composable
+// has its own test suite.
+vi.mock('@/composables/useRekaDialogFix', () => ({
+	useRekaDialogFix: () => ({ deferOpen: (fn: () => void) => fn(), restoreBodyOverflow: vi.fn() }),
+}));
+
 vi.mock('lucide-vue-next', () => ({
 	Loader2: { name: 'Loader2', template: '<svg></svg>' },
 	Printer: { name: 'Printer', template: '<svg></svg>' },
@@ -84,9 +91,11 @@ vi.mock('@repo/ui', () => ({
 	DropdownMenu: { name: 'DropdownMenu', template: '<div><slot /></div>' },
 	DropdownMenuContent: { name: 'DropdownMenuContent', template: '<div><slot /></div>' },
 	DropdownMenuItem: {
+		// The real reka-ui item emits `select` when clicked — the view listens
+		// to `select`, never to a bare `click` (troubleshooting #1).
 		name: 'DropdownMenuItem',
-		template: '<div @click="$emit(\'click\')"><slot /></div>',
-		emits: ['click'],
+		template: '<div @click="$emit(\'select\')"><slot /></div>',
+		emits: ['select'],
 	},
 	DropdownMenuTrigger: { name: 'DropdownMenuTrigger', template: '<div><slot /></div>' },
 	DropdownMenuLabel: { name: 'DropdownMenuLabel', template: '<div><slot /></div>' },

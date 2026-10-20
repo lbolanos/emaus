@@ -3,9 +3,13 @@
     <div class="flex items-start justify-between gap-4 flex-wrap">
       <div>
         <h1 class="text-2xl font-semibold">{{ t('santisimo.title') }}</h1>
-        <p class="text-sm text-gray-500">{{ t('santisimo.subtitle') }}</p>
+        <p class="text-sm text-gray-500 print:hidden">{{ t('santisimo.subtitle') }}</p>
+        <!-- On paper nothing identifies which retreat this schedule belongs to
+             (the sidebar is hidden by AppLayout's print rules), so state it.
+             A retreat is identified by its parish (see DeleteRetreatDialog). -->
+        <p class="hidden text-sm text-gray-700 print:block">{{ retreat?.parish }}</p>
       </div>
-      <div class="flex items-center gap-2 flex-wrap">
+      <div class="flex items-center gap-2 flex-wrap print:hidden">
         <div class="flex items-center gap-2 border rounded px-3 py-1.5">
           <input
             id="santisimo-enabled"
@@ -94,7 +98,7 @@
       {{ t('santisimo.noSlots') }}
     </div>
 
-    <div v-else class="grid grid-cols-1 md:grid-cols-3 gap-4 print:grid-cols-3 print:gap-2">
+    <div v-else class="santisimo-grid grid grid-cols-1 md:grid-cols-3 gap-4 print:grid-cols-3 print:gap-2">
       <div
         v-for="(col, idx) in columns"
         :key="idx"
@@ -106,7 +110,7 @@
         <div
           v-for="slot in col.slots"
           :key="slot.id"
-          class="border-t px-2 py-1 text-sm"
+          class="border-t px-2 py-1 text-sm print:break-inside-avoid"
           :class="[
             slot.isDisabled ? 'bg-gray-100 text-gray-500' : '',
             slot.mealWindow && !slot.isDisabled ? 'bg-amber-50 border-l-4 border-amber-400' : '',
@@ -809,7 +813,15 @@ async function toggleDisabled(slot: SantisimoSlotWithSignups) {
 }
 
 async function deleteSlot(slot: SantisimoSlotWithSignups) {
-  if (!window.confirm(t('santisimo.confirmDeleteSlot'))) return;
+  // Deleting a slot cascades to its sign-ups. When it has people on it, ask
+  // with a louder confirm that names the count and points at the ✕ as the
+  // way to remove a single person (Buen Despacho lost its 5–6 AM slots this
+  // way on 2026-10-15).
+  const count = slot.signups?.length ?? 0;
+  const message = count > 0
+    ? t('santisimo.confirmDeleteSlotWithSignups', { count })
+    : t('santisimo.confirmDeleteSlot');
+  if (!window.confirm(message)) return;
   await santisimoStore.deleteSlot(slot.id);
 }
 
@@ -838,6 +850,16 @@ function copyPublicLink() {
 }
 
 function printView() {
+  // Give the printed sheet its own title: browsers stamp document.title in the
+  // print header/footer, which would otherwise carry the app tab title.
+  const previous = document.title;
+  // Retreats have no `name` field; the app identifies them by parish (see the
+  // sidebar's `parish - date` label), so the printed header uses that.
+  const name = retreat.value?.parish || '';
+  document.title = name ? t('santisimo.printTitle', { name }) : t('santisimo.printTitleNoName');
+  // Chrome fires afterprint right after the dialog; Safari queues it. Restoring
+  // here as well would race Safari's render, so we only rely on the event.
+  window.addEventListener('afterprint', () => { document.title = previous; }, { once: true });
   window.print();
 }
 
@@ -865,9 +887,12 @@ onMounted(async () => {
 
 <style scoped>
 @media print {
-  :deep(aside),
-  :deep(header) {
-    display: none !important;
+  /* Chrome drops backgrounds when printing unless forced — without this the
+     day-header bars and the meal-window amber stripes come out blank. */
+  .santisimo-grid,
+  .santisimo-grid * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
   }
 }
 </style>

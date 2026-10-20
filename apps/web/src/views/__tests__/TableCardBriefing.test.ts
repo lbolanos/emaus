@@ -47,10 +47,18 @@ vi.mock('@repo/ui', () => {
     CardTitle: stub('CardTitle'),
     Button: { name: 'Button', props: ['variant', 'size', 'title'], template: '<button class="ui-button" :title="title"><slot /></button>' },
     Input: { name: 'Input', props: ['modelValue'], template: '<input :value="modelValue" />' },
-    // Popover siempre renderiza su contenido para poder hacer click en la lista.
-    Popover: { name: 'Popover', props: ['open'], template: '<div class="popover"><slot /></div>' },
-    PopoverTrigger: { name: 'PopoverTrigger', props: ['asChild'], template: '<div class="popover-trigger"><slot /></div>' },
-    PopoverContent: { name: 'PopoverContent', props: ['align'], template: '<div class="popover-content"><slot /></div>' },
+    // ⋮ de la tarjeta (spec ux-mam-responsabilidades, D9): el menú siempre
+    // renderiza sus opciones; cada opción emite `select` al hacer click.
+    DropdownMenu: stub('DropdownMenu'),
+    DropdownMenuTrigger: stub('DropdownMenuTrigger'),
+    DropdownMenuContent: stub('DropdownMenuContent', 'menu-content'),
+    DropdownMenuItem: {
+      name: 'DropdownMenuItem',
+      props: ['disabled'],
+      emits: ['select'],
+      template: '<div class="menu-item" :data-disabled="disabled ? \'true\' : null" @click="$emit(\'select\')"><slot /></div>',
+    },
+    DropdownMenuSeparator: stub('DropdownMenuSeparator'),
     Dialog: stub('Dialog'),
     DialogContent: stub('DialogContent'),
     DialogHeader: stub('DialogHeader'),
@@ -73,6 +81,7 @@ vi.mock('lucide-vue-next', () => ({
   Pencil: { name: 'Pencil', template: '<svg />' },
   Check: { name: 'Check', template: '<svg />' },
   X: { name: 'X', template: '<svg />' },
+  MoreVertical: { name: 'MoreVertical', template: '<svg />' },
 }));
 
 vi.mock('./ServerDropZone.vue', () => ({ default: { name: 'ServerDropZone', template: '<div />' } }));
@@ -109,23 +118,42 @@ afterEach(() => {
   openSpy.mockReset();
 });
 
+// deferOpen espera 80 ms antes de abrir (bug reka-ui pointer-events).
+const waitDeferOpen = () => new Promise((r) => setTimeout(r, 120));
+
 describe('TableCard — briefing de mesa', () => {
-  it('muestra el botón de briefing cuando hay al menos un líder', () => {
+  it('ofrece en el ⋮ una opción de envío por cada líder o colíder', () => {
     wrapper = factory(true);
-    expect(wrapper.find('.icon-send').exists()).toBe(true);
+    const items = wrapper.findAll('[data-testid="table-briefing-item"]');
+    expect(items).toHaveLength(1);
+    expect(items[0].text()).toContain('tables.briefingSendTo');
   });
 
-  it('oculta el botón de briefing cuando no hay líderes', () => {
+  it('sin líderes no hay opción de envío', () => {
     wrapper = factory(false);
-    expect(wrapper.find('.icon-send').exists()).toBe(false);
+    expect(wrapper.findAll('[data-testid="table-briefing-item"]')).toHaveLength(0);
+  });
+
+  it('el nombre y el conteo quedan a la vista; el resto va al ⋮', () => {
+    wrapper = factory(true);
+    expect(wrapper.text()).toContain('Mesa 03');
+    expect(wrapper.find('[data-testid="table-card-menu"]').exists()).toBe(true);
+    const labels = wrapper.findAll('.menu-item').map((i) => i.text());
+    expect(labels).toEqual(expect.arrayContaining(['tables.viewWalkers', 'tables.photoAssign.tableTitle', 'common.delete']));
+  });
+
+  it('Eliminar queda deshabilitado mientras la mesa tiene caminantes', () => {
+    wrapper = factory(true);
+    const del = wrapper.findAll('.menu-item').find((i) => i.text() === 'common.delete');
+    expect(del!.attributes('data-disabled')).toBe('true');
   });
 
   it('al elegir un líder abre el MessageDialog con la plantilla y el roster enriquecido', async () => {
     wrapper = factory(true);
-    // El botón de la lista de líderes dentro del PopoverContent.
-    const leaderBtn = wrapper.find('.popover-content button');
-    expect(leaderBtn.exists()).toBe(true);
-    await leaderBtn.trigger('click');
+    const leaderItem = wrapper.find('[data-testid="table-briefing-item"]');
+    expect(leaderItem.exists()).toBe(true);
+    await leaderItem.trigger('click');
+    await waitDeferOpen();
     await flushPromises();
 
     expect(openSpy).toHaveBeenCalledTimes(1);

@@ -2,96 +2,60 @@
   <div class="h-full flex flex-col">
     <!-- Sticky Header -->
     <div class="sticky top-0 z-20 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 p-2 sm:p-3 lg:p-4 border-b">
-      <div class="sm:flex sm:items-center sm:justify-between gap-4">
-        <div class="sm:flex-auto">
+      <!-- Búsqueda + ⋮ (spec ux-mam-responsabilidades, D2): cabe a 390px.
+           "Enviar tareas" vive en la pestaña "Por servidor" (D1). -->
+      <div class="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+        <div class="min-w-0">
           <h1 class="text-[20px] font-bold leading-6 text-gray-900 dark:text-white">{{ $t('responsibilities.title') }}</h1>
           <p class="mt-1 text-[10px] text-gray-700 dark:text-gray-300">{{ $t('responsibilities.description') }}</p>
         </div>
 
-        <div class="flex items-center gap-2 mt-4 sm:mt-0">
-          <!-- Search -->
+        <div class="flex items-center gap-2 w-full sm:w-auto">
           <Input
             v-model="searchQuery"
             :placeholder="$t('responsibilities.searchPlaceholder')"
-            class="w-64"
+            class="flex-1 min-w-0 sm:w-64 sm:flex-none"
           />
 
-          <!-- Column Selector -->
-          <Select v-model="columnCount">
-            <SelectTrigger class="w-[140px]">
-              <LayoutGrid class="h-4 w-4 mr-2" />
-              <SelectValue :placeholder="$t('tables.columns')" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="2">2 {{ $t('tables.columns') }}</SelectItem>
-              <SelectItem value="3">3 {{ $t('tables.columns') }}</SelectItem>
-              <SelectItem value="4">4 {{ $t('tables.columns') }}</SelectItem>
-            </SelectContent>
-          </Select>
-
-          <!-- Create Button -->
-          <Button variant="outline" size="sm" @click="openAddEditModal(null)">
-            <Plus class="h-4 w-4 mr-1" />
-            {{ $t('responsibilities.createResponsability') }}
-          </Button>
-
-          <!-- Enviar tareas por WhatsApp (briefing por servidor, con revisión) -->
-          <Popover v-model:open="assignmentsBriefingOpen">
-            <PopoverTrigger as-child>
-              <Button
-                variant="outline"
-                size="sm"
-                :disabled="loading || assignmentsCandidates.length === 0"
-                :title="$t('responsibilities.sendTasks.button')"
-              >
-                <Send class="h-4 w-4 mr-1" />
-                {{ $t('responsibilities.sendTasks.button') }}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent align="end" class="w-80 p-1 max-h-[60vh] overflow-y-auto">
-              <p class="px-2 py-1.5 text-xs text-muted-foreground">
-                {{ $t('responsibilities.sendTasks.title', { count: assignmentsCandidates.length }) }}
-              </p>
-              <Input
-                v-model="assignmentsSearch"
-                :placeholder="$t('responsibilities.sendTasks.searchPlaceholder')"
-                class="mx-1 mb-1 w-[calc(100%-0.5rem)]"
-              />
-              <button
-                v-for="opt in assignmentsCandidates"
-                :key="opt.participant.id"
-                type="button"
-                class="w-full text-left px-2 py-1.5 text-sm rounded hover:bg-accent flex items-center gap-2"
-                @click="onChooseServer(opt.participant)"
-              >
-                <span class="truncate">{{ participantLabel(opt.participant) }}</span>
-                <span class="ml-auto text-xs text-muted-foreground shrink-0 whitespace-nowrap">
-                  {{ $t('responsibilities.sendTasks.counts', { responsibilities: opt.responsibilitiesCount, teams: opt.teamsCount }) }}<template v-if="opt.documentsCount"> · {{ $t('responsibilities.sendTasks.documentsCount', { count: opt.documentsCount }) }}</template>
-                </span>
-              </button>
-              <p v-if="assignmentsCandidates.length === 0" class="px-2 py-3 text-sm text-muted-foreground text-center">
-                {{ $t('responsibilities.sendTasks.empty') }}
-              </p>
-            </PopoverContent>
-          </Popover>
-
-          <!-- Actions Menu -->
           <DropdownMenu>
             <DropdownMenuTrigger as-child>
-              <Button variant="ghost" size="icon">
+              <Button
+                variant="outline"
+                size="icon"
+                class="shrink-0"
+                :title="$t('responsibilities.moreActions')"
+                :aria-label="$t('responsibilities.moreActions')"
+              >
                 <MoreVertical class="h-5 w-5" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
+            <DropdownMenuContent align="end" class="w-56">
+              <DropdownMenuItem @select="deferOpen(() => openAddEditModal(null))">
+                <Plus class="mr-2 h-4 w-4" />
+                {{ $t('responsibilities.createResponsability') }}
+              </DropdownMenuItem>
               <DropdownMenuItem @click="handleExport" :disabled="isExporting">
                 <Download v-if="!isExporting" class="mr-2 h-4 w-4" />
                 <Loader2 v-else class="mr-2 h-4 w-4 animate-spin" />
                 {{ isExporting ? $t('responsibilities.exporting') : $t('responsibilities.exportDocx') }}
               </DropdownMenuItem>
-              <DropdownMenuItem @click="handlePrint">
+              <DropdownMenuItem @select="deferOpen(handlePrint)">
                 <Printer class="mr-2 h-4 w-4" />
                 {{ $t('responsibilities.print') }}
               </DropdownMenuItem>
+              <!-- Columnas: preferencia de escritorio (en móvil la rejilla es de una columna). -->
+              <div class="hidden sm:block">
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel class="flex items-center gap-2 text-xs text-muted-foreground">
+                  <LayoutGrid class="h-3.5 w-3.5" />
+                  {{ $t('tables.columns') }}
+                </DropdownMenuLabel>
+                <DropdownMenuRadioGroup v-model="columnCount">
+                  <DropdownMenuRadioItem v-for="n in ['2', '3', '4']" :key="n" :value="n">
+                    {{ n }} {{ $t('tables.columns') }}
+                  </DropdownMenuRadioItem>
+                </DropdownMenuRadioGroup>
+              </div>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -100,8 +64,11 @@
 
     <!-- Stats Bar + Filter Tabs -->
     <div class="sticky top-[60px] z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-2 sm:px-3 lg:px-4 py-2 border-b">
-      <div class="flex items-center justify-between">
-        <div class="flex items-center gap-4 text-sm">
+      <!-- En móvil: los conteos arriba y las pestañas debajo. Las pestañas
+           envuelven en vez de desplazarse: con scroll horizontal "Por servidor",
+           la última, quedaba escondida bajo ~900px y nadie la encontraba (D2). -->
+      <div class="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
+        <div class="flex items-center gap-4 text-sm whitespace-nowrap">
           <span class="text-gray-600 dark:text-gray-400">
             {{ $t('responsibilities.totalResponsibilities') }}: <strong>{{ responsibilities.length }}</strong>
           </span>
@@ -113,13 +80,15 @@
           </span>
         </div>
         <!-- Filter Tabs -->
-        <div class="flex items-center gap-1">
+        <div class="flex flex-wrap items-center gap-1" role="tablist">
           <Button
             v-for="tab in filterTabs"
             :key="tab.value"
             :variant="activeFilter === tab.value ? 'default' : 'ghost'"
             size="sm"
-            class="h-7 text-xs"
+            class="h-7 text-xs shrink-0"
+            role="tab"
+            :aria-selected="activeFilter === tab.value"
             @click="activeFilter = tab.value"
           >
             {{ tab.label }}
@@ -137,6 +106,16 @@
       <div v-else-if="error" class="mt-8 text-center text-red-500">
         <p>{{ error }}</p>
       </div>
+      <BriefingSendList
+        v-else-if="assignmentsTabActive"
+        class="mt-4 max-w-3xl"
+        :rows="assignmentRows"
+        :sent="sentByParticipant"
+        :empty-text="$t('responsibilities.sendTasks.empty')"
+        :notices="assignmentDocumentsFailed ? [$t('responsibilities.sendTasks.documentsError')] : []"
+        :sent-failed="sentFailed"
+        @send="(row) => onChooseServer(row.participant)"
+      />
       <div v-else-if="filteredResponsibilities.length === 0" class="mt-8 text-center text-gray-500 dark:text-gray-400">
         <p v-if="searchQuery.trim()">{{ $t('responsibilities.noServersFound') }}</p>
         <p v-else>{{ $t('responsibilities.noResponsibilities') }}</p>
@@ -148,8 +127,26 @@
           class="resp-card relative border rounded-lg p-4 transition-all hover:shadow-md"
           :class="getCardClass(resp)"
         >
-          <!-- Action buttons top-right -->
-          <div class="absolute top-2 right-2 flex gap-1">
+          <!-- Título a la izquierda y acciones a la derecha en la misma fila:
+               el título envuelve en el ancho que queda en vez de quedar tapado
+               por íconos flotando encima (spec ux-mam-responsabilidades, D6). -->
+          <div class="flex items-start gap-2">
+          <div class="min-w-0 flex-1">
+            <!-- Type badge -->
+            <div class="flex items-center gap-2 mb-1">
+              <span
+                v-if="resp.responsabilityType === ResponsabilityType.CHARLISTA"
+                class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200"
+              >
+                {{ resp.name.startsWith('Texto:') ? $t('responsibilities.texto') : $t('responsibilities.charla') }}
+              </span>
+            </div>
+
+            <!-- Responsibility name -->
+            <h3 class="font-semibold text-sm text-gray-900 dark:text-white break-words">{{ displayName(resp) }}</h3>
+          </div>
+          <!-- Documentos a la vista; editar / agregar al equipo / eliminar en el ⋮. -->
+          <div class="flex shrink-0 gap-1 -mr-2 -mt-2">
             <Button v-if="hasDocumentation(resp)" variant="ghost" size="icon" class="h-7 w-7 text-blue-500 hover:text-blue-700" @click="openDocModal(resp)" :title="$t('responsibilities.viewDocs')">
               <FileText class="h-3.5 w-3.5" />
             </Button>
@@ -173,7 +170,7 @@
                     {{ file }}
                   </a>
                 </DropdownMenuItem>
-                <DropdownMenuItem v-if="documentationKeys.has(resp.name)" @click="openAndPrintDoc(resp)">
+                <DropdownMenuItem v-if="documentationKeys.has(resp.name)" @select="deferOpen(() => openAndPrintDoc(resp))">
                   <Printer class="h-3.5 w-3.5 mr-2" />
                   {{ $t('responsibilities.generatePdf') || 'Imprimir / Guardar como PDF' }}
                 </DropdownMenuItem>
@@ -192,36 +189,40 @@
                 class="absolute -top-1 -right-1 inline-flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-emerald-600 text-white text-[9px] font-semibold leading-none"
               >{{ attachmentCounts[resp.name] }}</span>
             </Button>
-            <Button
-              v-if="canManage.retreat.value && relatedTeam(resp)"
-              variant="ghost"
-              size="icon"
-              class="h-7 w-7 text-indigo-600 hover:text-indigo-800"
-              :title="$t('responsibilities.addToTeam')"
-              @click="openTeamDialog(resp)"
-            >
-              <UserPlus class="h-3.5 w-3.5" />
-            </Button>
-            <Button variant="ghost" size="icon" class="h-7 w-7" @click="openAddEditModal(resp)">
-              <Edit class="h-3.5 w-3.5" />
-            </Button>
-            <Button variant="ghost" size="icon" class="h-7 w-7 text-red-500 hover:text-red-700" @click="openDeleteDialog(resp)">
-              <Trash2 class="h-3.5 w-3.5" />
-            </Button>
+            <!-- Cada opción abre un diálogo: deferOpen (bug reka-ui pointer-events). -->
+            <DropdownMenu>
+              <DropdownMenuTrigger as-child>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  class="h-7 w-7"
+                  :title="$t('responsibilities.cardActions', { name: displayName(resp) })"
+                  :aria-label="$t('responsibilities.cardActions', { name: displayName(resp) })"
+                >
+                  <MoreVertical class="h-3.5 w-3.5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem @select="deferOpen(() => openAddEditModal(resp))">
+                  <Edit class="mr-2 h-3.5 w-3.5" />
+                  {{ $t('common.edit') }}
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  v-if="canManage.retreat.value && relatedTeam(resp)"
+                  @select="deferOpen(() => openTeamDialog(resp))"
+                >
+                  <UserPlus class="mr-2 h-3.5 w-3.5 text-indigo-600" />
+                  {{ $t('responsibilities.addToTeam') }}
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem class="text-red-600 focus:text-red-700" @select="deferOpen(() => openDeleteDialog(resp))">
+                  <Trash2 class="mr-2 h-3.5 w-3.5" />
+                  {{ $t('common.delete') }}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
-
-          <!-- Type badge -->
-          <div class="flex items-center gap-2 mb-1">
-            <span
-              v-if="resp.responsabilityType === ResponsabilityType.CHARLISTA"
-              class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200"
-            >
-              {{ resp.name.startsWith('Texto:') ? $t('responsibilities.texto') : $t('responsibilities.charla') }}
-            </span>
           </div>
-
-          <!-- Responsibility name -->
-          <h3 class="font-semibold text-sm text-gray-900 dark:text-white pr-16">{{ displayName(resp) }}</h3>
 
           <!-- Assigned person or unassigned state -->
           <div class="mt-2">
@@ -590,11 +591,20 @@ import { useParticipantStore } from '@/stores/participantStore';
 import { useResponsabilityStore } from '@/stores/responsabilityStore';
 import { useServiceTeamStore } from '@/stores/serviceTeamStore';
 import { storeToRefs } from 'pinia';
-import { Button, Input, Popover, PopoverContent, PopoverTrigger, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, useToast } from '@repo/ui';
+import { Button, Input, useToast } from '@repo/ui';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@repo/ui';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@repo/ui';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@repo/ui';
 import { Label } from '@repo/ui';
-import { Check, ChevronLeft, Crown, Download, Edit, FileText, LayoutGrid, Loader2, MoreVertical, Paperclip, Plus, Printer, Send, Trash2, UserPlus, X } from 'lucide-vue-next';
+import { Check, ChevronLeft, Crown, Download, Edit, FileText, LayoutGrid, Loader2, MoreVertical, Paperclip, Plus, Printer, Trash2, UserPlus, X } from 'lucide-vue-next';
 import { useI18n } from 'vue-i18n';
 import {
   exportResponsibilitiesToDocx,
@@ -602,7 +612,10 @@ import {
   listResponsibilityDocumentationKeys,
   responsabilityAttachmentApi,
   retreatScheduleApi,
+  getLatestSendsByTemplateType,
+  type LatestSendByParticipant,
 } from '@/services/api';
+import BriefingSendList, { type BriefingSendRow } from '@/components/BriefingSendList.vue';
 import { countAssignmentDocuments, type AssignmentDocumentsData } from '@/utils/message';
 import { renderMarkdown } from '@/composables/useMarkdown';
 import { ResponsabilityType } from '@repo/types';
@@ -612,9 +625,14 @@ import { buildAssignmentsData } from '@/utils/serverAssignments';
 import ResponsabilityAttachmentsDialog from '@/components/ResponsabilityAttachmentsDialog.vue';
 import MessageDialog from '@/components/MessageDialog.vue';
 import { useParticipantMessageDialog } from '@/composables/useParticipantMessageDialog';
+import { useRekaDialogFix } from '@/composables/useRekaDialogFix';
 import { useAuthPermissions } from '@/composables/useAuthPermissions';
 import { getSocket } from '@/services/realtime';
 import type { Responsability, Participant, ServiceTeam } from '@repo/types';
+
+// Print items in the ⋮ menus call window.print as the menu closes; without the
+// deferral reka-ui leaves pointer-events:none on <body> and the page freezes.
+const { deferOpen } = useRekaDialogFix();
 
 const retreatStore = useRetreatStore();
 const participantStore = useParticipantStore();
@@ -642,7 +660,7 @@ const serverSearchTerm = ref('');
 const searchQuery = ref('');
 const columnCount = ref(localStorage.getItem('responsibilities_column_count') || '3');
 const isExporting = ref(false);
-const activeFilter = ref<'all' | 'charlas' | 'responsibilities' | 'unassigned'>('all');
+const activeFilter = ref<'all' | 'charlas' | 'responsibilities' | 'unassigned' | 'byServer'>('all');
 const { t } = useI18n();
 
 // Speaker modal state
@@ -710,6 +728,8 @@ const filterTabs = computed(() => [
   { value: 'charlas' as const, label: t('responsibilities.charlas'), count: charlaCount.value },
   { value: 'responsibilities' as const, label: t('responsibilities.responsibilitiesFilter'), count: regularCount.value },
   { value: 'unassigned' as const, label: t('responsibilities.unassignedCount'), count: unassignedCount.value },
+  // Otra entidad (servidores, no tarjetas): va al final (D1).
+  { value: 'byServer' as const, label: t('responsibilities.byServer.tab'), count: assignmentsCandidates.value.length },
 ]);
 
 const filteredResponsibilities = computed(() => {
@@ -791,9 +811,9 @@ watch(selectedRetreatId, (newRetreatId) => {
   }
 }, { immediate: true });
 
-// --- Enviar tareas por WhatsApp (briefing por servidor, con revisión) ---
-const assignmentsBriefingOpen = ref(false);
-const assignmentsSearch = ref('');
+// --- Pestaña "Por servidor": enviar tareas por WhatsApp, con revisión
+// (specs/ux-mam-responsabilidades, D1) ---
+const assignmentsTabActive = computed(() => activeFilter.value === 'byServer');
 
 const {
   isOpen: messageDialogOpen,
@@ -804,22 +824,19 @@ const {
 } = useParticipantMessageDialog();
 
 // Momentos del Minuto a Minuto y documentos de cada servidor
-// (specs/assignment-documents): una llamada al abrir el Popover. Si falla, el
-// mensaje sale sin documentos y se avisa con un toast, nunca en silencio.
+// (specs/assignment-documents): una llamada al entrar a la pestaña. Si falla,
+// el mensaje sale sin documentos y se avisa, nunca en silencio.
 const { toast } = useToast();
 const assignmentDocuments = ref<Record<string, AssignmentDocumentsData>>({});
 const assignmentDocumentsFailed = ref(false);
 let assignmentDocumentsLoad: Promise<void> | null = null;
 
-// Participant ids are global: another retreat's documents must never show here.
-watch(selectedRetreatId, () => {
-  assignmentDocuments.value = {};
-  assignmentDocumentsLoad = null;
-});
+// A quién ya se le mandaron sus tareas (D3): último envío de la plantilla por
+// servidor, del historial. Se recarga al cerrar el MessageDialog.
+const sentByParticipant = ref<LatestSendByParticipant>({});
+const sentFailed = ref(false);
 
-watch(assignmentsBriefingOpen, (open) => {
-  const retreatId = selectedRetreatId.value;
-  if (!open || !retreatId) return;
+const loadAssignmentDocuments = (retreatId: string) => {
   assignmentDocumentsFailed.value = false;
   assignmentDocuments.value = {};
   assignmentDocumentsLoad = retreatScheduleApi
@@ -832,7 +849,46 @@ watch(assignmentsBriefingOpen, (open) => {
       assignmentDocuments.value = {};
       assignmentDocumentsFailed.value = true;
     });
-});
+};
+
+const loadSent = async (retreatId: string) => {
+  try {
+    const data = await getLatestSendsByTemplateType(retreatId, 'SERVER_ASSIGNMENTS_BRIEFING');
+    if (selectedRetreatId.value === retreatId) {
+      sentByParticipant.value = data;
+      sentFailed.value = false;
+    }
+  } catch {
+    sentFailed.value = true;
+  }
+};
+
+// Al cargar el retiro, no al entrar a la pestaña: quien solo tiene momentos del
+// Minuto a Minuto aparece con los documentos, y el contador de la pestaña no
+// debe saltar al abrirla. Participant ids are global: another retreat's data
+// must never show here.
+watch(
+  selectedRetreatId,
+  (retreatId) => {
+    assignmentDocuments.value = {};
+    assignmentDocumentsLoad = null;
+    sentByParticipant.value = {};
+    if (!retreatId) return;
+    loadAssignmentDocuments(retreatId);
+    loadSent(retreatId);
+  },
+  { immediate: true },
+);
+
+// El envío queda en el historial antes de que el dialog se pueda cerrar.
+watch(
+  () => messageDialogOpen?.value,
+  (open, wasOpen) => {
+    if (wasOpen && !open && assignmentsTabActive.value && selectedRetreatId.value) {
+      loadSent(selectedRetreatId.value);
+    }
+  },
+);
 
 // Same count as {assignments.documentsCount} in the message.
 const documentsCountOf = (participantId: string) => {
@@ -847,20 +903,32 @@ const briefingParticipants = computed(() =>
   ),
 );
 
+interface ServerAssignmentCandidate {
+  participant: Participant;
+  responsibilityNames: string[];
+  responsibilitiesCount: number;
+  teamsCount: number;
+  documentsCount: number;
+}
+
 // Servidores activos con al menos una responsabilidad, equipo o momento del
-// Minuto a Minuto, con sus conteos para el Popover. Responsabilidades,
-// participantes y equipos ya los cargó el watcher de selectedRetreatId.
-const assignmentsCandidates = computed(() => {
+// Minuto a Minuto, con sus conteos para la pestaña "Por servidor".
+// Responsabilidades, participantes y equipos ya los cargó el watcher de
+// selectedRetreatId.
+const assignmentsCandidates = computed<ServerAssignmentCandidate[]>(() => {
   const teams = serviceTeamStore.teams || [];
-  const byId = new Map<
-    string,
-    { participant: Participant; responsibilitiesCount: number; teamsCount: number; documentsCount: number }
-  >();
+  const byId = new Map<string, ServerAssignmentCandidate>();
   const findParticipant = (id: string) => briefingParticipants.value.find((x) => x.id === id);
   const ensure = (p: Participant) => {
     let entry = byId.get(p.id);
     if (!entry) {
-      entry = { participant: p, responsibilitiesCount: 0, teamsCount: 0, documentsCount: documentsCountOf(p.id) };
+      entry = {
+        participant: p,
+        responsibilityNames: [],
+        responsibilitiesCount: 0,
+        teamsCount: 0,
+        documentsCount: documentsCountOf(p.id),
+      };
       byId.set(p.id, entry);
     }
     return entry;
@@ -868,7 +936,10 @@ const assignmentsCandidates = computed(() => {
   for (const r of responsibilities.value) {
     if (r.isActive === false || !r.participantId) continue;
     const p = findParticipant(r.participantId);
-    if (p) ensure(p).responsibilitiesCount += 1;
+    if (!p) continue;
+    const entry = ensure(p);
+    entry.responsibilitiesCount += 1;
+    entry.responsibilityNames.push(displayName(r));
   }
   // Quien solo tiene momentos (ej. un colíder con las dinámicas de mesa).
   for (const [participantId, data] of Object.entries(assignmentDocuments.value)) {
@@ -893,25 +964,44 @@ const assignmentsCandidates = computed(() => {
     bump(team.leaderId);
     for (const m of team.members ?? []) bump(m.participantId);
   }
-  let list = [...byId.values()];
-  const q = assignmentsSearch.value.trim();
-  if (q) {
-    // Búsqueda por tokens (misma que el buscador principal): "jose garcia"
-    // encuentra a "José Luis García Ramírez" aunque haya otro nombre en medio.
-    const tokens = searchTokens(q);
-    list = list.filter((e) => participantMatchesTokens(e.participant, tokens));
-  }
-  return list.sort((a, b) =>
+  return [...byId.values()].sort((a, b) =>
     participantLabel(a.participant).localeCompare(participantLabel(b.participant)),
   );
 });
 
-// Cerrar el Popover ANTES de abrir el dialog (bug reka-ui pointer-events);
-// el participante sale hidratado del store (pagos incluidos), nunca de
-// GET /participants/:id.
+// El buscador del encabezado filtra la pestaña, por tokens: "jose garcia"
+// encuentra a "José Luis García Ramírez" aunque haya otro nombre en medio.
+// También por responsabilidad, como en las tarjetas. El contador de la pestaña
+// usa la lista completa, igual que las demás pestañas.
+const visibleAssignmentsCandidates = computed(() => {
+  const tokens = searchTokens(searchQuery.value);
+  if (!tokens.length) return assignmentsCandidates.value;
+  const q = normalizeText(searchQuery.value.trim());
+  return assignmentsCandidates.value.filter(
+    (e) =>
+      participantMatchesTokens(e.participant, tokens) ||
+      e.responsibilityNames.some((n) => normalizeText(n).includes(q)),
+  );
+});
+
+// Filas de la lista genérica: qué hace (sus responsabilidades) y los conteos.
+const assignmentRows = computed<BriefingSendRow[]>(() =>
+  visibleAssignmentsCandidates.value.map((c) => {
+    const counts =
+      t('responsibilities.sendTasks.counts', { responsibilities: c.responsibilitiesCount, teams: c.teamsCount }) +
+      (c.documentsCount ? ` · ${t('responsibilities.sendTasks.documentsCount', { count: c.documentsCount })}` : '');
+    return {
+      key: c.participant.id,
+      participant: c.participant,
+      lines: c.responsibilityNames.length ? [c.responsibilityNames.join(', '), counts] : [counts],
+    };
+  }),
+);
+
+// El participante sale hidratado del store (pagos incluidos), nunca de
+// GET /participants/:id. Se abre desde un botón, no desde un menú: no hay
+// overlay que cerrar antes (bug reka-ui pointer-events).
 const onChooseServer = async (participant: Participant) => {
-  assignmentsBriefingOpen.value = false;
-  assignmentsSearch.value = '';
   // Si los documentos siguen cargando, esperarlos: el mensaje los necesita.
   await assignmentDocumentsLoad;
   if (assignmentDocumentsFailed.value) {

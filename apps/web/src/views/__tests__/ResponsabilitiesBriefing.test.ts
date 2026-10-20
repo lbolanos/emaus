@@ -1,7 +1,8 @@
 /**
- * Briefing de tareas de la vista de responsabilidades: el botón "Enviar tareas"
- * lista solo servidores con asignaciones y al elegir uno abre el MessageDialog
- * prellenado (plantilla SERVER_ASSIGNMENTS_BRIEFING + {assignments.*}).
+ * Briefing de tareas de la vista de responsabilidades: la pestaña "Por
+ * servidor" (specs/ux-mam-responsabilidades, D1) lista solo servidores con
+ * asignaciones, con la marca de a quién ya se le mandó (D3), y "Enviar" abre el
+ * MessageDialog prellenado (plantilla SERVER_ASSIGNMENTS_BRIEFING + {assignments.*}).
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
@@ -13,9 +14,12 @@ import { nextTick } from 'vue';
 const openSpy = vi.fn();
 const toastSpy = vi.fn();
 const assignmentDocumentsSpy = vi.fn();
-vi.mock('@/composables/useParticipantMessageDialog', () => ({
-	useParticipantMessageDialog: () => ({ open: openSpy }),
-}));
+const latestSendsSpy = vi.fn();
+vi.mock('@/composables/useParticipantMessageDialog', async () => {
+	const { ref } = await import('vue');
+	const isOpen = ref(false);
+	return { useParticipantMessageDialog: () => ({ open: openSpy, isOpen }), __dialogOpen: isOpen };
+});
 
 vi.mock('vue-router', () => ({
 	useRoute: () => ({ params: {} }),
@@ -52,6 +56,7 @@ vi.mock('@/services/api', () => ({
 	listResponsibilityDocumentationKeys: vi.fn(async () => ({ keys: [] })),
 	responsabilityAttachmentApi: { list: vi.fn(async () => []), upload: vi.fn(), remove: vi.fn() },
 	retreatScheduleApi: { assignmentDocuments: (...args: unknown[]) => assignmentDocumentsSpy(...args) },
+	getLatestSendsByTemplateType: (...args: unknown[]) => latestSendsSpy(...args),
 }));
 
 // El dialog real arrastra media app; basta un stub para el mount.
@@ -137,10 +142,27 @@ async function mountView(): Promise<VueWrapper<any>> {
 	return wrapper;
 }
 
+// "Enviar" de una fila de la pestaña: el botón y su emit los cubre
+// BriefingSendList.test.ts; aquí, el cableado con la vista.
+const sendFromTab = async (w: VueWrapper<any>, participantId: string) => {
+	w.vm.activeFilter = 'byServer';
+	await flushPromises();
+	const tab = w.findComponent({ name: 'BriefingSendList' });
+	expect(tab.exists()).toBe(true);
+	const row = tab.props('rows').find((r: any) => r.participant.id === participantId);
+	expect(row).toBeTruthy();
+	tab.vm.$emit('send', row);
+	await flushPromises();
+};
+
 describe('ResponsabilitiesView - enviar tareas por servidor', () => {
 	let wrapper: VueWrapper<any>;
 
-	beforeEach(() => vi.clearAllMocks());
+	beforeEach(() => {
+		vi.clearAllMocks();
+		assignmentDocumentsSpy.mockResolvedValue({});
+		latestSendsSpy.mockResolvedValue({});
+	});
 	afterEach(() => {
 		wrapper?.unmount();
 	});
@@ -159,24 +181,35 @@ describe('ResponsabilitiesView - enviar tareas por servidor', () => {
 		expect(byId.s2.teamsCount).toBe(1);
 	});
 
-	it('filtra la lista por búsqueda normalizada', async () => {
+	it('el buscador del encabezado filtra la pestaña, por nombre o responsabilidad', async () => {
 		wrapper = await mountView();
-		wrapper.vm.assignmentsSearch = 'jose garcia';
+		wrapper.vm.searchQuery = 'jose garcia';
 		await nextTick();
-		expect(wrapper.vm.assignmentsCandidates.map((c: any) => c.participant.id)).toEqual(['s1']);
-		wrapper.vm.assignmentsSearch = 'zzz';
+		expect(wrapper.vm.visibleAssignmentsCandidates.map((c: any) => c.participant.id)).toEqual(['s1']);
+		wrapper.vm.searchQuery = 'cocina';
 		await nextTick();
-		expect(wrapper.vm.assignmentsCandidates).toHaveLength(0);
+		expect(wrapper.vm.visibleAssignmentsCandidates.map((c: any) => c.participant.id)).toEqual(['s1']);
+		wrapper.vm.searchQuery = 'zzz';
+		await nextTick();
+		expect(wrapper.vm.visibleAssignmentsCandidates).toHaveLength(0);
+		// El contador de la pestaña no depende de la búsqueda.
+		expect(wrapper.vm.assignmentsCandidates).toHaveLength(2);
 	});
 
-	it('al elegir un servidor abre el MessageDialog con plantilla y assignmentsData', async () => {
+	it('cada fila trae los nombres de sus responsabilidades', async () => {
 		wrapper = await mountView();
-		// El Popover stub renderiza su contenido: el botón de la lista de María.
-		const buttons = wrapper.findAll('button');
-		const mariaBtn = buttons.find((b) => b.text().includes('María'));
-		expect(mariaBtn).toBeTruthy();
-		await mariaBtn!.trigger('click');
-		await flushPromises();
+		const byId = Object.fromEntries(wrapper.vm.assignmentsCandidates.map((c: any) => [c.participant.id, c]));
+		expect(byId.s1.responsibilityNames).toEqual(['Cocina']);
+		expect(byId.s2.responsibilityNames).toEqual([]);
+		// En la lista: primero qué hace, después los conteos; sin responsabilidades, solo conteos.
+		const rows = Object.fromEntries(wrapper.vm.assignmentRows.map((r: any) => [r.key, r.lines]));
+		expect(rows.s1).toEqual(['Cocina', 'responsibilities.sendTasks.counts']);
+		expect(rows.s2).toEqual(['responsibilities.sendTasks.counts']);
+	});
+
+	it('"Enviar" en la pestaña abre el MessageDialog con plantilla y assignmentsData', async () => {
+		wrapper = await mountView();
+		await sendFromTab(wrapper, 's2');
 
 		expect(openSpy).toHaveBeenCalledTimes(1);
 		const [participant, opts] = openSpy.mock.calls[0];
@@ -199,24 +232,15 @@ describe('ResponsabilitiesView - enviar tareas por servidor', () => {
 			responsibilityDocuments: [],
 			table: null,
 		});
-		const clickServer = async (name: string) => {
-			const btn = wrapper.findAll('button').find((b) => b.text().includes(name));
-			expect(btn).toBeTruthy();
-			await btn!.trigger('click');
-			await flushPromises();
-		};
-
-		it('al abrir el Popover carga los documentos y los mezcla en assignmentsData', async () => {
+		it('carga los documentos con el retiro y los mezcla en assignmentsData', async () => {
 			assignmentDocumentsSpy.mockResolvedValue({ s2: docsFor('https://s3/pared.pdf') });
 			wrapper = await mountView();
-			wrapper.vm.assignmentsBriefingOpen = true;
-			await flushPromises();
 
 			expect(assignmentDocumentsSpy).toHaveBeenCalledWith(RETREAT_ID);
 			const maria = wrapper.vm.assignmentsCandidates.find((c: any) => c.participant.id === 's2');
 			expect(maria.documentsCount).toBe(1);
 
-			await clickServer('María');
+			await sendFromTab(wrapper, 's2');
 			const [, opts] = openSpy.mock.calls[0];
 			expect(opts.assignmentsData.moments.map((m: any) => m.name)).toEqual(['Dinámica La Pared']);
 			// Lo que arma la vista se conserva.
@@ -237,7 +261,6 @@ describe('ResponsabilitiesView - enviar tareas por servidor', () => {
 				...responsibilities,
 				{ id: 'r4', name: 'Palanquitas', responsabilityType: 'other', participantId: 'p1', isActive: true, priority: 0, retreatId: RETREAT_ID },
 			];
-			wrapper.vm.assignmentsBriefingOpen = true;
 			await flushPromises();
 
 			const ids = wrapper.vm.assignmentsCandidates.map((c: any) => c.participant.id);
@@ -247,26 +270,30 @@ describe('ResponsabilitiesView - enviar tareas por servidor', () => {
 			expect(ids).not.toContain('s3');
 		});
 
-		it('al cambiar de retiro descarta los documentos del anterior', async () => {
-			assignmentDocumentsSpy.mockResolvedValue({ s2: docsFor('https://s3/pared.pdf') });
+		it('al cambiar de retiro descarta los datos del anterior y carga los del nuevo', async () => {
+			assignmentDocumentsSpy.mockImplementation(async (id: string) =>
+				id === RETREAT_ID ? { s2: docsFor('https://s3/pared.pdf') } : {},
+			);
+			latestSendsSpy.mockImplementation(async (id: string) =>
+				id === RETREAT_ID ? { s2: { sentAt: '2026-10-12T15:00:00.000Z', messageType: 'whatsapp' } } : {},
+			);
 			wrapper = await mountView();
-			wrapper.vm.assignmentsBriefingOpen = true;
-			await flushPromises();
 			expect(Object.keys(wrapper.vm.assignmentDocuments)).toEqual(['s2']);
+			expect(Object.keys(wrapper.vm.sentByParticipant)).toEqual(['s2']);
 
 			const { useRetreatStore } = await import('@/stores/retreatStore');
 			useRetreatStore().selectedRetreatId = 'retreat-2';
 			await flushPromises();
+			expect(assignmentDocumentsSpy).toHaveBeenCalledWith('retreat-2');
 			expect(wrapper.vm.assignmentDocuments).toEqual({});
+			expect(wrapper.vm.sentByParticipant).toEqual({});
 		});
 
 		it('si la carga falla avisa con un toast y abre el mensaje sin documentos', async () => {
 			assignmentDocumentsSpy.mockRejectedValue(new Error('500'));
 			wrapper = await mountView();
-			wrapper.vm.assignmentsBriefingOpen = true;
-			await flushPromises();
 
-			await clickServer('María');
+			await sendFromTab(wrapper, 's2');
 			expect(toastSpy).toHaveBeenCalledWith(
 				expect.objectContaining({
 					title: 'responsibilities.sendTasks.documentsError',
@@ -276,6 +303,48 @@ describe('ResponsabilitiesView - enviar tareas por servidor', () => {
 			const [, opts] = openSpy.mock.calls[0];
 			expect(opts.assignmentsData.moments).toBeUndefined();
 			expect(opts.assignmentsData.teams).toHaveLength(1);
+		});
+	});
+
+	// specs/ux-mam-responsabilidades, D3: la marca sale del historial.
+	describe('a quién ya se le mandó', () => {
+		const sent = { s1: { sentAt: '2026-10-12T15:00:00.000Z', messageType: 'whatsapp' } };
+
+		it('pide el último envío de la plantilla y se lo pasa a la pestaña', async () => {
+			latestSendsSpy.mockResolvedValue(sent);
+			wrapper = await mountView();
+			wrapper.vm.activeFilter = 'byServer';
+			await flushPromises();
+
+			expect(latestSendsSpy).toHaveBeenCalledWith(RETREAT_ID, 'SERVER_ASSIGNMENTS_BRIEFING');
+			expect(wrapper.findComponent({ name: 'BriefingSendList' }).props('sent')).toEqual(sent);
+		});
+
+		it('recarga la marca al cerrarse el MessageDialog estando en la pestaña', async () => {
+			wrapper = await mountView();
+			const dialogMod: any = await import('@/composables/useParticipantMessageDialog');
+			await sendFromTab(wrapper, 's1');
+			latestSendsSpy.mockClear();
+			latestSendsSpy.mockResolvedValue(sent);
+
+			dialogMod.__dialogOpen.value = true;
+			await flushPromises();
+			dialogMod.__dialogOpen.value = false;
+			await flushPromises();
+
+			expect(latestSendsSpy).toHaveBeenCalledTimes(1);
+			expect(wrapper.findComponent({ name: 'BriefingSendList' }).props('sent')).toEqual(sent);
+		});
+
+		it('si falla la carga, la pestaña lo avisa y la lista sigue', async () => {
+			latestSendsSpy.mockRejectedValue(new Error('500'));
+			wrapper = await mountView();
+			wrapper.vm.activeFilter = 'byServer';
+			await flushPromises();
+
+			const tab = wrapper.findComponent({ name: 'BriefingSendList' });
+			expect(tab.props('sentFailed')).toBe(true);
+			expect(tab.props('rows')).toHaveLength(2);
 		});
 	});
 });

@@ -43,9 +43,12 @@ vi.mock('@repo/ui', () => {
       template:
         '<input :value="modelValue" :disabled="disabled" @input="$emit(\'update:modelValue\', $event.target.value)" />',
     },
-    Popover: stub('Popover'),
-    PopoverTrigger: stub('PopoverTrigger'),
-    PopoverContent: stub('PopoverContent'),
+    // ⋮ de la tarjeta (spec ux-mam-responsabilidades, D9).
+    DropdownMenu: stub('DropdownMenu'),
+    DropdownMenuTrigger: stub('DropdownMenuTrigger'),
+    DropdownMenuContent: stub('DropdownMenuContent'),
+    DropdownMenuItem: stub('DropdownMenuItem'),
+    DropdownMenuSeparator: stub('DropdownMenuSeparator'),
     Dialog: stub('Dialog'),
     DialogContent: stub('DialogContent'),
     DialogHeader: stub('DialogHeader'),
@@ -68,6 +71,7 @@ vi.mock('lucide-vue-next', () => ({
   Pencil: { name: 'Pencil', template: '<svg />' },
   Check: { name: 'Check', template: '<svg />' },
   X: { name: 'X', template: '<svg />' },
+  MoreVertical: { name: 'MoreVertical', template: '<svg />' },
 }));
 
 vi.mock('./ServerDropZone.vue', () => ({ default: { name: 'ServerDropZone', template: '<div />' } }));
