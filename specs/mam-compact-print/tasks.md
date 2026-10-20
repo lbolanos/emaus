@@ -92,9 +92,10 @@
 - [x] `pnpm --filter web test` completa verde + `pnpm --filter web exec vue-tsc --noEmit`
 - [x] Print existente verificado intacto (criterio 5)
 - [x] Reconcile de la spec (tabla criterio → evidencia) y rewrite a modo retroactivo
-- [ ] Commit(s) con OK explícito de Leonardo por commit
+- [x] Commit(s) con OK explícito de Leonardo por commit
 
-**Done**: pendiente solo el OK de commit (compuerta). Todo lo demás cerrado 2026-10-19.
+**Done**: 2026-10-19 — `d0969b61` (feat) + `f9d01d8b` (docs) con OK explícito; este cierre
+(tasks + lección al skill `printable-documents`) entra en un tercer commit con su propio OK.
 
 ### Desviaciones
 
