@@ -226,6 +226,7 @@ function mountForm(props: {
 	columnsToShow?: string[];
 	columnsToEdit?: string[];
 	allColumns?: any[];
+	mode?: 'default' | 'palancas';
 }) {
 	const pinia = createPinia();
 	setActivePinia(pinia);
@@ -233,6 +234,7 @@ function mountForm(props: {
 	return mount(EditParticipantForm, {
 		props: {
 			participant: props.participant,
+			mode: props.mode,
 			shirtTypes: props.shirtTypes ?? [],
 			columnsToShow: props.columnsToShow ?? ['firstName', 'lastName'],
 			columnsToEdit: props.columnsToEdit ?? ['firstName', 'lastName'],
@@ -454,6 +456,7 @@ describe('EditParticipantForm – quick phone editor wiring (palancas layout)', 
 			participant: makeParticipant({ type: 'walker', cellPhone: '5512345678' }),
 			columnsToShow: PALANCAS_COLUMNS,
 			columnsToEdit: ['palancasCoordinator', 'palancasNotes'],
+			mode: 'palancas',
 		});
 		await nextTick();
 
@@ -470,6 +473,7 @@ describe('EditParticipantForm – quick phone editor wiring (palancas layout)', 
 			participant: makeParticipant({ type: 'walker' }),
 			columnsToShow: PALANCAS_COLUMNS,
 			columnsToEdit: ['palancasCoordinator', 'palancasNotes'],
+			mode: 'palancas',
 		});
 		await nextTick();
 
@@ -485,6 +489,35 @@ describe('EditParticipantForm – quick phone editor wiring (palancas layout)', 
 				},
 			],
 		]);
+		wrapper.unmount();
+	});
+
+	it('keeps the regular layout when only the visible columns include palanca columns', async () => {
+		// Regression (walker demo bug): the mode used to be inferred from
+		// columnsToShow, which unions the user's column-picker preferences, so
+		// showing the palanca columns in a walker list flipped the dialog.
+		const wrapper = mountForm({
+			participant: makeParticipant({ type: 'walker', cellPhone: '5512345678' }),
+			columnsToShow: PALANCAS_COLUMNS,
+			columnsToEdit: ['palancasCoordinator', 'palancasNotes'],
+		});
+		await nextTick();
+
+		expect(wrapper.findComponent({ name: 'ParticipantQuickPhoneEditor' }).exists()).toBe(false);
+		expect(wrapper.findComponent({ name: 'ParticipantPaysAtHouseToggle' }).exists()).toBe(false);
+		wrapper.unmount();
+	});
+
+	it('renders the palancas layout regardless of visible columns when mode says so', async () => {
+		const wrapper = mountForm({
+			participant: makeParticipant({ type: 'walker', cellPhone: '5512345678' }),
+			columnsToShow: ['firstName', 'lastName'],
+			columnsToEdit: ['palancasCoordinator'],
+			mode: 'palancas',
+		});
+		await nextTick();
+
+		expect(wrapper.findComponent({ name: 'ParticipantQuickPhoneEditor' }).exists()).toBe(true);
 		wrapper.unmount();
 	});
 });
