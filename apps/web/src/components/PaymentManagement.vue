@@ -314,12 +314,12 @@
 								🎓 {{ $t('paymentManagement.modal.markScholarship') }}
 							</Button>
 							<Button
-								v-if="selectedParticipant && !selectedParticipant.isScholarship"
+								v-if="selectedParticipant && canTogglePaysAtHouse(selectedParticipant)"
 								type="button"
 								variant="outline"
 								class="text-sky-700 border-sky-300 hover:bg-sky-50"
-								:disabled="paymentStore.loading || markingPaysAtHouse"
-								@click="togglePaysAtHouse"
+								:disabled="paymentStore.loading || isSavingPaysAtHouse(selectedParticipant.id)"
+								@click="onTogglePaysAtHouse"
 							>
 								🏠 {{ selectedParticipant.paysAtHouse ? $t('paymentManagement.modal.removePaysAtHouse') : $t('paymentManagement.modal.markPaysAtHouse') }}
 							</Button>
@@ -433,6 +433,7 @@ import type { Payment, CreatePayment, UpdatePayment } from '@repo/types';
 import { formatDate, formatCurrency } from '@repo/utils';
 import ParticipantDebtManager from '@/components/ParticipantDebtManager.vue';
 import ParticipantSelect from '@/components/ParticipantSelect.vue';
+import { usePaysAtHouseToggle } from '@/composables/usePaysAtHouseToggle';
 
 const { t } = useI18n();
 const paymentStore = usePaymentStore();
@@ -668,38 +669,28 @@ const markAsScholarship = async () => {
 	}
 };
 
-const markingPaysAtHouse = ref(false);
-
-// specs/pays-at-house: toggle del modal de pago. Oculto para becados (D4 —
-// marcar la beca limpia la marca en el backend). Reutiliza las confirmaciones
-// de Saldos para no bifurcar el texto.
+// specs/pays-at-house: payment-modal toggle. Gates and the write itself live
+// in usePaysAtHouseToggle (shared with Balances and Palancas): besides the
+// scholarship gate (D4) it requires a pending balance (D1) — marking a
+// paz-y-salvo participant would leave an invisible flag that resurfaces if a
+// debt shows up later. Reuses the Balances confirm texts so the copy does
+// not fork.
 const selectedParticipant = computed(() =>
 	participants.value.find((p: any) => p.id === paymentForm.value.participantId) ?? null,
 );
 
-const togglePaysAtHouse = async () => {
+const {
+	canToggle: canTogglePaysAtHouse,
+	isSaving: isSavingPaysAtHouse,
+	toggle: togglePaysAtHouse,
+} = usePaysAtHouseToggle();
+
+const onTogglePaysAtHouse = async () => {
 	const participant = selectedParticipant.value;
 	if (!participant) return;
-
-	const name = `${participant.firstName} ${participant.lastName}`.trim();
-	const message = participant.paysAtHouse
-		? t('paymentManagement.balances.confirmRemovePaysAtHouse', { name })
-		: t('paymentManagement.balances.confirmPaysAtHouse', { name });
-	if (!window.confirm(message)) return;
-
-	try {
-		markingPaysAtHouse.value = true;
-		await participantStore.updateParticipant(participant.id, {
-			paysAtHouse: !participant.paysAtHouse,
-			contextRetreatId: activeRetreatId.value,
-		} as any);
+	if (await togglePaysAtHouse(participant)) {
 		closePaymentModal();
-		await participantStore.fetchParticipants();
 		loadSummary();
-	} catch (error) {
-		console.error('Error toggling pays-at-house:', error);
-	} finally {
-		markingPaysAtHouse.value = false;
 	}
 };
 

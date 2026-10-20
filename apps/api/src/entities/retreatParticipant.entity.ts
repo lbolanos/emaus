@@ -106,9 +106,9 @@ export class RetreatParticipant {
 	@Column({ type: 'boolean', default: false })
 	isScholarship!: boolean;
 
-	// El participante comprometió pagar al llegar el viernes a la casa de retiro.
-	// NO exime del cobro: solo cambia el estado derivado a 'pays_at_house'
-	// mientras haya saldo pendiente (beca gana si coinciden).
+	// The participant promised to pay on arrival at the retreat house.
+	// It does NOT waive the charge: it only switches the derived status to
+	// 'pays_at_house' while there is a pending balance (scholarship wins if both).
 	@Column({ type: 'boolean', default: false })
 	paysAtHouse!: boolean;
 

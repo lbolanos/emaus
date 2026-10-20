@@ -2,12 +2,31 @@
  * Redimensiona una imagen en el navegador antes de subirla.
  *
  * Por qué existe: el servidor acepta como máximo 2 MB y de todas formas reduce
- * la imagen a 512 px, pero una foto tomada con el móvil pesa entre 3 y 8 MB.
+ * la imagen (a 512 px la foto de perfil, a 1600 px volantes y recuerdos), pero
+ * una foto tomada con el móvil pesa entre 3 y 8 MB.
  * Sin este paso, subir la foto de alguien desde el teléfono —que es el caso
  * normal— falla siempre con "la imagen no puede exceder 2MB".
  *
  * Devuelve un data-URI listo para mandar al endpoint.
  */
+
+/**
+ * Longest side for event photos (retreat memories, community meetings) and
+ * flyer backgrounds: the same bound the server keeps, so it only re-encodes
+ * and never rescales.
+ */
+export const PHOTO_MAX_SIDE = 1600;
+
+/** Largest binary image the server accepts (imageService, base64ToBuffer). */
+export const SERVER_MAX_IMAGE_BYTES = 2 * 1024 * 1024;
+
+/**
+ * Largest original accepted for an event photo, a flyer background or a
+ * profile photo. It is shrunk before upload, so it can be far above the server's 2MB; the cap bounds
+ * the worst case of decoding on a phone. It measures bytes, not pixels: a
+ * guard, not a guarantee.
+ */
+export const MAX_PHOTO_SOURCE_BYTES = 30 * 1024 * 1024;
 
 interface ResizeOptions {
 	/** Lado mayor de la imagen resultante, en píxeles. */
@@ -24,7 +43,7 @@ interface ResizeOptions {
  * carga y la subida falla con "no se pudo leer la imagen". Un `data:` sí está
  * permitido. Verificado en producción el 2026-08-31.
  */
-const readAsDataUrl = (file: File | Blob): Promise<string> =>
+export const readAsDataUrl = (file: File | Blob): Promise<string> =>
 	new Promise((resolve, reject) => {
 		const reader = new FileReader();
 		reader.onload = () => resolve(reader.result as string);

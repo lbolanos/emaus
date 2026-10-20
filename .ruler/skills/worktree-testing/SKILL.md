@@ -94,8 +94,11 @@ Atajo si no vas a levantar dev sino a **publicar desde el worktree** (tests + bu
 compilar, cloná el `dist` del main — el fuente es el mismo, el `dist` no está versionado:
 
 ```bash
-git diff --quiet HEAD origin/master -- packages/ui \
-  && cp -ac <main>/packages/ui/dist packages/ui/dist
+if git diff --quiet HEAD origin/master -- packages/ui; then
+  cp -ac <main>/packages/ui/dist packages/ui/dist
+else
+  echo "packages/ui difiere de master: compilalo con pnpm --filter @repo/ui build"
+fi
 ```
 
 Ojo: sin el `dist` tampoco lo vas a ver en Vite — el síntoma ahí es otro. `vitest` muere con
@@ -336,6 +339,16 @@ pnpm --filter web exec vue-tsc --noEmit
 
 El setup de puertos paralelos sólo se necesita para **probar end-to-end con browser** o validar el comportamiento integrado en navegador.
 
+### Con el dev levantado, `runtimeConfig.test.ts` falla en la suite web completa
+
+Vitest carga `apps/web/.env.local`, y el script de arranque lo escribe con
+`VITE_API_URL=http://localhost:<API_PORT>/api`. La prueba
+`falls back to the development default without env var or injection` espera `:3084` y recibe el
+puerto del worktree. No es un fallo de tu código y en CI pasa (allí no hay `.env.local`).
+
+Para confirmarlo: mové el archivo al scratchpad, corré solo esa prueba y devolvelo enseguida (pasó
+el 2026-10-19: 4/4 sin el archivo, y el dev del worktree siguió sirviendo su código).
+
 ---
 
 ## Bugs históricos del script de arranque (ya corregidos)
@@ -351,11 +364,35 @@ Corregidos el 2026-09-12 directamente en los scripts; quedan documentados para n
 - **Faltaba `apps/api/.env`**: sin `MIGRATIONS_AUTO_RUN=true` el API del worktree arrancaba y se
   apagaba solo ("Migration verification failed"). Fix: el script lo copia del main si no existe.
 
+## El script de parada dejaba vivo el nodemon (corregido 2026-10-19)
+
+`stop-worktree-dev.sh` mataba solo los PIDs que **escuchan** en los puertos. El `nodemon` padre
+no escucha en ninguno: sobrevivía, veía morir al hijo y relanzaba el API. Pasó dos veces
+(2026-10-16 y 2026-10-19); uno siguió vivo tres días y bloqueó el `git worktree remove`.
+
+Ahora el script además barre por línea de comando todo proceso de dev (`nodemon`/`vite`/
+`esbuild`/`tsx`) cuya ruta apunte **a este worktree**, se excluye a sí mismo y a quien lo
+invocó, y al final verifica que no quede nada en los puertos ni en la ruta (exit 1 si sobrevive
+algo). El barrido solo corre cuando el script vive dentro de `.claude/worktrees/`: ejecutado
+desde el checkout principal no toca los dev del main.
+
+> Si igual queda algo vivo (el script avisa con `⚠️`), el remedio a mano sigue siendo buscar
+> por la ruta del worktree y matar solo los tuyos:
+>
+> ```bash
+> ps -Ao pid,args | grep "worktrees/<nombre>" | grep -E "nodemon|vite|esbuild" | grep -v grep
+> kill <pids>   # y repetir el ps: tiene que salir vacío
+> ```
+
+> `lsof -ti :3002,:5174` (puertos separados por coma) **falla en macOS** con "unknown service"
+> y devuelve vacío — parece "puertos libres" cuando no lo son. Un `lsof` por puerto, siempre.
+> El script ya lo hace así.
+
 ## Scripts incluidos
 
 - [`scripts/start-worktree-dev.sh`](scripts/start-worktree-dev.sh) — automatiza todo el setup
   arriba. Puertos configurables: `API_PORT`/`WEB_PORT` (defaults 3002/5174).
 - [`scripts/stop-worktree-dev.sh`](scripts/stop-worktree-dev.sh) — mata API+web en los puertos
-  configurados (mismos defaults/overrides).
+  configurados **y todo proceso de dev cuya ruta apunte al worktree**, con verificación final.
 
 Ambos asumen que estás corriendo desde la raíz del worktree (donde está `pnpm-workspace.yaml`).

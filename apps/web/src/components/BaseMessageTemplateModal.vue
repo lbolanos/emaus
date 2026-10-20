@@ -822,6 +822,21 @@ const spouseVariables = computed(() => [
   { key: 'cellPhone', label: 'Celular del cónyuge' },
 ]);
 
+// Variables del scope {assignments.*} — solo aplican al briefing de tareas
+// del servidor (SERVER_ASSIGNMENTS_BRIEFING). Los rosters son bloques
+// pre-formateados en sintaxis WhatsApp.
+const assignmentsVariables = computed(() => [
+  { key: 'responsibilitiesCount', label: 'Cantidad de responsabilidades' },
+  { key: 'responsibilitiesList', label: 'Responsabilidades (lista)' },
+  { key: 'responsibilitiesRoster', label: 'Roster de responsabilidades (numerado)' },
+  { key: 'teamsCount', label: 'Cantidad de equipos de servicio' },
+  { key: 'teamsList', label: 'Equipos de servicio (lista)' },
+  { key: 'teamsRoster', label: 'Roster de equipos: rol + líder + miembros' },
+  { key: 'momentsRoster', label: 'Momentos del Minuto a Minuto (día + hora)' },
+  { key: 'documentsRoster', label: 'Documentos con link, por momento (mesa al final)' },
+  { key: 'documentsCount', label: 'Cantidad de documentos' },
+]);
+
 const isCommunityScope = computed(
   () =>
     props.scope === 'community' ||
@@ -893,6 +908,17 @@ const variableCategories = computed<VariableCategory[]>(() => {
         value: `{table.${v.key}}`,
         label: v.label,
         category: 'table',
+      })),
+    });
+    categories.push({
+      id: 'assignments',
+      title: 'Tareas',
+      description:
+        'Solo aplican al envío de tareas a cada servidor (responsabilidades y equipos de servicio). En otros envíos quedan literales.',
+      variables: assignmentsVariables.value.map(v => ({
+        value: `{assignments.${v.key}}`,
+        label: v.label,
+        category: 'assignments',
       })),
     });
     categories.push({
@@ -1029,6 +1055,9 @@ const previewMessage = computed(() => {
     false,
     // Cónyuge (retiros de parejas): mock en el preview para que {spouse.*} no
     // salga literal en el editor.
+    null,
+    // Tareas del servidor: mock en el preview para que {assignments.*} no
+    // salga literal en el editor (SERVER_ASSIGNMENTS_BRIEFING).
     null,
   );
 

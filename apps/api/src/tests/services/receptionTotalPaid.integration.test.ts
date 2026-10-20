@@ -109,12 +109,12 @@ describe('getReceptionStats - totalPaid', () => {
 		expect(entry!.totalPaid).toBe(1200);
 	});
 
-	// specs/pays-at-house D7: recepción SOLO muestra el badge; necesita el bool
-	// en ambas listas. La marca sigue expuesta tras pagar (D3: auditoría) — la
-	// decisión de ocultar el badge con saldo 0 es del frontend, que conoce el costo.
-	it('expone paysAtHouse en pendingList y arrivedList (badge de recepción, D7)', async () => {
+	// specs/pays-at-house D7: reception only shows the badge; it needs the bool
+	// on both lists. The flag stays exposed after paying (D3: audit) — hiding
+	// the badge at balance 0 is a frontend call, which knows the cost.
+	it('exposes paysAtHouse on pendingList and arrivedList (reception badge, D7)', async () => {
 		const retreat = await TestDataFactory.createTestRetreat();
-		const marcado = await TestDataFactory.createTestParticipant(retreat.id, {
+		const marked = await TestDataFactory.createTestParticipant(retreat.id, {
 			firstName: 'Paga',
 			lastName: 'En La Casa',
 		});
@@ -124,18 +124,18 @@ describe('getReceptionStats - totalPaid', () => {
 		});
 		const getDSrp = () => getDS().getRepository(RetreatParticipant);
 		await getDSrp().update(
-			{ participantId: marcado.id, retreatId: retreat.id },
+			{ participantId: marked.id, retreatId: retreat.id },
 			{ paysAtHouse: true },
 		);
-		await setParticipantCheckIn(marcado.id, retreat.id, true);
+		await setParticipantCheckIn(marked.id, retreat.id, true);
 
 		const stats = await getReceptionStats(retreat.id);
-		const pendiente = stats.pendingList.find((p) => p.participantId === normal.id);
-		const llegado = stats.arrivedList.find((p) => p.participantId === marcado.id);
+		const pending = stats.pendingList.find((p) => p.participantId === normal.id);
+		const arrived = stats.arrivedList.find((p) => p.participantId === marked.id);
 
-		expect(pendiente).toBeDefined();
-		expect(pendiente!.paysAtHouse).toBe(false);
-		expect(llegado).toBeDefined();
-		expect(llegado!.paysAtHouse).toBe(true);
+		expect(pending).toBeDefined();
+		expect(pending!.paysAtHouse).toBe(false);
+		expect(arrived).toBeDefined();
+		expect(arrived!.paysAtHouse).toBe(true);
 	});
 });

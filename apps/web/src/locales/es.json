@@ -12,6 +12,7 @@
         "attendance_confirmation": "Confirmación de asistencia",
         "anonymize": "Datos anonimizados (GDPR)",
         "merge": "Fichas fusionadas (duplicado absorbido)",
+        "email_change": "Correo del participante corregido",
         "health_view": "Ficha de salud consultada",
         "health_export": "Ficha de salud exportada",
         "health_data_purged": "Datos de salud purgados automáticamente"
@@ -1010,6 +1011,7 @@
       "SERVER_SHIRT_CONFIRMATION": "Confirmación de Camisetas (Servidores)",
       "SERVER_SHIRT_CONFIRMATION_REMINDER": "Recordatorio de Confirmación de Camisetas",
       "SANTISIMO_GUARDIA_INVITE": "Guardias Santísimo — Elección de Horario (Servidores)",
+      "SERVER_ASSIGNMENTS_BRIEFING": "Briefing de Tareas del Servidor",
       "SERVER_WELCOME": "Bienvenida Servidor",
       "EMERGENCY_CONTACT_VALIDATION": "Validación Contacto Emergencia",
       "PALANCA_REQUEST": "Solicitud Palanca",
@@ -1059,6 +1061,33 @@
       "emergencyContact2": "Celular de emergencia 2",
       "requiredEmpty": "Este teléfono no puede quedar vacío.",
       "invalidFloor": "Debe tener entre 6 y 15 dígitos."
+    },
+    "emailChange": {
+      "openButton": "Corregir correo",
+      "copy": "Copiar correo",
+      "copied": "Correo copiado",
+      "copyFailed": "No se pudo copiar el correo",
+      "title": "Corregir correo",
+      "description": "El correo es la identidad de la ficha: cambiarlo re-vincula su cuenta, limpia los alias de comunidad y renueva los mensajes pendientes.",
+      "current": "Correo actual",
+      "newEmail": "Correo nuevo",
+      "confirmEmail": "Confirma el correo nuevo",
+      "summaryTitle": "Antes de corregir",
+      "summary": "Se validará que el correo no pertenezca a otra ficha, se limpiarán los alias de comunidad que apunten al correo viejo y se renovará la cola de mensajes de los retiros activos de esta persona.",
+      "mismatch": "Los dos correos no coinciden.",
+      "sameAsCurrent": "Es el mismo correo que la ficha ya tiene.",
+      "invalid": "Escribe un correo válido.",
+      "submit": "Corregir correo",
+      "submitting": "Corrigiendo…",
+      "successTitle": "Correo corregido",
+      "successNoop": "El correo ya estaba en la ficha: no hubo cambio.",
+      "newEmailLabel": "Correo nuevo de la ficha",
+      "effectUserLinked": "La ficha quedó vinculada a la cuenta que ya usaba ese correo.",
+      "effectUserWithOldEmail": "Ojo: existe una cuenta con el correo anterior. Esa cuenta quedó con un correo que quizá ya no controle su dueño; corregirla es un flujo aparte.",
+      "effectOverlaysCleared": "Alias de comunidad que apuntaban al correo viejo: {count}",
+      "effectQueueRegenerated": "Cola de mensajes renovada en {retreats} retiro(s): {regenerated} mensaje(s) reprogramados.",
+      "effectSpouseShare": "El correo queda compartido con el cónyuge en {count} retiro(s) (permitido porque son géneros distintos).",
+      "effectNothingElse": "No hubo efectos adicionales."
     },
     "addWalker": "Agregar Caminante",
     "name": "Nombre",
@@ -1798,10 +1827,6 @@
       "colider1": "Co-Líder 1",
       "colider2": "Co-Líder 2"
     },
-    "briefing": {
-      "button": "Enviar info a líderes",
-      "chooseLeader": "Elige a quién enviar:"
-    },
     "unassignedServers": "Servidores Sin Asignar",
     "unassignedWalkers": "Caminantes Sin Asignar",
     "rebalanceWalkers": "Rebalancear Caminantes",
@@ -2015,7 +2040,18 @@
       "scope": "{count} preparaciones celebradas",
       "notSynced": "Sincroniza las preparaciones de este retiro para ver la asistencia",
       "hide": "Ocultar asistencia a preparaciones"
-    }
+    },
+    "byLeader": {
+      "empty": "No hay líderes ni colíderes asignados",
+      "walkersCount": "{count} caminantes",
+      "menuItem": "Enviar info a líderes",
+      "title": "Enviar la info de su mesa a cada líder",
+      "description": "Caminantes, contactos y guion de llamada, a cada líder y colíder. Al cerrar cada mensaje vuelves a esta lista.",
+      "searchPlaceholder": "Buscar líder o mesa..."
+    },
+    "moreActions": "Más acciones",
+    "cardActions": "Acciones de {name}",
+    "briefingSendTo": "Enviar info a {role} · {name}"
   },
   "bedAssignments": {
     "title": "Asignación de Camas",
@@ -2436,10 +2472,36 @@
     "xlsx": "Exportar a XLSX",
     "csv": "Exportar a CSV"
   },
+  "briefingList": {
+    "summary": "{sent} de {total} ya lo recibieron",
+    "filterAll": "Todos",
+    "filterPending": "Sin enviar",
+    "sentOn": "Enviado el {date} por {channel}",
+    "notSent": "Sin enviar",
+    "send": "Enviar",
+    "resend": "Reenviar",
+    "emptyPending": "A todos ya se les mandó",
+    "sentError": "No se pudo cargar a quién ya se le mandó.",
+    "channels": {
+      "whatsapp": "WhatsApp",
+      "email": "correo"
+    }
+  },
   "responsibilities": {
     "title": "Responsabilidades del Retiro",
     "description": "Gestiona las responsabilidades del retiro y asigna servidores a cada una",
     "createResponsability": "Crear Responsabilidad",
+    "sendTasks": {
+      "counts": "{responsibilities} responsabilidades · {teams} equipos",
+      "documentsCount": "{count} documentos",
+      "documentsError": "No se pudieron cargar los documentos: el mensaje saldrá sin los links.",
+      "empty": "No hay servidores con tareas asignadas"
+    },
+    "byServer": {
+      "tab": "Por servidor"
+    },
+    "moreActions": "Más acciones",
+    "cardActions": "Acciones de {name}",
     "addToTeam": "Agregar servidores al equipo",
     "addToTeamDescription": "Elige los servidores activos que se agregarán a este equipo de servicio",
     "teamLabel": "Equipo",
@@ -3258,8 +3320,8 @@
       "remove": "Eliminar foto",
       "uploading": "Subiendo...",
       "uploadError": "Error al subir",
-      "uploadInfo": "PNG, JPG, GIF o WebP (máx {maxSize}MB)",
-      "fileTooLarge": "El archivo es muy grande. El tamaño máximo es {maxSize}KB",
+      "uploadInfo": "PNG, JPG, GIF o WebP. Las fotos grandes se reducen solas.",
+      "fileTooLarge": "El archivo es muy grande. El tamaño máximo es {maxSize}MB",
       "invalidFileType": "Solo se permiten archivos de imagen",
       "readError": "Error al leer el archivo"
     },
@@ -3409,6 +3471,8 @@
     "enable": "Activar inscripciones públicas",
     "copyPublicLink": "Copiar enlace público",
     "linkCopied": "Enlace copiado",
+    "printTitle": "Guardias de la Capilla — {name}",
+    "printTitleNoName": "Guardias de la Capilla",
     "print": "Imprimir",
     "generate": "Generar horarios",
     "generateHint": "Crea automáticamente slots entre dos fechas. Los slots ya existentes en las mismas horas no se duplicarán.",
@@ -3432,6 +3496,7 @@
     "empty": "libre",
     "confirmRemove": "¿Quitar esta inscripción?",
     "confirmDeleteSlot": "¿Eliminar este horario y todas sus inscripciones?",
+    "confirmDeleteSlotWithSignups": "Este horario tiene {count} inscripción. Al eliminarlo se borra también su inscripción; para quitar solo a una persona, usa la ✕ junto a su nombre. ¿Eliminar el horario completo? | Este horario tiene {count} inscripciones. Al eliminarlo se borran también sus inscripciones; para quitar solo a una persona, usa la ✕ junto a su nombre. ¿Eliminar el horario completo?",
     "publicHeading": "Horario de Guardias de la Capilla",
     "signupHeading": "Inscribirme",
     "signupHint": "Selecciona los horarios en los que puedes acompañar al Santísimo. Sólo el nombre es obligatorio.",
@@ -4344,5 +4409,9 @@
       "notes": "Nota",
       "actions": "Acciones"
     }
+  },
+  "houses": {
+    "deleteConfirm": "¿Eliminar la casa «{name}»? Esta acción no se puede deshacer.",
+    "deleteConfirmWithBeds": "¿Eliminar la casa «{name}»? Se eliminarán también todas sus camas ({count}). Esta acción no se puede deshacer."
   }
 }

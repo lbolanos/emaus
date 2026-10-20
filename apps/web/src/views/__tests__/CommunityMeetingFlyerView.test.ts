@@ -101,6 +101,37 @@ vi.mock('lucide-vue-next', () => ({
 	FileText: { name: 'FileText', template: '<svg></svg>' },
 }));
 
+// Toast assertions need a mock the test can reach: the global @repo/ui mock
+// mints a fresh vi.fn() per useToast() call. Same stub contracts as setup.ts
+// for the four components this view mounts.
+const { mockToast, mockPickFile, mockResize, mockReadAsDataUrl } = vi.hoisted(() => ({
+	mockToast: vi.fn(),
+	mockPickFile: vi.fn(),
+	mockResize: vi.fn(),
+	mockReadAsDataUrl: vi.fn(),
+}));
+vi.mock('@repo/ui', () => ({
+	// `onClick` must NOT be declared: it would turn @click into a prop and the
+	// stub would swallow every click (same trap as the global mock).
+	Button: { name: 'Button', template: '<button :disabled="disabled"><slot /></button>', props: ['disabled'] },
+	Popover: { name: 'Popover', template: '<div><slot /></div>', props: ['open'] },
+	PopoverContent: { name: 'PopoverContent', template: '<div><slot /></div>' },
+	PopoverTrigger: { name: 'PopoverTrigger', template: '<div><slot /></div>' },
+	useToast: () => ({ toast: mockToast }),
+}));
+
+vi.mock('@/utils/filePicker', () => ({
+	pickFile: (...args: any[]) => mockPickFile(...args),
+}));
+
+// The real resize draws on a <canvas>, which happy-dom lacks; the size
+// constants stay real because the view imports them from the same module.
+vi.mock('@/utils/imageResize', async (importOriginal) => ({
+	...(await importOriginal<typeof import('@/utils/imageResize')>()),
+	resizeImageToDataUrl: (...args: any[]) => mockResize(...args),
+	readAsDataUrl: (...args: any[]) => mockReadAsDataUrl(...args),
+}));
+
 import CommunityMeetingFlyerView from '../CommunityMeetingFlyerView.vue';
 import { useCommunityStore } from '@/stores/communityStore';
 import { domToBlob } from 'modern-screenshot';
@@ -256,6 +287,94 @@ describe('CommunityMeetingFlyerView', () => {
 			// must keep the generic 210mm rule.
 			expect(canvas.attributes('data-custom-canvas')).toBeUndefined();
 			expect(wrapper.find('[data-flyer-block]').exists()).toBe(false);
+		});
+	});
+
+	describe('uploading a background image', () => {
+		const imageFile = (name: string, type: string, size: number) => {
+			const file = new File([new Uint8Array([1, 2, 3])], name, { type });
+			Object.defineProperty(file, 'size', { value: size });
+			return file;
+		};
+
+		async function mountPoster() {
+			const wrapper = mountFlyer({ style: 'poster' });
+			await flushPromises();
+			const setFlyerBackground = vi.fn(async () => ({
+				...BASE_COMMUNITY,
+				flyerBackgroundUrl: 'https://cdn.example/flyer-assets/bg.webp',
+			}));
+			useCommunityStore().setFlyerBackground = setFlyerBackground as any;
+			return { wrapper, setFlyerBackground };
+		}
+
+		beforeEach(() => {
+			mockToast.mockReset();
+			mockPickFile.mockReset();
+			mockResize.mockReset().mockResolvedValue('data:image/jpeg;base64,SMALL');
+			mockReadAsDataUrl.mockReset().mockResolvedValue('data:image/png;base64,ORIGINAL');
+		});
+
+		it('shrinks a phone photo over 2MB to 1600px before saving it', async () => {
+			const { wrapper, setFlyerBackground } = await mountPoster();
+			const photo = imageFile('celular.jpg', 'image/jpeg', 8 * 1024 * 1024);
+			mockPickFile.mockResolvedValue(photo);
+
+			await buttonByText(wrapper, 'Subir mi imagen')!.trigger('click');
+			await flushPromises();
+
+			expect(mockResize).toHaveBeenCalledWith(photo, { maxSide: 1600, quality: 0.9 });
+			expect(setFlyerBackground).toHaveBeenCalledWith('community-1', {
+				imageDataUrl: 'data:image/jpeg;base64,SMALL',
+			});
+		});
+
+		it('sends an image of 2MB or less as is, keeping a PNG transparency', async () => {
+			const { wrapper, setFlyerBackground } = await mountPoster();
+			const png = imageFile('fondo.png', 'image/png', 1024 * 1024);
+			mockPickFile.mockResolvedValue(png);
+
+			await buttonByText(wrapper, 'Subir mi imagen')!.trigger('click');
+			await flushPromises();
+
+			expect(mockResize).not.toHaveBeenCalled();
+			expect(mockReadAsDataUrl).toHaveBeenCalledWith(png);
+			expect(setFlyerBackground).toHaveBeenCalledWith('community-1', {
+				imageDataUrl: 'data:image/png;base64,ORIGINAL',
+			});
+		});
+
+		it('shows "Guardando..." while the photo is being shrunk', async () => {
+			const { wrapper, setFlyerBackground } = await mountPoster();
+			let finishResize!: (dataUrl: string) => void;
+			mockResize.mockReturnValue(new Promise((resolve) => (finishResize = resolve)));
+			mockPickFile.mockResolvedValue(imageFile('celular.jpg', 'image/jpeg', 8 * 1024 * 1024));
+
+			await buttonByText(wrapper, 'Subir mi imagen')!.trigger('click');
+			await flushPromises();
+
+			const saving = buttonByText(wrapper, 'Guardando...');
+			expect(saving?.attributes('disabled')).toBeDefined();
+			expect(setFlyerBackground).not.toHaveBeenCalled();
+
+			finishResize('data:image/jpeg;base64,SMALL');
+			await flushPromises();
+			expect(buttonByText(wrapper, 'Guardando...')).toBeUndefined();
+			expect(setFlyerBackground).toHaveBeenCalled();
+		});
+
+		it('rejects an image over 30MB without shrinking or saving it', async () => {
+			const { wrapper, setFlyerBackground } = await mountPoster();
+			mockPickFile.mockResolvedValue(imageFile('enorme.jpg', 'image/jpeg', 31 * 1024 * 1024));
+
+			await buttonByText(wrapper, 'Subir mi imagen')!.trigger('click');
+			await flushPromises();
+
+			expect(mockToast).toHaveBeenCalledWith(
+				expect.objectContaining({ description: 'La imagen no puede exceder 30MB', variant: 'destructive' }),
+			);
+			expect(mockResize).not.toHaveBeenCalled();
+			expect(setFlyerBackground).not.toHaveBeenCalled();
 		});
 	});
 

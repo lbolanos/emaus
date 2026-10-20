@@ -54,6 +54,9 @@
         <div class="space-y-1">
           <Label>URL de música</Label>
           <Input v-model="form.musicTrackUrl" placeholder="https://…" />
+          <p v-if="musicUrlInvalid" class="text-[10px] text-amber-600 leading-tight">
+            Debe empezar con http:// o https:// — si no, el 🎵 del MAM y de «Mi agenda» no es un link.
+          </p>
         </div>
         <div class="space-y-1">
           <Label>Plan B / notas</Label>
@@ -255,6 +258,7 @@ import {
 } from '@repo/ui';
 import type { RetreatScheduleItemDTO } from '@/services/api';
 import type { Responsability, Participant } from '@repo/types';
+import { isPlayableMusicUrl } from '@/views/mamMusic';
 
 const TYPES = [
   'charla',
@@ -313,6 +317,13 @@ export type SubmitPayload = {
 
 const apoyoToAdd = ref('');
 const form = ref(emptyForm());
+
+// Inline warning for the music URL field: a non-http(s) value saves fine but
+// renders no link anywhere (specs/mam-canciones D3) — it used to fail silently.
+const musicUrlInvalid = computed(() => {
+  const v = form.value.musicTrackUrl.trim();
+  return v !== '' && !isPlayableMusicUrl(v);
+});
 
 function emptyForm() {
   return {

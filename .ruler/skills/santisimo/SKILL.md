@@ -200,6 +200,22 @@ Tras `autoAssignAngelitos`, el servicio (best-effort, fire-and-forget) envía em
 
 Implementado en `retreatScheduleService.notifyAngelitosOfNewAssignments(retreatId, pool, assignments)`.
 
+**El lugar es la casa de retiro, no la parroquia.** El correo de asignación y el recordatorio de 24 h
+(`santisimoReminderService`) nombran `house.name` y ponen el retiro entre paréntesis
+(`utils/santisimoGuardiaPlace.ts`). Con `retreat.parish`, «Guardia de la Capilla — Buen Despacho» se
+leía como la capilla de la parroquia (Del Valle II, 2026-10-16). Los cancelados (`rp.isCancelled`)
+no entran al pool.
+
+**Cualquier cambio de horario del Minuto a Minuto re-asigna angelitos.** `create`, `update` (si
+toca hora, duración o el bloqueo), `delete`, ±5 (`shiftDownstream`), `shiftDay`, `shiftAllItems` y
+`reorderDay` llaman a `resolveSantisimoConflicts` → `autoAssignAngelitos`, que borra las
+auto-asignaciones de las comidas y las recrea. Antes, recreada = nueva, y cada angelito recibía su
+lista otra vez aunque no le cambiara nada: el 2026-10-16, acortar «Llevar maletas» de 70 a 30 min
+mandó 8 correos. Ahora `autoAssignAngelitos` anota los turnos automáticos previos
+(`previousAutoSlots`) y solo notifica a quien gana un slot que no tenía, con su lista completa.
+Quien **pierde** un turno no recibe aviso. Guard: describe «correo a angelitos al re-asignar» en
+`santisimoMaterializeAutogen.test.ts`.
+
 ### Tests
 
 - `apps/api/src/tests/services/participantAvailability.simple.test.ts` — **24 tests** mirror puro:
@@ -253,6 +269,20 @@ El sistema soporta retiros en cualquier zona IANA — México, Colombia, etc. La
 Causa: `computeItemDateRange()` en `retreatScheduleService.ts` antes usaba `new Date(yyyy, mm, dd + dayOffset, h, m)` que interpreta `h:m` como **hora local del servidor**. En producción con server UTC y cliente CDMX (UTC-6), un template `'16:00'` se almacenaba como `16:00Z` y el navegador México lo renderizaba como `10:00 AM`.
 
 Fix: `computeItemDateRange()` recibe ahora un argumento `timezone: string`. Usa `makeDateInTimezone()` para anclar `h:m` en esa zona. Tests: `apps/api/src/tests/services/scheduleMaterializeTimezone.simple.test.ts` (26 tests cubriendo MX, CO, Madrid DST, edge cases).
+
+## Delete de slot individual — la cascada que se comió dos horarios (2026-10-15)
+
+`DELETE /api/santisimo/slots/:id` hace **cascada sobre las inscripciones** del slot. El
+2026-10-15 alguien quiso quitar a un inscrito y borró el slot completo: Buen Despacho perdió
+sus dos slots 5–6 AM (sáb y dom, `11:00→12:00 UTC`). Protecciones desde entonces:
+
+- El confirm del botón "Eliminar" de `SantisimoAdminView` discrimina: si el slot tiene
+  inscripciones muestra `santisimo.confirmDeleteSlotWithSignups` (cuántas se van + señala la ✕
+  como la vía para quitar a una sola persona); si está vacío, el texto corto de siempre.
+- Restaurar un slot perdido: `POST /api/santisimo/retreats/:retreatId/slots` con
+  `capacity=1, isDisabled=false` (los de madrugada llevan `mealWindow=false`, como sus
+  vecinos). **No** usar "Borrar todo y regenerar" para esto: en retiros cuyo Minuto a Minuto
+  se alineó a mano al Excel, lo revierte.
 
 ## Botón "Borrar todo y regenerar" (destructivo)
 

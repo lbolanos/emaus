@@ -23,6 +23,14 @@ vi.mock('@/utils/filePicker', () => ({
 	pickFiles: (...args: any[]) => mockPickFile(...args),
 }));
 
+// The real resize draws on a <canvas>, which happy-dom lacks; the size
+// constants stay real because the view imports them from the same module.
+const mockResize = vi.fn();
+vi.mock('@/utils/imageResize', async (importOriginal) => ({
+	...(await importOriginal<typeof import('@/utils/imageResize')>()),
+	resizeImageToDataUrl: (...args: any[]) => mockResize(...args),
+}));
+
 vi.mock('@/stores/communityStore', () => ({
 	useCommunityStore: () => ({
 		currentCommunity: mockCurrentCommunity,
@@ -395,6 +403,8 @@ describe('CommunityMeetingsView — meeting photo', () => {
 		mockSetMeetingPhoto.mockReset();
 		mockDeleteMeetingPhoto.mockReset();
 		mockPickFile.mockReset();
+		mockResize.mockReset();
+		mockResize.mockResolvedValue('data:image/jpeg;base64,SMALL');
 	});
 
 	it('muestra la miniatura cuando la reunión tiene photoUrl', async () => {
@@ -456,6 +466,45 @@ describe('CommunityMeetingsView — meeting photo', () => {
 		await wrapper.find('button[aria-label="Subir foto"]').trigger('click');
 		await flushPromises();
 
+		expect(mockSetMeetingPhoto).not.toHaveBeenCalled();
+	});
+
+	it('shrinks a photo larger than 2MB to 1600px and uploads the shrunk version', async () => {
+		const meeting = baseMeeting({ title: 'Sin foto', startDate: daysFromNow(5), photoUrl: null });
+		mockMeetings.value = [meeting];
+		mockSetMeetingPhoto.mockResolvedValue({ ...meeting, photoUrl: 'data:image/jpeg;base64,SMALL' });
+
+		const wrapper = factory();
+		await flushPromises();
+		await nextTick();
+
+		const big = new File([new Uint8Array([1, 2, 3])], 'celular.jpg', { type: 'image/jpeg' });
+		Object.defineProperty(big, 'size', { value: 8 * 1024 * 1024 });
+		mockPickFile.mockResolvedValue(big);
+
+		await wrapper.find('button[aria-label="Subir foto"]').trigger('click');
+		await flushPromises();
+
+		expect(mockResize).toHaveBeenCalledWith(big, { maxSide: 1600 });
+		expect(mockSetMeetingPhoto).toHaveBeenCalledWith(meeting.id, 'data:image/jpeg;base64,SMALL');
+	});
+
+	it('rejects a file larger than 30MB without shrinking or uploading it', async () => {
+		const meeting = baseMeeting({ title: 'Sin foto', startDate: daysFromNow(5), photoUrl: null });
+		mockMeetings.value = [meeting];
+
+		const wrapper = factory();
+		await flushPromises();
+		await nextTick();
+
+		const huge = new File([new Uint8Array([1, 2, 3])], 'enorme.jpg', { type: 'image/jpeg' });
+		Object.defineProperty(huge, 'size', { value: 31 * 1024 * 1024 });
+		mockPickFile.mockResolvedValue(huge);
+
+		await wrapper.find('button[aria-label="Subir foto"]').trigger('click');
+		await flushPromises();
+
+		expect(mockResize).not.toHaveBeenCalled();
 		expect(mockSetMeetingPhoto).not.toHaveBeenCalled();
 	});
 });

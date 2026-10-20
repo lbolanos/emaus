@@ -1358,6 +1358,255 @@ export const replaceTableVariables = (
 };
 
 /**
+ * Una responsabilidad asignada al servidor destinatario (scope
+ * `assignments.*`). `typeLabel` es la etiqueta en español de
+ * `ResponsabilityType` (`RESPONSABILITY_TYPE_LABELS` de `@repo/types`).
+ */
+export interface AssignmentResponsibilityData {
+	name: string;
+	typeLabel?: string;
+	isLeadership?: boolean;
+}
+
+/**
+ * Un equipo de servicio del destinatario: su `role` en el equipo
+ * ('Líder' / 'Miembro') y el roster mínimo del equipo.
+ */
+export interface AssignmentTeamData {
+	name: string;
+	role: string;
+	leaderName?: string;
+	memberNames: string[];
+}
+
+/**
+ * Un documento con link que se puede abrir desde el celular (S3). `label` es
+ * la descripción del adjunto o, si no tiene, su nombre de archivo sin extensión.
+ */
+export interface AssignmentDocumentData {
+	label: string;
+	url: string;
+}
+
+/**
+ * Un momento del Minuto a Minuto que le toca al servidor, con día y hora ya
+ * formateados en la zona del retiro. `forTable` = le llega por ser líder o
+ * colíder de mesa (dinámicas de oración), no por ser responsable del momento.
+ */
+export interface AssignmentMomentData {
+	dayLabel: string;
+	time: string;
+	name: string;
+	documents: AssignmentDocumentData[];
+	forTable?: boolean;
+}
+
+/** Documentos de una responsabilidad del servidor que no pasa por ningún momento. */
+export interface AssignmentResponsibilityDocumentsData {
+	name: string;
+	documents: AssignmentDocumentData[];
+}
+
+/** La mesa del servidor, para encabezar el bloque de dinámicas de mesa. */
+export interface AssignmentTableData {
+	name: string;
+	role: string;
+}
+
+/**
+ * Momentos y documentos de un servidor (specs/assignment-documents). Lo calcula
+ * el API (`assignmentDocumentsService`) para los tres caminos de resolución.
+ */
+export interface AssignmentDocumentsData {
+	moments: AssignmentMomentData[];
+	responsibilityDocuments: AssignmentResponsibilityDocumentsData[];
+	table?: AssignmentTableData | null;
+}
+
+/**
+ * Variables del scope `assignments.*`: las tareas de un servidor en el retiro
+ * (responsabilidades + equipos de servicio), para el briefing que se le envía
+ * por WhatsApp desde la vista de Responsabilidades. Igual que `table.*`, es
+ * contextual: lo arma el caller (web o motor de secuencias) que ya consultó
+ * las filas y este módulo solo formatea. Los momentos y documentos son
+ * opcionales: sin ellos, las variables de documentos salen vacías.
+ */
+export interface AssignmentsData extends Partial<AssignmentDocumentsData> {
+	responsibilities: AssignmentResponsibilityData[];
+	teams: AssignmentTeamData[];
+}
+
+/**
+ * Bloque del roster de responsabilidades en sintaxis WhatsApp (`\n` +
+ * `*negrita*`), NO `<br>`: desde 20260914 el canal WhatsApp recibe el texto
+ * resuelto crudo (motor de secuencias), donde el HTML se vería literal.
+ */
+const buildResponsibilitiesRoster = (responsibilities: AssignmentResponsibilityData[]): string => {
+	if (!responsibilities.length) return '(sin responsabilidades asignadas)';
+	return responsibilities
+		.map((r, i) => {
+			// El typeLabel es la categoría; si ya está en el nombre, no repetir.
+			const sameAsName =
+				!!r.typeLabel &&
+				r.name.trim().toLowerCase() === r.typeLabel.trim().toLowerCase();
+			const type = r.typeLabel && !sameAsName ? ` — ${r.typeLabel}` : '';
+			const leadership = r.isLeadership ? ' (liderazgo)' : '';
+			return `${i + 1}. *${r.name}*${type}${leadership}`;
+		})
+		.join('\n');
+};
+
+/**
+ * Bloque del roster de equipos en sintaxis WhatsApp: una línea por equipo con
+ * el rol del destinatario, y debajo líder + miembros.
+ */
+const buildTeamsRoster = (teams: AssignmentTeamData[]): string => {
+	if (!teams.length) return '(sin equipos asignados)';
+	return teams
+		.map((t, i) => {
+			const members = t.memberNames.filter(Boolean).join(', ');
+			const detail: string[] = [`   Líder: ${t.leaderName || '—'}`];
+			if (members) detail.push(`   Miembros: ${members}`);
+			return [`${i + 1}. *${t.name}* — Tu rol: ${t.role}`, ...detail].join('\n');
+		})
+		.join('\n\n');
+};
+
+/**
+ * Momentos del Minuto a Minuto del destinatario, uno por línea, en sintaxis
+ * WhatsApp. Los que le llegan por ser de mesa llevan "(mesa)".
+ */
+const buildMomentsRoster = (moments: AssignmentMomentData[]): string => {
+	if (!moments.length) return '(sin momentos asignados en el Minuto a Minuto)';
+	return moments
+		.map((m) => `• ${m.dayLabel} ${m.time} · ${m.name}${m.forTable ? ' (mesa)' : ''}`)
+		.join('\n');
+};
+
+/**
+ * Documentos distintos (por URL) que le llegan a un servidor: el número de
+ * `{assignments.documentsCount}` y el "· N documentos" de "Enviar tareas".
+ */
+export const countAssignmentDocuments = (data: Partial<AssignmentDocumentsData>): number => {
+	const urls = new Set<string>();
+	for (const m of data.moments ?? []) for (const d of m.documents) urls.add(d.url);
+	for (const r of data.responsibilityDocuments ?? []) for (const d of r.documents) urls.add(d.url);
+	return urls.size;
+};
+
+/**
+ * Documentos con link del destinatario, en sintaxis WhatsApp
+ * (specs/assignment-documents, D5): un bloque por momento propio en orden
+ * cronológico, luego las responsabilidades sin momento y al final el bloque de
+ * la mesa (sus momentos como encabezado y los documentos debajo). Una URL sale
+ * una sola vez por mensaje; un bloque cuyos documentos ya salieron se omite.
+ */
+const buildDocumentsRoster = (data: AssignmentsData): string => {
+	const seen = new Set<string>();
+	const bullets = (documents: AssignmentDocumentData[]) =>
+		documents
+			.filter((d) => !seen.has(d.url))
+			.map((d) => {
+				seen.add(d.url);
+				return `• ${d.label}: ${d.url}`;
+			});
+	const blocks: string[] = [];
+	const moments = data.moments ?? [];
+
+	for (const m of moments.filter((x) => !x.forTable)) {
+		const lines = bullets(m.documents);
+		if (lines.length) blocks.push([`*${m.dayLabel} ${m.time} · ${m.name}*`, ...lines].join('\n'));
+	}
+	for (const r of data.responsibilityDocuments ?? []) {
+		const lines = bullets(r.documents);
+		if (lines.length) blocks.push([`*${r.name}*`, ...lines].join('\n'));
+	}
+	const tableMoments = moments.filter((x) => x.forTable);
+	const tableLines = tableMoments.flatMap((m) => bullets(m.documents));
+	if (tableLines.length) {
+		const header = data.table
+			? `*${data.table.name} (${data.table.role}) · Dinámicas de mesa*`
+			: '*Dinámicas de mesa*';
+		const when = tableMoments.map((m) => `${m.dayLabel} ${m.time} · ${m.name}`);
+		blocks.push([header, ...when, ...tableLines].join('\n'));
+	}
+
+	return blocks.join('\n\n') || '(sin documentos)';
+};
+
+const buildAssignmentsReplacements = (data: AssignmentsData): Record<string, string> => {
+	const responsibilities = data.responsibilities ?? [];
+	const teams = data.teams ?? [];
+	return {
+		'assignments.responsibilitiesCount': responsibilities.length.toString(),
+		'assignments.responsibilitiesList':
+			responsibilities.map((r) => r.name).join(', ') || 'Ninguna',
+		'assignments.responsibilitiesRoster': buildResponsibilitiesRoster(responsibilities),
+		'assignments.teamsCount': teams.length.toString(),
+		'assignments.teamsList': teams.map((t) => t.name).join(', ') || 'Ninguno',
+		'assignments.teamsRoster': buildTeamsRoster(teams),
+		'assignments.momentsRoster': buildMomentsRoster(data.moments ?? []),
+		'assignments.documentsRoster': buildDocumentsRoster(data),
+		'assignments.documentsCount': countAssignmentDocuments(data).toString(),
+	};
+};
+
+/**
+ * Default mock assignments used for previews in the template editor.
+ */
+const getMockAssignments = (): AssignmentsData => ({
+	responsibilities: [
+		{ name: 'Música', typeLabel: 'Música' },
+		{ name: 'Charla: De la Rosa', typeLabel: 'Charla' },
+	],
+	teams: [
+		{
+			name: 'Música y Alabanza',
+			role: 'Líder',
+			leaderName: 'Juan Pérez',
+			memberNames: ['María López', 'Carlos Gómez'],
+		},
+	],
+	moments: [
+		{
+			dayLabel: 'Viernes',
+			time: '20:57',
+			name: 'Explicación de las Palancas',
+			documents: [{ label: 'Palancas', url: 'https://ejemplo.com/palancas.pdf' }],
+		},
+		{
+			dayLabel: 'Sábado',
+			time: '14:40',
+			name: 'Dinámica: Oración en Grupo',
+			forTable: true,
+			documents: [{ label: 'Dinámica 1 (sábado)', url: 'https://ejemplo.com/dinamica-1.pdf' }],
+		},
+	],
+	responsibilityDocuments: [],
+	table: { name: 'Mesa 3', role: 'colíder' },
+});
+
+/**
+ * Replaces assignments-scoped variables in a message template. Falls back to
+ * mock data when `assignments` is null/undefined so the UI preview shows
+ * placeholders (same semantics as `replaceTableVariables`).
+ */
+export const replaceAssignmentsVariables = (
+	message: string,
+	assignments: AssignmentsData | null | undefined,
+	escapeHtmlValues = false,
+): string => {
+	const data = assignments || getMockAssignments();
+	const replacements = buildAssignmentsReplacements(data);
+	let out = message;
+	for (const [k, v] of Object.entries(replacements)) {
+		const safe = escapeHtmlValues ? escapeHtmlValue(v) : v;
+		out = out.replace(new RegExp(`\\{${k}\\}`, 'g'), () => safe);
+	}
+	return out;
+};
+
+/**
  * Una entrada del calendario de preparaciones (las reuniones semanales del
  * equipo servidor previas al retiro). Espejo mínimo de la fila
  * `retreat_preparation`: solo lo necesario para imprimir el calendario.
@@ -1487,6 +1736,7 @@ export const findEmptyVariables = (
 	selectedContactKey?: string,
 	community?: CommunityData | null,
 	table?: TableData | null,
+	assignments?: AssignmentsData | null,
 ): string[] => {
 	const participantReplacements = buildParticipantReplacements(
 		participant ?? ({} as ParticipantData),
@@ -1500,11 +1750,15 @@ export const findEmptyVariables = (
 	// advertir `{table.name}`/`{table.walkersRoster}` con un consejo ("revisa los
 	// datos del caminante o del retiro") que no aplica a este scope.
 	const tableReplacements = table ? buildTableReplacements(table) : {};
+	// Mismo criterio para {assignments.*}: sin contexto de tareas no se reportan
+	// (y con contexto sus vacíos son contenido explícito, nunca '').
+	const assignmentsReplacements = assignments ? buildAssignmentsReplacements(assignments) : {};
 	const combined: Record<string, string> = {
 		...participantReplacements,
 		...retreatReplacements,
 		...communityReplacements,
 		...tableReplacements,
+		...assignmentsReplacements,
 	};
 
 	// Extract all unique placeholders from the message.
@@ -1542,6 +1796,9 @@ export const replaceAllVariables = (
 	// Cónyuge del destinatario (retiros de parejas). Va al final para no romper
 	// a los callers que pasan escapeHtmlValues posicional.
 	spouse?: SpouseData | null,
+	// Tareas del servidor (responsabilidades + equipos). Igual que spouse: se
+	// agrega al final de la firma posicional para no romper callers existentes.
+	assignments?: AssignmentsData | null,
 ): string => {
 	let processedMessage = message;
 
@@ -1576,13 +1833,26 @@ export const replaceAllVariables = (
 		processedMessage = replaceSpouseVariables(processedMessage, spouse, escapeHtmlValues);
 	}
 
+	// Replace assignments variables when provided (briefing de tareas del
+	// servidor). Sin contexto de tareas, {assignments.*} queda sin resolver.
+	if (assignments !== undefined) {
+		processedMessage = replaceAssignmentsVariables(processedMessage, assignments, escapeHtmlValues);
+	}
+
 	// A nullable variable wrapped in emphasis marks (`*{retreat.cost}*`)
 	// resolves to literal markers when the value is missing — WhatsApp then
 	// shows them raw to the recipient. Collapse only the EMPTY pairs
 	// (markers with nothing but whitespace between them): a pair around real
 	// content is legitimate formatting and must survive (`~~struck~~`).
 	// Double backticks are never touched: they carry their own meaning there.
-	processedMessage = processedMessage.replace(/(\*\s*\*|_\s*_|~~\s*~~)/g, '');
+	// Only horizontal whitespace counts as "nothing between": with `\s` a bold
+	// line followed by a line that starts in bold (`*Título:*\n*Viernes…*`)
+	// lost both markers and the line break. URLs are matched first and kept
+	// as-is: a `__` inside a document link is part of the file name.
+	processedMessage = processedMessage.replace(
+		/(https?:\/\/\S+)|\*[ \t]*\*|_[ \t]*_|~~[ \t]*~~/g,
+		(_match, url: string | undefined) => url ?? '',
+	);
 
 	return processedMessage;
 };

@@ -62,7 +62,7 @@
 					<span class="text-[10px]">{{ uploading ? 'Subiendo...' : 'Agregar' }}</span>
 				</button>
 			</div>
-			<p class="text-xs text-muted-foreground">JPG, PNG o WebP (máx. 5MB c/u). La principal se muestra primero en "Mis Retiros".</p>
+			<p class="text-xs text-muted-foreground">JPG, PNG o WebP. Las fotos grandes se reducen solas. La principal se muestra primero en "Mis Retiros".</p>
 		</div>
 
 		<!-- ===================== SONGS ===================== -->
@@ -182,6 +182,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
 import { pickFiles } from '@/utils/filePicker';
+import { MAX_PHOTO_SOURCE_BYTES, PHOTO_MAX_SIDE, resizeImageToDataUrl } from '@/utils/imageResize';
 import { Star, Trash2, Plus, Loader2, Music, Download } from 'lucide-vue-next';
 import { useToast } from '@repo/ui';
 import type { RetreatMemoryPhoto, RetreatMemorySong } from '@repo/types';
@@ -272,8 +273,8 @@ const triggerFileInput = async () => {
 };
 
 const validateFile = (file: File): boolean => {
-	if (file.size > 5 * 1024 * 1024) {
-		toast({ title: 'Archivo muy grande', description: `${file.name} supera los 5MB`, variant: 'destructive' });
+	if (file.size > MAX_PHOTO_SOURCE_BYTES) {
+		toast({ title: 'Archivo muy grande', description: `${file.name} supera los 30MB`, variant: 'destructive' });
 		return false;
 	}
 	if (!file.type.match(/^image\/(jpeg|png|webp)$/)) {
@@ -283,31 +284,53 @@ const validateFile = (file: File): boolean => {
 	return true;
 };
 
-const readAsDataURL = (file: File): Promise<string> =>
-	new Promise((resolve, reject) => {
-		const reader = new FileReader();
-		reader.onload = (e) => resolve(e.target?.result as string);
-		reader.onerror = reject;
-		reader.readAsDataURL(file);
-	});
-
 const handleFiles = async (files: File[]) => {
 	if (!files.length) return;
 
+	const valid = files.filter(validateFile);
+	// Only as many as there are free slots; the server would reject the rest one by one.
+	const toUpload = valid.slice(0, Math.max(0, MAX_PHOTOS - photos.value.length));
+	const failed: string[] = [];
+	let firstError: unknown;
 	uploading.value = true;
 	try {
-		for (const file of files) {
-			if (photos.value.length >= MAX_PHOTOS) break;
-			if (!validateFile(file)) continue;
-			const photoData = await readAsDataURL(file);
-			await addRetreatMemoryPhoto(props.retreatId, photoData);
+		// One at a time: decoding several large photos at once can exhaust a phone's memory.
+		for (const file of toUpload) {
+			try {
+				const photoData = await resizeImageToDataUrl(file, { maxSide: PHOTO_MAX_SIDE });
+				await addRetreatMemoryPhoto(props.retreatId, photoData);
+			} catch (error) {
+				// Keep going: the photos already uploaded must not look lost.
+				failed.push(file.name);
+				firstError ??= error;
+			}
 		}
+	} finally {
 		await load();
 		emitDerived();
-	} catch (error) {
-		toast({ title: 'Error al subir foto', description: apiErrorMessage(error), variant: 'destructive' });
-	} finally {
 		uploading.value = false;
+	}
+
+	// One toast per batch: an error that hits every photo (an expired session)
+	// would otherwise fire one per file.
+	if (failed.length) {
+		toast({
+			title:
+				failed.length === 1 ? `No se pudo subir ${failed[0]}` : `No se pudieron subir ${failed.length} fotos`,
+			description:
+				failed.length === 1
+					? apiErrorMessage(firstError)
+					: `${failed.join(', ')}. ${apiErrorMessage(firstError)}`,
+			variant: 'destructive',
+		});
+	}
+	const skipped = valid.length - toUpload.length;
+	if (skipped > 0) {
+		toast({
+			title: `Máximo ${MAX_PHOTOS} fotos por retiro`,
+			description: `No se subieron ${skipped} foto(s) por falta de espacio.`,
+			variant: 'destructive',
+		});
 	}
 };
 

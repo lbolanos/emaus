@@ -284,9 +284,10 @@ Sala: `retreat:${retreatId}:schedule`. Cliente envía `schedule:subscribe` con e
   Return: `{mealSlots, angelitosAssigned, unresolvedSlots, responsableConflicts}` (el último es count de signups eliminados por la regla #2).
 
 - **`autoAssignAngelitos(retreatId, slotIds?)`**
-  1. Pool de candidatos: `retreat_participants.type='partial_server' AND participantId IS NOT NULL` (filtrado por retiro).
+  1. Pool de candidatos: `retreat_participants.type='partial_server' AND participantId IS NOT NULL AND COALESCE(isCancelled, 0) = 0` (filtrado por retiro). Sin el filtro de cancelados, un angelito que se dio de baja recibía turno y correo (Del Valle II, 2026-10-16).
   2. Excluye los actualmente sentados a una mesa: `retreat_participants.tableId IS NOT NULL`.
   3. Para cada slot meal-window: borra `signups` cuyos `participantId` están en mesa, luego rellena hasta `capacity` con angelitos del pool, marcando `autoAssigned=true, isAngelito=true`.
+  4. Correo solo a quien gana un turno que no tenía (compara contra las auto-asignaciones previas). Como todo cambio de horario re-corre esto, antes cada ±5 le reenviaba el correo a todos los angelitos.
 
 - **`reorderDay(retreatId, day, orderedItemIds)`**
   Reordena items de un día con drag&drop preservando los slots de tiempo (las tuplas `(startTime, endTime, durationMinutes)` ya en uso ese día). Lo que cambia es el mapeo `item → slot`: items[0] ordenados por startTime ascending → primer id de la lista, etc. Valida set-equality; rechaza ids fuera del día, duplicados, count distinto. Actualiza `orderInDay = i`. Endpoint: `POST /api/schedule/retreats/:id/days/:day/reorder` body `{itemIds:string[]}`. Permiso `schedule:manage`. Llama a `resolveSantisimoConflicts` post-reorder.

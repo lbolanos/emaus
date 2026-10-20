@@ -1,6 +1,6 @@
 ---
 name: troubleshooting
-description: MUST be used cuando el usuario reporta cualquier bug, error o comportamiento inesperado en el proyecto Emaús. Índice maestro de bugs recurrentes con síntoma → causa → fix. Cubre UI congelada (reka-ui), página blanca en Safari iOS, fechas que saltan un día (TZ CDMX), checkbox sin reacción, Set/Map no reactivos, migrations SQLite que borran data silenciosamente, tap-to-assign en móvil, registro que no avanza de paso por el autofill del celular, tests Vue con defineModel, mocks Jest con ESM, tests 403, y más. Triggers — "se congela", "no responde", "página en blanco", "Safari", "iPhone", "fechas saltan", "un día antes", "checkbox no funciona", "no marca", "migration borró", "perdió data", "tap no responde", "no asigna en móvil", "no me deja avanzar", "no avanza el registro", "el botón Siguiente no hace nada", "dice que el teléfono no es número", "test falla", "ReferenceError mock", "Cannot access before initialization", "vue-i18n", "stack overflow", "Maximum call stack", "el switch no se mueve", "seleccionar todos no hace nada", "seleccioné y dice que no seleccioné nada", "el resumen sale vacío".
+description: MUST be used cuando el usuario reporta cualquier bug, error o comportamiento inesperado en el proyecto Emaús. Índice maestro de bugs recurrentes con síntoma → causa → fix. Cubre UI congelada (reka-ui), página blanca en Safari iOS, fechas que saltan un día (TZ CDMX), checkbox sin reacción, Set/Map no reactivos, migrations SQLite que borran data silenciosamente, tap-to-assign en móvil, registro que no avanza de paso por el autofill del celular, tests Vue con defineModel, mocks Jest con ESM, tests 403, y más. Triggers — "se congela", "no responde", "página en blanco", "Safari", "iPhone", "fechas saltan", "un día antes", "checkbox no funciona", "no marca", "migration borró", "perdió data", "tap no responde", "no asigna en móvil", "no me deja avanzar", "no avanza el registro", "el botón Siguiente no hace nada", "dice que el teléfono no es número", "test falla", "ReferenceError mock", "Cannot access before initialization", "vue-i18n", "stack overflow", "Maximum call stack", "el switch no se mueve", "seleccionar todos no hace nada", "seleccioné y dice que no seleccioné nada", "el resumen sale vacío", "la foto no sube", "supera los 2MB", "la foto sale cuadrada".
 ---
 
 # Troubleshooting — bugs recurrentes del proyecto Emaús
@@ -47,6 +47,7 @@ Cuando el usuario reporta un problema, primero ubicá el **síntoma** en la tabl
 | "al ejecutar no se crean los del primer paso", "el paso 1 debería tener 29 en cola", "si está apagada, ¿por qué veo programados?", "veo 58 en programados y ninguna en bandeja", "dupliqué la secuencia y ejecuté" | [#34 Secuencias: paso vencido, pausa y bandeja "vacía"](#34-secuencias-paso-vencido-pausa-y-bandeja-vacía) |
 | "el test dice que se llamó una función que este test no llama", "`not.toHaveBeenCalled()` falla con el código bien", "`toHaveBeenCalledTimes(n)` cuenta de más", "pasa aislado con `-t` pero falla en el archivo" (Vitest web) | [#35 Vitest no limpia los mocks entre tests](#35-vitest-no-limpia-los-mocks-entre-tests-not-tohavebeencalled-falla-con-llamadas-de-otro-test) |
 | "con mi rol no veo los contactos al editar", "a mí me faltan campos que otro usuario sí ve", "la sección de emergencia no aparece en la ficha", "el coordinador no ve el monto de la beca", "al guardar dice que no tengo permiso para modificar datos de salud" | [#36 Un permiso RBAC recorta campos y el formulario oculta la sección](#36-un-permiso-rbac-recorta-campos-y-el-formulario-oculta-la-sección) |
+| "no se pueden subir fotos de más de 5MB", "dice que supera los 2MB", "desde el celular no sube la foto", "la foto sale cortada/cuadrada", "en el recuerdo falta gente de las orillas" | [#37 La foto no sube por tamaño, o sube y sale cortada en cuadrado](#37-la-foto-no-sube-por-tamaño-o-sube-y-sale-cortada-en-cuadrado) |
 
 ---
 
@@ -106,8 +107,18 @@ grep -l 'useRekaDialogFix' apps/web/src/
 - 2026-05-14 — `InventoryView.vue`: historial y delete congelaban UI.
 - 2026-05-14 — `HouseBedMap.vue`: bulkDeleteBeds, bulkChangeType, startEditFloorLabel, openChangeSector.
 - 2026-05-14 — `BedAssignmentsView.vue`: isAutoAssignDialogOpen, isClearAssignmentsDialogOpen.
+- 2026-10-19 — `ParticipantList.vue` (7 ítems: bulk mensaje/edición/delete, columnas, importar, exportar, imprimir), `TablesView.vue` (5 ítems de impresión), `ResponsabilitiesView.vue` (imprimir e imprimir-doc), `ServiceTeamsView.vue` (imprimir).
 
-**Tests del composable**: `apps/web/src/composables/__tests__/useRekaDialogFix.test.ts` (9 tests). Nota: happy-dom tiene un quirk donde `style.foo = ''` envenena la propiedad para reasignaciones posteriores en el mismo describe — los tests usan spies sobre `setInterval`/`removeAttribute` en lugar de leer back styles para evitarlo.
+**`window.print` desde el menú congela igual que un Dialog** — misma causa (el body lock de reka al cerrar el menú), mismo fix (`deferOpen`). La excepción son los handlers que arman su **propia ventana** (`window.open` + `win.print()`, patrón `usePrintableDocument`): el diálogo de impresión corre en la otra ventana y esta página no se ve afectada — `HouseBedMap.printMap` es el ejemplo.
+
+**Guard anti-regresión**: `apps/web/src/test/dropdownMenuFreezeGuard.test.ts` escanea los `.vue` y falla si un `DropdownMenuItem @click` imprime o abre un overlay (`= true` / nombre con Dialog|Modal) sin `deferOpen`. Los modales `<Teleport>` custom y los prints en ventana nueva van en allowlists con motivo; el test también detecta entradas huérfanas (ítem migrado a `deferOpen` → borrar la entrada).
+
+**Al auditar "papel sucio" al imprimir, el grep de `print:` no alcanza** (lección del falso positivo de `MedicinesReportView`, 2026-10-19: se declaró "cero reglas print" con un patrón incompleto). Las reglas de impresión del repo viven en tres sitios que un grep de utilidades Tailwind no ve:
+- clases custom tipo `no-print` (sin dos puntos — `@media print { .no-print { display:none } }`),
+- `<style>` **global** (no scoped) de componentes madre — `ParticipantList.vue` define el print de sus wrappers,
+- el layout: `AppLayout.vue` oculta sidebar/botones/fixed al imprimir.
+
+Antes de afirmar que una vista "no tiene estilos de impresión", buscar `no-print`, `@media print` y revisar el componente que la envuelve.
 
 ---
 
@@ -125,9 +136,9 @@ grep -l 'useRekaDialogFix' apps/web/src/
 - `App.vue` MUST tener UN SOLO root element — multi-root fragments rompen DOM en Safari.
 
 **Deploy**:
-- Siempre limpiar `/dist/assets/` antes de copiar (evitar chunks viejos cacheados).
+- El deploy publica cada build en un release nuevo (`apps/web/releases/<id>`) y cambia el symlink `dist` de una vez, así que no se mezclan chunks viejos y nuevos. **No limpies ni copies nada dentro de `dist/` a mano**: es el release vivo. Rollback del web: README § Rollback.
 - Usar `?v=` cache bust en el entry JS.
-- SSH server: `ssh -i ~/.ssh/emaus-key.pem ubuntu@emaus.cc`, path `/var/www/emaus/apps/web/dist`.
+- SSH server: `ssh -i ~/.ssh/lightsail-emaus.pem ubuntu@18.116.102.104`, path `/var/www/emaus/apps/web/dist` (symlink al release vivo).
 
 **Detalle**: skill `safari-ios-compatibility` (`.ruler/skills/safari-ios-compatibility/SKILL.md`).
 
@@ -1675,3 +1686,56 @@ no reemplaza el body, el servicio recibe el `null` crudo y vaciaría la columna.
 **Caso**: 2026-10-07 — communications (retreat-scoped, Buen Despacho) no veía los contactos al
 editar en la vista Palancas; el diseño de 20260914 excluía al rol a propósito y la operación
 necesitaba lo contrario.
+
+## 37. La foto no sube por tamaño, o sube y sale cortada en cuadrado
+
+**Síntoma**: "no se pueden subir fotos de más de X MB", "dice que supera los 2MB/5MB", "desde el
+celular no sube ninguna foto", o la foto sí sube pero en el visor sale **recortada en cuadrado** y
+borrosa: en una foto de grupo faltan las personas de las orillas.
+
+**Causa**: dos defectos que suelen ir juntos en cada subida de imagen nueva:
+
+1. **El límite del cliente no coincide con el del servidor.** El servidor acepta como máximo
+   **2 MB binarios** (`imageService.base64ToBuffer`), y el data-URI se corta además en el schema
+   (`createRetreatMemoryPhotoSchema`: 4 M caracteres). Una foto de celular pesa de 3 a 8 MB. Un
+   formulario que anuncia más de 2 MB, o que sube el archivo crudo, falla siempre.
+2. **`imageService.processAvatar` recorta a un cuadrado de 512 px** (`fit: 'cover'`). Es para
+   caras; cualquier otra foto que pase por ahí pierde los costados. En modo base64 (dev local) no se
+   procesa nada, así que **en local se ve bien y en prod sale cuadrada**.
+
+**Fix**: en el cliente, `resizeImageToDataUrl(file, { maxSide })` de
+`apps/web/src/utils/imageResize.ts` antes de subir (JPEG; ya resuelve la CSP sin `blob:` y el WebP
+falso de Safari), con `PHOTO_MAX_SIDE` y `MAX_PHOTO_SOURCE_BYTES` del mismo módulo. En el servidor,
+para lo que no es una cara, `processPhoto` (fotos de evento) o `processFlyerAsset`, que comparten
+`processWithoutCrop` (`fit: 'inside'`, sin agrandar).
+
+**Auditar el repo** (con `/usr/bin/grep`: el `grep` de la shell de Claude se salta en silencio los
+archivos con bytes NUL, y `retreatMemoryService.ts` los tiene):
+
+```bash
+/usr/bin/grep -rn "processAvatar(" apps/api/src --include='*.ts' | /usr/bin/grep -v tests
+/usr/bin/grep -rn "readAsDataURL\|2 \* 1024 \* 1024" apps/web/src --include='*.vue' | /usr/bin/grep -v __tests__
+```
+
+Hoy (2026-10-19) `processAvatar` queda solo en el avatar de usuario y la foto de rostro del miembro
+(correcto: son caras). Fotos del recuerdo y de reunión ya van por `processPhoto`, y el fondo del
+volante y la foto de perfil (`AvatarUpload.vue`) ya se reducen en el navegador. El comando de
+arriba debe listar solo el `readAsDataURL` de `PhotoAssignmentDialog.vue` (el servidor acepta
+10 MB) y el de `AiChatWidget.vue` (reduce por su cuenta).
+
+**Para una cara, reducir a 512 px de lado mayor** (el default de `resizeImageToDataUrl`), no a 1600:
+`processAvatar` solo recorta si el ancho pasa de 512, así que con 512 el servidor la guarda tal cual
+y no agranda el lado corto.
+
+**Si la imagen puede traer transparencia** (fondos, logos), reducir solo lo que pase de
+`SERVER_MAX_IMAGE_BYTES` y mandar lo demás tal cual con `readAsDataUrl`: la reducción produce JPEG
+y pinta de negro lo transparente, mientras que el WebP del servidor lo conserva.
+
+**Comprobar en prod por el dato**: bajar un objeto del prefijo con `aws s3 cp … --profile emaus`
+a un temporal y medirlo con `sips -g pixelWidth -g pixelHeight`. 512×512 = pasó por el recorte.
+
+**Casos**: 2026-10-19 — foto de perfil (`specs/avatar-photo-resize/`) y fondo del volante de la
+comunidad (`specs/flyer-background-resize/`): 2 MB en el navegador; el servidor estaba bien. Ese mismo día, fotos de reunión de la comunidad (`specs/meeting-photo-resize/`): 2 MB en
+el navegador y cuadrado de 512 en S3; 12 objetos en `community-meetings/`. Ese mismo día, fotos del recuerdo del retiro: el formulario decía "máx. 5MB", el servidor
+cortaba en 2 MB y las 10 fotos de `retreat-memories/` eran de 512×512. Spec y decisiones:
+`specs/memory-photo-resize/`.

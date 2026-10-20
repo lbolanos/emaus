@@ -26,7 +26,7 @@ ssh -i ~/.ssh/lightsail-emaus.pem ubuntu@18.116.102.104
 | DB en prod | `/var/www/emaus/apps/api/database.sqlite` |
 | Backups locales | `/var/backups/emaus/` |
 | Log de backup | `/var/log/emaus-backup.log` |
-| Deploy web | `/var/www/emaus/apps/web/dist` |
+| Deploy web | `/var/www/emaus/apps/web/dist`, **symlink** a `releases/<sha>-<run>-<intento>` (se guardan 5). Nunca escribir dentro; rollback en README § Rollback |
 | Logs del sitio | `/var/log/nginx/emaus-access.log` y `emaus-error.log` (**no** `access.log`) |
 | Logs del API | `~/.pm2/logs/emaus-api-error.log` (rota diario, `…__<fecha>.log`) |
 | Zona horaria | `Etc/UTC` — y pm2 **no** define `TZ`, así que Node hereda UTC |

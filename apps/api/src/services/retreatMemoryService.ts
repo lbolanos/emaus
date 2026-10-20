@@ -97,10 +97,11 @@ export const retreatMemoryService = {
 		let s3Key: string | null = null;
 
 		if (avatarStorageService.isS3Storage()) {
-			// Reuse the corrected image flow: destructure base64ToBuffer and pass
-			// the detected contentType (NOT the wrapper object / "image/*").
+			// Pass the detected contentType (NOT the wrapper object / "image/*").
+			// processPhoto, not processAvatar: the avatar flow crops to a 512px
+			// square, which cut the people at the edges out of group photos.
 			const { buffer, contentType } = imageService.base64ToBuffer(photoData);
-			const processed = await imageService.processAvatar(buffer, contentType);
+			const processed = await imageService.processPhoto(buffer, contentType);
 			const result = await s3Service.uploadRetreatMemoryPhotoById(
 				retreatId,
 				photoId,

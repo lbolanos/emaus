@@ -202,7 +202,7 @@ describe('RecepcionView - total pagado', () => {
 		expect(betoBadge!.classes()).toContain('text-muted-foreground');
 	});
 
-	describe('badge "paga en la casa" (specs/pays-at-house, D7)', () => {
+	describe('pays-at-house badge (specs/pays-at-house, D7)', () => {
 		async function mountWithPending(list: ReceptionParticipant[]) {
 			getReceptionStatsMock.mockResolvedValue({
 				...statsFixture,
@@ -212,7 +212,7 @@ describe('RecepcionView - total pagado', () => {
 			return mountView();
 		}
 
-		it('marcado sin pagos: badge sky junto al botón Cobrar', async () => {
+		it('marked without payments: sky badge next to the Cobrar button', async () => {
 			const wrapper = await mountWithPending([
 				makeParticipant({ firstName: 'Dani', lastName: 'Marquez', idOnRetreat: 9, paysAtHouse: true }),
 			]);
@@ -221,12 +221,12 @@ describe('RecepcionView - total pagado', () => {
 			const badge = li.findAll('span').find((s: any) => s.text() === 'reception.paysAtHouse');
 			expect(badge, 'pays-at-house badge should exist').toBeTruthy();
 			expect(badge!.classes().some((c: string) => c.includes('sky'))).toBe(true);
-			// D7: el badge no desplaza a Cobrar — cobrar en la puerta sigue a un clic.
+			// D7: the badge does not displace Cobrar — charging at the door stays one click away.
 			const charge = li.find('button[title="reception.charge"]');
 			expect(charge.exists()).toBe(true);
 		});
 
-		it('marcado con pago registrado: sin badge (mismo umbral que Cobrar)', async () => {
+		it('marked with a registered payment: no badge (same threshold as Cobrar)', async () => {
 			const wrapper = await mountWithPending([
 				makeParticipant({ firstName: 'Dani', lastName: 'Marquez', idOnRetreat: 9, paysAtHouse: true, totalPaid: 500 }),
 			]);
@@ -236,7 +236,7 @@ describe('RecepcionView - total pagado', () => {
 			expect(li.find('button[title="reception.charge"]').exists()).toBe(false);
 		});
 
-		it('becado: gana el badge de beca aunque persista la marca (D4)', async () => {
+		it('scholarship: the scholarship badge wins even if the flag persists (D4)', async () => {
 			const wrapper = await mountWithPending([
 				makeParticipant({ firstName: 'Dani', lastName: 'Marquez', idOnRetreat: 9, paysAtHouse: true, isScholarship: true }),
 			]);

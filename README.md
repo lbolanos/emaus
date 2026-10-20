@@ -154,25 +154,30 @@ For detailed setup and troubleshooting, see [docs/deployment/deployment-guide.md
 
 ### Rollback
 
-If issues occur after deployment, automatic rollback is triggered. For manual rollback:
+There is no automatic rollback of the API: if its healthcheck fails the deploy goes red, and the
+web keeps serving the previous release (it is only published after the API is healthy). Each
+deploy snapshots the running version in `/var/www/emaus/previous/`; to restore it (API + web):
 
 ```bash
-# SSH to Lightsail (puerto 22 bloqueado por Cloudflare proxy — usar IP directa)
-ssh -i ~/.ssh/lightsail-emaus.pem ubuntu@18.116.102.104
-
-# List available backups
-ls /var/www/emaus-backups/
-
-# Restore previous version
-BACKUP_PATH="/var/www/emaus-backups/backup-YYYYMMDD-HHMMSS"
-cp -r "$BACKUP_PATH/api-dist"/* /var/www/emaus/apps/api/dist/
-cp -r "$BACKUP_PATH/web-dist"/* /var/www/emaus/apps/web/dist/
-
-# Restart application
-pm2 restart emaus-api
+pnpm prod:rollback
 ```
 
-See [docs/deployment/rollback-procedure.md](./docs/deployment/rollback-procedure.md) for detailed rollback instructions.
+The web is served from `/var/www/emaus/apps/web/dist`, a **symlink** to
+`apps/web/releases/<sha>-<run>-<attempt>`; the last 5 releases are kept. To roll back only the
+web, point the symlink at another release:
+
+```bash
+# SSH to Lightsail (use the direct IP)
+ssh -i ~/.ssh/lightsail-emaus.pem ubuntu@18.116.102.104
+cd /var/www/emaus/apps/web
+readlink dist             # the live release
+ls -1dt releases/*/       # newest first
+ln -sfn releases/<id> dist.next && mv -T dist.next dist
+```
+
+Never `rm` or `cp` into `dist/`: it is the live release dir. The older
+[docs/deployment/rollback-procedure.md](./docs/deployment/rollback-procedure.md) describes the
+EC2-era setup.
 
 El listado de participantes debe poder descargarse en formato excel o csv.
 debe poder seleccionar las columnas que desea ver en el listado.

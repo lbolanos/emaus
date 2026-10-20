@@ -272,7 +272,6 @@ onBeforeUnmount(() => {
 								:display-name="userDisplayName"
 								size="xl"
 								editable
-								:max-size="2048"
 								@upload="handleAvatarUpload"
 								@remove="handleAvatarRemove"
 							/>

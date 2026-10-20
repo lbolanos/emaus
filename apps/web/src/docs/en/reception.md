@@ -16,6 +16,8 @@ In the **pending** list, tap **Arrived** next to a person to record their check-
 
 Next to each walker you see how much they've paid: **green** if already paid, or a **Charge** button if they still owe. Tap **Charge** to record the payment right there —enter the amount and pick cash, transfer or card— without leaving Reception. If the walker is on a **scholarship**, the **Scholarship** badge appears instead of the button: they are not charged.
 
+Walkers who said they will pay on arrival show the sky **Pays at the house** label next to the **Charge** button: it is informative only — charge them as usual when they pay. The label disappears as soon as a payment is registered.
+
 ## Search and sort
 
 - **Search** however it comes out: first and last name together ("adan perez"), in any order ("perez adan"), without accents ("jose" finds José, "perez" finds Pérez), by participant number or by nickname. Search is available in both pending and arrived.

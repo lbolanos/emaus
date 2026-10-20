@@ -52,6 +52,8 @@ const getCommunitiesMock = vi.fn(async () => [{ id: 'comm-1', name: 'Buen despac
 vi.mock('@/services/api', () => ({
 	getCancelledParticipants: vi.fn(async () => [] as any[]),
 	exportTablesToDocx: vi.fn(),
+	// Marcas de "Enviar info a líderes" (se cargan con el retiro).
+	getLatestSendsByTemplateType: vi.fn(async () => ({})),
 	getRetreatServerAttendance: (...args: any[]) => getServerAttendanceMock(...args),
 	getCommunities: (...args: any[]) => getCommunitiesMock(...args),
 	api: { get: vi.fn(), post: vi.fn(), put: vi.fn(), delete: vi.fn() },

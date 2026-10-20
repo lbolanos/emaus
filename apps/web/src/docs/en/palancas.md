@@ -18,6 +18,14 @@ The editable fields per walker are:
 - **Palancas received**: how many have arrived.
 - **Palancas notes**: free-form remarks (pending items, agreements, reminders).
 
+## Pays at the retreat house
+
+If a walker said they will pay on Friday arrival at the retreat house, the house button 🏠 on
+their row marks them with one tap (it asks for confirmation). Their status then shows the
+**Pays at the house** label instead of Pending, they stop getting payment reminders, and the
+mark is also visible in the Payments view. The same button removes it. The balance does not
+change: they still owe.
+
 ## Fixing phone numbers
 
 When someone else registers the walker (for example, their spouse), the record keeps the phone number of whoever filled the form. The **Celular** (cell phone) column fixes it in two clicks: the pencil opens an editor with the walker's number and their two emergency contacts.

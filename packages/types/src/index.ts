@@ -432,6 +432,23 @@ export enum ResponsabilityType {
 	OTRO = 'otro',
 }
 
+/**
+ * Spanish labels for ResponsabilityType, shown to servers inside WhatsApp
+ * messages ({assignments.*} rosters). Single source of truth shared by the
+ * web builder and the sequence engine's backend mirror.
+ */
+export const RESPONSABILITY_TYPE_LABELS: Record<ResponsabilityType, string> = {
+	[ResponsabilityType.LIDER]: 'Liderazgo de mesa',
+	[ResponsabilityType.COLIDER]: 'Co-liderazgo de mesa',
+	[ResponsabilityType.SERVIDOR]: 'Servicio',
+	[ResponsabilityType.MUSICA]: 'Música',
+	[ResponsabilityType.ORACION]: 'Oración',
+	[ResponsabilityType.LIMPIEZA]: 'Limpieza',
+	[ResponsabilityType.COCINA]: 'Cocina',
+	[ResponsabilityType.CHARLISTA]: 'Charla',
+	[ResponsabilityType.OTRO]: 'Otro',
+};
+
 export const responsabilitySchema = z.object({
 	id: idSchema,
 	name: z.string(),
@@ -520,9 +537,9 @@ export const participantSchema = z.object({
 	// Confirmación de asistencia per-retiro (la marca el líder/coordinador).
 	attendanceConfirmation: z.enum(['pending', 'confirmed', 'declined']).optional(),
 	isScholarship: z.boolean().optional(),
-	// Comprometió pagar al llegar el viernes a la casa de retiro (per-retiro,
-	// retreat_participants). No exime del cobro: cambia el estado derivado a
-	// 'pays_at_house' mientras haya saldo pendiente.
+	// Promised to pay on Friday arrival at the retreat house (per-retreat,
+	// retreat_participants). Does not waive the charge: switches the derived
+	// status to 'pays_at_house' while there is a pending balance.
 	paysAtHouse: z.boolean().optional(),
 	// Caso especial per-retiro (retreat_participants): el palanquero marca un
 	// caminante que el coordinador debe revisar. Régimen de salud
@@ -968,6 +985,22 @@ export const updateParticipantPhonesSchema = z.object({
 	}),
 	params: z.object({ id: idSchema }),
 });
+
+// PATCH /participants/:id/email — corrección del correo (identidad global del
+// participante; specs/participant-email-change). El correo JAMÁS viaja por el
+// update general (el controller lo stripa): toda corrección pasa por acá, que
+// valida colisiones y arrastra las consecuencias (link de cuenta, overlays de
+// comunidad, cola de mensajes, auditoría).
+export const changeParticipantEmailSchema = z.object({
+	body: z.object({
+		email: participantSchema.shape.email,
+		// Retiro de contexto para los mensajes de colisión; opcional — el
+		// service resuelve los retiros del participante por su cuenta.
+		contextRetreatId: idSchema.optional(),
+	}),
+	params: z.object({ id: idSchema }),
+});
+export type ChangeParticipantEmailBody = z.infer<typeof changeParticipantEmailSchema.shape.body>;
 
 // POST /retreats — createdBy is assigned server-side from the authenticated user, never from the body.
 export const createRetreatSchema = z.object({

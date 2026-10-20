@@ -492,6 +492,67 @@ describe('ParticipantList Component', () => {
 
 			newWrapper.unmount();
 		});
+
+		it('keeps the edit dialog in default mode when only table prefs show palanca columns', async () => {
+			// Walker demo bug: enabling the palanca columns in the column picker
+			// unioned 'palancasCoordinator' into formColumnsToShow and flipped the
+			// edit dialog (title + layout) into palancas mode. The mode must come
+			// from what the hosting view declares in columnsToShowInForm.
+			const pinia = createPinia();
+			setActivePinia(pinia);
+			const newWrapper = mount(ParticipantList, {
+				props: {
+					type: 'walker',
+					columnsToShowInTable: ['firstName', 'palancasCoordinator'],
+					columnsToShowInForm: ['firstName'],
+				},
+				global: {
+					plugins: [pinia],
+					stubs: { 'router-link': true, 'router-view': true, teleport: true },
+					mocks: {
+						$t: (key: string) => key,
+						$router: { push: vi.fn() },
+						$route: { name: 'walkers', params: {}, query: {} },
+					},
+				},
+			});
+			await flushPromises();
+			await nextTick();
+
+			// The visible-column union still carries the palanca column…
+			expect(newWrapper.vm.formColumnsToShow as string[]).toContain('palancasCoordinator');
+			// …but the dialog mode does not follow it.
+			expect(newWrapper.vm.editFormMode).toBe('default');
+
+			newWrapper.unmount();
+		});
+
+		it('marks the dialog as palancas when the hosting view declares it in the form columns', async () => {
+			const pinia = createPinia();
+			setActivePinia(pinia);
+			const newWrapper = mount(ParticipantList, {
+				props: {
+					type: 'walker',
+					columnsToShowInTable: ['firstName'],
+					columnsToShowInForm: ['firstName', 'palancasCoordinator'],
+				},
+				global: {
+					plugins: [pinia],
+					stubs: { 'router-link': true, 'router-view': true, teleport: true },
+					mocks: {
+						$t: (key: string) => key,
+						$router: { push: vi.fn() },
+						$route: { name: 'palancas', params: {}, query: {} },
+					},
+				},
+			});
+			await flushPromises();
+			await nextTick();
+
+			expect(newWrapper.vm.editFormMode).toBe('palancas');
+
+			newWrapper.unmount();
+		});
 	});
 
 	describe('Search Functionality', () => {

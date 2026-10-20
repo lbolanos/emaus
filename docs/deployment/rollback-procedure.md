@@ -2,6 +2,12 @@
 > EC2**. El host actual es **Lightsail**; usar `pnpm prod:rollback` o el
 > snapshot en `/var/www/emaus/previous/`. Ver
 > [`docs/MIGRATION_RETROSPECTIVE.md`](../MIGRATION_RETROSPECTIVE.md).
+>
+> 🚫 **No ejecutes los comandos de esta guía en el servidor actual.** Desde 2026-10-15
+> `/var/www/emaus/apps/web/dist` es un symlink al release vivo (`apps/web/releases/<id>`):
+> `rm -rf .../web/dist/*` y `cp ... web-dist/* .../web/dist/` borran o pisan los archivos que
+> nginx está sirviendo. El rollback actual está en la sección *Rollback* del
+> [`README.md`](../../README.md#rollback).
 
 ---
 

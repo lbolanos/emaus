@@ -19,6 +19,9 @@ export const DomainAuditAction = {
 	PARTICIPANT_ATTENDANCE_CONFIRMATION: 'participant.attendance_confirmation',
 	PARTICIPANT_ANONYMIZE: 'participant.anonymize',
 	PARTICIPANT_MERGE: 'participant.merge',
+	// Corrección del correo por el admin del retiro (specs/participant-email-change).
+	// El evento lleva hashes del correo viejo/nuevo, nunca el correo en claro.
+	PARTICIPANT_EMAIL_CHANGE: 'participant.email_change',
 	// Lectura/exportación de datos sensibles de salud (participant:health) — a
 	// diferencia del resto de acciones de este catálogo (solo escrituras), estas
 	// dos registran acceso de LECTURA porque el dato es sensible bajo LFPDPPP art. 9.

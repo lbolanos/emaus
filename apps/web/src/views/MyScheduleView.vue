@@ -53,6 +53,7 @@ import { useRetreatStore } from '@/stores/retreatStore';
 import { useMyParticipantId } from '@/composables/useMyParticipantId';
 import { useResponsabilityStore } from '@/stores/responsabilityStore';
 import type { RetreatScheduleItemDTO } from '@/services/api';
+import { musicLink } from '@/views/mamMusic';
 
 const store = useScheduleStore();
 const retreatStore = useRetreatStore();
@@ -128,6 +129,29 @@ function statusVariant(s: string): any {
   return 'outline';
 }
 
+// Music chip: with a valid URL (mamMusic, same gate as the MAM list) the 🎵 is
+// a tappable anchor; without one it stays today's plain text
+// (spec mam-canciones R2/D3).
+function musicNode(item: RetreatScheduleItemDTO) {
+  const music = musicLink(item);
+  if (music) {
+    return h(
+      'a',
+      {
+        href: music.url,
+        target: '_blank',
+        rel: 'noopener noreferrer',
+        class:
+          'inline-flex items-center py-2 -my-1 sm:py-0.5 sm:my-0 px-1.5 -mx-1.5 rounded text-gray-500 hover:text-gray-700 hover:underline truncate min-w-0',
+        title: `Abrir ${music.label}`,
+        'aria-label': `Abrir ${music.label}`,
+      },
+      '🎵 ' + music.label,
+    );
+  }
+  return item.palanquitaNotes && h('span', { class: 'text-gray-500' }, '🎵 ' + item.palanquitaNotes);
+}
+
 // Inline row component
 const ItemRow = (props: { entry: Entry }) => {
   const { item, myRoles } = props.entry;
@@ -151,8 +175,7 @@ const ItemRow = (props: { entry: Entry }) => {
           h(Badge as any, { variant: statusVariant(item.status) }, () => item.status),
           h('span', { class: 'text-blue-700' }, '🎤 ' + myRoles.join(', ')),
           item.location && h('span', { class: 'text-gray-500' }, '📍 ' + item.location),
-          item.palanquitaNotes &&
-            h('span', { class: 'text-gray-500' }, '🎵 ' + item.palanquitaNotes),
+          musicNode(item),
         ]),
         item.notes && h('div', { class: 'text-xs text-gray-500 mt-1' }, item.notes),
         attachments.length > 0 &&

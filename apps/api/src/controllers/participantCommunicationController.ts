@@ -6,6 +6,7 @@ import { Participant } from '../entities/participant.entity';
 import { DeepPartial } from 'typeorm';
 import { EmailService, ParticipantEmailData } from '../services/emailService';
 import { authorizationService } from '../middleware/authorization';
+import { messageTemplateTypes } from '@repo/types';
 
 class CreateCommunicationDTO {
 	participantId!: string;
@@ -234,6 +235,48 @@ export class ParticipantCommunicationController {
 	};
 
 	// Get communication statistics for a retreat
+	/**
+	 * Last send per participant of one template type in a retreat: the "ya
+	 * enviado" mark of the send-tasks tab (specs/ux-mam-responsabilidades, D3).
+	 * Only participant, date and channel travel — no message bodies.
+	 */
+	getLatestByTemplateType = async (req: Request, res: Response) => {
+		try {
+			const { retreatId } = req.params;
+			if (!(await callerHasRetreatAccess(req, retreatId))) {
+				return res.status(403).json({ message: 'Forbidden' });
+			}
+			const type = messageTemplateTypes.safeParse(req.query.type);
+			if (!type.success) {
+				return res.status(400).json({ message: 'Unknown template type' });
+			}
+
+			const rows = await this.communicationRepository
+				.createQueryBuilder('communication')
+				.innerJoin('communication.template', 'template')
+				.select([
+					'communication.id',
+					'communication.participantId',
+					'communication.sentAt',
+					'communication.messageType',
+				])
+				.where('communication.retreatId = :retreatId', { retreatId })
+				.andWhere('template.type = :type', { type: type.data })
+				.orderBy('communication.sentAt', 'ASC')
+				.getMany();
+
+			// Ascending order: the last write per participant is the latest send.
+			const latest: Record<string, { sentAt: Date; messageType: MessageType }> = {};
+			for (const row of rows) {
+				latest[row.participantId] = { sentAt: row.sentAt, messageType: row.messageType };
+			}
+			res.json(latest);
+		} catch (error) {
+			console.error('Error fetching latest communications by template type:', error);
+			res.status(500).json({ message: 'Error fetching communications' });
+		}
+	};
+
 	getRetreatCommunicationStats = async (req: Request, res: Response) => {
 		try {
 			const { retreatId } = req.params;

@@ -1,29 +1,29 @@
 import { test, expect, type Page } from '@playwright/test';
 
 /**
- * E2E de pays-at-house (specs/pays-at-house): el estado "Paga en la casa"
- * sustituye visualmente a Pendiente para el caminante que avisó que pagará al
- * llegar el viernes a la casa de retiro.
+ * pays-at-house E2E (specs/pays-at-house): the "Paga en la casa" state
+ * visually replaces Pendiente for the walker who said they will pay on Friday
+ * arrival at the retreat house.
  *
- * Cubre lo que los unit tests con mocks no pueden: que las tres superficies
- * (Saldos, Palancas, Recepción) rendericen el badge/toggle con los datos
- * reales del GET del listado, y que el toggle dispare el PUT correcto contra
- * el API real con CSRF y el contextRetreatId del retiro activo.
+ * Covers what mocked unit tests cannot: that the three surfaces (Balances,
+ * Palancas, Reception) render the badge/toggle from the real list GET, and
+ * that the toggle fires the correct PUT against the real API with CSRF and
+ * the active retreat's contextRetreatId.
  *
- * Reglas de `.claude/rules/e2e-tests.md` que este archivo sigue:
- *  - NADA se persiste: los PUT a /api/participants/** se abortan y se
- *    registran para asertar el payload (patrón blockParticipantWrites del
- *    participant-health spec). Los estados "marcado" que solo se muestran se
- *    inyectan con un overlay de page.route sobre el GET — cambia solo lo que
- *    este navegador ve.
- *  - Los skips se deciden leyendo la respuesta del API (ausencia real de
- *    datos), no con timeouts de espera de filas.
- *  - Login por UI para probar el guard del router de verdad; el motivo del
- *    rechazo sale de la respuesta del API (429 = limitador de login).
+ * Rules from `.claude/rules/e2e-tests.md` this file follows:
+ *  - NOTHING is persisted: PUTs to /api/participants/** are aborted and
+ *    recorded so the payload can be asserted (blockParticipantWrites pattern
+ *    from the participant-health spec). Display-only "marked" states are
+ *    injected with a page.route overlay on the GET — only what this browser
+ *    sees changes.
+ *  - Skips are decided by reading the API response (real absence of data),
+ *    not by row-wait timeouts.
+ *  - Login through the UI to exercise the router guard for real; the reject
+ *    reason comes from the API response (429 = login limiter).
  *
- * Usuario por defecto: el superadmin local de dev (participant:update). Con
- * E2E_PAYS_AT_HOUSE_EMAIL/PASSWORD se puede apuntar a otro perfil (p.ej. uno
- * de comunicaciones) sin tocar el spec.
+ * Default user: the local dev superadmin (participant:update). With
+ * E2E_PAYS_AT_HOUSE_EMAIL/PASSWORD the spec can target another profile
+ * (e.g. a communications one) without touching the spec.
  */
 
 test.use({ locale: 'es-MX' });
@@ -42,9 +42,10 @@ interface RecordedWrite {
 }
 
 /**
- * Login por UI (no por API) para que el guard real del router y el contexto
- * de retiro del localStorage participen. `selectedRetreatId` se inyecta antes
- * de que la app cargue (mismo patrón que participant-health-permission-guard).
+ * Login through the UI (not the API) so the real router guard and the
+ * localStorage retreat context take part. `selectedRetreatId` is injected
+ * before the app loads (same pattern as
+ * participant-health-permission-guard).
  */
 async function loginViaUi(
 	page: Page,
@@ -78,19 +79,19 @@ async function loginViaUi(
 function loginSkipReason(email: string, status: number, apiMessage?: string): string {
 	if (status === 429) {
 		return (
-			`Login de ${email} bloqueado por el limitador de login (429): esperar 15 min o levantar ` +
-			'el API con NODE_ENV=development SKIP_RATE_LIMIT=true.'
+			`Login for ${email} blocked by the login limiter (429): wait 15 min or start the API ` +
+			'with NODE_ENV=development SKIP_RATE_LIMIT=true.'
 		);
 	}
 	return (
-		`Login de ${email} rechazado (${status}${apiMessage ? `: ${apiMessage}` : ''}) — si es ` +
-		'credencial inválida, el usuario no existe o la contraseña no coincide en esta DB.'
+		`Login for ${email} rejected (${status}${apiMessage ? `: ${apiMessage}` : ''}) — if the ` +
+		'credential is invalid, the user does not exist or the password does not match in this DB.'
 	);
 }
 
 /**
- * Aborta y registra los writes a /api/participants/** (PUT/PATCH/POST). Los
- * GETs siguen su curso. Nada de lo que haga el navegador llega a la base.
+ * Aborts and records writes to /api/participants/** (PUT/PATCH/POST). GETs
+ * go through. Nothing the browser does reaches the database.
  */
 async function captureParticipantWrites(page: Page): Promise<RecordedWrite[]> {
 	const writes: RecordedWrite[] = [];
@@ -151,8 +152,8 @@ async function overlayPaysAtHouseOnOwing(page: Page) {
 	});
 }
 
-test.describe('Saldos (vista Pagos)', () => {
-	test('marcado con saldo: badge «Paga en la casa», sin recordatorio de WhatsApp (D5), toggle para quitar', async (
+test.describe('Balances (Pagos view)', () => {
+	test('marked with a balance: "Paga en la casa" badge, no WhatsApp reminder button (D5), toggle to remove', async (
 		{ page },
 		testInfo,
 	) => {
@@ -170,7 +171,7 @@ test.describe('Saldos (vista Pagos)', () => {
 		if (!Array.isArray(participants) || !participants.some((p: any) => owesMoney(p))) {
 			testInfo.skip(
 				true,
-				`El retiro ${RETREAT_ID} no tiene participantes con saldo que marcar en esta DB.`,
+				`Retreat ${RETREAT_ID} has no owing participants to mark in this DB.`,
 			);
 			return;
 		}
@@ -190,7 +191,7 @@ test.describe('Saldos (vista Pagos)', () => {
 		expect(writes).toEqual([]);
 	});
 
-	test('marcar desde Saldos envía PUT paysAtHouse=true con el contextRetreatId activo', async (
+	test('marking from Balances sends PUT paysAtHouse=true with the active contextRetreatId', async (
 		{ page },
 		testInfo,
 	) => {
@@ -204,7 +205,7 @@ test.describe('Saldos (vista Pagos)', () => {
 		if (!Array.isArray(participants) || !participants.some((p: any) => isOwingCandidate(p))) {
 			testInfo.skip(
 				true,
-				`El retiro ${RETREAT_ID} no tiene participantes con saldo que marcar en esta DB.`,
+				`Retreat ${RETREAT_ID} has no owing participants to mark in this DB.`,
 			);
 			return;
 		}
@@ -217,7 +218,7 @@ test.describe('Saldos (vista Pagos)', () => {
 		await toggle.click();
 
 		await expect
-			.poll(() => writes.length, { timeout: 15000, message: 'PUT del toggle capturado' })
+			.poll(() => writes.length, { timeout: 15000, message: 'toggle PUT captured' })
 			.toBe(1);
 		expect(writes[0].method).toBe('PUT');
 		expect(writes[0].url).toMatch(/\/api\/participants\/[^/?]+/);
@@ -225,8 +226,8 @@ test.describe('Saldos (vista Pagos)', () => {
 	});
 });
 
-test.describe('Palancas (acción rápida del palanquero)', () => {
-	test('el toggle inline por fila envía el mismo PUT del retiro activo', async ({ page }, testInfo) => {
+test.describe('Palancas (palanquero quick action)', () => {
+	test('the inline per-row toggle sends the same PUT for the active retreat', async ({ page }, testInfo) => {
 		const writes = await captureParticipantWrites(page);
 		const loginError = await loginViaUi(page, USER, RETREAT_ID);
 		if (loginError) testInfo.skip(true, loginError);
@@ -240,7 +241,7 @@ test.describe('Palancas (acción rápida del palanquero)', () => {
 		if (!owingWalker) {
 			testInfo.skip(
 				true,
-				`El retiro ${RETREAT_ID} no tiene caminantes con saldo que marcar en esta DB.`,
+				`Retreat ${RETREAT_ID} has no owing walkers to mark in this DB.`,
 			);
 			return;
 		}
@@ -252,7 +253,7 @@ test.describe('Palancas (acción rápida del palanquero)', () => {
 		await toggle.click();
 
 		await expect
-			.poll(() => writes.length, { timeout: 15000, message: 'PUT del toggle capturado' })
+			.poll(() => writes.length, { timeout: 15000, message: 'toggle PUT captured' })
 			.toBe(1);
 		expect(writes[0].method).toBe('PUT');
 		expect(writes[0].url).toMatch(/\/api\/participants\/[^/?]+/);
@@ -260,7 +261,7 @@ test.describe('Palancas (acción rápida del palanquero)', () => {
 	});
 });
 
-test.describe('Recepción (badge informativo, D7)', () => {
+test.describe('Reception (informative badge, D7)', () => {
 	/**
 	 * Navigates to the reception view with a reception overlay applied. The
 	 * picker decides which pendingList entries get paysAtHouse=true in THIS
@@ -299,19 +300,19 @@ test.describe('Recepción (badge informativo, D7)', () => {
 		return markedNames;
 	}
 
-	test('badge «Paga en la casa» convive con el botón Cobrar', async ({ page }, testInfo) => {
+	test('the "Paga en la casa" badge coexists with the Cobrar button', async ({ page }, testInfo) => {
 		const names = await gotoReceptionWithOverlay(
 			page,
 			(p) => !(p as any).isScholarship && Number((p as any).totalPaid ?? 0) === 0,
 		);
 		if (names === null) {
-			testInfo.skip(true, `Login rechazado o recepción inaccesible para ${USER.email}.`);
+			testInfo.skip(true, `Login rejected or reception unreachable for ${USER.email}.`);
 			return;
 		}
 		if (names.length === 0) {
 			testInfo.skip(
 				true,
-				`El retiro ${RETREAT_ID} no tiene participantes pendientes sin pago en esta DB.`,
+				`Retreat ${RETREAT_ID} has no unpaid pending participants in this DB.`,
 			);
 			return;
 		}
@@ -323,7 +324,7 @@ test.describe('Recepción (badge informativo, D7)', () => {
 		await expect(li.locator('button[title="Cobrar"]')).toBeVisible();
 	});
 
-	test('con un pago registrado el badge desaparece (mismo umbral que Cobrar)', async (
+	test('with a registered payment the badge disappears (same threshold as Cobrar)', async (
 		{ page },
 		testInfo,
 	) => {
@@ -332,13 +333,13 @@ test.describe('Recepción (badge informativo, D7)', () => {
 			(p) => Number((p as any).totalPaid ?? 0) > 0,
 		);
 		if (names === null) {
-			testInfo.skip(true, `Login rechazado o recepción inaccesible para ${USER.email}.`);
+			testInfo.skip(true, `Login rejected or reception unreachable for ${USER.email}.`);
 			return;
 		}
 		if (names.length === 0) {
 			testInfo.skip(
 				true,
-				`El retiro ${RETREAT_ID} no tiene pendientes con pago parcial registrado en esta DB.`,
+				`Retreat ${RETREAT_ID} has no pending participants with a partial payment in this DB.`,
 			);
 			return;
 		}

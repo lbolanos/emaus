@@ -560,6 +560,148 @@ describe('RetreatScheduleService.materializeFromTemplate — auto-generación de
 		expect(sigs.find((s: any) => s.participantId === inTable.id)).toBeUndefined();
 	});
 
+	test('angelito cancelado NO se asigna a un mealWindow slot (y recibiría el correo)', async () => {
+		const ds = getDS();
+		const tplRepo = ds.getRepository(ScheduleTemplate);
+
+		await tplRepo.save([
+			tplRepo.create({
+				templateSetId: setId,
+				name: 'Vigilia',
+				type: 'santisimo',
+				defaultDay: 1,
+				defaultOrder: 10,
+				defaultStartTime: '00:00',
+				defaultDurationMinutes: 120,
+				isActive: true,
+			}),
+			tplRepo.create({
+				templateSetId: setId,
+				name: 'Cena',
+				type: 'comida',
+				defaultDay: 1,
+				defaultOrder: 20,
+				defaultStartTime: '00:00',
+				defaultDurationMinutes: 60,
+				blocksSantisimoAttendance: true,
+				isActive: true,
+			}),
+		]);
+
+		// Único angelito del retiro, pero canceló su participación.
+		const cancelled = await TestDataFactory.createTestParticipant(testRetreat.id, {
+			firstName: 'Angelito Cancelado',
+			type: 'partial_server',
+			isCancelled: true,
+		} as any);
+
+		const baseDate = new Date('2026-06-01T00:00:00Z');
+		await service.materializeFromTemplate(testRetreat.id, baseDate, false, setId);
+
+		const slots = await ds
+			.getRepository(SantisimoSlot)
+			.find({ where: { retreatId: testRetreat.id }, relations: ['signups'], order: { startTime: 'ASC' } });
+
+		const meal = slots.find((s: any) => s.mealWindow);
+		expect(meal).toBeDefined();
+		expect((meal!.signups ?? []).find((s: any) => s.participantId === cancelled.id)).toBeUndefined();
+	});
+
+	describe('correo a angelitos al re-asignar', () => {
+		// autoAssignAngelitos borra y recrea las auto-asignaciones de las comidas en cada
+		// cambio de horario; sin comparar contra lo que había, el correo se reenviaba a
+		// todos. Del Valle II, 2026-10-16: acortar "Llevar maletas" mandó 8 correos.
+		const autoSlotsByParticipant = async (retreatId: string) => {
+			const rows = await getDS()
+				.getRepository(SantisimoSignup)
+				.createQueryBuilder('s')
+				.innerJoin('s.slot', 't')
+				.where('t.retreatId = :retreatId', { retreatId })
+				.andWhere('s.autoAssigned = :auto', { auto: true })
+				.getMany();
+			const map = new Map<string, Set<string>>();
+			for (const r of rows) {
+				if (!r.participantId) continue;
+				map.set(r.participantId, (map.get(r.participantId) ?? new Set()).add(r.slotId));
+			}
+			return map;
+		};
+
+		const seedTwoMeals = async () => {
+			const tplRepo = getDS().getRepository(ScheduleTemplate);
+			await tplRepo.save([
+				tplRepo.create({
+					templateSetId: setId, name: 'Vigilia', type: 'santisimo', defaultDay: 1,
+					defaultOrder: 5, defaultStartTime: '00:00', defaultDurationMinutes: 240, isActive: true,
+				}),
+				tplRepo.create({
+					templateSetId: setId, name: 'Comida 1', type: 'comida', defaultDay: 1, defaultOrder: 10,
+					defaultStartTime: '00:00', defaultDurationMinutes: 30, blocksSantisimoAttendance: true, isActive: true,
+				}),
+				tplRepo.create({
+					templateSetId: setId, name: 'Comida 2', type: 'comida', defaultDay: 1, defaultOrder: 20,
+					defaultStartTime: '01:00', defaultDurationMinutes: 30, blocksSantisimoAttendance: true, isActive: true,
+				}),
+				tplRepo.create({
+					templateSetId: setId, name: 'Llevar maletas', type: 'logistica', defaultDay: 1,
+					defaultOrder: 30, defaultStartTime: '03:00', defaultDurationMinutes: 70, isActive: true,
+				}),
+			]);
+			for (const n of ['Angel A', 'Angel B', 'Angel C']) {
+				await TestDataFactory.createTestParticipant(testRetreat.id, { firstName: n, type: 'partial_server' } as any);
+			}
+			await service.materializeFromTemplate(testRetreat.id, new Date('2026-06-01T00:00:00Z'), false, setId);
+		};
+
+		test('cambiar la duración de un item que no es comida no le escribe a nadie', async () => {
+			await seedTwoMeals();
+			const notify = jest
+				.spyOn(service as any, 'notifyAngelitosOfNewAssignments')
+				.mockResolvedValue(undefined);
+
+			const [maletas] = await getDS()
+				.getRepository(RetreatScheduleItem)
+				.find({ where: { retreatId: testRetreat.id, name: 'Llevar maletas' } });
+			await service.update(maletas.id, { durationMinutes: 30 });
+
+			// update() re-corre la asignación (el recálculo pasa), pero nadie gana un turno nuevo.
+			expect(notify).toHaveBeenCalled();
+			for (const call of notify.mock.calls) {
+				expect((call[2] as Map<string, unknown>).size).toBe(0);
+			}
+			notify.mockRestore();
+		});
+
+		test('una comida nueva solo le escribe a quien gana un turno que no tenía', async () => {
+			await seedTwoMeals();
+			const before = await autoSlotsByParticipant(testRetreat.id);
+			const notify = jest
+				.spyOn(service as any, 'notifyAngelitosOfNewAssignments')
+				.mockResolvedValue(undefined);
+
+			// "Llevar maletas" (03:00, dentro de la vigilia) pasa a bloquear el Santísimo:
+			// su slot se vuelve ventana de comida y alguien gana ese turno.
+			const [maletas] = await getDS()
+				.getRepository(RetreatScheduleItem)
+				.find({ where: { retreatId: testRetreat.id, name: 'Llevar maletas' } });
+			await service.update(maletas.id, { blocksSantisimoAttendance: true });
+			const mealSlots = await getDS()
+				.getRepository(SantisimoSlot)
+				.count({ where: { retreatId: testRetreat.id, mealWindow: true } });
+			expect(mealSlots).toBe(3);
+
+			const notified = notify.mock.calls.flatMap(
+				(c) => [...(c[2] as Map<string, Array<{ id: string }>>).entries()],
+			);
+			expect(notified.length).toBeGreaterThan(0);
+			for (const [pid, slots] of notified) {
+				const had = before.get(pid) ?? new Set<string>();
+				expect(slots.some((s) => !had.has(s.id))).toBe(true);
+			}
+			notify.mockRestore();
+		});
+	});
+
 	test('sin items santisimo en el set → no crea slots, sin error', async () => {
 		const ds = getDS();
 		const tplRepo = ds.getRepository(ScheduleTemplate);

@@ -5,28 +5,41 @@ import { formatCurrency, resolvePalancas } from '@repo/utils';
 import TagSelector from './TagSelector.vue';
 import AngelitoAvailabilityEditor from './AngelitoAvailabilityEditor.vue';
 import ParticipantQuickPhoneEditor from './ParticipantQuickPhoneEditor.vue';
+import ParticipantEmailChangeDialog from './ParticipantEmailChangeDialog.vue';
 import ParticipantPaysAtHouseToggle from './ParticipantPaysAtHouseToggle.vue';
-import { getParticipantTags, assignTagToParticipant, removeTagFromParticipant, getPalanqueroOptions as fetchPalanqueroOptions, santisimoApi } from '@/services/api';
+import { getParticipantTags, assignTagToParticipant, removeTagFromParticipant, getPalanqueroOptions as fetchPalanqueroOptions, santisimoApi, type ParticipantEmailChangeResult } from '@/services/api';
+import { useAuthPermissions } from '@/composables/useAuthPermissions';
 import { PICKUP_LOCATIONS } from '@/constants/pickupLocations';
 import { inferFieldControl, PARTICIPANT_TYPE_OPTIONS } from '@/constants/participantFieldControls';
 import { useI18n } from 'vue-i18n';
 import { useToast } from '@repo/ui';
 import { useRetreatStore } from '@/stores/retreatStore';
 import type { Tag } from '@repo/types';
-import { ChevronDown, ChevronUp, User, Phone, Users, Heart, ClipboardList, MapPin, Briefcase, FileText, Shield, Tag as TagIcon } from 'lucide-vue-next';
+import { ChevronDown, ChevronUp, User, Phone, Users, Heart, ClipboardList, MapPin, Briefcase, FileText, Shield, Tag as TagIcon, Copy, Pencil } from 'lucide-vue-next';
 
 type ShirtType = {
   id: string; name: string; color?: string | null; requiredForWalkers: boolean;
   optionalForServers: boolean; sortOrder: number; availableSizes?: string[] | null;
 }
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   participant: any;
   columnsToShow: string[];
   columnsToEdit: string[];
   allColumns: { key: string; label: string; type?: string }[];
   shirtTypes?: ShirtType[];
-}>();
+  /**
+   * Which dialog layout to render. Palancas mode used to be inferred from
+   * columnsToShow, but that list also unions the user's column-picker
+   * preferences, so a walker list with the palanca columns visible flipped
+   * the whole dialog. The hosting view states it instead: ParticipantList
+   * derives it from columnsToShowInForm, which PalancasView always fills
+   * with 'palancasCoordinator'.
+   */
+  mode?: 'default' | 'palancas';
+}>(), {
+  mode: 'default',
+});
 
 const emit = defineEmits(['save', 'cancel', 'participant-patched']);
 
@@ -74,6 +87,35 @@ const participantCountry = computed<string | null>(
 // response.
 const onQuickPhonesSaved = (result: unknown) => emit('participant-patched', result);
 
+// Email is the participant's global identity (D1): read-only in this form,
+// corrected through its own dialog behind participant:identity:update. The
+// generic PUT also strips it server-side, so a stale client cannot write it.
+const { hasPermission } = useAuthPermissions();
+const canCorrectEmail = computed(() => hasPermission('participant:identity:update'));
+const emailDialogOpen = ref(false);
+// Icon-only copy: the address is readable right there, this saves the
+// select-all dance. Clipboard can be unavailable (no https / permissions) —
+// same tolerance as WhatsAppSendQueue, but here the click was explicit, so
+// the failure gets a toast instead of passing in silence.
+const copyEmail = async () => {
+  const email = String(localParticipant.value?.email ?? '');
+  if (!email) return;
+  try {
+    await navigator.clipboard.writeText(email);
+    toast({ description: t('participants.emailChange.copied') });
+  } catch {
+    toast({ description: t('participants.emailChange.copyFailed') });
+  }
+};
+const onEmailChanged = (result: ParticipantEmailChangeResult) => {
+  if (!result.changed) return;
+  localParticipant.value.email = result.participant.email;
+  emit('participant-patched', {
+    id: result.participant.id,
+    email: result.participant.email,
+  });
+};
+
 async function loadAvailability() {
   const retreatId = props.participant?.retreatId;
   const participantId = props.participant?.id;
@@ -93,7 +135,7 @@ async function loadAvailability() {
   }
 }
 
-const isPalancasView = computed(() => props.columnsToShow.includes('palancasCoordinator'));
+const isPalancasView = computed(() => props.mode === 'palancas');
 
 const palanqueroOptions = ref([
   { value: 'Palanquero 1', label: 'Palanquero 1' },
@@ -155,7 +197,10 @@ const fieldGroups: { key: string; label: string; icon: string; keys: string[] }[
   { key: 'inviter', label: 'Invitador', icon: 'users', keys: ['invitedBy', 'isInvitedByEmausMember', 'inviterHomePhone', 'inviterWorkPhone', 'inviterCellPhone', 'inviterEmail'] },
   { key: 'emergency', label: 'Emergencia', icon: 'heart', keys: ['emergencyContact1Name', 'emergencyContact1Relation', 'emergencyContact1HomePhone', 'emergencyContact1WorkPhone', 'emergencyContact1CellPhone', 'emergencyContact1Email', 'emergencyContact2Name', 'emergencyContact2Relation', 'emergencyContact2HomePhone', 'emergencyContact2WorkPhone', 'emergencyContact2CellPhone', 'emergencyContact2Email'] },
   { key: 'logistics', label: 'Log\u00edstica', icon: 'briefcase', keys: ['pickupLocation', 'arrivesOnOwn', 'requestsSingleRoom', 'retreatBed.roomNumber', 'tableMesa.name', 'tableId'] },
-  { key: 'financial', label: 'Financiero', icon: 'fileText', keys: ['totalPaid', 'paymentRemaining', 'lastPaymentDate', 'paymentStatus', 'isScholarship', 'paysAtHouse', 'scholarshipAmount', 'mealCount', 'takesFridayMeal'] },
+  // paysAtHouse intentionally absent: no view passes that column through
+  // columnsToShow, so it never rendered here — the flag lives in the balances
+  // table and the payment modal (specs/pays-at-house).
+  { key: 'financial', label: 'Financiero', icon: 'fileText', keys: ['totalPaid', 'paymentRemaining', 'lastPaymentDate', 'paymentStatus', 'isScholarship', 'scholarshipAmount', 'mealCount', 'takesFridayMeal'] },
   { key: 'palancas', label: 'Palancas', icon: 'clipboardList', keys: ['palancasCoordinator', 'palancasRequested', 'palancasReceived', 'palancasNotes'] },
   { key: 'admin', label: 'Administraci\u00f3n', icon: 'fileText', keys: ['isCancelled', 'notes', 'registrationDate', 'lastUpdatedDate', 'retreatId'] },
 ];
@@ -771,7 +816,48 @@ const calculateAge = (birthDate: string | Date) => {
             ]"
           >
             <Label v-if="getColumnType(key) !== 'tags'" :for="key" class="text-xs font-medium text-gray-500">{{ getColumnLabel(key) }}</Label>
-            <template v-if="columnsToEdit.includes(key) && !READ_ONLY_COMPUTED_FIELDS.includes(key)">
+            <!-- Email: global identity, shown read-only with its own audited
+                 door (D1/D7). Outside the columnsToEdit gate on purpose: the
+                 generic edit never carries email (ParticipantList already
+                 excluded it), but the address must stay visible. Copy is open
+                 to anyone who can see the field; the pencil (correction) stays
+                 behind participant:identity:update. -->
+            <div v-if="key === 'email'" class="flex items-center gap-1.5">
+              <Input
+                :id="key"
+                :model-value="localParticipant[key]"
+                disabled
+                class="w-full flex-1 min-w-0"
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                class="shrink-0 h-8 w-8 text-gray-500 hover:text-gray-700"
+                :aria-label="t('participants.emailChange.copy')"
+                @click="copyEmail"
+              >
+                <Copy class="h-4 w-4" />
+              </Button>
+              <Button
+                v-if="canCorrectEmail"
+                type="button"
+                variant="ghost"
+                size="icon"
+                class="shrink-0 h-8 w-8 text-gray-500 hover:text-blue-600 hover:bg-blue-50"
+                :aria-label="t('participants.emailChange.openButton')"
+                @click="emailDialogOpen = true"
+              >
+                <Pencil class="h-4 w-4" />
+              </Button>
+              <ParticipantEmailChangeDialog
+                :open="emailDialogOpen"
+                :participant="participant"
+                @close="emailDialogOpen = false"
+                @saved="onEmailChanged"
+              />
+            </div>
+            <template v-else-if="columnsToEdit.includes(key) && !READ_ONLY_COMPUTED_FIELDS.includes(key)">
               <Input
                 v-if="getColumnType(key) === 'text'"
                 :id="key"

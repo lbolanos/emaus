@@ -28,6 +28,7 @@ import type {
   Participant,
   FlyerTemplate,
 } from "@repo/types";
+import type { AssignmentDocumentsData } from "@repo/utils";
 import { setupCsrfInterceptor } from "@/utils/csrf";
 import { getApiUrl } from "@/config/runtimeConfig";
 
@@ -42,10 +43,6 @@ declare module "axios" {
     };
   }
 }
-
-// Import type definitions
-import type { ImportMetaEnv } from "@/config/vite-env";
-declare const import_meta: ImportMeta;
 
 export const api = axios.create({
   baseURL: getApiUrl(),
@@ -1141,6 +1138,23 @@ export const sendTestEmail = async (to: string) => {
 
 export const verifySmtpConnection = async () => {
   const response = await api.post("/participant-communications/email/verify");
+  return response.data;
+};
+
+export type LatestSendByParticipant = Record<
+  string,
+  { sentAt: string; messageType: "whatsapp" | "email" }
+>;
+
+/** Last send per participant of one template type ("ya enviado" marks). */
+export const getLatestSendsByTemplateType = async (
+  retreatId: string,
+  type: string,
+): Promise<LatestSendByParticipant> => {
+  const response = await api.get(
+    `/participant-communications/retreat/${retreatId}/latest-by-template-type`,
+    { params: { type } },
+  );
   return response.data;
 };
 
@@ -3210,6 +3224,42 @@ export async function updateParticipantPhones(
   return r.data;
 }
 
+// ---------- Email correction (global identity, specs/participant-email-change) ----------
+
+export interface ParticipantEmailChangeEffects {
+  userLinked: boolean;
+  userWithOldEmail: boolean;
+  overlaysCleared: number;
+  queueRegenerated: Array<{ retreatId: string; regenerated: number; skipped: number }>;
+  spouseShareRetreats: string[];
+}
+
+export interface ParticipantEmailChangeResult {
+  participant: { id: string; email: string };
+  changed: boolean;
+  effects: ParticipantEmailChangeEffects;
+}
+
+/**
+ * Correct a participant's email — their global identity, not a profile field.
+ * Dedicated endpoint (the generic PUT strips `email` server-side): the API
+ * validates collisions against other fichas (409 with a message naming the
+ * owner), links the user account when the ficha has none, clears community
+ * overlays still pointing at the old address and regenerates the pending
+ * message queue of the participant's active retreats.
+ */
+export async function changeParticipantEmail(
+  participantId: string,
+  email: string,
+  contextRetreatId?: string,
+): Promise<ParticipantEmailChangeResult> {
+  const r = await api.patch(`/participants/${participantId}/email`, {
+    email,
+    ...(contextRetreatId ? { contextRetreatId } : {}),
+  });
+  return r.data;
+}
+
 // ---------- Minuto a Minuto (schedule) ----------
 
 export interface ScheduleTemplateSetDTO {
@@ -3251,6 +3301,8 @@ export interface ScheduleTemplateDTO {
   requiresResponsable: boolean;
   allowedResponsibilityTypes?: string | null;
   responsabilityName?: string | null;
+  documentName?: string | null;
+  documentAudience?: 'responsables' | 'table_leaders';
   musicTrackUrl?: string | null;
   palanquitaNotes?: string | null;
   planBNotes?: string | null;
@@ -3291,6 +3343,9 @@ export interface RetreatScheduleItemDTO {
     role?: string | null;
     participant?: { id: string; firstName: string; lastName: string; nickname: string };
   }>;
+  // Nombre canónico del documento del momento (propio de la plantilla, de su
+  // responsabilidad o, si el retiro no la tiene, el de la plantilla).
+  documentName?: string | null;
   attachments?: ResponsabilityAttachmentDTO[];
 }
 
@@ -3772,6 +3827,12 @@ export const responsabilityAttachmentApi = {
 export const retreatScheduleApi = {
   async list(retreatId: string): Promise<RetreatScheduleItemDTO[]> {
     const r = await api.get(`/schedule/retreats/${retreatId}/items`);
+    return r.data;
+  },
+  // Momentos del Minuto a Minuto y documentos con link de cada servidor del
+  // retiro, por participantId (briefing "Enviar tareas").
+  async assignmentDocuments(retreatId: string): Promise<Record<string, AssignmentDocumentsData>> {
+    const r = await api.get(`/schedule/retreats/${retreatId}/assignment-documents`);
     return r.data;
   },
   async create(

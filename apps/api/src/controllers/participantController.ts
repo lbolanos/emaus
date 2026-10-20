@@ -665,6 +665,14 @@ export const updateParticipant = async (
       // how other gated fields are handled in this controller.
       delete body.scholarshipAmount;
     }
+    // Email is global identity (account auto-link, import ficha reuse), so it
+    // never travels through the generic update: an edit here would skip the
+    // collision checks, the user link, the community overlays and the queue
+    // regeneration that a correction drags along. Stripped silently on purpose
+    // — the client re-sends the full DTO by spread, so rejecting would break
+    // every save from the edit form. The only door is PATCH /:id/email
+    // (specs/participant-email-change, D1).
+    delete body.email;
     // Same gate on write as on read: without participant:health the caller
     // cannot write the fields it cannot see. Reject with 403 instead of
     // stripping like scholarshipAmount: the edit form hides these fields, so
@@ -963,6 +971,35 @@ export const updateParticipantPhones = async (
     );
     res.json(result);
   } catch (error) {
+    next(error);
+  }
+};
+
+// PATCH /participants/:id/email — dedicated email correction (global identity
+// change). Everything consequential lives in the service; here we only map the
+// domain error (collision → 409 with its pedagogical message + machine code
+// for the dialog) and echo the effects so the UI can report what else moved.
+export const changeParticipantEmail = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const { id } = req.params;
+    const { email, contextRetreatId } = req.body;
+    const result = await participantService.changeParticipantEmail(
+      id,
+      email,
+      contextRetreatId,
+    );
+    res.json(result);
+  } catch (error) {
+    if (error instanceof participantService.ParticipantEmailChangeError) {
+      return res.status(error.status).json({
+        message: error.message,
+        code: error.code,
+      });
+    }
     next(error);
   }
 };
