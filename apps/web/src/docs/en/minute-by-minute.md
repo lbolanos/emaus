@@ -20,6 +20,7 @@ Only when grouping **by Day**: drag one row onto another of the same day to swap
 
 - **🔔 Ring bell**: fires an on-screen notification to all connected servers.
 - **🖨 Print**: print view of the whole schedule in A4.
+- **🖨 Print compact (Excel-style)**: dense one-page-per-day sheet (Time | Activity | Owners), like the classic paper program. Colors mark the activity type and the owners column shows the team plus the names. Opens a new window with the browser print dialog (paper or PDF).
 - **📦 Download scripts (zip)**: bundle of all markdowns and PDFs, organized by responsibility folder. Useful offline.
 - **📺 Copy public screen link**: login-less big-screen view at `/mam/<slug>` for projecting in the room. Reflects live what the coordinator marks as NOW.
 - **⏱ Shift day**: moves all items of the day by N minutes. Useful when the whole retreat runs late.
