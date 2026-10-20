@@ -38,7 +38,11 @@ const syncInventoryShirts = async (retreatId: string): Promise<void> => {
 	}
 };
 
-export const MEXICAN_DEFAULT_SIZES = ['S', 'M', 'G', 'X', '2'];
+// Default size scale for new retreats. The org's supplier only carries
+// M/L/XL/XXL (decided 2026-10-20 after Buen Despacho enrolled walkers in the
+// old Mexican S/M/G/X/2 codes). Per-retreat overrides still live in
+// retreat_shirt_type.availableSizes.
+export const DEFAULT_SHIRT_SIZES = ['M', 'L', 'XL', 'XXL'];
 
 /**
  * Normaliza un precio de entrada: negativo, no-numérico o infinito → NULL
@@ -73,7 +77,7 @@ export type ShirtTypeInput = {
 };
 
 const normalizeSizes = (sizes: string[] | null | undefined): string[] | null => {
-	if (sizes === undefined) return [...MEXICAN_DEFAULT_SIZES];
+	if (sizes === undefined) return [...DEFAULT_SHIRT_SIZES];
 	if (sizes === null) return null;
 	const cleaned = sizes
 		.map((s) => (typeof s === 'string' ? s.trim() : ''))
@@ -278,7 +282,7 @@ export const seedDefaultShirtTypes = async (retreatId: string) => {
 			requiredForWalkers: false,
 			optionalForServers: true,
 			sortOrder: s.sortOrder ?? 0,
-			availableSizes: [...MEXICAN_DEFAULT_SIZES],
+			availableSizes: [...DEFAULT_SHIRT_SIZES],
 		}),
 	);
 	await repo().save(rows);

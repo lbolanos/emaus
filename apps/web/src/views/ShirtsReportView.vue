@@ -114,7 +114,7 @@ const totalCharge = computed(() => report.value?.totalCharge ?? 0)
 // move it: it is the list that gets bought.
 
 // Same fallback the walker registration uses when a type has no sizes set.
-const FALLBACK_SIZES = ['S', 'M', 'G', 'X', '2']
+const FALLBACK_SIZES = ['M', 'L', 'XL', 'XXL']
 
 /** shirtTypeId → size → pieces */
 type SizeCounts = Record<string, Record<string, number>>

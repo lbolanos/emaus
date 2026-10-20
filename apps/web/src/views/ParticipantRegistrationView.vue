@@ -1437,7 +1437,7 @@ defineExpose({ validateStep, formData, formErrors, retreatData, retreatCountry, 
                     <SelectContent>
                       <SelectItem value="null">{{ $t('serverRegistration.fields.noSizeNeeded') }}</SelectItem>
                       <SelectItem
-                        v-for="s in (t.availableSizes && t.availableSizes.length > 0 ? t.availableSizes : ['S','M','G','X','2'])"
+                        v-for="s in (t.availableSizes && t.availableSizes.length > 0 ? t.availableSizes : ['M','L','XL','XXL'])"
                         :key="s"
                         :value="s"
                       >{{ s }}</SelectItem>

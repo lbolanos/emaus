@@ -747,7 +747,7 @@ const calculateAge = (birthDate: string | Date) => {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="null">Sin talla</SelectItem>
-            <SelectItem v-for="s in (t.availableSizes?.length ? t.availableSizes : ['S','M','G','X','2'])" :key="s" :value="s">{{ s }}</SelectItem>
+            <SelectItem v-for="s in (t.availableSizes?.length ? t.availableSizes : ['M','L','XL','XXL'])" :key="s" :value="s">{{ s }}</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -1000,7 +1000,7 @@ const calculateAge = (birthDate: string | Date) => {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="null">Sin talla</SelectItem>
-            <SelectItem v-for="s in (t.availableSizes?.length ? t.availableSizes : ['S','M','G','X','2'])" :key="s" :value="s">{{ s }}</SelectItem>
+            <SelectItem v-for="s in (t.availableSizes?.length ? t.availableSizes : ['M','L','XL','XXL'])" :key="s" :value="s">{{ s }}</SelectItem>
           </SelectContent>
         </Select>
       </div>
