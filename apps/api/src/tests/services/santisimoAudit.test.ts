@@ -99,9 +99,13 @@ describe('Santísimo — auditoría de dominio', () => {
 			name: 'María López',
 		});
 
+		// One clock read: two separate Date.now() calls can straddle a
+		// millisecond under load, the range becomes 1 h + 1 ms, and the loop
+		// (cursor < end) adds a third 1 ms slot.
+		const start = inTwoHours();
 		await santisimo.generateSlots(retreat.id, {
-			startDateTime: inTwoHours(),
-			endDateTime: inThreeHours(),
+			startDateTime: start,
+			endDateTime: new Date(start.getTime() + 60 * 60 * 1000),
 			slotMinutes: 30,
 			capacity: 2,
 			clearExisting: true,

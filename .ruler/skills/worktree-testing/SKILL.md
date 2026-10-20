@@ -339,16 +339,6 @@ pnpm --filter web exec vue-tsc --noEmit
 
 El setup de puertos paralelos sólo se necesita para **probar end-to-end con browser** o validar el comportamiento integrado en navegador.
 
-### Con el dev levantado, `runtimeConfig.test.ts` falla en la suite web completa
-
-Vitest carga `apps/web/.env.local`, y el script de arranque lo escribe con
-`VITE_API_URL=http://localhost:<API_PORT>/api`. La prueba
-`falls back to the development default without env var or injection` espera `:3084` y recibe el
-puerto del worktree. No es un fallo de tu código y en CI pasa (allí no hay `.env.local`).
-
-Para confirmarlo: mové el archivo al scratchpad, corré solo esa prueba y devolvelo enseguida (pasó
-el 2026-10-19: 4/4 sin el archivo, y el dev del worktree siguió sirviendo su código).
-
 ---
 
 ## Bugs históricos del script de arranque (ya corregidos)
