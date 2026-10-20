@@ -132,6 +132,35 @@ test.describe.serial('Sidebar — favoritos del menú', () => {
 		await expect(copies.nth(1)).toHaveText(/Dashboard del Retiro/);
 	});
 
+	test('el header colapsa la sección y el colapso sobrevive un reload', async ({ page }) => {
+		await openApp(page);
+
+		const header = page.locator('button[aria-controls="section-favorites"]');
+		await expect(header).toBeVisible();
+		// Fresh context: the section starts expanded (default in uiStore).
+		await expect(header).toHaveAttribute('aria-expanded', 'true');
+
+		const copies = page.locator('[data-testid="sidebar-favorites"] a[data-menu-item-index="-1"]');
+		await expect(copies).toHaveCount(SEED.length);
+
+		await header.click();
+		await expect(header).toHaveAttribute('aria-expanded', 'false');
+		// Collapsed = the container clamps to max-h-0 + overflow-hidden. The
+		// copies stay in the DOM with their own bounding box (Playwright would
+		// report them "visible"), so assert on viewport intersection instead.
+		await expect(copies.first()).not.toBeInViewport();
+
+		// The collapse lives in localStorage (uiStore) — it survives reload.
+		await page.reload();
+		const headerAfterReload = page.locator('button[aria-controls="section-favorites"]');
+		await expect(headerAfterReload).toHaveAttribute('aria-expanded', 'false');
+		await expect(
+			page
+				.locator('[data-testid="sidebar-favorites"] a[data-menu-item-index="-1"]')
+				.first(),
+		).not.toBeInViewport();
+	});
+
 	test('clic en una copia navega a esa vista', async ({ page }) => {
 		await openApp(page);
 

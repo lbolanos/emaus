@@ -69,15 +69,25 @@ divergían en móvil).
   prueba el seed real es `retreat-dashboard, walkers, servers, communities, message-sequences`.
   Nota de mantenimiento: un item de menú nuevo debe añadirse a `MENU_ROUTE_NAMES` para ser
   sembrable (el estrellado manual funciona igual sin estar en la lista).
-- **D6 — Sección «Favoritos» fija arriba, fuera del acordeón.** Primer bloque del área navegable,
-  con header propio; **no colapsa** (el punto es el acceso inmediato) y no participa del acordeón.
+- **D6 — Sección «Favoritos» arriba, colapsable de forma independiente.** Primer bloque del área
+  navegable, con header propio. **Revisión 2026-10-19 (feedback de Leonardo tras abrir la
+  feature):** la sección pasó de «fija, no colapsa» a **colapsable** — el header es un botón con
+  chevron (`aria-expanded`/`aria-controls`, patrón de `SidebarSection`) cuyo estado vive en
+  `uiStore.favoritesCollapsed` (`sidebar-favorites-collapsed` en localStorage), **fuera** del
+  record del acordeón: la siembra de `initSidebarAccordion` cerraría una clave desconocida y el
+  acordeón completo la cerraría al abrir otra sección. Default expandida. El mismo cambio
+  compactó el header (antes `px-4 pt-2 pb-1` + `mt-1`, ahora `px-2 py-1` como las demás
+  secciones) cerrando el hueco excesivo entre «Buscar» y «Favoritos».
   Render: join `favoriteMenuItems ∩ filteredMenuSections` (mismo gating de RBAC/requiresRetreat
   que las secciones; un favorito oculto se conserva en el perfil y reaparece si vuelve a ser
   visible — mismo criterio que un item de sección). Cada fila usa `SidebarMenuItem` (label, ícono,
   badge y navegación idénticos; `data-menu-item-index="-1"` para no chocar con la navegación por
   teclado). Orden: el del array guardado (seed = vistas desc; altas manuales al final). Oculta si
   no hay favoritos visibles o durante una búsqueda activa. Modo rail: íconos apilados con Tooltip
-  lateral. En móvil (drawer) es la misma sección, targets táctiles ≥40px.
+  lateral (sin header ni colapso en rail). En móvil (drawer) es la misma sección, targets
+  táctiles ≥40px (el header mide lo mismo que los headers de sección existentes, ~24px —
+  consistencia con `SidebarSection` por encima del criterio de 40px, que sí aplica a las
+  estrellas).
 - **D7 — Estrella por item en `SidebarMenuItem`.** Props opcionales `isFavorite` /
   `showFavoriteStar` + emit `toggle-favorite`. El botón va **fuera del `<a>`** (wrapper flex):
   anidar un botón dentro del link es HTML inválido y rota el clic. Siempre visible (gris discreto;
@@ -104,7 +114,8 @@ divergían en móvil).
   tras autenticar; sin RBAC propio.
 - **R5** — Sección «Favoritos» arriba (D6): solo items visibles según `filteredMenuSections`,
   navegación vía `getRouteWithParams`, badge igual que el item original, activo destacado por ruta;
-  oculta sin favoritos visibles y durante búsqueda; íconos en rail.
+  oculta sin favoritos visibles y durante búsqueda; íconos en rail; header colapsable (estado
+  propio en `uiStore`, default expandida, persistido).
 - **R6** — Estrella por item (D7): fuera del link, siempre visible, `aria-pressed`, i18n es+en,
   targets táctiles cómodos; toggle = PUT parcial; al quitar el último manda `[]`.
 - **R7** — Acordeón determinista (ya implementado, commit absorbido): a lo sumo una sección
@@ -134,6 +145,9 @@ telemetría propia en la DB del worktree — research §7):
    abrir una sección en el drawer deja consistente el estado al volver a desktop.
 7. `GET /social/profile/:userId` (perfil público de otro usuario) y `GET /social/search` no
    devuelven `favoriteMenuItems`.
+8. El header de «Favoritos» colapsa la sección (chevron rota, `aria-expanded` false, contenido
+   recortado) y el colapso **sobrevive un reload** (localStorage) — sin que el acordeón de
+   secciones lo abra ni lo cierre nunca.
 
 **Negativos** (lo que NO debe pasar):
 

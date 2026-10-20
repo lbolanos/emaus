@@ -107,6 +107,30 @@ feature.
 
 **Gate**: commit `test(e2e)`.
 
+## M4b — Feedback de Leonardo tras abrir la feature (2026-10-19)
+
+- [x] Espacio Buscar→Favoritos: header compactado a `px-2 py-1` (antes `px-4 pt-2 pb-1` + `mt-1`),
+      alineado con los headers de `SidebarSection` (~22px de aire hasta el texto → 14px al botón).
+- [x] Favoritos colapsable: header botón con chevron + `aria-expanded`/`aria-controls`, estado
+      `uiStore.favoritesCollapsed` **fuera** del record del acordeón (la siembra lo cerraría y el
+      full-accordion también), default expandida, persistido en `sidebar-favorites-collapsed`.
+- [x] Tests: `ui.test.ts` (default/toggle/persistencia + independencia del acordeón),
+      `Sidebar.test.ts` (colapsa/expande por el header, clases max-h-0),
+      e2e nuevo (colapso + reload) — 5/5 verde.
+- [x] QA vivo desktop + drawer móvil (390×844 touch): toggle 196→0→196px, aria y localStorage
+      sincronizados; screenshot `.playwright-mcp/qa-favoritos-colapsable-movil.png`.
+- [ ] Leonardo revisa el resultado y confirma (punto 3 de su feedback aún sin aclarar).
+
+**Done**: 2026-10-19 — unit (11+43+5 tests) y e2e (5/5) verdes; `vue-tsc --noEmit` exit 0.
+Desviaciones: (a) la aserción e2e del colapso usa `not.toBeInViewport()` — el contenido colapsado
+conserva su bounding box (clipping por `max-h-0` + `overflow-hidden`) y Playwright lo reporta
+«visible»; (b) el header mide ~24px, igual que todos los headers de sección existentes — se
+priorizó consistencia con `SidebarSection` sobre el criterio táctil de 40px, que sí aplica a las
+estrellas; (c) el contenedor usa `max-h-[34rem]` (cap de 12 items ≈ 528px) en vez del `max-h-96`
+de `SidebarSection`, que recortaría las últimas filas.
+
+**Gate**: commit `feat(web)`.
+
 ## M5 — Cierre
 
 - [ ] Reconcile en `spec.md` (cada CA verificada ✓, negativos incluidos).

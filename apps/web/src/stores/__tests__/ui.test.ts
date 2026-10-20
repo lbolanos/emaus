@@ -121,4 +121,28 @@ describe('useUIStore — sidebar accordion', () => {
 		await nextTick();
 		expect(localStorage.getItem('sidebar-retreat-group-collapsed')).toBe('false');
 	});
+
+	it('favorites section: expanded by default, toggle persists', async () => {
+		const store = useUIStore();
+		expect(store.favoritesCollapsed).toBe(false);
+
+		store.toggleFavoritesSection();
+		expect(store.favoritesCollapsed).toBe(true);
+		// The persistence watch flushes on the next tick.
+		await nextTick();
+		expect(localStorage.getItem('sidebar-favorites-collapsed')).toBe('true');
+	});
+
+	it('favorites section stays independent of the section accordion', () => {
+		// initSidebarAccordion seeds unknown keys as collapsed and the full
+		// accordion closes everything else when a section opens — neither must
+		// touch the favorites flag (that is why it lives outside the record).
+		const store = useUIStore();
+		store.initSidebarAccordion(['main', 'people']);
+		store.toggleSidebarSection('main');
+		store.toggleRetreatGroup();
+
+		expect(store.favoritesCollapsed).toBe(false);
+		expect('favorites' in store.collapsedSections).toBe(false);
+	});
 });

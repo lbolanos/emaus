@@ -746,6 +746,10 @@ describe('Sidebar Component', () => {
 				.map((stub: any) => stub.attributes('data-route'));
 
 		beforeEach(async () => {
+			// The favorites collapse flag lives in localStorage (via uiStore);
+			// happy-dom shares it across tests in this file, so reset it or a
+			// previous run leaves the section collapsed for these tests.
+			localStorage.removeItem('sidebar-favorites-collapsed');
 			const testPinia = createPinia();
 			setActivePinia(testPinia);
 
@@ -866,6 +870,31 @@ describe('Sidebar Component', () => {
 			await nextTick();
 
 			expect(getFavoritesSection(favoritesWrapper).exists()).toBe(false);
+		});
+
+		it('collapses and expands through the header button', async () => {
+			favoritesStore.favoriteMenuItems = ['my-communities'];
+			await nextTick();
+
+			const section = getFavoritesSection(favoritesWrapper);
+			const header = section.find('button[aria-controls="section-favorites"]');
+			expect(header.exists()).toBe(true);
+			expect(header.attributes('aria-expanded')).toBe('true');
+
+			await header.trigger('click');
+			await nextTick();
+
+			expect(header.attributes('aria-expanded')).toBe('false');
+			// The copies stay in the DOM but the container clamps to max-h-0.
+			expect(section.find('#section-favorites').classes()).toContain('max-h-0');
+			// The state persists for the next mount (uiStore watch).
+			expect(localStorage.getItem('sidebar-favorites-collapsed')).toBe('true');
+
+			await header.trigger('click');
+			await nextTick();
+			expect(header.attributes('aria-expanded')).toBe('true');
+			expect(section.find('#section-favorites').classes()).not.toContain('max-h-0');
+			expect(localStorage.getItem('sidebar-favorites-collapsed')).toBe('false');
 		});
 	});
 

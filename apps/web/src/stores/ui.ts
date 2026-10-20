@@ -126,6 +126,22 @@ export const useUIStore = defineStore('ui', () => {
 		isRetreatGroupCollapsed.value = !wasCollapsed;
 	}
 
+	// Favorites section: collapsible, but deliberately OUTSIDE the section
+	// accordion — initSidebarAccordion seeds unknown keys as collapsed (it
+	// would default closed) and the full accordion would close it whenever
+	// another section opens. Default: expanded, like the retreat group.
+	const favoritesCollapsed = ref(
+		JSON.parse(localStorage.getItem('sidebar-favorites-collapsed') || 'false'),
+	);
+
+	watch(favoritesCollapsed, (val) => {
+		localStorage.setItem('sidebar-favorites-collapsed', JSON.stringify(val));
+	});
+
+	function toggleFavoritesSection() {
+		favoritesCollapsed.value = !favoritesCollapsed.value;
+	}
+
 	return {
 		isSidebarCollapsed,
 		isMobile,
@@ -137,8 +153,10 @@ export const useUIStore = defineStore('ui', () => {
 		cleanup,
 		collapsedSections,
 		isRetreatGroupCollapsed,
+		favoritesCollapsed,
 		initSidebarAccordion,
 		toggleSidebarSection,
 		toggleRetreatGroup,
+		toggleFavoritesSection,
 	};
 });

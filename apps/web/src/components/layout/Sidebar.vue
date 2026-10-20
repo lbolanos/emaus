@@ -143,30 +143,49 @@
     <nav class="flex flex-col flex-1 min-h-0">
       <div class="flex-1 px-2 py-1 space-y-0 overflow-y-auto min-h-0">
 
-        <!-- Favorites: pinned items, fixed at the top. Not part of the
-             accordion (no collapse state) and hidden while searching. The
-             rows are plain copies: no star of their own (toggle lives in the
-             real sections) and global-index -1 so DOM indices don't collide. -->
-        <div v-if="visibleFavoriteItems.length > 0" class="mt-1" data-testid="sidebar-favorites">
-          <div
-            v-if="!isCollapsedView"
-            class="px-4 pt-2 pb-1 text-xs font-bold text-amber-400 uppercase tracking-wider"
-          >
-            {{ $t('sidebar.favorites') }}
+        <!-- Favorites: pinned items, fixed at the top. Collapsible through
+             its own uiStore flag (independent of the section accordion —
+             see the store) and hidden while searching. The rows are plain
+             copies: no star of their own (toggle lives in the real sections)
+             and global-index -1 so DOM indices don't collide. -->
+        <div v-if="visibleFavoriteItems.length > 0" data-testid="sidebar-favorites">
+          <div v-if="!isCollapsedView" class="px-2 py-1">
+            <button
+              @click="uiStore.toggleFavoritesSection()"
+              class="w-full flex items-center justify-between text-xs font-bold text-amber-400 uppercase tracking-wider hover:text-amber-300 transition-all duration-200 hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-amber-500 rounded px-2 py-1 group"
+              :aria-expanded="!uiStore.favoritesCollapsed"
+              aria-controls="section-favorites"
+            >
+              <span>{{ $t('sidebar.favorites') }}</span>
+              <ChevronDown
+                class="w-4 h-4 transition-all duration-200 text-amber-500 group-hover:text-amber-300"
+                :class="{ 'rotate-180': uiStore.favoritesCollapsed }"
+              />
+            </button>
           </div>
-          <SidebarMenuItem
-            v-for="item in visibleFavoriteItems"
-            :key="`favorite-${item.name}`"
-            :item="item"
-            :is-collapsed-view="isCollapsedView"
-            :is-focused="isItemFocused(item)"
-            :global-index="-1"
-            :route-with-params="getRouteWithParams(item)"
-            :badge="itemBadge(item.name)" :badge-color="itemBadgeColor(item.name)"
-            @mouseenter="setFocusedIndex(item, 'mouse')"
-            @mouseleave="clearMouseFocus"
-            @focus="setFocusedIndex(item)"
-          />
+          <!-- max-h sized for the API cap (12 items ≈ 528px), unlike
+               SidebarSection's max-h-96 which would clip the last rows. -->
+          <div
+            :id="isCollapsedView ? undefined : 'section-favorites'"
+            class="overflow-hidden transition-all duration-300 ease-in-out"
+            :class="isCollapsedView || !uiStore.favoritesCollapsed ? 'max-h-[34rem] opacity-100' : 'max-h-0 opacity-0'"
+          >
+            <div class="space-y-1">
+              <SidebarMenuItem
+                v-for="item in visibleFavoriteItems"
+                :key="`favorite-${item.name}`"
+                :item="item"
+                :is-collapsed-view="isCollapsedView"
+                :is-focused="isItemFocused(item)"
+                :global-index="-1"
+                :route-with-params="getRouteWithParams(item)"
+                :badge="itemBadge(item.name)" :badge-color="itemBadgeColor(item.name)"
+                @mouseenter="setFocusedIndex(item, 'mouse')"
+                @mouseleave="clearMouseFocus"
+                @focus="setFocusedIndex(item)"
+              />
+            </div>
+          </div>
         </div>
 
         <!-- Non-retreat top sections (community, social) -->
