@@ -164,7 +164,7 @@
                 <DropdownMenuItem @select="deferOpen(() => (isMemoryPhotoDialogOpen = true))">
                   <ImagePlus class="mr-2 h-4 w-4" /> {{ $t('tables.photoMemory.menuLabel') }}
                 </DropdownMenuItem>
-                <DropdownMenuItem :disabled="hasWalkers" @click="confirmDelete">
+                <DropdownMenuItem :disabled="hasWalkers" @select="deferOpen(confirmDelete)">
                   <Trash2 class="mr-2 h-4 w-4" /> {{ $t('tables.deleteTable.title') }}
                 </DropdownMenuItem>
               </DropdownMenuContent>

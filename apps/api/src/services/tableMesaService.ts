@@ -217,6 +217,13 @@ const deleteTablePhotoObject = async (table: TableMesa) => {
 };
 
 /**
+ * Audit-friendly form of a photoUrl. In base64 (dev) mode the value is a full
+ * data-URI of hundreds of KB; the audit log must carry a descriptor, not the image.
+ */
+const auditPhotoUrl = (url: string | null | undefined): string | null =>
+	url && url.startsWith('data:') ? `data-uri (${url.length} chars)` : url ?? null;
+
+/**
  * Uploads or replaces the group photo of a table (spec table-memory-photo).
  * `photoData` is a base64 data-URI. S3 mode processes the image (resize + webp)
  * and stores it under a per-table key; base64 mode persists the data-URI as-is.
@@ -252,9 +259,9 @@ export const setTablePhoto = async (
 		url = photoData;
 	}
 
-	const oldSnapshot = { ...table };
+	const oldSnapshot = { ...table, photoUrl: auditPhotoUrl(table.photoUrl) };
 	await repos.tableMesa.update(tableId, { photoUrl: url, photoS3Key: s3Key });
-	void domainAuditService.logUpdate('table', tableId, oldSnapshot, { photoUrl: url }, {
+	void domainAuditService.logUpdate('table', tableId, oldSnapshot, { photoUrl: auditPhotoUrl(url) }, {
 		retreatId: table.retreatId,
 		fields: ['photoUrl'],
 	});
@@ -268,7 +275,7 @@ export const removeTablePhoto = async (tableId: string, dataSource?: DataSource)
 	if (!table) return null;
 
 	await deleteTablePhotoObject(table);
-	const oldSnapshot = { ...table };
+	const oldSnapshot = { ...table, photoUrl: auditPhotoUrl(table.photoUrl) };
 	await repos.tableMesa.update(tableId, { photoUrl: null, photoS3Key: null });
 	void domainAuditService.logUpdate('table', tableId, oldSnapshot, { photoUrl: null }, {
 		retreatId: table.retreatId,

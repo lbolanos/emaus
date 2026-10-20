@@ -127,7 +127,10 @@ Desviaciones:
    sin-asignar es colapsable pero vive **fuera** del sticky y suma aparte cuando está expandido.
    El estado "~92 px colapsado" no existe: colapsar oculta las pastillas, no encoge el sticky.
    El objetivo de fondo (recuperar pantalla) se cumple; la deuda es que el sticky propio nunca
-   baja de 149 px.
+   baja de 149 px. **Deuda adicional (review de cierre, 2026-10-20)**: el banner de tap-to-assign
+   vive en ese bloque no-sticky, así que con la página scrolleada y un caminante seleccionado los
+   botones Quitar/Cancelar quedan fuera de pantalla — el flotante eliminado sí era visible ahí.
+   Candidato para el segundo ciclo (sticky compacto con el banner integrado), no corregido aquí.
 2. **Ensanche de mocks mayor al previsto**: además de los stubs `DropdownMenu*` en el mock local
    de `@repo/ui`, Rename/Briefing necesitaron `ImagePlus` en el mock local de lucide y stub de
    `TableMemoryPhotoDialog.vue` — el menú ⋮ es compartido con la spec `table-memory-photo`.
