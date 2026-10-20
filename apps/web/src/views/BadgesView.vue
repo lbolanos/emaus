@@ -23,11 +23,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@repo/ui';
+import { connectivity } from '@/offline/connectivity';
 
 const route = useRoute();
 const retreatStore = useRetreatStore();
 const { toast } = useToast();
 const { t } = useI18n();
+// Printing works without signal (window.print of this page); the DOCX is the server's.
+const online = computed(() => connectivity.online);
 const participants = ref<Participant[]>([]);
 const loading = ref(true);
 const isExporting = ref(false);
@@ -402,11 +405,12 @@ watch(retreatId, async (newId) => {
           <DropdownMenuLabel>{{ $t('participants.actions') }}</DropdownMenuLabel>
           <DropdownMenuSeparator />
 
-          <!-- Export DOCX -->
-          <DropdownMenuItem @click="exportBadges" :disabled="isExporting">
+          <!-- Export DOCX: built by the server, off without signal (specs/offline-mode, D11) -->
+          <DropdownMenuItem @click="exportBadges" :disabled="isExporting || !online">
             <Loader2 v-if="isExporting" class="mr-2 h-4 w-4 animate-spin" />
             <FileDown v-else class="mr-2 h-4 w-4" />
             {{ $t('badges.exportDocx') || 'Exportar DOCX' }}
+            <span v-if="!online" class="ml-auto pl-2 text-xs text-muted-foreground">{{ $t('offline.needsConnection') }}</span>
           </DropdownMenuItem>
 
           <!-- Print -->

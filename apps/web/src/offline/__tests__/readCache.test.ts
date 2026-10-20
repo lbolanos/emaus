@@ -4,6 +4,7 @@ import {
 	answerFromCache,
 	cacheKey,
 	clearSavedResponses,
+	isFromCache,
 	matchCacheableRoute,
 	OfflineNoDataError,
 	purgeResponses,
@@ -145,6 +146,20 @@ describe('save and answer from the device', () => {
 		expect(answer).toMatchObject({ status: 200, fromCache: true, fetchedAt: 1_000 });
 		expect((answer as any).data[0].firstName).toBe('Ana');
 		expect(connectivity.oldestServedFromCacheAt).toBe(1_000);
+	});
+
+	it('the data itself says it came from the device, for helpers that keep only response.data', async () => {
+		await saveResponse(config, [walker()], 1_000);
+
+		const answer = (await answerFromCache(config, networkError())) as any;
+
+		expect(isFromCache(answer.data)).toBe(true);
+		// Never visible to JSON or spreads: it cannot travel back to the server.
+		expect(JSON.stringify(answer.data)).not.toContain('servedFromDevice');
+		// A copy is a new list: read the mark where the data arrives.
+		expect(isFromCache([...answer.data])).toBe(false);
+		expect(isFromCache([walker()])).toBe(false);
+		expect(isFromCache(null)).toBe(false);
 	});
 
 	it('a timeout counts as no signal', async () => {

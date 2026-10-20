@@ -1,5 +1,7 @@
+import { isOfflineEditableParticipantField } from '@repo/types';
+
 /**
- * The writes that can wait for signal (specs/offline-mode, D2 + FR-15b): how each
+ * The writes that can wait for signal (specs/offline-mode, D2 + FR-15b + D13): how each
  * one is recognized on its way out, and how it changes the data saved on the
  * device so the views show it before it reaches the server.
  *
@@ -13,6 +15,7 @@ export type OutboxKind =
 	| 'reception.checkin'
 	| 'reception.payment'
 	| 'participant.setCancelled'
+	| 'participant.edit'
 	| 'bags.bagMade'
 	| 'schedule.start'
 	| 'schedule.complete'
@@ -98,6 +101,31 @@ const updateParticipant = (data: any, id: string | undefined, patch: (p: any) =>
 	if (!Array.isArray(data)) return data;
 	const p = data.find((x) => x?.id === id);
 	if (p) patch(p);
+	return data;
+};
+
+/** The fields an offline record edit writes (D13): its body without the envelope. */
+export const editedFields = (body: any): Record<string, unknown> => {
+	const { expectedValues: _expected, contextRetreatId: _context, ...fields } = body ?? {};
+	return fields;
+};
+
+/**
+ * Writes `fields` on every object that is this participant, at any depth: list
+ * rows and `bed.participant`/table walkers (`id`), reception entries
+ * (`participantId`). Only person-shaped objects; only keys they already show,
+ * except list rows, which are the record itself.
+ */
+const patchPersonEverywhere = (data: any, pid: string, fields: Record<string, unknown>, isRecord: boolean) => {
+	const walk = (value: any) => {
+		if (Array.isArray(value)) return value.forEach(walk);
+		if (!value || typeof value !== 'object') return;
+		if ('firstName' in value && (value.id === pid || value.participantId === pid)) {
+			for (const [key, v] of Object.entries(fields)) if (isRecord || key in value) value[key] = v;
+		}
+		Object.values(value).forEach(walk);
+	};
+	walk(data);
 	return data;
 };
 
@@ -247,6 +275,31 @@ export const KINDS: KindDef[] = [
 			key: op.body?.isCancelled === true ? 'offline.ops.cancel' : 'offline.ops.reactivate',
 			params: { name: who(op) },
 		}),
+	},
+	{
+		kind: 'participant.edit',
+		method: 'put',
+		pattern: /^\/participants\/([0-9a-f-]{36})$/i,
+		// D13: only the changed fields of the offline list, with the values the phone
+		// saw (the server answers 409 if any changed meanwhile). The full-record edit
+		// has no expectedValues and never matches.
+		accepts: (body) => {
+			if (!body || typeof body !== 'object') return false;
+			const expected = body.expectedValues;
+			if (!expected || typeof expected !== 'object' || Array.isArray(expected)) return false;
+			const fields = Object.keys(editedFields(body));
+			return (
+				fields.length > 0 &&
+				fields.every(isOfflineEditableParticipantField) &&
+				Object.keys(expected).every(isOfflineEditableParticipantField)
+			);
+		},
+		ids: (m) => ({ participantId: m[1] }),
+		retreatId: (_m, body) => body?.contextRetreatId ?? null,
+		routes: ['participants', 'reception', 'beds', 'tables', 'table'],
+		reduce: (route, data, op) =>
+			patchPersonEverywhere(data, op.meta.participantId!, editedFields(op.body), route === 'participants'),
+		label: (op) => ({ key: 'offline.ops.edit', params: { name: who(op) } }),
 	},
 	{
 		kind: 'bags.bagMade',

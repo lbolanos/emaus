@@ -331,6 +331,23 @@ describe('InventoryStore', () => {
 			expect(mockApi.get).toHaveBeenCalledWith('/inventory/retreat/retreat-1/alerts');
 			expect(store.inventoryAlerts).toEqual(mockAlerts);
 		});
+
+		it('shows no error toast without signal (the offline banner says it)', async () => {
+			mockApi.get.mockRejectedValue(Object.assign(new Error('Network Error'), { isAxiosError: true, code: 'ERR_NETWORK' }));
+
+			await store.fetchInventoryAlerts('retreat-1');
+
+			expect(store.error).toBe('Failed to fetch inventory alerts.');
+			expect(toastSpy).not.toHaveBeenCalled();
+		});
+
+		it('still shows the error toast when the server answers with an error', async () => {
+			mockApi.get.mockRejectedValue({ response: { status: 500, data: {} } });
+
+			await store.fetchInventoryAlerts('retreat-1');
+
+			expect(toastSpy).toHaveBeenCalledWith(expect.objectContaining({ variant: 'destructive' }));
+		});
 	});
 
 	describe('exportInventory', () => {

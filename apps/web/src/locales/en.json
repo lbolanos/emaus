@@ -1752,7 +1752,7 @@
     },
     "column": "Column",
     "columns": "Columns",
-    "exportDocx": "Print Tables",
+    "exportDocx": "Download Tables (Word)",
     "exporting": "Generating document...",
     "exportSuccess": {
       "title": "Document Generated",
@@ -4055,6 +4055,7 @@
       "payment": "Payment of {amount} from {name}",
       "cancel": "Cancel {name} (did not arrive)",
       "reactivate": "Reactivate {name}",
+      "edit": "Correction to the record of {name}",
       "bagMade": "{name}'s bag ready",
       "bagUndone": "{name}'s bag pending",
       "scheduleStart": "Start “{item}”",
@@ -4067,6 +4068,15 @@
       "tableUnassign": "Remove {name} from {table}"
     },
     "needsConnection": "Needs a connection",
+    "edit": {
+      "notice": "Without signal only first and last name, nickname, phones, parish, occupation, address, shirt size and snoring are saved. Everything else needs a connection.",
+      "blockedTitle": "No change was saved",
+      "blocked": "Without signal you cannot change: {fields}. Undo that change to save the rest, or save when there is signal."
+    },
+    "print": {
+      "healthCell": "Needs a connection",
+      "healthNote": "Printed without connection: medication, food, support needs and emergency contacts are not saved on this phone. Print this sheet with signal to include them."
+    },
     "logoutPending": "You have {n} changes not sent. They stay on this phone and will be sent when you log in again with your user. Log out?",
     "prepare": {
       "title": "Work without a connection",

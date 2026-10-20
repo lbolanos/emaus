@@ -189,7 +189,7 @@ export const useParticipantStore = defineStore('participant', () => {
 		}
 	}
 
-	async function updateParticipant(id: string, data: Partial<Participant>) {
+	async function updateParticipant(id: string, data: Partial<Participant>): Promise<{ queued: boolean }> {
 		if (!id) {
 			const error = new Error('Participant ID is missing');
 			toast({
@@ -205,7 +205,16 @@ export const useParticipantStore = defineStore('participant', () => {
 			// Log the data being sent for debugging
 			//console.log('Updating participant:', id, 'with data:', JSON.stringify(data, null, 2));
 
-			await api.put(`/participants/${id}`, data);
+			const saved = await api.put(`/participants/${id}`, data);
+
+			// Saved on the phone without signal (specs/offline-mode, D13): there is no
+			// server record to fetch yet; paint the changed fields on the list.
+			if ((saved as { queued?: boolean }).queued) {
+				const { contextRetreatId: _context, expectedValues: _expected, ...fields } = data as any;
+				const index = participants.value.findIndex((p) => p.id === id);
+				if (index !== -1) participants.value[index] = { ...participants.value[index], ...fields };
+				return { queued: true };
+			}
 
 			// Fetch the updated participant data including tags. Pass the
 			// active retreat (from the data sent in or from filters) so the
@@ -225,6 +234,7 @@ export const useParticipantStore = defineStore('participant', () => {
 				title: 'Success',
 				description: 'Participant updated successfully',
 			});
+			return { queued: false };
 		} catch (error: any) {
 			console.error('Error updating participant:', error);
 			console.error('Error response:', error.response?.data);

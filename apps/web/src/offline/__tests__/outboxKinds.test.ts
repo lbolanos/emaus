@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { applyOps, KINDS, matchQueueable, type OutboxOp } from '../outboxKinds';
 
-/** specs/offline-mode M4: the 11 writes of D2 and how each one paints the saved data. */
+/** specs/offline-mode M4 + D13: the writes that wait for signal and how each one paints the saved data. */
 
 const R = 'r1';
 const AT = '2026-10-17T22:30:00.000Z';
@@ -96,6 +96,34 @@ describe('matchQueueable', () => {
 	it('a payment without participant or retreat is not queued', () => {
 		expect(matchQueueable('post', '/payments', { amount: 1 })).toBeNull();
 	});
+
+	describe('record edit without signal (D13)', () => {
+		const PATH = '/participants/0f8fad5b-d9cb-469f-a165-70867728950e';
+
+		it('the changed fields of the list, with expectedValues, are queued', () => {
+			const body = { cellPhone: '5599998888', expectedValues: { cellPhone: '5512345678' }, contextRetreatId: R };
+			const m = matchQueueable('put', PATH, body);
+			expect(m?.def.kind).toBe('participant.edit');
+			expect(m?.retreatId).toBe(R);
+		});
+
+		it.each([
+			['no expectedValues (the regular edit)', { cellPhone: '5599998888', contextRetreatId: R }],
+			['a field outside the list (email)', { email: 'x@example.com', expectedValues: { email: 'a@example.com' } }],
+			['a health field', { medicationDetails: 'x', expectedValues: { medicationDetails: null } }],
+			['a retreat field (isCancelled)', { isCancelled: true, parish: 'x', expectedValues: { parish: 'y' } }],
+			['expectedValues outside the list', { parish: 'x', expectedValues: { email: 'a@example.com' } }],
+			['nothing to change', { expectedValues: {}, contextRetreatId: R }],
+		])('%s is not queued', (_label, body) => {
+			expect(matchQueueable('put', PATH, body)).toBeNull();
+		});
+
+		it('the no-show cancellation is still its own kind', () => {
+			expect(matchQueueable('put', PATH, { isCancelled: true, contextRetreatId: R })?.def.kind).toBe(
+				'participant.setCancelled',
+			);
+		});
+	});
 });
 
 describe('reducers', () => {
@@ -135,6 +163,27 @@ describe('reducers', () => {
 		expect(bedList[0]).toMatchObject({ participantId: null, participant: null });
 		expect(tableList[0].walkers).toEqual([]);
 		expect(list[0]).toMatchObject({ isCancelled: true, tableId: null });
+	});
+
+	it('a record edit paints the new values wherever the person shows up', () => {
+		const edit = op(
+			'participant.edit',
+			{ firstName: 'Anita', cellPhone: '5599998888', expectedValues: { firstName: 'Ana', cellPhone: null }, contextRetreatId: R },
+			{ participantId: 'p1' },
+		);
+		const list: any = applyOps('participants', participants(), [edit]);
+		const rec: any = applyOps('reception', reception(), [edit]);
+		const bedList: any = applyOps('beds', beds(), [edit]);
+		const tableList: any = applyOps('tables', tables(), [edit]);
+
+		expect(list[0]).toMatchObject({ firstName: 'Anita', cellPhone: '5599998888', lastName: 'López' });
+		expect(list[0]).not.toHaveProperty('expectedValues');
+		expect(list[1].firstName).toBe('Beto');
+		expect(rec.pendingList[0].firstName).toBe('Anita');
+		// Only the keys a reception entry, a bed card or a table chip already show.
+		expect(rec.pendingList[0]).not.toHaveProperty('cellPhone');
+		expect(bedList[0].participant).toEqual({ id: 'p1', firstName: 'Anita' });
+		expect(tableList[0].walkers[0]).toEqual({ id: 'p1', firstName: 'Anita' });
 	});
 
 	it('bag made', () => {

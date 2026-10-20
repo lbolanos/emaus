@@ -2,7 +2,7 @@ import { defineStore } from 'pinia';
 import { ref } from 'vue';
 import { useToast } from '@repo/ui';
 import { api } from '@/services/api';
-import { apiErrorMessage } from '@/services/apiError';
+import { apiErrorMessage, isNetworkError } from '@/services/apiError';
 
 export const useInventoryStore = defineStore('inventory', () => {
 	const categories = ref<any[]>([]);
@@ -410,7 +410,8 @@ export const useInventoryStore = defineStore('inventory', () => {
 				return;
 			}
 			error.value = 'Failed to fetch inventory alerts.';
-			toast({ title: 'Error', description: error.value, variant: 'destructive' });
+			// Without signal the offline banner already says so (specs/offline-mode).
+			if (!isNetworkError(e)) toast({ title: 'Error', description: error.value, variant: 'destructive' });
 			console.error(e);
 		} finally {
 			loading.value = false;

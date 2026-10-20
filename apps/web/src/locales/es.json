@@ -1842,7 +1842,7 @@
     "column": "Columna",
     "columns": "Columnas",
     "printTables": "Imprimir Mesas",
-    "exportDocx": "Imprimir Mesas",
+    "exportDocx": "Descargar Mesas (Word)",
     "exporting": "Generando documento...",
     "exportSuccess": {
       "title": "Documento Generado",
@@ -4377,6 +4377,7 @@
       "payment": "Cobro de {amount} a {name}",
       "cancel": "Cancelar a {name} (no llegó)",
       "reactivate": "Reactivar a {name}",
+      "edit": "Corrección en la ficha de {name}",
       "bagMade": "Bolsa lista de {name}",
       "bagUndone": "Bolsa pendiente de {name}",
       "scheduleStart": "Iniciar «{item}»",
@@ -4389,6 +4390,15 @@
       "tableUnassign": "Quitar a {name} de {table}"
     },
     "needsConnection": "Necesita conexión",
+    "edit": {
+      "notice": "Sin señal solo se guardan nombre, apellido, apodo, teléfonos, parroquia, ocupación, dirección, talla de playera y si ronca. Lo demás necesita conexión.",
+      "blockedTitle": "No se guardó ningún cambio",
+      "blocked": "Sin señal no se puede cambiar: {fields}. Deshaz ese cambio para guardar lo demás, o guarda cuando haya señal."
+    },
+    "print": {
+      "healthCell": "Solo con conexión",
+      "healthNote": "Impreso sin conexión: medicamentos, alimentación, apoyos y contactos de emergencia no se guardan en el teléfono. Imprime esta hoja con señal para tenerlos."
+    },
     "logoutPending": "Tienes {n} cambios sin enviar. Se quedan en este teléfono y se enviarán cuando vuelvas a entrar con tu usuario. ¿Cerrar sesión?",
     "prepare": {
       "title": "Trabajar sin conexión",

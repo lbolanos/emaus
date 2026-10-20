@@ -44,6 +44,7 @@ datos que ya se tenían, y que lo hecho sin señal llegue al servidor solo, cuan
 | D10 | **Señal mala vs. sin señal** | No se confía en `navigator.onLine`. El estado se deriva del resultado de las peticiones: fallo de red o **timeout de 10 s** en una escritura de nivel 1 → la operación se encola y la app pasa a "sin conexión"; una petición que vuelve a responder → "en línea". Sincroniza al volver la señal (`online`, al volver a la pestaña, cada 30 s mientras haya cola, y con botón manual). |
 | D11 | **Qué ve el equipo** | Un chip de estado permanente en el sidebar: `En línea` · `Sin conexión · N cambios pendientes` · `Sincronizando…` · `N conflictos`. Un panel "Pendientes de sincronizar" con cada cambio (qué, quién, cuándo), reintentar y descartar. Las vistas de nivel 2 muestran "datos de hace X min" cuando sirven caché. Las acciones que no funcionan sin señal (mensajes, importar, exportar, auto-asignar, borrar) se deshabilitan con el motivo, no fallan con un toast genérico. |
 | D12 | **Cascarón de la app sin señal** (PWA) | Service worker que precachea la app para que **recargar o abrir la app sin señal funcione**, y `manifest` para "Agregar a pantalla de inicio" (en iOS además evita que Safari borre el almacenamiento a los 7 días). La API **no** se cachea en el service worker: los datos viven en IndexedDB bajo control de la app (D3), para poder mostrar antigüedad y aplicar encima los cambios pendientes. |
+| D13 | **Corregir la ficha sin señal** (pedido 2026-10-20) | Solo campos personales de una lista cerrada, `OFFLINE_EDITABLE_PARTICIPANT_FIELDS` en `packages/types`: nombre, apellido, apodo, celular, teléfonos de casa y trabajo, parroquia, ocupación, dirección (calle, número, colonia, CP, municipio, estado, país), talla de playera y si ronca. Se envían **solo los campos cambiados** junto con el valor que tenían al editarlos (`expectedValues`); el servidor rechaza con 409 si alguno cambió en el servidor mientras tanto, así que nunca pisa en silencio el cambio de otro (no hay "último gana"). Quedan fuera: el correo (identidad global del participante), salud, los datos del retiro (tipo, beca, palancas, invitador, notas), fechas, sacramentos y etiquetas. |
 
 ## Objetivo
 
@@ -141,6 +142,11 @@ haya señal, con la hora real de cada hecho y con un lugar donde ver lo que el s
   **explícito** `{ isCancelled: true, contextRetreatId }` a `PUT /participants/:id`, nunca la
   ficha completa; sin señal se encola y el reductor la quita de Faltan, libera su cama y su
   mesa en la caché. Reactivar es la misma operación con `false`.
+- **FR-15c** (D13) Sin señal, "Guardar" en la ficha manda a la cola solo los campos cambiados
+  de la lista blanca, con `expectedValues` y `contextRetreatId`. Si cambiaste un campo fuera de
+  la lista, no se guarda nada y el aviso nombra esos campos; el diálogo queda abierto con lo
+  escrito. Al abrir la ficha sin señal, un aviso dice qué se puede guardar. El reductor pinta
+  los campos en Caminantes, Recepción, Camas y Mesas.
 
 ### Servidor
 
@@ -150,6 +156,11 @@ haya señal, con la hora real de cada hecho y con un lugar donde ver lo que el s
   (un 2xx se repite como `{ idempotentReplay: true }`); TTL 7 días. Mientras la primera sigue en
   curso responde 409 `IDEMPOTENCY_IN_PROGRESS`; un 5xx libera la clave. Una misma clave con
   distinto `userId`, `method` o `path` responde 422.
+- **FR-16b** (D13) `PUT /participants/:id` acepta `expectedValues` (opcional). Si viene, compara
+  cada campo listado de la lista blanca con el valor actual (vacío = nulo; teléfonos ya
+  normalizados) y, si alguno difiere, responde 409 `PARTICIPANT_CHANGED_MEANWHILE` con los
+  campos y no escribe nada. `expectedValues` nunca se guarda. Sin `expectedValues`, la edición de
+  siempre no cambia.
 - **FR-17** `PUT /participants/:id/checkin`, `POST /schedule/items/:id/start` y
   `POST /schedule/items/:id/complete` aceptan `occurredAt` opcional (ISO 8601, no futuro, no más
   de 14 días atrás) y lo usan como `checkedInAt` / `actualStartTime` / `actualEndTime`. Sin el
@@ -228,6 +239,12 @@ haya señal, con la hora real de cada hecho y con un lugar donde ver lo que el s
     él, chip "1 cambio pendiente"; al sincronizar, `retreat_participants.isCancelled=1`,
     `retreat_bed.participantId` nulo y `tableId` nulo en el servidor, y el total de Recepción baja
     en uno en la otra pestaña. Reactivarlo con señal lo devuelve a Faltan sin cama ni mesa.
+17. **Corregir la ficha** (D13): sin señal, cambiar la parroquia y el celular de un caminante →
+    "Guardado en el teléfono", chip con 1 cambio, la lista muestra los valores nuevos y siguen
+    tras recargar; al volver la señal el servidor tiene esos dos campos, y la salud y los demás
+    campos quedan como estaban. Si mientras tanto otra persona cambió ese celular en el servidor,
+    el cambio queda **rechazado** con el motivo y el servidor conserva el valor de la otra
+    persona. Cambiar el correo sin señal no guarda nada y el aviso lo nombra.
 15. **Regresión**: `pnpm --filter web test`, `pnpm --filter api test` (2 shards), `vue-tsc`,
     `pnpm --filter api build` y `mobile-page-weight.spec.ts` en verde; `grep __dirname
     dist/index.js` sin el global.
@@ -247,8 +264,9 @@ haya señal, con la hora real de cada hecho y con un lugar donde ver lo que el s
 ## Fuera de alcance (v1)
 
 - Encolar edición completa de participante (`PUT /participants/:id` con la ficha entera; la
-  cancelación entra solo como bandera explícita, FR-15b), notas (incluida la del motivo de
-  cancelación), teléfonos, palancas, inventario, Santísimo (escrituras), responsabilidades, campanazo
+  cancelación entra solo como bandera explícita, FR-15b, y desde D13 los campos personales de la
+  lista blanca, solo los cambiados), notas (incluida la del motivo de cancelación), el editor
+  rápido de teléfonos de la lista (`PATCH …/phones`; sin señal se corrigen desde la ficha), palancas, inventario, Santísimo (escrituras), responsabilidades, campanazo
   (`POST /schedule/retreats/:id/bell`: sin señal no llega a nadie), crear/borrar ítems de agenda,
   reordenar día, auto-asignaciones, importaciones, exportaciones, mensajes y secuencias.
 - Fusión automática de conflictos, versiones por registro (`updatedAt` como ETag) y
@@ -277,7 +295,7 @@ worktree (base desechable); las desviaciones de diseño están en `tasks.md` por
 |---|---|---|
 | 1 Cascarón | ✓ | e2e: recarga sin red con el worker → la app; control con el worker bloqueado → error del navegador |
 | 2 Arranque sin login | ✓ | e2e: pestaña nueva en frío sin red → sin login, datos guardados. 401 → login y perfil borrado: unit (`authStore.offline.test.ts`), no e2e |
-| 3 Preparar | ✓ con matiz | Unit: los 12 pasos usan la misma clave que las vistas, progreso, fallas, ventana de 7 días. El botón no se pulsó en el e2e: el e2e guarda abriendo las vistas, que es el mismo camino |
+| 3 Preparar | ✓ | Unit: los 15 pasos usan la misma clave que las vistas, progreso, fallas, ventana de 7 días. Auditoría 2026-10-20 (al grabar el video): solo "Preparar", sin abrir ninguna vista con señal, y luego las 17 vistas del retiro sin red comparando cada GET con lo guardado. Encontró que faltaban la lista de Caminantes/Servidores/Angelitos (`isCancelled=false`) y la de Angelitos (`type=partial_server`): "sin datos guardados". Corregido; la lista de cancelados de Mesas se agregó después (ver "Imprimir sin conexión") |
 | 4 Lectura desde caché | ✓ con matiz | e2e: Caminantes, Recepción y Minuto a minuto sin red desde lo guardado; Alimentación con el aviso de salud; ninguna persona guardada con campos de salud. Camas y Responsabilidades: se guardan (e2e) pero su pantalla sin red no se afirmó |
 | 5 Check-in encolado | ✓ | e2e: sin red → Llegados, sobrevive a recargar, al volver la señal el servidor tiene `checkedInAt` **igual** a la hora del dispositivo (reloj del navegador fijado distinto del servidor) |
 | 6 Cobro idempotente | ✓ | e2e: un solo pago en el servidor; integración: misma clave dos veces → un solo `handler`; prueba en vivo `POST /payments` ×2 → 1 pago |
@@ -291,6 +309,7 @@ worktree (base desechable); las desviaciones de diseño están en `tasks.md` por
 | 14 Purga | ✓ | Unit: al cerrar la ventana en la TZ del retiro, nunca la cola; logout borra perfil y respuestas. Los e2e tuvieron que fijar el reloj dentro del retiro justamente por esto |
 | 15 Regresión | ✓ | Web 237 archivos / 3517 tests; API 2 shards; `vue-tsc`; builds de web y API; `mobile-page-weight` verde con las claves de Maps/reCAPTCHA |
 | 16 Cancelar al que no llegó | ✓ | e2e: sin red "No llegó" → al sincronizar B ya no aparece en Recepción; integración: el body explícito cancela y libera cama y mesa sin tocar la ficha |
+| 17 Corregir la ficha (D13, 2026-10-20) | ✓ con matiz | e2e `offline-edit.spec.ts` (escribe; base desechable): sin red parroquia y celular → 1 pendiente, siguen tras recargar, llegan al servidor y la salud, el correo y el nombre no cambian; el celular cambiado por "otra persona" → 409, rechazado con "celular" en la lista, se descarta y el servidor conserva el de la otra persona. Integración: comparación contra la base de test (vacío = nulo, `snores` falso = nada, campo fuera de la lista → 400). El bloqueo por un campo fuera de la lista (correo) va por unit (`ParticipantList`, `planOfflineEdit`): en la ficha por defecto el correo no es editable |
 
 **Negativos**: un pago nunca dos veces ✓ (arriba); la caché nunca con salud ✓ (unit + e2e a
 nivel persona); una escritura nunca se descarta sola ✓ (401, recarga y conflicto la conservan;
@@ -303,6 +322,37 @@ idempotencia abandonadas a los 2 min (un reinicio del API a mitad de un request 
 409 por 7 días); orden estable en la cola para el mismo milisegundo; 429 en arranque en frío
 también usa el perfil guardado; carga perezosa de la cola y ninguna lectura de IndexedDB hasta
 el primer guardado.
+
+**Hallazgos al grabar el video (2026-10-20)**, después de los commits del 2026-10-20:
+
+- Cada arranque sin señal mostraba 2-3 avisos de ruido: "Could not refresh permissions" (en
+  inglés), el de casas (`RetreatModal` pide `/houses` al montarse en el sidebar, con el texto de
+  escrituras "esta acción necesita señal") y el de alertas de inventario en el dashboard.
+  Corregido: esas tres cargas de fondo ya no avisan cuando el fallo es falta de red; el banner y
+  el chip ya lo dicen (D11). Con error del servidor siguen avisando.
+- El toast "Guardado en el teléfono" casi nunca se ve: `TOAST_LIMIT = 1` y la vista muestra
+  enseguida el suyo ("Pago registrado para…", "… marcado como llegado"). El chip sí cambia al
+  instante, que es lo que exige D11. **Abierto**: decidir si el toast de la vista debe decir que
+  quedó en el teléfono.
+
+**Imprimir sin conexión (pedido 2026-10-20)**: gafetes, mesas y minuto a minuto. Verificado
+imprimiendo cada opción con señal y, en un contexto nuevo que solo pasó por "Preparar", sin
+señal, comparando el texto de lo que sale en papel y las imágenes rotas: gafetes, minuto a
+minuto y 6 de las 7 hojas de Mesas salen idénticas. Hallazgos, corregidos:
+
+- "Imprimir Mesas" lleva medicamentos, alimentación, apoyos y contacto de emergencia; desde lo
+  guardado salían "—" ("nada que reportar") o "✅ Sí" sin el detalle. Ahora, si las mesas vienen
+  del teléfono, esas columnas dicen "Solo con conexión" y la hoja lleva un aviso arriba.
+  `tableMesaStore.fromCache` lo sabe por una marca no enumerable que `answerFromCache` pone en
+  los datos (`markServedFromDevice`), porque los helpers de `api.ts` solo devuelven `data`.
+- Los logos de los gafetes (`/man_logo.png`, `/woman_logo.png`, `/crossRoseButtT.png`) viven en
+  `public/` y el worker no los guardaba: dependían de la caché HTTP del navegador, que iOS
+  vacía. Ahora están en el precache (~1 MB, se baja una vez por versión: 310 entradas, 8,7 MB).
+- Dos opciones del menú de Mesas se llamaban "Imprimir Mesas"; la primera descarga un Word
+  armado por el servidor y sin señal fallaba. Renombrada "Descargar Mesas (Word)" y, como
+  "Exportar DOCX" de gafetes, desactivada sin señal con "Necesita conexión" (D11).
+- "Preparar" guarda también la lista de cancelados de Mesas (15 pasos); sin ella el banner decía
+  "Algunas pantallas no tienen datos guardados" con el tablero completo.
 
 **Pendiente fuera de esta sesión**: prueba de campo en un iPhone y un Android reales; nginx de
 producción antes del primer push; los PR y despliegues (dos releases, decisión 2026-10-19).

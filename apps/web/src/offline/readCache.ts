@@ -212,7 +212,7 @@ export async function answerFromCache(
 	reportServedFromCache(entry.fetchedAt);
 	await overlayReady().catch(() => {});
 	return {
-		data: overlay(entry.route, entry.retreatId, entry.data),
+		data: markServedFromDevice(overlay(entry.route, entry.retreatId, entry.data)),
 		status: 200,
 		statusText: 'OK (offline cache)',
 		headers: {},
@@ -222,9 +222,24 @@ export async function answerFromCache(
 	};
 }
 
-/** Was this axios-like response served from the device? */
-export function isFromCache(response: unknown): boolean {
-	return Boolean((response as { fromCache?: boolean } | null)?.fromCache);
+const SERVED_FROM_DEVICE = Symbol('servedFromDevice');
+
+/**
+ * Marks the data itself, for callers that keep only `response.data` (most api.ts
+ * helpers). Not enumerable: it never reaches JSON, spreads or the server.
+ */
+export function markServedFromDevice<T>(data: T): T {
+	if (data && typeof data === 'object' && !Object.isFrozen(data)) {
+		Object.defineProperty(data, SERVED_FROM_DEVICE, { value: true, enumerable: false });
+	}
+	return data;
+}
+
+/** Was this axios-like response, or the data it carried, served from the device? */
+export function isFromCache(responseOrData: unknown): boolean {
+	if (!responseOrData || typeof responseOrData !== 'object') return false;
+	const value = responseOrData as { fromCache?: boolean; [SERVED_FROM_DEVICE]?: boolean };
+	return Boolean(value.fromCache) || value[SERVED_FROM_DEVICE] === true;
 }
 
 /** Deletes every saved answer (logout, "Borrar datos sin conexión"). */

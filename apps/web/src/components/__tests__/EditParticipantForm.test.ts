@@ -17,6 +17,7 @@ import { createPinia, setActivePinia } from 'pinia';
 
 // Component under test
 import EditParticipantForm from '../EditParticipantForm.vue';
+import { _resetConnectivityForTests } from '@/offline/connectivity';
 
 // Mock all lucide-vue-next icons (includes ones not in global setup)
 vi.mock('lucide-vue-next', () => ({
@@ -579,5 +580,47 @@ describe('EditParticipantForm – external patch while editing', () => {
 
 		expect((firstName.element as HTMLInputElement).value).toBe('Beto');
 		wrapper.unmount();
+	});
+
+	describe('without signal (specs/offline-mode D13)', () => {
+		const columns = {
+			columnsToShow: ['firstName', 'cellPhone'],
+			columnsToEdit: ['firstName', 'cellPhone'],
+			allColumns: [
+				{ key: 'firstName', label: 'Nombre' },
+				{ key: 'cellPhone', label: 'Celular' },
+			],
+		};
+
+		afterEach(() => _resetConnectivityForTests(true));
+
+		it('the save says which fields the user changed, with their labels', async () => {
+			const wrapper = mountForm({ participant: makeParticipant({ type: 'walker', cellPhone: '5512345678' }), ...columns });
+			await nextTick();
+			const input = wrapper.findAll('input').find((i) => (i.element as HTMLInputElement).value === 'Ana')!;
+			await input.setValue('Anita');
+
+			await wrapper.findAll('button').find((b) => b.text().includes('Guardar'))!.trigger('click');
+			await nextTick();
+
+			const [, changes] = wrapper.emitted('save')![0] as [any, any];
+			expect(changes).toEqual({ dirtyKeys: ['firstName'], labels: { firstName: 'Nombre' } });
+			wrapper.unmount();
+		});
+
+		it('tells what can be saved before anybody types', async () => {
+			_resetConnectivityForTests(false);
+			const wrapper = mountForm({ participant: makeParticipant({ type: 'walker' }), ...columns });
+			await nextTick();
+			expect(wrapper.find('[data-testid="offline-edit-notice"]').exists()).toBe(true);
+			wrapper.unmount();
+		});
+
+		it('with signal there is no notice', async () => {
+			const wrapper = mountForm({ participant: makeParticipant({ type: 'walker' }), ...columns });
+			await nextTick();
+			expect(wrapper.find('[data-testid="offline-edit-notice"]').exists()).toBe(false);
+			wrapper.unmount();
+		});
 	});
 });

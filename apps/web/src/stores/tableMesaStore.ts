@@ -12,6 +12,7 @@ import {
 	api,
 } from '@/services/api';
 import { apiErrorMessage } from '@/services/apiError';
+import { isFromCache } from '@/offline/readCache';
 import { createLocaleComparator } from '@/utils/sort';
 import type { TableMesa } from '@repo/types';
 import { useRetreatStore } from './retreatStore';
@@ -22,6 +23,9 @@ const compareTableNames = createLocaleComparator('es');
 
 export const useTableMesaStore = defineStore('tableMesa', () => {
 	const tables = ref<TableMesa[]>([]);
+	// Saved on the device without health fields (specs/offline-mode): the printed
+	// sheet must not show their absence as "nothing to report".
+	const fromCache = ref(false);
 	const isLoading = ref(false);
 	const error = ref<string | null>(null);
 	const { toast } = useToast();
@@ -32,12 +36,15 @@ export const useTableMesaStore = defineStore('tableMesa', () => {
 	const fetchTables = async () => {
 		if (!retreatStore.selectedRetreatId) {
 			tables.value = [];
+			fromCache.value = false;
 			return;
 		}
 		isLoading.value = true;
 		error.value = null;
 		try {
-			tables.value = await getTablesByRetreat(retreatStore.selectedRetreatId);
+			const data = await getTablesByRetreat(retreatStore.selectedRetreatId);
+			tables.value = data;
+			fromCache.value = isFromCache(data);
 		} catch (e: any) {
 			error.value = 'Failed to fetch tables.';
 			toast({ title: 'Error', description: error.value, variant: 'destructive' });
@@ -258,6 +265,7 @@ export const useTableMesaStore = defineStore('tableMesa', () => {
 
 	return {
 		tables,
+		fromCache,
 		isLoading,
 		error,
 		fetchTables,

@@ -16,6 +16,7 @@ import { participantAvailabilityService } from "../services/participantAvailabil
 import { getParticipantShirtOrderSummary } from "../services/shirtReportService";
 import { domainAuditService, DomainAuditAction } from "../services/domainAuditService";
 import { parseOccurredAt, InvalidOccurredAtError } from "../utils/occurredAt";
+import { checkExpectedValues } from "../services/offlineEditService";
 // Static on purpose: a dynamic `await import` inside the handler re-loads the
 // module after jest's resetModules, which hands back a fresh AppDataSource the
 // integration tests never swapped to the test database.
@@ -672,6 +673,30 @@ export const updateParticipant = async (
           message:
             "No tienes permiso para modificar datos de salud ni contactos de emergencia.",
           fields: forbiddenFields,
+        });
+      }
+    }
+    // An edit made without signal (specs/offline-mode, D13/FR-16b) carries the
+    // value each changed field had on the phone; never stored.
+    const expected = body.expectedValues;
+    delete body.expectedValues;
+    if (expected !== undefined) {
+      const check = await checkExpectedValues(req.params.id, expected);
+      if (check.kind === "invalid") {
+        return res.status(400).json({
+          message: "expectedValues solo admite los campos que se pueden corregir sin señal.",
+          code: "INVALID_EXPECTED_VALUES",
+          fields: check.fields,
+        });
+      }
+      if (check.kind === "not-found") {
+        return res.status(404).json({ message: "Participant not found" });
+      }
+      if (check.kind === "changed") {
+        return res.status(409).json({
+          message: check.message,
+          code: "PARTICIPANT_CHANGED_MEANWHILE",
+          fields: check.fields,
         });
       }
     }

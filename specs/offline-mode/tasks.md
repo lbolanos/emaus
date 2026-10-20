@@ -343,8 +343,46 @@
       M3, `a5ab9ea6` M2+M4+M5 y el de spec y documentación. **Desviación**: M2, M4 y M5 van
       juntos porque comparten `AppLayout.vue`, `api.ts` y los locales hunk a hunk, y ninguno
       se publica sin los otros; M1 sí va solo porque sale en su propio release
+- [x] Video instructivo (2026-10-20): `apps/web/e2e/demo/record-offline-mode.mjs`, narrado,
+      con la historia miércoles → viernes en la puerta → sábado → vuelve la señal; la sync
+      escribe de verdad en la base desechable y el script la deja como estaba. Puerta de PII
+      integrada (nombres, correos y teléfonos reales del retiro contra el texto de cada beat;
+      antes prueba que detecta). Encontró dos defectos de la funcionalidad, corregidos (ver
+      Reconcile): "Preparar" no guardaba la lista de Caminantes/Servidores, y ruido de avisos en
+      cada arranque sin señal
+- [x] Imprimir sin señal gafetes, mesas y minuto a minuto (pedido 2026-10-20): comparado cada
+      opción con señal contra sin señal tras solo "Preparar" (texto impreso e imágenes); queda
+      como e2e `apps/web/tests/e2e/offline-print.spec.ts` (sin escrituras, reloj con
+      `setSystemTime`: congelado, reka dispara un clic sintético de más). Corregidos: hoja "Imprimir Mesas" con salud vacía
+      ("Solo con conexión" + aviso), logos de gafetes al precache, opción Word renombrada y
+      desactivada sin señal, cancelados de Mesas en "Preparar". Ver Reconcile
+- [ ] Decidir si el toast propio de cada vista dice que el cambio quedó en el teléfono (hoy
+      `TOAST_LIMIT = 1` tapa "Guardado en el teléfono"; el chip sí lo muestra)
 
 **Done**: 2026-10-19 salvo lo marcado como pendiente de teléfono o de autorización.
+
+## M7 — Corregir la ficha sin señal (D13, pedido 2026-10-20)
+
+- [x] Spec: D13, FR-15c, FR-16b, CA 17 y "Fuera de alcance" ajustado, antes del código
+- [x] `OFFLINE_EDITABLE_PARTICIPANT_FIELDS` + `normalizeOfflineEditValue` en
+      `packages/types/src/offlineEdit.ts` (una sola lista para web y API)
+- [x] API: `checkExpectedValues` (`services/offlineEditService.ts`) y `PUT /participants/:id`
+      con `expectedValues` → 409 `PARTICIPANT_CHANGED_MEANWHILE` / 400 fuera de la lista;
+      `expectedValues` nunca llega al servicio. Tests: integración (6) y ruta (4)
+- [x] Web: `planOfflineEdit` (`src/offline/participantEdit.ts`), tipo `participant.edit` en la
+      cola con reductor sobre lista, Recepción, Camas y Mesas; el formulario emite qué cambió,
+      avisa sin señal y no sincroniza etiquetas sin señal; `ParticipantList` arma el envío o
+      bloquea nombrando los campos; el store no pide la ficha al servidor si quedó en la cola
+- [x] Ayuda (es/en) y e2e `offline-edit.spec.ts` (con `E2E_OFFLINE_WRITES=1`)
+- [x] Web 238 archivos / 3546 tests, `vue-tsc`, eslint; API 2 shards 319 suites / 4793 tests
+      (0 fallos); build del API; 9 e2e sin señal juntos
+
+**Desviaciones**: el editor rápido de teléfonos de la lista (`PATCH …/phones`) sigue necesitando
+señal; sin señal el celular se corrige desde la ficha. La lista de pendientes dice "Corrección en
+la ficha de {nombre}" sin nombrar los campos (el renglón no tiene i18n por campo); el motivo de un
+rechazo sí los nombra.
+
+**Done**: 2026-10-20.
 
 ## Orden y paralelismo sugerido
 

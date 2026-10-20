@@ -36,6 +36,11 @@ export function prepareSteps(retreatId: string): PrepareStep[] {
 		{ url: '/retreats' },
 		{ url: `/retreats/${retreatId}` },
 		{ url: '/participants', params: { retreatId, includePayments: true } },
+		// The walker, server and angelito lists (ParticipantList) leave the cancelled out.
+		{ url: '/participants', params: { retreatId, isCancelled: false, includePayments: true } },
+		{ url: '/participants', params: { retreatId, type: 'partial_server' } },
+		// Mesas lists the cancelled apart, so a search for one of them explains itself.
+		{ url: '/participants', params: { retreatId, isCancelled: true } },
 		// Minuto a minuto asks for the names of the people in charge without payments.
 		{ url: '/participants', params: { retreatId } },
 		{ url: `/participants/reception/${retreatId}` },

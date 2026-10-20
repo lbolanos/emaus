@@ -89,6 +89,17 @@ describe('TableMesaStore', () => {
 			expect(getTablesByRetreat).toHaveBeenCalledWith('test-retreat-id');
 			expect(store.tables).toEqual(mockTables);
 			expect(store.isLoading).toBe(false);
+			expect(store.fromCache).toBe(false);
+		});
+
+		it('remembers that the tables came from the phone (no health fields to print)', async () => {
+			const { getTablesByRetreat } = await import('@/services/api');
+			const { markServedFromDevice } = await import('@/offline/readCache');
+			(getTablesByRetreat as any).mockResolvedValue(markServedFromDevice([...mockTables]));
+
+			await store.fetchTables();
+
+			expect(store.fromCache).toBe(true);
 		});
 
 		it('should return early with null retreatId', async () => {

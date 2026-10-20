@@ -3,6 +3,7 @@ import { getOfflineStore } from './storage';
 import { getCacheUser, setResponseOverlay, type CachedResponse } from './readCache';
 import {
 	applyOps,
+	editedFields,
 	kindDef,
 	type OutboxMeta,
 	type OutboxOp,
@@ -213,6 +214,8 @@ async function syntheticResponse(op: OutboxOp): Promise<unknown> {
 			return { id: `offline-${op.id}`, ...op.body, queued: true };
 		case 'participant.setCancelled':
 			return { id: op.meta.participantId, isCancelled: op.body?.isCancelled };
+		case 'participant.edit':
+			return { id: op.meta.participantId, ...editedFields(op.body) };
 		case 'bags.bagMade':
 			return { ok: true };
 		case 'schedule.start':

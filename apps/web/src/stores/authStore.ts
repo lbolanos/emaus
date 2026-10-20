@@ -2,7 +2,7 @@ import { defineStore } from 'pinia';
 import { ref } from 'vue';
 import type { User, UserProfile } from '@repo/types';
 import { api } from '../services/api';
-import { apiErrorMessage } from '@/services/apiError';
+import { apiErrorMessage, isNetworkError } from '@/services/apiError';
 import { useRouter } from 'vue-router';
 import { useToast } from '@repo/ui';
 import { telemetryService } from '../services/telemetryService';
@@ -265,8 +265,9 @@ export const useAuthStore = defineStore('auth', () => {
 					variant: 'destructive',
 				});
 				router.push('/login');
-			} else {
-				// Don't logout on other errors, just show warning
+			} else if (!isNetworkError(error)) {
+				// Don't logout on other errors, just show warning. Without signal the
+				// saved profile stays and the offline banner already says so.
 				toast({
 					title: 'Warning',
 					description: 'Could not refresh permissions. Some features may be limited.',

@@ -109,8 +109,9 @@ router.put(
 	'/:id',
 	validateRequest(updateParticipantSchema),
 	requirePermission('participant:update'),
-	// Only the no-show cancellation is sent with a key (specs/offline-mode, FR-15b);
-	// regular edits of the record do not carry the header and are untouched.
+	// Only the writes queued without signal carry a key (specs/offline-mode): the
+	// no-show cancellation (FR-15b) and the field edits with expectedValues (D13).
+	// Regular edits of the record do not carry the header and are untouched.
 	idempotency,
 	updateParticipant,
 );

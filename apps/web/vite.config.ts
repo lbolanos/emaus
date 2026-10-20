@@ -94,6 +94,10 @@ export default defineConfig(({ mode }) => {
 						'favicon.ico',
 						'apple-touch-icon.png',
 						'pwa-192x192.png',
+						// Badge logos (BadgesView): the badges are printed at the retreat.
+						'man_logo.png',
+						'woman_logo.png',
+						'crossRoseButtT.png',
 						'assets/**/*.{js,css,woff2,svg,png,webp}',
 					],
 					// country-state-city (vendor-geo, ~8 MB) is only needed by the

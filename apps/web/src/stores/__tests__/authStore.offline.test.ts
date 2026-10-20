@@ -8,10 +8,11 @@ import { setActivePinia, createPinia } from 'pinia';
  */
 
 const apiMock = vi.hoisted(() => ({ get: vi.fn(), post: vi.fn() }));
+const toastMock = vi.hoisted(() => vi.fn());
 
 vi.mock('@/services/api', () => ({ api: apiMock }));
 vi.mock('vue-router', () => ({ useRouter: () => ({ push: vi.fn() }) }));
-vi.mock('@repo/ui', () => ({ useToast: () => ({ toast: vi.fn() }) }));
+vi.mock('@repo/ui', () => ({ useToast: () => ({ toast: toastMock }) }));
 vi.mock('../../services/telemetryService', () => ({
 	telemetryService: {
 		initialize: vi.fn().mockResolvedValue(undefined),
@@ -41,7 +42,31 @@ describe('authStore without signal', () => {
 		setCacheUser(null);
 		apiMock.get.mockReset();
 		apiMock.post.mockReset();
+		toastMock.mockReset();
 		delete window.EMAUS_RUNTIME_CONFIG;
+	});
+
+	it('refreshing permissions without signal keeps the profile and shows no warning', async () => {
+		apiMock.get.mockResolvedValue({ data: status });
+		const store = useAuthStore();
+		await store.checkAuthStatus();
+		apiMock.get.mockRejectedValue(networkError());
+
+		await store.refreshUserProfile();
+
+		expect(store.userProfile).toEqual(status.profile);
+		expect(toastMock).not.toHaveBeenCalled();
+	});
+
+	it('refreshing permissions still warns when the server answers with an error', async () => {
+		apiMock.get.mockResolvedValue({ data: status });
+		const store = useAuthStore();
+		await store.checkAuthStatus();
+		apiMock.get.mockRejectedValue({ response: { status: 500, data: {} } });
+
+		await store.refreshUserProfile();
+
+		expect(toastMock).toHaveBeenCalledWith(expect.objectContaining({ title: 'Warning' }));
 	});
 
 	it('saves the confirmed profile after a successful status check', async () => {

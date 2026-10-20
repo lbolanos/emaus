@@ -15,8 +15,10 @@ During the retreat the phone downloads again by itself every time you open the r
 - **Minute by minute**: start and complete activities, move an activity **±5** minutes and move the whole day.
 - **Beds**: assign, move and free a bed.
 - **Tables**: assign a walker to a table and remove them.
+- **Records**: correct first and last name, nickname, phones, parish, occupation, address, shirt size and snoring. The record says so when you open it. If you change any other field (the email, for example) nothing is saved and the notice names it; undo that change to save the rest. If somebody else changed that same field while there was no signal, your change is **rejected** with the reason and theirs is kept: check the record with signal.
+- **Print**: the **badges**, every **Tables** sheet (the walker cards too) and the **minute by minute**. **Print Tables** comes out without medication, food, support needs or emergency contacts, and the sheet says so; if you need them on paper, print it with signal.
 
-Everything else needs a connection. If you try it without signal, the app tells you that action needs signal; in Beds, **auto-assign**, **export** and **clear** are disabled.
+Everything else needs a connection. If you try it without signal, the app tells you that action needs signal; in Beds, **auto-assign**, **export** and **clear** are disabled, and so are **Download Tables (Word)** and the badges' **Export DOCX**.
 
 ## What you see without signal
 

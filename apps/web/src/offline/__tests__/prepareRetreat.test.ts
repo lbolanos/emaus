@@ -37,6 +37,17 @@ describe('prepareSteps', () => {
 		);
 	});
 
+	it('includes the list the walker and server views load, without the cancelled', () => {
+		// Missing until 2026-10-20: after only "Preparar", Caminantes and Servidores
+		// said "sin datos guardados" without signal.
+		const keys = prepareSteps(R).map((s) => cacheKey({ url: s.url, params: s.params }, 'u1'));
+		expect(keys).toContain(
+			cacheKey({ url: '/participants', params: { retreatId: R, isCancelled: false, includePayments: true } }, 'u1'),
+		);
+		// Mesas: the cancelled, listed apart.
+		expect(keys).toContain(cacheKey({ url: '/participants', params: { retreatId: R, isCancelled: true } }, 'u1'));
+	});
+
 	it('never asks for a health-only endpoint', () => {
 		expect(prepareSteps(R).map((s) => s.url).join(' ')).not.toMatch(/food|medicine|health/i);
 	});

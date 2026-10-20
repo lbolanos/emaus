@@ -150,10 +150,12 @@
                 {{ $t('tables.printMenu') }}
               </DropdownMenuSubTrigger>
               <DropdownMenuSubContent>
-                <DropdownMenuItem @click="handleExportTables" :disabled="isExporting">
+                <!-- Built by the server: off without signal (specs/offline-mode, D11) -->
+                <DropdownMenuItem @click="handleExportTables" :disabled="isExporting || !online">
                   <Download v-if="!isExporting" class="mr-2 h-4 w-4" />
                   <Loader2 v-else class="mr-2 h-4 w-4 animate-spin" />
                   {{ isExporting ? $t('tables.exporting') : $t('tables.exportDocx') }}
+                  <span v-if="!online" class="ml-auto pl-2 text-xs text-muted-foreground">{{ $t('offline.needsConnection') }}</span>
                 </DropdownMenuItem>
                 <DropdownMenuItem @click="handlePrintTables">
                   <Printer class="mr-2 h-4 w-4" />
@@ -586,11 +588,14 @@ import {
   buildContactsVerificationPrintHtml,
   type VerificationWalker,
 } from '@/utils/tablesPrint';
+import { connectivity } from '@/offline/connectivity';
 
 const tableMesaStore = useTableMesaStore();
 const retreatStore = useRetreatStore();
 const participantStore = useParticipantStore();
 const communityStore = useCommunityStore();
+// The printouts are built here and work without signal; the Word export is the server's.
+const online = computed(() => connectivity.online);
 
 // Asistencia a reuniones del equipo servidor. Es opt-in y sólo existe si el
 // retiro está vinculado a una comunidad: el dato es de la comunidad, no del
@@ -1183,14 +1188,19 @@ const renderWalkersTable = (table: any): string => {
         ? `<span class="w-id" style="${color ? `background-color:${escapeHtml(color)};color:#000;` : ''}">${escapeHtml(idOnRetreat)}</span>`
         : '';
       const name = `${escapeHtml(w.firstName || '')} ${escapeHtml(w.lastName || '')}`.trim();
+      // Health never reaches the phone (specs/offline-mode): from the saved copy an
+      // empty cell would read as "nothing to report", so say where it is instead.
+      const healthCells = tableMesaStore.fromCache
+        ? `<td class="cell-offline" colspan="4">${escapeHtml(t('offline.print.healthCell'))}</td>`
+        : `<td class="${w.hasMedication ? 'flag-med' : ''}">${formatMedication(w)}</td>
+        <td class="${w.hasDietaryRestrictions ? 'flag-food' : ''}">${formatFood(w)}</td>
+        <td class="${w.disabilitySupport ? 'flag-dis' : ''}">${formatDisability(w)}</td>
+        <td class="cell-emergency">${formatEmergency(w)}</td>`;
       return `<tr>
         <td class="cell-id">${idBadge}</td>
         <td class="cell-name">${name}</td>
         <td>${formatPhones(w) || '—'}</td>
-        <td class="${w.hasMedication ? 'flag-med' : ''}">${formatMedication(w)}</td>
-        <td class="${w.hasDietaryRestrictions ? 'flag-food' : ''}">${formatFood(w)}</td>
-        <td class="${w.disabilitySupport ? 'flag-dis' : ''}">${formatDisability(w)}</td>
-        <td class="cell-emergency">${formatEmergency(w)}</td>
+        ${healthCells}
       </tr>`;
     })
     .join('');
@@ -1274,6 +1284,8 @@ const handlePrintTables = () => {
     '.flag-med { color: #744210; font-weight: bold; }',
     '.flag-food { color: #c53030; font-weight: bold; }',
     '.flag-dis { color: #b7791f; font-weight: bold; }',
+    '.cell-offline { color: #4a5568; font-style: italic; text-align: center; }',
+    '.offline-note { margin: 4px 0 0; padding: 4px 6px; border: 1px solid #d69e2e; background: #fefcbf; font-size: 10px; }',
     '.w-id { display: inline-block; min-width: 22px; text-align: center; padding: 1px 4px; border-radius: 3px; font-weight: bold; background: #edf2f7; }',
     'tr { break-inside: avoid; page-break-inside: avoid; }',
     '@media print { body { padding: 0; } }',
@@ -1284,13 +1296,16 @@ const handlePrintTables = () => {
 
   const scriptOpen = '<' + 'script>';
   const scriptClose = '<' + '/script>';
+  const offlineNote = tableMesaStore.fromCache
+    ? `<p class="offline-note">${escapeHtml(t('offline.print.healthNote'))}</p>`
+    : '';
 
   const html =
     '<!DOCTYPE html><html lang="es"><head><meta charset="utf-8">' +
     `<title>${title}</title>` +
     `<style>${css}</style>` +
     '</head><body>' +
-    `<div class="header"><h1>${title}${retreatName ? ` — ${retreatName}` : ''}</h1></div>` +
+    `<div class="header"><h1>${title}${retreatName ? ` — ${retreatName}` : ''}</h1>${offlineNote}</div>` +
     body +
     scriptOpen + inlineScript + scriptClose +
     '</body></html>';
