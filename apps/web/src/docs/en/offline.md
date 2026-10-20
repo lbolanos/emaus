@@ -1,5 +1,7 @@
 # Working without a connection at the retreat house
 
+📺 **[Watch video tutorial](https://youtu.be/ICF-5spw920)**
+
 Many retreat houses have a weak signal or none at all. The app keeps working on your phone with what it saved, and what you do without signal is sent automatically when the connection comes back.
 
 ## Before leaving: prepare the phone

@@ -1,5 +1,7 @@
 # Trabajar sin conexión en la casa de retiro
 
+📺 **[Ver video tutorial](https://youtu.be/ICF-5spw920)**
+
 En muchas casas de retiro la señal es mala o no hay. La app sigue funcionando en tu teléfono con lo que tenga guardado, y lo que hagas sin señal se envía solo cuando vuelve la conexión.
 
 ## Antes de salir: preparar el teléfono
