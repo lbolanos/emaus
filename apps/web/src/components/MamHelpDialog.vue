@@ -88,6 +88,10 @@
               <span><b>Imprimir</b>: genera vista de impresión con todo el calendario en formato A4. Incluye descripciones, oculta acciones y "tiempo relativo".</span>
             </li>
             <li class="flex gap-3">
+              <span class="shrink-0">🖨</span>
+              <span><b>Imprimir compacto (tipo Excel)</b>: hoja operativa densa (Hora | Actividad | Responsables) con cada día del retiro en una sola página, como el programa de papel de siempre. Los colores distinguen el tipo de actividad y la columna de responsables muestra el equipo y los nombres. Abre una ventana nueva con el diálogo de impresión (papel o PDF).</span>
+            </li>
+            <li class="flex gap-3">
               <span class="shrink-0">📦</span>
               <span><b>Descargar guiones (zip)</b>: bundle con todos los markdowns y PDFs del retiro, organizados por carpeta de responsabilidad. Útil para llevar offline.</span>
             </li>

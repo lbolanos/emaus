@@ -28,6 +28,7 @@ Solo cuando agrupas **por Día**: arrastra una fila sobre otra del mismo día pa
 
 - **🔔 Tocar campana**: dispara una notificación en pantalla a todos los servidores conectados (pasa a comedor, capilla, etc.).
 - **🖨 Imprimir**: vista de impresión con todo el calendario en A4.
+- **🖨 Imprimir compacto (tipo Excel)**: hoja operativa densa (Hora | Actividad | Responsables) con cada día del retiro en una sola página, como el programa de papel de siempre. Los colores distinguen el tipo de actividad y la columna de responsables muestra el equipo y los nombres. Abre una ventana nueva con el diálogo de impresión (papel o PDF).
 - **📦 Descargar guiones (zip)**: bundle con todos los markdowns y PDFs del retiro, organizados por carpeta de responsabilidad. Útil para llevar offline.
 - **📺 Copiar link de pantalla pública**: vista big-screen sin login en `/mam/<slug>` para proyectar en el salón. Refleja en vivo lo que el coordinador marca como AHORA.
 - **Vista**: agrupar por día o por responsabilidad, y contraer o expandir todos los días.

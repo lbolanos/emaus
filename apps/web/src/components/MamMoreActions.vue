@@ -33,6 +33,13 @@
         type="button"
         role="menuitem"
         class="w-full text-left px-3 py-2 hover:bg-gray-50"
+        @click="run('print-compact')"
+        title="Hoja operativa densa (Hora | Actividad | Responsables), un día por página, como el Excel"
+      >🖨 Imprimir compacto (tipo Excel)</button>
+      <button
+        type="button"
+        role="menuitem"
+        class="w-full text-left px-3 py-2 hover:bg-gray-50"
         @click="run('download-bundle')"
         title="Descargar todos los guiones del retiro como .zip"
       >📦 Descargar guiones (zip)</button>
@@ -141,6 +148,7 @@ const groupBy = defineModel<'day' | 'responsibility'>('groupBy', { required: tru
 type MoreAction =
   | 'ring-bell'
   | 'print'
+  | 'print-compact'
   | 'download-bundle'
   | 'copy-public-link'
   | 'help'
