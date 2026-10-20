@@ -55,6 +55,7 @@ import ColumnSelector from './ColumnSelector.vue';
 import EditParticipantForm from './EditParticipantForm.vue';
 import ParticipantQuickPhoneEditor from './ParticipantQuickPhoneEditor.vue';
 import ParticipantPaysAtHouseToggle from './ParticipantPaysAtHouseToggle.vue';
+import ParticipantSpecialCaseToggle from './ParticipantSpecialCaseToggle.vue';
 import FilterDialog from './FilterDialog.vue';
 import ImportParticipantsModal from './ImportParticipantsModal.vue';
 import ExportParticipantsModal from './ExportParticipantsModal.vue';
@@ -69,7 +70,7 @@ import {
 } from '@repo/ui';
 
 
-import { ArrowUpDown, Trash2, Edit, FileUp, FileDown, Columns, ListFilter, MoreVertical, Plus, X, Printer, RefreshCw, Search, Users, MessageSquare, RotateCcw, Send, Bookmark } from 'lucide-vue-next';
+import { ArrowUpDown, Trash2, Edit, FileUp, FileDown, Columns, ListFilter, MoreVertical, Plus, X, Printer, RefreshCw, Search, Users, MessageSquare, RotateCcw, Send, Bookmark, AlertTriangle } from 'lucide-vue-next';
 import { useToast } from '@repo/ui';
 import { useRekaDialogFix } from '@/composables/useRekaDialogFix';
 
@@ -110,6 +111,12 @@ const props = withDefaults(defineProps<{
      * pay on arrival. Palancas flow — only PalancasView turns it on.
      */
     inlinePaysAtHouseToggle?: boolean,
+    /**
+     * Shows the amber "caso especial" badge and its mark/unmark flag next to
+     * the walker's first name (specs/special-case). Health regime: both need
+     * participant:health. Palancas flow — only PalancasView turns it on.
+     */
+    inlineSpecialCaseBadge?: boolean,
 }>(), {
     isCancelled: false,
     columnsToShowInTable: () => ['id_on_retreat', 'firstName', 'lastName', 'email', 'cellPhone', 'tableMesa.name'],
@@ -120,6 +127,7 @@ const props = withDefaults(defineProps<{
     showAttendanceConfirmation: false,
     inlinePhoneEdit: false,
     inlinePaysAtHouseToggle: false,
+    inlineSpecialCaseBadge: false,
 });
 
 const { toast } = useToast();
@@ -852,6 +860,16 @@ const formColumnsToShow = computed(() => {
     const combined = new Set([...props.columnsToShowInForm, ...visibleColumns.value]);
     return Array.from(combined).filter(isColumnAllowed);
 });
+
+// The dialog's layout mode is declared by the hosting view through
+// columnsToShowInForm (PalancasView always includes 'palancasCoordinator'
+// there). It must NOT be derived from formColumnsToShow: that union also
+// carries the user's column-picker preferences, so a walker list with the
+// palanca columns shown used to flip the whole edit dialog (title included)
+// into palancas mode.
+const editFormMode = computed<'default' | 'palancas'>(() =>
+    props.columnsToShowInForm.includes('palancasCoordinator') ? 'palancas' : 'default',
+);
 
 const formColumnsToEdit = computed(() => {
     const combined = new Set([...props.columnsToEditInForm, ...visibleColumns.value]);
@@ -2009,6 +2027,27 @@ const handleKeyboardShortcuts = (event: KeyboardEvent) => {
                                     <span v-else-if="getCellContent(participant, colKey).paymentStatus === 'scholarship'">🎓</span>
                                     <span v-else-if="getCellContent(participant, colKey).paymentStatus === 'pays_at_house'">🏠</span>
                                 </span>
+                                <!-- Special case (palancas flow, health regime): badge with
+                                     the reason on hover + the mark/unmark flag. -->
+                                <template v-if="colKey === 'firstName' && props.inlineSpecialCaseBadge && canViewHealthData">
+                                    <TooltipProvider v-if="participant.specialCase" :delay-duration="150">
+                                        <Tooltip>
+                                            <TooltipTrigger as-child>
+                                                <span
+                                                    class="inline-flex items-center gap-0.5 rounded bg-amber-100 px-1 py-0.5 text-[10px] font-medium text-amber-800 cursor-help"
+                                                    data-testid="special-case-badge"
+                                                >
+                                                    <AlertTriangle class="h-3 w-3" />
+                                                    {{ participant.specialCaseCategory ? $t(`specialCases.categories.${participant.specialCaseCategory}`) : $t('specialCases.badge') }}
+                                                </span>
+                                            </TooltipTrigger>
+                                            <TooltipContent side="top" class="max-w-[320px] whitespace-pre-wrap">
+                                                {{ participant.specialCaseNotes || $t('specialCases.noNotes') }}
+                                            </TooltipContent>
+                                        </Tooltip>
+                                    </TooltipProvider>
+                                    <ParticipantSpecialCaseToggle :participant="participant" />
+                                </template>
                             </div>
                         </TableCell>
                         <TableCell class="no-print">
@@ -2097,7 +2136,7 @@ const handleKeyboardShortcuts = (event: KeyboardEvent) => {
         <Dialog v-model:open="isEditDialogOpen">
             <DialogContent class="max-w-4xl">
                 <DialogHeader>
-                    <DialogTitle>{{ formColumnsToShow.includes('palancasCoordinator') ? 'Palancas' : 'Editar Participante' }}</DialogTitle>
+                    <DialogTitle>{{ editFormMode === 'palancas' ? 'Palancas' : 'Editar Participante' }}</DialogTitle>
                 </DialogHeader>
                 <EditParticipantForm
                     v-if="participantToEdit"
@@ -2105,6 +2144,7 @@ const handleKeyboardShortcuts = (event: KeyboardEvent) => {
                     :all-columns="allColumns.map(c => ({ ...c, label: $t(c.label) }))"
                     :columns-to-show="formColumnsToShow"
                     :columns-to-edit="formColumnsToEdit"
+                    :mode="editFormMode"
                     :shirt-types="editShirtTypes"
                     @save="handleUpdateParticipant"
                     @cancel="isEditDialogOpen = false"

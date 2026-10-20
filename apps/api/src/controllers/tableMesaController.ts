@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
+import { createRetreatMemoryPhotoSchema } from '@repo/types';
 import * as tableMesaService from '../services/tableMesaService';
 import { domainAuditService, DomainAuditAction } from '../services/domainAuditService';
 import { ensureRetreatAccess } from '../middleware/authorization';
@@ -122,6 +123,55 @@ export const updateTable = async (req: Request, res: Response, next: NextFunctio
 				.status(409)
 				.json({ message: 'Table name already in use', name: error.tableName });
 		}
+		next(error);
+	}
+};
+
+/**
+ * Uploads/replaces the group photo of a table for the retreat keepsake (spec
+ * table-memory-photo). Body validated with the same schema as the memories
+ * gallery ({ photoData } data-URI); `requirePermission('table:update')` on the
+ * route is global, so the retreat of THIS table is checked here, same flow as
+ * the rename.
+ */
+export const setTablePhoto = async (req: Request, res: Response, next: NextFunction) => {
+	try {
+		const parsed = createRetreatMemoryPhotoSchema.safeParse(req.body);
+		if (!parsed.success) {
+			return res.status(400).json({ message: 'Validation error', errors: parsed.error.errors });
+		}
+		const retreatId = await tableMesaService.findTableRetreatId(req.params.id);
+		if (!retreatId) {
+			return res.status(404).json({ message: 'Table not found' });
+		}
+		if (!(await ensureRetreatAccess(req, res, retreatId))) return;
+		const table = await tableMesaService.setTablePhoto(req.params.id, parsed.data.photoData);
+		if (!table) {
+			return res.status(404).json({ message: 'Table not found' });
+		}
+		// The response embeds participants (walkers/leaders): same health gate as getTable.
+		const canSeeHealth = await canViewHealthData(req);
+		res.json(canSeeHealth ? table : tablesWithoutHealth(table));
+	} catch (error: any) {
+		next(error);
+	}
+};
+
+/** Removes the group photo of a table (spec table-memory-photo). */
+export const removeTablePhoto = async (req: Request, res: Response, next: NextFunction) => {
+	try {
+		const retreatId = await tableMesaService.findTableRetreatId(req.params.id);
+		if (!retreatId) {
+			return res.status(404).json({ message: 'Table not found' });
+		}
+		if (!(await ensureRetreatAccess(req, res, retreatId))) return;
+		const table = await tableMesaService.removeTablePhoto(req.params.id);
+		if (!table) {
+			return res.status(404).json({ message: 'Table not found' });
+		}
+		const canSeeHealth = await canViewHealthData(req);
+		res.json(canSeeHealth ? table : tablesWithoutHealth(table));
+	} catch (error: any) {
 		next(error);
 	}
 };

@@ -22,13 +22,24 @@ type ShirtType = {
   optionalForServers: boolean; sortOrder: number; availableSizes?: string[] | null;
 }
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   participant: any;
   columnsToShow: string[];
   columnsToEdit: string[];
   allColumns: { key: string; label: string; type?: string }[];
   shirtTypes?: ShirtType[];
-}>();
+  /**
+   * Which dialog layout to render. Palancas mode used to be inferred from
+   * columnsToShow, but that list also unions the user's column-picker
+   * preferences, so a walker list with the palanca columns visible flipped
+   * the whole dialog. The hosting view states it instead: ParticipantList
+   * derives it from columnsToShowInForm, which PalancasView always fills
+   * with 'palancasCoordinator'.
+   */
+  mode?: 'default' | 'palancas';
+}>(), {
+  mode: 'default',
+});
 
 const emit = defineEmits(['save', 'cancel', 'participant-patched']);
 
@@ -124,7 +135,7 @@ async function loadAvailability() {
   }
 }
 
-const isPalancasView = computed(() => props.columnsToShow.includes('palancasCoordinator'));
+const isPalancasView = computed(() => props.mode === 'palancas');
 
 const palanqueroOptions = ref([
   { value: 'Palanquero 1', label: 'Palanquero 1' },

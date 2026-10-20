@@ -43,9 +43,12 @@ vi.mock('@repo/ui', () => {
       template:
         '<input :value="modelValue" :disabled="disabled" @input="$emit(\'update:modelValue\', $event.target.value)" />',
     },
-    Popover: stub('Popover'),
-    PopoverTrigger: stub('PopoverTrigger'),
-    PopoverContent: stub('PopoverContent'),
+    // ⋮ de la tarjeta (spec ux-mam-responsabilidades, D9).
+    DropdownMenu: stub('DropdownMenu'),
+    DropdownMenuTrigger: stub('DropdownMenuTrigger'),
+    DropdownMenuContent: stub('DropdownMenuContent'),
+    DropdownMenuItem: stub('DropdownMenuItem'),
+    DropdownMenuSeparator: stub('DropdownMenuSeparator'),
     Dialog: stub('Dialog'),
     DialogContent: stub('DialogContent'),
     DialogHeader: stub('DialogHeader'),
@@ -64,16 +67,19 @@ vi.mock('lucide-vue-next', () => ({
   Trash2: { name: 'Trash2', template: '<svg />' },
   Eye: { name: 'Eye', template: '<svg />' },
   Camera: { name: 'Camera', template: '<svg />' },
+  ImagePlus: { name: 'ImagePlus', template: '<svg />' },
   Send: { name: 'Send', template: '<svg />' },
   Pencil: { name: 'Pencil', template: '<svg />' },
   Check: { name: 'Check', template: '<svg />' },
   X: { name: 'X', template: '<svg />' },
+  MoreVertical: { name: 'MoreVertical', template: '<svg />' },
 }));
 
 vi.mock('./ServerDropZone.vue', () => ({ default: { name: 'ServerDropZone', template: '<div />' } }));
 vi.mock('@/components/ParticipantTooltip.vue', () => ({ default: { name: 'ParticipantTooltip', template: '<div><slot /></div>' } }));
 vi.mock('@/components/ParticipantInfoPopover.vue', () => ({ default: { name: 'ParticipantInfoPopover', template: '<div><slot /></div>' } }));
 vi.mock('@/components/PhotoAssignmentDialog.vue', () => ({ default: { name: 'PhotoAssignmentDialog', template: '<div />' } }));
+vi.mock('@/components/TableMemoryPhotoDialog.vue', () => ({ default: { name: 'TableMemoryPhotoDialog', template: '<div />' } }));
 
 import TableCard from '@/views/TableCard.vue';
 

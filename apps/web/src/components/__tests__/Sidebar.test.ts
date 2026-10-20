@@ -239,6 +239,7 @@ vi.mock('lucide-vue-next', () => ({
 	Plus: { template: '<div data-icon="Plus" />' },
 	Edit: { template: '<div data-icon="Edit" />' },
 	Trash2: { template: '<div data-icon="Trash2" />' },
+	Flag: { template: '<div data-icon="Flag" />' },
 	HelpCircle: { template: '<div data-icon="HelpCircle" />' },
 	Cross: { template: '<div data-icon="Cross" />' },
 	User: { template: '<div data-icon="User" />' },
@@ -1015,7 +1016,7 @@ describe('Sidebar Component', () => {
 		});
 	});
 
-	describe('Health data guard (medicines-report / food)', () => {
+	describe('Health data guard (medicines-report / food / special-cases)', () => {
 		// Regla de negocio: la ficha de salud (medicación, dieta) solo la ve
 		// quien tiene `participant:health` (admin/treasurer/logistics/superadmin),
 		// no cualquier rol con `participant:read` (hasta regular_server lo tiene).
@@ -1064,7 +1065,7 @@ describe('Sidebar Component', () => {
 			mockPermissions();
 		});
 
-		it('hides medicines-report and food when canAccessResource denies participant:health', async () => {
+		it('hides medicines-report, food and special-cases when canAccessResource denies participant:health', async () => {
 			mockPermissions((_resource, operation) => operation !== 'health');
 
 			const deniedWrapper = createTestWrapper(Sidebar, {
@@ -1074,11 +1075,12 @@ describe('Sidebar Component', () => {
 
 			expect(findItem(deniedWrapper, 'medicines-report')).toBeUndefined();
 			expect(findItem(deniedWrapper, 'food')).toBeUndefined();
+			expect(findItem(deniedWrapper, 'special-cases')).toBeUndefined();
 
 			deniedWrapper.unmount();
 		});
 
-		it('shows medicines-report and food once participant:health is granted', async () => {
+		it('shows medicines-report, food and special-cases once participant:health is granted', async () => {
 			mockPermissions();
 
 			const grantedWrapper = createTestWrapper(Sidebar, {
@@ -1088,6 +1090,17 @@ describe('Sidebar Component', () => {
 
 			expect(findItem(grantedWrapper, 'medicines-report')).toBeDefined();
 			expect(findItem(grantedWrapper, 'food')).toBeDefined();
+			// Casos especiales lives in communications, right after palancas.
+			const specialCases = findItem(grantedWrapper, 'special-cases');
+			expect(specialCases).toMatchObject({
+				routeName: 'special-cases',
+				permission: 'participant',
+				permissionOperation: 'health',
+				label: 'sidebar.specialCases',
+			});
+			const communications = getSections(grantedWrapper).find((s: any) => s.category === 'communications');
+			const names = communications.items.map((i: any) => i.name);
+			expect(names.indexOf('special-cases')).toBe(names.indexOf('palancas') + 1);
 
 			grantedWrapper.unmount();
 		});

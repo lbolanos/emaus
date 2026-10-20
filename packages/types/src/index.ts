@@ -259,6 +259,11 @@ export const retreatMemoryPhotoSchema = z.object({
 	isPrimary: z.boolean(),
 	sortOrder: z.number().int(),
 	createdAt: z.coerce.date(),
+	// 'gallery' = uploaded in the memories gallery; 'table' = a table group photo
+	// synthesized from `tables.photoUrl` at read time (not a row of this table).
+	source: z.enum(['gallery', 'table']).default('gallery'),
+	// Display label — the table name ("Mesa 3") for source='table' items.
+	label: z.string().nullable().optional(),
 });
 export type RetreatMemoryPhoto = z.infer<typeof retreatMemoryPhotoSchema>;
 
@@ -490,6 +495,10 @@ export const tableMesaSchema = z.object({
 	colider1: z.any().nullable().optional(),
 	colider2: z.any().nullable().optional(),
 	walkers: z.array(z.any()).optional(),
+	// Group photo for the retreat keepsake. Nullable: most tables have none. NOT
+	// `.url()` — in dev (base64 mode) it is a data: URI, and
+	// `findTablesByRetreatId` validates its output with `.array().parse`.
+	photoUrl: z.string().nullable().optional(),
 });
 export type TableMesa = z.infer<typeof tableMesaSchema>;
 
@@ -519,6 +528,10 @@ export const participantTagSchema = z.object({
 export type ParticipantTag = z.infer<typeof participantTagSchema>;
 
 // Participant Schema
+// Motivo del caso especial: habitación aparte / salud / otra.
+export const SPECIAL_CASE_CATEGORIES = ['room', 'health', 'other'] as const;
+export type SpecialCaseCategory = (typeof SPECIAL_CASE_CATEGORIES)[number];
+
 export const participantSchema = z.object({
 	id: idSchema,
 	id_on_retreat: z.number().int().positive().optional(),
@@ -537,6 +550,12 @@ export const participantSchema = z.object({
 	// retreat_participants). Does not waive the charge: switches the derived
 	// status to 'pays_at_house' while there is a pending balance.
 	paysAtHouse: z.boolean().optional(),
+	// Caso especial per-retiro (retreat_participants): el palanquero marca un
+	// caminante que el coordinador debe revisar. Régimen de salud
+	// (SENSITIVE_HEALTH_FIELDS). Categoría fuera del enum → 400 de validateRequest.
+	specialCase: z.boolean().optional(),
+	specialCaseCategory: z.enum(SPECIAL_CASE_CATEGORIES).nullable().optional(),
+	specialCaseNotes: z.string().nullable().optional(),
 	scholarshipAmount: z.preprocess(
 		(val) => (val === '' || val === null || val === undefined ? null : Number(val)),
 		z.number().nonnegative().nullable().optional(),

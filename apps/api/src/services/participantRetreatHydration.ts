@@ -71,6 +71,9 @@ export const hydrateParticipantRetreatContext = async (
     participant.bagMade = rp.bagMade ?? false;
     participant.isScholarship = rp.isScholarship ?? false;
     participant.paysAtHouse = rp.paysAtHouse ?? false;
+    participant.specialCase = rp.specialCase ?? false;
+    participant.specialCaseCategory = rp.specialCaseCategory ?? null;
+    participant.specialCaseNotes = rp.specialCaseNotes ?? null;
     if (rp.scholarshipAmount !== undefined)
       participant.scholarshipAmount = rp.scholarshipAmount;
     if (rp.mealCount !== undefined) participant.mealCount = rp.mealCount;
@@ -117,6 +120,9 @@ export const hydrateParticipantRetreatContext = async (
     participant.bagMade = undefined as any;
     participant.isScholarship = undefined as any;
     participant.paysAtHouse = undefined as any;
+    participant.specialCase = undefined;
+    participant.specialCaseCategory = null;
+    participant.specialCaseNotes = null;
     participant.scholarshipAmount = null;
     participant.mealCount = null;
     participant.takesFridayMeal = null;

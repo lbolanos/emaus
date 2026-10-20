@@ -223,6 +223,15 @@ no es la cuenta ingenua y por eso conviene afirmar `>=`, nunca `==`:
 
 Para un test determinista: tantos PNG distintos como imágenes, y sin alfa.
 
+**El popup de Ruta A no se puede fotografiar en headless** (2026-10-19, MAM compacto): el
+`<script>` de auto-print (`print → afterprint → close`) cierra la ventana ~100ms tras abrirla —
+`waitForEvent('popup')` + `popup.pdf()` llega tarde, la ventana es invisible para `browser_tabs`
+y un hook sobre `window.open` cuelga. La verificación va por el builder: capturar el HTML (el
+builder es puro), `setContent(html)` tras quitarle el `<script>` y
+`page.pdf({ format:'A4', printBackground:true, preferCSSPageSize:true })`. El script removido
+solo hace `replaceState`/`print`/`close`: cero impacto de layout, el PDF es el que imprimiría el
+navegador real. El botón y el popup sí se verifican a mano en el dev.
+
 ## Testing
 
 - `apps/web/src/utils/__tests__/markdownToPdf.test.ts` — composición de texto (`toUnits`) y

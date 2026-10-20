@@ -850,7 +850,8 @@
     "scheduleTemplate": "Template Minuto a Minuto",
     "preRetreatTasks": "Tareas Pre-Retiro",
     "retreatPreparations": "Preparaciones",
-    "preRetreatTaskTemplate": "Template Tareas Pre-Retiro"
+    "preRetreatTaskTemplate": "Template Tareas Pre-Retiro",
+    "specialCases": "Casos especiales"
   },
   "changePassword": {
     "title": "Cambiar Contraseña",
@@ -1767,7 +1768,9 @@
     "copyWazeUrl": "Copiar Waze",
     "openMapsUrl": "Abrir Google Maps",
     "openWazeUrl": "Abrir Waze",
-    "addressCopied": "¡Dirección copiada al portapapeles!"
+    "addressCopied": "¡Dirección copiada al portapapeles!",
+    "specialCases": "Casos especiales",
+    "specialCasesPending": "Por atender"
   },
   "retreatFlyer": {
     "printButton": "Imprimir Flyer",
@@ -1836,12 +1839,12 @@
       "colider1": "Co-Líder 1",
       "colider2": "Co-Líder 2"
     },
-    "briefing": {
-      "button": "Enviar info a líderes",
-      "chooseLeader": "Elige a quién enviar:"
-    },
     "unassignedServers": "Servidores Sin Asignar",
     "unassignedWalkers": "Caminantes Sin Asignar",
+    "unassignedPanel": {
+      "collapse": "Ocultar sin asignar",
+      "expand": "Mostrar sin asignar"
+    },
     "rebalanceWalkers": "Rebalancear Caminantes",
     "rebalanceConfirmation": {
       "title": "Confirmar Rebalanceo",
@@ -1967,6 +1970,30 @@
     },
     "photoAssignment": "Asignar por Foto (IA)",
     "tapUnassign": "Quitar de mesa",
+    "tapBanner": "Toca la mesa de destino para asignar a {name}",
+    "tapZoneHint": "· Toca aquí para asignar",
+    "photoMemory": {
+      "menuLabel": "Foto del recuerdo",
+      "title": "Foto de {name}",
+      "description": "Foto de los participantes de la mesa para el recuerdo del retiro. Se muestra en “Mis Retiros” con el nombre de la mesa.",
+      "choose": "Elegir foto",
+      "chooseOther": "Elegir otra foto",
+      "hint": "JPG, PNG o WebP. Las fotos grandes se reducen solas.",
+      "pendingReplace": "Vista previa: al guardar se reemplaza la foto actual.",
+      "remove": "Eliminar",
+      "save": "Guardar",
+      "saving": "Guardando...",
+      "savedTitle": "Foto actualizada",
+      "saveErrorTitle": "No se pudo guardar la foto",
+      "removedTitle": "Foto eliminada",
+      "removeErrorTitle": "No se pudo eliminar la foto",
+      "tooLargeTitle": "Archivo muy grande",
+      "tooLarge": "{name} supera los 30MB",
+      "badFormatTitle": "Formato no válido",
+      "badFormat": "{name}: solo JPG, PNG y WebP",
+      "decodeErrorTitle": "No se pudo leer la imagen",
+      "decodeError": "No se pudo procesar {name}. Probá con otra foto."
+    },
     "photoAssign": {
       "title": "Asignación por Foto",
       "description": "Toma una foto de las tarjetas de los caminantes y la IA asignará los caminantes a las mesas.",
@@ -2053,7 +2080,18 @@
       "scope": "{count} preparaciones celebradas",
       "notSynced": "Sincroniza las preparaciones de este retiro para ver la asistencia",
       "hide": "Ocultar asistencia a preparaciones"
-    }
+    },
+    "byLeader": {
+      "empty": "No hay líderes ni colíderes asignados",
+      "walkersCount": "{count} caminantes",
+      "menuItem": "Enviar info a líderes",
+      "title": "Enviar la info de su mesa a cada líder",
+      "description": "Caminantes, contactos y guion de llamada, a cada líder y colíder. Al cerrar cada mensaje vuelves a esta lista.",
+      "searchPlaceholder": "Buscar líder o mesa..."
+    },
+    "moreActions": "Más acciones",
+    "cardActions": "Acciones de {name}",
+    "briefingSendTo": "Enviar info a {role} · {name}"
   },
   "bedAssignments": {
     "title": "Asignación de Camas",
@@ -2474,19 +2512,36 @@
     "xlsx": "Exportar a XLSX",
     "csv": "Exportar a CSV"
   },
+  "briefingList": {
+    "summary": "{sent} de {total} ya lo recibieron",
+    "filterAll": "Todos",
+    "filterPending": "Sin enviar",
+    "sentOn": "Enviado el {date} por {channel}",
+    "notSent": "Sin enviar",
+    "send": "Enviar",
+    "resend": "Reenviar",
+    "emptyPending": "A todos ya se les mandó",
+    "sentError": "No se pudo cargar a quién ya se le mandó.",
+    "channels": {
+      "whatsapp": "WhatsApp",
+      "email": "correo"
+    }
+  },
   "responsibilities": {
     "title": "Responsabilidades del Retiro",
     "description": "Gestiona las responsabilidades del retiro y asigna servidores a cada una",
     "createResponsability": "Crear Responsabilidad",
     "sendTasks": {
-      "button": "Enviar tareas",
-      "title": "Enviar tareas a un servidor ({count}):",
-      "searchPlaceholder": "Buscar servidor...",
       "counts": "{responsibilities} responsabilidades · {teams} equipos",
       "documentsCount": "{count} documentos",
       "documentsError": "No se pudieron cargar los documentos: el mensaje saldrá sin los links.",
       "empty": "No hay servidores con tareas asignadas"
     },
+    "byServer": {
+      "tab": "Por servidor"
+    },
+    "moreActions": "Más acciones",
+    "cardActions": "Acciones de {name}",
     "addToTeam": "Agregar servidores al equipo",
     "addToTeamDescription": "Elige los servidores activos que se agregarán a este equipo de servicio",
     "teamLabel": "Equipo",
@@ -4364,6 +4419,35 @@
       "attendance": "Asistencia",
       "payment": "Pago",
       "palancas": "Cartas"
+    }
+  },
+  "specialCases": {
+    "title": "Casos especiales",
+    "subtitle": "Caminantes que el palanquero marcó para que el coordinador los revise",
+    "pendingCount": "Por atender: {count}",
+    "empty": "No hay casos especiales marcados",
+    "badge": "Caso especial",
+    "mark": "Marcar caso especial",
+    "markTitle": "Caso especial",
+    "markDescription": "Cuéntale al coordinador qué necesita revisar de {name}.",
+    "categoryLabel": "Categoría",
+    "categories": {
+      "room": "Habitación aparte",
+      "health": "Salud",
+      "other": "Otra"
+    },
+    "notes": "Nota (opcional)",
+    "notesPlaceholder": "p. ej. usa silla de ruedas, viaja con su mamá…",
+    "noNotes": "Sin nota",
+    "confirmRemove": "¿Quitar la marca de caso especial de {name}? Se borra el motivo.",
+    "remove": "Quitar marca",
+    "contact": "Contactar",
+    "columns": {
+      "name": "Caminante",
+      "phone": "Teléfono",
+      "category": "Categoría",
+      "notes": "Nota",
+      "actions": "Acciones"
     }
   },
   "houses": {

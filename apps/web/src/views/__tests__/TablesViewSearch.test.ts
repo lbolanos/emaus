@@ -45,6 +45,8 @@ const getCancelledParticipantsMock = vi.fn(async () => [] as any[]);
 vi.mock('@/services/api', () => ({
 	getCancelledParticipants: (...args: any[]) => getCancelledParticipantsMock(...args),
 	exportTablesToDocx: vi.fn(),
+	// Marcas de "Enviar info a líderes" (se cargan con el retiro).
+	getLatestSendsByTemplateType: vi.fn(async () => ({})),
 	api: { get: vi.fn(), post: vi.fn(), put: vi.fn(), delete: vi.fn() },
 }));
 

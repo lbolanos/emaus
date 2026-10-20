@@ -104,6 +104,21 @@ export const updateTable = async (
   return response.data;
 };
 
+/** Uploads or replaces the group photo of a table (spec table-memory-photo). */
+export const uploadTablePhoto = async (
+  tableId: string,
+  photoData: string,
+): Promise<TableMesa> => {
+  const response = await api.put(`/tables/${tableId}/photo`, { photoData });
+  return response.data;
+};
+
+/** Removes the group photo of a table (spec table-memory-photo). */
+export const deleteTablePhoto = async (tableId: string): Promise<TableMesa> => {
+  const response = await api.delete(`/tables/${tableId}/photo`);
+  return response.data;
+};
+
 export const assignLeaderToTable = async (
   tableId: string,
   participantId: string,
@@ -1138,6 +1153,23 @@ export const sendTestEmail = async (to: string) => {
 
 export const verifySmtpConnection = async () => {
   const response = await api.post("/participant-communications/email/verify");
+  return response.data;
+};
+
+export type LatestSendByParticipant = Record<
+  string,
+  { sentAt: string; messageType: "whatsapp" | "email" }
+>;
+
+/** Last send per participant of one template type ("ya enviado" marks). */
+export const getLatestSendsByTemplateType = async (
+  retreatId: string,
+  type: string,
+): Promise<LatestSendByParticipant> => {
+  const response = await api.get(
+    `/participant-communications/retreat/${retreatId}/latest-by-template-type`,
+    { params: { type } },
+  );
   return response.data;
 };
 

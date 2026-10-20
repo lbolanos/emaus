@@ -60,6 +60,47 @@ describe('MemoryPhotoCarousel', () => {
 		expect(wrapper.find('img').exists()).toBe(false);
 	});
 
+	it('muestra el label de la foto de mesa ("Mesa 3") aunque sea la única foto', () => {
+		const wrapper = mount(MemoryPhotoCarousel, {
+			props: { photos: [{ ...photo('t1', 'tablePhoto.jpg'), label: 'Mesa 3' }] },
+		});
+		expect(wrapper.text()).toContain('Mesa 3');
+		// El badge vive fuera del bloque de controles: con una sola foto no hay
+		// dots pero el label sí se ve.
+		expect(wrapper.find('[aria-label="Foto siguiente"]').exists()).toBe(false);
+	});
+
+	it('no muestra badge cuando la foto no tiene label', () => {
+		const wrapper = mount(MemoryPhotoCarousel, {
+			props: { photos: [photo('a', 'urlA', true, 0)] },
+		});
+		expect(wrapper.text()).not.toContain('Mesa');
+	});
+
+	it('el label acompaña a la foto activa en el carrusel y en el lightbox', async () => {
+		const wrapper = mount(MemoryPhotoCarousel, {
+			props: {
+				photos: [
+					photo('a', 'urlA', true, 0),
+					{ ...photo('t1', 'tablePhoto.jpg'), label: 'Mesa 7' },
+				],
+			},
+			attachTo: document.body,
+		});
+
+		// Galería: primera foto sin label, al navegar a la de mesa aparece.
+		expect(wrapper.text()).not.toContain('Mesa 7');
+		await wrapper.find('[aria-label="Foto siguiente"]').trigger('click');
+		expect(wrapper.text()).toContain('Mesa 7');
+
+		// Lightbox: el label también se muestra sobre la foto ampliada.
+		await wrapper.find('img').trigger('click');
+		const dialog = document.body.querySelector('[role="dialog"]');
+		expect(dialog?.textContent).toContain('Mesa 7');
+
+		wrapper.unmount();
+	});
+
 	it('al hacer clic en la foto abre el lightbox y se puede cerrar', async () => {
 		const wrapper = mount(MemoryPhotoCarousel, {
 			props: { photos: [photo('a', 'urlA', true, 0)] },

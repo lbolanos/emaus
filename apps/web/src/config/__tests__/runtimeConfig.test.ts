@@ -29,7 +29,11 @@ describe('runtimeConfig — VITE_API_URL resolution', () => {
 
 	it('falls back to the development default without env var or injection', async () => {
 		// happy-dom runs at http://localhost/ → environment resolves to
-		// development → default API on the dev port.
+		// development → default API on the dev port. Vitest loads the local
+		// apps/web/.env* files, so the "no env var" premise has to be stubbed:
+		// the dev start script writes VITE_API_URL to .env.local and a local
+		// .env may set it too.
+		vi.stubEnv('VITE_API_URL', '');
 		const { getApiUrl } = await loadFreshModule();
 
 		expect(getApiUrl()).toBe('http://localhost:3084/api');

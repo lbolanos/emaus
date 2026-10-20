@@ -195,6 +195,34 @@ class S3Service {
 		await this.ensureClient().send(command);
 	}
 
+	// Foto de grupo de una mesa para el recuerdo (spec table-memory-photo). Key
+	// fija por mesa dentro del prefijo privado retreat-memories/: re-subir
+	// reemplaza, presignPrivateUrl y el borrado se reutilizan sin cambios y la
+	// policy IAM (bucket/*) no cambia.
+	async uploadTablePhoto(
+		retreatId: string,
+		tableId: string,
+		buffer: Buffer,
+		contentType: string,
+	): Promise<UploadResult> {
+		const key = `${this.prefixes.retreatMemories}${retreatId}/tables/${tableId}.webp`;
+
+		const command = new PutObjectCommand({
+			Bucket: this.bucketName,
+			Key: key,
+			Body: buffer,
+			ContentType: contentType,
+			CacheControl: 'public, max-age=31536000, immutable',
+		});
+
+		await this.ensureClient().send(command);
+
+		return {
+			url: this.getPublicUrl(key),
+			key,
+		};
+	}
+
 	// Foto única por reunión de comunidad. Key fijo por meeting (community-meetings/{meetingId}.webp):
 	// subir de nuevo reemplaza la foto anterior, igual que el avatar.
 	async uploadCommunityMeetingPhoto(

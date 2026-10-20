@@ -847,7 +847,8 @@
     "scheduleTemplate": "Minute by Minute Template",
     "preRetreatTasks": "Pre-Retreat Tasks",
     "retreatPreparations": "Preparations",
-    "preRetreatTaskTemplate": "Pre-Retreat Task Template"
+    "preRetreatTaskTemplate": "Pre-Retreat Task Template",
+    "specialCases": "Special cases"
   },
   "communityTemplates": {
     "title": "Community Message Templates",
@@ -1675,7 +1676,9 @@
     "copyWazeUrl": "Copy Waze",
     "openMapsUrl": "Open Google Maps",
     "openWazeUrl": "Open Waze",
-    "addressCopied": "Address copied to clipboard!"
+    "addressCopied": "Address copied to clipboard!",
+    "specialCases": "Special cases",
+    "specialCasesPending": "To attend"
   },
   "reception": {
     "paysAtHouse": "Pays at the house"
@@ -1747,12 +1750,12 @@
       "colider1": "Co-Leader 1",
       "colider2": "Co-Leader 2"
     },
-    "briefing": {
-      "button": "Send info to leaders",
-      "chooseLeader": "Choose who to send to:"
-    },
     "unassignedServers": "Unassigned Servers",
     "unassignedWalkers": "Unassigned Walkers",
+    "unassignedPanel": {
+      "collapse": "Hide unassigned",
+      "expand": "Show unassigned"
+    },
     "rebalanceWalkers": "Rebalance Walkers",
     "rebalanceConfirmation": {
       "title": "Confirm Rebalance",
@@ -1876,6 +1879,30 @@
     },
     "photoAssignment": "Assign by Photo (AI)",
     "tapUnassign": "Remove from table",
+    "tapBanner": "Tap the destination table to assign {name}",
+    "tapZoneHint": "· Tap here to assign",
+    "photoMemory": {
+      "menuLabel": "Keepsake photo",
+      "title": "{name} photo",
+      "description": "Group photo of the table participants for the retreat keepsake. It shows in “My Retreats” labeled with the table name.",
+      "choose": "Choose photo",
+      "chooseOther": "Choose another photo",
+      "hint": "JPG, PNG or WebP. Large photos are resized automatically.",
+      "pendingReplace": "Preview: saving will replace the current photo.",
+      "remove": "Remove",
+      "save": "Save",
+      "saving": "Saving...",
+      "savedTitle": "Photo updated",
+      "saveErrorTitle": "Could not save the photo",
+      "removedTitle": "Photo removed",
+      "removeErrorTitle": "Could not remove the photo",
+      "tooLargeTitle": "File too large",
+      "tooLarge": "{name} exceeds 30MB",
+      "badFormatTitle": "Invalid format",
+      "badFormat": "{name}: only JPG, PNG and WebP",
+      "decodeErrorTitle": "Could not read the image",
+      "decodeError": "Could not process {name}. Try another photo."
+    },
     "photoAssign": {
       "title": "Photo Assignment",
       "description": "Take a photo of the walker cards and AI will assign walkers to tables.",
@@ -1962,7 +1989,18 @@
       "scope": "{count} preparations held",
       "notSynced": "Sync this retreat’s preparations to see attendance",
       "hide": "Hide preparation attendance"
-    }
+    },
+    "byLeader": {
+      "empty": "No leaders or co-leaders assigned",
+      "walkersCount": "{count} walkers",
+      "menuItem": "Send info to leaders",
+      "title": "Send each leader their table info",
+      "description": "Walkers, contacts and call script, to each leader and co-leader. When each message closes you come back to this list.",
+      "searchPlaceholder": "Search leader or table..."
+    },
+    "moreActions": "More actions",
+    "cardActions": "Actions for {name}",
+    "briefingSendTo": "Send info to {role} · {name}"
   },
   "bedAssignments": {
     "title": "Bed Assignments",
@@ -2380,19 +2418,36 @@
     "xlsx": "Export to XLSX",
     "csv": "Export to CSV"
   },
+  "briefingList": {
+    "summary": "{sent} of {total} already got it",
+    "filterAll": "All",
+    "filterPending": "Not sent",
+    "sentOn": "Sent on {date} by {channel}",
+    "notSent": "Not sent",
+    "send": "Send",
+    "resend": "Resend",
+    "emptyPending": "Everyone already got it",
+    "sentError": "Could not load who already got it.",
+    "channels": {
+      "whatsapp": "WhatsApp",
+      "email": "email"
+    }
+  },
   "responsibilities": {
     "title": "Retreat Responsibilities",
     "description": "Manage retreat responsibilities and assign servers to each one",
     "createResponsability": "Create Responsability",
     "sendTasks": {
-      "button": "Send tasks",
-      "title": "Send tasks to a server ({count}):",
-      "searchPlaceholder": "Search server...",
       "counts": "{responsibilities} responsibilities · {teams} teams",
       "documentsCount": "{count} documents",
       "documentsError": "Could not load the documents: the message will go without the links.",
       "empty": "No servers with assigned tasks"
     },
+    "byServer": {
+      "tab": "By server"
+    },
+    "moreActions": "More actions",
+    "cardActions": "Actions for {name}",
     "addToTeam": "Add servers to team",
     "addToTeamDescription": "Choose the active servers to add to this service team",
     "teamLabel": "Team",
@@ -4042,6 +4097,35 @@
       "attendance": "Attendance",
       "payment": "Payment",
       "palancas": "Letters"
+    }
+  },
+  "specialCases": {
+    "title": "Special cases",
+    "subtitle": "Walkers the palanquero flagged for the coordinator to review",
+    "pendingCount": "To attend: {count}",
+    "empty": "No special cases flagged",
+    "badge": "Special case",
+    "mark": "Flag as special case",
+    "markTitle": "Special case",
+    "markDescription": "Tell the coordinator what needs reviewing about {name}.",
+    "categoryLabel": "Category",
+    "categories": {
+      "room": "Separate room",
+      "health": "Health",
+      "other": "Other"
+    },
+    "notes": "Note (optional)",
+    "notesPlaceholder": "e.g. uses a wheelchair, travels with their mother…",
+    "noNotes": "No note",
+    "confirmRemove": "Remove the special-case flag from {name}? The reason is erased.",
+    "remove": "Remove flag",
+    "contact": "Contact",
+    "columns": {
+      "name": "Walker",
+      "phone": "Phone",
+      "category": "Category",
+      "notes": "Note",
+      "actions": "Actions"
     }
   },
   "houses": {

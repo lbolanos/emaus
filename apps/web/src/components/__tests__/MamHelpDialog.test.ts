@@ -80,6 +80,7 @@ describe('MamHelpDialog', () => {
 		const text = w.text();
 		expect(text).toContain('Tocar campana');
 		expect(text).toContain('Imprimir');
+		expect(text).toContain('Imprimir compacto (tipo Excel)');
 		expect(text).toContain('Descargar guiones');
 		expect(text).toContain('Copiar link de pantalla pública');
 		expect(text).toContain('Mover día');
