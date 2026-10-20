@@ -19,6 +19,13 @@ router.get(
 	controller.getRetreatCommunications,
 );
 
+// Last send per participant of one template type ("ya enviado" marks)
+router.get(
+	'/retreat/:retreatId/latest-by-template-type',
+	requireRetreatAccess('retreatId'),
+	controller.getLatestByTemplateType,
+);
+
 // Get communication statistics for a retreat
 router.get(
 	'/retreat/:retreatId/stats',
