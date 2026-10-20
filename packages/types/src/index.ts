@@ -1065,7 +1065,12 @@ export type {
 	UserPermission as UserPermissionType,
 	UserRoleDetail,
 	UserProfile,
+	UpdateSocialProfile,
 } from './user';
+
+// PUT /social/profile — runtime validation (value export; the type block
+// above only re-exports types).
+export { UpdateSocialProfileSchema } from './user';
 
 export * from './message-template';
 // Shared flyer schemas: re-exported so @repo/types consumers keep seeing them
@@ -1087,6 +1092,7 @@ export * from './retreatPreparation';
 export * from './availability';
 export * from './phone';
 export * from './text';
+export * from './menu';
 
 // Payment Schema
 export const paymentSchema = z.object({

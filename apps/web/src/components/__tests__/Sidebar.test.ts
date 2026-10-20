@@ -11,6 +11,7 @@ import {
 	cleanupMocks,
 } from '../../test/utils';
 import { useAuthPermissions } from '@/composables/useAuthPermissions';
+import { useMenuFavoritesStore } from '@/stores/menuFavoritesStore';
 
 // Mock axios first
 vi.mock('axios', () => {
@@ -62,6 +63,8 @@ vi.mock('@/services/telemetryService', () => ({
 
 // Mock the API service
 const mockApiResponse = { data: [] };
+const mockGetUserProfile = vi.fn(() => Promise.resolve({}));
+const mockUpdateUserProfile = vi.fn(() => Promise.resolve({}));
 vi.mock('@/services/api', () => ({
 	api: {
 		get: vi.fn(() => Promise.resolve(mockApiResponse)),
@@ -69,6 +72,8 @@ vi.mock('@/services/api', () => ({
 		put: vi.fn(() => Promise.resolve(mockApiResponse)),
 		delete: vi.fn(() => Promise.resolve(mockApiResponse)),
 	},
+	getUserProfile: () => mockGetUserProfile(),
+	updateUserProfile: (...args: unknown[]) => mockUpdateUserProfile(...args),
 }));
 
 // Mock vue-router
@@ -104,14 +109,73 @@ vi.mock('@/components/HelpPanel.vue', () => ({
 vi.mock('@/components/layout/SidebarSection.vue', () => ({
 	default: { template: '<div><slot /></div>' },
 }));
+// Item stub: mirrors the props/emits the favorites feature relies on, so the
+// tests can toggle from a real row (emit) and inspect the favorites-section
+// copies. The favorite toggle itself lives inside the real component's hover
+// menu — its interaction is covered by SidebarMenuItem.test.ts.
 vi.mock('@/components/layout/SidebarMenuItem.vue', () => ({
-	default: { template: '<div><slot /></div>' },
+	default: {
+		name: 'SidebarMenuItemStub',
+		props: {
+			item: Object,
+			isCollapsedView: Boolean,
+			isFocused: Boolean,
+			globalIndex: Number,
+			routeWithParams: null,
+			badge: Number,
+			badgeColor: String,
+			isFavorite: Boolean,
+		},
+		emits: ['toggleFavorite', 'mouseenter', 'mouseleave', 'focus'],
+		template: `
+			<div
+				class="menu-item-stub"
+				:data-name="item?.name"
+				:data-route="item?.routeName"
+				:data-index="globalIndex"
+				:data-favorite="isFavorite ? 'true' : 'false'"
+				@click="$emit('toggleFavorite')"
+			/>`,
+	},
 }));
 
 // Mock @repo/ui components
 vi.mock('@repo/ui', () => {
 	const s = { template: '<div><slot /></div>' };
+	// Popover trio mirroring reka-ui's controlled API: the trigger toggles
+	// through provide/inject and the content only renders while open (the
+	// real one portals it away and hides it), so tests exercise open state.
+	const PopoverStub: any = {
+		props: { open: { type: Boolean, default: false } },
+		emits: ['update:open'],
+		provide() {
+			return {
+				popoverStubApi: {
+					isOpen: () => this.open,
+					change: (v: boolean) => this.$emit('update:open', v),
+				},
+			};
+		},
+		template: '<div><slot /></div>',
+	};
+	const PopoverTriggerStub: any = {
+		inject: { popoverStubApi: { default: null } },
+		template:
+			'<div @click="popoverStubApi && popoverStubApi.change(!popoverStubApi.isOpen())"><slot /></div>',
+	};
+	const PopoverContentStub: any = {
+		inject: { popoverStubApi: { default: null } },
+		computed: {
+			stubOpen(): boolean {
+				return this.popoverStubApi ? this.popoverStubApi.isOpen() : false;
+			},
+		},
+		template: '<div v-if="stubOpen"><slot /></div>',
+	};
 	return {
+		Popover: PopoverStub,
+		PopoverTrigger: PopoverTriggerStub,
+		PopoverContent: PopoverContentStub,
 		Button: { template: '<button><slot /></button>' },
 		Select: s, SelectContent: s, SelectGroup: s, SelectItem: s,
 		SelectTrigger: s, SelectValue: s,
@@ -124,6 +188,9 @@ vi.mock('@repo/ui', () => {
 		DialogHeader: s, DialogTitle: s, DialogTrigger: s,
 		Input: { template: '<input type="text" />' },
 		useToast: () => ({ toast: vi.fn() }),
+		// The store renders the undo action with h(ToastAction, …); an
+		// absent export on the mock throws at property access.
+		ToastAction: { name: 'ToastAction' },
 	};
 });
 
@@ -660,6 +727,292 @@ describe('Sidebar Component', () => {
 			const topRetreat = getTopRetreat(superWrapper);
 			const logistics = topRetreat.find((s: any) => s.category === 'logistics');
 			expect(logistics).toBeDefined();
+		});
+	});
+
+	describe('Accordion regression (saved record without a newer category key)', () => {
+		// Before the uiStore migration, a category missing from the saved
+		// localStorage record counted as OPEN (`?? false`) and the accordion
+		// toggle only collapsed keys already present — so that section could
+		// never be closed by opening another one.
+		const getCollapsedSections = (w: VueWrapper<any>): Record<string, boolean> => {
+			const raw = (w.vm as any).$.setupState?.collapsedSections;
+			return raw?.value ?? raw ?? {};
+		};
+
+		it('seeds the missing category collapsed on mount and persists it', async () => {
+			// Record written by the pre-store Sidebar: 'logistics' not in it.
+			localStorage.setItem(
+				'sidebar-collapsed-sections',
+				JSON.stringify({ community: false, assignments: true }),
+			);
+			localStorage.setItem('sidebar-retreat-group-collapsed', 'false');
+
+			const regressionWrapper = createTestWrapper(Sidebar, {
+				global: { mocks: { $t: (key: string) => key } },
+			});
+			await nextTick();
+
+			const collapsed = getCollapsedSections(regressionWrapper);
+			expect(collapsed.logistics).toBe(true);
+			// The one open section from the record stays open (accordion invariant).
+			expect(collapsed.community).toBe(false);
+
+			const persisted = JSON.parse(
+				localStorage.getItem('sidebar-collapsed-sections') || 'null',
+			);
+			expect(persisted.logistics).toBe(true);
+
+			regressionWrapper.unmount();
+		});
+	});
+
+	describe('Menu favorites section', () => {
+		// createTestWrapper installs its own pinia unless one is passed, so the
+		// favorites store must live in the SAME pinia the component mounts with.
+		let favoritesWrapper: VueWrapper<any>;
+		let favoritesStore: ReturnType<typeof useMenuFavoritesStore>;
+
+		const getFavoritesSection = (w: VueWrapper<any>) => w.find('[data-testid="sidebar-favorites"]');
+		const sectionRoutes = (w: VueWrapper<any>): string[] =>
+			getFavoritesSection(w)
+				.findAll('.menu-item-stub')
+				.map((stub: any) => stub.attributes('data-route'));
+
+		beforeEach(async () => {
+			// The favorites collapse flag lives in localStorage (via uiStore);
+			// happy-dom shares it across tests in this file, so reset it or a
+			// previous run leaves the section collapsed for these tests.
+			localStorage.removeItem('sidebar-favorites-collapsed');
+			const testPinia = createPinia();
+			setActivePinia(testPinia);
+
+			const { useAuthStore: useAuthStoreImport } = await import('@/stores/authStore');
+			const authStore = useAuthStoreImport();
+			const saUser = {
+				id: 'sa-id',
+				email: 'sa@test.com',
+				displayName: 'Super Admin',
+				roles: [{ id: 'role-sa', role: { name: 'superadmin' }, retreats: [], globalPermissions: [] }],
+				isActive: true,
+				emailVerified: true,
+				permissions: [],
+			};
+			authStore.user = saUser as any;
+			authStore.userProfile = saUser as any;
+			authStore.isAuthenticated = true;
+			authStore.refreshUserProfile = vi.fn().mockResolvedValue(undefined) as any;
+
+			const { useRetreatStore: useRetreatStoreImport } = await import('@/stores/retreatStore');
+			useRetreatStoreImport().selectRetreat('test-retreat-id');
+
+			favoritesWrapper = createTestWrapper(Sidebar, {
+				pinia: testPinia,
+				global: { mocks: { $t: (key: string) => key } },
+			});
+			favoritesStore = useMenuFavoritesStore(testPinia);
+			await nextTick();
+		});
+
+		afterEach(() => {
+			favoritesWrapper?.unmount();
+		});
+
+		it('renders pinned items at the top in pin order (not menu order)', async () => {
+			favoritesStore.favoriteMenuItems = ['retreat-dashboard', 'my-communities'];
+			await nextTick();
+
+			expect(getFavoritesSection(favoritesWrapper).exists()).toBe(true);
+			// In the menu my-communities (community section) comes first; the
+			// favorites section keeps the user's pin order.
+			expect(sectionRoutes(favoritesWrapper)).toEqual(['retreat-dashboard', 'my-communities']);
+		});
+
+		it('renders the header and copies with favorite state and index -1', async () => {
+			favoritesStore.favoriteMenuItems = ['walkers'];
+			await nextTick();
+
+			const section = getFavoritesSection(favoritesWrapper);
+			expect(section.text()).toContain('sidebar.favorites');
+			const copies = section.findAll('.menu-item-stub');
+			expect(copies).toHaveLength(1);
+			// The copy carries the pinned state (its hover menu offers unpin).
+			expect(copies[0].attributes('data-favorite')).toBe('true');
+			expect(copies[0].attributes('data-index')).toBe('-1');
+		});
+
+		it('hides favorites whose item is filtered out (no selected retreat)', async () => {
+			favoritesStore.favoriteMenuItems = ['retreat-dashboard', 'my-communities'];
+			await nextTick();
+			expect(getFavoritesSection(favoritesWrapper).exists()).toBe(true);
+
+			const { useRetreatStore: useRetreatStoreImport } = await import('@/stores/retreatStore');
+			useRetreatStoreImport().selectRetreat(null);
+			await nextTick();
+
+			// retreat-dashboard requires a selected retreat; the other pin survives.
+			expect(sectionRoutes(favoritesWrapper)).toEqual(['my-communities']);
+
+			// With no visible favorites left the whole section disappears.
+			favoritesStore.favoriteMenuItems = ['retreat-dashboard'];
+			await nextTick();
+			expect(getFavoritesSection(favoritesWrapper).exists()).toBe(false);
+		});
+
+		it('toggles from a real row and from a section copy, each PUTs', async () => {
+			favoritesStore.favoriteMenuItems = [];
+			await nextTick();
+			mockUpdateUserProfile.mockClear();
+
+			// A real row (the stub's click emits the item's hover-menu toggle).
+			const realRow = favoritesWrapper
+				.findAll('.menu-item-stub')
+				.find((stub: any) => stub.attributes('data-route') === 'walkers');
+			expect(realRow).toBeDefined();
+			await realRow!.trigger('click');
+
+			expect(mockUpdateUserProfile).toHaveBeenCalledWith({
+				favoriteMenuItems: ['walkers'],
+			});
+			await flushPromises();
+			await nextTick();
+
+			// The copy appeared in the favorites section, also togglable —
+			// unpinning from the top beats hunting the row in its section.
+			const copy = getFavoritesSection(favoritesWrapper)
+				.findAll('.menu-item-stub')
+				.find((stub: any) => stub.attributes('data-route') === 'walkers');
+			expect(copy).toBeDefined();
+			expect(copy!.attributes('data-favorite')).toBe('true');
+
+			mockUpdateUserProfile.mockClear();
+			await copy!.trigger('click');
+			await flushPromises();
+			expect(mockUpdateUserProfile).toHaveBeenCalledWith({
+				favoriteMenuItems: [],
+			});
+		});
+
+		it('hides the section while searching', async () => {
+			favoritesStore.favoriteMenuItems = ['my-communities'];
+			await nextTick();
+			expect(getFavoritesSection(favoritesWrapper).exists()).toBe(true);
+
+			(favoritesWrapper.vm.$.setupState as any).openSearch();
+			await nextTick();
+			const input = favoritesWrapper.find('#sidebar-search');
+			expect(input.exists()).toBe(true);
+			await input.setValue('communities');
+			await nextTick();
+
+			expect(getFavoritesSection(favoritesWrapper).exists()).toBe(false);
+		});
+
+		it('collapses and expands through the header button', async () => {
+			favoritesStore.favoriteMenuItems = ['my-communities'];
+			await nextTick();
+
+			const section = getFavoritesSection(favoritesWrapper);
+			const header = section.find('button[aria-controls="section-favorites"]');
+			expect(header.exists()).toBe(true);
+			expect(header.attributes('aria-expanded')).toBe('true');
+
+			await header.trigger('click');
+			await nextTick();
+
+			expect(header.attributes('aria-expanded')).toBe('false');
+			// The copies stay in the DOM but the container clamps to max-h-0.
+			expect(section.find('#section-favorites').classes()).toContain('max-h-0');
+			// The state persists for the next mount (uiStore watch).
+			expect(localStorage.getItem('sidebar-favorites-collapsed')).toBe('true');
+
+			await header.trigger('click');
+			await nextTick();
+			expect(header.attributes('aria-expanded')).toBe('true');
+			expect(section.find('#section-favorites').classes()).not.toContain('max-h-0');
+			expect(localStorage.getItem('sidebar-favorites-collapsed')).toBe('false');
+		});
+
+		it('shows the plus trigger only when there are suggestions', async () => {
+			favoritesStore.favoriteMenuItems = ['my-communities'];
+			favoritesStore.suggestions = [];
+			await nextTick();
+			expect(
+				favoritesWrapper.find('[data-testid="favorite-suggestions-trigger"]').exists(),
+			).toBe(false);
+
+			favoritesStore.suggestions = [{ route: 'walkers', views: 3 }];
+			await nextTick();
+			expect(
+				favoritesWrapper.find('[data-testid="favorite-suggestions-trigger"]').exists(),
+			).toBe(true);
+		});
+
+		it('pins a suggestion from the popover with one click (and it graduates)', async () => {
+			favoritesStore.favoriteMenuItems = ['my-communities'];
+			favoritesStore.suggestions = [{ route: 'walkers', views: 3 }];
+			mockUpdateUserProfile.mockClear();
+			await nextTick();
+
+			// Touch/keyboard path: the plus button opens the popover.
+			await favoritesWrapper
+				.find('[data-testid="favorite-suggestions-trigger"]')
+				.trigger('click');
+			await nextTick();
+
+			const popover = favoritesWrapper.find('[data-testid="favorite-suggestions"]');
+			expect(popover.exists()).toBe(true);
+			expect(popover.text()).toContain('sidebar.suggestedFavorites');
+
+			await popover.findAll('button')[0].trigger('click');
+			await flushPromises();
+			await nextTick();
+
+			expect(mockUpdateUserProfile).toHaveBeenCalledWith({
+				favoriteMenuItems: ['my-communities', 'walkers'],
+			});
+			expect(favoritesStore.favoriteMenuItems).toEqual(['my-communities', 'walkers']);
+			// The pin graduated the suggestion out of the popover, which —
+			// with nothing left to suggest — also takes the trigger away.
+			expect(favoritesStore.suggestions).toEqual([]);
+			expect(
+				favoritesWrapper.find('[data-testid="favorite-suggestions-trigger"]').exists(),
+			).toBe(false);
+			// Pinning the last suggestion closes the popover: no empty popover
+			// floating around with just its title.
+			expect(favoritesWrapper.find('[data-testid="favorite-suggestions"]').exists()).toBe(false);
+		});
+
+		it('opens the popover on header hover and closes it on leave (intent timers)', async () => {
+			vi.useFakeTimers();
+			try {
+				favoritesStore.favoriteMenuItems = ['my-communities'];
+				favoritesStore.suggestions = [{ route: 'walkers', views: 3 }];
+				await nextTick();
+
+				const hoverZone = getFavoritesSection(favoritesWrapper).find('.px-2.py-1');
+				const popover = () =>
+					favoritesWrapper.find('[data-testid="favorite-suggestions"]');
+
+				// Hover alone does not open it: the 400ms intent timer must elapse.
+				await hoverZone.trigger('mouseenter');
+				expect(popover().exists()).toBe(false);
+				vi.advanceTimersByTime(400);
+				await nextTick();
+				expect(popover().exists()).toBe(true);
+
+				// Leaving schedules the close; the 250ms grace lets the pointer
+				// cross the gap into the (portaled, in real life) content.
+				await hoverZone.trigger('mouseleave');
+				vi.advanceTimersByTime(100);
+				await nextTick();
+				expect(popover().exists()).toBe(true);
+				vi.advanceTimersByTime(200);
+				await nextTick();
+				expect(popover().exists()).toBe(false);
+			} finally {
+				vi.useRealTimers();
+			}
 		});
 	});
 

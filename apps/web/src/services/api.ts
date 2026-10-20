@@ -2251,6 +2251,7 @@ export async function updateUserProfile(data: {
   interests?: string[];
   skills?: string[];
   avatarUrl?: string;
+  favoriteMenuItems?: string[];
 }): Promise<any> {
   const response = await api.put("/social/profile", data);
   return response.data;

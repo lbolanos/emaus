@@ -143,6 +143,124 @@
     <nav class="flex flex-col flex-1 min-h-0">
       <div class="flex-1 px-2 py-1 space-y-0 overflow-y-auto min-h-0">
 
+        <!-- Favorites: pinned items, fixed at the top. Collapsible through
+             its own uiStore flag (independent of the section accordion —
+             see the store) and hidden while searching. The rows are plain
+             copies with global-index -1 so DOM indices don't collide; the
+             hover menu unpins straight from the copy. -->
+        <div v-if="visibleFavoriteItems.length > 0" data-testid="sidebar-favorites">
+          <div
+            v-if="!isCollapsedView"
+            class="px-2 py-1"
+            @mouseenter="hoverSuggestions"
+            @mouseleave="leaveSuggestions"
+          >
+            <Popover :open="suggestionsOpen" @update:open="suggestionsOpen = $event">
+              <div class="flex items-center gap-1">
+                <button
+                  @click="uiStore.toggleFavoritesSection()"
+                  class="flex-1 min-w-0 flex items-center justify-between text-xs font-bold text-amber-400 uppercase tracking-wider hover:text-amber-300 transition-all duration-200 hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-amber-500 rounded px-2 py-1 group"
+                  :aria-expanded="!uiStore.favoritesCollapsed"
+                  aria-controls="section-favorites"
+                >
+                  <span>{{ $t('sidebar.favorites') }}</span>
+                  <ChevronDown
+                    class="w-4 h-4 transition-all duration-200 text-amber-500 group-hover:text-amber-300"
+                    :class="{ 'rotate-180': uiStore.favoritesCollapsed }"
+                  />
+                </button>
+                <!-- Pin suggestions: hover opens it on desktop (header
+                     mouseenter); the button keeps it reachable on touch and
+                     keyboard, where hover doesn't exist. -->
+                <PopoverTrigger v-if="suggestedItems.length" as-child>
+                  <!-- ::before expands the tap target to 40px (same standard
+                       as the star) without growing the compact header. -->
+                  <button
+                    type="button"
+                    data-testid="favorite-suggestions-trigger"
+                    class="relative z-10 p-1.5 rounded-md text-gray-400 hover:text-amber-400 hover:bg-gray-700 transition-colors duration-200 flex items-center justify-center before:absolute before:-inset-[6px] before:content-['']"
+                    :aria-label="$t('sidebar.suggestedFavorites')"
+                  >
+                    <Plus class="w-4 h-4" />
+                  </button>
+                </PopoverTrigger>
+              </div>
+              <PopoverContent
+                side="right"
+                align="start"
+                class="w-60 p-1"
+                data-testid="favorite-suggestions"
+                @mouseenter="cancelSuggestionsClose"
+                @mouseleave="leaveSuggestions"
+              >
+                <p class="px-2 py-1 text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                  {{ $t('sidebar.suggestedFavorites') }}
+                </p>
+                <button
+                  v-for="item in suggestedItems"
+                  :key="`suggestion-${item.name}`"
+                  type="button"
+                  class="w-full flex items-center px-2 py-2 text-sm font-medium text-gray-300 hover:bg-gray-700 hover:text-white rounded-md transition-colors duration-200"
+                  :aria-label="$t('sidebar.pinSuggestion', { name: $t(item.label) })"
+                  @click="menuFavoritesStore.toggleFavorite(item.routeName)"
+                >
+                  <component
+                    :is="item.icon"
+                    class="w-4 h-4 flex-shrink-0 mr-3 text-gray-400 group-hover:text-gray-200"
+                  />
+                  <span class="truncate">{{ $t(item.label) }}</span>
+                  <span
+                    v-if="item.views > 0"
+                    class="ml-auto shrink-0 pl-2 text-xs font-normal text-gray-500"
+                  >{{ item.views === 1 ? $t('sidebar.viewCountOne') : $t('sidebar.viewCountMany', { count: item.views }) }}</span>
+                </button>
+              </PopoverContent>
+            </Popover>
+          </div>
+          <!-- max-h sized for the API cap (12 items ≈ 528px), unlike
+               SidebarSection's max-h-96 which would clip the last rows. -->
+          <div
+            :id="isCollapsedView ? undefined : 'section-favorites'"
+            class="overflow-hidden transition-all duration-300 ease-in-out"
+            :class="isCollapsedView || !uiStore.favoritesCollapsed ? 'max-h-[34rem] opacity-100' : 'max-h-0 opacity-0'"
+          >
+            <!-- One-time discovery hint for the dwell menu; dismissing it (or
+                 the first pin) persists in localStorage via the store. -->
+            <div
+              v-if="!isCollapsedView && !menuFavoritesStore.hintDismissed"
+              data-testid="favorites-hint"
+              class="flex items-start gap-1 px-3 pb-1 text-[11px] leading-snug text-gray-400"
+            >
+              <span class="flex-1">{{ $t('sidebar.favoritesHint') }}</span>
+              <button
+                type="button"
+                class="-mt-0.5 shrink-0 rounded p-1 text-gray-500 hover:bg-gray-700 hover:text-gray-200"
+                :aria-label="$t('sidebar.dismissHint')"
+                @click="menuFavoritesStore.dismissHint()"
+              >
+                <X class="w-3 h-3" />
+              </button>
+            </div>
+            <div class="space-y-1">
+              <SidebarMenuItem
+                v-for="item in visibleFavoriteItems"
+                :key="`favorite-${item.name}`"
+                :item="item"
+                :is-collapsed-view="isCollapsedView"
+                :is-focused="isItemFocused(item)"
+                :global-index="-1"
+                :route-with-params="getRouteWithParams(item)"
+                :badge="itemBadge(item.name)" :badge-color="itemBadgeColor(item.name)"
+                :is-favorite="menuFavoritesStore.isFavorite(item.routeName)"
+                @toggle-favorite="menuFavoritesStore.toggleFavorite(item.routeName)"
+                @mouseenter="setFocusedIndex(item, 'mouse')"
+                @mouseleave="clearMouseFocus"
+                @focus="setFocusedIndex(item)"
+              />
+            </div>
+          </div>
+        </div>
+
         <!-- Non-retreat top sections (community, social) -->
         <template v-for="section in topNonRetreatSections" :key="section.category">
           <SidebarSection
@@ -159,6 +277,8 @@
                 :global-index="getGlobalItemIndex(item)"
                 :route-with-params="getRouteWithParams(item)"
                 :badge="itemBadge(item.name)" :badge-color="itemBadgeColor(item.name)"
+                :is-favorite="menuFavoritesStore.isFavorite(item.routeName)"
+                @toggle-favorite="menuFavoritesStore.toggleFavorite(item.routeName)"
                 @mouseenter="setFocusedIndex(item, 'mouse')"
                 @mouseleave="clearMouseFocus"
                 @focus="setFocusedIndex(item)"
@@ -305,6 +425,8 @@
                       :global-index="getGlobalItemIndex(item)"
                       :route-with-params="getRouteWithParams(item)"
                       :badge="itemBadge(item.name)" :badge-color="itemBadgeColor(item.name)"
+                      :is-favorite="menuFavoritesStore.isFavorite(item.routeName)"
+                      @toggle-favorite="menuFavoritesStore.toggleFavorite(item.routeName)"
                       @mouseenter="setFocusedIndex(item, 'mouse')"
                       @mouseleave="clearMouseFocus"
                       @focus="setFocusedIndex(item)"
@@ -334,6 +456,8 @@
                 :global-index="getGlobalItemIndex(item)"
                 :route-with-params="getRouteWithParams(item)"
                 :badge="itemBadge(item.name)" :badge-color="itemBadgeColor(item.name)"
+                :is-favorite="menuFavoritesStore.isFavorite(item.routeName)"
+                @toggle-favorite="menuFavoritesStore.toggleFavorite(item.routeName)"
                 @mouseenter="setFocusedIndex(item, 'mouse')"
                 @mouseleave="clearMouseFocus"
                 @focus="setFocusedIndex(item)"
@@ -368,7 +492,7 @@
 
 <script setup lang="ts">
 import { storeToRefs } from 'pinia';
-import { ref, computed, nextTick, onMounted, watch } from 'vue';
+import { ref, computed, nextTick, onMounted, onBeforeUnmount, watch } from 'vue';
 import { LogOut, Users, UtensilsCrossed, LayoutDashboard, ChevronLeft, Home, Ban, Bed, HandHeart, DollarSign, NotebookPen, Building, UsersRound, Salad, FileX, UserCheck, ShoppingBag, Pill, Shirt, UserCog, Table, Settings, Package, Globe, Briefcase, Search, X, ArrowRight, ChevronDown, Lock, CreditCard, Activity, KeyRound, Heart, UserPlus, UserCircle, MessageSquare, Clock, ClipboardList, BookOpen, Plus, Edit as EditIcon, HelpCircle, Cross, User as UserIcon, Languages, DoorOpen, Trash2, Flag } from 'lucide-vue-next';
 import { useAuthStore } from '@/stores/authStore';
 import { useReceptionStore } from '@/stores/receptionStore';
@@ -394,10 +518,14 @@ import {
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
 } from '@repo/ui';
 import { useRetreatStore } from '@/stores/retreatStore';
 import { useParticipantStore } from '@/stores/participantStore';
 import { useUIStore } from '@/stores/ui';
+import { useMenuFavoritesStore } from '@/stores/menuFavoritesStore';
 import { useAuthPermissions } from '@/composables/useAuthPermissions';
 import { useCommunityStore } from '@/stores/communityStore';
 import { useRouteContext } from '@/composables/useRouteContext';
@@ -446,8 +574,9 @@ const communityStore = useCommunityStore();
 const uiStore = useUIStore();
 const receptionStore = useReceptionStore();
 const participantStore = useParticipantStore();
+const menuFavoritesStore = useMenuFavoritesStore();
 const { participants } = storeToRefs(participantStore);
-const { isSidebarCollapsed, isMobile } = storeToRefs(uiStore);
+const { isSidebarCollapsed, isMobile, collapsedSections, isRetreatGroupCollapsed } = storeToRefs(uiStore);
 const { can, isSuperadmin, currentRetreatRole, canAccessResource, canManageRetreatById, userPermissions } =
   useAuthPermissions();
 const route = useRoute();
@@ -518,29 +647,11 @@ const focusedIndex = ref(-1);
 const focusSource = ref<'mouse' | 'keyboard' | null>(null);
 const isSearchFocused = ref(false);
 const isSearchOpen = ref(false);
-const collapsedSections = ref<Record<string, boolean>>({});
 const expandedWhenCollapsed = ref<string | null>(null);
 
-// Retreat parent group state
-const isRetreatGroupCollapsed = ref(
-  JSON.parse(localStorage.getItem('sidebar-retreat-group-collapsed') || 'false')
-);
-
-watch(isRetreatGroupCollapsed, (val) => {
-  localStorage.setItem('sidebar-retreat-group-collapsed', JSON.stringify(val));
-});
-
-const toggleRetreatGroup = () => {
-  const wasCollapsed = isRetreatGroupCollapsed.value;
-  if (wasCollapsed) {
-    // Opening retreat group: collapse all other sections
-    Object.keys(collapsedSections.value).forEach(key => {
-      collapsedSections.value[key] = true;
-    });
-    saveCollapsedState();
-  }
-  isRetreatGroupCollapsed.value = !wasCollapsed;
-};
+// Retreat parent group state lives in useUIStore (shared with the mobile
+// drawer instance of this sidebar); this thin wrapper keeps the template call.
+const toggleRetreatGroup = () => uiStore.toggleRetreatGroup();
 
 // Header-absorbed state
 const isAddModalOpen = ref(false);
@@ -621,41 +732,6 @@ watch(
   },
   { immediate: true },
 );
-
-// Load collapsed state from localStorage
-const loadCollapsedState = () => {
-  try {
-    const saved = localStorage.getItem('sidebar-collapsed-sections');
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      // Ensure only one section is open (accordion)
-      const openKeys = Object.keys(parsed).filter(k => !parsed[k]);
-      if (openKeys.length > 1) {
-        Object.keys(parsed).forEach(k => { parsed[k] = true; });
-        parsed[openKeys[0]] = false;
-      }
-      collapsedSections.value = parsed;
-    } else {
-      menuSections.forEach(section => {
-        collapsedSections.value[section.category] = true;
-      });
-      saveCollapsedState();
-    }
-  } catch (error) {
-    console.error('Failed to load collapsed state:', error);
-    menuSections.forEach(section => {
-      collapsedSections.value[section.category] = true;
-    });
-  }
-};
-
-const saveCollapsedState = () => {
-  try {
-    localStorage.setItem('sidebar-collapsed-sections', JSON.stringify(collapsedSections.value));
-  } catch (error) {
-    console.error('Failed to save collapsed state:', error);
-  }
-};
 
 const menuSections: MenuSection[] = [
   {
@@ -1195,6 +1271,74 @@ const allMenuItems = computed(() => {
   return filteredMenuSections.value.flatMap(section => section.items);
 });
 
+// Favorites section rows: pinned route names joined against the items that
+// survived gating, in the user's pin order (not menu order). A favorite the
+// user can't see in its real section never appears here either. Hidden
+// entirely while searching — the search already filters the real sections.
+const visibleFavoriteItems = computed<MenuItem[]>(() => {
+  if (searchQuery.value.trim()) return [];
+  const favorites = menuFavoritesStore.favoriteMenuItems;
+  if (!favorites.length) return [];
+  return favorites
+    .map(routeName => allMenuItems.value.find(item => item.routeName === routeName))
+    .filter((item): item is MenuItem => Boolean(item));
+});
+
+// Pin suggestions for the favorites-header popover: the same join as the
+// favorites rows, over the store's suggestion route names — a suggestion the
+// user can't currently see never gets offered. `views` rides along from
+// telemetry so the popover can explain why the route is offered (0 = default
+// entry with no history; the count is hidden then).
+const suggestedItems = computed<Array<MenuItem & { views: number }>>(() => {
+  const byRoute = new Map(allMenuItems.value.map(item => [item.routeName, item]));
+  return menuFavoritesStore.suggestions
+    .map(suggestion => {
+      const item = byRoute.get(suggestion.route);
+      return item ? { ...item, views: suggestion.views } : null;
+    })
+    .filter((item): item is MenuItem & { views: number } => Boolean(item));
+});
+
+// Hover-intent for the suggestions popover (desktop): hold the header for
+// ~400ms to open, leave for ~250ms to close, and moving into the portaled
+// content cancels the close. Touch/keyboard use the + button instead.
+const suggestionsOpen = ref(false);
+let suggestionsOpenTimer: ReturnType<typeof setTimeout> | null = null;
+let suggestionsCloseTimer: ReturnType<typeof setTimeout> | null = null;
+const clearSuggestionsTimers = () => {
+  if (suggestionsOpenTimer) clearTimeout(suggestionsOpenTimer);
+  if (suggestionsCloseTimer) clearTimeout(suggestionsCloseTimer);
+  suggestionsOpenTimer = null;
+  suggestionsCloseTimer = null;
+};
+const hoverSuggestions = () => {
+  if (!suggestedItems.value.length) return;
+  if (suggestionsCloseTimer) clearTimeout(suggestionsCloseTimer);
+  suggestionsCloseTimer = null;
+  if (!suggestionsOpen.value) {
+    suggestionsOpenTimer = setTimeout(() => {
+      suggestionsOpen.value = true;
+    }, 400);
+  }
+};
+const cancelSuggestionsClose = () => {
+  if (suggestionsCloseTimer) clearTimeout(suggestionsCloseTimer);
+  suggestionsCloseTimer = null;
+};
+const leaveSuggestions = () => {
+  if (suggestionsOpenTimer) clearTimeout(suggestionsOpenTimer);
+  suggestionsOpenTimer = null;
+  suggestionsCloseTimer = setTimeout(() => {
+    suggestionsOpen.value = false;
+  }, 250);
+};
+// Pinning the last suggestion empties the popover — close it instead of
+// leaving a floating title with nothing to pin.
+watch(suggestedItems, (items) => {
+  if (!items.length) suggestionsOpen.value = false;
+});
+onBeforeUnmount(clearSuggestionsTimers);
+
 const currentActiveSection = computed(() => {
   const currentRouteName = route.name as string;
   return filteredMenuSections.value.find(section =>
@@ -1218,7 +1362,10 @@ const isSectionCollapsed = (category: string) => {
     if (currentActiveSection.value === category) return false;
     return true;
   }
-  return collapsedSections.value[category] ?? false;
+  // A category without a key counts as COLLAPSED (initSidebarAccordion seeds
+  // every rendered category; before the store migration a missing key fell
+  // through to "open" and could never be closed by the accordion).
+  return collapsedSections.value[category] ?? true;
 };
 
 const toggleSection = (category: string) => {
@@ -1231,24 +1378,13 @@ const toggleSection = (category: string) => {
     return;
   }
 
-  const isCurrentlyCollapsed = collapsedSections.value[category] ?? false;
-  const isOpening = isCurrentlyCollapsed;
-
-  // Accordion: collapse all sections first
-  Object.keys(collapsedSections.value).forEach(key => {
-    collapsedSections.value[key] = true;
-  });
-
-  // Toggle the clicked section
-  collapsedSections.value[category] = !isCurrentlyCollapsed;
+  const isOpen = uiStore.toggleSidebarSection(category);
 
   // If opening a non-retreat section, collapse the retreat group
-  // If opening a retreat sub-section, collapse non-retreat sections (already done above)
-  if (isOpening && !RETREAT_CATEGORIES.includes(category)) {
+  // If opening a retreat sub-section, collapse non-retreat sections (done in the store)
+  if (isOpen && !RETREAT_CATEGORIES.includes(category)) {
     isRetreatGroupCollapsed.value = true;
   }
-
-  saveCollapsedState();
 };
 
 const getGlobalItemIndex = (item: MenuItem) => {
@@ -1464,7 +1600,7 @@ watch(isSidebarCollapsed, (isCollapsed) => {
 });
 
 onMounted(() => {
-  loadCollapsedState();
+  uiStore.initSidebarAccordion(menuSections.map(section => section.category));
 
   // Fetch retreats (moved from Header)
   retreatStore.fetchRetreats();
@@ -1473,6 +1609,8 @@ onMounted(() => {
     communityStore.fetchCommunities().catch(err => {
       console.error('Failed to fetch communities for sidebar:', err);
     });
+    // loadFavorites never rejects (it toasts on failure internally).
+    menuFavoritesStore.loadFavorites();
   }
 
   const handleKeyDown = (event: KeyboardEvent) => {

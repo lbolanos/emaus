@@ -1,0 +1,288 @@
+# Spec: favoritos de items del menú en el sidebar
+
+> SDD spec — versión 2.0 (2026-10-19), prospectiva. Reescribe «retiros favoritos» tras el giro del
+> pedido (2026-10-19): **favoritos de items del menú** — las vistas que más se usan, arriba del
+> sidebar —, no favoritos de retiros. El fix del acordeón del spec anterior queda absorbido aquí
+> como R7 (ya implementado y commiteado). v1.x (retiros) fue deshecha: nunca llegó a master y el
+> PR que la llevaba (#14) se cerró.
+
+**Branch**: `worktree-menu-favorites` (worktree `.claude/worktrees/retreat-favorites`) ·
+**Fecha**: 2026-10-19 · **Para**: llegar en un clic a las vistas de uso diario, en desktop y móvil.
+
+## Problema
+
+El sidebar agrupa ~40 items en 10 secciones de un acordeón estricto (una abierta a la vez, fix
+2026-10-19). Llegar a «Caminantes» o «Secuencias» desde una sección distinta cuesta: cerrar la
+abierta, abrir la correcta, clicar el item — en móvil, además, abrir el drawer. La telemetría
+muestra el desfase: el usuario de prueba concentra 450 vistas en `retreat-dashboard` y 169 en
+`walkers`, pero cada visita repite la navegación completa (research §3).
+
+De paso se reparó (commit absorbido) el bug del acordeón: **abrir una sección a veces no cerraba
+las demás** (claves faltantes contaban como abiertas para siempre; dos instancias del Sidebar
+divergían en móvil).
+
+## Objetivo
+
+1. Que cualquier usuario **marque items del menú como favoritos** y los tenga **arriba del sidebar,
+   visibles sin abrir secciones**, en desktop y móvil; sus favoritos **lo siguen a cualquier
+   dispositivo** (viven en su perfil, no en el navegador).
+2. Que la primera vez la lista **arranque con lo que más usa**: los 5 items con más `page_view`
+   propios según telemetría (fallback a un default razonable si no hay historial).
+3. Acordeón determinista (una sección abierta a la vez, ambas instancias) — ya implementado.
+
+## Historias de usuario
+
+1. Como coordinador, abro el sidebar y **mis 5 vistas más usadas ya están arriba** («Favoritos»),
+   sin abrir ninguna sección; clic en una me lleva igual que desde su sección.
+2. Como coordinador, **dejo el puntero sobre un item del menú ~1s** (p. ej. «Palancas»), se
+   despliega un menú pequeño y «Añadir a favoritos» lo pone arriba; el mismo menú lo quita. En
+   móvil, long-press; con teclado, mantener el focus.
+3. Como coordinador, marco favoritos en la laptop y al abrir el celular **ya están**: el dato vive
+   en mi perfil.
+4. Como cualquier usuario, al abrir una sección del sidebar las demás se cierran — siempre
+   (regresión ya cubierta, se re-verifica en el QA móvil).
+
+## Decisiones de diseño
+
+- **D1 — Persistencia: `user_profiles.favoriteMenuItems` (`simple-array`, nullable).** Contenido:
+  **route names** (`MenuItem.routeName`) — la clave que coincide con el page name de telemetría
+  (research §3) y con `getRouteWithParams`. Preferencia personal, no dato social: no RBAC propio.
+  Semántica: `null` = nunca usado (dispara el seed), `[]` = explícitamente vacío (quitar el último
+  envía `[]`, nunca `null`). Cap: **12**. Los route names no llevan comas (kebab-case); el
+  separador de `simple-array` es seguro.
+- **D2 — Una migración SQLite idempotente** (`PRAGMA table_info` + `ALTER TABLE ADD COLUMN` text,
+  `down` con `DROP COLUMN`, sin `@repo/types` — regla dura de prod).
+- **D3 — Reutilizar `GET/PUT /social/profile`.** Sin endpoint nuevo. El PUT parcial es seguro
+  (TypeORM salta `undefined`): el toggle manda solo `{ favoriteMenuItems }` y no pisa bio,
+  intereses ni avatar. Se (re)agrega `UpdateSocialProfileSchema` (zod, permisiva, bounds
+  retrocompatibles con la página de perfil): `favoriteMenuItems:
+  z.array(z.string().min(1).max(64)).max(12).optional()`.
+- **D4 — Sanitización y privacidad en el service.** Al guardar: dedupe + cap 12 (defense in depth
+  con el zod). Y `favoriteMenuItems` **no sale hacia otros usuarios**: strip explícito en
+  `getPublicProfile` y en `searchUsers` (research §4). El GET propio sí lo devuelve.
+- **D5 — Pre-seed por telemetría (write-on-first-read).** La primera vez que `getUserProfile`
+  carga un perfil con la columna `null`, el service computa el seed y lo guarda: top 5 de
+  `telemetry_events` (`eventType='page_view'`, `userId` del perfil, `json_extract(eventData,
+  '$.page')`), **filtrado contra `MENU_ROUTE_NAMES`** (route names con item de menú, exportado en
+  `@repo/types/src/menu.ts` — sin el filtro, slots del top se gastan en páginas sin item como
+  `community-dashboard`), orden por vistas desc. Sin telemetría útil → `DEFAULT_FAVORITE_MENU_ITEMS`
+  (`retreat-dashboard`, `walkers`, `servers`, `message-sequences`, `tables`). Con el usuario de
+  prueba el seed real es `retreat-dashboard, walkers, servers, communities, message-sequences`.
+  Nota de mantenimiento: un item de menú nuevo debe añadirse a `MENU_ROUTE_NAMES` para ser
+  sembrable (el estrellado manual funciona igual sin estar en la lista).
+- **D6 — Sección «Favoritos» arriba, colapsable de forma independiente.** Primer bloque del área
+  navegable, con header propio. **Revisión 2026-10-19 (feedback de Leonardo tras abrir la
+  feature):** la sección pasó de «fija, no colapsa» a **colapsable** — el header es un botón con
+  chevron (`aria-expanded`/`aria-controls`, patrón de `SidebarSection`) cuyo estado vive en
+  `uiStore.favoritesCollapsed` (`sidebar-favorites-collapsed` en localStorage), **fuera** del
+  record del acordeón: la siembra de `initSidebarAccordion` cerraría una clave desconocida y el
+  acordeón completo la cerraría al abrir otra sección. Default expandida. El mismo cambio
+  compactó el header (antes `px-4 pt-2 pb-1` + `mt-1`, ahora `px-2 py-1` como las demás
+  secciones) cerrando el hueco excesivo entre «Buscar» y «Favoritos».
+  Render: join `favoriteMenuItems ∩ filteredMenuSections` (mismo gating de RBAC/requiresRetreat
+  que las secciones; un favorito oculto se conserva en el perfil y reaparece si vuelve a ser
+  visible — mismo criterio que un item de sección). Cada fila usa `SidebarMenuItem` (label, ícono,
+  badge y navegación idénticos; `data-menu-item-index="-1"` para no chocar con la navegación por
+  teclado). Orden: el del array guardado (seed = vistas desc; altas manuales al final). Oculta si
+  no hay favoritos visibles o durante una búsqueda activa. Modo rail: íconos apilados con Tooltip
+  lateral (sin header ni colapso en rail). En móvil (drawer) es la misma sección, targets
+  táctiles ≥40px (el header mide lo mismo que los headers de sección existentes, ~24px —
+  consistencia con `SidebarSection` por encima del criterio de 40px, que sí aplica al botón del
+  menú de favoritos: ~46px de alto por el ancho completo del menú). **Revisión 2026-10-20
+  (feedback de Leonardo, ronda 4):** Favoritos entra al **acordeón completo** — abrir una sección
+  del menú o el grupo «Retiro» pliega Favoritos, y expandir Favoritos pliega todo lo demás; una
+  sola sección abierta a la vez, Favoritos incluido. Mantiene su key de localStorage propia
+  (dentro del record de secciones, la siembra de `initSidebarAccordion` la cerraría y la
+  reparación de >1 abiertas la plegaría); `initSidebarAccordion` repara el estado legacy
+  (sección abierta + Favoritos expandida) plegando Favoritos.
+- **D7 — Menú de favoritos por dwell sobre la fila** (`SidebarMenuItem`). **Revisión 2026-10-20
+  (feedback de Leonardo, ronda 3):** la estrella siempre-visible se eliminó — el toggle vive en un
+  menú pequeño que se despliega al **dejar el puntero sobre el item ~1s** (1000ms mouse; 500ms de
+  long-press en touch, con tolerancia de 10px de movimiento; dwell de focus 1000ms para teclado).
+  Prop `isFavorite` + emit `toggle-favorite`; la acción es «Añadir a favoritos»/«Quitar de
+  favoritos» (keys i18n de M3) con la estrella dentro del menú. El menú se teletransporta a
+  `<body>` con `position:fixed` **posicionado a mano** del rect de la fila (derecha +8px, centrado
+  vertical, clampeado al viewport) — `@repo/ui` no exporta `PopoverAnchor` y anidar el trigger en
+  el `<a>` de navegación secuestraría su click; así el `<a>` navega intacto. Cierre: grace 250ms
+  para cruzar al menú, Escape (devuelve el focus a la fila), click/tap fuera, scroll, o click en
+  la propia fila. Guardas táctiles: un tap que navegó no abre el menú 1s después (supresión de
+  mouseenter post-touch 800ms), el touchend tras long-press previene el click sintético, y el
+  context-menu solo se suprime durante el hold (right-click de desktop libre). **Deshabilitado en
+  modo rail** (el Tooltip lateral ya es dueño del hover; se toggla desde la vista expandida). Las
+  **copias de la sección Favoritos también togglables** (cambio vs. la estrella: quitar el pin
+  directo desde arriba, sin cazar la fila en su sección).
+- **D8 — Store pinia nuevo `menuFavoritesStore`** (`load()` tras auth en el `onMounted` del
+  Sidebar, `toggleFavorite(routeName)` optimista con rollback + toast si falla el PUT). Sin RBAC:
+  preferencia personal. *Alternativa descartada*: `localStorage` — no seguiría al usuario de
+  dispositivo; o un `profileStore` completo (sobre-ingeniería para un campo).
+- **D9 — E2E mínimo de Playwright**: regresión del acordeón (conservada del spec anterior) + flujo
+  de favoritos de menú (seed por PUT, sección arriba, clic navega, el menú por dwell quita/repone
+  el pin, persiste tras
+  recarga; restore del perfil en `afterAll`).
+- **D10 — Popover de sugerencias por telemetría sobre el header de «Favoritos»** (feedback de
+  Leonardo, 2026-10-19, punto 3). Hover sobre la sección (intent 400ms para abrir, 250ms para
+  cerrar — grace para cruzar al contenido portaleado) o clic en el botón `+` (touch/teclado) abre
+  un popover (`Popover` de `@repo/ui`, `side="right" align="start"`) con hasta **5 vistas
+  frecuentes no fijadas**: top-12 de telemetría propia (`page_view` ∩ `MENU_ROUTE_NAMES`, vistas
+  desc) ∪ `DEFAULT_FAVORITE_MENU_ITEMS`, menos las ya pineadas, cap 5. Se computa **al vuelo en el
+  GET propio** (campo `favoriteSuggestions`, nunca persistido) y viaja con el perfil; al fijar,
+  la sugerencia «se gradúa» del popover (moves optimistas en el store con rollback conjunto del
+  PUT). El popover se cierra solo al quedarse sin sugerencias, y el botón `+` desaparece cuando
+  no hay ninguna. Privacidad: solo el GET propio lo devuelve (`getPublicProfile`/`searchUsers`
+  no lo exponen, cubierto por tests). Hit area del `+`: 40px vía `::before -inset-[6px]` (mismo
+  estándar táctil de 40px) sin engordar el header compacto. **Revisión 2026-10-20 (M4f):** cada
+  sugerencia muestra su **conteo de vistas** («535 vistas», singular «1 vista»): el GET propio
+  viaja con `{ route, views }` por sugerencia (commit `a0150133`, computado al vuelo como el
+  resto del campo, sin persistencia).
+- **D11 — Pack de mejoras UX (feedback de Leonardo, 2026-10-20, selección explícita de las 4)**:
+  1. **Hint de descubrimiento** bajo el header de «Favoritos»: explica el dwell («deja el puntero
+     ~1s») con botón «Ocultar la ayuda»; se descarta al primer toggle o al cerrarlo, persistido en
+     `favorites-hint-dismissed` (localStorage, por navegador — es ayuda de una sola vez, no una
+     preferencia que deba seguir al usuario).
+  2. **Toast con deshacer al fijar/quitar**: `useToast` + `ToastAction` de `@repo/ui` (export
+     añadido), duración 8s (el default de 5s se come el tiempo de reacción del deshacer); el botón
+     re-toggla y anuncia el estado resultante. Nota de la implementación: `ToastAction` exige la
+     prop `altText` — sin ella lanza en su setup y el `errorHandler` de `main.ts` lo lee como fallo
+     de arranque y fuerza un **reload completo de la página** (cazado en QA, no por los unit
+     tests, que stubbean el componente).
+  3. **Transición del menú dwell** (fade + scale ~120ms) en el panel interno del menú
+     teletransportado.
+  4. **Conteo de vistas en las sugerencias** (ver D10, revisión M4f).
+
+## Requerimientos
+
+- **R1** — Migración + columna + entidad: `favoriteMenuItems` en `user_profiles`, idempotente en
+  dev (auto-aplicada al restart) y reversible.
+- **R2** — `UpdateSocialProfileSchema` (zod) en `packages/types`, wire con `validateRequest` en el
+  `PUT /social/profile`. El GET propio devuelve el campo sin cambios extra.
+- **R3** — Service: sanitización (dedupe, cap 12) al guardar; strip del campo en `getPublicProfile`
+  y `searchUsers`; seed D5 en `getUserProfile` cuando la columna es `null`.
+- **R4** — `menuFavoritesStore` con load/toggle optimista/rollback+toast; carga una vez por sesión
+  tras autenticar; sin RBAC propio.
+- **R5** — Sección «Favoritos» arriba (D6): solo items visibles según `filteredMenuSections`,
+  navegación vía `getRouteWithParams`, badge igual que el item original, activo destacado por ruta;
+  oculta sin favoritos visibles y durante búsqueda; íconos en rail; header colapsable (estado
+  propio en `uiStore`, default expandida, persistido) y **dentro del acordeón completo**
+  (una sección abierta a la vez, Favoritos incluido).
+- **R6** — Menú de favoritos por dwell (D7): hover 1000ms / long-press 500ms / focus-dwell
+  1000ms; `role="menu"` + `menuitem` con i18n es+en; toggle = PUT parcial; al quitar el último
+  manda `[]`; el `<a>` de la fila sigue navegando (el menú no intercepta su click).
+- **R7** — Acordeón determinista (ya implementado, commit absorbido): a lo sumo una sección
+  abierta; claves faltantes se siembran colapsadas; estado compartido desktop/drawer; mismas keys
+  de localStorage.
+- **R8** — i18n es **y** en para todos los textos nuevos de UI.
+- **R9** — `MENU_ROUTE_NAMES` + `DEFAULT_FAVORITE_MENU_ITEMS` exportados en `@repo/types` y usados
+  por el seed del API (y testeados contra `menuSections` para que no deriven en silencio).
+- **R10** — Mejoras UX de D11: hint de descubrimiento con descarte persistente; toast con deshacer
+  (8s) por toggle exitoso, sin recargar la página; transición del menú dwell; conteo de vistas en
+  las sugerencias del popover (i18n es+en, `viewCountOne`/`viewCountMany`).
+
+## Criterios de aceptación (end-to-end)
+
+Verificados contra la app corriendo en el worktree, con el usuario local de prueba (perfil +
+telemetría propia en la DB del worktree — research §7):
+
+1. Primera carga con la columna `null` (perfil recién migrado): el GET devuelve los 5 items con más
+   page_view **que tengan item de menú**, en orden de uso; la sección «Favoritos» los muestra
+   arriba sin abrir secciones.
+2. Clic en un favorito navega igual que el item original (misma ruta, con `:id` del retiro
+   seleccionado cuando corresponde; en móvil el drawer se cierra solo).
+3. Dejar el puntero ~1s sobre un item de sección despliega el menú de favoritos; «Añadir a
+   favoritos» lo agrega (PUT parcial), recarga y sigue; el mismo menú lo quita; al quitar el
+   último el PUT manda `[]`, nunca `null`.
+4. Sin retiro seleccionado, los favoritos `requiresRetreat` desaparecen de la sección (igual que
+   sus items) y reaparecen al seleccionar uno; el array del perfil no se toca.
+5. localStorage viejo sin clave de una sección: esa sección arranca colapsada y el acordeón nunca
+   deja dos secciones abiertas (regresión, ya cubierta por tests).
+6. En emulación móvil: drawer abre/cierra, Favoritos con targets ≥40px, el menú por long-press
+   (500ms) conmuta **sin salirse del viewport**, y abrir una sección en el drawer deja consistente
+   el estado al volver a desktop.
+7. `GET /social/profile/:userId` (perfil público de otro usuario) y `GET /social/search` no
+   devuelven `favoriteMenuItems`.
+8. El header de «Favoritos» colapsa la sección (chevron rota, `aria-expanded` false, contenido
+   recortado) y el colapso **sobrevive un reload** (localStorage). **Revisión 2026-10-20:**
+   Favoritos participa del acordeón completo — con Favoritos abierta, clic en una sección del
+   menú la pliega; expandir Favoritos pliega la sección abierta; una sola abierta a la vez y
+   sobrevive el reload.
+9. Hover sobre el header de «Favoritos» (400ms) o clic en el `+` abre el popover de sugerencias
+   con vistas frecuentes **no fijadas** (telemetría propia, cap 5); clic en una la fija (PUT
+   parcial), la sugestión se gradúa del popover y aparece en la sección; el pin **sobrevive un
+   reload**. Al vaciarse las sugerencias el popover se cierra solo y el `+` desaparece. **M4f:**
+   cada sugerencia muestra su conteo de vistas.
+10. **(M4f)** El toggle exitoso anuncia con un toast («Fijado/Quitado de favoritos») con botón
+   «Deshacer» que revierte el pin y anuncia el estado resultante — **sin recargar la página**; el
+   hint de descubrimiento aparece en la primera visita y no vuelve tras cerrarlo o tras el primer
+   toggle.
+
+**Negativos** (lo que NO debe pasar):
+
+- El toggle de favorito no pisa `bio`/`interests`/`avatarUrl` (PUT parcial).
+- Un payload del PUT con `favoriteMenuItems` inválido (string vacío, >64 chars, >12 items) → 400,
+  sin escribir nada.
+- La página de perfil existente sigue funcionando con su payload actual (validación permisiva).
+- Un favorito cuyo item no es visible (sin permiso, sin retiro, página sin item) no renderiza; el
+  route name sigue en el perfil (GET lo devuelve).
+- El seed no corre sobre un perfil con `[]` ni reordena favoritos ya guardados.
+- El menú de favoritos no abre antes del dwell completo (600ms de mouse no alcanzan), un tap que
+  navegó no lo abre un segundo después, y el touchend del long-press no navega la fila.
+- Las sugerencias nunca se persisten ni salen del GET propio (no son un campo del perfil público
+  ni de la búsqueda de usuarios).
+- El toast del toggle jamás recarga la página (la regresión del `altText` ausente lo hacía: la
+  prop requerida de `ToastAction` lanzaba en setup y el `errorHandler` respondía con un reload
+  completo — cubierto por el e2e con bandera de `window`).
+
+## Fuera de alcance
+
+- Reordenar favoritos (drag & drop): el orden es el del array; moverlos es trabajo futuro.
+- Favoritos compartidos por rol/equipo — es preferencia personal (D8).
+- Sincronizar el acordeón entre pestañas del mismo navegador (storage events).
+- Sembrar favoritos con telemetría **de otros** usuarios o recomendaciones globales: solo el
+  historial propio.
+- Telemetría nueva: se usa la existente, no se instrumenta nada adicional.
+- Menú de favoritos en modo rail (D7): el Tooltip lateral ya ocupa el hover; se toggla desde la
+  vista expandida.
+
+## Reconcile
+
+Cierre 2026-10-20 — branch `worktree-menu-favorites`, `12452fb0..e5a9b92f`, verificado contra la
+app corriendo en el dev del worktree (web :5175, API :3003) y su automatización:
+
+1. ✓ Seed por telemetría en el primer GET (orden por vistas, solo items de menú) — tests del
+   service; en vivo el perfil arrancó con el top-5 propio (QA M4).
+2. ✓ Clic en una copia navega igual que el item original — e2e «clic en una copia navega»; en
+   móvil el drawer cierra solo (QA, 390×844 touch).
+3. ✓ Menú por dwell añade/quita con PUT real y sobrevive reload — e2e M4d/M4e; `[]` al quitar el
+   último cubierto por test del store y schema del API.
+4. ✓ Sin retiro seleccionado los favoritos `requiresRetreat` se ocultan sin tocar el perfil —
+   unit «hides favorites whose item is filtered out (no selected retreat)».
+5. ✓ localStorage legacy sin clave: sección colapsada, nunca dos abiertas — tests `ui.test.ts` +
+   e2e de regresión del acordeón.
+6. ✓ Móvil: drawer, targets táctiles ≥40px, long-press 500ms con el menú dentro del viewport
+   (clamp de M4d), estado consistente entre instancias — QA M4/M4d/M4f.
+7. ✓ Ni el perfil público ni la búsqueda devuelven `favoriteMenuItems` — tests del API (M1/M4c).
+8. ✓ Colapso del header, acordeón completo con Favoritos dentro, ambos sobreviven reload — e2e
+   M4b/M4e; reparación del estado legacy testeada en `initSidebarAccordion`.
+9. ✓ Popover: hover 400ms o clic en `+`, cap 5, graduación al fijar, persistencia tras reload,
+   cierre al vaciarse y `+` desaparece — e2e M4c/M4f; conteos de vistas en cada sugerencia (M4f).
+10. ✓ Toggle anuncia con toast con deshacer **sin recargar la página**; hint solo en la primera
+    visita — e2e M4f (bandera de `window` como tripwire) + QA desktop/móvil.
+
+Negativos ✓: PUT parcial (el controller solo pasa el campo) · payload inválido → 400 sin escribir
+(tests de rutas: string vacío, >64, >12) · payload de la página de perfil sigue aceptado (bio +
+interests en el test de rutas) · favorito invisible no renderiza pero el route name queda en el
+perfil · `[]` no re-siembra ni reordena (tests del service) · el menú no abre a 600ms, un tap que
+navegó no lo abre, y el touchend del long-press no navega (`SidebarMenuItem.test.ts`) · las
+sugerencias nunca se persisten ni salen del GET propio · el toast jamás recarga la página.
+
+Lo descartado en el camino: la **estrella siempre-visible** (ronda 3 de feedback — una estrella
+por cada uno de ~40 items era ruido permanente; el dwell la reemplazó), la **sección fija fuera
+del acordeón** (ronda 4 — consistencia del acordeón primero), y los **favoritos de retiros** del
+spec v1 (giro del pedido 2026-10-19; PR #14 cerrado sin llegar a master). El acceso por teclado
+quedó como dwell-por-focus (1000ms), no atajo de teclado.
+
+Suites al cierre: web **3416 pasados** + 2 skipped (único rojo: `runtimeConfig.test.ts`, falso
+positivo del `.env.local` del worktree — no existe en CI, documentado en M3); API userProfile
+**37/37**; e2e **8/8 por cuerpo** el mismo día (5 en corrida completa + toast/popover/regresión
+en corridas grep; la corrida completa de una pieza aborta en el 6º porque el `apiLimiter` global
+satura — 429 en el PUT del afterAll, limitación del entorno documentada en M4c, no del branch);
+`vue-tsc --noEmit` exit 0.
