@@ -1,0 +1,100 @@
+# Spec: UX móvil de la vista de Mesas
+
+**Estado**: aprobada 2026-10-19, pendiente de implementar · **Branch**: `worktree-mesas-ux-foto` · **Fecha**: 2026-10-19
+
+## Problema
+
+La vista de Mesas (`apps/web/src/views/TablesView.vue` + `TableCard.vue`) no se puede operar desde
+el celular. Cuatro problemas verificados en el código:
+
+1. **El número de mesa no se lee.** El número vive en `table.name` ("Mesa 3"; es texto libre, no
+   hay campo numérico) y se pinta con el `CardTitle` de `@repo/ui` a `text-2xl` fijo, con
+   `truncate` + `min-w-0`, en la única fila del `CardHeader` (`p-6`). Esa fila también contiene el
+   contador "n / 7" y hasta cuatro botones `size="icon"` de 40 px (briefing, caminantes, asignar
+   por foto, eliminar), más el lápiz de renombrar dentro del propio título. En una pantalla de
+   ~390 px quedan ~70-90 px para el título: el `truncate` corta "Mes…" y el número — que está al
+   final del texto — es lo primero que desaparece. `TableCard.vue` no tiene una sola clase
+   responsive.
+2. **El panel superior se come la pantalla.** El panel sticky (búsqueda + tabs server/walker +
+   pastillas de sin asignar con `max-h-24`) ocupa 180-220 px permanentes en un teléfono.
+3. **El detalle de caminantes es ilegible.** El dialog de la mesa (`TableCard.vue`, dialog de
+   walkers) es una tabla de 8 columnas en un `max-w-4xl`: en celular exige scroll horizontal
+   denso para leer un teléfono o una cama.
+4. **El tap-to-assign no se deja descubrir.** La única señal de que hay un participante
+   seleccionado es un borde verde tenue en la zona destino, y el botón para desasignar es un
+   flotante fijo `bottom-6` que tapa contenido.
+
+## Objetivo
+
+Que un coordinador opere la asignación de mesas completo desde el celular: leer el número de cada
+mesa, asignar por tap, revisar la lista de caminantes y ejecutar las acciones de cada mesa, sin
+scroll horizontal ni contenido tapado. El desktop se mantiene como está.
+
+## Decisiones
+
+| # | Decisión | Alternativa descartada |
+| --- | --- | --- |
+| D1 | **Título compacto en móvil**: `text-base sm:text-2xl` y `CardHeader` con `p-3 sm:p-6`, `gap-1.5 sm:gap-2`. "Mesa 12" pasa a disponer de ~200 px y cabe entera. Referencia: `BedCard.vue`, que ya resuelve igual el número de cama. | Extraer el número a un badge aparte: el nombre es texto libre ("Mesa de la Virgen") y no hay número garantizado que extraer. |
+| D2 | **Acciones en menú "⋮" en móvil**: dual layout por CSS (`hidden sm:flex` / `sm:hidden`, patrón de `BedAssignmentsView.vue`). Desktop conserva los botones actuales (a `h-8 w-8`); móvil los colapsa en un `DropdownMenu`. Los ítems que abren dialog usan `useRekaDialogFix` + `@select="deferOpen(...)"` (bug conocido de reka-ui). | Solo achicar los botones: cuatro botones de 32 px + contador siguen comiendo ~150 px del título; el problema de fondo es la cantidad de acciones, no su tamaño. |
+| D3 | **Panel sticky colapsable**: toggle en la fila de tabs que colapsa el bloque de sin asignar (default expandido — el flujo de tap-assign necesita las pastillas visibles) + paddings reducidos. | Mover el panel a un Sheet/Drawer: `@repo/ui` no tiene ese componente; introducirlo es alcance mayor para esta spec. |
+| D4 | **Dialog de caminantes dual**: tabla actual `hidden sm:block`; en móvil, lista de cards con `<dl>` por walker usando las mismas keys `tables.tableCard.*` y los helpers `getBedLocation`/`getPhones` existentes. Máximo 7 walkers ⇒ lista corta sin scroll horizontal. | Achicar u ocultar columnas de la tabla: son datos útiles (teléfonos, cama, parroquia) y 8 columnas no caben en 390 px digan lo que digan los tamaños. |
+| D5 | **Banner de tap-to-assign en el panel sticky** ("Toca la mesa de destino…" + Quitar/Cancelar) que reemplaza al botón flotante `Teleport fixed bottom-6`, más `ring-2` en las zonas destino y un hint textual en la zona de walkers. | Conservar el flotante y solo reforzar los rings: el flotante tapa contenido, queda lejos de donde está la pastilla seleccionada y no explica qué hacer. |
+
+## Historias
+
+1. Como coordinador con el celular, veo "Mesa 12" completa en el título de cada card y distingo
+   las mesas de un vistazo.
+2. Como coordinador con el celular, ejecuto todas las acciones de una mesa (briefing, ver
+   caminantes, asignar por foto, eliminar) desde el menú "⋮" sin que la página se congele.
+3. Como coordinador con el celular, colapso el panel de sin asignar y recupero pantalla para ver
+   las mesas.
+4. Como coordinador con el celular, abro el detalle de caminantes y leo teléfono, cama y parroquia
+   de cada uno sin scroll horizontal.
+5. Como coordinador con el celular, toco una pastilla del panel y el banner me dice qué hacer; las
+   zonas destino se marcan con un anillo evidente.
+
+## Requerimientos
+
+- **R1** En viewport ~390 px el nombre de mesa se muestra completo para los nombres reales
+  ("Mesa 1"…"Mesa 12"); el truncate solo entra para nombres anormalmente largos (D1).
+- **R2** El conjunto contador + acciones ocupa en móvil un solo botón "⋮" + el contador; el lápiz
+  de renombrar queda único y compartido entre móvil y desktop, con sus testids intactos (D2).
+- **R3** El panel sticky queda en ~92 px colapsado / ~150 px expandido; el bloque de sin asignar
+  se colapsa por toggle y el estado default es expandido (D3).
+- **R4** El dialog de caminantes renderiza lista de cards en `<640 px` y tabla de 8 columnas a
+  partir de `sm`; misma información en ambos (D4).
+- **R5** Con un participante seleccionado por tap: banner visible en el panel sticky con su nombre
+  y acciones Quitar/Cancelar, `ring-2` en zonas destino, y el botón flotante de desasignar
+  eliminado (D5).
+- **R6** Desktop (`≥ sm`) se comporta y ve igual que hoy, salvo el tamaño del padding/título que
+  pasa a estar explícito (`sm:` conserva los valores actuales) (D1, D2).
+
+## Criterios de aceptación
+
+- Tests existentes `TableCardRename.test.ts` y `TableCardBriefing.test.ts` pasan **sin cambios de
+  assertions** (solo se ensancha el mock de `@repo/ui` con `DropdownMenu*`): garantiza que los
+  testids y los flujos sobrevivieron al redisño del header.
+- Tests existentes `TablesViewSearch.test.ts` y `TablesViewServerAttendance.test.ts` pasan tras
+  tocar `TablesView.vue`.
+- Verificación manual en el worktree (DevTools, viewport 390×844 touch, retiro demo San Agustín
+  que tiene mesas con walkers asignados):
+  - "Mesa N" se lee completa en cada card.
+  - El menú "⋮" abre y cada ítem funciona; "Asignar por foto" abre su dialog sin congelar la
+    página (valida `deferOpen`).
+  - Renombrar una mesa desde el móvil (el editor inline preselecciona el número).
+  - El toggle colapsa/expande el panel de sin asignar.
+  - El dialog de caminantes no tiene scroll horizontal.
+  - Tap en pastilla → banner con nombre + rings en zonas; asignación por tap funciona.
+
+## Fuera de alcance
+
+- La asignación por drag & drop en desktop y su lógica de conflictos (tags, familia/amigos) no se
+  tocan.
+- `PhotoAssignmentDialog` (asignación de walkers por foto con análisis) no se modifica; solo
+  cambia desde dónde se abre.
+- No se añade Sheet/Drawer a `@repo/ui`.
+- Otras vistas (camas, participantes) aunque compartan patrones.
+
+## Reconcile (cierre)
+
+_Pendiente: completar al fusionar._
