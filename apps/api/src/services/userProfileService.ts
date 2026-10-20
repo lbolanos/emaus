@@ -33,15 +33,10 @@ export interface UserProfileData {
 	favoriteMenuItems?: string[] | null;
 }
 
-// First-use seed for sidebar favorites (specs/menu-favorites D5): the 5 menu
-// items the user visits most according to their own page_view telemetry,
-// filtered to routes that actually have a menu item (page names like
-// `community-dashboard` have no item and would waste a slot). Falls back to
-// the aggregate default for users with no useful history.
-export const seedFavoriteMenuItems = async (
-	userId: string,
-	profile: UserProfile,
-): Promise<UserProfile> => {
+// The menu routes the user visits most according to their own page_view
+// telemetry, filtered to routes that actually have a menu item (page names
+// like `community-dashboard` have no item and would waste a slot).
+const getTopViewedMenuRoutes = async (userId: string, limit: number): Promise<string[]> => {
 	const knownRoutes = new Set<string>(MENU_ROUTE_NAMES);
 	const rows: Array<{ page: string | null; views: number }> = await AppDataSource.query(
 		`SELECT json_extract(eventData, '$.page') AS page, COUNT(*) AS views
@@ -52,13 +47,37 @@ export const seedFavoriteMenuItems = async (
 		 LIMIT 50`,
 		[userId],
 	);
-	const seeded = rows
+	return rows
 		.map((row) => row.page)
 		.filter((page): page is string => !!page && knownRoutes.has(page))
-		.slice(0, 5);
+		.slice(0, limit);
+};
+
+// First-use seed for sidebar favorites (specs/menu-favorites D5): the 5 menu
+// items the user visits most, falling back to the aggregate default for users
+// with no useful history.
+export const seedFavoriteMenuItems = async (
+	userId: string,
+	profile: UserProfile,
+): Promise<UserProfile> => {
+	const seeded = await getTopViewedMenuRoutes(userId, 5);
 	profile.favoriteMenuItems =
 		seeded.length > 0 ? [...new Set(seeded)] : [...DEFAULT_FAVORITE_MENU_ITEMS];
 	return await userProfileRepository.save(profile);
+};
+
+// Suggestions for the favorites popover (specs/menu-favorites D10): the menu
+// routes the user visits most that are NOT pinned yet — telemetry first, then
+// the aggregate defaults, so the list degrades gracefully for users with no
+// history. Computed on every read; never persisted.
+export const getFavoriteSuggestions = async (
+	userId: string,
+	currentFavorites: string[],
+): Promise<string[]> => {
+	const pinned = new Set(currentFavorites);
+	const topViewed = await getTopViewedMenuRoutes(userId, 12);
+	const candidates = [...new Set([...topViewed, ...DEFAULT_FAVORITE_MENU_ITEMS])];
+	return candidates.filter((route) => !pinned.has(route)).slice(0, 5);
 };
 
 export const getUserProfile = async (userId: string): Promise<UserProfile | null> => {

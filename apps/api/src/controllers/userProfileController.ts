@@ -6,6 +6,7 @@ import {
 	searchUsers,
 	linkUserToParticipant,
 	unlinkUserFromParticipant,
+	getFavoriteSuggestions,
 } from '../services/userProfileService';
 import { getUserFromRequest } from '../utils/auth';
 import { avatarStorageService } from '../services/avatarStorageService';
@@ -19,7 +20,13 @@ export const getMyProfile = async (req: Request, res: Response): Promise<void> =
 		}
 
 		const profile = await getUserProfile(user.id);
-		res.json(profile);
+		// Suggestions ride along on the owner's GET only (private, computed on
+		// read — never persisted, never in public profiles or search).
+		const favoriteSuggestions = await getFavoriteSuggestions(
+			user.id,
+			profile?.favoriteMenuItems ?? [],
+		);
+		res.json({ ...profile, favoriteSuggestions });
 	} catch (error: any) {
 		res.status(500).json({ message: error.message });
 	}

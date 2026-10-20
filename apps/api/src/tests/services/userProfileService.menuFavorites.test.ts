@@ -1,6 +1,6 @@
 import { setupTestDatabase, teardownTestDatabase } from '../test-setup';
 import { AppDataSource } from '@/data-source';
-import { DEFAULT_FAVORITE_MENU_ITEMS } from '@repo/types';
+import { DEFAULT_FAVORITE_MENU_ITEMS, MENU_ROUTE_NAMES } from '@repo/types';
 
 /**
  * Menu favorites seed + privacy (specs/menu-favorites D4/D5), exercised
@@ -19,8 +19,11 @@ let getUserProfile: typeof import('@/services/userProfileService').getUserProfil
 let updateUserProfile: typeof import('@/services/userProfileService').updateUserProfile;
 let getPublicProfile: typeof import('@/services/userProfileService').getPublicProfile;
 let searchUsers: typeof import('@/services/userProfileService').searchUsers;
+let getFavoriteSuggestions: typeof import('@/services/userProfileService').getFavoriteSuggestions;
 const FAV_USER = '22222222-2222-4222-8222-222222222222';
 const OTHER_USER = '33333333-3333-4333-8333-333333333333';
+const SUGG_USER = '55555555-5555-4555-8555-555555555555';
+const SUGG_USER_2 = '66666666-6666-4666-8666-666666666666';
 
 const insertUser = async (id: string, email: string, displayName: string) => {
 	// OR IGNORE: later describes reuse FAV_USER from earlier ones.
@@ -66,6 +69,7 @@ describe('userProfileService — menu favorites', () => {
 			updateUserProfile,
 			getPublicProfile,
 			searchUsers,
+			getFavoriteSuggestions,
 		} = await import('@/services/userProfileService'));
 	});
 
@@ -157,6 +161,69 @@ describe('userProfileService — menu favorites', () => {
 		});
 	});
 
+	describe('getFavoriteSuggestions (favorites popover)', () => {
+		afterAll(async () => {
+			await cleanup(SUGG_USER, SUGG_USER_2);
+		});
+
+		it('suggests the most-viewed allowlisted pages that are not pinned', async () => {
+			// Telemetry from the seed describe is still live for FAV_USER:
+			// valid views retreat-dashboard 5, message-sequences 4, walkers 3,
+			// servers 2, tables 1 (out-of-allowlist pages dominate the raw
+			// counts and must be skipped, as in the seed).
+			await insertUser(FAV_USER, 'fav-seed@test.local', 'Fav Seed User');
+			await AppDataSource.query(`DELETE FROM user_profiles WHERE userId = '${FAV_USER}'`);
+			await insertProfile(FAV_USER, ['retreat-dashboard', 'walkers']);
+
+			const suggestions = await getFavoriteSuggestions(FAV_USER, ['retreat-dashboard', 'walkers']);
+
+			expect(suggestions).toEqual(['message-sequences', 'servers', 'tables']);
+		});
+
+		it('falls back to the defaults (minus pinned) with no telemetry', async () => {
+			await insertUser(SUGG_USER, 'fav-sugg@test.local', 'Fav Sugg User');
+			await insertProfile(SUGG_USER, ['walkers']);
+
+			const suggestions = await getFavoriteSuggestions(SUGG_USER, ['walkers']);
+
+			expect(suggestions).toEqual(
+				DEFAULT_FAVORITE_MENU_ITEMS.filter((route) => route !== 'walkers'),
+			);
+		});
+
+		it('caps the list at 5 by view count', async () => {
+			// 7 distinct valid routes, strictly decreasing views: the top 5 by
+			// views must win (defaults can only trail the telemetry candidates).
+			await insertUser(SUGG_USER_2, 'fav-sugg2@test.local', 'Fav Sugg User 2');
+			await insertProfile(SUGG_USER_2, []);
+			const sevenRoutes = MENU_ROUTE_NAMES.slice(0, 7);
+			for (let i = 0; i < sevenRoutes.length; i++) {
+				await insertPageView(SUGG_USER_2, sevenRoutes[i], sevenRoutes.length - i);
+			}
+
+			const suggestions = await getFavoriteSuggestions(SUGG_USER_2, []);
+
+			expect(suggestions).toEqual(sevenRoutes.slice(0, 5));
+		});
+
+		it('returns an empty list when every candidate is already pinned', async () => {
+			const all = [
+				...new Set([
+					'retreat-dashboard',
+					'message-sequences',
+					'walkers',
+					'servers',
+					'tables',
+					...DEFAULT_FAVORITE_MENU_ITEMS,
+				]),
+			];
+
+			const suggestions = await getFavoriteSuggestions(FAV_USER, all);
+
+			expect(suggestions).toEqual([]);
+		});
+	});
+
 	describe('privacy — favoriteMenuItems never leaves the owner profile', () => {
 		beforeAll(async () => {
 			await cleanup(FAV_USER, OTHER_USER);
@@ -170,6 +237,10 @@ describe('userProfileService — menu favorites', () => {
 
 			expect(result?.profile).toBeTruthy();
 			expect(result?.profile).not.toHaveProperty('favoriteMenuItems');
+			// Suggestions are computed for the owner's GET only — they are
+			// not even a column, but assert it so a future refactor that
+			// routes them through the profile fails here.
+			expect(result?.profile).not.toHaveProperty('favoriteSuggestions');
 		});
 
 		it('searchUsers strips favoriteMenuItems', async () => {
@@ -177,6 +248,7 @@ describe('userProfileService — menu favorites', () => {
 
 			expect(results).toHaveLength(1);
 			expect(results[0].profile).not.toHaveProperty('favoriteMenuItems');
+			expect(results[0].profile).not.toHaveProperty('favoriteSuggestions');
 		});
 	});
 });
