@@ -1,6 +1,6 @@
 # Spec: Foto de los participantes de la mesa para el recuerdo
 
-**Estado**: aprobada 2026-10-19, pendiente de implementar · **Branch**: `worktree-mesas-ux-foto` · **Fecha**: 2026-10-19
+**Estado**: implementada y verificada 2026-10-20, pendiente de merge · **Branch**: `worktree-mesas-ux-foto` · **Fecha**: 2026-10-19
 
 ## Problema
 
@@ -87,4 +87,46 @@ etiqueta "Mesa N" — reutilizando la infraestructura de la galería (S3 privado
 
 ## Reconcile (cierre)
 
-_Pendiente: completar al fusionar._
+**Implementada y verificada el 2026-10-20** en `worktree-mesas-ux-foto` (commits 09770f3f B1,
+3eecbfc9 B2, d3af22bb B3). Suites tocadas: 48/48 tests verdes (Jest api + Vitest web), builds
+api/web verdes. Verificación manual en Playwright 390×844 contra el retiro demo **Buen
+Despacho** (`e9b3c568`, 10 mesas) — no San Agustín como decían los criterios: Buen Despacho
+tenía mesas con walkers y sin fotos previas de mesa.
+
+Verificado contra los criterios:
+
+- Migración `.simple.test.ts`: up añade las dos columnas sobre filas existentes, down las quita.
+- `tableMesaService` (13 tests): key S3 correcta + `processPhoto` sin crop, modo base64,
+  `removeTablePhoto`, `deleteTable` limpia S3, presign en ambos readers, `.parse` con
+  `photoUrl: null` y con URL.
+- `retreatMemoryService.tablePhotos.test.ts`: merge con `label`/`source`/`sortOrder 1000+i`
+  fuera del cupo `MAX_MEMORY_PHOTOS`.
+- Controller (11 tests): 400/404/200 en PUT y DELETE.
+- Web: `TableMemoryPhotoDialog` (5: reduce antes de subir, error → toast, eliminar, re-elegir
+  descarta preview, reabrir sin preview vieja), `MemoryPhotoCarousel` (badge con/sin label),
+  `MemoryUploadForm` (filtra `source: 'table'` + hint).
+- Manual end-to-end: subir PNG 1200×800 (sintético, bajo `.playwright-mcp/`) en "Mesa 1" vía ⋮ →
+  "Foto del recuerdo" → miniatura `table-photo-thumb` en el card; `GET /retreats/attended`
+  devuelve `photoCount: 4` con `{label: 'Mesa 1', source: 'table'}`; carrusel de "Mis Retiros"
+  la muestra como slide 4/4 con badge **"Mesa 1"**.
+
+Desviaciones:
+
+1. **Hint de `MemoryUploadForm` hardcodeado en español** ("Las fotos de las mesas (N) se
+   gestionan desde la vista de Mesas.") en vez de la key `social.memories.tablePhotosHint`: ese
+   componente no usa i18n (toda su UI es español literal) y añadir la key solo para el hint
+   dejaba un archivo bilingüe a medias. Deuda: si algún día se internacionaliza el componente,
+   el hint migra con el resto.
+2. **Reemplazar y eliminar no se ejecutaron en browser**: del reemplazo se vio el preview con
+   aviso ("al guardar se reemplaza la foto actual") pero no se guardó; la eliminación quedó en
+   los tests unitarios (dialog → `removeTablePhoto`, service → borra S3 y anula). Pendiente de
+   ejercicio real en el primer uso.
+3. **R6 verificado por código, no end-to-end**: el gate de `retreatMemoryStore` cuenta
+   `memoryPhotos.length` y las fotos de mesa viajan en ese mismo array (confirmado por el
+   fetch), pero no existía un retiro cuya *única* señal fueran fotos de mesa para probar la
+   pantalla completa.
+4. **En dev (base64) la foto persiste como data-URI JPEG**, no WebP: el WebP es del path S3
+   (`processPhoto` + `uploadTablePhoto`). Conforme a R2, que para dev solo exige data-URI.
+
+Lo descartado se mantiene descartado: sin FK en `retreat_memory_photo`, sin espejo en dos
+tablas, sin backfill, sin endpoint para el líder de mesa, sin cartel vertical in-app.

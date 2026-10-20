@@ -1,6 +1,6 @@
 # Spec: UX móvil de la vista de Mesas
 
-**Estado**: aprobada 2026-10-19, pendiente de implementar · **Branch**: `worktree-mesas-ux-foto` · **Fecha**: 2026-10-19
+**Estado**: implementada y verificada 2026-10-20, pendiente de merge · **Branch**: `worktree-mesas-ux-foto` · **Fecha**: 2026-10-19
 
 ## Problema
 
@@ -97,4 +97,46 @@ scroll horizontal ni contenido tapado. El desktop se mantiene como está.
 
 ## Reconcile (cierre)
 
-_Pendiente: completar al fusionar._
+**Implementada y verificada el 2026-10-20** en `worktree-mesas-ux-foto` (commits 9e26b977 A1,
+489909ef A2, 2c6c4910 A3+A4). Verificación manual en Playwright, viewport 390×844 con emulación
+táctil real (`hasTouch`), contra el retiro demo **Buen Despacho** (`e9b3c568`, 10 mesas "Mesa
+1"…"Mesa 10" con walkers) — no San Agustín como decían los criterios: Buen Despacho tenía mejor
+cobertura (mesas de dos dígitos, zonas libres y ocupadas). Tests: Rename + Briefing verdes, builds
+api/web verdes.
+
+Verificado por dato (no a ojo):
+
+- **R1**: 10/10 títulos sin truncar (`scrollWidth <= clientWidth`), 0 scroll horizontal en la
+  página. Los de dos dígitos ("Mesa 10") caben enteros.
+- **R2**: 10 menús "⋮" renderizados; testids de rename intactos; lápiz único. Ítems del menú:
+  briefing por líder, Ver Caminantes, Asignar por Foto, Foto del recuerdo (spec hermana),
+  Eliminar Mesa (disabled con walkers).
+- **R3**: ver desviación 1.
+- **R4**: dialog de walkers renderiza 4 `<dl>` (uno por caminante de Mesa 1), tabla desktop
+  oculta en móvil, `dialogScrollX: false`, `pageScrollX: false`.
+- **R5**: banner `tap-assign-banner` con nombre + Quitar/Cancelar; **asignación real por tap**
+  (Oscar → Co-Líder 2 de Mesa 1, confirmada contra el API y el estado del store) y
+  **desasignación** vía "Quitar de mesa" (estado restaurado). Zonas destino con ring azul;
+  flotante `Teleport` eliminado.
+
+Desviaciones:
+
+1. **R3 — cifras**: el sticky (header + búsqueda + tabs) quedó en **149 px fijos**; el bloque de
+   sin-asignar es colapsable pero vive **fuera** del sticky y suma aparte cuando está expandido.
+   El estado "~92 px colapsado" no existe: colapsar oculta las pastillas, no encoge el sticky.
+   El objetivo de fondo (recuperar pantalla) se cumple; la deuda es que el sticky propio nunca
+   baja de 149 px.
+2. **Ensanche de mocks mayor al previsto**: además de los stubs `DropdownMenu*` en el mock local
+   de `@repo/ui`, Rename/Briefing necesitaron `ImagePlus` en el mock local de lucide y stub de
+   `TableMemoryPhotoDialog.vue` — el menú ⋮ es compartido con la spec `table-memory-photo`.
+   Assertions intactas (el criterio se cumple en lo que importa).
+3. **Pastillas touch-only**: `useTapAssign` solo registra `touchstart/touchend` y hace
+   `preventDefault` del click sintético, así que un click de mouse no las activa (por diseño).
+   Verificarlas exigió un contexto Playwright con `hasTouch: true` y `touchscreen.tap`. Nota
+   para reproducir la verificación, no un bug.
+4. **"Asignar por foto" no se abrió en browser**: comparte el mismo `deferOpen` que los otros
+   ítems del menú; sí se abrieron y validaron (sin congelar, `pointerEvents: auto`) los dialogs
+   de walkers y de foto del recuerdo.
+
+Lo descartado se mantiene descartado (D1–D5): sin badge de número extraído, sin Sheet/Drawer en
+`@repo/ui`, sin achicar la tabla de caminantes, sin conservar el flotante.
