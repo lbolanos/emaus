@@ -166,7 +166,7 @@ describe('userProfileService — menu favorites', () => {
 			await cleanup(SUGG_USER, SUGG_USER_2);
 		});
 
-		it('suggests the most-viewed allowlisted pages that are not pinned', async () => {
+		it('suggests the most-viewed allowlisted pages that are not pinned, with view counts', async () => {
 			// Telemetry from the seed describe is still live for FAV_USER:
 			// valid views retreat-dashboard 5, message-sequences 4, walkers 3,
 			// servers 2, tables 1 (out-of-allowlist pages dominate the raw
@@ -177,17 +177,27 @@ describe('userProfileService — menu favorites', () => {
 
 			const suggestions = await getFavoriteSuggestions(FAV_USER, ['retreat-dashboard', 'walkers']);
 
-			expect(suggestions).toEqual(['message-sequences', 'servers', 'tables']);
+			// Each suggestion carries its own view count so the popover can
+			// explain WHY the route is offered.
+			expect(suggestions).toEqual([
+				{ route: 'message-sequences', views: 4 },
+				{ route: 'servers', views: 2 },
+				{ route: 'tables', views: 1 },
+			]);
 		});
 
-		it('falls back to the defaults (minus pinned) with no telemetry', async () => {
+		it('falls back to the defaults (minus pinned) with no telemetry, views 0', async () => {
 			await insertUser(SUGG_USER, 'fav-sugg@test.local', 'Fav Sugg User');
 			await insertProfile(SUGG_USER, ['walkers']);
 
 			const suggestions = await getFavoriteSuggestions(SUGG_USER, ['walkers']);
 
+			// Defaults have no telemetry of their own: the count is 0 and the
+			// popover hides it.
 			expect(suggestions).toEqual(
-				DEFAULT_FAVORITE_MENU_ITEMS.filter((route) => route !== 'walkers'),
+				DEFAULT_FAVORITE_MENU_ITEMS.filter((route) => route !== 'walkers').map(
+					(route) => ({ route, views: 0 }),
+				),
 			);
 		});
 
@@ -203,7 +213,11 @@ describe('userProfileService — menu favorites', () => {
 
 			const suggestions = await getFavoriteSuggestions(SUGG_USER_2, []);
 
-			expect(suggestions).toEqual(sevenRoutes.slice(0, 5));
+			expect(suggestions).toEqual(
+				sevenRoutes
+					.slice(0, 5)
+					.map((route, i) => ({ route, views: sevenRoutes.length - i })),
+			);
 		});
 
 		it('returns an empty list when every candidate is already pinned', async () => {

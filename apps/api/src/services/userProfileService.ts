@@ -35,8 +35,12 @@ export interface UserProfileData {
 
 // The menu routes the user visits most according to their own page_view
 // telemetry, filtered to routes that actually have a menu item (page names
-// like `community-dashboard` have no item and would waste a slot).
-const getTopViewedMenuRoutes = async (userId: string, limit: number): Promise<string[]> => {
+// like `community-dashboard` have no item and would waste a slot). Carries
+// the view count so the suggestions popover can show WHY a route is offered.
+const getTopViewedMenuRoutes = async (
+	userId: string,
+	limit: number,
+): Promise<Array<{ route: string; views: number }>> => {
 	const knownRoutes = new Set<string>(MENU_ROUTE_NAMES);
 	const rows: Array<{ page: string | null; views: number }> = await AppDataSource.query(
 		`SELECT json_extract(eventData, '$.page') AS page, COUNT(*) AS views
@@ -48,8 +52,8 @@ const getTopViewedMenuRoutes = async (userId: string, limit: number): Promise<st
 		[userId],
 	);
 	return rows
-		.map((row) => row.page)
-		.filter((page): page is string => !!page && knownRoutes.has(page))
+		.filter((row) => !!row.page && knownRoutes.has(row.page))
+		.map((row) => ({ route: row.page as string, views: Number(row.views) }))
 		.slice(0, limit);
 };
 
@@ -62,22 +66,34 @@ export const seedFavoriteMenuItems = async (
 ): Promise<UserProfile> => {
 	const seeded = await getTopViewedMenuRoutes(userId, 5);
 	profile.favoriteMenuItems =
-		seeded.length > 0 ? [...new Set(seeded)] : [...DEFAULT_FAVORITE_MENU_ITEMS];
+		seeded.length > 0
+			? [...new Set(seeded.map((entry) => entry.route))]
+			: [...DEFAULT_FAVORITE_MENU_ITEMS];
 	return await userProfileRepository.save(profile);
 };
 
 // Suggestions for the favorites popover (specs/menu-favorites D10): the menu
 // routes the user visits most that are NOT pinned yet — telemetry first, then
 // the aggregate defaults, so the list degrades gracefully for users with no
-// history. Computed on every read; never persisted.
+// history. Computed on every read; never persisted. `views` is 0 for default
+// entries with no telemetry of their own (the popover hides the count then).
 export const getFavoriteSuggestions = async (
 	userId: string,
 	currentFavorites: string[],
-): Promise<string[]> => {
+): Promise<Array<{ route: string; views: number }>> => {
 	const pinned = new Set(currentFavorites);
 	const topViewed = await getTopViewedMenuRoutes(userId, 12);
-	const candidates = [...new Set([...topViewed, ...DEFAULT_FAVORITE_MENU_ITEMS])];
-	return candidates.filter((route) => !pinned.has(route)).slice(0, 5);
+	const byRoute = new Map<string, number>(
+		topViewed.map((entry) => [entry.route, entry.views]),
+	);
+	const candidates = [
+		...topViewed.map((entry) => entry.route),
+		...DEFAULT_FAVORITE_MENU_ITEMS,
+	];
+	return [...new Set(candidates)]
+		.filter((route) => !pinned.has(route))
+		.map((route) => ({ route, views: byRoute.get(route) ?? 0 }))
+		.slice(0, 5);
 };
 
 export const getUserProfile = async (userId: string): Promise<UserProfile | null> => {
