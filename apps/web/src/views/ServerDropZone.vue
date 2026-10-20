@@ -7,7 +7,7 @@
     :class="{
       'border-primary bg-primary/10': isOver,
       'border-red-500 shake': isInvalid,
-      'border-blue-400 bg-blue-50 dark:bg-blue-900/20': isTapTarget,
+      'border-blue-400 bg-blue-50 dark:bg-blue-900/20 ring-2 ring-blue-500 ring-offset-1': isTapTarget,
     }"
   >
     <h4 class="text-sm font-medium text-gray-500 dark:text-gray-400">{{ title }}</h4>

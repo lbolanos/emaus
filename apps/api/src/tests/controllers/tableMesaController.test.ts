@@ -15,6 +15,8 @@ jest.mock('../../services/tableMesaService', () => {
 		findTableRetreatId: jest.fn(),
 		createTable: jest.fn(),
 		updateTable: jest.fn(),
+		setTablePhoto: jest.fn(),
+		removeTablePhoto: jest.fn(),
 		deleteTable: jest.fn(),
 		assignLeaderToTable: jest.fn(),
 		unassignLeaderFromTable: jest.fn(),
@@ -236,6 +238,111 @@ describe('Table Mesa Controller', () => {
 			expect(res.status).toHaveBeenCalledWith(409);
 			expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ name: 'Mesa 2' }));
 			expect(mockNext).not.toHaveBeenCalled();
+		});
+	});
+
+	describe('setTablePhoto', () => {
+		const tableId = 'table-1';
+		const retreatId = 'retreat-1';
+		const photoData = 'data:image/jpeg;base64,abc123';
+		const table = { id: tableId, name: 'Mesa 1', retreatId, photoUrl: photoData };
+
+		beforeEach(() => {
+			(tableMesaService.findTableRetreatId as jest.Mock).mockResolvedValue(retreatId);
+			(ensureRetreatAccess as jest.Mock).mockResolvedValue(true);
+		});
+
+		test('should upload via the service and answer the table', async () => {
+			(tableMesaService.setTablePhoto as jest.Mock).mockResolvedValue(table);
+			const req = createMockRequest({ params: { id: tableId }, body: { photoData } });
+			const res = createMockResponse();
+
+			await tableMesaController.setTablePhoto(req as any, res as any, mockNext);
+
+			expect(ensureRetreatAccess).toHaveBeenCalledWith(req, res, retreatId);
+			expect(tableMesaService.setTablePhoto).toHaveBeenCalledWith(tableId, photoData);
+			expect(res.json).toHaveBeenCalledWith(table);
+		});
+
+		test.each([
+			['missing', {}],
+			['not an image data URI', { photoData: 'https://example.com/x.jpg' }],
+			['too large', { photoData: `data:image/png;base64,${'a'.repeat(4_000_001)}` }],
+		])('should return 400 when the body is %s', async (_label, body) => {
+			const req = createMockRequest({ params: { id: tableId }, body });
+			const res = createMockResponse();
+
+			await tableMesaController.setTablePhoto(req as any, res as any, mockNext);
+
+			expect(res.status).toHaveBeenCalledWith(400);
+			expect(tableMesaService.setTablePhoto).not.toHaveBeenCalled();
+		});
+
+		test('should return 404 when the table does not exist', async () => {
+			(tableMesaService.findTableRetreatId as jest.Mock).mockResolvedValue(null);
+			const req = createMockRequest({ params: { id: tableId }, body: { photoData } });
+			const res = createMockResponse();
+
+			await tableMesaController.setTablePhoto(req as any, res as any, mockNext);
+
+			expect(res.status).toHaveBeenCalledWith(404);
+			expect(tableMesaService.setTablePhoto).not.toHaveBeenCalled();
+		});
+
+		test('should not upload when the user has no access to the table retreat', async () => {
+			(ensureRetreatAccess as jest.Mock).mockResolvedValue(false);
+			const req = createMockRequest({ params: { id: tableId }, body: { photoData } });
+			const res = createMockResponse();
+
+			await tableMesaController.setTablePhoto(req as any, res as any, mockNext);
+
+			expect(tableMesaService.setTablePhoto).not.toHaveBeenCalled();
+			expect(res.json).not.toHaveBeenCalled();
+		});
+	});
+
+	describe('removeTablePhoto', () => {
+		const tableId = 'table-1';
+		const retreatId = 'retreat-1';
+
+		beforeEach(() => {
+			(tableMesaService.findTableRetreatId as jest.Mock).mockResolvedValue(retreatId);
+			(ensureRetreatAccess as jest.Mock).mockResolvedValue(true);
+		});
+
+		test('should remove via the service and answer the table', async () => {
+			const table = { id: tableId, name: 'Mesa 1', retreatId, photoUrl: null };
+			(tableMesaService.removeTablePhoto as jest.Mock).mockResolvedValue(table);
+			const req = createMockRequest({ params: { id: tableId } });
+			const res = createMockResponse();
+
+			await tableMesaController.removeTablePhoto(req as any, res as any, mockNext);
+
+			expect(ensureRetreatAccess).toHaveBeenCalledWith(req, res, retreatId);
+			expect(tableMesaService.removeTablePhoto).toHaveBeenCalledWith(tableId);
+			expect(res.json).toHaveBeenCalledWith(table);
+		});
+
+		test('should return 404 when the table does not exist', async () => {
+			(tableMesaService.findTableRetreatId as jest.Mock).mockResolvedValue(null);
+			const req = createMockRequest({ params: { id: tableId } });
+			const res = createMockResponse();
+
+			await tableMesaController.removeTablePhoto(req as any, res as any, mockNext);
+
+			expect(res.status).toHaveBeenCalledWith(404);
+			expect(tableMesaService.removeTablePhoto).not.toHaveBeenCalled();
+		});
+
+		test('should not remove when the user has no access to the table retreat', async () => {
+			(ensureRetreatAccess as jest.Mock).mockResolvedValue(false);
+			const req = createMockRequest({ params: { id: tableId } });
+			const res = createMockResponse();
+
+			await tableMesaController.removeTablePhoto(req as any, res as any, mockNext);
+
+			expect(tableMesaService.removeTablePhoto).not.toHaveBeenCalled();
+			expect(res.json).not.toHaveBeenCalled();
 		});
 	});
 

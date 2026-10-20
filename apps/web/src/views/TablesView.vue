@@ -68,6 +68,7 @@
 
           <!-- Búsqueda + ⋮ (spec ux-mam-responsabilidades, D8). Las columnas viven
                en el ⋮, junto a "Enviar info a líderes" (D7). -->
+
           <DropdownMenu>
             <DropdownMenuTrigger as-child>
             <Button
@@ -194,10 +195,36 @@
     </div>
 
     <!-- Unassigned Areas (inside same glass panel) -->
-    <div class="px-2 sm:px-3 lg:px-4 py-2">
+    <div class="px-2 sm:px-3 lg:px-4 py-1.5 md:py-2">
 
-      <!-- Mobile: tab buttons (hidden on md+) -->
-      <div class="flex gap-1 mb-2 md:hidden">
+      <!-- Banner de tap-to-assign: reemplaza al botón flotante (tapaba
+           contenido y no explicaba qué hacer). Dice el paso siguiente y, si el
+           seleccionado ya estaba en una mesa, ofrece quitarlo. -->
+      <div
+        v-if="tappedParticipant"
+        data-testid="tap-assign-banner"
+        class="mb-2 flex flex-wrap items-center gap-2 rounded-lg border border-green-300 bg-green-50 px-3 py-1.5 text-sm dark:border-green-800 dark:bg-green-900/30"
+      >
+        <span class="min-w-0 flex-1 truncate">
+          {{ $t('tables.tapBanner', { name: `${tappedParticipant.firstName} ${tappedParticipant.lastName}` }) }}
+        </span>
+        <Button
+          v-if="(tappedParticipant as any).sourceTableId"
+          size="sm"
+          variant="destructive"
+          @click="onTapUnassign"
+        >
+          {{ $t('tables.tapUnassign') }}
+        </Button>
+        <Button size="sm" variant="outline" @click="clearTap">
+          {{ $t('common.cancel') }}
+        </Button>
+      </div>
+
+      <!-- Mobile: tab buttons (hidden on md+). El toggle colapsa el bloque de
+           pastillas para recuperar pantalla; nace expandido porque el flujo de
+           tap-to-assign necesita las pastillas visibles. -->
+      <div class="flex gap-1 mb-1 items-center md:hidden">
         <button
           @click="unassignedTab = 'server'"
           class="px-3 py-1 rounded-full text-xs font-medium transition-colors"
@@ -216,6 +243,19 @@
         >
           {{ $t('tables.unassignedWalkers') }} ({{ unassignedWalkers.length }})
         </button>
+        <Button
+          variant="ghost"
+          size="icon"
+          class="ml-auto h-7 w-7 shrink-0"
+          :title="unassignedPanelOpen ? $t('tables.unassignedPanel.collapse') : $t('tables.unassignedPanel.expand')"
+          :aria-label="unassignedPanelOpen ? $t('tables.unassignedPanel.collapse') : $t('tables.unassignedPanel.expand')"
+          :aria-expanded="unassignedPanelOpen"
+          data-testid="unassigned-panel-toggle"
+          @click="unassignedPanelOpen = !unassignedPanelOpen"
+        >
+          <ChevronUp v-if="unassignedPanelOpen" class="h-4 w-4" />
+          <ChevronDown v-else class="h-4 w-4" />
+        </Button>
       </div>
 
       <!-- Barra de la métrica de asistencia. Se enciende desde el menú "⋮" y sólo
@@ -337,7 +377,7 @@
       </div>
 
       <!-- Mobile: tabbed content (hidden on md+) - NO tooltip wrapper, touch handlers on outer span -->
-      <div class="md:hidden">
+      <div v-show="unassignedPanelOpen" class="md:hidden">
         <!-- Unassigned Servers -->
         <div v-show="unassignedTab === 'server'">
           <div class="p-2 bg-gray-50 dark:bg-gray-800 rounded-lg border min-h-[40px] max-h-24 overflow-y-auto flex flex-wrap gap-2">
@@ -557,22 +597,6 @@
     :table-data="messageTableData ?? undefined"
     :force-template-type="messageTemplateType ?? undefined"
   />
-
-  <!-- Floating unassign button — shown when an assigned participant is tap-selected -->
-  <Teleport to="body">
-    <div
-      v-if="tappedParticipant && (tappedParticipant as any).sourceTableId"
-      class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex gap-2 shadow-lg"
-    >
-      <Button size="sm" variant="destructive" @click="onTapUnassign">
-        <X class="w-4 h-4 mr-1" />
-        {{ $t('tables.tapUnassign') }}
-      </Button>
-      <Button size="sm" variant="outline" @click="clearTap">
-        {{ $t('common.cancel') }}
-      </Button>
-    </div>
-  </Teleport>
 </template>
 
 <script setup lang="ts">
@@ -608,7 +632,7 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '@repo/ui';
-import { ChevronLeft, ChevronRight, Download, HelpCircle, LayoutGrid, Loader2, MoreVertical, Plus, Printer, RefreshCw, Scissors, Send, Trash2, TrendingUp, UserX, X } from 'lucide-vue-next';
+import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Download, HelpCircle, LayoutGrid, Loader2, MoreVertical, Plus, Printer, RefreshCw, Scissors, Send, Trash2, TrendingUp, UserX, X } from 'lucide-vue-next';
 import type { Participant, ParticipationFrequency, TableMesa } from '@repo/types';
 import { useServerAttendance } from '@/composables/useServerAttendance';
 import { useI18n } from 'vue-i18n';
@@ -822,6 +846,8 @@ const isExporting = ref(false);
 const isLotteryCardsOpen = ref(false);
 const isHelpOpen = ref(false);
 const unassignedTab = ref<'server' | 'walker'>('walker');
+// Unassigned pills block on mobile: born expanded (tap-to-assign needs the pills visible).
+const unassignedPanelOpen = ref(true);
 const columnCount = ref(localStorage.getItem('tables_column_count') || '3');
 
 // Persist column count to local storage

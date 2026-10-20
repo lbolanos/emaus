@@ -259,6 +259,11 @@ export const retreatMemoryPhotoSchema = z.object({
 	isPrimary: z.boolean(),
 	sortOrder: z.number().int(),
 	createdAt: z.coerce.date(),
+	// 'gallery' = uploaded in the memories gallery; 'table' = a table group photo
+	// synthesized from `tables.photoUrl` at read time (not a row of this table).
+	source: z.enum(['gallery', 'table']).default('gallery'),
+	// Display label — the table name ("Mesa 3") for source='table' items.
+	label: z.string().nullable().optional(),
 });
 export type RetreatMemoryPhoto = z.infer<typeof retreatMemoryPhotoSchema>;
 
@@ -490,6 +495,10 @@ export const tableMesaSchema = z.object({
 	colider1: z.any().nullable().optional(),
 	colider2: z.any().nullable().optional(),
 	walkers: z.array(z.any()).optional(),
+	// Group photo for the retreat keepsake. Nullable: most tables have none. NOT
+	// `.url()` — in dev (base64 mode) it is a data: URI, and
+	// `findTablesByRetreatId` validates its output with `.array().parse`.
+	photoUrl: z.string().nullable().optional(),
 });
 export type TableMesa = z.infer<typeof tableMesaSchema>;
 

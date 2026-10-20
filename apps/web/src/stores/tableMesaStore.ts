@@ -9,6 +9,8 @@ import {
 	clearAllTables as clearAllTablesApi,
 	deleteEmptyTables as deleteEmptyTablesApi,
 	updateTable as updateTableApi,
+	uploadTablePhoto as uploadTablePhotoApi,
+	deleteTablePhoto as deleteTablePhotoApi,
 	api,
 } from '@/services/api';
 import { apiErrorMessage } from '@/services/apiError';
@@ -252,6 +254,23 @@ export const useTableMesaStore = defineStore('tableMesa', () => {
 		}
 	};
 
+	/**
+	 * Uploads/replaces the group photo of a table (spec table-memory-photo).
+	 * Errors re-throw without toasting here: the dialog shows them with i18n.
+	 */
+	const setTablePhoto = async (tableId: string, photoData: string) => {
+		const updatedTable = await uploadTablePhotoApi(tableId, photoData);
+		updateTableInState(updatedTable);
+		return updatedTable;
+	};
+
+	/** Removes the group photo of a table; errors re-throw for the dialog to show. */
+	const removeTablePhoto = async (tableId: string) => {
+		const updatedTable = await deleteTablePhotoApi(tableId);
+		updateTableInState(updatedTable);
+		return updatedTable;
+	};
+
 	watch(() => retreatStore.selectedRetreatId, (id) => {
 		if (id) fetchTables();
 	});
@@ -271,5 +290,7 @@ export const useTableMesaStore = defineStore('tableMesa', () => {
 		renameTable,
 		deleteTable,
 		deleteEmptyTables,
+		setTablePhoto,
+		removeTablePhoto,
 	};
 });

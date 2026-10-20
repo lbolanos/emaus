@@ -1,8 +1,11 @@
 <template>
   <div>
     <Card class="flex flex-col" :class="{ 'opacity-50 pointer-events-none': !table.id }">
-      <!-- Card Header -->
-      <CardHeader class="flex-row items-center justify-between gap-2">
+      <!-- Card Header: compact on mobile so the table name — which carries the
+           table number — stays readable; full size from sm: up. -->
+      <CardHeader
+        class="flex-row items-center justify-between gap-1.5 p-3 sm:gap-2 sm:p-6"
+      >
         <form
           v-if="isEditingName"
           class="flex flex-1 items-center gap-1 min-w-0"
@@ -43,12 +46,12 @@
             <X class="w-4 h-4" />
           </Button>
         </form>
-        <CardTitle v-else class="flex items-center gap-1 min-w-0">
+        <CardTitle v-else class="flex items-center gap-1 min-w-0 text-base leading-tight sm:text-2xl">
           <span class="truncate">{{ table.name }}</span>
           <Button
             variant="ghost"
             size="icon"
-            class="h-7 w-7 shrink-0 text-muted-foreground"
+            class="h-6 w-6 shrink-0 p-0 text-muted-foreground sm:h-7 sm:w-7"
             :title="$t('tables.rename.button')"
             data-testid="table-name-edit"
             @click="startEditName"
@@ -93,6 +96,11 @@
               <DropdownMenuItem @select="deferOpen(() => (isPhotoDialogOpen = true))">
                 <Camera class="mr-2 h-4 w-4" />
                 {{ $t('tables.photoAssign.tableTitle') }}
+              </DropdownMenuItem>
+              <!-- Foto del recuerdo de la mesa (spec table-memory-photo). -->
+              <DropdownMenuItem @select="deferOpen(() => (isMemoryPhotoDialogOpen = true))">
+                <ImagePlus class="mr-2 h-4 w-4" />
+                {{ $t('tables.photoMemory.menuLabel') }}
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem
@@ -188,9 +196,19 @@
             @touchend="tapZone($event, () => onTapAssign('walkers'))"
             @click="tapZoneClick(() => onTapAssign('walkers'))"
             class="p-2 border-2 border-dashed rounded-md transition-colors min-h-[100px]"
-            :class="{ 'border-primary bg-primary/10': isOverWalker, 'border-green-400 bg-green-50 dark:bg-green-900/20': tappedParticipant?.type === 'walker' }"
+            :class="{
+              'border-primary bg-primary/10': isOverWalker,
+              'border-green-400 bg-green-50 dark:bg-green-900/20 ring-2 ring-green-500 ring-offset-1': tappedParticipant?.type === 'walker',
+            }"
           >
-            <h4 class="text-sm font-medium text-gray-500 dark:text-gray-400">{{ $t('tables.walkers') }} ({{ table.walkers?.length || 0 }})</h4>
+            <h4 class="text-sm font-medium text-gray-500 dark:text-gray-400">
+              {{ $t('tables.walkers') }} ({{ table.walkers?.length || 0 }})
+              <!-- Contextual hint while a walker is tap-selected: the zone is a
+                   live destination, make it say so. -->
+              <span v-if="tappedParticipant?.type === 'walker'" class="ml-1 text-xs text-green-700 dark:text-green-300">
+                {{ $t('tables.tapZoneHint') }}
+              </span>
+            </h4>
             <transition-group v-if="table.walkers && table.walkers.length > 0" tag="div" name="list-item" class="mt-2 flex flex-wrap gap-2 min-h-[34px]">
               <span
                 v-for="walker in table.walkers"
@@ -221,6 +239,23 @@
             </transition-group>
             <span v-else class="text-gray-400 text-sm mt-2 block">{{ $t('tables.unassigned') }}</span>
           </div>
+
+          <!-- Table keepsake photo (spec table-memory-photo). Tapping the
+               thumbnail reopens the manage dialog to replace or remove it. -->
+          <button
+            v-if="table.photoUrl"
+            type="button"
+            class="flex items-center gap-2 rounded-md border p-1.5 text-left transition-colors hover:bg-secondary/50"
+            data-testid="table-photo-thumb"
+            @click="isMemoryPhotoDialogOpen = true"
+          >
+            <img
+              :src="table.photoUrl"
+              :alt="$t('tables.photoMemory.menuLabel')"
+              class="h-12 w-12 shrink-0 rounded object-cover"
+            />
+            <span class="text-xs text-muted-foreground">{{ $t('tables.photoMemory.menuLabel') }}</span>
+          </button>
         </div>
       </CardContent>
     </Card>
@@ -230,38 +265,69 @@
         <DialogHeader>
           <DialogTitle>{{ $t('tables.tableCard.dialogTitle') }}</DialogTitle>
         </DialogHeader>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>{{ $t('tables.tableCard.retreatId') }}</TableHead>
-              <TableHead>{{ $t('tables.tableCard.walkerName') }}</TableHead>
-              <TableHead>{{ $t('tables.tableCard.invitedBy') }}</TableHead>
-              <TableHead>{{ $t('tables.tableCard.bedLocation') }}</TableHead>
-              <TableHead>{{ $t('tables.tableCard.parish') }}</TableHead>
-              <TableHead>{{ $t('tables.tableCard.phones') }}</TableHead>
-              <TableHead>{{ $t('tables.tableCard.emausMember') }}</TableHead>
-              <!-- <TableHead>Home Phone</TableHead> -->
-              <!-- <TableHead>Work Phone</TableHead>
-              <TableHead>Cell Phone</TableHead>-->
-              <TableHead>{{ $t('tables.tableCard.email') }}</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            <TableRow v-for="walker in table.walkers" :key="walker.id">
-              <TableCell>{{ walker.id_on_retreat || $t('tables.tableCard.notAvailable') }}</TableCell>
-              <TableCell>{{ walker.firstName }} {{ walker.lastName }}</TableCell>
-              <TableCell>{{ walker.invitedBy || $t('tables.tableCard.notAvailable') }}</TableCell>
-              <TableCell>{{ getBedLocation(walker.retreatBed) || $t('tables.tableCard.notAvailable') }}</TableCell>
-              <TableCell>{{ walker.parish || $t('tables.tableCard.notAvailable') }}</TableCell>
-              <TableCell>{{ getPhones(walker) || $t('tables.tableCard.notAvailable') }}</TableCell>
-              <TableCell>{{ walker.isInvitedByEmausMember ? $t('common.yes') : $t('common.no') }}</TableCell>
-              <!--TableCell>{{ walker.inviterHomePhone || 'N/A' }}</TableCell>
-              <TableCell>{{ walker.inviterWorkPhone || 'N/A' }}</TableCell>
-              <TableCell>{{ walker.cellPhone || 'N/A' }}</TableCell-->
-              <TableCell>{{ walker.email || $t('tables.tableCard.notAvailable') }}</TableCell>
-            </TableRow>
-          </TableBody>
-        </Table>
+        <!-- Desktop: 8-column table. -->
+        <div class="hidden sm:block">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>{{ $t('tables.tableCard.retreatId') }}</TableHead>
+                <TableHead>{{ $t('tables.tableCard.walkerName') }}</TableHead>
+                <TableHead>{{ $t('tables.tableCard.invitedBy') }}</TableHead>
+                <TableHead>{{ $t('tables.tableCard.bedLocation') }}</TableHead>
+                <TableHead>{{ $t('tables.tableCard.parish') }}</TableHead>
+                <TableHead>{{ $t('tables.tableCard.phones') }}</TableHead>
+                <TableHead>{{ $t('tables.tableCard.emausMember') }}</TableHead>
+                <!-- <TableHead>Home Phone</TableHead> -->
+                <!-- <TableHead>Work Phone</TableHead>
+                <TableHead>Cell Phone</TableHead>-->
+                <TableHead>{{ $t('tables.tableCard.email') }}</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              <TableRow v-for="walker in table.walkers" :key="walker.id">
+                <TableCell>{{ walker.id_on_retreat || $t('tables.tableCard.notAvailable') }}</TableCell>
+                <TableCell>{{ walker.firstName }} {{ walker.lastName }}</TableCell>
+                <TableCell>{{ walker.invitedBy || $t('tables.tableCard.notAvailable') }}</TableCell>
+                <TableCell>{{ getBedLocation(walker.retreatBed) || $t('tables.tableCard.notAvailable') }}</TableCell>
+                <TableCell>{{ walker.parish || $t('tables.tableCard.notAvailable') }}</TableCell>
+                <TableCell>{{ getPhones(walker) || $t('tables.tableCard.notAvailable') }}</TableCell>
+                <TableCell>{{ walker.isInvitedByEmausMember ? $t('common.yes') : $t('common.no') }}</TableCell>
+                <!--TableCell>{{ walker.inviterHomePhone || 'N/A' }}</TableCell>
+                <TableCell>{{ walker.inviterWorkPhone || 'N/A' }}</TableCell>
+                <TableCell>{{ walker.cellPhone || 'N/A' }}</TableCell-->
+                <TableCell>{{ walker.email || $t('tables.tableCard.notAvailable') }}</TableCell>
+              </TableRow>
+            </TableBody>
+          </Table>
+        </div>
+        <!-- Mobile: 8 columns never fit a phone screen; one compact card per
+             walker with the same data and the same i18n keys. -->
+        <ul v-if="table.walkers && table.walkers.length > 0" class="sm:hidden flex flex-col gap-3">
+          <li
+            v-for="walker in table.walkers"
+            :key="walker.id"
+            class="rounded-lg border p-3"
+          >
+            <p class="text-sm font-medium">
+              <span v-if="walker.id_on_retreat" class="mr-1 font-bold">{{ walker.id_on_retreat }}</span>
+              {{ walker.firstName }} {{ walker.lastName }}
+            </p>
+            <dl class="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs">
+              <dt class="text-muted-foreground">{{ $t('tables.tableCard.invitedBy') }}</dt>
+              <dd>{{ walker.invitedBy || $t('tables.tableCard.notAvailable') }}</dd>
+              <dt class="text-muted-foreground">{{ $t('tables.tableCard.bedLocation') }}</dt>
+              <dd>{{ getBedLocation(walker.retreatBed) || $t('tables.tableCard.notAvailable') }}</dd>
+              <dt class="text-muted-foreground">{{ $t('tables.tableCard.parish') }}</dt>
+              <dd>{{ walker.parish || $t('tables.tableCard.notAvailable') }}</dd>
+              <dt class="text-muted-foreground">{{ $t('tables.tableCard.phones') }}</dt>
+              <dd class="break-words">{{ getPhones(walker) || $t('tables.tableCard.notAvailable') }}</dd>
+              <dt class="text-muted-foreground">{{ $t('tables.tableCard.emausMember') }}</dt>
+              <dd>{{ walker.isInvitedByEmausMember ? $t('common.yes') : $t('common.no') }}</dd>
+              <dt class="text-muted-foreground">{{ $t('tables.tableCard.email') }}</dt>
+              <dd class="break-words">{{ walker.email || $t('tables.tableCard.notAvailable') }}</dd>
+            </dl>
+          </li>
+        </ul>
       </DialogContent>
     </Dialog>
 
@@ -270,6 +336,12 @@
       :table="table"
       @update:open="isPhotoDialogOpen = $event"
       @assigned="$emit('refresh')"
+    />
+
+    <TableMemoryPhotoDialog
+      :open="isMemoryPhotoDialogOpen"
+      :table="table"
+      @update:open="isMemoryPhotoDialogOpen = $event"
     />
   </div>
 </template>
@@ -307,21 +379,14 @@ import { buildTableData } from '@/utils/tableBriefing';
 import { highlightClassFor } from '@/utils/participantSearch';
 import type { SearchHighlight } from '@/utils/participantSearch';
 
-import {
-  Button,
-  Input,
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@repo/ui';
-import { Trash2, Eye, Camera, Send, Pencil, Check, X, MoreVertical } from 'lucide-vue-next';
-import { useRekaDialogFix } from '@/composables/useRekaDialogFix';
+import { Button, Input } from '@repo/ui';
 import { participantLabel } from '@/utils/participant';
+import { Trash2, Eye, Camera, ImagePlus, Send, Pencil, Check, X, MoreVertical } from 'lucide-vue-next';
 import { apiErrorMessage } from '@/services/apiError';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@repo/ui';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@repo/ui';
+import { useRekaDialogFix } from '@/composables/useRekaDialogFix';
 import PhotoAssignmentDialog from '@/components/PhotoAssignmentDialog.vue';
+import TableMemoryPhotoDialog from '@/components/TableMemoryPhotoDialog.vue';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@repo/ui';
 
 const props = defineProps({
@@ -361,14 +426,13 @@ const { toast } = useToast();
 const { draggedParticipantType, startDrag: startDragState, endDrag } = useDragState();
 const { tappedParticipant, onTouchStart: tapTouchStart, onTouchEnd: tapTouchEnd, onTapZone: tapZone, onZoneClick: tapZoneClick, isSelected: isTapSelected, clearSelection: clearTap } = useTapAssign();
 
-
-
 const isOverServer = ref(false);
 const isOverWalker = ref(false);
 const dragOverRole = ref<'lider' | 'colider1' | 'colider2' | null>(null);
 const isDropInvalid = ref(false);
 const isDialogOpen = ref(false);
 const isPhotoDialogOpen = ref(false);
+const isMemoryPhotoDialogOpen = ref(false);
 
 const hasWalkers = computed(() => (props.table.walkers?.length || 0) > 0);
 

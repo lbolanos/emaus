@@ -104,6 +104,21 @@ export const updateTable = async (
   return response.data;
 };
 
+/** Uploads or replaces the group photo of a table (spec table-memory-photo). */
+export const uploadTablePhoto = async (
+  tableId: string,
+  photoData: string,
+): Promise<TableMesa> => {
+  const response = await api.put(`/tables/${tableId}/photo`, { photoData });
+  return response.data;
+};
+
+/** Removes the group photo of a table (spec table-memory-photo). */
+export const deleteTablePhoto = async (tableId: string): Promise<TableMesa> => {
+  const response = await api.delete(`/tables/${tableId}/photo`);
+  return response.data;
+};
+
 export const assignLeaderToTable = async (
   tableId: string,
   participantId: string,
