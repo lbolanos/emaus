@@ -398,6 +398,12 @@ declare global {
 			isDevelopment?: boolean;
 			isProduction?: boolean;
 			isStaging?: boolean;
+			/**
+			 * Kill switch for working without signal (specs/offline-mode, NFR-5).
+			 * Only an explicit `false` turns it off: the service worker unregisters
+			 * itself and its caches are dropped on the next load.
+			 */
+			offlineMode?: boolean;
 		};
 	}
 }
