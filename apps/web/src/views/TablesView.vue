@@ -376,54 +376,58 @@
         </div>
       </div>
 
-      <!-- Mobile: tabbed content (hidden on md+) - NO tooltip wrapper, touch handlers on outer span -->
-      <div v-show="unassignedPanelOpen" class="md:hidden">
-        <!-- Unassigned Servers -->
-        <div v-show="unassignedTab === 'server'">
-          <div class="p-2 bg-gray-50 dark:bg-gray-800 rounded-lg border min-h-[40px] max-h-24 overflow-y-auto flex flex-wrap gap-2">
-            <ParticipantInfoPopover
-              v-for="server in unassignedServers"
-              :key="server.id"
-              :participant="server"
-              :attendance="attendanceFor(server.id)"
+    </div>
+    </div>
+
+    <!-- Mobile unassigned pills (spec tables-second-cycle D1): they scroll
+         with the content instead of staying pinned; only the banner, search
+         and the tabs+toggle row remain sticky above. NO tooltip wrapper,
+         touch handlers on the outer span. -->
+    <div v-show="unassignedPanelOpen" class="md:hidden px-2 pt-2">
+      <!-- Unassigned Servers -->
+      <div v-show="unassignedTab === 'server'">
+        <div class="p-2 bg-gray-50 dark:bg-gray-800 rounded-lg border min-h-[40px] max-h-24 overflow-y-auto flex flex-wrap gap-2">
+          <ParticipantInfoPopover
+            v-for="server in unassignedServers"
+            :key="server.id"
+            :participant="server"
+            :attendance="attendanceFor(server.id)"
+          >
+            <span
+              @touchstart.passive="tapTouchStart"
+              @touchend="tapTouchEnd($event, server)"
+              class="px-2 py-0.5 bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 rounded-full text-xs font-medium cursor-pointer transition-all select-none"
+              :class="{ 'ring-2 ring-blue-500 ring-offset-1 scale-110': isTapSelected(server.id) }"
             >
+              {{ server.firstName.split(' ')[0] }} {{ server.lastName.charAt(0) }}.
               <span
-                @touchstart.passive="tapTouchStart"
-                @touchend="tapTouchEnd($event, server)"
-                class="px-2 py-0.5 bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 rounded-full text-xs font-medium cursor-pointer transition-all select-none"
-                :class="{ 'ring-2 ring-blue-500 ring-offset-1 scale-110': isTapSelected(server.id) }"
-              >
-                {{ server.firstName.split(' ')[0] }} {{ server.lastName.charAt(0) }}.
-                <span
-                  v-if="attendanceFor(server.id)"
-                  class="ml-1 px-1 rounded-sm text-[10px] font-semibold"
-                  :class="attendanceBadgeClass(attendanceFor(server.id)!.frequency)"
-                >{{ Math.round(attendanceFor(server.id)!.ratePercent) }}%</span>
-              </span>
-            </ParticipantInfoPopover>
-          </div>
-        </div>
-        <!-- Unassigned Walkers -->
-        <div v-show="unassignedTab === 'walker'">
-          <div class="p-2 bg-gray-50 dark:bg-gray-800 rounded-lg border min-h-[40px] max-h-24 overflow-y-auto flex flex-wrap gap-2">
-            <ParticipantInfoPopover
-              v-for="walker in unassignedWalkers"
-              :key="walker.id"
-              :participant="walker"
-            >
-              <span
-                @touchstart.passive="tapTouchStart"
-                @touchend="tapTouchEnd($event, walker)"
-                class="px-2 py-0.5 bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 rounded-full text-xs font-medium cursor-pointer transition-all select-none"
-                :class="{ 'ring-2 ring-green-500 ring-offset-1 scale-110': isTapSelected(walker.id) }"
-              >
-                <span class="font-bold px-1 rounded" :style="walker.family_friend_color ? { backgroundColor: walker.family_friend_color, color: '#000' } : {}">{{ walker.id_on_retreat || '' }}</span> {{ walker.firstName.split(' ')[0] }} {{ walker.lastName.charAt(0) }}.
-              </span>
-            </ParticipantInfoPopover>
-          </div>
+                v-if="attendanceFor(server.id)"
+                class="ml-1 px-1 rounded-sm text-[10px] font-semibold"
+                :class="attendanceBadgeClass(attendanceFor(server.id)!.frequency)"
+              >{{ Math.round(attendanceFor(server.id)!.ratePercent) }}%</span>
+            </span>
+          </ParticipantInfoPopover>
         </div>
       </div>
-    </div>
+      <!-- Unassigned Walkers -->
+      <div v-show="unassignedTab === 'walker'">
+        <div class="p-2 bg-gray-50 dark:bg-gray-800 rounded-lg border min-h-[40px] max-h-24 overflow-y-auto flex flex-wrap gap-2">
+          <ParticipantInfoPopover
+            v-for="walker in unassignedWalkers"
+            :key="walker.id"
+            :participant="walker"
+          >
+            <span
+              @touchstart.passive="tapTouchStart"
+              @touchend="tapTouchEnd($event, walker)"
+              class="px-2 py-0.5 bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 rounded-full text-xs font-medium cursor-pointer transition-all select-none"
+              :class="{ 'ring-2 ring-green-500 ring-offset-1 scale-110': isTapSelected(walker.id) }"
+            >
+              <span class="font-bold px-1 rounded" :style="walker.family_friend_color ? { backgroundColor: walker.family_friend_color, color: '#000' } : {}">{{ walker.id_on_retreat || '' }}</span> {{ walker.firstName.split(' ')[0] }} {{ walker.lastName.charAt(0) }}.
+            </span>
+          </ParticipantInfoPopover>
+        </div>
+      </div>
     </div>
 
     <!-- Scrollable Content -->

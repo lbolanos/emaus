@@ -1969,6 +1969,8 @@
       "hint": "JPG, PNG o WebP. Las fotos grandes se reducen solas.",
       "pendingReplace": "Vista previa: al guardar se reemplaza la foto actual.",
       "remove": "Eliminar",
+      "removeConfirm": "¿Eliminar la foto?",
+      "removeConfirmAction": "Confirmar",
       "save": "Guardar",
       "saving": "Guardando...",
       "savedTitle": "Foto actualizada",
