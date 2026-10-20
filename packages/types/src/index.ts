@@ -490,6 +490,10 @@ export const tableMesaSchema = z.object({
 	colider1: z.any().nullable().optional(),
 	colider2: z.any().nullable().optional(),
 	walkers: z.array(z.any()).optional(),
+	// Group photo for the retreat keepsake. Nullable: most tables have none. NOT
+	// `.url()` — in dev (base64 mode) it is a data: URI, and
+	// `findTablesByRetreatId` validates its output with `.array().parse`.
+	photoUrl: z.string().nullable().optional(),
 });
 export type TableMesa = z.infer<typeof tableMesaSchema>;
 
