@@ -26,7 +26,7 @@ import {
   retreatMemoryService,
   presignRetreatMemoryUrls,
   presignMemoryPhoto,
-  tablePhotosForRetreat,
+  tablePhotosForRetreats,
 } from "../services/retreatMemoryService";
 import { s3Service } from "../services/s3Service";
 
@@ -704,15 +704,14 @@ export const getAttendedRetreats = async (
     const attended = Array.from(retreatsById.values());
     await Promise.all(attended.map(presignRetreatMemoryUrls));
     // Table photos (spec table-memory-photo) join each retreat's gallery; they
-    // come back already presigned by tablePhotosForRetreat, so they are appended
-    // after the presign pass instead of going through it twice.
-    const tablePhotosByRetreat = await Promise.all(
-      attended.map(async (retreat) => ({
-        retreat,
-        tablePhotos: await tablePhotosForRetreat(retreat.id),
-      })),
+    // come back already presigned, so they are appended after the presign pass
+    // instead of going through it twice. One batched query for all attended
+    // retreats (spec tables-second-cycle D3) instead of one per retreat.
+    const tablePhotosByRetreat = await tablePhotosForRetreats(
+      attended.map((r) => r.id),
     );
-    for (const { retreat, tablePhotos } of tablePhotosByRetreat) {
+    for (const retreat of attended) {
+      const tablePhotos = tablePhotosByRetreat.get(retreat.id) ?? [];
       if (tablePhotos.length > 0) {
         (retreat as any).memoryPhotos = [
           ...(retreat.memoryPhotos ?? []),

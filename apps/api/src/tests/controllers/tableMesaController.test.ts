@@ -385,6 +385,10 @@ describe('Table Mesa Controller', () => {
 	});
 
 	describe('createTable', () => {
+		// D5 (spec tables-second-cycle) validates the body with zod: retreatId
+		// must be a real uuid and only retreatId/name reach the service.
+		const retreatId = '11111111-1111-4111-8111-111111111111';
+
 		test('should return 400 when retreatId is missing', async () => {
 			const req = createMockRequest({ body: {} });
 			const res = createMockResponse();
@@ -392,17 +396,35 @@ describe('Table Mesa Controller', () => {
 			await tableMesaController.createTable(req as any, res as any, mockNext);
 
 			expect(res.status).toHaveBeenCalledWith(400);
+			expect(res.json).toHaveBeenCalledWith(
+				expect.objectContaining({ message: 'Validation error' }),
+			);
+			expect(tableMesaService.createTable).not.toHaveBeenCalled();
+		});
+
+		test.each([
+			['not a uuid', { retreatId: 'retreat-1' }],
+			['blank name', { retreatId, name: '   ' }],
+			['name too long', { retreatId, name: 'M'.repeat(61) }],
+		])('should return 400 when the body is %s, before any access check', async (_label, body) => {
+			const req = createMockRequest({ body });
+			const res = createMockResponse();
+
+			await tableMesaController.createTable(req as any, res as any, mockNext);
+
+			expect(res.status).toHaveBeenCalledWith(400);
+			expect(ensureRetreatAccess).not.toHaveBeenCalled();
 			expect(tableMesaService.createTable).not.toHaveBeenCalled();
 		});
 
 		test('should check access to the target retreat before creating', async () => {
 			(ensureRetreatAccess as jest.Mock).mockResolvedValue(false);
-			const req = createMockRequest({ body: { retreatId: 'retreat-1' } });
+			const req = createMockRequest({ body: { retreatId } });
 			const res = createMockResponse();
 
 			await tableMesaController.createTable(req as any, res as any, mockNext);
 
-			expect(ensureRetreatAccess).toHaveBeenCalledWith(req, res, 'retreat-1');
+			expect(ensureRetreatAccess).toHaveBeenCalledWith(req, res, retreatId);
 			expect(tableMesaService.createTable).not.toHaveBeenCalled();
 			expect(res.json).not.toHaveBeenCalled();
 		});
@@ -413,14 +435,46 @@ describe('Table Mesa Controller', () => {
 				id: 'table-2',
 				name: 'Mesa 2',
 			});
-			const req = createMockRequest({ body: { retreatId: 'retreat-1' } });
+			const req = createMockRequest({ body: { retreatId } });
 			const res = createMockResponse();
 
 			await tableMesaController.createTable(req as any, res as any, mockNext);
 
-			expect(tableMesaService.createTable).toHaveBeenCalledWith({ retreatId: 'retreat-1' });
+			expect(tableMesaService.createTable).toHaveBeenCalledWith({ retreatId });
 			expect(res.status).toHaveBeenCalledWith(201);
 			expect(res.json).toHaveBeenCalledWith({ id: 'table-2', name: 'Mesa 2' });
+		});
+
+		test('strips unknown fields: mass-assignment keys never reach the service', async () => {
+			(ensureRetreatAccess as jest.Mock).mockResolvedValue(true);
+			(tableMesaService.createTable as jest.Mock).mockResolvedValue({
+				id: 'table-2',
+				name: 'Mesa 2',
+			});
+			const req = createMockRequest({
+				body: { retreatId, photoUrl: 'https://evil/x.webp', liderId: 'p-1', sortOrder: 99 },
+			});
+			const res = createMockResponse();
+
+			await tableMesaController.createTable(req as any, res as any, mockNext);
+
+			// Deep equality: any key the schema failed to strip fails this.
+			expect(tableMesaService.createTable).toHaveBeenCalledWith({ retreatId });
+			expect(res.status).toHaveBeenCalledWith(201);
+		});
+
+		test('normalizes a provided name before it reaches the service', async () => {
+			(ensureRetreatAccess as jest.Mock).mockResolvedValue(true);
+			(tableMesaService.createTable as jest.Mock).mockResolvedValue({
+				id: 'table-2',
+				name: 'Mesa 5',
+			});
+			const req = createMockRequest({ body: { retreatId, name: '  Mesa   5 ' } });
+			const res = createMockResponse();
+
+			await tableMesaController.createTable(req as any, res as any, mockNext);
+
+			expect(tableMesaService.createTable).toHaveBeenCalledWith({ retreatId, name: 'Mesa 5' });
 		});
 	});
 

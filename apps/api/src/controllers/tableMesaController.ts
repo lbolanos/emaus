@@ -14,6 +14,21 @@ const renameTableBodySchema = z.object({
 });
 
 /**
+ * Only the creation fields pass through (spec tables-second-cycle D5): the
+ * service spreads `...tableData` into the entity, so an unvalidated body would
+ * mass-assign `photoUrl`/`liderId`/whatever a client sends. `name` is optional
+ * — absent means the server numbers it from the stored tables.
+ */
+const createTableBodySchema = z.object({
+	retreatId: z.string().uuid(),
+	name: z
+		.string()
+		.transform(tableMesaService.normalizeTableName)
+		.pipe(z.string().min(1).max(tableMesaService.MAX_TABLE_NAME_LENGTH))
+		.optional(),
+});
+
+/**
  * Strip health/emergency-contact data from every Participant a table payload
  * embeds — lider/colider1/colider2 are nested single objects (stripped one by
  * one: stripSensitiveHealthFields recurses arrays but not nested objects) and
@@ -82,13 +97,19 @@ export const getTable = async (req: Request, res: Response, next: NextFunction) 
 	}
 };
 
+/**
+ * Only `retreatId` and an optional pre-normalized `name` reach the service
+ * (spec tables-second-cycle D5). Validation happens BEFORE the access guard so
+ * a malformed body can't probe retreat ids; the error shape matches the rename.
+ */
 export const createTable = async (req: Request, res: Response, next: NextFunction) => {
 	try {
-		if (!req.body?.retreatId) {
-			return res.status(400).json({ message: 'retreatId is required' });
+		const parsed = createTableBodySchema.safeParse(req.body);
+		if (!parsed.success) {
+			return res.status(400).json({ message: 'Validation error', errors: parsed.error.errors });
 		}
-		if (!(await ensureRetreatAccess(req, res, req.body.retreatId))) return;
-		const newTable = await tableMesaService.createTable(req.body);
+		if (!(await ensureRetreatAccess(req, res, parsed.data.retreatId))) return;
+		const newTable = await tableMesaService.createTable(parsed.data);
 		res.status(201).json(newTable);
 	} catch (error: any) {
 		next(error);
