@@ -8,12 +8,18 @@ export const useRetreatMemoryStore = defineStore('retreatMemory', () => {
 	const loading = ref(false);
 	const error = ref<string | null>(null);
 
+	// A retreat counts as having memories when the legacy mirrors are set OR it
+	// carries any gallery photo — including table group photos (source 'table'),
+	// which never touch the memoryPhotoUrl mirror (spec table-memory-photo).
+	const hasRetreatMemories = (r: Retreat) =>
+		r.memoryPhotoUrl || r.musicPlaylistUrl || (r.memoryPhotos?.length ?? 0) > 0;
+
 	const hasMemories = computed(() => {
-		return attendedRetreats.value.some((r) => r.memoryPhotoUrl || r.musicPlaylistUrl);
+		return attendedRetreats.value.some(hasRetreatMemories);
 	});
 
 	const retreatsWithMemories = computed(() => {
-		return attendedRetreats.value.filter((r) => r.memoryPhotoUrl || r.musicPlaylistUrl);
+		return attendedRetreats.value.filter(hasRetreatMemories);
 	});
 
 	async function fetchAttendedRetreats() {

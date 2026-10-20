@@ -103,6 +103,15 @@
               <Camera class="w-4 h-4" />
             </Button>
             <Button
+              variant="outline"
+              size="icon"
+              class="h-8 w-8"
+              @click="isMemoryPhotoDialogOpen = true"
+              :title="$t('tables.photoMemory.menuLabel')"
+            >
+              <ImagePlus class="w-4 h-4" />
+            </Button>
+            <Button
               variant="destructive"
               size="icon"
               class="h-8 w-8"
@@ -147,6 +156,9 @@
                 </DropdownMenuItem>
                 <DropdownMenuItem @select="deferOpen(() => (isPhotoDialogOpen = true))">
                   <Camera class="mr-2 h-4 w-4" /> {{ $t('tables.photoAssign.tableTitle') }}
+                </DropdownMenuItem>
+                <DropdownMenuItem @select="deferOpen(() => (isMemoryPhotoDialogOpen = true))">
+                  <ImagePlus class="mr-2 h-4 w-4" /> {{ $t('tables.photoMemory.menuLabel') }}
                 </DropdownMenuItem>
                 <DropdownMenuItem :disabled="hasWalkers" @click="confirmDelete">
                   <Trash2 class="mr-2 h-4 w-4" /> {{ $t('tables.deleteTable.title') }}
@@ -279,6 +291,23 @@
             </transition-group>
             <span v-else class="text-gray-400 text-sm mt-2 block">{{ $t('tables.unassigned') }}</span>
           </div>
+
+          <!-- Table keepsake photo (spec table-memory-photo). Tapping the
+               thumbnail reopens the manage dialog to replace or remove it. -->
+          <button
+            v-if="table.photoUrl"
+            type="button"
+            class="flex items-center gap-2 rounded-md border p-1.5 text-left transition-colors hover:bg-secondary/50"
+            data-testid="table-photo-thumb"
+            @click="isMemoryPhotoDialogOpen = true"
+          >
+            <img
+              :src="table.photoUrl"
+              :alt="$t('tables.photoMemory.menuLabel')"
+              class="h-12 w-12 shrink-0 rounded object-cover"
+            />
+            <span class="text-xs text-muted-foreground">{{ $t('tables.photoMemory.menuLabel') }}</span>
+          </button>
         </div>
       </CardContent>
     </Card>
@@ -360,6 +389,12 @@
       @update:open="isPhotoDialogOpen = $event"
       @assigned="$emit('refresh')"
     />
+
+    <TableMemoryPhotoDialog
+      :open="isMemoryPhotoDialogOpen"
+      :table="table"
+      @update:open="isMemoryPhotoDialogOpen = $event"
+    />
   </div>
 </template>
 
@@ -397,11 +432,12 @@ import { highlightClassFor } from '@/utils/participantSearch';
 import type { SearchHighlight } from '@/utils/participantSearch';
 
 import { Button, Input, Popover, PopoverContent, PopoverTrigger } from '@repo/ui';
-import { Trash2, Eye, Camera, Send, Pencil, Check, X, MoreVertical } from 'lucide-vue-next';
+import { Trash2, Eye, Camera, ImagePlus, Send, Pencil, Check, X, MoreVertical } from 'lucide-vue-next';
 import { apiErrorMessage } from '@/services/apiError';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@repo/ui';
 import { useRekaDialogFix } from '@/composables/useRekaDialogFix';
 import PhotoAssignmentDialog from '@/components/PhotoAssignmentDialog.vue';
+import TableMemoryPhotoDialog from '@/components/TableMemoryPhotoDialog.vue';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@repo/ui';
 
 const props = defineProps({
@@ -452,6 +488,7 @@ const dragOverRole = ref<'lider' | 'colider1' | 'colider2' | null>(null);
 const isDropInvalid = ref(false);
 const isDialogOpen = ref(false);
 const isPhotoDialogOpen = ref(false);
+const isMemoryPhotoDialogOpen = ref(false);
 
 const hasWalkers = computed(() => (props.table.walkers?.length || 0) > 0);
 

@@ -74,6 +74,7 @@ vi.mock('lucide-vue-next', () => ({
   Trash2: { name: 'Trash2', template: '<svg />' },
   Eye: { name: 'Eye', template: '<svg />' },
   Camera: { name: 'Camera', template: '<svg />' },
+  ImagePlus: { name: 'ImagePlus', template: '<svg />' },
   Send: { name: 'Send', template: '<svg class="icon-send" />' },
   Pencil: { name: 'Pencil', template: '<svg />' },
   Check: { name: 'Check', template: '<svg />' },
@@ -85,6 +86,7 @@ vi.mock('./ServerDropZone.vue', () => ({ default: { name: 'ServerDropZone', temp
 vi.mock('@/components/ParticipantTooltip.vue', () => ({ default: { name: 'ParticipantTooltip', template: '<div><slot /></div>' } }));
 vi.mock('@/components/ParticipantInfoPopover.vue', () => ({ default: { name: 'ParticipantInfoPopover', template: '<div><slot /></div>' } }));
 vi.mock('@/components/PhotoAssignmentDialog.vue', () => ({ default: { name: 'PhotoAssignmentDialog', template: '<div />' } }));
+vi.mock('@/components/TableMemoryPhotoDialog.vue', () => ({ default: { name: 'TableMemoryPhotoDialog', template: '<div />' } }));
 
 import TableCard from '@/views/TableCard.vue';
 

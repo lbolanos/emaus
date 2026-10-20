@@ -1,11 +1,19 @@
 <template>
 	<div v-if="slides.length" class="relative group/carousel">
 		<img
-			:src="slides[currentIndex]"
+			:src="slides[currentIndex].url"
 			:alt="`Foto del recuerdo ${currentIndex + 1}`"
 			:class="['w-full object-cover cursor-zoom-in', heightClass]"
 			@click="openLightbox"
 		/>
+
+		<!-- Table-photo label ("Mesa 3"), shown even with a single slide -->
+		<span
+			v-if="currentLabel"
+			class="absolute bottom-2 left-2 px-2 py-0.5 rounded-full bg-background/80 text-xs font-medium"
+		>
+			{{ currentLabel }}
+		</span>
 
 		<!-- Controls (only when more than one photo) -->
 		<template v-if="slides.length > 1">
@@ -58,10 +66,17 @@
 				@click.self="closeLightbox"
 			>
 				<img
-					:src="slides[currentIndex]"
+					:src="slides[currentIndex].url"
 					:alt="`Foto del recuerdo ${currentIndex + 1}`"
 					class="max-h-[90vh] max-w-[92vw] object-contain rounded"
 				/>
+
+				<span
+					v-if="currentLabel"
+					class="absolute bottom-4 left-4 px-3 py-1 rounded-full bg-white/15 text-white text-sm font-medium"
+				>
+					{{ currentLabel }}
+				</span>
 
 				<!-- Close -->
 				<button
@@ -123,17 +138,20 @@ const currentIndex = ref(0);
 const lightboxOpen = ref(false);
 
 // Primary photo first, then by sortOrder. Falls back to the legacy single URL.
-const slides = computed<string[]>(() => {
+// Each slide keeps its label: table photos ("Mesa 3") show it as a badge.
+const slides = computed<{ url: string; label: string | null }[]>(() => {
 	if (props.photos && props.photos.length) {
 		return [...props.photos]
 			.sort((a, b) => {
 				if (a.isPrimary !== b.isPrimary) return a.isPrimary ? -1 : 1;
 				return a.sortOrder - b.sortOrder;
 			})
-			.map((p) => p.url);
+			.map((p) => ({ url: p.url, label: p.label ?? null }));
 	}
-	return props.fallbackUrl ? [props.fallbackUrl] : [];
+	return props.fallbackUrl ? [{ url: props.fallbackUrl, label: null }] : [];
 });
+
+const currentLabel = computed(() => slides.value[currentIndex.value]?.label ?? null);
 
 // Keep the index in range when the underlying photos change.
 watch(slides, (s) => {
