@@ -44,10 +44,6 @@ declare module "axios" {
   }
 }
 
-// Import type definitions
-import type { ImportMetaEnv } from "@/config/vite-env";
-declare const import_meta: ImportMeta;
-
 export const api = axios.create({
   baseURL: getApiUrl(),
   withCredentials: true,
