@@ -145,7 +145,40 @@ vi.mock('@/components/layout/SidebarMenuItem.vue', () => ({
 // Mock @repo/ui components
 vi.mock('@repo/ui', () => {
 	const s = { template: '<div><slot /></div>' };
+	// Popover trio mirroring reka-ui's controlled API: the trigger toggles
+	// through provide/inject and the content only renders while open (the
+	// real one portals it away and hides it), so tests exercise open state.
+	const PopoverStub: any = {
+		props: { open: { type: Boolean, default: false } },
+		emits: ['update:open'],
+		provide() {
+			return {
+				popoverStubApi: {
+					isOpen: () => this.open,
+					change: (v: boolean) => this.$emit('update:open', v),
+				},
+			};
+		},
+		template: '<div><slot /></div>',
+	};
+	const PopoverTriggerStub: any = {
+		inject: { popoverStubApi: { default: null } },
+		template:
+			'<div @click="popoverStubApi && popoverStubApi.change(!popoverStubApi.isOpen())"><slot /></div>',
+	};
+	const PopoverContentStub: any = {
+		inject: { popoverStubApi: { default: null } },
+		computed: {
+			stubOpen(): boolean {
+				return this.popoverStubApi ? this.popoverStubApi.isOpen() : false;
+			},
+		},
+		template: '<div v-if="stubOpen"><slot /></div>',
+	};
 	return {
+		Popover: PopoverStub,
+		PopoverTrigger: PopoverTriggerStub,
+		PopoverContent: PopoverContentStub,
 		Button: { template: '<button><slot /></button>' },
 		Select: s, SelectContent: s, SelectGroup: s, SelectItem: s,
 		SelectTrigger: s, SelectValue: s,
@@ -895,6 +928,88 @@ describe('Sidebar Component', () => {
 			expect(header.attributes('aria-expanded')).toBe('true');
 			expect(section.find('#section-favorites').classes()).not.toContain('max-h-0');
 			expect(localStorage.getItem('sidebar-favorites-collapsed')).toBe('false');
+		});
+
+		it('shows the plus trigger only when there are suggestions', async () => {
+			favoritesStore.favoriteMenuItems = ['my-communities'];
+			favoritesStore.suggestions = [];
+			await nextTick();
+			expect(
+				favoritesWrapper.find('[data-testid="favorite-suggestions-trigger"]').exists(),
+			).toBe(false);
+
+			favoritesStore.suggestions = ['walkers'];
+			await nextTick();
+			expect(
+				favoritesWrapper.find('[data-testid="favorite-suggestions-trigger"]').exists(),
+			).toBe(true);
+		});
+
+		it('pins a suggestion from the popover with one click (and it graduates)', async () => {
+			favoritesStore.favoriteMenuItems = ['my-communities'];
+			favoritesStore.suggestions = ['walkers'];
+			mockUpdateUserProfile.mockClear();
+			await nextTick();
+
+			// Touch/keyboard path: the plus button opens the popover.
+			await favoritesWrapper
+				.find('[data-testid="favorite-suggestions-trigger"]')
+				.trigger('click');
+			await nextTick();
+
+			const popover = favoritesWrapper.find('[data-testid="favorite-suggestions"]');
+			expect(popover.exists()).toBe(true);
+			expect(popover.text()).toContain('sidebar.suggestedFavorites');
+
+			await popover.findAll('button')[0].trigger('click');
+			await flushPromises();
+			await nextTick();
+
+			expect(mockUpdateUserProfile).toHaveBeenCalledWith({
+				favoriteMenuItems: ['my-communities', 'walkers'],
+			});
+			expect(favoritesStore.favoriteMenuItems).toEqual(['my-communities', 'walkers']);
+			// The pin graduated the suggestion out of the popover, which —
+			// with nothing left to suggest — also takes the trigger away.
+			expect(favoritesStore.suggestions).toEqual([]);
+			expect(
+				favoritesWrapper.find('[data-testid="favorite-suggestions-trigger"]').exists(),
+			).toBe(false);
+			// Pinning the last suggestion closes the popover: no empty popover
+			// floating around with just its title.
+			expect(favoritesWrapper.find('[data-testid="favorite-suggestions"]').exists()).toBe(false);
+		});
+
+		it('opens the popover on header hover and closes it on leave (intent timers)', async () => {
+			vi.useFakeTimers();
+			try {
+				favoritesStore.favoriteMenuItems = ['my-communities'];
+				favoritesStore.suggestions = ['walkers'];
+				await nextTick();
+
+				const hoverZone = getFavoritesSection(favoritesWrapper).find('.px-2.py-1');
+				const popover = () =>
+					favoritesWrapper.find('[data-testid="favorite-suggestions"]');
+
+				// Hover alone does not open it: the 400ms intent timer must elapse.
+				await hoverZone.trigger('mouseenter');
+				expect(popover().exists()).toBe(false);
+				vi.advanceTimersByTime(400);
+				await nextTick();
+				expect(popover().exists()).toBe(true);
+
+				// Leaving schedules the close; the 250ms grace lets the pointer
+				// cross the gap into the (portaled, in real life) content.
+				await hoverZone.trigger('mouseleave');
+				vi.advanceTimersByTime(100);
+				await nextTick();
+				expect(popover().exists()).toBe(true);
+				vi.advanceTimersByTime(200);
+				await nextTick();
+				expect(popover().exists()).toBe(false);
+			} finally {
+				vi.useRealTimers();
+			}
 		});
 	});
 

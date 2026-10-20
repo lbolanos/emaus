@@ -101,6 +101,18 @@ divergían en móvil).
 - **D9 — E2E mínimo de Playwright**: regresión del acordeón (conservada del spec anterior) + flujo
   de favoritos de menú (seed por PUT, sección arriba, clic navega, estrella conmuta, persiste tras
   recarga; restore del perfil en `afterAll`).
+- **D10 — Popover de sugerencias por telemetría sobre el header de «Favoritos»** (feedback de
+  Leonardo, 2026-10-19, punto 3). Hover sobre la sección (intent 400ms para abrir, 250ms para
+  cerrar — grace para cruzar al contenido portaleado) o clic en el botón `+` (touch/teclado) abre
+  un popover (`Popover` de `@repo/ui`, `side="right" align="start"`) con hasta **5 vistas
+  frecuentes no fijadas**: top-12 de telemetría propia (`page_view` ∩ `MENU_ROUTE_NAMES`, vistas
+  desc) ∪ `DEFAULT_FAVORITE_MENU_ITEMS`, menos las ya pineadas, cap 5. Se computa **al vuelo en el
+  GET propio** (campo `favoriteSuggestions`, nunca persistido) y viaja con el perfil; al fijar,
+  la sugerencia «se gradúa» del popover (moves optimistas en el store con rollback conjunto del
+  PUT). El popover se cierra solo al quedarse sin sugerencias, y el botón `+` desaparece cuando
+  no hay ninguna. Privacidad: solo el GET propio lo devuelve (`getPublicProfile`/`searchUsers`
+  no lo exponen, cubierto por tests). Hit area del `+`: 40px vía `::before -inset-[6px]` (mismo
+  estándar que la estrella) sin engordar el header compacto.
 
 ## Requerimientos
 
@@ -148,6 +160,10 @@ telemetría propia en la DB del worktree — research §7):
 8. El header de «Favoritos» colapsa la sección (chevron rota, `aria-expanded` false, contenido
    recortado) y el colapso **sobrevive un reload** (localStorage) — sin que el acordeón de
    secciones lo abra ni lo cierre nunca.
+9. Hover sobre el header de «Favoritos» (400ms) o clic en el `+` abre el popover de sugerencias
+   con vistas frecuentes **no fijadas** (telemetría propia, cap 5); clic en una la fija (PUT
+   parcial), la sugestión se gradúa del popover y aparece en la sección; el pin **sobrevive un
+   reload**. Al vaciarse las sugerencias el popover se cierra solo y el `+` desaparece.
 
 **Negativos** (lo que NO debe pasar):
 
@@ -158,6 +174,8 @@ telemetría propia en la DB del worktree — research §7):
 - Un favorito cuyo item no es visible (sin permiso, sin retiro, página sin item) no renderiza; el
   route name sigue en el perfil (GET lo devuelve).
 - El seed no corre sobre un perfil con `[]` ni reordena favoritos ya guardados.
+- Las sugerencias nunca se persisten ni salen del GET propio (no son un campo del perfil público
+  ni de la búsqueda de usuarios).
 
 ## Fuera de alcance
 

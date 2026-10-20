@@ -221,6 +221,46 @@ test.describe.serial('Sidebar — favoritos del menú', () => {
 			}),
 		).toBeVisible();
 	});
+
+	test('el popover de sugerencias fija una vista frecuente con un clic', async ({ page }) => {
+		await openApp(page);
+
+		const section = page.locator('[data-testid="sidebar-favorites"]');
+		await expect(section).toBeVisible();
+
+		// The plus button exists while there are suggestions: with this seed at
+		// least 3 defaults are unpinned, so it is always reachable.
+		const trigger = page.locator('[data-testid="favorite-suggestions-trigger"]');
+		await expect(trigger).toBeVisible();
+
+		await trigger.click();
+		const popover = page.locator('[data-testid="favorite-suggestions"]');
+		await expect(popover).toBeVisible();
+		await expect(popover.getByText('Sugerencias')).toBeVisible();
+
+		// Suggestions are telemetry-driven, so pin the first one by its own
+		// label instead of assuming a specific view.
+		const firstSuggestion = popover.locator('button[aria-label^="Fijar"]').first();
+		const label = (await firstSuggestion.innerText()).trim();
+		expect(label).not.toBe('');
+
+		await firstSuggestion.click();
+
+		// Pinned now: the label shows up as a favorites copy at the bottom…
+		await expect(
+			section.locator('a[data-menu-item-index="-1"]', { hasText: label }),
+		).toBeVisible();
+		// …and it graduated out of the popover's own list.
+		await expect(popover.locator('button', { hasText: label })).toHaveCount(0);
+
+		// The PUT is real: the new pin survives a reload.
+		await page.reload();
+		await expect(
+			page.locator('[data-testid="sidebar-favorites"] a[data-menu-item-index="-1"]', {
+				hasText: label,
+			}),
+		).toBeVisible();
+	});
 });
 
 test.describe.serial('Sidebar — regresión del acordeón', () => {

@@ -62,6 +62,21 @@ describe('menuFavoritesStore', () => {
 				expect.objectContaining({ variant: 'destructive' }),
 			);
 		});
+
+		it('populates suggestions from the profile (empty when absent)', async () => {
+			mockGetUserProfile.mockResolvedValueOnce({
+				favoriteMenuItems: ['walkers'],
+				favoriteSuggestions: ['servers', 'tables'],
+			});
+			mockGetUserProfile.mockResolvedValueOnce({ favoriteMenuItems: ['walkers'] });
+
+			const store = useMenuFavoritesStore();
+			await store.loadFavorites();
+			expect(store.suggestions).toEqual(['servers', 'tables']);
+
+			await store.loadFavorites();
+			expect(store.suggestions).toEqual([]);
+		});
 	});
 
 	describe('isFavorite', () => {
@@ -128,6 +143,30 @@ describe('menuFavoritesStore', () => {
 			expect(mockToast).toHaveBeenCalledWith(
 				expect.objectContaining({ variant: 'destructive' }),
 			);
+		});
+
+		it('moves suggestions with the pin (and rolls them back together)', async () => {
+			mockGetUserProfile.mockResolvedValue({
+				favoriteMenuItems: ['walkers'],
+				favoriteSuggestions: ['servers', 'tables'],
+			});
+			const store = useMenuFavoritesStore();
+			await store.loadFavorites();
+
+			// Pinning graduates the suggestion out of the popover.
+			await store.toggleFavorite('servers');
+			expect(store.suggestions).toEqual(['tables']);
+
+			// Unpinning offers it back at the top of the popover (undo path).
+			await store.toggleFavorite('servers');
+			expect(store.suggestions).toEqual(['servers', 'tables']);
+
+			// A failed pin rolls favorites AND suggestions back together (the
+			// catch runs before the awaited toggle resolves).
+			mockUpdateUserProfile.mockRejectedValue(new Error('boom'));
+			await store.toggleFavorite('tables');
+			expect(store.favoriteMenuItems).not.toContain('tables');
+			expect(store.suggestions).toEqual(['servers', 'tables']);
 		});
 	});
 });

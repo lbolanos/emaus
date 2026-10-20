@@ -149,19 +149,69 @@
              copies: no star of their own (toggle lives in the real sections)
              and global-index -1 so DOM indices don't collide. -->
         <div v-if="visibleFavoriteItems.length > 0" data-testid="sidebar-favorites">
-          <div v-if="!isCollapsedView" class="px-2 py-1">
-            <button
-              @click="uiStore.toggleFavoritesSection()"
-              class="w-full flex items-center justify-between text-xs font-bold text-amber-400 uppercase tracking-wider hover:text-amber-300 transition-all duration-200 hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-amber-500 rounded px-2 py-1 group"
-              :aria-expanded="!uiStore.favoritesCollapsed"
-              aria-controls="section-favorites"
-            >
-              <span>{{ $t('sidebar.favorites') }}</span>
-              <ChevronDown
-                class="w-4 h-4 transition-all duration-200 text-amber-500 group-hover:text-amber-300"
-                :class="{ 'rotate-180': uiStore.favoritesCollapsed }"
-              />
-            </button>
+          <div
+            v-if="!isCollapsedView"
+            class="px-2 py-1"
+            @mouseenter="hoverSuggestions"
+            @mouseleave="leaveSuggestions"
+          >
+            <Popover :open="suggestionsOpen" @update:open="suggestionsOpen = $event">
+              <div class="flex items-center gap-1">
+                <button
+                  @click="uiStore.toggleFavoritesSection()"
+                  class="flex-1 min-w-0 flex items-center justify-between text-xs font-bold text-amber-400 uppercase tracking-wider hover:text-amber-300 transition-all duration-200 hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-amber-500 rounded px-2 py-1 group"
+                  :aria-expanded="!uiStore.favoritesCollapsed"
+                  aria-controls="section-favorites"
+                >
+                  <span>{{ $t('sidebar.favorites') }}</span>
+                  <ChevronDown
+                    class="w-4 h-4 transition-all duration-200 text-amber-500 group-hover:text-amber-300"
+                    :class="{ 'rotate-180': uiStore.favoritesCollapsed }"
+                  />
+                </button>
+                <!-- Pin suggestions: hover opens it on desktop (header
+                     mouseenter); the button keeps it reachable on touch and
+                     keyboard, where hover doesn't exist. -->
+                <PopoverTrigger v-if="suggestedItems.length" as-child>
+                  <!-- ::before expands the tap target to 40px (same standard
+                       as the star) without growing the compact header. -->
+                  <button
+                    type="button"
+                    data-testid="favorite-suggestions-trigger"
+                    class="relative z-10 p-1.5 rounded-md text-gray-400 hover:text-amber-400 hover:bg-gray-700 transition-colors duration-200 flex items-center justify-center before:absolute before:-inset-[6px] before:content-['']"
+                    :aria-label="$t('sidebar.suggestedFavorites')"
+                  >
+                    <Plus class="w-4 h-4" />
+                  </button>
+                </PopoverTrigger>
+              </div>
+              <PopoverContent
+                side="right"
+                align="start"
+                class="w-60 p-1"
+                data-testid="favorite-suggestions"
+                @mouseenter="cancelSuggestionsClose"
+                @mouseleave="leaveSuggestions"
+              >
+                <p class="px-2 py-1 text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                  {{ $t('sidebar.suggestedFavorites') }}
+                </p>
+                <button
+                  v-for="item in suggestedItems"
+                  :key="`suggestion-${item.name}`"
+                  type="button"
+                  class="w-full flex items-center px-2 py-2 text-sm font-medium text-gray-300 hover:bg-gray-700 hover:text-white rounded-md transition-colors duration-200"
+                  :aria-label="$t('sidebar.pinSuggestion', { name: $t(item.label) })"
+                  @click="menuFavoritesStore.toggleFavorite(item.routeName)"
+                >
+                  <component
+                    :is="item.icon"
+                    class="w-4 h-4 flex-shrink-0 mr-3 text-gray-400 group-hover:text-gray-200"
+                  />
+                  <span class="truncate">{{ $t(item.label) }}</span>
+                </button>
+              </PopoverContent>
+            </Popover>
           </div>
           <!-- max-h sized for the API cap (12 items ≈ 528px), unlike
                SidebarSection's max-h-96 which would clip the last rows. -->
@@ -422,7 +472,7 @@
 
 <script setup lang="ts">
 import { storeToRefs } from 'pinia';
-import { ref, computed, nextTick, onMounted, watch } from 'vue';
+import { ref, computed, nextTick, onMounted, onBeforeUnmount, watch } from 'vue';
 import { LogOut, Users, UtensilsCrossed, LayoutDashboard, ChevronLeft, Home, Ban, Bed, HandHeart, DollarSign, NotebookPen, Building, UsersRound, Salad, FileX, UserCheck, ShoppingBag, Pill, Shirt, UserCog, Table, Settings, Package, Globe, Briefcase, Search, X, ArrowRight, ChevronDown, Lock, CreditCard, Activity, KeyRound, Heart, UserPlus, UserCircle, MessageSquare, Clock, ClipboardList, BookOpen, Plus, Edit as EditIcon, HelpCircle, Cross, User as UserIcon, Languages, DoorOpen, Trash2 } from 'lucide-vue-next';
 import { useAuthStore } from '@/stores/authStore';
 import { useReceptionStore } from '@/stores/receptionStore';
@@ -448,6 +498,9 @@ import {
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
 } from '@repo/ui';
 import { useRetreatStore } from '@/stores/retreatStore';
 import { useParticipantStore } from '@/stores/participantStore';
@@ -1197,6 +1250,56 @@ const visibleFavoriteItems = computed<MenuItem[]>(() => {
     .map(routeName => allMenuItems.value.find(item => item.routeName === routeName))
     .filter((item): item is MenuItem => Boolean(item));
 });
+
+// Pin suggestions for the favorites-header popover: the same join as the
+// favorites rows, over the store's suggestion route names — a suggestion the
+// user can't currently see never gets offered.
+const suggestedItems = computed<MenuItem[]>(() => {
+  const byRoute = new Map(allMenuItems.value.map(item => [item.routeName, item]));
+  return menuFavoritesStore.suggestions
+    .map(routeName => byRoute.get(routeName))
+    .filter((item): item is MenuItem => Boolean(item));
+});
+
+// Hover-intent for the suggestions popover (desktop): hold the header for
+// ~400ms to open, leave for ~250ms to close, and moving into the portaled
+// content cancels the close. Touch/keyboard use the + button instead.
+const suggestionsOpen = ref(false);
+let suggestionsOpenTimer: ReturnType<typeof setTimeout> | null = null;
+let suggestionsCloseTimer: ReturnType<typeof setTimeout> | null = null;
+const clearSuggestionsTimers = () => {
+  if (suggestionsOpenTimer) clearTimeout(suggestionsOpenTimer);
+  if (suggestionsCloseTimer) clearTimeout(suggestionsCloseTimer);
+  suggestionsOpenTimer = null;
+  suggestionsCloseTimer = null;
+};
+const hoverSuggestions = () => {
+  if (!suggestedItems.value.length) return;
+  if (suggestionsCloseTimer) clearTimeout(suggestionsCloseTimer);
+  suggestionsCloseTimer = null;
+  if (!suggestionsOpen.value) {
+    suggestionsOpenTimer = setTimeout(() => {
+      suggestionsOpen.value = true;
+    }, 400);
+  }
+};
+const cancelSuggestionsClose = () => {
+  if (suggestionsCloseTimer) clearTimeout(suggestionsCloseTimer);
+  suggestionsCloseTimer = null;
+};
+const leaveSuggestions = () => {
+  if (suggestionsOpenTimer) clearTimeout(suggestionsOpenTimer);
+  suggestionsOpenTimer = null;
+  suggestionsCloseTimer = setTimeout(() => {
+    suggestionsOpen.value = false;
+  }, 250);
+};
+// Pinning the last suggestion empties the popover — close it instead of
+// leaving a floating title with nothing to pin.
+watch(suggestedItems, (items) => {
+  if (!items.length) suggestionsOpen.value = false;
+});
+onBeforeUnmount(clearSuggestionsTimers);
 
 const currentActiveSection = computed(() => {
   const currentRouteName = route.name as string;

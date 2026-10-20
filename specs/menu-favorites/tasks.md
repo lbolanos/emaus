@@ -119,7 +119,7 @@ feature.
       e2e nuevo (colapso + reload) — 5/5 verde.
 - [x] QA vivo desktop + drawer móvil (390×844 touch): toggle 196→0→196px, aria y localStorage
       sincronizados; screenshot `.playwright-mcp/qa-favoritos-colapsable-movil.png`.
-- [ ] Leonardo revisa el resultado y confirma (punto 3 de su feedback aún sin aclarar).
+- [ ] Leonardo revisa el resultado y confirma (el punto 3 de su feedback se implementó como M4c).
 
 **Done**: 2026-10-19 — unit (11+43+5 tests) y e2e (5/5) verdes; `vue-tsc --noEmit` exit 0.
 Desviaciones: (a) la aserción e2e del colapso usa `not.toBeInViewport()` — el contenido colapsado
@@ -130,6 +130,44 @@ estrellas; (c) el contenedor usa `max-h-[34rem]` (cap de 12 items ≈ 528px) en 
 de `SidebarSection`, que recortaría las últimas filas.
 
 **Gate**: commit `feat(web)`.
+
+## M4c — Popover de sugerencias por telemetría (feedback punto 3)
+
+- [x] API: `getFavoriteSuggestions(userId, pinned)` en el service — top-12 telemetría ∩
+      `MENU_ROUTE_NAMES` (vistas desc) ∪ `DEFAULT_FAVORITE_MENU_ITEMS`, menos pineadas, cap 5 —
+      expuesto como `favoriteSuggestions` en el GET propio, computado al vuelo y nunca
+      persistido; controller lo añade solo al GET propio.
+- [x] Store: `suggestions` viaja con el perfil; pin/unpin mueve la sugerencia (graduación al
+      fijar, re-oferta al quitar) con rollback conjunto del PUT.
+- [x] Sidebar: botón `+` en el header de Favoritos (solo cuando hay sugerencias; hit area 40px
+      vía `::before -inset-[6px]`) + `Popover` `side="right" align="start"` con hover-intent
+      400ms/250ms (grace para cruzar al contenido portaleado) y cierre automático al vaciarse;
+      i18n es+en (`sidebar.suggestedFavorites` / `sidebar.pinSuggestion`).
+- [x] Tests API (11): telemetría orden/filtro allowlist, fallback defaults menos pineadas, cap 5,
+      todo-pineado → [], privacidad (public/search sin el campo).
+- [x] Tests web: mock fiel del trío `Popover` (provide/inject con la API controlada de reka-ui)
+      — trigger condicionado, pin con un clic + graduación + cierre del popover, hover-intent
+      con fake timers (46); store (10).
+- [x] e2e: el popover fija una vista frecuente con un clic (por su propio label — telemetría
+      variable), graduación visible y persistencia tras reload.
+- [x] QA desktop + móvil (chrome-devtools MCP): apertura por clic y por hover-intent, contenido
+      de telemetría real, aria-labels, pin táctil end-to-end con PUT real + restore, outside
+      dismiss, posición side=right/align=start, grace period; screenshot de registro.
+
+**Done**: 2026-10-19 — unit (46+10+11) y cuerpo del e2e verde; `vue-tsc --noEmit` exit 0.
+Desviaciones: (a) la corrida completa del e2e satura el `apiLimiter` global (300 req/min por IP
+sobre todas las rutas `/api`) y el PUT del `afterAll` recibió 429 — los 6 cuerpos pasaron; el
+perfil se restauró a mano por curl y se verificó por el dato (GET 200 con el array esperado);
+para corridas futuras del spec completo conviene `SKIP_RATE_LIMIT=true` en el API del worktree
+(requiere restart) o grep puntual; (b) el `hover()` del chrome-devtools MCP no dispara
+`mouseenter` nativo en el wrapper — el QA del hover-intent se verificó con
+`dispatchEvent(new MouseEvent('mouseenter'))` sintético (limitación de la herramienta, no del
+código); (c) en móvil hay dos instancias del Sidebar montadas (desktop oculta + drawer): los
+selectores del QA filtraron por rect no-cero para operar la visible; (d) el hit area de 40px del
+botón `+` lleva `relative z-10` acompañante — sin él, el stacking del DOM tape las esquinas del
+`::before` y el área efectiva vuelve a 28px.
+
+**Gate**: commit `feat(api)` + `feat(web)`.
 
 ## M5 — Cierre
 

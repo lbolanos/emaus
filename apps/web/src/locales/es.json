@@ -825,6 +825,8 @@
     "favorites": "Favoritos",
     "addFavorite": "Añadir a favoritos",
     "removeFavorite": "Quitar de favoritos",
+    "suggestedFavorites": "Sugerencias",
+    "pinSuggestion": "Fijar {name} en favoritos",
     "selectRetreatFirst": "Por favor selecciona un retiro primero",
     "communities": "Comunidades",
     "myCommunities": "Mis Comunidades",
