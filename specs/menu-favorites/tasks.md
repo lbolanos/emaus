@@ -273,9 +273,15 @@ dos elementos.
 - [x] Reconcile en `spec.md` (cada CA verificada ✓, negativos incluidos, lo descartado).
 - [x] `**Done**` por milestone + desviaciones (M0-M4f).
 - [x] Suite web completa + API afectada + e2e re-verificados al cierre (ver abajo).
-- [ ] PR nuevo (con switch de cuenta gh), `gh pr checks` verde.
-- [ ] Merge a master con OK de Leonardo (push a master deploya prod).
-- [ ] Cerrar worktree (skill `cerrar-worktree`).
+- [x] PR nuevo (con switch de cuenta gh), `gh pr checks` verde.
+- [ ] Merge a master con OK de Leonardo (push a master deploya prod). **Local hecho**: `4f81d177`
+  (merge de `worktree-menu-favorites`); el push a origin queda esperando su OK — deploya prod
+  (~7 min, con la migración `20261019210000` incluida) y cierra el PR #16 como merged.
+- [x] Cerrar worktree (skill `cerrar-worktree`). El primer intento topó con master movido
+  (`b6bc2be3` special-case tocó `Sidebar.vue` y sus tests): merge de master en el branch
+  (`7d2089d6`, resolución manual de 3 archivos conservando ambos features), pre-push con la
+  suite web completa en verde (3544 — el fix hermético de `f8be1c4b` ya viaja en el merge),
+  checks del PR re-verdes, y recién entonces `finish` + `clean`: worktree y branch borrados.
 
 **Done (parcial)**: 2026-10-20 — Reconcile completo contra tests/QA de los milestones, con las
 verificaciones puntuales de los dos criterios sin evidencia fresca (CA4 → test «hides favorites
