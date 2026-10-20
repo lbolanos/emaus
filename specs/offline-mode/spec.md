@@ -79,25 +79,29 @@ haya señal, con la hora real de cada hecho y con un lugar donde ver lo que el s
 
 ### Cascarón y arranque
 
-- **FR-1** La app instala un service worker que precachea `index.html`, el entry y los chunks
-  comunes, y cachea en tiempo de ejecución los chunks de ruta con hash. Recargar o abrir la app
-  sin señal renderiza el cascarón y las vistas ya visitadas o preparadas (D4).
+- **FR-1** La app instala un service worker que precachea `index.html` y todos los chunks con
+  hash salvo `vendor-geo` (solo lo usa el registro público), y cachea en tiempo de ejecución
+  `runtime-config.js` (red primero), los chunks excluidos y las imágenes del mismo origen.
+  Recargar o abrir la app sin señal renderiza el cascarón y cualquier vista del retiro. Solo se
+  registra dentro de `/app`; con `offlineMode: false` se desregistra y borra sus cachés.
 - **FR-2** La actualización del service worker se integra al banner existente de nueva versión
   (`UpdateBanner.vue` / `versionStore`): nunca se activa una versión nueva sin que el usuario
   acepte, para no cambiar chunks debajo de una vista abierta.
 - **FR-3** `manifest.webmanifest` con nombre, íconos y `display: standalone`.
-- **FR-4** Sin señal, el arranque **no** redirige al login si hay un perfil de permisos guardado
-  (D8). Con señal, `/auth/status` sigue mandando; un 401 real limpia el perfil guardado.
-- **FR-5** nginx sirve `sw.js` y el manifest con `no-cache` (hoy todo `.js` es `immutable` un año,
-  lo que congelaría el service worker para siempre).
+- **FR-4** Sin señal (o con un 429 del limitador) el arranque **no** redirige al login si hay un
+  perfil de permisos guardado de menos de 30 días (D8). Con señal, `/auth/status` sigue
+  mandando; un 401 real limpia el perfil guardado.
+- **FR-5** nginx sirve `sw.js`, el manifest y `runtime-config.js` con `no-cache` (hoy todo `.js`
+  es `immutable` un año, lo que congelaría el service worker y el interruptor `offlineMode`).
 
 ### Datos de lectura (nivel 2)
 
 - **FR-6** Las respuestas de los GET de la lista blanca (research §"Endpoints por vista") se
   guardan en IndexedDB con la URL completa como clave, `fetchedAt`, `userId` y `retreatId`.
 - **FR-7** Si un GET de la lista blanca falla por red o timeout, se responde desde IndexedDB
-  marcando la respuesta como `fromCache` con su `fetchedAt`; la vista lo muestra como "datos de
-  hace X min". Si no hay caché, la vista muestra "Sin datos descargados para este retiro".
+  marcando la respuesta como `fromCache` con su `fetchedAt`; un banner común bajo el
+  encabezado dice "datos guardados hace X" (el más viejo mostrado). Si no hay caché, el error
+  dice "Sin conexión y sin datos guardados para esta pantalla" y el banner lo menciona.
 - **FR-8** "Preparar para trabajar sin conexión" descarga en secuencia todos los datasets de la
   lista blanca para el retiro seleccionado y precalienta los chunks de las vistas de D3, con
   barra de progreso y resumen final (qué se descargó, tamaño, hora). Nunca descarga ni calienta
@@ -141,15 +145,18 @@ haya señal, con la hora real de cada hecho y con un lugar donde ver lo que el s
 ### Servidor
 
 - **FR-16** Middleware de idempotencia para los endpoints de D2: con `Idempotency-Key` presente,
-  la primera ejecución guarda `(key, userId, method, path, status, body)` en una tabla nueva y
-  cualquier repetición devuelve la respuesta guardada sin volver a ejecutar; TTL 7 días. Una
-  misma clave con distinto `userId`, `method` o `path` responde 422.
+  la primera ejecución guarda `(key, userId, method, path, status)` en una tabla nueva, más el
+  cuerpo solo si es un 4xx; cualquier repetición devuelve ese resultado sin volver a ejecutar
+  (un 2xx se repite como `{ idempotentReplay: true }`); TTL 7 días. Mientras la primera sigue en
+  curso responde 409 `IDEMPOTENCY_IN_PROGRESS`; un 5xx libera la clave. Una misma clave con
+  distinto `userId`, `method` o `path` responde 422.
 - **FR-17** `PUT /participants/:id/checkin`, `POST /schedule/items/:id/start` y
   `POST /schedule/items/:id/complete` aceptan `occurredAt` opcional (ISO 8601, no futuro, no más
   de 14 días atrás) y lo usan como `checkedInAt` / `actualStartTime` / `actualEndTime`. Sin el
   campo, se comportan como hoy.
-- **FR-18** La auditoría de dominio registra `occurredAt` y `syncedFromOutbox: true` en la
-  metadata de las operaciones que llegaron con `Idempotency-Key`, para distinguir el hecho de su
+- **FR-18** La auditoría de dominio registra `occurredAt` (de `X-Client-Time`) en la metadata
+  de las operaciones que llegaron con `Idempotency-Key`, y `syncedFromOutbox: true` cuando
+  además traen `X-Outbox-Sync: 1` (reenviadas desde la cola), para distinguir el hecho de su
   llegada.
 - **FR-19** Migración única, SQL plano, sin imports del workspace, reversible, para la tabla de
   idempotencia.
@@ -258,3 +265,44 @@ haya señal, con la hora real de cada hecho y con un lugar donde ver lo que el s
   (`/mam/:slug`, `/santisimo/:slug`) y en comunidades.
 - Tests en Firefox/WebKit de Playwright para el service worker (solo chromium en v1; WebKit se
   verifica a mano en un iPhone en la prueba de campo).
+
+## Reconcile
+
+Cerrado el 2026-10-19 sobre `worktree-offline-mode` (base `1bf67691`), todavía sin commits de
+código. Cada criterio contra lo implementado; "e2e" son los tres specs de
+`apps/web/tests/e2e/offline-*.spec.ts` en chromium contra `vite preview` del build y el API del
+worktree (base desechable); las desviaciones de diseño están en `tasks.md` por milestone.
+
+| CA | Estado | Cómo se verificó |
+|---|---|---|
+| 1 Cascarón | ✓ | e2e: recarga sin red con el worker → la app; control con el worker bloqueado → error del navegador |
+| 2 Arranque sin login | ✓ | e2e: pestaña nueva en frío sin red → sin login, datos guardados. 401 → login y perfil borrado: unit (`authStore.offline.test.ts`), no e2e |
+| 3 Preparar | ✓ con matiz | Unit: los 12 pasos usan la misma clave que las vistas, progreso, fallas, ventana de 7 días. El botón no se pulsó en el e2e: el e2e guarda abriendo las vistas, que es el mismo camino |
+| 4 Lectura desde caché | ✓ con matiz | e2e: Caminantes, Recepción y Minuto a minuto sin red desde lo guardado; Alimentación con el aviso de salud; ninguna persona guardada con campos de salud. Camas y Responsabilidades: se guardan (e2e) pero su pantalla sin red no se afirmó |
+| 5 Check-in encolado | ✓ | e2e: sin red → Llegados, sobrevive a recargar, al volver la señal el servidor tiene `checkedInAt` **igual** a la hora del dispositivo (reloj del navegador fijado distinto del servidor) |
+| 6 Cobro idempotente | ✓ | e2e: un solo pago en el servidor; integración: misma clave dos veces → un solo `handler`; prueba en vivo `POST /payments` ×2 → 1 pago |
+| 7 Minuto a minuto | ✓ con matiz | Unit: reductores de iniciar/completar/±5/día, respuesta sintética, `occurredAt` en el servidor (integración). Sin e2e por la UI |
+| 8 Camas y mesas | ✓ con matiz | Unit: reductores, respuesta sintética, guard de rutas con idempotencia. Sin e2e por la UI (arrastrar) |
+| 9 Bolsas | ✓ con matiz | Unit (reductor); sin e2e |
+| 10 Conflicto | ✓ con matiz | e2e: rechazo simulado por ruta (404) → conflicto con el mensaje → descartar; el 409 real de cama ocupada está en el controller (research) |
+| 11 Sesión caída | ✓ con matiz | Unit: 401 detiene, conserva la cola y pide login; panel lo muestra. Sin e2e |
+| 12 Timeout sin duplicar | ✓ | e2e: respuesta retenida 11 s → se encola con la misma clave → el reenvío lleva `X-Outbox-Sync: 1` y el servidor responde `Idempotent-Replayed: true` |
+| 13 Acciones bloqueadas | Parcial | Camas: auto-asignar, exportar y vaciar deshabilitados sin señal. El resto falla con un mensaje claro en español en vez de deshabilitarse (desviación M4) |
+| 14 Purga | ✓ | Unit: al cerrar la ventana en la TZ del retiro, nunca la cola; logout borra perfil y respuestas. Los e2e tuvieron que fijar el reloj dentro del retiro justamente por esto |
+| 15 Regresión | ✓ | Web 237 archivos / 3517 tests; API 2 shards; `vue-tsc`; builds de web y API; `mobile-page-weight` verde con las claves de Maps/reCAPTCHA |
+| 16 Cancelar al que no llegó | ✓ | e2e: sin red "No llegó" → al sincronizar B ya no aparece en Recepción; integración: el body explícito cancela y libera cama y mesa sin tocar la ficha |
+
+**Negativos**: un pago nunca dos veces ✓ (arriba); la caché nunca con salud ✓ (unit + e2e a
+nivel persona); una escritura nunca se descarta sola ✓ (401, recarga y conflicto la conservan;
+solo "Descartar" la quita); el worker nunca responde `/api` ✓ (e2e); con buena señal nada pasa
+por la cola ✓ por diseño (solo sin señal o sin respuesta), sin test explícito; las páginas
+públicas no crean almacenamiento offline ✓ (e2e, guarda agregada en M5).
+
+**Lo que la implementación agregó o cambió respecto de la v1.1**: reclamo de reservas de
+idempotencia abandonadas a los 2 min (un reinicio del API a mitad de un request las dejaba en
+409 por 7 días); orden estable en la cola para el mismo milisegundo; 429 en arranque en frío
+también usa el perfil guardado; carga perezosa de la cola y ninguna lectura de IndexedDB hasta
+el primer guardado.
+
+**Pendiente fuera de esta sesión**: prueba de campo en un iPhone y un Android reales; nginx de
+producción antes del primer push; los PR y despliegues (dos releases, decisión 2026-10-19).

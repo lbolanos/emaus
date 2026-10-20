@@ -46,63 +46,73 @@ Principios:
 
 | Archivo | Cambio |
 |---|---|
-| `apps/web/package.json` | dev dep `vite-plugin-pwa`; dep `idb`; dev dep `fake-indexeddb` |
-| `apps/web/vite.config.ts` | `VitePWA({ registerType: 'prompt', injectRegister: null, manifest: {...}, workbox: { navigateFallback: '/index.html', navigateFallbackDenylist: [/^\/api\//, /^\/health$/, /^\/[a-z0-9]+(\/server)?$/], globPatterns: ['**/*.{js,css,html,ico,svg,webp,png,woff2}'], globIgnores: [chunks de registro/mapas/geo], runtimeCaching: [{ urlPattern: /\/assets\/.*\.(js|css)$/, handler: 'CacheFirst' }], cleanupOutdatedCaches: true } })`. El denylist de slugs evita que el SW capture `/<slug>` (preview OG por nginx) |
-| `apps/web/src/pwa/registerSw.ts` | NUEVO. Importado con `import()` tras `app.mount` en `main.ts`; usa `virtual:pwa-register` con `onNeedRefresh` → `versionStore.setSwUpdate(updateSW)`; no registra si `offlineMode === false` o si la ruta es pública |
-| `apps/web/src/stores/versionStore.ts` + `components/UpdateBanner.vue` | El banner también se muestra cuando el SW tiene versión nueva; "Actualizar" llama `updateSW(true)` (skipWaiting + reload). El poll de `version.json` sigue como está |
-| `nginx.conf` | `location = /sw.js` y `location = /manifest.webmanifest` con `Cache-Control: no-cache` + headers de seguridad (molde: `location = /version.json`) |
-| `apps/web/public/` | íconos 192/512 del manifest (desde `logo_oficial.png`) |
-| `apps/web/index.html` | `<link rel="manifest">`, `apple-touch-icon`, `apple-mobile-web-app-capable` |
+| `apps/web/package.json` | dev dep `vite-plugin-pwa` 1.3.0; dep `workbox-window` |
+| `apps/web/vite.config.ts` | `VitePWA({ registerType: 'prompt', injectRegister: false, manifest: {...}, workbox: { globPatterns: [index.html, íconos, 'assets/**/*.{js,css,woff2,svg,png,webp}'], globIgnores: ['**/vendor-geo-*.js'], navigateFallback: 'index.html', navigateFallbackDenylist: [/^\/api(\/|$)/, /^\/health$/, rutas con extensión], runtimeCaching: [runtime-config NetworkFirst 3 s, /assets/ CacheFirst sin vendor-geo, imágenes del mismo origen SWR], cleanupOutdatedCaches, clientsClaim } })`. Sin denylist de slugs (atraparía `/login` y `/app`; los rastreadores no ejecutan SW) |
+| `apps/web/src/pwa/registerSw.ts` | NUEVO. `workbox-window` directo (testeable, sin módulo virtual). Lo importa con `import()` el `onMounted` de `AppLayout.vue`, así solo corre en `/app`. Solo en build de producción; con `offlineMode === false` desregistra y borra cachés `workbox-*`/`emaus-*` |
+| `apps/web/src/stores/versionStore.ts` | `attachServiceWorker({checkForUpdate, applyUpdate})` y `markServiceWorkerWaiting()`. El poll de `version.json` llama `checkForUpdate` (`wb.update()`); `reloadForUpdate` (async) llama `applyUpdate`, que espera hasta 20 s al worker nuevo, manda `SKIP_WAITING` y recarga en `controlling`; si no hay worker, recarga simple. `UpdateBanner.vue` sin cambios |
+| `apps/web/src/config/runtimeConfig.ts` + `apps/web/src/offline/flag.ts` | `offlineMode?: boolean` en el tipo de `EMAUS_RUNTIME_CONFIG`; `isOfflineModeEnabled()` en `offline/flag.ts` (solo un `false` explícito apaga), fuera de `runtimeConfig.ts` porque muchos tests lo mockean con solo `getApiUrl` |
+| `nginx.conf` | `location =` para `/sw.js`, `/manifest.webmanifest` (con su `types`) y `/runtime-config.js`, en `no-cache` + cabeceras de seguridad (molde: `location = /version.json`). Guard en `apps/api/src/tests/infrastructure/nginxOfflineShell.simple.test.ts` |
+| `apps/web/public/` | `pwa-192x192.png`, `pwa-512x512.png`, `pwa-maskable-512x512.png`, `apple-touch-icon.png` (logo centrado en lienzo blanco) |
+| `apps/web/index.html` | `apple-touch-icon` y metas `*-web-app-capable`/título; el `<link rel="manifest">` lo inyecta el plugin en el build |
 
-Verificación: `pnpm --filter web build` produce `dist/sw.js` + `manifest.webmanifest`; e2e
-chromium: cargar dashboard → `context.setOffline(true)` → `page.reload()` → cascarón visible.
+Verificación: `vite build` produce `dist/sw.js` + `manifest.webmanifest`; e2e chromium
+`offline-shell.spec.ts` contra `vite preview` del build: login → worker controla →
+`context.setOffline(true)` → `page.reload()` → cascarón visible, con control negativo
+(`serviceWorkers: 'block'` → la misma recarga falla).
 
 ## Capa 1 — Conectividad, caché de lectura y auth persistida (M2)
 
 | Archivo | Cambio |
 |---|---|
-| `apps/web/src/offline/db.ts` | NUEVO. `idb` con stores: `responses` (key `${userId}|${url}`, `{data, fetchedAt, retreatId}`), `outbox` (key `id`, índice `retreatId,status`), `meta` (`authProfile`, `preparedAt:<retreatId>`). Versión 1 |
-| `apps/web/src/stores/connectivityStore.ts` | NUEVO. `state: 'online' | 'offline'`, `lastOnlineAt`, `pendingCount`, `conflictCount`, `syncing`. `reportNetworkFailure()` / `reportSuccess()` llamados desde los interceptores; listeners `online`/`offline`/`visibilitychange` solo como **disparadores de reintento**, nunca como verdad |
-| `apps/web/src/offline/cacheableRoutes.ts` | NUEVO. Lista blanca de GET (regex sobre `config.url`): `/participants?`, `/participants/reception/`, `/tags?`, `/retreats`, `/retreats/:id`, `/retreats/:id/beds`, `/tables/retreat/`, `/schedule/retreats/:id/items`, responsabilidades, Santísimo `listSlots`, `/auth/status`. Un solo lugar; test que la lista cubre los fetchers de la preparación |
+| `apps/web/src/offline/storage.ts` | NUEVO. IndexedDB `emaus-offline` v1 sin dependencias: `responses` (clave `${userId}|${ruta}?${params}`, `{data, fetchedAt, retreatId, userId, route}`), `outbox`, `meta` (`authProfile`). `createMemoryStore()` para tests |
+| `apps/web/src/offline/connectivity.ts` | NUEVO. Estado reactivo `online`, `lastOnlineAt`, `oldestServedFromCacheAt`, `missedWhileOffline`; `reportSuccess/reportNetworkFailure` desde los interceptores; `onReconnect` para la sincronización (M4); `probe()` a `version.json`; `offline` del navegador confiable, `online` solo dispara el sondeo |
+| `apps/web/src/offline/readCache.ts` | NUEVO. Lista blanca de 12 GET (participantes, recepción, tags, retiros, retiro, camas, mesas, mesa, agenda, responsabilidades, Santísimo, equipos de servicio); `stripHealthForCache` sobre todo objeto con forma de persona; `saveResponse` / `answerFromCache` / `OfflineNoDataError` / `purgeResponses` |
+| `apps/web/src/offline/flag.ts` | NUEVO (entra con M1). `isOfflineModeEnabled()` leyendo `window.EMAUS_RUNTIME_CONFIG` directo |
+| `apps/web/src/offline/authProfile.ts` | NUEVO. Perfil confirmado en `meta`, vigencia 30 días |
 | `apps/web/src/services/api.ts` | `timeout: 10_000` solo en peticiones marcadas `config.offline = { kind }` (mutaciones nivel 1) y en GETs cacheables; interceptor de respuesta: GET cacheable OK → `stripHealthForCache(data)` (quita cada clave de `SENSITIVE_HEALTH_FIELDS` de cada participante, en listas y en recepción) → `offlineCache.put`; error de red/timeout en GET cacheable → `offlineCache.get` → resuelve con `{ data, fromCache: true, fetchedAt }` (si no hay, rechaza con `OfflineNoDataError`). La respuesta en línea sigue intacta: el recorte es solo para lo que se guarda |
 | `apps/web/src/views/FoodView.vue`, `MedicinesReportView.vue` | Fuera de la lista blanca; sin señal muestran "Necesita conexión" en vez de la lista (mismo molde que D11) |
-| `apps/web/src/stores/authStore.ts` | `checkAuthStatus` OK → `meta.authProfile = {user, userProfile, savedAt}`; error de red + perfil guardado → hidrata `user/userProfile/isAuthenticated=true` y marca `authSource='cache'`; 401 → borra el perfil. `logout` → `offlineDb.clearAll()` |
-| `apps/web/src/components/layout/ConnectivityChip.vue` | NUEVO (ícono `WifiOff`/`Cloud`/`CloudUpload`, allowlist en `setup.ts`), montado en `Sidebar.vue` bajo el selector de retiro; click → panel de pendientes (capa 3) |
-| `apps/web/src/components/StaleDataBadge.vue` | NUEVO. "datos de hace X min" a partir de `fetchedAt`; lo usan las vistas de nivel 2 cuando el store expone `fromCache` |
-| Stores de lectura (`participantStore`, `scheduleStore`, `tableMesaStore`, `retreatStore`) + vistas `RecepcionView`, `BedAssignmentsView` | Exponer `lastFetchedAt`/`fromCache` del resultado y no mostrar toast de error cuando la respuesta vino de caché; mostrar "Sin datos descargados" ante `OfflineNoDataError` |
+| `apps/web/src/stores/authStore.ts` | `/auth/status` con timeout de 8 s; OK → guarda el perfil y `setCacheUser`; sin respuesta **o 429** en arranque en frío → hidrata desde el perfil guardado (`authSource='cache'`); 401 → lo borra; `logout` → borra perfil y respuestas (no la cola) |
+| `apps/web/src/components/offline/ConnectivityChip.vue` | NUEVO, punto de color (sin lucide: los tests del Sidebar mockean lucide con lista fija), bajo el menú de usuario del `Sidebar.vue`; sin señal, un toque sondea; en M4 abre el panel de pendientes |
+| `apps/web/src/components/offline/OfflineBanner.vue` | NUEVO, en `AppLayout.vue`: "datos guardados hace X" (i18n con plurales) y aviso de pantallas sin datos. Reemplaza al `StaleDataBadge` por vista |
+| `participantStore` + `FoodView` / `MedicinesReportView` | `fromCache` en el store; las dos vistas de salud muestran `HealthNeedsConnection` (reintenta al volver la señal) en vez de la lista sin salud. Las demás vistas no cambian: reciben los mismos DTOs |
 
 ## Capa 2 — Servidor: idempotencia, `occurredAt`, auditoría (M3)
 
 | Archivo | Cambio |
 |---|---|
-| `apps/api/src/migrations/sqlite/20261020120000_CreateIdempotencyKeys.ts` | NUEVO. `CREATE TABLE idempotency_keys (key TEXT PRIMARY KEY, userId TEXT NOT NULL, method TEXT NOT NULL, path TEXT NOT NULL, statusCode INTEGER NOT NULL, responseBody TEXT, createdAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP)` + índice por `createdAt`. SQL plano, sin imports del workspace; `down` = `DROP TABLE`. También en `CreateSchema.ts` para DBs frescas |
-| `apps/api/src/entities/idempotencyKey.entity.ts` | NUEVO + registro en `entities/index.ts` |
-| `apps/api/src/middleware/idempotency.ts` | NUEVO. Si hay `Idempotency-Key` (UUID v4, ≤ 64 chars) y usuario autenticado: busca `(key)`; si existe y coincide `userId+method+path` → responde el `statusCode/body` guardado con header `Idempotent-Replayed: true`; si existe con otro `userId/method/path` → 422; si no existe → envuelve `res.json` para guardar la primera respuesta 2xx/4xx (los 5xx no se guardan: el cliente debe reintentar). Se monta **por ruta** en los endpoints de D2, no global |
-| `apps/api/src/services/idempotencyService.ts` | `purgeOlderThan(7d)` llamado desde el cron existente de limpieza (o `setInterval` al boot, como el watchdog) |
-| `apps/api/src/middleware/requestContext.ts` + `utils/auditContext.ts` | Leen `X-Client-Time` (ISO) y `Idempotency-Key` al contexto; `domainAuditService.log` los copia a `metadata.occurredAt` / `metadata.syncedFromOutbox` cuando existen |
-| `apps/api/src/services/participantService.ts` (`setParticipantCheckIn`) | Parámetro opcional `occurredAt?: Date`; `checkedInAt = checkedIn ? (occurredAt ?? new Date()) : null`. Controller valida ISO, no futuro (+5 min de tolerancia), no más de 14 días atrás |
-| `apps/api/src/services/retreatScheduleService.ts` (`startItem`, `completeItem`) | Mismo parámetro opcional → `actualStartTime` / `actualEndTime` |
-| `packages/types/src/index.ts` (schemas de check-in y schedule start/complete) | `occurredAt: z.string().datetime().optional()` (opcional, nunca requerido) |
+| `apps/api/src/migrations/sqlite/20261020120000_CreateIdempotencyKeys.ts` | NUEVO. `CREATE TABLE IF NOT EXISTS idempotency_keys (key varchar(64) PK, userId, method, path, statusCode integer, responseBody text, createdAt, completedAt)` + índice por `createdAt`. SQL plano, sin imports del workspace; `transaction = false` (el guard lo exige por el `DROP TABLE` del `down()`), `up()` re-ejecutable. No va en `CreateSchema.ts`: la migración crea la tabla también en bases frescas |
+| `apps/api/src/entities/idempotencyKey.entity.ts` | NUEVO, registrada en `database/config.ts` y `tests/test-setup.ts` |
+| `apps/api/src/middleware/idempotency.ts` | NUEVO. Con `Idempotency-Key` (UUID) y usuario: reserva por INSERT sobre la PK (dos concurrentes no pueden ganar los dos); coincide `userId+method+path` → replay con `Idempotent-Replayed: true` (4xx con su cuerpo, 2xx como `{ idempotentReplay: true }`, 204 vacío); en curso → 409 `IDEMPOTENCY_IN_PROGRESS`; otro dueño/ruta → 422 `IDEMPOTENCY_KEY_REUSED`; clave mal formada → 400. Primera vez: envuelve `res.json` para guardar el resultado **antes** de responder; `finish` cubre `send/end`; un 5xx borra la reserva. Se monta **por ruta**, después del permiso |
+| `apps/api/src/services/idempotencyService.ts` | `reserve` / `complete` / `purgeOlderThan(7)`; purga diaria con `node-cron` arrancada en `index.ts` junto a las demás limpiezas |
+| `apps/api/src/utils/occurredAt.ts` | NUEVO. `parseOccurredAt` (ISO, no futuro +5 min, ≤ 14 días; si no, `InvalidOccurredAtError` → 400) y `readClientTime` (versión tolerante para la cabecera) |
+| `apps/api/src/middleware/requestContext.ts` + `utils/auditContext.ts` | Con clave válida: `idempotencyKey`, `clientTime` (`X-Client-Time`) y `fromOutbox` (`X-Outbox-Sync: 1`) al contexto; `domainAuditService.log` agrega `metadata.occurredAt` y `metadata.syncedFromOutbox` en los dos destinos |
+| `apps/api/src/services/participantService.ts` (`setParticipantCheckIn`) | Parámetro opcional `occurredAt?: Date`; `checkedInAt = checkedIn ? (occurredAt ?? new Date()) : null`; el controller lo valida con `parseOccurredAt` |
+| `apps/api/src/services/retreatScheduleService.ts` (`startItem`, `completeItem`) | Mismo parámetro opcional → `actualStartTime` / `actualEndTime`; `mapError` del controller responde 400 ante `InvalidOccurredAtError` |
+| `packages/types` | Sin cambios: esas tres rutas no tienen schema zod |
 | Rutas: `participantRoutes.ts` (`/:id/checkin` y `PUT /:id`), `paymentRoutes.ts` (POST `/`), `retreatParticipant.routes.ts` (bag-made), `retreatScheduleRoutes.ts` (start/complete/shift/days shift), `retreatBedRoutes.ts` (assign), `tableMesaRoutes.ts` (walkers POST/DELETE) | `idempotencyMiddleware` después de auth/CSRF y antes del controller. En `PUT /:id` solo actúa si llega la cabecera (la edición normal de la ficha no la manda) |
 
-Tests (Jest): middleware (replay devuelve el mismo body y no ejecuta el handler; clave ajena →
-422; 5xx no se guarda); migración (up/down, PK); `setParticipantCheckIn` con `occurredAt`;
-`startItem/completeItem` con `occurredAt`; `POST /payments` dos veces con la misma clave → una
-fila; auditoría con `metadata.occurredAt`.
+Tests (Jest): `idempotency.integration.test.ts` (cuenta ejecuciones del handler: replay, 4xx
+final, 5xx libera, 204, clave ajena/otra ruta → 422, mal formada → 400, concurrencia → una sola
+ejecución, purga); `idempotencyRoutes.simple.test.ts` (guard estático: las 11 rutas montan el
+middleware después del permiso); `occurredAt.simple.test.ts`; `offlineSync.integration.test.ts`
+(check-in y start/complete con `occurredAt`, metadata de auditoría, cancelación con body
+explícito). Contrato para el cliente (M4): 409 `IDEMPOTENCY_IN_PROGRESS` y 5xx son transitorios;
+otros 4xx son conflicto.
 
 ## Capa 3 — Cola, reductores y sincronización (M4)
 
 | Archivo | Cambio |
 |---|---|
 | `apps/web/src/offline/outboxKinds.ts` | NUEVO. Catálogo cerrado (11): `reception.checkin`, `reception.payment`, `participant.setCancelled` (body explícito `{isCancelled, contextRetreatId}` a `PUT /participants/:id`; el reductor marca `isCancelled`, quita al participante de `pendingList`/`arrivedList` y baja `total`/`pending`, libera su cama en `beds` y lo saca de `walkers` en `tables`, espejo de la cascada del servidor), `bags.bagMade`, `schedule.start`, `schedule.complete`, `schedule.shift`, `schedule.shiftDay`, `beds.assign` (incluye desasignar con `participantId:null`), `tables.assignWalker`, `tables.unassignWalker`. Por kind: `request(payload) → AxiosRequestConfig`, `reduce(cache, payload)`, `label(payload, t)` |
-| `apps/web/src/offline/outbox.ts` | NUEVO. `enqueue(kind, payload, {retreatId})` genera `id`, `idempotencyKey` (`crypto.randomUUID()`, fallback como en `telemetryService.generateSessionId`), `occurredAt`; `list(retreatId)`, `markConflict`, `discard`, `retry` |
-| `apps/web/src/offline/offlineMutation.ts` | NUEVO. `offlineMutation(kind, payload)`: si `connectivity.state==='offline'` → enqueue y devuelve `{queued:true}`; si no, intenta la request con `Idempotency-Key` + `X-Client-Time` + timeout 10 s; error de red/timeout → enqueue con **la misma clave** (así el reenvío no duplica si el original sí llegó); 4xx → rechaza como hoy (no se encola: el servidor contestó). Las funciones de `api.ts` de los 11 kinds pasan a delegar aquí |
-| `apps/web/src/offline/syncService.ts` | NUEVO. `flush()`: token CSRF fresco → FIFO por `occurredAt`; por op: `status='syncing'` → request → `done` (y borra) · 4xx → `conflict` con `lastError` y sigue · red/timeout/5xx → backoff (2, 4, 8, 16, 30 s máx.) y para · 401 → para + `needsLogin=true`. Dispara en `online`, `visibilitychange`, cada 30 s con cola, y manual. Al terminar sin pendientes → `refetchRetreat()` (los fetchers de la preparación) |
-| `apps/web/src/stores/outboxStore.ts` | NUEVO. Cola reactiva (array, no `Map`), `pendingCount`, `conflicts`, acciones; es la fuente del chip y del panel |
-| `apps/web/src/offline/applyOutbox.ts` | NUEVO. Al leer desde caché (`fromCache`) o al hidratar un store, aplica `reduce` de las ops `pending|syncing` del retiro sobre el DTO en memoria. Reductores pequeños y puros, testeados uno por uno |
+| `apps/web/src/offline/outbox.ts` | NUEVO. Estado reactivo + IndexedDB; `enqueue` (clave del intento, `occurredAt`, retiro y etiqueta leídos de lo guardado, respuesta sintética); superposición de pendientes registrada en `readCache`; `commitToSavedAnswers`, `markConflict`, `retryOp`, `discardOp` |
+| `apps/web/src/services/api.ts` (interceptores de escritura) | En vez de `offlineMutation`: el interceptor de petición reconoce las 11 escrituras (`matchQueueable`), agrega `Idempotency-Key`, `X-Client-Time`, `occurredAt` donde aplica y timeout de 10 s; sin señal pone un adapter que encola y responde 202. El de error encola con **la misma clave** ante falta de respuesta. Toast "Guardado en el teléfono" cada 10 s como mucho |
+| `apps/web/src/offline/syncService.ts` | NUEVO. `flushOutbox()`: FIFO de a una, `X-Outbox-Sync: 1`; 2xx → escribe el cambio en lo guardado y borra · otro 4xx → conflicto con el mensaje y sigue · sin señal / 409 en curso / 5xx → para y reintenta (5 × 5xx → conflicto) · 401 → para + `needsLogin`. Disparadores: reconexión (`onReconnect`), pestaña visible, cada 30 s con cola (sondea si está sin señal) y "Enviar ahora". Sin refetch final: lo guardado ya tiene el cambio |
+| `apps/web/src/offline/outboxKinds.ts` (`applyOps`) | Los reductores se aplican sobre la copia del DTO al leer (guardado o fresco) mientras haya pendientes; nunca mutan lo guardado. Sin store de Pinia aparte: el estado reactivo vive en `outbox.ts` |
 | `apps/web/src/components/offline/PendingSyncPanel.vue` | NUEVO. Lista de pendientes y conflictos (`label`, quién, `occurredAt`, error), reintentar/descartar, "Sincronizar ahora", "Borrar datos sin conexión" |
-| Vistas: `RecepcionView.vue`, `BagsReportView.vue`, `MinuteByMinuteView.vue` (+ `scheduleStore`), `BedAssignmentsView.vue`, `TablesView.vue` (+ `tableMesaStore`) | Usan `offlineMutation` vía las funciones de `api.ts`; tratan `{queued:true}` como éxito con toast "Guardado sin conexión; se enviará al volver la señal"; tras una op encolada **no** refetchean (aplican el reductor); deshabilitan las acciones no encolables con tooltip cuando `offline` (D11) |
-| `RecepcionView.vue` (lista de Faltan) + `ParticipantList.vue` (Caminantes) | Acción nueva por fila "No llegó → cancelar" con confirm (`window.confirm` con i18n, molde del toggle de beca) y gate `useAuthPermissions().hasPermission('participant:update')`; llama `setParticipantCancelled(participantId, retreatId, true)` nueva en `api.ts` (body explícito, nunca spread de la ficha) → `offlineMutation('participant.setCancelled')`. En línea se comporta como la edición de hoy (misma cascada). `reactivateParticipant` existente pasa a usar el mismo body explícito con `false` |
+| Vistas y stores | Sin cambios para encolar: reciben la respuesta sintética y, cuando vuelven a pedir la lista, la superposición. `BedAssignmentsView` deshabilita sin señal auto-asignar, exportar y vaciar |
+| `RecepcionView.vue` (lista de Faltan) | Acción "No llegó" por fila con confirmación y gate `participant:update`; llama `setParticipantCancelled(participantId, retreatId, true)` (body explícito). Reactivar sigue siendo la edición completa, solo con señal |
+| `Sidebar.vue` | Confirmación al cerrar sesión con cambios sin enviar |
+| `utils/csrf.ts` | Timeout de 8 s al pedir el token; sin token para una escritura que se encola |
 | `apps/web/src/locales/es.json` + `en.json` | Keys `offline.*` (chip, panel, toasts, tooltips, preparación) |
 
 ## Capa 4 — Preparación, antigüedad y purga (M5)
