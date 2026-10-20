@@ -17,20 +17,28 @@
 
 ## M1 — API: columna, validación, privacidad y seed
 
-- [ ] `packages/types/src/menu.ts`: `MENU_ROUTE_NAMES` (todos los route names de `menuSections`) +
+- [x] `packages/types/src/menu.ts`: `MENU_ROUTE_NAMES` (todos los route names de `menuSections`) +
       `DEFAULT_FAVORITE_MENU_ITEMS` + export; test de formato/sin-duplicados.
-- [ ] Migración `20261019210000_AddFavoriteMenuItemsToUserProfile.ts` (idempotente, `down`).
-- [ ] Entidad `userProfile.entity.ts` (`simple-array`, nullable).
-- [ ] `UpdateSocialProfileSchema` en `packages/types/src/user.ts` (favoriteMenuItems
+- [x] Migración `20261019210000_AddFavoriteMenuItemsToUserProfile.ts` (idempotente, `down`).
+- [x] Entidad `userProfile.entity.ts` (`simple-array`, nullable).
+- [x] `UpdateSocialProfileSchema` en `packages/types/src/user.ts` (favoriteMenuItems
       `array(string().min(1).max(64)).max(12)`) + export + wire `validateRequest` en
       `userSocial.routes.ts`.
-- [ ] Controller + service: destructure, `UserProfileData`, sanitización dedupe/cap 12.
-- [ ] Strip de `favoriteMenuItems` en `getPublicProfile` y `searchUsers`.
-- [ ] Seed D5 en `getUserProfile` cuando la columna es `null`: top 5 de telemetría ∩
+- [x] Controller + service: destructure, `UserProfileData`, sanitización dedupe/cap 12.
+- [x] Strip de `favoriteMenuItems` en `getPublicProfile` y `searchUsers`.
+- [x] Seed D5 en `getUserProfile` cuando la columna es `null`: top 5 de telemetría ∩
       `MENU_ROUTE_NAMES`; fallback `DEFAULT_FAVORITE_MENU_ITEMS`; `[]` no re-semebra.
-- [ ] Tests: migración (idempotencia/down), rutas (400 por string vacío/>64/>12), controller
+- [x] Tests: migración (idempotencia/down), rutas (400 por string vacío/>64/>12), controller
       (pasa el campo), seed del service (telemetría, fallback, no-reseed, privacidad).
-- [ ] Una sola corrida de jest a la vez; suites API afectadas verde.
+- [x] Una sola corrida de jest a la vez; suites API afectadas verde.
+
+**Done**: 2026-10-19 — 4 suites nuevas/ampliadas verde (7+1+6+25 tests). Desviaciones: (a) el
+test del service importa el servicio dinámicamente tras `setupTestDatabase` (patrón
+`rbac.integration.test.ts`): los repos módulo-level se conectan al `AppDataSource` parcheado;
+(b) `packages/types/src/index.ts` re-exporta `./user` con listas nombradas — se añadió el value
+export `UpdateSocialProfileSchema` (sin él el middleware recibía `undefined` y el PUT daba 500);
+(c) `tsc --noEmit` del api arrastra ~145 errores preexistentes (avatarUrl/ParsedQs/authController,
+verificados iguales en master): no es gate, ts-jest y `pnpm build` (vite) no los ven.
 
 **Gate**: commit `feat(api)`.
 

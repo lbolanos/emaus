@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { UserSchema } from './base';
+import { FAVORITE_MENU_ITEMS_LIMIT } from './menu';
 
 export const UserRoleSchema = z.object({
 	id: z.number(),
@@ -126,6 +127,26 @@ export const CreatePermissionOverrideSchema = z.object({
 	}),
 });
 
+// PUT /social/profile — partial update of the signed-in user's social profile.
+// Permissive on purpose: this endpoint historically accepted any body, so the
+// bounds only guard against nonsense — they must not break the profile page's
+// existing payloads. favoriteMenuItems is the sidebar favorites list (route
+// names; see ./menu.ts).
+export const UpdateSocialProfileSchema = z.object({
+	body: z.object({
+		bio: z.string().max(5000).nullable().optional(),
+		location: z.string().max(255).nullable().optional(),
+		website: z.string().max(255).nullable().optional(),
+		showEmail: z.boolean().optional(),
+		showPhone: z.boolean().optional(),
+		showRetreats: z.boolean().optional(),
+		interests: z.array(z.string()).optional(),
+		skills: z.array(z.string()).optional(),
+		avatarUrl: z.string().nullable().optional(),
+		favoriteMenuItems: z.array(z.string().min(1).max(64)).max(FAVORITE_MENU_ITEMS_LIMIT).optional(),
+	}),
+});
+
 export type User = z.infer<typeof UserSchema>;
 export type UserRole = z.infer<typeof UserRoleSchema>;
 export type UserRetreat = z.infer<typeof UserRetreatSchema>;
@@ -140,3 +161,4 @@ export type CreateRoleRequest = z.infer<typeof CreateRoleRequestSchema.shape.bod
 export type UpdateRoleRequest = z.infer<typeof UpdateRoleRequestSchema.shape.body>;
 export type PermissionOverride = z.infer<typeof PermissionOverrideSchema>;
 export type CreatePermissionOverride = z.infer<typeof CreatePermissionOverrideSchema.shape.body>;
+export type UpdateSocialProfile = z.infer<typeof UpdateSocialProfileSchema.shape.body>;

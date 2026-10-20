@@ -43,6 +43,7 @@ export const updateMyProfile = async (req: Request, res: Response): Promise<void
 			interests,
 			skills,
 			avatarUrl,
+			favoriteMenuItems,
 		} = req.body;
 
 		const profile = await updateUserProfile(user.id, {
@@ -55,6 +56,7 @@ export const updateMyProfile = async (req: Request, res: Response): Promise<void
 			interests,
 			skills,
 			avatarUrl,
+			favoriteMenuItems,
 		});
 
 		res.json(profile);
