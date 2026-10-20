@@ -332,8 +332,11 @@ el primer guardado.
   el chip ya lo dicen (D11). Con error del servidor siguen avisando.
 - El toast "Guardado en el teléfono" casi nunca se ve: `TOAST_LIMIT = 1` y la vista muestra
   enseguida el suyo ("Pago registrado para…", "… marcado como llegado"). El chip sí cambia al
-  instante, que es lo que exige D11. **Abierto**: decidir si el toast de la vista debe decir que
-  quedó en el teléfono.
+  instante, que es lo que exige D11. **Decidido el 2026-10-20: sí.** En un solo lugar
+  (`src/offline/queuedToast.ts`, instalado en `AppLayout`): el primer toast de éxito de la
+  pantalla dentro de 1,5 s de una escritura encolada lleva la nota "Guardado en el teléfono: se
+  enviará solo cuando vuelva la señal."; si la pantalla no muestra toast, sale el de la cola. Sin
+  tocar cada vista ni `@repo/ui`. e2e: el cobro sin señal en Recepción muestra la nota.
 
 **Imprimir sin conexión (pedido 2026-10-20)**: gafetes, mesas y minuto a minuto. Verificado
 imprimiendo cada opción con señal y, en un contexto nuevo que solo pasó por "Preparar", sin

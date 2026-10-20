@@ -51,6 +51,7 @@ import {
 } from "@/offline/connectivity";
 import { enqueue, newIdempotencyKey } from "@/offline/outbox";
 import { matchQueueable, type QueueableMatch } from "@/offline/outboxKinds";
+import { noteQueuedWrite } from "@/offline/queuedToast";
 
 // Helper de mensajes de error legibles (módulo puro, sin side-effects).
 export { apiErrorMessage } from "./apiError";
@@ -178,22 +179,6 @@ const parseBody = (data: unknown): any => {
   }
 };
 
-let lastQueuedToastAt = 0;
-function notifyQueued() {
-  // At most one toast every 10 s: a burst of check-ins should not bury the screen.
-  if (Date.now() - lastQueuedToastAt < 10_000) return;
-  lastQueuedToastAt = Date.now();
-  void import("@/i18n")
-    .then(({ default: i18n }) => {
-      const t = (i18n as any).global.t as (key: string) => string;
-      useToast().toast({
-        title: t("offline.queued.title"),
-        description: t("offline.queued.description"),
-      });
-    })
-    .catch(() => {});
-}
-
 async function queueWrite(config: any) {
   const op: OfflineOpConfig = config.offlineOp;
   const { response } = await enqueue({
@@ -204,7 +189,8 @@ async function queueWrite(config: any) {
     key: op.key,
     occurredAt: op.occurredAt,
   });
-  notifyQueued();
+  // The screen's next toast says "saved on the phone" (or the queue shows its own).
+  noteQueuedWrite();
   return {
     data: response,
     status: 202,

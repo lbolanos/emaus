@@ -11,6 +11,7 @@ const OfflineBanner = defineAsyncComponent(() => import('@/components/offline/Of
 import { onReconnect, startConnectivityListeners } from '@/offline/connectivity'
 import { startOutboxSync } from '@/offline/syncService'
 import { maybeAutoPrepare, purgeClosedRetreats } from '@/offline/prepareRetreat'
+import { installQueuedToastNote } from '@/offline/queuedToast'
 import { useUIStore } from '@/stores/ui'
 import { useVersionStore } from '@/stores/versionStore'
 import { useRetreatStore } from '@/stores/retreatStore'
@@ -22,6 +23,8 @@ const uiStore = useUIStore()
 const { isSidebarCollapsed, isMobile, isMobileMenuOpen, pageTitle } = storeToRefs(uiStore)
 const versionStore = useVersionStore()
 const retreatStore = useRetreatStore()
+// A toast right after a write saved on the phone says so (specs/offline-mode, D11).
+installQueuedToastNote(t)
 
 // While the retreat is live, keep this phone's copy fresh whenever there is
 // signal (specs/offline-mode, D4): on opening it and when the signal comes back.

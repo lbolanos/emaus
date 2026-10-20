@@ -349,15 +349,20 @@
       integrada (nombres, correos y teléfonos reales del retiro contra el texto de cada beat;
       antes prueba que detecta). Encontró dos defectos de la funcionalidad, corregidos (ver
       Reconcile): "Preparar" no guardaba la lista de Caminantes/Servidores, y ruido de avisos en
-      cada arranque sin señal
+      cada arranque sin señal. Regrabado el mismo día (4:05) con corrección de ficha, gafetes,
+      hoja de mesas y minuto a minuto impresos, y el aviso "Guardado en el teléfono" de cada
+      pantalla; 35/35 clips anclados, sin voces encimadas
 - [x] Imprimir sin señal gafetes, mesas y minuto a minuto (pedido 2026-10-20): comparado cada
       opción con señal contra sin señal tras solo "Preparar" (texto impreso e imágenes); queda
       como e2e `apps/web/tests/e2e/offline-print.spec.ts` (sin escrituras, reloj con
       `setSystemTime`: congelado, reka dispara un clic sintético de más). Corregidos: hoja "Imprimir Mesas" con salud vacía
       ("Solo con conexión" + aviso), logos de gafetes al precache, opción Word renombrada y
       desactivada sin señal, cancelados de Mesas en "Preparar". Ver Reconcile
-- [ ] Decidir si el toast propio de cada vista dice que el cambio quedó en el teléfono (hoy
-      `TOAST_LIMIT = 1` tapa "Guardado en el teléfono"; el chip sí lo muestra)
+- [x] El toast propio de cada vista dice que el cambio quedó en el teléfono (decidido
+      2026-10-20): `src/offline/queuedToast.ts` completa el primer toast de éxito tras una
+      escritura encolada; si no hay, sale el de la cola. Tests (6) y e2e de la cola. La limpieza
+      de `offline-outbox.spec.ts` ahora borra por lo que tiene el servidor: un paso fallido dejó
+      un cobro de prueba que se envió al volver la señal (borrado)
 
 **Done**: 2026-10-19 salvo lo marcado como pendiente de teléfono o de autorización.
 

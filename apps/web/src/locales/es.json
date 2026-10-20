@@ -4352,7 +4352,8 @@
     "retry": "Volver a intentar",
     "queued": {
       "title": "Guardado en el teléfono",
-      "description": "Sin conexión: se enviará solo cuando vuelva la señal."
+      "description": "Sin conexión: se enviará solo cuando vuelva la señal.",
+      "note": "Guardado en el teléfono: se enviará solo cuando vuelva la señal."
     },
     "panel": {
       "title": "Cambios sin enviar",

@@ -4030,7 +4030,8 @@
     "retry": "Try again",
     "queued": {
       "title": "Saved on this phone",
-      "description": "No connection: it will be sent when the signal comes back."
+      "description": "No connection: it will be sent when the signal comes back.",
+      "note": "Saved on this phone: it will be sent when the signal comes back."
     },
     "panel": {
       "title": "Changes not sent",

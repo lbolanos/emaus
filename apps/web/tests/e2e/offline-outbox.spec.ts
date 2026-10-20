@@ -116,6 +116,12 @@ test('the door without signal reaches the server once, with the device time', as
 			await page.locator('input[type="number"]').fill(String(OFFLINE_AMOUNT));
 			await page.getByRole('button', { name: 'Registrar pago' }).click();
 			await expect(pendingRow(page, a)).toContainText('123.45', { timeout: 15000 });
+			// The screen's own toast ("Pago registrado…") says where it really is (D11).
+			// The toast is also mirrored for screen readers: take the first copy.
+			await expect(page.getByText(/Pago registrado/).first()).toBeVisible();
+			await expect(
+				page.getByText('Guardado en el teléfono: se enviará solo cuando vuelva la señal.').first(),
+			).toBeVisible();
 
 			await pendingRow(page, a).getByRole('button', { name: 'Llegó', exact: true }).click();
 			await pendingRow(page, b).getByTestId('reception-cancel-no-show').click();
@@ -221,9 +227,18 @@ test('the door without signal reaches the server once, with the device time', as
 			expect(after.pendingList.some((e: any) => e.participantId === a.participantId), 'nothing reached the server').toBe(true);
 		});
 	} finally {
-		// Leave the disposable DB as it was found.
+		// Leave the disposable DB as it was found. With the signal back the page
+		// sends whatever was still queued (a step may have failed mid-way): let
+		// it, then clean by what the server has, not by what this run noted.
 		await context.setOffline(false).catch(() => {});
-		for (const id of paymentIds) await api.send('delete', `/payments/${id}`).catch(() => {});
+		await expect(chip(page)).toHaveAttribute('data-pending', '0', { timeout: 30000 }).catch(() => {});
+		await page.close().catch(() => {});
+		const left = ((await api.get(`/payments/participant/${a.participantId}`)) as any[]).filter(
+			(p) => Number(p.amount) === OFFLINE_AMOUNT,
+		);
+		for (const id of new Set([...paymentIds, ...left.map((p) => p.id)])) {
+			await api.send('delete', `/payments/${id}`).catch(() => {});
+		}
 		await api
 			.send('put', `/participants/${a.participantId}/checkin`, { retreatId: RETREAT_ID, checkedIn: false })
 			.catch(() => {});
