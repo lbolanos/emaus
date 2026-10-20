@@ -2,6 +2,7 @@ import { Router } from 'express';
 import * as tableMesaController from '../controllers/tableMesaController';
 import { isAuthenticated } from '../middleware/isAuthenticated';
 import { requirePermission, requireRetreatAccess } from '../middleware/authorization';
+import { idempotency } from '../middleware/idempotency';
 
 const router = Router();
 
@@ -60,10 +61,16 @@ router.delete(
 	tableMesaController.unassignLeader,
 );
 
-router.post('/:id/walkers', requirePermission('table:update'), tableMesaController.assignWalker);
+router.post(
+	'/:id/walkers',
+	requirePermission('table:update'),
+	idempotency,
+	tableMesaController.assignWalker,
+);
 router.delete(
 	'/:id/walkers/:walkerId',
 	requirePermission('table:update'),
+	idempotency,
 	tableMesaController.unassignWalker,
 );
 

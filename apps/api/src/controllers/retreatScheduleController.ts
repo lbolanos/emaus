@@ -11,6 +11,7 @@ import { suggestForItems } from '../services/responsabilityMatcher';
 import { AppDataSource } from '../data-source';
 import { Responsability } from '../entities/responsability.entity';
 import { getDefaultCharlas } from '../services/responsabilityService';
+import { parseOccurredAt, InvalidOccurredAtError } from '../utils/occurredAt';
 
 const checkRetreatAccess = async (req: Request, retreatId: string): Promise<boolean> => {
 	const userId = (req.user as any)?.id;
@@ -21,6 +22,8 @@ const checkRetreatAccess = async (req: Request, retreatId: string): Promise<bool
 const mapError = (res: Response, err: unknown) => {
 	if (err instanceof ScheduleNotFoundError)
 		return res.status(404).json({ message: err.message });
+	if (err instanceof InvalidOccurredAtError)
+		return res.status(400).json({ message: err.message });
 	if (err instanceof ScheduleForeignReferenceError)
 		return res.status(400).json({ message: err.message });
 	const msg = err instanceof Error ? err.message : 'Unexpected error';
@@ -93,8 +96,9 @@ export const deleteItem = async (req: Request, res: Response) => {
 
 export const startItem = async (req: Request, res: Response) => {
 	try {
+		const occurredAt = parseOccurredAt(req.body?.occurredAt);
 		if (!(await ensureItemAccess(req, res, req.params.id))) return;
-		const item = await retreatScheduleService.startItem(req.params.id);
+		const item = await retreatScheduleService.startItem(req.params.id, occurredAt);
 		res.json(item);
 	} catch (err) {
 		mapError(res, err);
@@ -103,8 +107,9 @@ export const startItem = async (req: Request, res: Response) => {
 
 export const completeItem = async (req: Request, res: Response) => {
 	try {
+		const occurredAt = parseOccurredAt(req.body?.occurredAt);
 		if (!(await ensureItemAccess(req, res, req.params.id))) return;
-		const item = await retreatScheduleService.completeItem(req.params.id);
+		const item = await retreatScheduleService.completeItem(req.params.id, occurredAt);
 		res.json(item);
 	} catch (err) {
 		mapError(res, err);

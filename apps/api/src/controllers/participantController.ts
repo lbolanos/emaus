@@ -15,6 +15,7 @@ import { Participant } from "../entities/participant.entity";
 import { participantAvailabilityService } from "../services/participantAvailabilityService";
 import { getParticipantShirtOrderSummary } from "../services/shirtReportService";
 import { domainAuditService, DomainAuditAction } from "../services/domainAuditService";
+import { parseOccurredAt, InvalidOccurredAtError } from "../utils/occurredAt";
 // Static on purpose: a dynamic `await import` inside the handler re-loads the
 // module after jest's resetModules, which hands back a fresh AppDataSource the
 // integration tests never swapped to the test database.
@@ -858,10 +859,20 @@ export const checkInParticipant = async (
     if (!retreatId) {
       return res.status(400).json({ message: "retreatId is required" });
     }
+    let occurredAt: Date | undefined;
+    try {
+      occurredAt = parseOccurredAt(req.body.occurredAt);
+    } catch (error) {
+      if (error instanceof InvalidOccurredAtError) {
+        return res.status(400).json({ message: error.message });
+      }
+      throw error;
+    }
     const result = await participantService.setParticipantCheckIn(
       id,
       retreatId,
       checkedIn === true || checkedIn === "true",
+      occurredAt,
     );
     res.json(result);
   } catch (error) {

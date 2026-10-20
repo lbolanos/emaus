@@ -24,6 +24,7 @@ import {
 import { isAuthenticated } from '../middleware/isAuthenticated';
 import { requirePermission } from '../middleware/authorization';
 import { validateRequest } from '../middleware/validateRequest';
+import { idempotency } from '../middleware/idempotency';
 import {
 	CreateRetreatScheduleItemSchema,
 	UpdateRetreatScheduleItemSchema,
@@ -109,18 +110,23 @@ router.patch(
 	updateItem,
 );
 router.delete('/items/:id', requirePermission('schedule:manage'), deleteItem);
-router.post('/items/:id/start', requirePermission('schedule:manage'), startItem);
-router.post('/items/:id/complete', requirePermission('schedule:manage'), completeItem);
+// The four writes below can be queued without signal (specs/offline-mode); a
+// resend with the same Idempotency-Key is replayed, never applied twice (a shift
+// of +5 sent twice would otherwise move the day by 10).
+router.post('/items/:id/start', requirePermission('schedule:manage'), idempotency, startItem);
+router.post('/items/:id/complete', requirePermission('schedule:manage'), idempotency, completeItem);
 router.post(
 	'/items/:id/shift',
 	validateRequest(ShiftScheduleSchema),
 	requirePermission('schedule:manage'),
+	idempotency,
 	shiftItem,
 );
 router.post(
 	'/retreats/:retreatId/days/:day/shift',
 	validateRequest(ShiftDaySchema),
 	requirePermission('schedule:manage'),
+	idempotency,
 	shiftDay,
 );
 router.post(

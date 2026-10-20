@@ -36,6 +36,7 @@ import { AuditLog } from '../entities/auditLog.entity';
 import { CommunityAuditLog } from '../entities/communityAuditLog.entity';
 import { CommunityDuplicateDismissal } from '../entities/communityDuplicateDismissal.entity';
 import { DomainAuditLog } from '../entities/domainAuditLog.entity';
+import { IdempotencyKey } from '../entities/idempotencyKey.entity';
 // Note: RoleRequest and PermissionOverride excluded due to SQLite incompatibility
 // They use 'timestamp' and 'json' types which PostgreSQL supports but SQLite doesn't
 import { Session } from '../entities/session.entity';
@@ -125,6 +126,7 @@ const entities = [
 	CommunityAuditLog,
 	CommunityDuplicateDismissal,
 	DomainAuditLog,
+	IdempotencyKey,
 	Community,
 	CommunityMember,
 	CommunityMeeting,

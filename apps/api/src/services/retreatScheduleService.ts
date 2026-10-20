@@ -1118,8 +1118,13 @@ export class RetreatScheduleService {
 		return { added, skipped, total: templates.length };
 	}
 
-	async startItem(id: string): Promise<RetreatScheduleItem | null> {
-		const now = new Date();
+	/**
+	 * `occurredAt`: when the coordinator pressed the button on the device. Start and
+	 * complete can be queued without signal and arrive later (specs/offline-mode,
+	 * D7); absent → now, as before.
+	 */
+	async startItem(id: string, occurredAt?: Date): Promise<RetreatScheduleItem | null> {
+		const now = occurredAt ?? new Date();
 		const item = await this.itemRepo.findOne({ where: { id } });
 		if (!item) throw new ScheduleNotFoundError('item not found');
 		await this.itemRepo.update(id, { status: 'active', actualStartTime: now });
@@ -1136,8 +1141,8 @@ export class RetreatScheduleService {
 		return this.get(id);
 	}
 
-	async completeItem(id: string): Promise<RetreatScheduleItem | null> {
-		const now = new Date();
+	async completeItem(id: string, occurredAt?: Date): Promise<RetreatScheduleItem | null> {
+		const now = occurredAt ?? new Date();
 		const item = await this.itemRepo.findOne({ where: { id } });
 		if (!item) throw new ScheduleNotFoundError('item not found');
 		await this.itemRepo.update(id, { status: 'completed', actualEndTime: now });

@@ -5264,10 +5264,17 @@ export const importParticipants = async (
   };
 };
 
+/**
+ * `occurredAt`: when the walker really arrived, as recorded on the device. The
+ * web app queues check-ins without signal and sends them later
+ * (specs/offline-mode, D7); without it, every queued arrival would get the time
+ * of the sync. Absent → now, as before.
+ */
 export const setParticipantCheckIn = async (
   participantId: string,
   retreatId: string,
   checkedIn: boolean,
+  occurredAt?: Date,
 ): Promise<{ checkedIn: boolean; checkedInAt: Date | null }> => {
   const rpRepo = AppDataSource.getRepository(RetreatParticipant);
   const rp = await rpRepo.findOne({ where: { participantId, retreatId } });
@@ -5278,7 +5285,7 @@ export const setParticipantCheckIn = async (
   }
   const previousCheckedIn = rp.checkedIn;
   rp.checkedIn = checkedIn;
-  rp.checkedInAt = checkedIn ? new Date() : null;
+  rp.checkedInAt = checkedIn ? (occurredAt ?? new Date()) : null;
   await rpRepo.save(rp);
   void domainAuditService.log({
     action: DomainAuditAction.PARTICIPANT_CHECKIN,
