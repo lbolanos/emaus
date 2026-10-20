@@ -2462,19 +2462,36 @@
     "xlsx": "Exportar a XLSX",
     "csv": "Exportar a CSV"
   },
+  "briefingList": {
+    "summary": "{sent} de {total} ya lo recibieron",
+    "filterAll": "Todos",
+    "filterPending": "Sin enviar",
+    "sentOn": "Enviado el {date} por {channel}",
+    "notSent": "Sin enviar",
+    "send": "Enviar",
+    "resend": "Reenviar",
+    "emptyPending": "A todos ya se les mandó",
+    "sentError": "No se pudo cargar a quién ya se le mandó.",
+    "channels": {
+      "whatsapp": "WhatsApp",
+      "email": "correo"
+    }
+  },
   "responsibilities": {
     "title": "Responsabilidades del Retiro",
     "description": "Gestiona las responsabilidades del retiro y asigna servidores a cada una",
     "createResponsability": "Crear Responsabilidad",
     "sendTasks": {
-      "button": "Enviar tareas",
-      "title": "Enviar tareas a un servidor ({count}):",
-      "searchPlaceholder": "Buscar servidor...",
       "counts": "{responsibilities} responsabilidades · {teams} equipos",
       "documentsCount": "{count} documentos",
       "documentsError": "No se pudieron cargar los documentos: el mensaje saldrá sin los links.",
       "empty": "No hay servidores con tareas asignadas"
     },
+    "byServer": {
+      "tab": "Por servidor"
+    },
+    "moreActions": "Más acciones",
+    "cardActions": "Acciones de {name}",
     "addToTeam": "Agregar servidores al equipo",
     "addToTeamDescription": "Elige los servidores activos que se agregarán a este equipo de servicio",
     "teamLabel": "Equipo",
