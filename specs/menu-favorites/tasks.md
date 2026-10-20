@@ -47,7 +47,7 @@ verificados iguales en master): no es gate, ts-jest y `pnpm build` (vite) no los
 - [x] Cherry-pick del fix original (`fec75d89`): estado en `useUIStore`, `initSidebarAccordion`
       siembra faltantes colapsadas, compartido desktop/drawer; tests `ui.test.ts` + regresión
       `Sidebar.test.ts`.
-- [ ] Re-verificación en vivo (QA móvil del M4).
+- [x] Re-verificación en vivo (QA móvil del M4).
 
 **Done**: 2026-10-19 (cherry-pick; tests verdes en su commit original).
 
@@ -81,13 +81,29 @@ fuera — fallo del entorno local, no del branch (en CI no existe el archivo).
 
 ## M4 — E2E y QA móvil
 
-- [ ] `apps/web/tests/e2e/sidebar-favorites.spec.ts` reescrito: regresión acordeón (intacta) +
+- [x] `apps/web/tests/e2e/sidebar-favorites.spec.ts` reescrito: regresión acordeón (intacta) +
       favoritos de menú (seed por PUT → sección → clic navega → estrella quita/repone → reload
       persiste; restore en afterAll; serial).
-- [ ] QA con chrome-devtools MCP (viewport iPhone + touch) sobre el dev del worktree: drawer,
+- [x] QA con chrome-devtools MCP (viewport iPhone + touch) sobre el dev del worktree: drawer,
       acordeón entre instancias, Favoritos táctiles ≥40px, estrella persiste tras recarga.
-- [ ] Screenshots del QA; checklist firmado acá.
+- [x] Screenshots del QA; checklist firmado acá.
 - [ ] Leonardo abre la feature (URL del worktree) antes de darla por entregada.
+
+**Done**: 2026-10-19 — e2e 4/4 verde contra el dev del worktree (login local, seed por PUT,
+restore verificado por el dato: el perfil quedó con el top-5 de telemetría que el beforeAll
+capturó tras el primer GET). QA móvil (390×844 touch): drawer, Favoritos arriba con el seed,
+copias sin estrella, toggle táctil quita/repone, persistencia tras reload, clic en copia navega
+y cierra el drawer, acordeón persiste entre instancias (remonte del drawer vía uiStore).
+Screenshots en `.playwright-mcp/qa-movil-*.png`. Desviaciones: (a) la estrella medía 28×28px
+(< 40px mínimo táctil WCAG 2.5.8) — subida a `p-2.5` + `w-5` (40×40 exactos, verificado en
+vivo; 55 tests de las suites afectadas re-corridas en verde); (b) el test de la estrella expande
+`section-community` primero: el acordeón siembra colapsado y el header tapa la estrella (igual
+que un usuario real, que abre la sección antes de tocar la estrella); (c) el restore del afterAll
+devuelve el array capturado tras el primer GET — si el perfil venía `null`, ese GET dispara el
+seed D5 y es ese seed el que se restaura (el `null` puro no es expresible por PUT); (d) dos
+correcciones de aserción durante la corrida: índices del pin-order invertidos y label
+«Escritorio» → «Dashboard del Retiro» (`sidebar.retreatDashboard`) — fallos del test, no de la
+feature.
 
 **Gate**: commit `test(e2e)`.
 

@@ -46,13 +46,13 @@
             v-if="showFavoriteStar && !isCollapsedView"
             type="button"
             data-testid="favorite-star"
-            class="ml-1 p-1.5 rounded-md text-gray-400 hover:text-amber-400 hover:bg-gray-700 transition-colors duration-200 flex items-center justify-center"
+            class="ml-1 p-2.5 rounded-md text-gray-400 hover:text-amber-400 hover:bg-gray-700 transition-colors duration-200 flex items-center justify-center"
             :aria-pressed="isFavorite"
             :aria-label="isFavorite ? $t('sidebar.removeFavorite') : $t('sidebar.addFavorite')"
             @click="$emit('toggleFavorite')"
           >
             <Star
-              class="w-4 h-4"
+              class="w-5 h-5"
               :class="isFavorite ? 'fill-amber-400 text-amber-400' : ''"
             />
           </button>
