@@ -61,6 +61,11 @@ vi.mock('@repo/ui', () => {
     TableHead: stub('TableHead'),
     TableHeader: stub('TableHeader'),
     TableRow: stub('TableRow'),
+    DropdownMenu: stub('DropdownMenu'),
+    DropdownMenuTrigger: stub('DropdownMenuTrigger'),
+    DropdownMenuContent: stub('DropdownMenuContent'),
+    DropdownMenuItem: stub('DropdownMenuItem'),
+    DropdownMenuSeparator: stub('DropdownMenuSeparator'),
     useToast: () => ({ toast: vi.fn() }),
   };
 });
@@ -73,6 +78,7 @@ vi.mock('lucide-vue-next', () => ({
   Pencil: { name: 'Pencil', template: '<svg />' },
   Check: { name: 'Check', template: '<svg />' },
   X: { name: 'X', template: '<svg />' },
+  MoreVertical: { name: 'MoreVertical', template: '<svg />' },
 }));
 
 vi.mock('./ServerDropZone.vue', () => ({ default: { name: 'ServerDropZone', template: '<div />' } }));

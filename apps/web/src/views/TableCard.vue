@@ -1,8 +1,9 @@
 <template>
   <div>
     <Card class="flex flex-col" :class="{ 'opacity-50 pointer-events-none': !table.id }">
-      <!-- Card Header -->
-      <CardHeader class="flex-row items-center justify-between gap-2">
+      <!-- Card Header: compact on mobile so the table name — which carries the
+           table number — stays readable; full size from sm: up. -->
+      <CardHeader class="flex-row items-center justify-between gap-1.5 p-3 sm:gap-2 sm:p-6">
         <form
           v-if="isEditingName"
           class="flex flex-1 items-center gap-1 min-w-0"
@@ -43,12 +44,12 @@
             <X class="w-4 h-4" />
           </Button>
         </form>
-        <CardTitle v-else class="flex items-center gap-1 min-w-0">
+        <CardTitle v-else class="flex items-center gap-1 min-w-0 text-base leading-tight sm:text-2xl">
           <span class="truncate">{{ table.name }}</span>
           <Button
             variant="ghost"
             size="icon"
-            class="h-7 w-7 shrink-0 text-muted-foreground"
+            class="h-6 w-6 shrink-0 p-0 text-muted-foreground sm:h-7 sm:w-7"
             :title="$t('tables.rename.button')"
             data-testid="table-name-edit"
             @click="startEditName"
@@ -57,53 +58,102 @@
           </Button>
         </CardTitle>
         <!-- Hidden while renaming: on narrow cards it would cover the save/cancel buttons. -->
-        <div v-if="!isEditingName" class="flex items-center gap-2">
-          <span class="text-sm font-normal text-gray-500 dark:text-gray-400"> {{ table.walkers?.length || 0 }} / 7 </span>
-          <Popover v-if="leaderOptions.length > 0" v-model:open="briefingOpen">
-            <PopoverTrigger as-child>
-              <Button variant="outline" size="icon" :title="$t('tables.briefing.button')">
-                <Send class="w-4 h-4" />
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent align="end" class="w-60 p-1">
-              <p class="px-2 py-1.5 text-xs text-muted-foreground">{{ $t('tables.briefing.chooseLeader') }}</p>
-              <button
-                v-for="opt in leaderOptions"
-                :key="opt.role"
-                type="button"
-                class="w-full text-left px-2 py-1.5 text-sm rounded hover:bg-accent flex items-center gap-2"
-                @click="onChooseLeader(opt.participant)"
-              >
-                <span class="text-xs text-muted-foreground w-14 shrink-0">{{ opt.label }}</span>
-                <span class="truncate">{{ opt.participant.firstName }} {{ opt.participant.lastName }}</span>
-              </button>
-            </PopoverContent>
-          </Popover>
-          <Button
-            variant="outline"
-            size="icon"
-            @click="isDialogOpen = true"
-            :title="$t('tables.viewWalkers')"
-          >
-            <Eye class="w-4 h-4" />
-          </Button>
-          <Button
-            variant="outline"
-            size="icon"
-            @click="isPhotoDialogOpen = true"
-            :title="$t('tables.photoAssign.tableTitle')"
-          >
-            <Camera class="w-4 h-4" />
-          </Button>
-          <Button
-            variant="destructive"
-            size="icon"
-            @click="confirmDelete"
-            :disabled="hasWalkers"
-            :title="hasWalkers ? $t('tables.deleteTable.disabledTooltip') : $t('common.delete')"
-          >
-            <Trash2 class="w-4 h-4" />
-          </Button>
+        <div v-if="!isEditingName" class="flex items-center gap-1 sm:gap-2">
+          <span class="text-xs font-normal text-gray-500 dark:text-gray-400 tabular-nums shrink-0 sm:text-sm">
+            {{ table.walkers?.length || 0 }} / 7
+          </span>
+          <!-- Desktop: direct icon buttons. -->
+          <div class="hidden sm:flex items-center gap-1">
+            <Popover v-if="leaderOptions.length > 0" v-model:open="briefingOpen">
+              <PopoverTrigger as-child>
+                <Button variant="outline" size="icon" class="h-8 w-8" :title="$t('tables.briefing.button')">
+                  <Send class="w-4 h-4" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent align="end" class="w-60 p-1">
+                <p class="px-2 py-1.5 text-xs text-muted-foreground">{{ $t('tables.briefing.chooseLeader') }}</p>
+                <button
+                  v-for="opt in leaderOptions"
+                  :key="opt.role"
+                  type="button"
+                  class="w-full text-left px-2 py-1.5 text-sm rounded hover:bg-accent flex items-center gap-2"
+                  @click="onChooseLeader(opt.participant)"
+                >
+                  <span class="text-xs text-muted-foreground w-14 shrink-0">{{ opt.label }}</span>
+                  <span class="truncate">{{ opt.participant.firstName }} {{ opt.participant.lastName }}</span>
+                </button>
+              </PopoverContent>
+            </Popover>
+            <Button
+              variant="outline"
+              size="icon"
+              class="h-8 w-8"
+              @click="isDialogOpen = true"
+              :title="$t('tables.viewWalkers')"
+            >
+              <Eye class="w-4 h-4" />
+            </Button>
+            <Button
+              variant="outline"
+              size="icon"
+              class="h-8 w-8"
+              @click="isPhotoDialogOpen = true"
+              :title="$t('tables.photoAssign.tableTitle')"
+            >
+              <Camera class="w-4 h-4" />
+            </Button>
+            <Button
+              variant="destructive"
+              size="icon"
+              class="h-8 w-8"
+              @click="confirmDelete"
+              :disabled="hasWalkers"
+              :title="hasWalkers ? $t('tables.deleteTable.disabledTooltip') : $t('common.delete')"
+            >
+              <Trash2 class="w-4 h-4" />
+            </Button>
+          </div>
+          <!-- Mobile: the same actions collapse into one menu. Dialogs open
+               through deferOpen so the closing menu doesn't leave reka-ui's
+               pointer-events bug behind. -->
+          <div class="sm:hidden">
+            <DropdownMenu>
+              <DropdownMenuTrigger as-child>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  class="h-8 w-8 p-0"
+                  :title="$t('common.moreActions')"
+                  :aria-label="$t('common.moreActions')"
+                  data-testid="table-card-menu"
+                >
+                  <MoreVertical class="w-4 h-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <template v-if="leaderOptions.length > 0">
+                  <DropdownMenuItem
+                    v-for="opt in leaderOptions"
+                    :key="'menu-' + opt.role"
+                    @select="deferOpen(() => onChooseLeader(opt.participant))"
+                  >
+                    <Send class="mr-2 h-4 w-4 shrink-0" />
+                    <span class="truncate">{{ $t('tables.briefing.button') }} · {{ opt.label }}</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                </template>
+                <DropdownMenuItem @select="deferOpen(() => (isDialogOpen = true))">
+                  <Eye class="mr-2 h-4 w-4" /> {{ $t('tables.viewWalkers') }}
+                </DropdownMenuItem>
+                <DropdownMenuItem @select="deferOpen(() => (isPhotoDialogOpen = true))">
+                  <Camera class="mr-2 h-4 w-4" /> {{ $t('tables.photoAssign.tableTitle') }}
+                </DropdownMenuItem>
+                <DropdownMenuItem :disabled="hasWalkers" @click="confirmDelete">
+                  <Trash2 class="mr-2 h-4 w-4" /> {{ $t('tables.deleteTable.title') }}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
       </CardHeader>
 
@@ -306,9 +356,10 @@ import { highlightClassFor } from '@/utils/participantSearch';
 import type { SearchHighlight } from '@/utils/participantSearch';
 
 import { Button, Input, Popover, PopoverContent, PopoverTrigger } from '@repo/ui';
-import { Trash2, Eye, Camera, Send, Pencil, Check, X } from 'lucide-vue-next';
+import { Trash2, Eye, Camera, Send, Pencil, Check, X, MoreVertical } from 'lucide-vue-next';
 import { apiErrorMessage } from '@/services/apiError';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@repo/ui';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@repo/ui';
+import { useRekaDialogFix } from '@/composables/useRekaDialogFix';
 import PhotoAssignmentDialog from '@/components/PhotoAssignmentDialog.vue';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@repo/ui';
 
@@ -348,6 +399,9 @@ const { open: openMessageDialog } = useParticipantMessageDialog();
 const { toast } = useToast();
 const { draggedParticipantType, startDrag: startDragState, endDrag } = useDragState();
 const { tappedParticipant, onTouchStart: tapTouchStart, onTouchEnd: tapTouchEnd, onTapZone: tapZone, onZoneClick: tapZoneClick, isSelected: isTapSelected, clearSelection: clearTap } = useTapAssign();
+// Menu items that open a reka-ui Dialog must go through deferOpen (see
+// .claude/rules/frontend.md — the pointer-events:none orphan bug).
+const { deferOpen } = useRekaDialogFix();
 
 
 
