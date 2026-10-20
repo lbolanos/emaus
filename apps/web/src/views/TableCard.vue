@@ -57,53 +57,55 @@
           </Button>
         </CardTitle>
         <!-- Hidden while renaming: on narrow cards it would cover the save/cancel buttons. -->
-        <div v-if="!isEditingName" class="flex items-center gap-2">
-          <span class="text-sm font-normal text-gray-500 dark:text-gray-400"> {{ table.walkers?.length || 0 }} / 7 </span>
-          <Popover v-if="leaderOptions.length > 0" v-model:open="briefingOpen">
-            <PopoverTrigger as-child>
-              <Button variant="outline" size="icon" :title="$t('tables.briefing.button')">
-                <Send class="w-4 h-4" />
+        <!-- Conteo + ⋮ (spec ux-mam-responsabilidades, D9): cuatro botones aquí
+             recortaban el nombre de la mesa a «M». Cada opción abre un diálogo:
+             deferOpen (bug reka-ui pointer-events). -->
+        <div v-if="!isEditingName" class="flex items-center gap-1 shrink-0">
+          <span class="text-sm font-normal text-gray-500 dark:text-gray-400 whitespace-nowrap"> {{ table.walkers?.length || 0 }} / 7 </span>
+          <DropdownMenu>
+            <DropdownMenuTrigger as-child>
+              <Button
+                variant="ghost"
+                size="icon"
+                class="h-8 w-8"
+                :title="$t('tables.cardActions', { name: table.name })"
+                :aria-label="$t('tables.cardActions', { name: table.name })"
+                data-testid="table-card-menu"
+              >
+                <MoreVertical class="w-4 h-4" />
               </Button>
-            </PopoverTrigger>
-            <PopoverContent align="end" class="w-60 p-1">
-              <p class="px-2 py-1.5 text-xs text-muted-foreground">{{ $t('tables.briefing.chooseLeader') }}</p>
-              <button
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem
                 v-for="opt in leaderOptions"
                 :key="opt.role"
-                type="button"
-                class="w-full text-left px-2 py-1.5 text-sm rounded hover:bg-accent flex items-center gap-2"
-                @click="onChooseLeader(opt.participant)"
+                data-testid="table-briefing-item"
+                @select="deferOpen(() => onChooseLeader(opt.participant))"
               >
-                <span class="text-xs text-muted-foreground w-14 shrink-0">{{ opt.label }}</span>
-                <span class="truncate">{{ opt.participant.firstName }} {{ opt.participant.lastName }}</span>
-              </button>
-            </PopoverContent>
-          </Popover>
-          <Button
-            variant="outline"
-            size="icon"
-            @click="isDialogOpen = true"
-            :title="$t('tables.viewWalkers')"
-          >
-            <Eye class="w-4 h-4" />
-          </Button>
-          <Button
-            variant="outline"
-            size="icon"
-            @click="isPhotoDialogOpen = true"
-            :title="$t('tables.photoAssign.tableTitle')"
-          >
-            <Camera class="w-4 h-4" />
-          </Button>
-          <Button
-            variant="destructive"
-            size="icon"
-            @click="confirmDelete"
-            :disabled="hasWalkers"
-            :title="hasWalkers ? $t('tables.deleteTable.disabledTooltip') : $t('common.delete')"
-          >
-            <Trash2 class="w-4 h-4" />
-          </Button>
+                <Send class="mr-2 h-4 w-4" />
+                {{ $t('tables.briefingSendTo', { role: opt.label, name: participantLabel(opt.participant) }) }}
+              </DropdownMenuItem>
+              <DropdownMenuSeparator v-if="leaderOptions.length" />
+              <DropdownMenuItem @select="deferOpen(() => (isDialogOpen = true))">
+                <Eye class="mr-2 h-4 w-4" />
+                {{ $t('tables.viewWalkers') }}
+              </DropdownMenuItem>
+              <DropdownMenuItem @select="deferOpen(() => (isPhotoDialogOpen = true))">
+                <Camera class="mr-2 h-4 w-4" />
+                {{ $t('tables.photoAssign.tableTitle') }}
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                class="text-red-600 focus:text-red-700"
+                :disabled="hasWalkers"
+                :title="hasWalkers ? $t('tables.deleteTable.disabledTooltip') : undefined"
+                @select="deferOpen(confirmDelete)"
+              >
+                <Trash2 class="mr-2 h-4 w-4" />
+                {{ $t('common.delete') }}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </CardHeader>
 
@@ -305,8 +307,18 @@ import { buildTableData } from '@/utils/tableBriefing';
 import { highlightClassFor } from '@/utils/participantSearch';
 import type { SearchHighlight } from '@/utils/participantSearch';
 
-import { Button, Input, Popover, PopoverContent, PopoverTrigger } from '@repo/ui';
-import { Trash2, Eye, Camera, Send, Pencil, Check, X } from 'lucide-vue-next';
+import {
+  Button,
+  Input,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@repo/ui';
+import { Trash2, Eye, Camera, Send, Pencil, Check, X, MoreVertical } from 'lucide-vue-next';
+import { useRekaDialogFix } from '@/composables/useRekaDialogFix';
+import { participantLabel } from '@/utils/participant';
 import { apiErrorMessage } from '@/services/apiError';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@repo/ui';
 import PhotoAssignmentDialog from '@/components/PhotoAssignmentDialog.vue';
@@ -413,7 +425,8 @@ const saveName = async () => {
 };
 
 // --- Briefing de mesa: enviar info de la mesa al líder/colíder elegido ---
-const briefingOpen = ref(false);
+// Las opciones del ⋮ abren diálogos: diferidas o reka-ui deja pointer-events:none en <body>.
+const { deferOpen } = useRekaDialogFix();
 
 const leaderOptions = computed(() => {
   const opts: { role: string; label: string; participant: Participant }[] = [];
@@ -430,10 +443,8 @@ const leaderOptions = computed(() => {
 const enrichParticipant = (p: Participant): Participant =>
   participantStore.participants.find((x) => x.id === p.id) ?? p;
 
-// Cerrar el popover ANTES de abrir el Dialog (mismo tick) deja pointer-events:none
-// huérfano en <body> (bug reka-ui). Cerramos y abrimos en nextTick.
+// Llega desde el ⋮ ya diferido (deferOpen); el nextTick queda por el render del singleton.
 const onChooseLeader = (leader: Participant) => {
-  briefingOpen.value = false;
   const tableData = buildTableData(props.table, participantStore.participants);
   const target = enrichParticipant(leader);
   nextTick(() => openMessageDialog(target, { tableData, templateType: 'TABLE_LEADER_BRIEFING' }));

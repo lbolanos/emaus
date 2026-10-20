@@ -4,21 +4,37 @@ Permite, una vez armadas las mesas, enviar por WhatsApp a cada **líder/colíder
 mensaje con el roster de caminantes de su mesa (teléfonos propios + ambos contactos de
 emergencia) y el **guion** que debe usar para contactar a cada caminante.
 
-## Disparador
+## Disparadores
 
-En la vista **Asignación de Mesas** (`TablesView.vue`), cada tarjeta de mesa
-(`TableCard.vue`) tiene en el header un botón **"Enviar info a líderes"** (icono ✉️),
-visible solo si la mesa tiene al menos un líder asignado.
+Desde 2026-10-19 (`specs/ux-mam-responsabilidades`, Parte 2: D7 y D9) hay dos, en la vista
+**Mesas** (`TablesView.vue`). Antes eran dos popovers (uno en el encabezado, uno por tarjeta),
+sin marca de envío; el de la tarjeta, junto con sus otros tres botones, recortaba el nombre de
+la mesa a «M».
 
-Al pulsarlo abre un **Popover** con los líderes presentes (líder, co-líder 1, co-líder 2).
-Al elegir uno se abre el `MessageDialog` con:
+1. **«Enviar info a líderes» en el `⋮` del encabezado**, que abre un diálogo con
+   `BriefingSendList.vue` (la misma lista que «Por servidor» en Responsabilidades): cada líder
+   y colíder con su mesa, su rol y sus caminantes, la marca **«Enviado el … por
+   WhatsApp/correo»** y Enviar / Reenviar, con búsqueda propia (persona o mesa) y el filtro
+   «Sin enviar».
+   - **Ida y vuelta**: Enviar cierra la lista y abre el `MessageDialog` diferido
+     (`deferOpen`); al cerrarse el mensaje, la lista vuelve sola, también diferida. Dos `Dialog`
+     de reka-ui abiertos a la vez dejan `pointer-events: none` en `<body>`. Búsqueda y filtro
+     viven en la vista (`v-model:filter`) y sobreviven al ida y vuelta; se limpian solo cuando
+     el usuario cierra la lista (`update:open`, que el cierre programático no emite).
+   - La marca sale del historial: `GET /api/participant-communications/retreat/:retreatId/latest-by-template-type?type=TABLE_LEADER_BRIEFING`
+     (ver `server-assignments-briefing.md`), cargada con el retiro y recargada al cerrar el
+     `MessageDialog`. Es por persona: quien lidera dos mesas queda marcado en las dos filas.
+   - Primero fue una pestaña «Mesas · Por líder»; Leonardo la cambió por esta opción el mismo
+     día (`specs/ux-mam-responsabilidades`, D7).
+2. **`⋮` de cada tarjeta** (`TableCard.vue`): una opción «Enviar info a <rol> · <nombre>» por
+   cada líder presente, junto a Ver caminantes, Asignar por foto y Eliminar. Todas pasan por
+   `deferOpen` (`useRekaDialogFix`): abren diálogos desde un menú de reka-ui.
 
-- el líder elegido como destinatario (su teléfono),
+Los dos abren el `MessageDialog` con:
+
+- el líder elegido como destinatario (su ficha del store, con teléfono),
 - la plantilla **"Briefing de Mesa para Líderes"** preseleccionada,
 - las variables `{table.*}` resueltas con los datos de esa mesa.
-
-Se cierra el Popover **antes** de abrir el Dialog (patrón `nextTick`) para evitar el bug
-de `pointer-events:none` huérfano de reka-ui.
 
 ## Scope de variables `table.*`
 
@@ -59,7 +75,7 @@ editables por retiro:
 
 `TABLE_LEADER_BRIEFING` se **oculta del selector de plantillas** del `MessageDialog`
 (`MANUAL_HIDDEN_TEMPLATE_TYPES`), porque sus variables `{table.*}` solo se llenan vía
-el botón de briefing (que pasa el `tableData`). Solo se muestra/selecciona cuando el
+los disparadores de arriba (que pasan el `tableData`). Solo se muestra/selecciona cuando el
 diálogo se abre con `forceTemplateType='TABLE_LEADER_BRIEFING'`. Así se evita que un
 usuario la elija en un envío normal y mande `{table.*}` vacías.
 
@@ -85,12 +101,18 @@ caminante/retiro" no aplica a ese scope (solo se llena vía el flujo de briefing
 - `apps/api/src/migrations/sqlite/20260608120000_AddTableLeaderBriefingTemplate.ts`.
 - `apps/web/src/composables/useParticipantMessageDialog.ts` — singleton con `tableData` + `templateType`.
 - `apps/web/src/components/MessageDialog.vue` — props `tableData` + `forceTemplateType`.
-- `apps/web/src/views/TableCard.vue` — botón + Popover + `buildTableData()`.
-- `apps/web/src/views/TablesView.vue` — enlaza `tableData`/`forceTemplateType`.
+- `apps/web/src/views/TableCard.vue` — `⋮` de la tarjeta + `buildTableData()`.
+- `apps/web/src/views/TablesView.vue` — opción y diálogo «Enviar info a líderes», marcas, y enlaza
+  `tableData`/`forceTemplateType`.
+- `apps/web/src/components/BriefingSendList.vue` — la lista con la marca de envío.
 - `apps/web/src/components/BaseMessageTemplateModal.vue` — categoría "Mesa".
 
 ## Tests
 
 - `apps/web/src/utils/__tests__/tableVariables.test.ts` — roster, contactos de emergencia, filtro de teléfonos, mock.
-- `apps/web/src/views/__tests__/TableCardBriefing.test.ts` — botón, enriquecimiento, apertura del dialog.
+- `apps/web/src/views/__tests__/TableCardBriefing.test.ts` — opciones del `⋮`, Eliminar
+  deshabilitado con caminantes, enriquecimiento, apertura del dialog.
+- `apps/web/src/views/__tests__/TablesViewLeaders.test.ts` — opción del `⋮`, filas, búsqueda,
+  ida y vuelta lista → mensaje → lista, limpieza al cerrar, marcas (carga, recarga, fallo).
+- `apps/web/src/components/__tests__/BriefingSendList.test.ts` — la lista.
 - `apps/api/src/tests/migrations/addTableLeaderBriefingTemplate.test.ts` — seed global + copia a retiros + idempotencia + down.

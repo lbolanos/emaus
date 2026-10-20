@@ -1735,10 +1735,6 @@
       "colider1": "Co-Leader 1",
       "colider2": "Co-Leader 2"
     },
-    "briefing": {
-      "button": "Send info to leaders",
-      "chooseLeader": "Choose who to send to:"
-    },
     "unassignedServers": "Unassigned Servers",
     "unassignedWalkers": "Unassigned Walkers",
     "rebalanceWalkers": "Rebalance Walkers",
@@ -1950,7 +1946,18 @@
       "scope": "{count} preparations held",
       "notSynced": "Sync this retreat’s preparations to see attendance",
       "hide": "Hide preparation attendance"
-    }
+    },
+    "byLeader": {
+      "empty": "No leaders or co-leaders assigned",
+      "walkersCount": "{count} walkers",
+      "menuItem": "Send info to leaders",
+      "title": "Send each leader their table info",
+      "description": "Walkers, contacts and call script, to each leader and co-leader. When each message closes you come back to this list.",
+      "searchPlaceholder": "Search leader or table..."
+    },
+    "moreActions": "More actions",
+    "cardActions": "Actions for {name}",
+    "briefingSendTo": "Send info to {role} · {name}"
   },
   "bedAssignments": {
     "title": "Bed Assignments",
