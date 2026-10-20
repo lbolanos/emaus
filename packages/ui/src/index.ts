@@ -52,7 +52,7 @@ import { Alert, AlertDescription, AlertTitle } from './components/ui/alert/index
 import { Avatar, AvatarFallback, AvatarImage } from './components/ui/avatar/index';
 import { Badge } from './components/ui/badge/index';
 import { Calendar } from './components/ui/calendar/index';
-import { Toast } from './components/ui/toast/index';
+import { Toast, ToastAction } from './components/ui/toast/index';
 import { useToast } from './components/ui/toast/use-toast';
 import Toaster from './components/ui/toast/Toaster.vue';
 import {
@@ -142,6 +142,7 @@ export {
 	Badge,
 	Calendar,
 	Toast,
+	ToastAction,
 	useToast,
 	Toaster,
 	DropdownMenu,

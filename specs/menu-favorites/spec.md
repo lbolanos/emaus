@@ -130,7 +130,24 @@ divergían en móvil).
   PUT). El popover se cierra solo al quedarse sin sugerencias, y el botón `+` desaparece cuando
   no hay ninguna. Privacidad: solo el GET propio lo devuelve (`getPublicProfile`/`searchUsers`
   no lo exponen, cubierto por tests). Hit area del `+`: 40px vía `::before -inset-[6px]` (mismo
-  estándar táctil de 40px) sin engordar el header compacto.
+  estándar táctil de 40px) sin engordar el header compacto. **Revisión 2026-10-20 (M4f):** cada
+  sugerencia muestra su **conteo de vistas** («535 vistas», singular «1 vista»): el GET propio
+  viaja con `{ route, views }` por sugerencia (commit `a0150133`, computado al vuelo como el
+  resto del campo, sin persistencia).
+- **D11 — Pack de mejoras UX (feedback de Leonardo, 2026-10-20, selección explícita de las 4)**:
+  1. **Hint de descubrimiento** bajo el header de «Favoritos»: explica el dwell («deja el puntero
+     ~1s») con botón «Ocultar la ayuda»; se descarta al primer toggle o al cerrarlo, persistido en
+     `favorites-hint-dismissed` (localStorage, por navegador — es ayuda de una sola vez, no una
+     preferencia que deba seguir al usuario).
+  2. **Toast con deshacer al fijar/quitar**: `useToast` + `ToastAction` de `@repo/ui` (export
+     añadido), duración 8s (el default de 5s se come el tiempo de reacción del deshacer); el botón
+     re-toggla y anuncia el estado resultante. Nota de la implementación: `ToastAction` exige la
+     prop `altText` — sin ella lanza en su setup y el `errorHandler` de `main.ts` lo lee como fallo
+     de arranque y fuerza un **reload completo de la página** (cazado en QA, no por los unit
+     tests, que stubbean el componente).
+  3. **Transición del menú dwell** (fade + scale ~120ms) en el panel interno del menú
+     teletransportado.
+  4. **Conteo de vistas en las sugerencias** (ver D10, revisión M4f).
 
 ## Requerimientos
 
@@ -156,6 +173,9 @@ divergían en móvil).
 - **R8** — i18n es **y** en para todos los textos nuevos de UI.
 - **R9** — `MENU_ROUTE_NAMES` + `DEFAULT_FAVORITE_MENU_ITEMS` exportados en `@repo/types` y usados
   por el seed del API (y testeados contra `menuSections` para que no deriven en silencio).
+- **R10** — Mejoras UX de D11: hint de descubrimiento con descarte persistente; toast con deshacer
+  (8s) por toggle exitoso, sin recargar la página; transición del menú dwell; conteo de vistas en
+  las sugerencias del popover (i18n es+en, `viewCountOne`/`viewCountMany`).
 
 ## Criterios de aceptación (end-to-end)
 
@@ -187,7 +207,12 @@ telemetría propia en la DB del worktree — research §7):
 9. Hover sobre el header de «Favoritos» (400ms) o clic en el `+` abre el popover de sugerencias
    con vistas frecuentes **no fijadas** (telemetría propia, cap 5); clic en una la fija (PUT
    parcial), la sugestión se gradúa del popover y aparece en la sección; el pin **sobrevive un
-   reload**. Al vaciarse las sugerencias el popover se cierra solo y el `+` desaparece.
+   reload**. Al vaciarse las sugerencias el popover se cierra solo y el `+` desaparece. **M4f:**
+   cada sugerencia muestra su conteo de vistas.
+10. **(M4f)** El toggle exitoso anuncia con un toast («Fijado/Quitado de favoritos») con botón
+   «Deshacer» que revierte el pin y anuncia el estado resultante — **sin recargar la página**; el
+   hint de descubrimiento aparece en la primera visita y no vuelve tras cerrarlo o tras el primer
+   toggle.
 
 **Negativos** (lo que NO debe pasar):
 
@@ -202,6 +227,9 @@ telemetría propia en la DB del worktree — research §7):
   navegó no lo abre un segundo después, y el touchend del long-press no navega la fila.
 - Las sugerencias nunca se persisten ni salen del GET propio (no son un campo del perfil público
   ni de la búsqueda de usuarios).
+- El toast del toggle jamás recarga la página (la regresión del `altText` ausente lo hacía: la
+  prop requerida de `ToastAction` lanzaba en setup y el `errorHandler` respondía con un reload
+  completo — cubierto por el e2e con bandera de `window`).
 
 ## Fuera de alcance
 

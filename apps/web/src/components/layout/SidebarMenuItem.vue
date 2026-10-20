@@ -42,9 +42,17 @@
                 class="ml-auto shrink-0 rounded-full text-white text-xs font-bold leading-none flex items-center justify-center"
                 :class="[badgeColor, badge > 99 ? 'px-1.5 h-5' : 'w-5 h-5']"
               >{{ badge > 99 ? '99+' : badge }}</span>
-              <span v-else-if="!isCollapsedView && isFocused" class="ml-auto transition-opacity duration-200 opacity-70 group-hover:opacity-100">
+              <span v-else-if="!isCollapsedView && isFocused && !openingSoon" class="ml-auto transition-opacity duration-200 opacity-70 group-hover:opacity-100">
                 <ArrowRight class="w-4 h-4" />
               </span>
+              <!-- Dwell feedback: a chevron fades in while the hover/focus
+                   dwell counts toward the menu, so the wait reads as
+                   "something is coming" instead of a dead row. -->
+              <Transition name="fav-dwell">
+                <span v-if="!isCollapsedView && openingSoon" class="ml-auto shrink-0 text-gray-400">
+                  <ChevronRight class="w-4 h-4" />
+                </span>
+              </Transition>
             </a>
           </component>
         </div>
@@ -95,39 +103,46 @@
        row's own click (navigation). Disabled in rail mode, where the tooltip
        already owns the hover. -->
   <Teleport to="body">
-    <div
-      v-if="menuOpen"
-      ref="menuRef"
-      role="menu"
-      data-testid="favorite-item-menu"
-      class="fixed z-[2000] w-56 p-1 rounded-md border bg-popover text-popover-foreground shadow-md"
-      :style="menuStyle"
-      @mouseenter="cancelClose"
-      @mouseleave="leaveRow"
-    >
-      <button
-        type="button"
-        role="menuitem"
-        data-testid="favorite-item-toggle"
-        class="w-full flex items-center px-2 py-2 text-sm font-medium rounded-md transition-colors duration-200"
-        :class="isFavorite
-          ? 'text-amber-400 hover:bg-gray-700'
-          : 'text-gray-300 hover:bg-gray-700 hover:text-white'"
-        @click="toggleFromMenu"
+    <Transition name="fav-menu">
+      <div
+        v-if="menuOpen"
+        ref="menuRef"
+        role="menu"
+        data-testid="favorite-item-menu"
+        class="fixed z-[2000]"
+        :style="menuStyle"
+        @mouseenter="cancelClose"
+        @mouseleave="leaveRow"
       >
-        <Star
-          class="w-4 h-4 mr-3 shrink-0"
-          :class="isFavorite ? 'fill-amber-400 text-amber-400' : 'text-gray-400'"
-        />
-        <span class="truncate">{{ isFavorite ? $t('sidebar.removeFavorite') : $t('sidebar.addFavorite') }}</span>
-      </button>
-    </div>
+        <!-- The visual panel is a child so the open transition can scale it:
+             the outer div's translateY(-50%) is an inline transform and would
+             override any class-level transform on itself. -->
+        <div class="fav-menu-inner w-56 p-1 rounded-md border bg-popover text-popover-foreground shadow-md">
+          <button
+            type="button"
+            role="menuitem"
+            data-testid="favorite-item-toggle"
+            class="w-full flex items-center px-2 py-2 text-sm font-medium rounded-md transition-colors duration-200"
+            :class="isFavorite
+              ? 'text-amber-400 hover:bg-gray-700'
+              : 'text-gray-300 hover:bg-gray-700 hover:text-white'"
+            @click="toggleFromMenu"
+          >
+            <Star
+              class="w-4 h-4 mr-3 shrink-0"
+              :class="isFavorite ? 'fill-amber-400 text-amber-400' : 'text-gray-400'"
+            />
+            <span class="truncate">{{ isFavorite ? $t('sidebar.removeFavorite') : $t('sidebar.addFavorite') }}</span>
+          </button>
+        </div>
+      </div>
+    </Transition>
   </Teleport>
 </template>
 
 <script setup lang="ts">
 import { onBeforeUnmount, ref } from 'vue';
-import { ArrowRight, Lock, Star } from 'lucide-vue-next';
+import { ArrowRight, ChevronRight, Lock, Star } from 'lucide-vue-next';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@repo/ui';
 
 interface MenuItem {
@@ -164,24 +179,42 @@ const emit = defineEmits<{
 const HOVER_OPEN_MS = 1000; // mouse dwell ("leave the mouse over the item a second")
 const TOUCH_OPEN_MS = 500; // long-press: the touch counterpart of the dwell
 const CLOSE_GRACE_MS = 250; // time to cross from the row into the portaled menu
+const CHEVRON_FADE_MS = 400; // dwell feedback: chevron appears well before the menu
 
 const rowRef = ref<HTMLElement | null>(null);
 const menuRef = ref<HTMLElement | null>(null);
 const menuOpen = ref(false);
 const menuStyle = ref<Record<string, string>>({});
+// Dwell feedback: true while the dwell is counting and the chevron shows.
+const openingSoon = ref(false);
 let openTimer: ReturnType<typeof setTimeout> | null = null;
 let closeTimer: ReturnType<typeof setTimeout> | null = null;
 let touchTimer: ReturnType<typeof setTimeout> | null = null;
+let chevronTimer: ReturnType<typeof setTimeout> | null = null;
 let touchHoldFired = false;
 let touchStartX = 0;
 let touchStartY = 0;
 let lastTouchAt = 0;
+
+function startDwellHint() {
+  if (chevronTimer || openingSoon.value) return;
+  chevronTimer = setTimeout(() => {
+    chevronTimer = null;
+    openingSoon.value = true;
+  }, CHEVRON_FADE_MS);
+}
+
+function stopDwellHint() {
+  if (chevronTimer) { clearTimeout(chevronTimer); chevronTimer = null; }
+  openingSoon.value = false;
+}
 
 function clearAllTimers() {
   if (openTimer) clearTimeout(openTimer);
   if (closeTimer) clearTimeout(closeTimer);
   if (touchTimer) clearTimeout(touchTimer);
   openTimer = closeTimer = touchTimer = null;
+  stopDwellHint();
 }
 
 function menuAvailable(): boolean {
@@ -200,10 +233,12 @@ function enterRow() {
     openTimer = null;
     openMenu();
   }, HOVER_OPEN_MS);
+  startDwellHint();
 }
 
 function leaveRow() {
   if (openTimer) { clearTimeout(openTimer); openTimer = null; }
+  stopDwellHint();
   if (!menuOpen.value || closeTimer) return;
   closeTimer = setTimeout(() => closeMenu(), CLOSE_GRACE_MS);
 }
@@ -232,6 +267,7 @@ function openMenu() {
     transform: 'translateY(-50%)',
   };
   menuOpen.value = true;
+  stopDwellHint(); // the chevron handed off to the menu itself
   document.addEventListener('click', onDocInteract, true);
   document.addEventListener('keydown', onDocInteract, true);
   window.addEventListener('scroll', onScrollAway, true);
@@ -281,6 +317,8 @@ function startTouchHold(event: TouchEvent) {
     touchHoldFired = true;
     openMenu();
   }, TOUCH_OPEN_MS);
+  // 400ms of the 500ms hold: brief feedback that the press is registering.
+  startDwellHint();
 }
 
 function moveTouchHold(event: TouchEvent) {
@@ -292,6 +330,7 @@ function moveTouchHold(event: TouchEvent) {
   if (moved > 10) {
     clearTimeout(touchTimer);
     touchTimer = null;
+    stopDwellHint();
   }
 }
 
@@ -302,7 +341,7 @@ function endTouchHold(event: TouchEvent) {
     touchHoldFired = false;
     event.preventDefault();
   }
-  if (touchTimer) { clearTimeout(touchTimer); touchTimer = null; }
+  if (touchTimer) { clearTimeout(touchTimer); touchTimer = null; stopDwellHint(); }
 }
 
 function preventTouchContextMenu(event: MouseEvent) {
@@ -322,6 +361,7 @@ function handleAnchorFocus() {
     openTimer = null;
     openMenu();
   }, HOVER_OPEN_MS);
+  startDwellHint();
 }
 
 onBeforeUnmount(() => {
@@ -333,3 +373,40 @@ onBeforeUnmount(() => {
   }
 });
 </script>
+
+<style scoped>
+/* Dwell-feedback chevron: a short fade so it reads as the row waking up. */
+.fav-dwell-enter-active,
+.fav-dwell-leave-active {
+  transition: opacity 200ms ease;
+}
+.fav-dwell-enter-from,
+.fav-dwell-leave-to {
+  opacity: 0;
+}
+
+/* Menu unfold: quick fade + slight scale, anchored to the row (the menu
+   unfolds to the right of it). Kept ~120ms so the dwell flow never feels
+   like a separate dialog opening. */
+.fav-menu-enter-active {
+  transition: opacity 120ms ease-out;
+}
+.fav-menu-leave-active {
+  transition: opacity 100ms ease-in;
+}
+.fav-menu-enter-from,
+.fav-menu-leave-to {
+  opacity: 0;
+}
+.fav-menu-enter-active .fav-menu-inner {
+  transition: transform 120ms ease-out;
+}
+.fav-menu-leave-active .fav-menu-inner {
+  transition: transform 100ms ease-in;
+}
+.fav-menu-enter-from .fav-menu-inner,
+.fav-menu-leave-to .fav-menu-inner {
+  transform: scale(0.96);
+  transform-origin: left center;
+}
+</style>

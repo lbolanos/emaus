@@ -209,6 +209,10 @@
                     class="w-4 h-4 flex-shrink-0 mr-3 text-gray-400 group-hover:text-gray-200"
                   />
                   <span class="truncate">{{ $t(item.label) }}</span>
+                  <span
+                    v-if="item.views > 0"
+                    class="ml-auto shrink-0 pl-2 text-xs font-normal text-gray-500"
+                  >{{ item.views === 1 ? $t('sidebar.viewCountOne') : $t('sidebar.viewCountMany', { count: item.views }) }}</span>
                 </button>
               </PopoverContent>
             </Popover>
@@ -220,6 +224,23 @@
             class="overflow-hidden transition-all duration-300 ease-in-out"
             :class="isCollapsedView || !uiStore.favoritesCollapsed ? 'max-h-[34rem] opacity-100' : 'max-h-0 opacity-0'"
           >
+            <!-- One-time discovery hint for the dwell menu; dismissing it (or
+                 the first pin) persists in localStorage via the store. -->
+            <div
+              v-if="!isCollapsedView && !menuFavoritesStore.hintDismissed"
+              data-testid="favorites-hint"
+              class="flex items-start gap-1 px-3 pb-1 text-[11px] leading-snug text-gray-400"
+            >
+              <span class="flex-1">{{ $t('sidebar.favoritesHint') }}</span>
+              <button
+                type="button"
+                class="-mt-0.5 shrink-0 rounded p-1 text-gray-500 hover:bg-gray-700 hover:text-gray-200"
+                :aria-label="$t('sidebar.dismissHint')"
+                @click="menuFavoritesStore.dismissHint()"
+              >
+                <X class="w-3 h-3" />
+              </button>
+            </div>
             <div class="space-y-1">
               <SidebarMenuItem
                 v-for="item in visibleFavoriteItems"
@@ -1252,12 +1273,17 @@ const visibleFavoriteItems = computed<MenuItem[]>(() => {
 
 // Pin suggestions for the favorites-header popover: the same join as the
 // favorites rows, over the store's suggestion route names — a suggestion the
-// user can't currently see never gets offered.
-const suggestedItems = computed<MenuItem[]>(() => {
+// user can't currently see never gets offered. `views` rides along from
+// telemetry so the popover can explain why the route is offered (0 = default
+// entry with no history; the count is hidden then).
+const suggestedItems = computed<Array<MenuItem & { views: number }>>(() => {
   const byRoute = new Map(allMenuItems.value.map(item => [item.routeName, item]));
   return menuFavoritesStore.suggestions
-    .map(routeName => byRoute.get(routeName))
-    .filter((item): item is MenuItem => Boolean(item));
+    .map(suggestion => {
+      const item = byRoute.get(suggestion.route);
+      return item ? { ...item, views: suggestion.views } : null;
+    })
+    .filter((item): item is MenuItem & { views: number } => Boolean(item));
 });
 
 // Hover-intent for the suggestions popover (desktop): hold the header for

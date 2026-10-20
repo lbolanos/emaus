@@ -188,6 +188,9 @@ vi.mock('@repo/ui', () => {
 		DialogHeader: s, DialogTitle: s, DialogTrigger: s,
 		Input: { template: '<input type="text" />' },
 		useToast: () => ({ toast: vi.fn() }),
+		// The store renders the undo action with h(ToastAction, …); an
+		// absent export on the mock throws at property access.
+		ToastAction: { name: 'ToastAction' },
 	};
 });
 
@@ -937,7 +940,7 @@ describe('Sidebar Component', () => {
 				favoritesWrapper.find('[data-testid="favorite-suggestions-trigger"]').exists(),
 			).toBe(false);
 
-			favoritesStore.suggestions = ['walkers'];
+			favoritesStore.suggestions = [{ route: 'walkers', views: 3 }];
 			await nextTick();
 			expect(
 				favoritesWrapper.find('[data-testid="favorite-suggestions-trigger"]').exists(),
@@ -946,7 +949,7 @@ describe('Sidebar Component', () => {
 
 		it('pins a suggestion from the popover with one click (and it graduates)', async () => {
 			favoritesStore.favoriteMenuItems = ['my-communities'];
-			favoritesStore.suggestions = ['walkers'];
+			favoritesStore.suggestions = [{ route: 'walkers', views: 3 }];
 			mockUpdateUserProfile.mockClear();
 			await nextTick();
 
@@ -983,7 +986,7 @@ describe('Sidebar Component', () => {
 			vi.useFakeTimers();
 			try {
 				favoritesStore.favoriteMenuItems = ['my-communities'];
-				favoritesStore.suggestions = ['walkers'];
+				favoritesStore.suggestions = [{ route: 'walkers', views: 3 }];
 				await nextTick();
 
 				const hoverZone = getFavoritesSection(favoritesWrapper).find('.px-2.py-1');

@@ -8,7 +8,9 @@ import { loginAs, withCsrf, E2E_USERS, type AuthSession } from './helpers/auth';
  *   la sección fija arriba renderiza las copias en pin order, clic en una copia
  *   navega, el menú que se despliega al dejar el mouse ~1s sobre una fila REAL
  *   quita/repone el pin y el cambio sobrevive un reload (PUT real, no solo
- *   estado local). afterAll restaura el perfil capturado en beforeAll.
+ *   estado local). El toggle anuncia con un toast con deshacer (y sin recargar
+ *   la página), y las sugerencias del popover traen su conteo de vistas.
+ *   afterAll restaura el perfil capturado en beforeAll.
  * - Acordeón: abrir una sección colapsa la que estaba abierta (regresión del
  *   cherry-pick fec75d89 — antes una sección sin clave en el record guardado
  *   quedaba abierta para siempre) y pliega Favoritos, que a su vez pliega todo
@@ -254,6 +256,48 @@ test.describe.serial('Sidebar — favoritos del menú', () => {
 		).toBeVisible();
 	});
 
+	test('el toggle anuncia con un toast con deshacer, sin recargar la página', async ({ page }) => {
+		await openApp(page);
+
+		// The altText regression forced a full page reload on every toggle, so
+		// the toast never survived. A reload also wipes window state: the flag
+		// still being true after the toggle is the tripwire for that bug.
+		await page.evaluate(() => {
+			(window as unknown as { __favoritesNoReload?: boolean }).__favoritesNoReload = true;
+		});
+
+		const communityToggle = page.locator('button[aria-controls="section-community"]');
+		await communityToggle.click();
+		await expect(communityToggle).toHaveAttribute('aria-expanded', 'true');
+
+		// Unpin from the real row's hover menu: the toast confirms…
+		const menu = await openRowMenu(page, 'Mis Comunidades');
+		await menu.getByRole('menuitem', { name: 'Quitar de favoritos' }).click();
+		// exact: the toast viewport's live region announces the same string as
+		// its accessible name, so a loose getByText matches two elements.
+		await expect(page.getByText('Quitado de favoritos', { exact: true })).toBeVisible();
+
+		const noReload = await page.evaluate(
+			() =>
+				(window as unknown as { __favoritesNoReload?: boolean }).__favoritesNoReload ===
+				true,
+		);
+		expect(noReload).toBe(true);
+
+		// …and undo reverts the pin, announcing the resulting state.
+		await page.getByRole('button', { name: 'Deshacer' }).click();
+		await expect(page.getByText('Fijado en favoritos', { exact: true })).toBeVisible();
+
+		// Opening the community section folded favorites (full accordion);
+		// re-expand it to see the restored copy.
+		await page.locator('button[aria-controls="section-favorites"]').click();
+		await expect(
+			page.locator('[data-testid="sidebar-favorites"] a[data-menu-item-index="-1"]', {
+				hasText: 'Mis Comunidades',
+			}),
+		).toBeVisible();
+	});
+
 	test('el popover de sugerencias fija una vista frecuente con un clic', async ({ page }) => {
 		await openApp(page);
 
@@ -270,10 +314,18 @@ test.describe.serial('Sidebar — favoritos del menú', () => {
 		await expect(popover).toBeVisible();
 		await expect(popover.getByText('Sugerencias')).toBeVisible();
 
+		// View counts ride along with each suggestion. They are telemetry
+		// driven, so assert the format on whatever the top suggestion is
+		// (one view renders "vista", many render "vistas").
+		await expect(
+			popover.locator('button[aria-label^="Fijar"]', { hasText: /\d[\d,.]*\s+vistas?$/ }).first(),
+		).toBeVisible();
+
 		// Suggestions are telemetry-driven, so pin the first one by its own
-		// label instead of assuming a specific view.
+		// label instead of assuming a specific view. The label comes from the
+		// inner span: the button's own innerText carries the view count too.
 		const firstSuggestion = popover.locator('button[aria-label^="Fijar"]').first();
-		const label = (await firstSuggestion.innerText()).trim();
+		const label = (await firstSuggestion.locator('span.truncate').innerText()).trim();
 		expect(label).not.toBe('');
 
 		await firstSuggestion.click();

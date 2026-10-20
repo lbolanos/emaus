@@ -1,11 +1,13 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { createPinia, setActivePinia } from 'pinia';
 import { FAVORITE_MENU_ITEMS_LIMIT } from '@repo/types';
+import i18n from '@/i18n';
 
-const { mockGetUserProfile, mockUpdateUserProfile, mockToast } = vi.hoisted(() => ({
+const { mockGetUserProfile, mockUpdateUserProfile, mockToast, StubToastAction } = vi.hoisted(() => ({
 	mockGetUserProfile: vi.fn(),
 	mockUpdateUserProfile: vi.fn(),
 	mockToast: vi.fn(),
+	StubToastAction: { name: 'ToastAction' },
 }));
 
 vi.mock('@/services/api', () => ({
@@ -15,6 +17,7 @@ vi.mock('@/services/api', () => ({
 
 vi.mock('@repo/ui', () => ({
 	useToast: () => ({ toast: mockToast }),
+	ToastAction: StubToastAction,
 }));
 
 import { useMenuFavoritesStore } from '../menuFavoritesStore';
@@ -23,6 +26,9 @@ describe('menuFavoritesStore', () => {
 	beforeEach(() => {
 		setActivePinia(createPinia());
 		vi.clearAllMocks();
+		// The store returns the toast handle so the undo action can dismiss it.
+		mockToast.mockReturnValue({ dismiss: vi.fn() });
+		localStorage.clear();
 		mockGetUserProfile.mockResolvedValue({ favoriteMenuItems: [] });
 		mockUpdateUserProfile.mockResolvedValue({});
 	});
@@ -63,16 +69,22 @@ describe('menuFavoritesStore', () => {
 			);
 		});
 
-		it('populates suggestions from the profile (empty when absent)', async () => {
+		it('populates suggestions with view counts from the profile (empty when absent)', async () => {
 			mockGetUserProfile.mockResolvedValueOnce({
 				favoriteMenuItems: ['walkers'],
-				favoriteSuggestions: ['servers', 'tables'],
+				favoriteSuggestions: [
+					{ route: 'servers', views: 4 },
+					{ route: 'tables', views: 0 },
+				],
 			});
 			mockGetUserProfile.mockResolvedValueOnce({ favoriteMenuItems: ['walkers'] });
 
 			const store = useMenuFavoritesStore();
 			await store.loadFavorites();
-			expect(store.suggestions).toEqual(['servers', 'tables']);
+			expect(store.suggestions).toEqual([
+				{ route: 'servers', views: 4 },
+				{ route: 'tables', views: 0 },
+			]);
 
 			await store.loadFavorites();
 			expect(store.suggestions).toEqual([]);
@@ -148,25 +160,86 @@ describe('menuFavoritesStore', () => {
 		it('moves suggestions with the pin (and rolls them back together)', async () => {
 			mockGetUserProfile.mockResolvedValue({
 				favoriteMenuItems: ['walkers'],
-				favoriteSuggestions: ['servers', 'tables'],
+				favoriteSuggestions: [
+					{ route: 'servers', views: 4 },
+					{ route: 'tables', views: 2 },
+				],
 			});
 			const store = useMenuFavoritesStore();
 			await store.loadFavorites();
 
 			// Pinning graduates the suggestion out of the popover.
 			await store.toggleFavorite('servers');
-			expect(store.suggestions).toEqual(['tables']);
+			expect(store.suggestions).toEqual([{ route: 'tables', views: 2 }]);
 
-			// Unpinning offers it back at the top of the popover (undo path).
+			// Unpinning offers it back at the top of the popover (undo path);
+			// its real view count returns with the next GET.
 			await store.toggleFavorite('servers');
-			expect(store.suggestions).toEqual(['servers', 'tables']);
+			expect(store.suggestions).toEqual([
+				{ route: 'servers', views: 0 },
+				{ route: 'tables', views: 2 },
+			]);
 
 			// A failed pin rolls favorites AND suggestions back together (the
 			// catch runs before the awaited toggle resolves).
 			mockUpdateUserProfile.mockRejectedValue(new Error('boom'));
 			await store.toggleFavorite('tables');
 			expect(store.favoriteMenuItems).not.toContain('tables');
-			expect(store.suggestions).toEqual(['servers', 'tables']);
+			expect(store.suggestions).toEqual([
+				{ route: 'servers', views: 0 },
+				{ route: 'tables', views: 2 },
+			]);
+		});
+
+		it('toasts success with an undo action that reverts the pin', async () => {
+			mockGetUserProfile.mockResolvedValue({ favoriteMenuItems: ['walkers'] });
+			const store = useMenuFavoritesStore();
+			await store.loadFavorites();
+
+			await store.toggleFavorite('servers');
+			expect(store.favoriteMenuItems).toEqual(['walkers', 'servers']);
+
+			expect(mockToast).toHaveBeenCalledTimes(1);
+			const call = mockToast.mock.calls[0][0];
+			// The title goes through i18n so it follows the active locale.
+			expect(call.title).toBe(i18n.global.t('sidebar.pinnedToast'));
+			expect(call.duration).toBeGreaterThan(5000); // undo must be reachable
+			// The action is ToastAction with an onClick that toggles back.
+			expect(call.action.type).toBe(StubToastAction);
+			// altText is a required prop of the real ToastAction; leaving it
+			// out throws in its setup and the app reloads the whole page.
+			expect(call.action.props.altText).toBe(i18n.global.t('sidebar.undo'));
+
+			call.action.props.onClick();
+			expect(store.favoriteMenuItems).toEqual(['walkers']);
+			expect(mockUpdateUserProfile).toHaveBeenLastCalledWith({
+				favoriteMenuItems: ['walkers'],
+			});
+		});
+	});
+
+	describe('discovery hint', () => {
+		it('shows the hint until the first toggle, then persists the dismissal', async () => {
+			mockGetUserProfile.mockResolvedValue({ favoriteMenuItems: ['walkers'] });
+			const store = useMenuFavoritesStore();
+			await store.loadFavorites();
+			expect(store.hintDismissed).toBe(false);
+
+			await store.toggleFavorite('servers');
+			expect(store.hintDismissed).toBe(true);
+			expect(localStorage.getItem('favorites-hint-dismissed')).toBe('true');
+
+			// A fresh store (next session) picks the persisted dismissal up.
+			const nextSession = useMenuFavoritesStore();
+			expect(nextSession.hintDismissed).toBe(true);
+		});
+
+		it('dismissHint persists without any toggle', () => {
+			const store = useMenuFavoritesStore();
+			store.dismissHint();
+
+			expect(store.hintDismissed).toBe(true);
+			expect(localStorage.getItem('favorites-hint-dismissed')).toBe('true');
 		});
 	});
 });

@@ -230,6 +230,44 @@ secciones).
 
 **Gate**: commit `feat(web)`.
 
+## M4f — Mejoras UX: hint, toast con deshacer, transición, conteo de vistas
+
+Selección explícita de Leonardo (AskUserQuestion 2026-10-20): las 4 opciones.
+
+- [x] API (commit `a0150133`): `getFavoriteSuggestions` devuelve `{ route, views }` y el GET
+      propio lo expone junto a `favoriteMenuItems`; views = conteo real de telemetría.
+- [x] `@repo/ui`: export `ToastAction` (existía en el paquete, no salía por `index.ts`).
+- [x] Store: hint de descubrimiento (`favorites-hint-dismissed` en localStorage, descartado al
+      primer toggle o por `dismissHint`), `announceToggle` — toast 8s con `ToastAction`
+      «Deshacer» que re-toggla y re-anuncia.
+- [x] `Sidebar.vue`: hint bajo el header de Favoritos + conteo de vistas en las sugerencias
+      (`viewCountOne`/`viewCountMany`, i18n es+en).
+- [x] `SidebarMenuItem.vue`: transición fade+scale (~120ms) del panel del menú dwell; chevron
+      con fade-in durante el dwell (400ms) como affordance.
+- [x] Tests: store 13 (hint persistente, undo re-toggla, **`altText` presente**), Sidebar 46
+      (mock local de `@repo/ui` con `ToastAction`), e2e +2 (toast con deshacer **sin reload**
+      — bandera de `window` como tripwire — y conteo de vistas en el popover).
+
+**Done**: 2026-10-20 — unit 67/67 (13+46+8), `vue-tsc --noEmit` exit 0, e2e 2/2 los nuevos (los
+6 previos ya verdes en su milestone). QA vivo desktop (1440×900) + móvil (390×844 touch)
+completo: hint visible → «Ocultar la ayuda» persiste; dwell chevron a 460ms sin menú, menú a
+1160ms; toast «Fijado/Quitado + Deshacer» sin reload, el undo revierte y re-anuncia, expira solo
+(8s); conteos reales («Dashboard del Retiro 535 vistas», «Servidores 153»…); long-press móvil
+600ms abre el menú y el toggle no recarga. Desviaciones: (a) **bug crítico cazado en QA: reload
+completo en cada toggle** — `ToastAction` exige la prop `altText`; sin ella lanza en setup, el
+`errorHandler` de `main.ts` lo lee como fallo de arranque y fuerza `window.location.reload()`;
+los unit tests no lo ven (el stub acepta cualquier prop) — blindado con aserción de la prop en
+el test del store + el e2e con bandera de `window`; (b) **diagnóstico a ciegas dos veces**: el
+proxy de módulo de vitest **lanza** al acceder una export no definida en el mock (no devuelve
+`undefined`) y `setup.ts:199` silencia `console.error` — el rollback silencioso del catch solo
+se vio debuggeando a archivo (`appendFileSync`); (c) el label del e2e del popover ahora sale del
+`span.truncate` interno: el `innerText` del botón trae el conteo pegado y `hasText` dejaba de
+matchear la copia; (d) los títulos del toast se asertan con `exact: true` — la live region del
+viewport del Toaster anuncia el mismo texto como nombre accesible y un `getByText` suelto matchea
+dos elementos.
+
+**Gate**: commit `feat(web)`.
+
 ## M5 — Cierre
 
 - [ ] Reconcile en `spec.md` (cada CA verificada ✓, negativos incluidos).
