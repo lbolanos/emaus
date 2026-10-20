@@ -117,10 +117,12 @@ Desviaciones:
    componente no usa i18n (toda su UI es español literal) y añadir la key solo para el hint
    dejaba un archivo bilingüe a medias. Deuda: si algún día se internacionaliza el componente,
    el hint migra con el resto.
-2. **Reemplazar y eliminar no se ejecutaron en browser**: del reemplazo se vio el preview con
-   aviso ("al guardar se reemplaza la foto actual") pero no se guardó; la eliminación quedó en
-   los tests unitarios (dialog → `removeTablePhoto`, service → borra S3 y anula). Pendiente de
-   ejercicio real en el primer uso.
+2. **Reemplazo y eliminación se completaron en browser el 2026-10-20** (verificación diferida;
+   el ejercicio original solo llegó al preview). Sobre la mesa `34ec48e5` (la de la foto demo,
+   "Mesa 2" a esa fecha): reemplazo por PNG 1200×800 → JPEG data-URI de 8.539 chars (≠ 326.883
+   previos, miniatura del card y API coinciden), label de galería derivado del nombre en lectura
+   ("Mesa 2", sin resiembra — valida D3 de paso), y eliminación (miniatura fuera del card,
+   `photoUrl`/`photoS3Key` null, galería de "Mis Retiros" sin fotos de mesa).
 3. **R6 verificado por código, no end-to-end**: el gate de `retreatMemoryStore` cuenta
    `memoryPhotos.length` y las fotos de mesa viajan en ese mismo array (confirmado por el
    fetch), pero no existía un retiro cuya *única* señal fueran fotos de mesa para probar la
