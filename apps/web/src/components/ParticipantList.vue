@@ -853,6 +853,16 @@ const formColumnsToShow = computed(() => {
     return Array.from(combined).filter(isColumnAllowed);
 });
 
+// The dialog's layout mode is declared by the hosting view through
+// columnsToShowInForm (PalancasView always includes 'palancasCoordinator'
+// there). It must NOT be derived from formColumnsToShow: that union also
+// carries the user's column-picker preferences, so a walker list with the
+// palanca columns shown used to flip the whole edit dialog (title included)
+// into palancas mode.
+const editFormMode = computed<'default' | 'palancas'>(() =>
+    props.columnsToShowInForm.includes('palancasCoordinator') ? 'palancas' : 'default',
+);
+
 const formColumnsToEdit = computed(() => {
     const combined = new Set([...props.columnsToEditInForm, ...visibleColumns.value]);
     const nonEditableSystemKeys = [
@@ -2097,7 +2107,7 @@ const handleKeyboardShortcuts = (event: KeyboardEvent) => {
         <Dialog v-model:open="isEditDialogOpen">
             <DialogContent class="max-w-4xl">
                 <DialogHeader>
-                    <DialogTitle>{{ formColumnsToShow.includes('palancasCoordinator') ? 'Palancas' : 'Editar Participante' }}</DialogTitle>
+                    <DialogTitle>{{ editFormMode === 'palancas' ? 'Palancas' : 'Editar Participante' }}</DialogTitle>
                 </DialogHeader>
                 <EditParticipantForm
                     v-if="participantToEdit"
@@ -2105,6 +2115,7 @@ const handleKeyboardShortcuts = (event: KeyboardEvent) => {
                     :all-columns="allColumns.map(c => ({ ...c, label: $t(c.label) }))"
                     :columns-to-show="formColumnsToShow"
                     :columns-to-edit="formColumnsToEdit"
+                    :mode="editFormMode"
                     :shirt-types="editShirtTypes"
                     @save="handleUpdateParticipant"
                     @cancel="isEditDialogOpen = false"
