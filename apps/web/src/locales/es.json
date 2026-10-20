@@ -1802,6 +1802,10 @@
     },
     "unassignedServers": "Servidores Sin Asignar",
     "unassignedWalkers": "Caminantes Sin Asignar",
+    "unassignedPanel": {
+      "collapse": "Ocultar sin asignar",
+      "expand": "Mostrar sin asignar"
+    },
     "rebalanceWalkers": "Rebalancear Caminantes",
     "rebalanceConfirmation": {
       "title": "Confirmar Rebalanceo",

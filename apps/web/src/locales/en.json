@@ -1713,6 +1713,10 @@
     },
     "unassignedServers": "Unassigned Servers",
     "unassignedWalkers": "Unassigned Walkers",
+    "unassignedPanel": {
+      "collapse": "Hide unassigned",
+      "expand": "Show unassigned"
+    },
     "rebalanceWalkers": "Rebalance Walkers",
     "rebalanceConfirmation": {
       "title": "Confirm Rebalance",
