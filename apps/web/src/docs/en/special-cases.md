@@ -1,5 +1,7 @@
 # Special cases
 
+📺 **[Watch the tutorial](https://youtu.be/DeELlStzY2E)** (Spanish)
+
 When the palanquero talks to a walker before the retreat, they sometimes learn something the coordinator has to review: the walker needs a **separate room**, has a **health** condition, or some **other** personal situation. Special cases carry that heads-up from the palanquero to the coordinator without relying on scattered messages.
 
 ## Flagging a case (palanquero)
