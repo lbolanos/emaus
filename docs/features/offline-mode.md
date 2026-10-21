@@ -38,7 +38,11 @@ vuelva a `true` (o se quite): nunca se descartan solos. `runtime-config.js` se s
 worker nunca se actualizaría y el interruptor no llegaría. **Aplicar el nginx del servidor antes
 del push** que trae el cascarón. El workflow de deploy no toca nginx y el archivo del servidor no
 es copia del repo (en octubre de 2026 ya servía `runtime-config.js` con `no-store`, cosa que el
-repo no hace): leerlo antes y añadir solo los bloques que falten. Después, comprobar:
+repo no hace): leerlo antes y añadir solo los bloques que falten. El vivo es
+`/etc/nginx/sites-enabled/emaus`, un archivo y no un enlace a `sites-available`. Aplicado el
+2026-10-20: `sw.js` y el manifest con el CSP de prod; `runtime-config.js` ya tenía el suyo.
+Comprobar después de recargar, con un segundo intento si el primero sale con la configuración
+vieja (un worker viejo puede atender el instante de la recarga):
 
 ```bash
 curl -sI https://emaus.cc/sw.js | grep -i cache-control              # no-cache

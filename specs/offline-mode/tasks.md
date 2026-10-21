@@ -341,10 +341,15 @@
       necesitan conexión (ver `## Reconcile`). Web 252 archivos / 3696 tests, `vue-tsc`, eslint;
       API 2 shards 326 suites / 4873 tests (0 fallos); build del API y de la web (316 entradas
       en el precache, 8,8 MB); 9 e2e sin señal juntos
-- [ ] `nginx.conf` de prod actualizado **antes** del push (`sw.js`, manifest y
-      `runtime-config.js` en `no-cache`) — **requiere autorización**. Prod ya sirve
-      `runtime-config.js` con `no-cache, no-store` y el repo no lo haría: el archivo del
-      servidor no es copia del repo, leerlo antes de editarlo
+- [x] nginx de prod actualizado antes del push (2026-10-20, lo aplicó Leonardo con un script
+      que verifica el hash del archivo vivo, respalda, corre `nginx -t` y recarga o restaura).
+      **Desviación**: solo `location = /sw.js` y `location = /manifest.webmanifest`, con el CSP
+      de prod (`'unsafe-eval'`) y `types` propio para el manifest (el `mime.types` de nginx 1.18
+      no tiene `webmanifest`). `runtime-config.js` ya tenía en prod su `location =` anidado en
+      `location /`, con `no-store`; uno más daba "duplicate location". El archivo vivo es
+      `/etc/nginx/sites-enabled/emaus` (archivo, no enlace); respaldo en
+      `/var/backups/emaus/nginx-sites-enabled-emaus.bak-20261020`. `curl -sI` → `/sw.js` y el
+      manifest en `no-cache` (404 hasta el deploy)
 - [ ] PR(s) a master; esperar `gh pr checks` en verde antes de merge — **requiere autorización**
 - [x] Commits (OK 2026-10-20), cuatro en vez de uno por milestone: `16a880a6` M1, `00ab2e3d`
       M3, `a5ab9ea6` M2+M4+M5 y el de spec y documentación. **Desviación**: M2, M4 y M5 van
