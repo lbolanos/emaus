@@ -128,7 +128,7 @@ describe('TableMemoryPhotoDialog', () => {
 		expect(w.emitted('update:open')).toBeUndefined();
 	});
 
-	it('pide confirmación inline: el primer toque no llama al API y confirmar elimina (D2)', async () => {
+	it('asks for inline confirmation: first tap calls no API, confirm deletes (D2)', async () => {
 		const w = mountDialog(baseTable('https://s3/presigned.webp'));
 		expect(w.find('[data-testid="table-photo-remove"]').exists()).toBe(true);
 
@@ -148,7 +148,7 @@ describe('TableMemoryPhotoDialog', () => {
 		expect(w.emitted('update:open')?.at(-1)).toEqual([false]);
 	});
 
-	it('cancelar la confirmación restaura el botón normal sin llamar al API', async () => {
+	it('cancelling the confirmation restores the plain button without calling the API', async () => {
 		const w = mountDialog(baseTable('https://s3/presigned.webp'));
 		await w.find('[data-testid="table-photo-remove"]').trigger('click');
 		await w.find('[data-testid="table-photo-remove-cancel"]').trigger('click');
@@ -159,7 +159,7 @@ describe('TableMemoryPhotoDialog', () => {
 		expect(w.find('[data-testid="table-photo-remove"]').exists()).toBe(true);
 	});
 
-	it('un DELETE fallido vuelve al botón normal y mantiene el dialog abierto', async () => {
+	it('a failed DELETE returns to the plain button and keeps the dialog open', async () => {
 		const w = mountDialog(baseTable('https://s3/presigned.webp'));
 		await w.find('[data-testid="table-photo-remove"]').trigger('click');
 

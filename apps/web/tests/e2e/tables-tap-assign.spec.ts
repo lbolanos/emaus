@@ -88,7 +88,7 @@ async function requireUnassignedServer(): Promise<void> {
 	}
 }
 
-test.describe.serial('Mesas móvil: sticky, pastillas y tap-to-assign', () => {
+test.describe.serial('Tables mobile: sticky, pills and tap-to-assign', () => {
 	test.beforeAll(async ({ browser, baseURL }) => {
 		auth = await login(baseURL!);
 		test.skip(!auth, 'no usable credentials (set E2E_LOCAL_EMAIL/E2E_LOCAL_PASSWORD)');
@@ -115,7 +115,21 @@ test.describe.serial('Mesas móvil: sticky, pastillas y tap-to-assign', () => {
 		await page.locator('input[type="email"]').fill(auth!.creds.email);
 		await page.locator('input[type="password"]').fill(auth!.creds.password);
 		await page.getByRole('button', { name: 'Iniciar Sesión' }).click();
-		await page.waitForURL(/\/app/, { timeout: 20000 });
+		try {
+			await page.waitForURL(/\/app/, { timeout: 20000 });
+		} catch (err) {
+			// The UI submit burns another rate-limit slot the API helper cannot
+			// see; a 429 here would otherwise surface as a bare waitForURL
+			// timeout. The login form paints the API message verbatim.
+			const body = await page.textContent('body');
+			if (body && /demasiados intentos de inicio de sesión/i.test(body)) {
+				throw new Error(
+					'UI login rate-limited (429): the /auth/login window (10 attempts per ' +
+						'15 minutes) is exhausted. Wait for it to expire and re-run.',
+				);
+			}
+			throw err;
+		}
 
 		await page.goto('/app/tables');
 		// Screen fully loaded before any negative assertion on the banner.
@@ -127,7 +141,7 @@ test.describe.serial('Mesas móvil: sticky, pastillas y tap-to-assign', () => {
 		await auth?.session.dispose();
 	});
 
-	test('R1: sticky base <= 130 px, pinned, y las pastillas se van con el scroll', async () => {
+	test('R1: sticky base <= 130 px, pinned, and the pills scroll away', async () => {
 		// Base state: fresh page, no participant selected, so no banner.
 		await expect(page.getByTestId('tap-assign-banner')).toHaveCount(0);
 
@@ -168,7 +182,7 @@ test.describe.serial('Mesas móvil: sticky, pastillas y tap-to-assign', () => {
 		expect(pillsBottomAfter).toBeLessThan(stickyTopAfter);
 	});
 
-	test('R2: tap en pastilla → banner → slot libre → asignado → Quitar → sin asignar', async () => {
+	test('R2: pill tap -> banner -> free slot -> assigned -> remove -> unassigned', async () => {
 		let assignedParticipantId: string | null = null;
 		const banner = page.getByTestId('tap-assign-banner');
 		const serverTab = page.getByRole('button', { name: /Servidores Sin Asignar/ });
@@ -248,9 +262,20 @@ test.describe.serial('Mesas móvil: sticky, pastillas y tap-to-assign', () => {
 						(r) => table[r]?.id === assignedParticipantId,
 					);
 					if (role) {
-						await ctx.delete(`/api/tables/${table.id}/leader/${role}`, {
+						// Repo e2e rule: every restore step must fail loudly. A
+						// silent failure here leaves the dev DB dirty and the
+						// next run dies at the precondition, not at the cause.
+						const del = await ctx.delete(`/api/tables/${table.id}/leader/${role}`, {
 							headers: withCsrf(csrfToken),
 						});
+						if (!del.ok()) {
+							throw new Error(
+								`cleanup failed: DELETE /api/tables/${table.id}/leader/${role} ` +
+									`for ${assignedParticipantId} returned HTTP ${del.status()} — ` +
+									'the dev database is left dirty; unassign the participant ' +
+									'before re-running.',
+							);
+						}
 					}
 				}
 			}
