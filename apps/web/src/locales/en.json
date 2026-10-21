@@ -1890,6 +1890,8 @@
       "hint": "JPG, PNG or WebP. Large photos are resized automatically.",
       "pendingReplace": "Preview: saving will replace the current photo.",
       "remove": "Remove",
+      "removeConfirm": "Delete this photo?",
+      "removeConfirmAction": "Confirm",
       "save": "Save",
       "saving": "Saving...",
       "savedTitle": "Photo updated",

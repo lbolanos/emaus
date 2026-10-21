@@ -75,9 +75,12 @@ export const config = {
 	ai: {
 		provider: process.env.AI_PROVIDER || 'google',
 		model: process.env.AI_MODEL || 'gemini-2.0-flash',
-		// Vision model
+		// Vision model. `gemini-flash-latest` is an auto-updating alias: fixed
+		// version names get retired by Google and break the feature at a
+		// distance (gemini-2.0-flash and gemini-3-pro-preview both died this
+		// way — incidente 2026-10-20, first prod use of "Analizar Foto").
 		visionProvider: process.env.AI_VISION_PROVIDER || 'google',
-		visionModel: process.env.AI_VISION_MODEL || 'gemini-2.0-flash',
+		visionModel: process.env.AI_VISION_MODEL || 'gemini-flash-latest',
 		// 4096 default — suficiente para respuestas largas del chat. Los modelos
 		// "thinking" (gemini-3-pro-preview, gemini-3.5-flash) consumen muchos tokens
 		// en razonamiento interno; si el stream se corta con finishReason=length

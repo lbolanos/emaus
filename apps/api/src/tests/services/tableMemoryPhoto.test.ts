@@ -18,6 +18,7 @@ import * as tableMesaService from '@/services/tableMesaService';
 import {
 	retreatMemoryService,
 	tablePhotosForRetreat,
+	tablePhotosForRetreats,
 } from '@/services/retreatMemoryService';
 import { avatarStorageService } from '@/services/avatarStorageService';
 import { s3Service } from '@/services/s3Service';
@@ -241,6 +242,53 @@ describe('table memory photo (spec table-memory-photo)', () => {
 
 		it('returns [] when no table has a photo', async () => {
 			expect(await tablePhotosForRetreat(retreat.id, getDS())).toEqual([]);
+		});
+	});
+
+	describe('tablePhotosForRetreats batch (spec tables-second-cycle D3)', () => {
+		it('answers every retreat with ONE query, grouped and naturally ordered', async () => {
+			const other = await TestDataFactory.createTestRetreat();
+			const otherTables = await TestDataFactory.createTestTables(other.id, 1);
+			await getDS().getRepository(TableMesa).update(tables[0].id, { photoUrl: 'data:image/t1' });
+			await getDS().getRepository(TableMesa).update(tables[1].id, { photoUrl: 'data:image/t2' });
+			await getDS()
+				.getRepository(TableMesa)
+				.update(otherTables[0].id, { photoUrl: 'data:image/o1' });
+
+			// getRepository memoizes per DataSource, so the spy sees the service's call.
+			const find = jest.spyOn(getDS().getRepository(TableMesa), 'find');
+
+			const grouped = await tablePhotosForRetreats([retreat.id, other.id], getDS());
+
+			expect(find).toHaveBeenCalledTimes(1);
+			find.mockRestore();
+
+			// Same items as the single-retreat path (delegation parity)…
+			const single = await tablePhotosForRetreat(retreat.id, getDS());
+			expect(grouped.get(retreat.id)?.map((p) => p.id)).toEqual(single.map((p) => p.id));
+			// …with the per-retreat grouping, name order and 1000+ sortOffsets.
+			expect(grouped.get(retreat.id)?.map((p) => p.id)).toEqual([tables[0].id, tables[1].id]);
+			expect(grouped.get(retreat.id)?.map((p) => p.sortOrder)).toEqual([1000, 1001]);
+			expect(grouped.get(other.id)).toHaveLength(1);
+			expect(grouped.get(other.id)?.[0]).toMatchObject({
+				id: otherTables[0].id,
+				label: otherTables[0].name,
+				source: 'table',
+				isPrimary: false,
+				sortOrder: 1000,
+			});
+		});
+
+		it('returns [] for retreats without photos and skips the query on empty input', async () => {
+			const find = jest.spyOn(getDS().getRepository(TableMesa), 'find');
+
+			expect(await tablePhotosForRetreats([], getDS())).toEqual(new Map());
+			expect(find).not.toHaveBeenCalled();
+
+			const grouped = await tablePhotosForRetreats([retreat.id], getDS());
+			expect(grouped.get(retreat.id)).toEqual([]);
+			expect(find).toHaveBeenCalledTimes(1);
+			find.mockRestore();
 		});
 	});
 });

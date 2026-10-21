@@ -24,6 +24,7 @@ jest.mock('@aws-sdk/s3-request-presigner', () => ({
 }));
 
 import { s3Service } from '../../services/s3Service';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
 const BASE = 'https://emaus-media.s3.us-east-1.amazonaws.com/';
 
@@ -65,5 +66,63 @@ describe('s3Service.presignPrivateUrl', () => {
 		const alreadySigned = `${BASE}${key}?X-Amz-Signature=old`;
 		const result = await s3Service.presignPrivateUrl(alreadySigned);
 		expect(result).toBe(`https://signed.example/${key}?X-Amz-Signature=stub`);
+	});
+});
+
+describe('s3Service.getSignedReadUrl signature cache (spec tables-second-cycle D4)', () => {
+	const key = (n: number) => `retreat-memories/r-1/tables/t-${n}.webp`;
+
+	beforeEach(() => {
+		s3Service.clearSignedUrlCache();
+		jest.clearAllMocks();
+	});
+	afterEach(() => {
+		jest.restoreAllMocks();
+	});
+
+	test('reuses the signature while most of its life remains', async () => {
+		const now = Date.now();
+		jest.spyOn(Date, 'now').mockReturnValue(now);
+
+		const first = await s3Service.getSignedReadUrl(key(1));
+		const second = await s3Service.getSignedReadUrl(key(1));
+
+		expect(second).toBe(first);
+		expect(getSignedUrl).toHaveBeenCalledTimes(1);
+
+		// A different key signs on its own.
+		await s3Service.getSignedReadUrl(key(2));
+		expect(getSignedUrl).toHaveBeenCalledTimes(2);
+	});
+
+	test('re-signs once less than 30 min of the 60 min life remain', async () => {
+		const now = Date.now();
+		const clock = jest.spyOn(Date, 'now').mockReturnValue(now);
+
+		await s3Service.getSignedReadUrl(key(1)); // signs, caches
+		await s3Service.getSignedReadUrl(key(1)); // cache hit
+		expect(getSignedUrl).toHaveBeenCalledTimes(1);
+
+		clock.mockReturnValue(now + 31 * 60 * 1000); // 29 min left → below the reuse floor
+		await s3Service.getSignedReadUrl(key(1));
+		expect(getSignedUrl).toHaveBeenCalledTimes(2);
+	});
+
+	test('prunes oldest-first past 500 entries, keeping the newest usable', async () => {
+		const now = Date.now();
+		jest.spyOn(Date, 'now').mockReturnValue(now);
+
+		for (let i = 0; i <= 500; i++) {
+			await s3Service.getSignedReadUrl(key(i));
+		}
+		expect(getSignedUrl).toHaveBeenCalledTimes(501);
+
+		// Newest entry is still cached: no new signature.
+		await s3Service.getSignedReadUrl(key(500));
+		expect(getSignedUrl).toHaveBeenCalledTimes(501);
+
+		// The oldest was evicted: it signs again.
+		await s3Service.getSignedReadUrl(key(0));
+		expect(getSignedUrl).toHaveBeenCalledTimes(502);
 	});
 });
