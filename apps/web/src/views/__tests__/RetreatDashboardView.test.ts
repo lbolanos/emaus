@@ -566,6 +566,19 @@ describe('RetreatDashboardView', () => {
 			expect(mockPush).toHaveBeenCalledWith({ name: 'special-cases' });
 			wrapper.unmount();
 		});
+
+		it('from the phone says it needs a connection instead of counting 0 (specs/offline-mode)', async () => {
+			mockHasPermission.mockImplementation((p: string) => p === 'participant:health');
+			const { wrapper } = await mountDashboard();
+			const { useParticipantStore } = await import('@/stores/participantStore');
+			useParticipantStore().fromCache = true;
+			await nextTick();
+			expect(wrapper.find('[data-testid="special-cases-card-offline"]').text()).toBe(
+				'offline.specialCasesNeedConnection',
+			);
+			expect(wrapper.find('[data-testid="special-cases-card-count"]').exists()).toBe(false);
+			wrapper.unmount();
+		});
 	});
 
 	describe('Conditional rendering', () => {

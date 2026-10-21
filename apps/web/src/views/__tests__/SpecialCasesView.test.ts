@@ -156,6 +156,19 @@ describe('SpecialCasesView', () => {
 		expect(w.findAll('[data-testid="special-case-row"]')).toHaveLength(0);
 	});
 
+	it('from the phone says it needs a connection, not "nobody flagged" (specs/offline-mode)', async () => {
+		// What the device serves: the same walkers without the health-regime fields.
+		const stripped = ROWS.map(({ specialCase, specialCaseCategory, specialCaseNotes, ...rest }: any) => rest);
+		const w = await setup(stripped);
+		participantStore.fromCache = true;
+		await flushPromises();
+		expect(w.find('[data-testid="health-needs-connection"]').text()).toContain(
+			'offline.specialCasesNeedConnection',
+		);
+		expect(w.find('[data-testid="special-cases-empty"]').exists()).toBe(false);
+		expect(w.find('[data-testid="special-cases-count"]').exists()).toBe(false);
+	});
+
 	it('"Contactar" opens the mounted MessageDialog with the row participant', async () => {
 		const w = await setup();
 		const dialog = w.findComponent({ name: 'MessageDialog' });

@@ -395,6 +395,66 @@ export function computeSyncScale(webmDurationSec, wallClockMs) {
   return Math.min(1.1, Math.max(0.9, s));
 }
 
+// ── Caption-anchored sync ─────────────────────────────────────────────────────
+// The webm does not always drift evenly. In the offline-mode demo (2026-10-20) it
+// followed the wall clock until the context went offline and then ran ~10% long,
+// so one global syncScale started the voice up to 11 s after its subtitle. Every
+// subtitle change is visible in the video: detect them and start each clip where
+// its own subtitle appears.
+
+// Seconds where the subtitle bar changes (ffmpeg scene detection on its strip).
+// The crop assumes the 1280×800 viewport and the OVERLAY_INIT subtitle bar.
+export async function detectCaptionChanges(cfg, video, { threshold = 0.06 } = {}) {
+  const { stderr } = await execFileP(cfg.ffmpeg, [
+    '-hide_banner', '-i', video,
+    '-vf', `crop=700:56:290:712,select='gt(scene,${threshold})',showinfo`,
+    '-f', 'null', '-',
+  ], { maxBuffer: 64 * 1024 * 1024 });
+  return [...stderr.matchAll(/pts_time:([0-9.]+)/g)].map((m) => Number(m[1]));
+}
+
+// Moves each Narrator entry to the subtitle change that belongs to it: the change
+// nearest to where it is expected (previous anchor + wall gap × the latest drift),
+// within a window of 0.95–1.15× drift. Nearest, not first: a beat's own actions (a
+// dialog dimming the page, a reload) also change the strip just before its
+// subtitle. An entry with no change in its window keeps the latest drift (starts
+// at `fallbackScale`). Offsets come out in video time: mux with syncScale 1.
+export function anchorTimelineToCaptions(timeline, changes, { fallbackScale = 1 } = {}) {
+  let prevWall = 0;
+  let prevVideo = 0;
+  let rate = fallbackScale;
+  return timeline.map((t) => {
+    const wall = t.offsetMs / 1000;
+    const delta = wall - prevWall;
+    const expected = prevVideo + delta * rate;
+    const lo = prevVideo + delta * 0.95 - 0.3;
+    const hi = prevVideo + delta * 1.15 + 0.3;
+    let best = null;
+    for (const c of changes) {
+      if (c < lo || c > hi) continue;
+      if (best === null || Math.abs(c - expected) < Math.abs(best - expected)) best = c;
+    }
+    const video = best ?? expected;
+    // The lead before the first subtitle is not drift: start measuring after it.
+    if (best !== null && prevWall > 0 && delta > 0) rate = Math.min(1.15, Math.max(0.95, (video - prevVideo) / delta));
+    prevWall = wall;
+    prevVideo = video;
+    return { ...t, offsetMs: Math.round(video * 1000), anchored: best !== null };
+  });
+}
+
+// Clips that would still be talking when the next one starts (the video lost
+// frames there, so two voices overlap). Entries need offsetMs and duration (s).
+export function clipOverlaps(timeline, { toleranceMs = 150 } = {}) {
+  const out = [];
+  for (let i = 0; i < timeline.length - 1; i++) {
+    const end = timeline[i].offsetMs + Math.round((timeline[i].duration || 0) * 1000);
+    const next = timeline[i + 1].offsetMs;
+    if (end - next > toleranceMs) out.push({ id: timeline[i].id, next: timeline[i + 1].id, overlapMs: end - next });
+  }
+  return out;
+}
+
 // ── Metadata para YouTube ─────────────────────────────────────────────────────
 // mm:ss a partir de milisegundos.
 function fmtTimestamp(ms) {

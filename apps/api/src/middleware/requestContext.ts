@@ -1,5 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { auditContext } from '../utils/auditContext';
+import { readClientTime } from '../utils/occurredAt';
+import { readIdempotencyKey } from './idempotency';
 import type { AuthenticatedRequest } from './authorization';
 
 /**
@@ -16,10 +18,14 @@ export function requestContextMiddleware(
 	next: NextFunction,
 ): void {
 	const authReq = req as AuthenticatedRequest;
+	const idempotencyKey = readIdempotencyKey(req);
 	const ctx = {
 		userId: authReq.user?.id ?? null,
 		ip: req.ip ?? null,
 		userAgent: req.headers['user-agent'] ?? null,
+		idempotencyKey: idempotencyKey || null,
+		clientTime: idempotencyKey ? readClientTime(req.get('X-Client-Time')) : null,
+		fromOutbox: Boolean(idempotencyKey) && req.get('X-Outbox-Sync') === '1',
 	};
 	auditContext.run(ctx, () => next());
 }

@@ -69,6 +69,18 @@ describe('menuFavoritesStore', () => {
 			);
 		});
 
+		it('stays quiet without signal: the connectivity chip already says so', async () => {
+			mockGetUserProfile.mockRejectedValue(
+				Object.assign(new Error('Network Error'), { isAxiosError: true, code: 'ERR_NETWORK' }),
+			);
+
+			const store = useMenuFavoritesStore();
+			await store.loadFavorites();
+
+			expect(store.loaded).toBe(false);
+			expect(mockToast).not.toHaveBeenCalled();
+		});
+
 		it('populates suggestions with view counts from the profile (empty when absent)', async () => {
 			mockGetUserProfile.mockResolvedValueOnce({
 				favoriteMenuItems: ['walkers'],

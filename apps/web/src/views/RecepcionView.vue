@@ -5,7 +5,8 @@ import { useI18n } from 'vue-i18n'
 import { formatCurrency } from '@repo/utils'
 import { useRetreatStore } from '@/stores/retreatStore'
 import { useReceptionStore } from '@/stores/receptionStore'
-import { getReceptionStats, checkInParticipant, createPayment, type ReceptionParticipant } from '@/services/api'
+import { getReceptionStats, checkInParticipant, createPayment, setParticipantCancelled, type ReceptionParticipant } from '@/services/api'
+import { useAuthPermissions } from '@/composables/useAuthPermissions'
 import { useToast } from '@repo/ui'
 import { participantMatchesTokens, searchTokens } from '@/utils/participantSearch'
 import { CheckCircle, Clock, Users, Search, Loader2, RotateCcw, X, AlertCircle, DollarSign } from 'lucide-vue-next'
@@ -17,6 +18,8 @@ const retreatStore = useRetreatStore()
 const { selectedRetreat } = storeToRefs(retreatStore)
 const receptionStore = useReceptionStore()
 const { toast } = useToast()
+const { hasPermission } = useAuthPermissions()
+const canCancel = computed(() => hasPermission('participant:update'))
 
 const retreatId = computed(() => {
   const id = route.params.id as string
@@ -151,6 +154,28 @@ async function markArrived(participant: ReceptionParticipant, checkedIn: boolean
     if (checkedIn) {
       toast({ title: t('reception.markedArrived', { name: `${participant.firstName} ${participant.lastName}` }) })
     }
+  } catch {
+    toast({ title: t('reception.updateError'), variant: 'destructive' })
+  } finally {
+    const next = new Set(processingIds.value)
+    next.delete(key)
+    processingIds.value = next
+  }
+}
+
+// ── Cancel who did not arrive (specs/offline-mode, FR-15b) ──────────────────
+// The team waits until Friday night and cancels the no-shows on Saturday
+// morning, at the house — usually without signal, so this write can be queued.
+async function cancelNoShow(participant: ReceptionParticipant) {
+  if (!participant.participantId) return
+  const name = `${participant.firstName} ${participant.lastName}`
+  if (!window.confirm(t('reception.cancelNoShowConfirm', { name }))) return
+  const key = participant.participantId
+  processingIds.value = new Set([...processingIds.value, key])
+  try {
+    await setParticipantCancelled(participant.participantId, retreatId.value, true)
+    await fetchStats()
+    toast({ title: t('reception.cancelNoShowDone', { name }) })
   } catch {
     toast({ title: t('reception.updateError'), variant: 'destructive' })
   } finally {
@@ -433,6 +458,17 @@ onUnmounted(() => {
               >
                 <DollarSign class="w-3 h-3" />
                 {{ t('reception.charge') }}
+              </button>
+              <button
+                v-if="canCancel"
+                class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-sm font-medium border border-red-200 text-red-700 hover:bg-red-50 disabled:opacity-50 transition-colors"
+                :disabled="processingIds.has(p.participantId)"
+                :title="t('reception.cancelNoShowTitle')"
+                data-testid="reception-cancel-no-show"
+                @click="cancelNoShow(p)"
+              >
+                <X class="w-3 h-3" />
+                {{ t('reception.cancelNoShow') }}
               </button>
               <button
                 class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm font-medium bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 transition-colors"

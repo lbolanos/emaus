@@ -484,6 +484,22 @@ export const helpIndex: HelpSection[] = [
 		],
 	},
 	{
+		// specs/offline-mode: working without signal at the retreat house
+		key: 'offline',
+		title: 'Working without a connection',
+		titleEs: 'Trabajar sin conexión',
+		icon: 'mdi-wifi-off',
+		routeContext: [],
+		topics: [
+			{
+				key: 'offline-overview',
+				title: 'Overview',
+				titleEs: 'Descripción general',
+				content: 'offline.md',
+			},
+		],
+	},
+	{
 		key: 'angelitos',
 		title: 'Angelitos (Helpers)',
 		titleEs: 'Angelitos',

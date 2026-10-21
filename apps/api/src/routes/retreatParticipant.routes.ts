@@ -18,6 +18,7 @@ import {
 } from '../controllers/retreatParticipantController';
 import { isAuthenticated } from '../middleware/authentication';
 import { requirePermission, requireRetreatAccess } from '../middleware/authorization';
+import { idempotency } from '../middleware/idempotency';
 import { validateRequest } from '../middleware/validateRequest';
 import { setShirtOrderConfirmationSchema } from '@repo/types';
 
@@ -118,6 +119,7 @@ router.patch(
 	isAuthenticated,
 	requirePermission('participant:update'),
 	requireRetreatAccess('retreatId'),
+	idempotency,
 	updateBagMadeController,
 );
 router.patch(

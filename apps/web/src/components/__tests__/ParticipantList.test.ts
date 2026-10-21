@@ -4,6 +4,9 @@ import { nextTick } from 'vue';
 import { createPinia, setActivePinia } from 'pinia';
 import ParticipantList from '../ParticipantList.vue';
 import { createTestWrapper, createMockParticipant, cleanupMocks } from '../../test/utils';
+import { _resetConnectivityForTests } from '@/offline/connectivity';
+
+const toastSpy = vi.hoisted(() => vi.fn());
 
 // Mock axios first
 vi.mock('axios', () => {
@@ -118,7 +121,7 @@ vi.mock('@repo/ui', () => ({
 	DropdownMenuLabel: { template: '<div><slot /></div>' },
 	DropdownMenuSeparator: { template: '<hr />' },
 	DropdownMenuTrigger: { template: '<div><slot /></div>' },
-	useToast: () => ({ toast: vi.fn() }),
+	useToast: () => ({ toast: toastSpy }),
 }));
 
 // Mock lucide-vue-next icons
@@ -1574,6 +1577,80 @@ describe('ParticipantList Component', () => {
 				newWrapper.find('button[title="paymentManagement.balances.markPaysAtHouse"]').exists(),
 			).toBe(false);
 			newWrapper.unmount();
+		});
+	});
+
+	describe('saving the record without signal (specs/offline-mode D13)', () => {
+		function mountList() {
+			const { mount: vtuMount } = require('@vue/test-utils');
+			return vtuMount(ParticipantList, {
+				props: { type: 'walker' },
+				global: {
+					plugins: [pinia],
+					stubs: {
+						'router-link': true, 'router-view': true, transition: true,
+						'transition-group': true, teleport: true, suspense: true,
+						ColumnSelector: { template: '<div />' },
+						EditParticipantForm: { template: '<div />' },
+						FilterDialog: { template: '<div />' },
+						ImportParticipantsModal: { template: '<div />' },
+						ExportParticipantsModal: { template: '<div />' },
+						TagBadge: { template: '<span />' },
+						MessageDialog: { template: '<div />' },
+						BulkEditParticipantsModal: { template: '<div />' },
+					},
+					mocks: { $t: (key: string) => key },
+				},
+			});
+		}
+
+		const original = { id: '1', firstName: 'John', parish: 'San Juan', cellPhone: '5512345678', email: 'john@example.com' };
+
+		beforeEach(() => {
+			_resetConnectivityForTests(false);
+			toastSpy.mockClear();
+		});
+		afterEach(() => _resetConnectivityForTests(true));
+
+		it('queues only the changed fields of the list, with the values they had', async () => {
+			const wrapper = mountList();
+			const store = (await import('@/stores/participantStore')).useParticipantStore();
+			const save = vi.spyOn(store, 'updateParticipant').mockResolvedValue({ queued: true });
+			wrapper.vm.participantToEdit = original;
+			wrapper.vm.isEditDialogOpen = true;
+
+			await wrapper.vm.handleUpdateParticipant(
+				{ ...original, parish: 'Santa Ana' },
+				{ dirtyKeys: ['parish'], labels: { parish: 'Parroquia' } },
+			);
+
+			expect(save).toHaveBeenCalledWith('1', {
+				parish: 'Santa Ana',
+				expectedValues: { parish: 'San Juan' },
+				contextRetreatId: 'test-retreat-id',
+			});
+			expect(wrapper.vm.isEditDialogOpen).toBe(false);
+			wrapper.unmount();
+		});
+
+		it('a change that needs signal saves nothing, says which, and keeps the dialog open', async () => {
+			const wrapper = mountList();
+			const store = (await import('@/stores/participantStore')).useParticipantStore();
+			const save = vi.spyOn(store, 'updateParticipant');
+			wrapper.vm.participantToEdit = original;
+			wrapper.vm.isEditDialogOpen = true;
+
+			await wrapper.vm.handleUpdateParticipant(
+				{ ...original, email: 'otro@example.com', parish: 'Santa Ana' },
+				{ dirtyKeys: ['email', 'parish'], labels: { email: 'Correo', parish: 'Parroquia' } },
+			);
+
+			expect(save).not.toHaveBeenCalled();
+			expect(toastSpy).toHaveBeenCalledWith(
+				expect.objectContaining({ title: 'offline.edit.blockedTitle', variant: 'destructive' }),
+			);
+			expect(wrapper.vm.isEditDialogOpen).toBe(true);
+			wrapper.unmount();
 		});
 	});
 

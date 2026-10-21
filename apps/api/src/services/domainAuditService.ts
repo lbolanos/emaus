@@ -75,6 +75,15 @@ export class DomainAuditService {
 			const actorUserId = event.actorUserId ?? ctx?.userId ?? null;
 			const ipAddress = event.ipAddress ?? ctx?.ip ?? null;
 			const userAgent = event.userAgent ?? ctx?.userAgent ?? null;
+			// Writes from the offline-capable client (specs/offline-mode): keep when the
+			// action happened on the device apart from when it reached the server.
+			const metadata = ctx?.idempotencyKey
+				? {
+						...(event.metadata ?? {}),
+						occurredAt: ctx.clientTime ?? null,
+						syncedFromOutbox: ctx.fromOutbox === true,
+					}
+				: event.metadata;
 
 			// 1) Sink a DB
 			if (config.audit.dbEnabled) {
@@ -86,7 +95,7 @@ export class DomainAuditService {
 					actorUserId,
 					oldValues: safeStringify(event.oldValues),
 					newValues: safeStringify(event.newValues),
-					metadata: safeStringify(event.metadata),
+					metadata: safeStringify(metadata),
 					ipAddress,
 					userAgent: userAgent ? userAgent.slice(0, 255) : null,
 				});
@@ -103,7 +112,7 @@ export class DomainAuditService {
 					actorUserId,
 					oldValues: event.oldValues ?? null,
 					newValues: event.newValues ?? null,
-					metadata: event.metadata ?? null,
+					metadata: metadata ?? null,
 					ipAddress,
 				});
 			}

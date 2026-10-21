@@ -4,6 +4,7 @@ import { PaymentController } from '../controllers/paymentController';
 import { isAuthenticated } from '../middleware/authentication';
 import { validateRequest } from '../middleware/validateRequest';
 import { requirePermission, requireRetreatAccess } from '../middleware/authorization';
+import { idempotency } from '../middleware/idempotency';
 
 const router = Router();
 const paymentController = new PaymentController();
@@ -16,6 +17,9 @@ router.post(
 	'/',
 	requirePermission('payment:create'),
 	validateRequest(createPaymentSchema),
+	// Door payments can be queued without signal (specs/offline-mode): a resend
+	// with the same key must never record a second payment.
+	idempotency,
 	paymentController.createPayment.bind(paymentController),
 );
 

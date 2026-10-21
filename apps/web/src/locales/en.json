@@ -1681,7 +1681,11 @@
     "specialCasesPending": "To attend"
   },
   "reception": {
-    "paysAtHouse": "Pays at the house"
+    "paysAtHouse": "Pays at the house",
+    "cancelNoShow": "Did not arrive",
+    "cancelNoShowTitle": "Cancel who did not arrive",
+    "cancelNoShowConfirm": "Cancel {name}? Their bed and table are freed. You can write the reason later in their record.",
+    "cancelNoShowDone": "{name} was cancelled"
   },
   "retreatFlyer": {
     "printButton": "Print Flyer",
@@ -1791,7 +1795,7 @@
     },
     "column": "Column",
     "columns": "Columns",
-    "exportDocx": "Print Tables",
+    "exportDocx": "Download Tables (Word)",
     "exporting": "Generating document...",
     "exportSuccess": {
       "title": "Document Generated",
@@ -4099,6 +4103,91 @@
       "attendance": "Attendance",
       "payment": "Payment",
       "palancas": "Letters"
+    }
+  },
+  "offline": {
+    "chip": {
+      "online": "Online",
+      "offline": "Offline",
+      "onlineTitle": "Connected to the server",
+      "offlineTitle": "No connection to the server. Tap to try again.",
+      "pending": "1 change not sent | {n} changes not sent",
+      "syncing": "Sending changes…",
+      "conflicts": "1 change rejected | {n} changes rejected",
+      "needsLogin": "Log in to send"
+    },
+    "banner": {
+      "stale": "Offline. You are looking at the data saved on this phone {age} ago.",
+      "noCache": "Offline. You will only see what this phone has saved.",
+      "missing": "Some screens have no data saved on this phone."
+    },
+    "age": {
+      "minutes": "less than a minute | 1 minute | {n} minutes",
+      "hours": "1 hour | {n} hours",
+      "days": "1 day | {n} days"
+    },
+    "healthNeedsConnection": "Food and medication can only be checked with a connection: that data is not saved on the phone.",
+    "specialCasesNeedConnection": "Special cases can only be checked with a connection: that data is not saved on the phone.",
+    "retry": "Try again",
+    "queued": {
+      "title": "Saved on this phone",
+      "description": "No connection: it will be sent when the signal comes back.",
+      "note": "Saved on this phone: it will be sent when the signal comes back."
+    },
+    "panel": {
+      "title": "Changes not sent",
+      "description": "What you did without signal. It is sent automatically, in order, when there is a connection.",
+      "empty": "No pending changes on this phone.",
+      "pending": "Pending",
+      "syncing": "Sending",
+      "conflict": "Rejected by the server",
+      "syncNow": "Send now",
+      "retry": "Retry",
+      "discard": "Discard",
+      "discardConfirm": "Discard this change? It will not be sent to the server.",
+      "needsLogin": "Your session expired. Log in again and the changes will be sent.",
+      "clearData": "Delete the data saved on this phone",
+      "clearDataConfirm": "Delete the data saved on this phone? Changes not sent are kept.",
+      "lastSync": "Last attempt: {time}",
+      "close": "Close"
+    },
+    "ops": {
+      "checkin": "{name} arrived",
+      "undoCheckin": "Undo {name}'s arrival",
+      "payment": "Payment of {amount} from {name}",
+      "cancel": "Cancel {name} (did not arrive)",
+      "reactivate": "Reactivate {name}",
+      "edit": "Correction to the record of {name}",
+      "bagMade": "{name}'s bag ready",
+      "bagUndone": "{name}'s bag pending",
+      "scheduleStart": "Start “{item}”",
+      "scheduleComplete": "Complete “{item}”",
+      "scheduleShift": "{delta} min to “{item}”",
+      "dayShift": "{delta} min to the whole day {day}",
+      "bedAssign": "{name} to bed {bed}",
+      "bedUnassign": "Free bed {bed}",
+      "tableAssign": "{name} to {table}",
+      "tableUnassign": "Remove {name} from {table}"
+    },
+    "needsConnection": "Needs a connection",
+    "edit": {
+      "notice": "Without signal only first and last name, nickname, phones, parish, occupation, address, shirt size and snoring are saved. Everything else needs a connection.",
+      "blockedTitle": "No change was saved",
+      "blocked": "Without signal you cannot change: {fields}. Undo that change to save the rest, or save when there is signal."
+    },
+    "print": {
+      "healthCell": "Needs a connection",
+      "healthNote": "Printed without connection: medication, food, support needs and emergency contacts are not saved on this phone. Print this sheet with signal to include them."
+    },
+    "logoutPending": "You have {n} changes not sent. They stay on this phone and will be sent when you log in again with your user. Log out?",
+    "prepare": {
+      "title": "Work without a connection",
+      "done": "Downloaded on this phone: {when} ({size}).",
+      "notYet": "This phone does not have the retreat downloaded yet.",
+      "partial": "{failed} items could not be downloaded. Try again with a better signal.",
+      "note": "During the retreat it refreshes by itself whenever there is signal. It is deleted from the phone when the retreat ends, and health data is never saved.",
+      "button": "Prepare to work without a connection",
+      "running": "Downloading… {done}/{total}"
     }
   },
   "specialCases": {

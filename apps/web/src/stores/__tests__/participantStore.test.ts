@@ -311,6 +311,21 @@ describe('ParticipantStore', () => {
 			expect(store.participants).toHaveLength(1);
 			expect(store.participants[0].id).toBe('2');
 		});
+
+		it('an edit saved on the phone (specs/offline-mode D13): no server fetch, the list shows it', async () => {
+			store.participants = [{ id: '1', firstName: 'John', lastName: 'Doe', parish: 'San Juan' }];
+			mockApi.put.mockResolvedValue({ status: 202, queued: true, data: { id: '1', parish: 'Santa Ana' } });
+
+			const result = await store.updateParticipant('1', {
+				parish: 'Santa Ana',
+				expectedValues: { parish: 'San Juan' },
+				contextRetreatId: 'r1',
+			} as any);
+
+			expect(result).toEqual({ queued: true });
+			expect(mockApi.get).not.toHaveBeenCalled();
+			expect(store.participants[0]).toEqual({ id: '1', firstName: 'John', lastName: 'Doe', parish: 'Santa Ana' });
+		});
 	});
 
 	describe('Delete Participant', () => {

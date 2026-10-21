@@ -1694,7 +1694,11 @@
     "sortByLastName": "Apellido",
     "sortByFirstName": "Nombre",
     "sortByIdOnRetreat": "Número",
-    "totalPaid": "Total pagado"
+    "totalPaid": "Total pagado",
+    "cancelNoShow": "No llegó",
+    "cancelNoShowTitle": "Cancelar a quien no llegó",
+    "cancelNoShowConfirm": "¿Cancelar a {name}? Se libera su cama y su mesa. El motivo lo puedes anotar después en su ficha.",
+    "cancelNoShowDone": "{name} quedó cancelado"
   },
   "palancasDashboard": {
     "title": "Asignación por palanquero",
@@ -1881,7 +1885,7 @@
     "column": "Columna",
     "columns": "Columnas",
     "printTables": "Imprimir Mesas",
-    "exportDocx": "Imprimir Mesas",
+    "exportDocx": "Descargar Mesas (Word)",
     "exporting": "Generando documento...",
     "exportSuccess": {
       "title": "Documento Generado",
@@ -4421,6 +4425,91 @@
       "attendance": "Asistencia",
       "payment": "Pago",
       "palancas": "Cartas"
+    }
+  },
+  "offline": {
+    "chip": {
+      "online": "En línea",
+      "offline": "Sin conexión",
+      "onlineTitle": "Conectado al servidor",
+      "offlineTitle": "Sin conexión con el servidor. Toca para volver a intentar.",
+      "pending": "1 cambio sin enviar | {n} cambios sin enviar",
+      "syncing": "Enviando cambios…",
+      "conflicts": "1 cambio rechazado | {n} cambios rechazados",
+      "needsLogin": "Inicia sesión para enviar"
+    },
+    "banner": {
+      "stale": "Sin conexión. Estás viendo los datos guardados en este teléfono hace {age}.",
+      "noCache": "Sin conexión. Solo verás lo que este teléfono tenga guardado.",
+      "missing": "Algunas pantallas no tienen datos guardados en este teléfono."
+    },
+    "age": {
+      "minutes": "menos de un minuto | 1 minuto | {n} minutos",
+      "hours": "1 hora | {n} horas",
+      "days": "1 día | {n} días"
+    },
+    "healthNeedsConnection": "Alimentación y medicamentos solo se consultan con conexión: esos datos no se guardan en el teléfono.",
+    "specialCasesNeedConnection": "Los casos especiales solo se consultan con conexión: ese dato no se guarda en el teléfono.",
+    "retry": "Volver a intentar",
+    "queued": {
+      "title": "Guardado en el teléfono",
+      "description": "Sin conexión: se enviará solo cuando vuelva la señal.",
+      "note": "Guardado en el teléfono: se enviará solo cuando vuelva la señal."
+    },
+    "panel": {
+      "title": "Cambios sin enviar",
+      "description": "Lo que hiciste sin señal. Se envía solo, en orden, cuando hay conexión.",
+      "empty": "No hay cambios pendientes en este teléfono.",
+      "pending": "Pendiente",
+      "syncing": "Enviando",
+      "conflict": "Rechazado por el servidor",
+      "syncNow": "Enviar ahora",
+      "retry": "Reintentar",
+      "discard": "Descartar",
+      "discardConfirm": "¿Descartar este cambio? No se enviará al servidor.",
+      "needsLogin": "Tu sesión expiró. Inicia sesión de nuevo y los cambios se enviarán.",
+      "clearData": "Borrar los datos guardados en este teléfono",
+      "clearDataConfirm": "¿Borrar los datos guardados en este teléfono? Los cambios sin enviar se conservan.",
+      "lastSync": "Último intento: {time}",
+      "close": "Cerrar"
+    },
+    "ops": {
+      "checkin": "Llegó {name}",
+      "undoCheckin": "Deshacer la llegada de {name}",
+      "payment": "Cobro de {amount} a {name}",
+      "cancel": "Cancelar a {name} (no llegó)",
+      "reactivate": "Reactivar a {name}",
+      "edit": "Corrección en la ficha de {name}",
+      "bagMade": "Bolsa lista de {name}",
+      "bagUndone": "Bolsa pendiente de {name}",
+      "scheduleStart": "Iniciar «{item}»",
+      "scheduleComplete": "Completar «{item}»",
+      "scheduleShift": "{delta} min a «{item}»",
+      "dayShift": "{delta} min a todo el día {day}",
+      "bedAssign": "{name} a la cama {bed}",
+      "bedUnassign": "Liberar la cama {bed}",
+      "tableAssign": "{name} a {table}",
+      "tableUnassign": "Quitar a {name} de {table}"
+    },
+    "needsConnection": "Necesita conexión",
+    "edit": {
+      "notice": "Sin señal solo se guardan nombre, apellido, apodo, teléfonos, parroquia, ocupación, dirección, talla de playera y si ronca. Lo demás necesita conexión.",
+      "blockedTitle": "No se guardó ningún cambio",
+      "blocked": "Sin señal no se puede cambiar: {fields}. Deshaz ese cambio para guardar lo demás, o guarda cuando haya señal."
+    },
+    "print": {
+      "healthCell": "Solo con conexión",
+      "healthNote": "Impreso sin conexión: medicamentos, alimentación, apoyos y contactos de emergencia no se guardan en el teléfono. Imprime esta hoja con señal para tenerlos."
+    },
+    "logoutPending": "Tienes {n} cambios sin enviar. Se quedan en este teléfono y se enviarán cuando vuelvas a entrar con tu usuario. ¿Cerrar sesión?",
+    "prepare": {
+      "title": "Trabajar sin conexión",
+      "done": "Descargado en este teléfono: {when} ({size}).",
+      "notYet": "Este teléfono todavía no tiene el retiro descargado.",
+      "partial": "{failed} datos no se pudieron descargar. Inténtalo de nuevo con mejor señal.",
+      "note": "Durante el retiro se actualiza solo cuando hay señal. Se borra del teléfono cuando el retiro termina, y los datos de salud nunca se guardan.",
+      "button": "Preparar para trabajar sin conexión",
+      "running": "Descargando… {done}/{total}"
     }
   },
   "specialCases": {

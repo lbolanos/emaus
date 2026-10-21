@@ -2,7 +2,7 @@ import { defineStore } from 'pinia';
 import { h, ref } from 'vue';
 import { ToastAction, useToast } from '@repo/ui';
 import { getUserProfile, updateUserProfile } from '@/services/api';
-import { apiErrorMessage } from '@/services/apiError';
+import { apiErrorMessage, isNetworkError } from '@/services/apiError';
 import i18n from '@/i18n';
 import { FAVORITE_MENU_ITEMS_LIMIT } from '@repo/types';
 
@@ -35,11 +35,15 @@ export const useMenuFavoritesStore = defineStore('menuFavorites', () => {
 				: [];
 			loaded.value = true;
 		} catch (err: any) {
-			toast({
-				title: 'Error',
-				description: apiErrorMessage(err, 'No se pudieron cargar los favoritos del menú.'),
-				variant: 'destructive',
-			});
+			// The sidebar loads this on every mount: without signal the connectivity
+			// chip already says so (specs/offline-mode).
+			if (!isNetworkError(err)) {
+				toast({
+					title: 'Error',
+					description: apiErrorMessage(err, 'No se pudieron cargar los favoritos del menú.'),
+					variant: 'destructive',
+				});
+			}
 		}
 	}
 

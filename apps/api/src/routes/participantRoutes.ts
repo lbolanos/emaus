@@ -32,6 +32,7 @@ import {
 } from '@repo/types';
 import { isAuthenticated } from '../middleware/isAuthenticated';
 import { requirePermission, requireRetreatAccess } from '../middleware/authorization';
+import { idempotency } from '../middleware/idempotency';
 import { publicParticipantLimiter, emailCheckLimiter } from '../middleware/rateLimiting';
 
 const router = Router();
@@ -88,6 +89,7 @@ router.put(
 	'/:id/checkin',
 	requirePermission('participant:update'),
 	requireRetreatAccess('retreatId', 'body'),
+	idempotency,
 	checkInParticipant,
 );
 router.patch(
@@ -121,6 +123,10 @@ router.put(
 	'/:id',
 	validateRequest(updateParticipantSchema),
 	requirePermission('participant:update'),
+	// Only the writes queued without signal carry a key (specs/offline-mode): the
+	// no-show cancellation (FR-15b) and the field edits with expectedValues (D13).
+	// Regular edits of the record do not carry the header and are untouched.
+	idempotency,
 	updateParticipant,
 );
 router.delete('/:id', requirePermission('participant:delete'), deleteParticipant);

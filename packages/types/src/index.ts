@@ -1081,6 +1081,7 @@ export * from './sequence';
 export * from './crm';
 export * from './serviceTeam';
 export * from './permissions';
+export * from './offlineEdit';
 export * from './community';
 export * from './testimonial';
 export * from './santisimo';

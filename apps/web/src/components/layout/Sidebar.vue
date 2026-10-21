@@ -88,6 +88,8 @@
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
+        <!-- Working without signal (specs/offline-mode, D11) -->
+        <ConnectivityChip :collapsed="isCollapsedView" />
       </div>
     </div>
 
@@ -538,6 +540,8 @@ import SidebarSection from '@/components/layout/SidebarSection.vue';
 import { useI18n } from 'vue-i18n';
 import { storeLocale } from '@/i18n';
 import SidebarMenuItem from '@/components/layout/SidebarMenuItem.vue';
+import ConnectivityChip from '@/components/offline/ConnectivityChip.vue';
+import { pendingOps } from '@/offline/outbox';
 
 type PermissionType = 'retreat' | 'participant' | 'table' | 'house' | 'user' | 'retreatInventory' | 'inventoryItem' | 'payment' | 'responsability' | 'messageTemplate' | 'santisimo' | 'schedule' | 'scheduleTemplate' | 'preRetreatTask' | 'preRetreatTaskTemplate' | 'retreatPreparation' | 'superadmin';
 
@@ -1420,6 +1424,10 @@ const focusedMenuItem = computed(() => {
 });
 
 const handleLogout = async () => {
+  // Changes made without signal stay on the phone after logout and are sent on
+  // the next login of the same user; say so before leaving (specs/offline-mode).
+  const pending = pendingOps().length;
+  if (pending > 0 && !window.confirm(t('offline.logoutPending', { n: pending }))) return;
   await auth.logout();
   router.push('/login');
 };

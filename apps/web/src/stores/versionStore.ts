@@ -4,12 +4,34 @@ import { ref } from 'vue';
 const POLL_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 const SKIPPED_VERSION_KEY = 'version_update_skipped';
 
+/**
+ * Hooks the service worker registration hands to the store (src/pwa/registerSw.ts).
+ * With a service worker the page is served from its precache, so a plain reload
+ * keeps showing the old version: the update has to go through the waiting worker.
+ */
+export interface ServiceWorkerHooks {
+	/** Ask the browser to fetch sw.js again and install a new version if there is one. */
+	checkForUpdate: () => Promise<void>;
+	/** Activate the waiting worker and reload. Resolves false if there was nothing to activate. */
+	applyUpdate: () => Promise<boolean>;
+}
+
 export const useVersionStore = defineStore('version', () => {
 	const updateAvailable = ref(false);
 	const dismissed = ref(false);
 	const detectedVersion = ref<string | null>(null);
 
 	let pollTimer: ReturnType<typeof setInterval> | null = null;
+	let serviceWorker: ServiceWorkerHooks | null = null;
+
+	function attachServiceWorker(hooks: ServiceWorkerHooks) {
+		serviceWorker = hooks;
+	}
+
+	/** A new service worker finished installing and waits for the user to accept it. */
+	function markServiceWorkerWaiting() {
+		updateAvailable.value = true;
+	}
 
 	async function checkVersion() {
 		try {
@@ -26,6 +48,9 @@ export const useVersionStore = defineStore('version', () => {
 				}
 				detectedVersion.value = data.version;
 				updateAvailable.value = true;
+				// Start installing the new service worker now, so that by the time the
+				// user clicks "Actualizar" it is usually already waiting.
+				serviceWorker?.checkForUpdate().catch(() => {});
 			}
 		} catch {
 			// Network errors are silently ignored — next poll will retry
@@ -58,13 +83,21 @@ export const useVersionStore = defineStore('version', () => {
 	}
 
 	/** Mark detected server version as seen before reloading */
-	function reloadForUpdate() {
+	async function reloadForUpdate() {
 		try {
 			if (detectedVersion.value) {
 				sessionStorage.setItem(SKIPPED_VERSION_KEY, detectedVersion.value);
 			}
 		} catch {
 			// best-effort
+		}
+		if (serviceWorker) {
+			try {
+				// On success the worker takes control and the page reloads itself.
+				if (await serviceWorker.applyUpdate()) return;
+			} catch {
+				// fall through to a plain reload
+			}
 		}
 		window.location.reload();
 	}
@@ -77,5 +110,7 @@ export const useVersionStore = defineStore('version', () => {
 		stopPolling,
 		dismiss,
 		reloadForUpdate,
+		attachServiceWorker,
+		markServiceWorkerWaiting,
 	};
 });

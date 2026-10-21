@@ -369,6 +369,34 @@ Adaptarla a otro video es cambiar el retiro, la URL y los clics; el resto sirve 
   (`playlistItems.insert` con `snippet.position`, tras el video relacionado) y borrar la toma vieja
   por API (`DELETE videos?id=`; verificar con oEmbed 404).
 
+## Lecciones (sesión 2026-10-20, video sin conexión `record-offline-mode.mjs`)
+
+- **`route.fetch()` ignora `context.setOffline(true)`**: Playwright hace la petición por su cuenta,
+  así que con `maskRoute` puesto la app "sin señal" recibe datos vivos del servidor y el video
+  miente (salieron dietas reales en Alimentos "sin conexión"). Para grabar sin señal:
+  `page.route('**/api/**', (r) => offline ? r.abort('internetdisconnected') : maskRoute(r))`.
+- **El desfase del webm no siempre es parejo**: aquí fue ~0% hasta cortar la red y ~10% después, y
+  un `syncScale` global dejó la voz hasta 11 s detrás de su subtítulo. `detectCaptionChanges` +
+  `anchorTimelineToCaptions` (en `demo-lib.mjs`, con test) arrancan cada clip donde aparece su
+  subtítulo; mux con `syncScale: 1`. El log dice `anclados N/N`; verificá con tiras del subtítulo
+  justo antes y después del arranque de un clip tardío.
+- **Historias con días**: `ctx.clock.setFixedTime(...)` por escena (miércoles, viernes, sábado) y
+  una etiqueta de escena en `sessionStorage` para que sobreviva la recarga. El retiro cuenta como
+  "en vivo" desde un día antes (`RETREAT_GRACE_DAYS_BEFORE`): ese día la app ya descarga sola.
+- **Imprimir en cámara**: el diálogo de impresión del sistema bloquea la página headed y no sale en
+  el video. Stub en un init script: `window.print` solo cuenta, y `window.open` devuelve un objeto
+  que guarda lo que la app escribe (las hojas de Mesas se arman en un popup) para mostrarlo en un
+  `<iframe sandbox srcdoc>` sobre la página. Para "cómo sale en papel", `page.emulateMedia({ media:
+  'print' })`, pero no sobre vistas enormes: el minuto a minuto completo en modo impresión hizo que
+  el webm perdiera ~4 s de cuadros y dos voces se encimaron. Ahí señalá la acción en el menú.
+- **Voces encimadas**: `clipOverlaps(anchored)` (en `demo-lib.mjs`, con test) avisa qué clip sigue
+  hablando cuando empieza el siguiente; el script lo loguea y guarda `<video>.timeline.json`, con el
+  que se pueden regenerar capítulos sin regrabar. Con el reloj **congelado** (`setFixedTime`), reka
+  dispara un clic sintético de más en los ítems de menú: usá `setSystemTime`.
+- **Puerta de PII sin sqlite**: los nombres, correos y teléfonos reales salen del API por
+  `context.request` (fuera de `page.route`), se compara el `innerText` de cada beat y, antes de
+  creerle al verde, se comprueba que detecta en una página sin enmascarar.
+
 ## Verificación (obligatoria antes de entregar)
 
 ```bash

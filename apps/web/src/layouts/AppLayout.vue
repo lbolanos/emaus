@@ -7,8 +7,14 @@ import Sidebar from '@/components/layout/Sidebar.vue'
 const AiChatWidget = defineAsyncComponent(() => import('@/components/AiChatWidget.vue'))
 const UpdateBanner = defineAsyncComponent(() => import('@/components/UpdateBanner.vue'))
 const EmailVerificationBanner = defineAsyncComponent(() => import('@/components/EmailVerificationBanner.vue'))
+const OfflineBanner = defineAsyncComponent(() => import('@/components/offline/OfflineBanner.vue'))
+import { onReconnect, startConnectivityListeners } from '@/offline/connectivity'
+import { startOutboxSync } from '@/offline/syncService'
+import { maybeAutoPrepare, purgeClosedRetreats } from '@/offline/prepareRetreat'
+import { installQueuedToastNote } from '@/offline/queuedToast'
 import { useUIStore } from '@/stores/ui'
 import { useVersionStore } from '@/stores/versionStore'
+import { useRetreatStore } from '@/stores/retreatStore'
 import { Menu } from 'lucide-vue-next'
 
 const route = useRoute()
@@ -16,6 +22,18 @@ const { t } = useI18n()
 const uiStore = useUIStore()
 const { isSidebarCollapsed, isMobile, isMobileMenuOpen, pageTitle } = storeToRefs(uiStore)
 const versionStore = useVersionStore()
+const retreatStore = useRetreatStore()
+// A toast right after a write saved on the phone says so (specs/offline-mode, D11).
+installQueuedToastNote(t)
+
+// While the retreat is live, keep this phone's copy fresh whenever there is
+// signal (specs/offline-mode, D4): on opening it and when the signal comes back.
+watch(
+  () => retreatStore.selectedRetreat,
+  (retreat) => { void maybeAutoPrepare(retreat as any) },
+  { immediate: true },
+)
+let stopReconnectPrepare: (() => void) | null = null
 
 const mainRef = ref<HTMLElement>()
 
@@ -108,6 +126,17 @@ onMounted(() => {
   mainRef.value?.addEventListener('scroll', handleScroll, { passive: true })
   updatePageTitle()
   versionStore.startPolling()
+  startConnectivityListeners()
+  // Sends the changes made without signal whenever there is a chance (M4).
+  startOutboxSync()
+  stopReconnectPrepare = onReconnect(() => { void maybeAutoPrepare(retreatStore.selectedRetreat as any) })
+  // Saved data of retreats that already ended leaves the phone (D9).
+  void purgeClosedRetreats()
+  // Offline app shell (specs/offline-mode): only inside /app, after mount, and
+  // through a dynamic import so it adds nothing to the boot chain.
+  import('@/pwa/registerSw')
+    .then(({ registerServiceWorker }) => registerServiceWorker())
+    .catch((error) => console.warn('[PWA]', error))
 })
 
 onUnmounted(() => {
@@ -115,6 +144,7 @@ onUnmounted(() => {
   document.removeEventListener('touchend', handleTouchEnd)
   mainRef.value?.removeEventListener('scroll', handleScroll)
   versionStore.stopPolling()
+  stopReconnectPrepare?.()
 })
 </script>
 
@@ -158,6 +188,7 @@ onUnmounted(() => {
     <!-- Main content -->
     <div class="flex flex-col flex-1 overflow-hidden">
       <UpdateBanner />
+      <OfflineBanner />
       <EmailVerificationBanner />
       <main ref="mainRef" class="flex-1 overflow-x-hidden overflow-y-auto bg-gray-100 p-2 md:p-4" :class="{ 'pt-14': isMobile, 'mobile-hide-h1': isMobile }">
         <router-view />

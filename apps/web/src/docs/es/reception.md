@@ -18,6 +18,10 @@ Junto a cada caminante ves cuánto ha pagado: en **verde** si ya pagó, o el bot
 
 Quienes avisaron que pagarán al llegar muestran la etiqueta celeste **Paga en la casa** junto al botón **Cobrar**: es solo informativa —cobra igual al recibir su pago. La etiqueta desaparece en cuanto registras un pago.
 
+## Cancelar a quien no llegó
+
+Se espera hasta la noche del viernes; el sábado por la mañana, quien sigue en **pendientes** se cancela con **No llegó** en su fila. Se libera su cama y su mesa. El motivo lo anotas después en su ficha. Funciona también sin señal (ver **Trabajar sin conexión**).
+
 ## Buscar y ordenar
 
 - **Busca** escribiendo como te salga: nombre y apellido juntos ("adan perez"), en cualquier orden ("perez adan"), sin acentos ("jose" encuentra a José, "perez" a Pérez), por número de participante o por apodo. Hay buscador en pendientes y en llegados.

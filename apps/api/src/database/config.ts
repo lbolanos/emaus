@@ -34,6 +34,7 @@ import { AuditLog } from '../entities/auditLog.entity';
 import { CommunityAuditLog } from '../entities/communityAuditLog.entity';
 import { CommunityDuplicateDismissal } from '../entities/communityDuplicateDismissal.entity';
 import { DomainAuditLog } from '../entities/domainAuditLog.entity';
+import { IdempotencyKey } from '../entities/idempotencyKey.entity';
 import { Community } from '../entities/community.entity';
 import { CommunityMember } from '../entities/communityMember.entity';
 import { CommunityMeeting } from '../entities/communityMeeting.entity';
@@ -125,6 +126,7 @@ export function createDatabaseConfig() {
 		CommunityAuditLog,
 		CommunityDuplicateDismissal,
 		DomainAuditLog,
+		IdempotencyKey,
 		// Community entities
 		Community,
 		CommunityMember,

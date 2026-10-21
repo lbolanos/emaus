@@ -16,6 +16,7 @@ import {
 import { useRetreatStore } from '@/stores/retreatStore'
 import { useParticipantStore } from '@/stores/participantStore'
 import ParticipantSpecialCaseToggle from '@/components/ParticipantSpecialCaseToggle.vue'
+import HealthNeedsConnection from '@/components/offline/HealthNeedsConnection.vue'
 import MessageDialog from '@/components/MessageDialog.vue'
 import { createLocaleComparator } from '@/utils/sort'
 
@@ -31,7 +32,9 @@ import { createLocaleComparator } from '@/utils/sort'
 const { t } = useI18n()
 const retreatStore = useRetreatStore()
 const participantStore = useParticipantStore()
-const { participants } = storeToRefs(participantStore)
+// Special cases are health regime: a list served from the phone has none of
+// them (specs/offline-mode), so it would read as an empty inbox.
+const { participants, fromCache } = storeToRefs(participantStore)
 
 const loading = ref(false)
 const retreatId = computed(
@@ -101,8 +104,8 @@ function openContact(participant: Participant) {
         <div>
           <h1 class="text-sm font-semibold text-amber-900">{{ t('specialCases.title') }}</h1>
           <p class="text-xs text-amber-700">
-            {{ t('specialCases.subtitle') }} ·
-            <span data-testid="special-cases-count">{{ t('specialCases.pendingCount', { count: cases.length }) }}</span>
+            {{ t('specialCases.subtitle') }}<template v-if="!fromCache"> ·
+            <span data-testid="special-cases-count">{{ t('specialCases.pendingCount', { count: cases.length }) }}</span></template>
           </p>
         </div>
       </div>
@@ -111,6 +114,8 @@ function openContact(participant: Participant) {
     <div v-if="loading" class="space-y-2 animate-pulse" data-testid="special-cases-loading">
       <div v-for="i in 3" :key="i" class="h-10 bg-muted rounded" />
     </div>
+
+    <HealthNeedsConnection v-else-if="fromCache" :message="t('offline.specialCasesNeedConnection')" />
 
     <p
       v-else-if="cases.length === 0"

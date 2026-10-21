@@ -15,6 +15,7 @@ import { useI18n } from 'vue-i18n';
 import { useToast } from '@repo/ui';
 import { useRetreatStore } from '@/stores/retreatStore';
 import type { Tag } from '@repo/types';
+import { connectivity } from '@/offline/connectivity';
 import { ChevronDown, ChevronUp, User, Phone, Users, Heart, ClipboardList, MapPin, Briefcase, FileText, Shield, Tag as TagIcon, Copy, Pencil } from 'lucide-vue-next';
 
 type ShirtType = {
@@ -408,7 +409,26 @@ watch(() => props.participant?.retreatId, async (retreatId) => {
   }
 }, { immediate: true });
 
+const tagIdsOf = (tags: any[]) =>
+  new Set((tags || []).map((tag: any) => tag?.tag?.id || tag?.id).filter(Boolean));
+
 const handleSave = async () => {
+  // What the user changed, compared before the formatting below (dates, booleans).
+  // Without signal only some fields can be saved (specs/offline-mode, D13): the
+  // parent decides with this, and names the fields it cannot save.
+  const dirtyKeys = Object.keys(localParticipant.value ?? {}).filter(
+    (key) => localParticipant.value[key] !== lastSyncedParticipant.value?.[key],
+  );
+  const savedTagIds = tagIdsOf(props.participant?.tags || []);
+  const currentTagIds = tagIdsOf(selectedTags.value);
+  if (savedTagIds.size !== currentTagIds.size || [...currentTagIds].some((id) => !savedTagIds.has(id))) {
+    dirtyKeys.push('tags');
+  }
+  const changes = {
+    dirtyKeys,
+    labels: Object.fromEntries(dirtyKeys.map((key) => [key, getColumnLabel(key)])),
+  };
+
   const participantToSave = { ...localParticipant.value };
 
   // Remove relation objects and read-only fields that the API doesn't expect
@@ -457,7 +477,7 @@ const handleSave = async () => {
   }
 
   // Save participant data first
-  emit('save', participantToSave);
+  emit('save', participantToSave, changes);
 
   // Persistir disponibilidad si es angelito (no bloquea el save principal en error)
   if (
@@ -479,6 +499,10 @@ const handleSave = async () => {
       });
     }
   }
+
+  // Tags are saved by their own requests, which need signal; without it the
+  // parent refused the whole save if they changed (specs/offline-mode, D13).
+  if (!connectivity.online) return;
 
   // Handle tag updates separately
   try {
@@ -795,6 +819,15 @@ const calculateAge = (birthDate: string | Date) => {
           </div>
         </div>
       </div>
+
+      <!-- Without signal only some fields can be saved (specs/offline-mode, D13) -->
+      <p
+        v-if="!connectivity.online"
+        class="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900"
+        data-testid="offline-edit-notice"
+      >
+        {{ t('offline.edit.notice') }}
+      </p>
 
       <!-- Grouped Field Sections -->
       <div v-for="group in groupedColumns" :key="group.key" class="rounded-lg border border-gray-150 overflow-hidden">

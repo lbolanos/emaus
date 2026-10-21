@@ -255,4 +255,90 @@ describe('versionStore', () => {
 			expect(fetchMock).toHaveBeenCalledTimes(callsAfterStart);
 		});
 	});
+
+	// specs/offline-mode M1: with a service worker the page comes from its precache,
+	// so a plain reload keeps the old version; the update goes through the worker.
+	describe('service worker hooks', () => {
+		const stubReload = () => {
+			const reloadMock = vi.fn();
+			Object.defineProperty(window, 'location', {
+				value: { ...window.location, reload: reloadMock },
+				writable: true,
+				configurable: true,
+			});
+			return reloadMock;
+		};
+
+		beforeEach(() => {
+			sessionStorage.clear();
+		});
+
+		it('shows the banner when a new worker is waiting', () => {
+			store.markServiceWorkerWaiting();
+			expect(store.updateAvailable).toBe(true);
+		});
+
+		it('asks the worker to check for an update when version.json changes', async () => {
+			const checkForUpdate = vi.fn().mockResolvedValue(undefined);
+			store.attachServiceWorker({ checkForUpdate, applyUpdate: vi.fn() });
+			vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+				ok: true,
+				json: () => Promise.resolve({ version: 'new-deploy-hash' }),
+			}));
+
+			store.startPolling();
+			await vi.advanceTimersByTimeAsync(0);
+
+			expect(checkForUpdate).toHaveBeenCalledTimes(1);
+		});
+
+		it('does not ask the worker when the version matches', async () => {
+			const checkForUpdate = vi.fn().mockResolvedValue(undefined);
+			store.attachServiceWorker({ checkForUpdate, applyUpdate: vi.fn() });
+			vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+				ok: true,
+				json: () => Promise.resolve({ version: 'test-version' }),
+			}));
+
+			store.startPolling();
+			await vi.advanceTimersByTimeAsync(0);
+
+			expect(checkForUpdate).not.toHaveBeenCalled();
+		});
+
+		it('lets the worker reload the page when it activated an update', async () => {
+			const reloadMock = stubReload();
+			const applyUpdate = vi.fn().mockResolvedValue(true);
+			store.attachServiceWorker({ checkForUpdate: vi.fn(), applyUpdate });
+
+			await store.reloadForUpdate();
+
+			expect(applyUpdate).toHaveBeenCalledTimes(1);
+			expect(reloadMock).not.toHaveBeenCalled();
+		});
+
+		it('falls back to a plain reload when there was nothing to activate', async () => {
+			const reloadMock = stubReload();
+			store.attachServiceWorker({
+				checkForUpdate: vi.fn(),
+				applyUpdate: vi.fn().mockResolvedValue(false),
+			});
+
+			await store.reloadForUpdate();
+
+			expect(reloadMock).toHaveBeenCalledTimes(1);
+		});
+
+		it('falls back to a plain reload when the worker throws', async () => {
+			const reloadMock = stubReload();
+			store.attachServiceWorker({
+				checkForUpdate: vi.fn(),
+				applyUpdate: vi.fn().mockRejectedValue(new Error('boom')),
+			});
+
+			await store.reloadForUpdate();
+
+			expect(reloadMock).toHaveBeenCalledTimes(1);
+		});
+	});
 });

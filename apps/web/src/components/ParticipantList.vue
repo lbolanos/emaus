@@ -4,6 +4,8 @@ import { storeToRefs } from 'pinia';
 import { useRoute } from 'vue-router';
 import { formatCurrency } from '@repo/utils';
 import { useParticipantStore } from '@/stores/participantStore';
+import { connectivity } from '@/offline/connectivity';
+import { planOfflineEdit } from '@/offline/participantEdit';
 import { useRetreatStore } from '@/stores/retreatStore';
 import { useMyParticipantId } from '@/composables/useMyParticipantId';
 import { useTableMesaStore } from '@/stores/tableMesaStore';
@@ -1104,7 +1106,38 @@ const bulkEditSelected = () => {
     isBulkEditDialogOpen.value = true;
 };
 
-const handleUpdateParticipant = async (updatedParticipant: any) => {
+const handleUpdateParticipant = async (
+    updatedParticipant: any,
+    changes?: { dirtyKeys: string[]; labels: Record<string, string> },
+) => {
+    // Without signal only some fields can wait for it (specs/offline-mode, D13):
+    // the changed ones of that list travel alone, with the values they had.
+    if (!connectivity.online) {
+        const plan = planOfflineEdit(participantToEdit.value, updatedParticipant, changes?.dirtyKeys ?? []);
+        if (plan.blocked.length > 0) {
+            // Nothing is saved; the dialog stays open with what was typed.
+            toast({
+                title: $t('offline.edit.blockedTitle'),
+                description: $t('offline.edit.blocked', {
+                    fields: plan.blocked.map((key) => changes?.labels?.[key] || key).join(', '),
+                }),
+                variant: 'destructive',
+            });
+            return;
+        }
+        if (Object.keys(plan.patch).length === 0) {
+            isEditDialogOpen.value = false;
+            return;
+        }
+        await participantStore.updateParticipant(updatedParticipant.id, {
+            ...plan.patch,
+            expectedValues: plan.expectedValues,
+            contextRetreatId: selectedRetreatId.value,
+        } as any);
+        toast({ title: $t('offline.queued.title'), description: $t('offline.queued.description') });
+        isEditDialogOpen.value = false;
+        return;
+    }
     await participantStore.updateParticipant(updatedParticipant.id, {
         ...updatedParticipant,
         contextRetreatId: selectedRetreatId.value,

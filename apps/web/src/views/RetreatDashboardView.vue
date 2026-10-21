@@ -77,6 +77,9 @@
         </div>
       </Card>
 
+      <!-- Working without signal at the retreat house (specs/offline-mode, D4) -->
+      <OfflinePrepareCard :retreat="selectedRetreat" />
+
       <!-- reorderable sections -->
       <div class="flex flex-col gap-6">
 
@@ -871,6 +874,10 @@
                 </div>
               </div>
             </template>
+            <!-- Health regime: never saved on the phone (specs/offline-mode) -->
+            <p v-else-if="participantsFromCache" class="text-sm text-amber-800" data-testid="special-cases-card-offline">
+              {{ $t('offline.specialCasesNeedConnection') }}
+            </p>
             <template v-else>
               <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div>
@@ -1388,6 +1395,7 @@ import { Progress } from '@repo/ui';
 import InviteUsersModal from '@/components/InviteUsersModal.vue';
 import DashboardCustomizePanel from '@/components/DashboardCustomizePanel.vue';
 import DashboardMiniStats from '@/components/DashboardMiniStats.vue';
+import OfflinePrepareCard from '@/components/offline/OfflinePrepareCard.vue';
 import MemoryPhotoCarousel from '@/components/social/MemoryPhotoCarousel.vue';
 import {
   AlertTriangle,
@@ -1466,7 +1474,7 @@ const dashboardSongs = computed(() => {
 const dashboardHasMemories = computed(() => dashboardHasPhotos.value || dashboardSongs.value.length > 0);
 const { toast } = useToast();
 const participantStore = useParticipantStore();
-const { participants } = storeToRefs(participantStore);
+const { participants, fromCache: participantsFromCache } = storeToRefs(participantStore);
 const inventoryStore = useInventoryStore();
 const { inventoryAlerts } = storeToRefs(inventoryStore);
 const tableMesaStore = useTableMesaStore();

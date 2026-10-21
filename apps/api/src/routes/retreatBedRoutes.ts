@@ -8,6 +8,7 @@ import {
 } from '../controllers/retreatBedController';
 import { isAuthenticated } from '../middleware/isAuthenticated';
 import { requirePermission, requireRetreatAccess } from '../middleware/authorization';
+import { idempotency } from '../middleware/idempotency';
 
 const router = Router();
 
@@ -22,6 +23,7 @@ router.put(
 	'/retreat-beds/:bedId/assign',
 	isAuthenticated,
 	requirePermission('house:update'),
+	idempotency,
 	assignParticipantToBed,
 );
 router.put(

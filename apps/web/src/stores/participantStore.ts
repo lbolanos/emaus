@@ -4,9 +4,12 @@ import { useToast } from '@repo/ui';
 import type { Participant, CreateParticipant, Tag } from '@repo/types';
 import { api, setAttendanceConfirmation as apiSetAttendanceConfirmation, updateParticipantPhones as apiUpdateParticipantPhones, type AttendanceConfirmation, type QuickPhonePatch, type QuickPhoneResult } from '@/services/api';
 import { apiErrorMessage } from '@/services/apiError';
+import { isFromCache } from '@/offline/readCache';
 
 export const useParticipantStore = defineStore('participant', () => {
 	const participants = ref<Participant[]>([]);
+	/** The list came from the device because there was no signal (no health fields). */
+	const fromCache = ref(false);
 	const tags = ref<Tag[]>([]);
 	const loading = ref(false);
 	const loadingTags = ref(false);
@@ -61,6 +64,9 @@ export const useParticipantStore = defineStore('participant', () => {
 				// Only apply result if retreatId hasn't changed while we were fetching
 				if (filters.retreatId === retreatId) {
 					participants.value = response.data;
+					// Saved on the device without health fields (specs/offline-mode):
+					// views that need them must not render this list as complete.
+					fromCache.value = isFromCache(response);
 				}
 			} catch (err: any) {
 				if (err.response?.status === 403) {
@@ -183,7 +189,7 @@ export const useParticipantStore = defineStore('participant', () => {
 		}
 	}
 
-	async function updateParticipant(id: string, data: Partial<Participant>) {
+	async function updateParticipant(id: string, data: Partial<Participant>): Promise<{ queued: boolean }> {
 		if (!id) {
 			const error = new Error('Participant ID is missing');
 			toast({
@@ -199,7 +205,16 @@ export const useParticipantStore = defineStore('participant', () => {
 			// Log the data being sent for debugging
 			//console.log('Updating participant:', id, 'with data:', JSON.stringify(data, null, 2));
 
-			await api.put(`/participants/${id}`, data);
+			const saved = await api.put(`/participants/${id}`, data);
+
+			// Saved on the phone without signal (specs/offline-mode, D13): there is no
+			// server record to fetch yet; paint the changed fields on the list.
+			if ((saved as { queued?: boolean }).queued) {
+				const { contextRetreatId: _context, expectedValues: _expected, ...fields } = data as any;
+				const index = participants.value.findIndex((p) => p.id === id);
+				if (index !== -1) participants.value[index] = { ...participants.value[index], ...fields };
+				return { queued: true };
+			}
 
 			// Fetch the updated participant data including tags. Pass the
 			// active retreat (from the data sent in or from filters) so the
@@ -219,6 +234,7 @@ export const useParticipantStore = defineStore('participant', () => {
 				title: 'Success',
 				description: 'Participant updated successfully',
 			});
+			return { queued: false };
 		} catch (error: any) {
 			console.error('Error updating participant:', error);
 			console.error('Error response:', error.response?.data);
@@ -324,6 +340,7 @@ export const useParticipantStore = defineStore('participant', () => {
 
 	function $reset() {
 		participants.value = [];
+		fromCache.value = false;
 		tags.value = [];
 		loading.value = false;
 		loadingTags.value = false;
@@ -393,6 +410,7 @@ export const useParticipantStore = defineStore('participant', () => {
 
 	return {
 		participants,
+		fromCache,
 		tags,
 		loading,
 		loadingTags,

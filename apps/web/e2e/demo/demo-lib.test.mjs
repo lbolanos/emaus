@@ -238,3 +238,37 @@ test('maskNode: el teléfono falso NO puede ser el número de alguien', async ()
   assert.equal(salidas.filter((s, i) => s === entradas[i]).length, 0);
   assert.equal(new Set(salidas).size, salidas.length);
 });
+
+test('anchorTimelineToCaptions: each clip starts at its own subtitle change despite uneven drift', async () => {
+  const { anchorTimelineToCaptions } = await import('./demo-lib.mjs');
+  // Wall offsets (s) and subtitle changes detected in the offline-mode take of
+  // 2026-10-20: on time until going offline, then ~10% long. 77.72 is a dialog
+  // dimming the page before its subtitle; 163.28 the dialog closing.
+  const wall = [2.5, 10.2, 56.2, 63.5, 71.3, 76.3, 145.5, 153.1, 160.0];
+  const changes = [0.04, 0.72, 2.68, 10.36, 56.84, 64.96, 73.72, 77.72, 79.16, 156.28, 163.28, 164.04, 170.96];
+  const timeline = wall.map((s, i) => ({ id: `b${i}`, offsetMs: s * 1000, file: `b${i}.wav` }));
+  const anchored = anchorTimelineToCaptions(timeline, changes, { fallbackScale: 1.07 });
+  assert.deepEqual(anchored.map((t) => t.offsetMs / 1000), [2.68, 10.36, 56.84, 64.96, 73.72, 79.16, 156.28, 164.04, 170.96]);
+  assert.ok(anchored.every((t) => t.anchored && t.file));
+});
+
+test('clipOverlaps: names the clip still talking when the next one starts', async () => {
+  const { clipOverlaps } = await import('./demo-lib.mjs');
+  const timeline = [
+    { id: 'a', offsetMs: 0, duration: 4 },
+    { id: 'b', offsetMs: 4100, duration: 5 }, // starts after a ends
+    { id: 'c', offsetMs: 7000, duration: 2 }, // b still talking until 9100
+    { id: 'd', offsetMs: 9050, duration: 1 }, // 50 ms over: within tolerance
+  ];
+  assert.deepEqual(clipOverlaps(timeline), [{ id: 'b', next: 'c', overlapMs: 2100 }]);
+});
+
+test('anchorTimelineToCaptions: a beat with no detected change keeps the previous drift', async () => {
+  const { anchorTimelineToCaptions } = await import('./demo-lib.mjs');
+  const timeline = [{ id: 'a', offsetMs: 2000 }, { id: 'b', offsetMs: 10000 }, { id: 'c', offsetMs: 20000 }];
+  const anchored = anchorTimelineToCaptions(timeline, [2.1, 21.0], { fallbackScale: 1.05 });
+  assert.equal(anchored[0].offsetMs, 2100);
+  assert.equal(anchored[1].anchored, false);
+  assert.equal(anchored[1].offsetMs, Math.round((2.1 + 8 * 1.05) * 1000));
+  assert.equal(anchored[2].offsetMs, 21000);
+});

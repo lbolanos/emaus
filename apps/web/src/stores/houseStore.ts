@@ -3,7 +3,7 @@ import { ref } from 'vue';
 import { useToast } from '@repo/ui';
 import type { House, CreateHouse, UpdateHouse } from '@repo/types';
 import { api } from '@/services/api';
-import { apiErrorMessage } from '@/services/apiError';
+import { apiErrorMessage, isNetworkError } from '@/services/apiError';
 
 export const useHouseStore = defineStore('house', () => {
 	const houses = ref<House[]>([]);
@@ -16,11 +16,15 @@ export const useHouseStore = defineStore('house', () => {
 			const response = await api.get('/houses');
 			houses.value = response.data;
 		} catch (error: any) {
-			toast({
-				title: 'Error',
-				description: apiErrorMessage(error, `Failed to fetch houses`),
-				variant: 'destructive',
-			});
+			// The retreat modal loads this on every screen: without signal the offline
+			// banner already says so (specs/offline-mode).
+			if (!isNetworkError(error)) {
+				toast({
+					title: 'Error',
+					description: apiErrorMessage(error, `Failed to fetch houses`),
+					variant: 'destructive',
+				});
+			}
 			throw error;
 		} finally {
 			loading.value = false;
