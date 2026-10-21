@@ -369,6 +369,106 @@ export class RetreatPreRetreatTaskService {
 	}
 
 	/**
+	 * Copia las tareas pre-retiro INSTANCIADAS de otro retiro (incluye las
+	 * ad-hoc y las ediciones de nombre/descripción/notas) recalculando dueDate
+	 * contra el startDate del destino con el offset efectivo (propio o el de su
+	 * raíz, misma regla que materializeFromTemplate). NO copia: estado de
+	 * avance (status vuelve a pending) ni responsables asignados
+	 * (responsibleParticipantId queda null; responsibleText sí viaja).
+	 */
+	async cloneFromRetreat(
+		sourceRetreatId: string,
+		targetRetreatId: string,
+	): Promise<{ created: number }> {
+		const target = await this.retreatRepo.findOne({ where: { id: targetRetreatId } });
+		if (!target) throw new PreRetreatTaskNotFoundError('Retiro destino no encontrado');
+		const base = startDateString(target.startDate);
+
+		await this.repo.delete({ retreatId: targetRetreatId });
+
+		const sourceTasks = await this.repo.find({
+			where: { retreatId: sourceRetreatId },
+			order: { sortOrder: 'ASC', createdAt: 'ASC' },
+		});
+		if (!sourceTasks.length) return { created: 0 };
+
+		const roots = sourceTasks.filter((t) => !t.parentId);
+		const children = sourceTasks.filter((t) => t.parentId);
+		const rootOffsetById = new Map(roots.map((t) => [t.id, t.dueOffsetDays ?? null]));
+		const newIdBySourceId = new Map<string, string>();
+
+		let created = 0;
+		for (const t of roots) {
+			const saved = await this.repo.save(
+				this.repo.create({
+					retreatId: targetRetreatId,
+					templateId: t.templateId ?? null,
+					parentId: null,
+					name: t.name,
+					description: t.description ?? null,
+					dueOffsetDays: t.dueOffsetDays ?? null,
+					dueDate:
+						t.dueOffsetDays != null && base != null
+							? computeDueDate(base, t.dueOffsetDays)
+							: null,
+					responsibleParticipantId: null,
+					responsibleText: t.responsibleText ?? null,
+					notes: t.notes ?? null,
+					supportNotes: t.supportNotes ?? null,
+					sortOrder: t.sortOrder,
+					status: 'pending',
+				}),
+			);
+			newIdBySourceId.set(t.id, saved.id);
+			created++;
+		}
+
+		for (const t of children) {
+			const newParentId = t.parentId ? newIdBySourceId.get(t.parentId) : undefined;
+			// Raíz que no se copió (no debería ocurrir: se copian todas) → no
+			// dejar hijos apuntando a filas del retiro origen.
+			if (!newParentId) continue;
+			const effectiveOffset = t.dueOffsetDays ?? rootOffsetById.get(t.parentId!) ?? null;
+			await this.repo.save(
+				this.repo.create({
+					retreatId: targetRetreatId,
+					templateId: t.templateId ?? null,
+					parentId: newParentId,
+					name: t.name,
+					description: t.description ?? null,
+					dueOffsetDays: t.dueOffsetDays ?? null,
+					dueDate:
+						effectiveOffset != null && base != null
+							? computeDueDate(base, effectiveOffset)
+							: null,
+					responsibleParticipantId: null,
+					responsibleText: t.responsibleText ?? null,
+					notes: t.notes ?? null,
+					supportNotes: t.supportNotes ?? null,
+					sortOrder: t.sortOrder,
+					status: 'pending',
+				}),
+			);
+			created++;
+		}
+
+		void domainAuditService.log({
+			action: DomainAuditAction.PRE_RETREAT_TASK_MATERIALIZE,
+			resourceType: 'pre_retreat_task',
+			resourceId: sourceRetreatId,
+			retreatId: targetRetreatId,
+			metadata: {
+				mode: 'clone_from_retreat',
+				sourceRetreatId,
+				createdRoots: roots.length,
+				createdChildren: created - roots.length,
+			},
+		});
+
+		return { created };
+	}
+
+	/**
 	 * Agrega solo los items del template que el retiro aún no tiene. Detecta
 	 * duplicados por templateId y por clave (nombre del padre, nombre) normalizada
 	 * — análogo al (day, name) del Minuto a Minuto.

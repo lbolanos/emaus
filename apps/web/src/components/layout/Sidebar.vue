@@ -476,7 +476,6 @@
     :open="isAddModalOpen"
     mode="add"
     @update:open="isAddModalOpen = $event"
-    @submit="handleAddRetreat"
   />
   <RetreatModal
     :open="isEditModalOpen"
@@ -532,7 +531,7 @@ import { useAuthPermissions } from '@/composables/useAuthPermissions';
 import { useCommunityStore } from '@/stores/communityStore';
 import { useRouteContext } from '@/composables/useRouteContext';
 import { formatDate } from '@repo/utils';
-import type { CreateRetreat, Retreat } from '@repo/types';
+import type { Retreat } from '@repo/types';
 import RetreatModal from '@/components/RetreatModal.vue';
 import DeleteRetreatDialog from '@/components/DeleteRetreatDialog.vue';
 import HelpPanel from '@/components/HelpPanel.vue';
@@ -1576,15 +1575,6 @@ const getRouteWithParams = (item: MenuItem) => {
 };
 
 // Header-absorbed handlers
-const handleAddRetreat = async (retreatData: CreateRetreat) => {
-  try {
-    await retreatStore.createRetreat(retreatData);
-    isAddModalOpen.value = false;
-  } catch (err) {
-    console.error('Failed to create retreat:', err);
-  }
-};
-
 const handleEditRetreat = async (retreatData: Partial<Retreat> & { id: string; _refreshBeds?: boolean }) => {
   try {
     const { _refreshBeds, ...data } = retreatData;

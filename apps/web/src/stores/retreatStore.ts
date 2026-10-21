@@ -1,9 +1,29 @@
 import { defineStore } from 'pinia';
 import { ref, computed, watch } from 'vue';
 import { useToast } from '@repo/ui';
-import type { Retreat, CreateRetreat } from '@repo/types';
+import type { Retreat, CreateRetreat, RetreatCloneResult, RetreatCloneSections } from '@repo/types';
 import { api } from '@/services/api';
+import { cloneRetreatSections } from '@/services/api';
 import { apiErrorMessage } from '@/services/apiError';
+
+/** Texto del toast tras copiar secciones: "11 mesas, 49 responsabilidades…". */
+function cloneSummaryText(result: RetreatCloneResult): string {
+	const labels: Record<string, [string, number]> = {
+		tables: ['mesas', result.sections.tables],
+		responsibilities: ['responsabilidades', result.sections.responsibilities],
+		serviceTeams: ['equipos', result.sections.serviceTeams],
+		shirtTypes: ['tallas', result.sections.shirtTypes],
+		inventory: ['inventario', result.sections.inventory],
+		messageTemplates: ['plantillas', result.sections.messageTemplates],
+		messageSequences: ['secuencias', result.sections.messageSequences],
+		schedule: ['minuto a minuto', result.sections.schedule],
+		preRetreatTasks: ['tareas pre-retiro', result.sections.preRetreatTasks],
+	};
+	const parts = Object.values(labels)
+		.filter(([, n]) => n > 0)
+		.map(([label, n]) => `${n} ${label}`);
+	return parts.length ? `Copiado: ${parts.join(', ')}.` : 'No había nada que copiar de esas secciones.';
+}
 
 const STORAGE_KEY = 'selectedRetreatId';
 
@@ -131,12 +151,23 @@ export const useRetreatStore = defineStore('retreat', () => {
 		}
 	}
 
-	async function createRetreat(retreatData: CreateRetreat) {
+	/**
+	 * Crea un retiro y, opcionalmente, copia secciones de un retiro anterior
+	 * (ver `cloneRetreatSections` en services/api). Retorna el retreat creado:
+	 * RetreatModal encadena el auto-materialize y el diálogo de éxito.
+	 * Si la copia falla, el retiro YA existe — se avisa y no se relanza.
+	 */
+	async function createRetreat(
+		retreatData: CreateRetreat,
+		opts?: { cloneFrom?: { sourceRetreatId: string; sections: RetreatCloneSections } },
+	): Promise<Retreat> {
+		let created: Retreat;
 		loading.value = true;
 		try {
 			const response = await api.post('/retreats', retreatData);
-			retreats.value.unshift(response.data); // Add to the beginning of the list
-			selectRetreat(response.data.id);
+			created = response.data;
+			retreats.value.unshift(created); // Add to the beginning of the list
+			selectRetreat(created.id);
 			toast({
 				title: 'Success',
 				description: 'Retreat created successfully.',
@@ -151,6 +182,24 @@ export const useRetreatStore = defineStore('retreat', () => {
 		} finally {
 			loading.value = false;
 		}
+
+		const cloneFrom = opts?.cloneFrom;
+		if (cloneFrom && Object.values(cloneFrom.sections).some(Boolean)) {
+			try {
+				const result = await cloneRetreatSections(created.id, cloneFrom.sourceRetreatId, cloneFrom.sections);
+				toast({
+					title: 'Success',
+					description: cloneSummaryText(result),
+				});
+			} catch (err: any) {
+				toast({
+					title: 'Warning',
+					description: apiErrorMessage(err, 'Retreat created, but the section copy failed.'),
+					variant: 'destructive',
+				});
+			}
+		}
+		return created;
 	}
 
 	// Add updateRetreat action for EditRetreatModal

@@ -1033,6 +1033,53 @@ export const updateRetreatSchema = z.object({
 });
 export type UpdateRetreat = z.infer<typeof updateRetreatSchema.shape.body>;
 
+// POST /retreats/:id/clone-from — copia secciones configurables de un retiro
+// anterior al recién creado. Cada sección seleccionada REEMPLAZA los defaults
+// que siembra createRetreat (delete + copy); las no seleccionadas se quedan.
+export const retreatCloneSectionsSchema = z.object({
+	tables: z.boolean().default(false),
+	responsibilities: z.boolean().default(false),
+	schedule: z.boolean().default(false),
+	preRetreatTasks: z.boolean().default(false),
+	inventory: z.boolean().default(false),
+	shirtTypes: z.boolean().default(false),
+	messageTemplates: z.boolean().default(false),
+	messageSequences: z.boolean().default(false),
+	serviceTeams: z.boolean().default(false),
+});
+export type RetreatCloneSections = z.infer<typeof retreatCloneSectionsSchema>;
+
+export const cloneRetreatFromSchema = z.object({
+	body: z.object({
+		sourceRetreatId: idSchema,
+		sections: retreatCloneSectionsSchema.default({}),
+	}),
+	params: z.object({ id: idSchema }),
+});
+export type CloneRetreatFromBody = z.infer<typeof cloneRetreatFromSchema.shape.body>;
+
+// Resultado de la copia: filas creadas por sección (más los sub-productos de
+// secuencias y slots de Santísimo) y avisos no bloqueantes (p. ej. filas de
+// inventario de playera saltadas porque la sección tallas venía apagada).
+export type RetreatCloneResult = {
+	sourceRetreatId: string;
+	targetRetreatId: string;
+	sections: {
+		tables: number;
+		responsibilities: number;
+		schedule: number;
+		preRetreatTasks: number;
+		inventory: number;
+		shirtTypes: number;
+		messageTemplates: number;
+		messageSequences: number;
+		serviceTeams: number;
+		sequenceSteps: number;
+		santisimoSlots: number;
+	};
+	warnings: string[];
+};
+
 // POST /houses
 export const createHouseSchema = z.object({
 	body: houseSchema.omit({ id: true }),

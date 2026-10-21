@@ -28,6 +28,16 @@ vi.mock('@/stores/houseStore', () => ({
 	useHouseStore: () => ({ houses: [], fetchHouses: vi.fn() }),
 }));
 
+// El modal crea el retiro vía retreatStore (no vía emit) y lee su listado
+// para el selector "copiar de un retiro anterior".
+vi.mock('@/stores/retreatStore', () => ({
+	useRetreatStore: () => ({
+		retreats: [],
+		fetchRetreats: vi.fn(),
+		createRetreat: vi.fn(),
+	}),
+}));
+
 vi.mock('@/services/api', () => ({
 	api: { get: vi.fn(), post: vi.fn(), put: vi.fn(), delete: vi.fn() },
 	scheduleTemplateApi: { listSets: vi.fn(async () => []) },

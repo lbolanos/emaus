@@ -2,6 +2,8 @@ import axios from "axios";
 import { useToast } from "@repo/ui";
 import type {
   TableMesa,
+  RetreatCloneResult,
+  RetreatCloneSections,
   Community,
   CommunityMember,
   CommunityMeeting,
@@ -575,6 +577,23 @@ export const refreshRetreatBedsFromHouse = async (
   retreatId: string,
 ): Promise<void> => {
   await api.post(`/retreats/${retreatId}/refresh-beds`, {});
+};
+
+/**
+ * Copia secciones configurables (mesas, responsabilidades, MAM, inventario, …)
+ * de un retiro anterior a uno recién creado. Cada sección seleccionada
+ * reemplaza los defaults; la respuesta trae counts por sección y warnings.
+ */
+export const cloneRetreatSections = async (
+  retreatId: string,
+  sourceRetreatId: string,
+  sections: RetreatCloneSections,
+): Promise<RetreatCloneResult> => {
+  const response = await api.post(`/retreats/${retreatId}/clone-from`, {
+    sourceRetreatId,
+    sections,
+  });
+  return response.data;
 };
 
 export const exportRoomLabelsToDocx = async (

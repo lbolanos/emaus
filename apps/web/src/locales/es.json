@@ -52,6 +52,7 @@
       "retreat": {
         "create": "Retiro creado",
         "update": "Retiro editado",
+        "clone_from": "Configuración copiada de un retiro anterior",
         "memory": {
           "photo_upload": "Foto de recuerdo subida",
           "update": "Recuerdos del retiro editados"
@@ -1548,6 +1549,39 @@
     "editTitle": "Editar Retiro",
     "addDescription": "Crea un nuevo retiro.",
     "editDescription": "Edita los detalles del retiro.",
+    "copyFrom": {
+      "label": "Copiar de un retiro anterior",
+      "hint": "Copia la configuración del retiro elegido: parroquia, número, comunidad, registro externo, casa, costos, notas y las secciones que marques abajo. Revisa número y fechas: son del retiro nuevo.",
+      "none": "No copiar nada",
+      "selectedHint": "Se precargaron los datos del retiro elegido. Revisa nombre, fechas y número antes de crear.",
+      "tabTitle": "Copiar de…",
+      "sectionsHint": "Elige qué secciones se copian. Cada sección marcada reemplaza la configuración por defecto del retiro nuevo.",
+      "sections": {
+        "tables": "Mesas",
+        "responsibilities": "Responsabilidades",
+        "schedule": "Minuto a minuto",
+        "preRetreatTasks": "Tareas pre-retiro",
+        "inventory": "Inventario",
+        "shirtTypes": "Tallas de playera",
+        "messageTemplates": "Plantillas de mensajes",
+        "messageSequences": "Secuencias de mensajes",
+        "serviceTeams": "Equipos de servicio"
+      },
+      "sectionHints": {
+        "tables": "Solo la estructura; sin líderes ni lugares asignados",
+        "responsibilities": "Catálogo completo, sin responsables asignados",
+        "schedule": "Actividades con fechas recalculadas al retiro nuevo",
+        "preRetreatTasks": "Vencimientos recalculados, sin responsables",
+        "inventory": "Cantidad requerida del origen; existencias en 0",
+        "shirtTypes": "Tipos y precios por talla",
+        "messageTemplates": "Plantillas se copian dentro del retiro nuevo",
+        "messageSequences": "Secuencias sin envíos programados",
+        "serviceTeams": "Equipos sin líder ni miembros"
+      },
+      "notCopiedNote": "Las secciones desmarcadas conservan la configuración por defecto con la que nace el retiro.",
+      "scheduleOverridesTemplate": "Copiarás el Minuto a Minuto del retiro origen; la importación de plantilla queda deshabilitada.",
+      "preTasksOverridesTemplate": "Copiarás las tareas pre-retiro del retiro origen; la plantilla queda deshabilitada."
+    },
     "visibility": {
       "label": "Estado del retiro",
       "description": "Controla la visibilidad en la landing y la apertura de inscripciones.",

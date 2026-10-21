@@ -12,9 +12,10 @@
 
       <form @submit.prevent="handleSubmit" class="space-y-6">
         <Tabs v-model="activeTab" class="w-full">
-          <TabsList class="grid w-full grid-cols-8">
+          <TabsList class="grid w-full" :class="showCopyTab ? 'grid-cols-9' : 'grid-cols-8'">
             <TabsTrigger value="general">{{ $t('retreatModal.sections.general') }}</TabsTrigger>
             <TabsTrigger value="logistics">{{ $t('retreatModal.sections.logistics') }}</TabsTrigger>
+            <TabsTrigger v-if="showCopyTab" value="copy">{{ $t('retreatModal.copyFrom.tabTitle') }}</TabsTrigger>
             <TabsTrigger value="settings">Ajustes</TabsTrigger>
             <TabsTrigger value="financials">{{ $t('retreatModal.sections.financials') }}</TabsTrigger>
             <TabsTrigger value="notes">{{ $t('retreatModal.sections.notes') }}</TabsTrigger>
@@ -25,6 +26,35 @@
 
           <!-- General Tab -->
           <TabsContent value="general" class="space-y-6 mt-6">
+            <!-- Origen de copia (solo crear): prefill de configuración + secciones a clonar -->
+            <div v-if="props.mode === 'add'" class="p-4 border rounded-lg space-y-3">
+              <div class="space-y-1">
+                <Label for="copySourceRetreat" class="font-medium">
+                  {{ $t('retreatModal.copyFrom.label') }}
+                </Label>
+                <p class="text-xs text-muted-foreground">{{ $t('retreatModal.copyFrom.hint') }}</p>
+              </div>
+              <Select :model-value="copySourceRetreatId" @update:model-value="onCopySourceSelect">
+                <SelectTrigger id="copySourceRetreat">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    <SelectItem value="__none__">{{ $t('retreatModal.copyFrom.none') }}</SelectItem>
+                    <SelectItem v-for="r in copySourceOptions" :key="r.id" :value="r.id">
+                      <div class="flex flex-col">
+                        <span class="font-medium">{{ r.parish }}{{ r.retreat_number_version ? ` ${r.retreat_number_version}` : '' }}</span>
+                        <span class="text-xs text-muted-foreground">{{ formatCopySourceDates(r) }}</span>
+                      </div>
+                    </SelectItem>
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+              <p v-if="showCopyTab" class="text-xs text-muted-foreground">
+                {{ $t('retreatModal.copyFrom.selectedHint') }}
+              </p>
+            </div>
+
             <!-- Basic Info: Type, Number, Parish, House -->
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
 
@@ -258,6 +288,38 @@
             </div>
           </TabsContent>
 
+          <!-- Copy sections Tab (solo crear, visible al elegir origen) -->
+          <TabsContent v-if="showCopyTab" value="copy" class="space-y-4 mt-6">
+            <div class="space-y-1">
+              <Label class="font-medium">{{ $t('retreatModal.copyFrom.tabTitle') }}</Label>
+              <p class="text-xs text-muted-foreground">{{ $t('retreatModal.copyFrom.sectionsHint') }}</p>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <label
+                v-for="sec in copySectionList"
+                :key="sec.key"
+                class="flex items-start space-x-2 p-3 border rounded-lg cursor-pointer hover:bg-muted/40"
+              >
+                <Checkbox
+                  :id="`copy-${sec.key}`"
+                  :model-value="copySections[sec.key]"
+                  @update:model-value="copySections[sec.key] = $event"
+                  :disabled="isSubmitting"
+                  class="mt-0.5"
+                />
+                <span class="space-y-0.5">
+                  <span class="block text-sm font-medium cursor-pointer">
+                    {{ $t(`retreatModal.copyFrom.sections.${sec.key}`) }}
+                  </span>
+                  <span class="block text-xs text-muted-foreground">
+                    {{ $t(`retreatModal.copyFrom.sectionHints.${sec.key}`) }}
+                  </span>
+                </span>
+              </label>
+            </div>
+            <p class="text-xs text-muted-foreground">{{ $t('retreatModal.copyFrom.notCopiedNote') }}</p>
+          </TabsContent>
+
           <!-- Logistics Tab -->
           <TabsContent value="logistics" class="space-y-6 mt-6">
             <!-- Capacity -->
@@ -381,7 +443,7 @@
               <select
                 v-model="selectedScheduleTemplateSetId"
                 class="w-full border rounded px-2 py-2 text-sm"
-                :disabled="isSubmitting || isMaterializing"
+                :disabled="isSubmitting || isMaterializing || copyCoversSchedule"
               >
                 <option
                   v-for="s in scheduleTemplateSets"
@@ -402,12 +464,15 @@
                   id="materializeOnCreate"
                   :model-value="materializeOnCreate"
                   @update:model-value="materializeOnCreate = $event"
-                  :disabled="isSubmitting"
+                  :disabled="isSubmitting || copyCoversSchedule"
                 />
                 <Label for="materializeOnCreate" class="text-sm cursor-pointer">
                   Importar la agenda al crear el retiro
                 </Label>
               </div>
+              <p v-if="props.mode === 'add' && copyCoversSchedule" class="text-xs text-muted-foreground">
+                {{ $t('retreatModal.copyFrom.scheduleOverridesTemplate') }}
+              </p>
               <div v-else-if="props.retreat" class="flex items-center gap-2">
                 <Button
                   type="button"
@@ -441,7 +506,7 @@
               <select
                 v-model="selectedPreTaskSetId"
                 class="w-full border rounded px-2 py-2 text-sm"
-                :disabled="isSubmitting || isMaterializingPreTasks"
+                :disabled="isSubmitting || isMaterializingPreTasks || copyCoversPreTasks"
               >
                 <option
                   v-for="s in preTaskTemplateSets"
@@ -462,12 +527,15 @@
                   id="materializePreTasksOnCreate"
                   :model-value="materializePreTasksOnCreate"
                   @update:model-value="materializePreTasksOnCreate = $event"
-                  :disabled="isSubmitting"
+                  :disabled="isSubmitting || copyCoversPreTasks"
                 />
                 <Label for="materializePreTasksOnCreate" class="text-sm cursor-pointer">
                   Crear las tareas al crear el retiro
                 </Label>
               </div>
+              <p v-if="props.mode === 'add' && copyCoversPreTasks" class="text-xs text-muted-foreground">
+                {{ $t('retreatModal.copyFrom.preTasksOverridesTemplate') }}
+              </p>
               <div v-else-if="props.retreat" class="flex items-center gap-2">
                 <Button
                   type="button"
@@ -916,15 +984,16 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch, nextTick } from 'vue';
+import { ref, reactive, computed, onMounted, watch, nextTick } from 'vue';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Input, Label, Button, Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue, Textarea, RadioGroup, RadioGroupItem, Tabs, TabsContent, TabsList, TabsTrigger, Checkbox } from '@repo/ui';
 import { Loader2 } from 'lucide-vue-next';
 import { useHouseStore } from '@/stores/houseStore';
 import { useCommunityStore } from '@/stores/communityStore';
+import { useRetreatStore } from '@/stores/retreatStore';
 import { api, scheduleTemplateApi, retreatScheduleApi, preRetreatTaskApi, preRetreatTaskTemplateApi, type ScheduleTemplateSetDTO, type PreRetreatTaskTemplateSetDTO } from '@/services/api';
 import { getApiUrl } from '@/config/runtimeConfig';
 import { useToast } from '@repo/ui';
-import type { CreateRetreat, Retreat } from '@repo/types';
+import type { CreateRetreat, Retreat, RetreatCloneSections } from '@repo/types';
 import { buildClosingChurchMapsUrl, buildClosingChurchWazeUrl } from '@repo/utils';
 import { loadGoogleMaps } from '@/utils/googleMaps';
 import { houseLocationLabel as houseLabel } from '@/utils/houseLabel';
@@ -940,12 +1009,12 @@ interface Props {
 const props = defineProps<Props>();
 const emit = defineEmits<{
   (e: 'update:open', value: boolean): void;
-  (e: 'submit', data: CreateRetreat): Promise<Retreat | undefined>;
   (e: 'update', data: Partial<Retreat> & { id: string; _refreshBeds?: boolean }): Promise<void>;
 }>();
 
 const houseStore = useHouseStore();
 const communityStore = useCommunityStore();
+const retreatStore = useRetreatStore();
 const { toast } = useToast();
 
 // State
@@ -1067,6 +1136,139 @@ async function handleMaterializePreTasksNow() {
 	}
 }
 
+
+// Copia desde un retiro anterior (solo modo crear) --------------------------------
+// El sentinel '__none__' sigue el patrón de communityId: Select reka-ui no
+// acepta ''/null como valor seleccionable.
+const COPY_SECTION_KEYS = [
+  'tables',
+  'responsibilities',
+  'schedule',
+  'preRetreatTasks',
+  'inventory',
+  'shirtTypes',
+  'messageTemplates',
+  'messageSequences',
+  'serviceTeams',
+] as const;
+
+const copySectionList = COPY_SECTION_KEYS.map((key) => ({ key }));
+
+const copySourceRetreatId = ref<string>('__none__');
+
+const copySections = reactive<RetreatCloneSections>({
+  tables: true,
+  responsibilities: true,
+  schedule: true,
+  preRetreatTasks: true,
+  inventory: true,
+  shirtTypes: true,
+  messageTemplates: true,
+  messageSequences: true,
+  serviceTeams: true,
+});
+
+function resetCopyState() {
+  copySourceRetreatId.value = '__none__';
+  copySections.tables = true;
+  copySections.responsibilities = true;
+  copySections.schedule = true;
+  copySections.preRetreatTasks = true;
+  copySections.inventory = true;
+  copySections.shirtTypes = true;
+  copySections.messageTemplates = true;
+  copySections.messageSequences = true;
+  copySections.serviceTeams = true;
+}
+
+const showCopyTab = computed(() => props.mode === 'add' && copySourceRetreatId.value !== '__none__');
+
+const copyCoversSchedule = computed(() => showCopyTab.value && copySections.schedule);
+const copyCoversPreTasks = computed(() => showCopyTab.value && copySections.preRetreatTasks);
+
+// Al clonar la agenda/checklist, el template importaría lo mismo y luego la
+// copia lo sobreescribiría: desmarcamos el import para evitar el doble trabajo.
+watch(copyCoversSchedule, (covers) => {
+  if (covers) materializeOnCreate.value = false;
+});
+watch(copyCoversPreTasks, (covers) => {
+  if (covers) materializePreTasksOnCreate.value = false;
+});
+
+const copySourceOptions = computed(() =>
+  [...retreatStore.retreats]
+    .filter((r) => r.id !== props.retreat?.id)
+    .sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime()),
+);
+
+function formatCopySourceDates(r: Retreat): string {
+  // Las fechas date-only llegan como medianoche UTC: formatearlas en TZ local
+  // corre el día (2026-02-20 se pintaría como 19 feb en CST). Parsear el
+  // prefijo YYYY-MM-DD a componentes locales, igual que LandingView.
+  const fmt = (d: string | Date) => {
+    const match = typeof d === 'string' ? d.match(/^(\d{4})-(\d{2})-(\d{2})/) : null;
+    const date = match
+      ? new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]))
+      : new Date(d);
+    return date.toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' });
+  };
+  try {
+    return `${fmt(r.startDate)} – ${fmt(r.endDate)}`;
+  } catch {
+    return '';
+  }
+}
+
+function onCopySourceSelect(value: string) {
+  copySourceRetreatId.value = value;
+  if (value === '__none__') return;
+  const origin = retreatStore.retreats.find((r) => r.id === value);
+  if (origin) prefillFromRetreat(origin);
+}
+
+/**
+ * Prefill del retiro origen. Se copia TODO lo que el nuevo suele heredar tal
+ * cual: identidad (parish/número), comunidad, registro externo, casa, costos,
+ * notas, iglesia de clausura y los flags del volante que maneja este modal.
+ * Quedan a mano del usuario: fechas (el retiro nuevo tiene las suyas), slug
+ * (se autogenera de parroquia+número) y visibilidad — el retiro nuevo nace
+ * Borrador aunque el origen esté publicado.
+ */
+function prefillFromRetreat(origin: Retreat) {
+  const f = formData.value;
+  f.parish = origin.parish || '';
+  f.retreat_number_version = origin.retreat_number_version || '';
+  f.communityId = (origin as any).communityId ?? null;
+  f.externalRegistrationUrl = (origin as any).externalRegistrationUrl || '';
+  f.flyer_options = {
+    showQrCodesLocation: (origin as any).flyer_options?.showQrCodesLocation ?? true,
+    showQrCodesRegistration: (origin as any).flyer_options?.showQrCodesRegistration ?? true,
+    showPickupInfo: (origin as any).flyer_options?.showPickupInfo ?? true,
+  };
+  f.houseId = origin.houseId ?? f.houseId;
+  f.timezone = (origin as any).timezone ?? null;
+  f.retreat_type = origin.retreat_type ?? f.retreat_type;
+  f.openingNotes = origin.openingNotes || '';
+  f.closingNotes = origin.closingNotes || '';
+  f.thingsToBringNotes = origin.thingsToBringNotes || '';
+  f.contactPhones = origin.contactPhones || '';
+  f.cost = origin.cost || '';
+  f.paymentInfo = origin.paymentInfo || '';
+  f.paymentMethods = origin.paymentMethods || '';
+  f.serverFeeAmount = (origin as any).serverFeeAmount ?? undefined;
+  f.mealCost = (origin as any).mealCost ?? undefined;
+  f.walkerArrivalTime = origin.walkerArrivalTime || '';
+  f.serverArrivalTimeFriday = origin.serverArrivalTimeFriday || '';
+  f.notifyParticipant = (origin as any).notifyParticipant ?? true;
+  f.notifyInviter = (origin as any).notifyInviter ?? true;
+  f.notifyPalanqueros = [...((origin as any).notifyPalanqueros ?? [])];
+  f.couplesShareRoom = origin.couplesShareRoom ?? true;
+  f.couplesShareTable = origin.couplesShareTable ?? true;
+  f.closingChurchName = (origin as any).closingChurchName || '';
+  f.closingChurchAddress = (origin as any).closingChurchAddress || '';
+  f.closingChurchLatitude = (origin as any).closingChurchLatitude ?? null;
+  f.closingChurchLongitude = (origin as any).closingChurchLongitude ?? null;
+}
 
 // Form data
 const formData = ref({
@@ -1471,7 +1673,17 @@ const handleSubmit = async () => {
 
   try {
     if (props.mode === 'add') {
-      const retreat = await emit('submit', { ...formData.value });
+      // El modal crea vía store (no via emit): Vue descarta el retorno del
+      // handler del padre, así que el bloque de auto-materialize y este diálogo
+      // de éxito nunca corrían con `emit('submit')`. El store devuelve el
+      // retreat creado y ya copió las secciones del origen cuando aplica.
+      const cloneFrom =
+        copySourceRetreatId.value !== '__none__' && Object.values(copySections).some(Boolean)
+          ? { sourceRetreatId: copySourceRetreatId.value, sections: { ...copySections } }
+          : undefined;
+      const retreat = await retreatStore.createRetreat({ ...formData.value } as CreateRetreat, {
+        cloneFrom,
+      });
       if (retreat) {
         createdRetreat.value = retreat;
 
@@ -1778,6 +1990,14 @@ watch(() => props.open, (newOpen) => {
     closingChurchAddressEditing.value = false;
     void loadScheduleTemplateSets();
     void loadPreTaskTemplateSets();
+
+    if (props.mode === 'add') {
+      resetCopyState();
+      // Origenes posibles para copiar: si el store aún no cargó, ahora sí.
+      if (!retreatStore.retreats.length) {
+        void retreatStore.fetchRetreats();
+      }
+    }
 
     if (props.mode === 'edit' && props.retreat) {
       // Edit mode - populate

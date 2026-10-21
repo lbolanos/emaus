@@ -29,6 +29,10 @@ import {
   tablePhotosForRetreats,
 } from "../services/retreatMemoryService";
 import { s3Service } from "../services/s3Service";
+import {
+	cloneFromRetreat as cloneRetreatSections,
+	RetreatCloneError,
+} from "../services/retreatCloneService";
 
 export const getAllRetreats = async (
   req: Request,
@@ -288,6 +292,34 @@ export const updateRetreat = async (
     res.json(retreat);
   } catch (error: any) {
     if (error.statusCode === 409 || error.statusCode === 403 || error.statusCode === 401) {
+      return res.status(error.statusCode).json({ message: error.message });
+    }
+    next(error);
+  }
+};
+
+/**
+ * POST /retreats/:id/clone-from — copia secciones configurables de un retiro
+ * anterior (mesas, responsabilidades, MAM, inventario, …) a este retiro.
+ * Solo en retiros sin participantes inscritos; cada sección reemplaza los
+ * defaults sembrados al crear.
+ */
+export const cloneRetreatFrom = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const { sourceRetreatId, sections } = req.body;
+    const result = await cloneRetreatSections(
+      req.params.id,
+      sourceRetreatId,
+      sections,
+      (req as any).user?.id,
+    );
+    res.json(result);
+  } catch (error: any) {
+    if (error instanceof RetreatCloneError) {
       return res.status(error.statusCode).json({ message: error.message });
     }
     next(error);

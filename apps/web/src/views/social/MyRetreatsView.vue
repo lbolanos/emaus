@@ -15,7 +15,7 @@ import {
 } from '@repo/ui';
 import { Plus, Pencil, Trash2 } from 'lucide-vue-next';
 import { formatDate } from '@repo/utils';
-import type { Retreat, CreateRetreat } from '@repo/types';
+import type { Retreat } from '@repo/types';
 import RetreatMemoryCard from '@/components/social/RetreatMemoryCard.vue';
 import EmptyState from '@/components/social/EmptyState.vue';
 import RetreatModal from '@/components/RetreatModal.vue';
@@ -91,15 +91,6 @@ function openDelete(retreat: Retreat) {
 	retreatForDelete.value = retreat;
 	isDeleteOpen.value = true;
 }
-
-const handleAdd = async (data: CreateRetreat) => {
-	try {
-		await retreatStore.createRetreat(data);
-		isAddModalOpen.value = false;
-	} catch {
-		/* el store ya muestra el toast de error */
-	}
-};
 
 const handleEdit = async (data: Partial<Retreat> & { id: string; _refreshBeds?: boolean }) => {
 	try {
@@ -288,12 +279,12 @@ onMounted(() => {
 			</div>
 		</div>
 
-		<!-- Modales de crear / editar retiro (reusan RetreatModal) -->
+		<!-- Modales de crear / editar retiro (reusan RetreatModal).
+		     El modal de alta crea vía retreatStore: ya no hay handler @submit. -->
 		<RetreatModal
 			:open="isAddModalOpen"
 			mode="add"
 			@update:open="isAddModalOpen = $event"
-			@submit="handleAdd"
 		/>
 		<RetreatModal
 			:open="isEditModalOpen"

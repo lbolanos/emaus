@@ -26,6 +26,7 @@ import {
 	refreshRetreatBeds,
 	deleteRetreat,
 	getRetreatDeletionImpact,
+	cloneRetreatFrom,
 } from '../controllers/retreatController';
 import { isAuthenticated } from '../middleware/isAuthenticated';
 import { validateRequest } from '../middleware/validateRequest';
@@ -35,6 +36,7 @@ import {
 	createRetreatMemoryPhotoSchema,
 	createRetreatMemorySongSchema,
 	updateRetreatMemorySongSchema,
+	cloneRetreatFromSchema,
 } from '@repo/types';
 import { requirePermission, requireRetreatAccess } from '../middleware/authorization';
 
@@ -71,6 +73,15 @@ router.put(
 	validateRequest(updateRetreatSchema),
 	requirePermission('retreat:update'),
 	(req: any, res: any, next: any) => updateRetreat(req, res, next),
+);
+
+// Copiar secciones configurables de un retiro anterior hacia este retiro.
+// Mismo nivel de permiso que el PUT: muta la configuración del retiro.
+router.post(
+	'/:id/clone-from',
+	validateRequest(cloneRetreatFromSchema),
+	requirePermission('retreat:update'),
+	(req: any, res: any, next: any) => cloneRetreatFrom(req, res, next),
 );
 
 router.delete(

@@ -1019,6 +1019,151 @@ export class RetreatScheduleService {
 	}
 
 	/**
+	 * Copia el minuto a minuto INSTANCIADO de otro retiro (con los ajustes
+	 * manuales del origen: notas, música, Plan B) re-anclando cada item al
+	 * "Día N" del retiro destino — conserva la hora de pared en la TZ del
+	 * destino, igual que una materialización fresca. A diferencia del
+	 * materialize, NO llama ensureCharlaResponsibilitiesFromTemplateSet: las
+	 * Responsabilidades del destino vienen (o no) de la sección
+	 * `responsibilities` del clone, y las que no hacen match por nombre quedan
+	 * reportadas en `unmatchedResponsabilities`.
+	 *
+	 * NO copia: responsables asignados ni actual/actualStart/EndTime (runtime
+	 * del retiro origen). Los slots de Santísimo se autogeneran de los items
+	 * nuevos, igual que en materialize.
+	 */
+	async cloneScheduleFromRetreat(
+		sourceRetreatId: string,
+		targetRetreatId: string,
+	): Promise<{
+		created: number;
+		santisimoSlots: number;
+		unmatchedResponsabilities: string[];
+	}> {
+		// Mismo criterio de limpieza que materializeFromTemplate con
+		// clearExisting: los responsables (retreat_schedule_item_responsable)
+		// caen por CASCADE al borrar su item; santisimo_slot NO se toca.
+		await this.itemRepo.delete({ retreatId: targetRetreatId });
+
+		const sourceItems = await this.itemRepo.find({
+			where: { retreatId: sourceRetreatId },
+			order: { day: 'ASC', orderInDay: 'ASC', startTime: 'ASC' },
+		});
+		if (!sourceItems.length) return { created: 0, santisimoSlots: 0, unmatchedResponsabilities: [] };
+
+		// TZ y baseDate del destino se resuelven UNA vez (anchorStartTimeToDay
+		// reconsultaría el retiro por item).
+		const retreatRepo = AppDataSource.getRepository(Retreat);
+		const [targetRetreat, sourceRetreat] = await Promise.all([
+			retreatRepo.findOne({ where: { id: targetRetreatId }, relations: ['house'] }),
+			retreatRepo.findOne({ where: { id: sourceRetreatId } }),
+		]);
+		const tz =
+			targetRetreat?.timezone ||
+			targetRetreat?.house?.timezone ||
+			(sourceRetreat?.timezone ?? 'America/Mexico_City');
+		const baseDate = targetRetreat?.startDate ? new Date(targetRetreat.startDate) : null;
+		// Fallback cuando el destino no tiene startDate válido: shift crudo por
+		// el delta de días entre retiros (conserva hora absoluta).
+		const dayDeltaMs =
+			baseDate && sourceRetreat?.startDate
+				? new Date(baseDate).getTime() - new Date(sourceRetreat.startDate).getTime()
+				: 0;
+
+		const respIndex = await this.buildResponsabilityNameIndex(targetRetreatId);
+		const sourceRespNames = new Map<string, string | null>();
+		const sourceResps = sourceItems.some((i) => i.responsabilityId)
+			? await this.responsabilityRepo.find({ where: { retreatId: sourceRetreatId } })
+			: [];
+		for (const r of sourceResps) sourceRespNames.set(r.id, r.name);
+
+		// Slots de Santísimo que ya existen en el destino, para reportar cuántos
+		// generó esta copia (autoGenerateSantisimoSlotsFromItems devuelve void).
+		const slotRepo = AppDataSource.getRepository(SantisimoSlot);
+		const slotsBefore = await slotRepo.count({ where: { retreatId: targetRetreatId } });
+
+		const unmatched = new Set<string>();
+		const created: RetreatScheduleItem[] = [];
+		for (const item of sourceItems) {
+			// Re-ancla la hora de pared del item a startDate + (day-1) del destino
+			// (TZ-aware + regla after-midnight vía computeItemDateRange).
+			let startTime: Date;
+			let endTime: Date;
+			if (baseDate && !Number.isNaN(baseDate.getTime())) {
+				const { hour, minute } = this.wallClockInTimezone(item.startTime, tz);
+				const range = this.computeItemDateRange(
+					baseDate,
+					item.day,
+					`${hour}:${minute}`,
+					item.durationMinutes,
+					tz,
+				);
+				startTime = range.startTime;
+				endTime = range.endTime;
+			} else {
+				startTime = new Date(item.startTime.getTime() + dayDeltaMs);
+				endTime = new Date(item.endTime.getTime() + dayDeltaMs);
+			}
+
+			let responsabilityId: string | null = null;
+			if (item.responsabilityId) {
+				const sourceName = sourceRespNames.get(item.responsabilityId) ?? null;
+				if (sourceName) {
+					responsabilityId = respIndex.get(sourceName.toLowerCase().trim()) ?? null;
+					if (!responsabilityId) unmatched.add(sourceName);
+				}
+			}
+
+			created.push(
+				await this.itemRepo.save(
+					this.itemRepo.create({
+						retreatId: targetRetreatId,
+						scheduleTemplateId: item.scheduleTemplateId ?? null,
+						name: item.name,
+						type: item.type,
+						day: item.day,
+						startTime,
+						endTime,
+						durationMinutes: item.durationMinutes,
+						orderInDay: item.orderInDay,
+						status: 'pending',
+						responsabilityId,
+						location: item.location ?? null,
+						notes: item.notes ?? null,
+						musicTrackUrl: item.musicTrackUrl ?? null,
+						palanquitaNotes: item.palanquitaNotes ?? null,
+						planBNotes: item.planBNotes ?? null,
+						blocksSantisimoAttendance: item.blocksSantisimoAttendance,
+					}),
+				),
+			);
+		}
+
+		await this.autoGenerateSantisimoSlotsFromItems(targetRetreatId, created);
+		await this.resolveSantisimoConflicts(targetRetreatId);
+		const slotsAfter = await slotRepo.count({ where: { retreatId: targetRetreatId } });
+
+		void domainAuditService.log({
+			action: DomainAuditAction.SCHEDULE_ITEM_MATERIALIZE,
+			resourceType: 'schedule_item',
+			resourceId: sourceRetreatId,
+			retreatId: targetRetreatId,
+			metadata: {
+				mode: 'clone_from_retreat',
+				sourceRetreatId,
+				created: created.length,
+				unmatchedResponsabilities: [...unmatched],
+			},
+		});
+
+		return {
+			created: created.length,
+			santisimoSlots: Math.max(0, slotsAfter - slotsBefore),
+			unmatchedResponsabilities: [...unmatched],
+		};
+	}
+
+	/**
 	 * Inserta SOLO los items del template que el retiro aún no tiene materializados.
 	 * Detecta duplicados por `scheduleTemplateId` y por `(day, name)` cuando no hay link.
 	 * Útil para propagar nuevos items del template a retiros que ya materializaron.

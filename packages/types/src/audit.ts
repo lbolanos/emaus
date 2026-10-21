@@ -57,6 +57,7 @@ export const DomainAuditAction = {
 	// Retiros
 	RETREAT_CREATE: 'retreat.create',
 	RETREAT_UPDATE: 'retreat.update',
+	RETREAT_CLONE_FROM: 'retreat.clone_from',
 	RETREAT_MEMORY_PHOTO_UPLOAD: 'retreat.memory.photo_upload',
 	RETREAT_MEMORY_UPDATE: 'retreat.memory.update',
 	// Secuencias de mensajes (incidente Buen Despacho 2026-10-06: ningún cambio

@@ -52,6 +52,7 @@
       "retreat": {
         "create": "Retreat created",
         "update": "Retreat edited",
+        "clone_from": "Configuration copied from a previous retreat",
         "memory": {
           "photo_upload": "Memory photo uploaded",
           "update": "Retreat memories edited"
@@ -1493,6 +1494,39 @@
     "editTitle": "Edit Retreat",
     "addDescription": "Create a new retreat.",
     "editDescription": "Edit the details of the retreat.",
+    "copyFrom": {
+      "label": "Copy from a previous retreat",
+      "hint": "Copies the chosen retreat's setup: parish, number, community, external registration, house, costs, notes and the sections you mark below. Review number and dates: they belong to the new retreat.",
+      "none": "Don't copy anything",
+      "selectedHint": "Data from the chosen retreat was prefilled. Review name, dates and number before creating.",
+      "tabTitle": "Copy from…",
+      "sectionsHint": "Choose which sections get copied. Each marked section replaces the new retreat's defaults.",
+      "sections": {
+        "tables": "Tables",
+        "responsibilities": "Responsibilities",
+        "schedule": "Minute-by-minute",
+        "preRetreatTasks": "Pre-retreat tasks",
+        "inventory": "Inventory",
+        "shirtTypes": "Shirt sizes",
+        "messageTemplates": "Message templates",
+        "messageSequences": "Message sequences",
+        "serviceTeams": "Service teams"
+      },
+      "sectionHints": {
+        "tables": "Structure only; no leaders or seats assigned",
+        "responsibilities": "Full catalog, without assigned holders",
+        "schedule": "Activities re-anchored to the new retreat's dates",
+        "preRetreatTasks": "Due dates recalculated, without assignees",
+        "inventory": "Required quantity from the source; stock at 0",
+        "shirtTypes": "Types and per-size prices",
+        "messageTemplates": "Templates copied into the new retreat",
+        "messageSequences": "Sequences without scheduled sends",
+        "serviceTeams": "Teams without leader or members"
+      },
+      "notCopiedNote": "Unchecked sections keep the default setup the new retreat is born with.",
+      "scheduleOverridesTemplate": "You'll copy the minute-by-minute from the source retreat; template import is disabled.",
+      "preTasksOverridesTemplate": "You'll copy pre-retreat tasks from the source retreat; the template is disabled."
+    },
     "visibility": {
       "label": "Retreat state",
       "description": "Controls landing visibility and whether registrations are open.",
