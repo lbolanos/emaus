@@ -59,6 +59,7 @@ import ParticipantSpecialCaseToggle from './ParticipantSpecialCaseToggle.vue';
 import FilterDialog from './FilterDialog.vue';
 import ImportParticipantsModal from './ImportParticipantsModal.vue';
 import ExportParticipantsModal from './ExportParticipantsModal.vue';
+import { buildGoogleContactsCsv } from '../utils/googleContactsExport';
 import TagBadge from './TagBadge.vue';
 import {
   DropdownMenu,
@@ -1445,6 +1446,20 @@ const handleExport = async (data: any[], format: string, filename: string) => {
     await exportAsFile(data, format as 'csv' | 'xlsx', filename);
 };
 
+// Export a Google Contacts: el modal emite los participantes crudos y el
+// identificador; el CSV lo arma buildGoogleContactsCsv (formato fijado por
+// Google). Sin audit de salud: las columnas son fijas y no incluyen salud.
+const handleExportGoogleContacts = (payload: { participants: any[]; suffix: string; filename: string }) => {
+    const csv = buildGoogleContactsCsv(payload.participants, payload.suffix);
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${payload.filename}.csv`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+};
+
 const closeColumnDialog = () => {
     isColumnDialogOpen.value = false;
 };
@@ -2211,6 +2226,7 @@ const handleKeyboardShortcuts = (event: KeyboardEvent) => {
             :current-type="props.type"
             @update:selectedColumns="exportSelectedColumns = $event"
             @export="handleExport"
+            @export-google-contacts="handleExportGoogleContacts"
         />
 
         <!-- Message Dialog -->

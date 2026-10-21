@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { sanitizePhoneForWhatsapp, buildWhatsAppChatLink, buildWhatsAppSendLink } from '../phone';
+import {
+	sanitizePhoneForWhatsapp,
+	buildWhatsAppChatLink,
+	buildWhatsAppSendLink,
+	toE164Phone,
+} from '../phone';
 
 describe('sanitizePhoneForWhatsapp', () => {
 	it('quita el signo + del prefijo internacional', () => {
@@ -192,5 +197,39 @@ describe('buildWhatsAppSendLink — envío con texto precargado', () => {
 		expect(buildWhatsAppSendLink('sin número', 'msg', 'MX')).toBeNull();
 		expect(buildWhatsAppSendLink(null, 'msg')).toBeNull();
 		expect(buildWhatsAppSendLink('', 'msg', 'México')).toBeNull();
+	});
+});
+
+describe('toE164Phone', () => {
+	/**
+	 * E.164 es la forma canónica para llevar un teléfono de la base a una
+	 * agenda (Google Contacts): la base guarda el nacional a 10 dígitos y las
+	 * agendas matchean por `+lada+nacional`.
+	 */
+	it('antepone + y lada a un nacional de 10 dígitos (caso dominante en la DB)', () => {
+		expect(toE164Phone('5549442834', 'México')).toBe('+525549442834');
+	});
+
+	it('sin país asume México', () => {
+		expect(toE164Phone('5549442834')).toBe('+525549442834');
+	});
+
+	it('mantiene el número que ya trae lada, con el +', () => {
+		expect(toE164Phone('+52 55 4944 2834', 'MX')).toBe('+525549442834');
+	});
+
+	it('normaliza el móvil MX legado 521 + 10 dígitos a +52 + 10', () => {
+		expect(toE164Phone('5215549442834', 'MX')).toBe('+525549442834');
+	});
+
+	it('usa la lada de otros países cuando el registro los declara', () => {
+		expect(toE164Phone('3001234567', 'Colombia')).toBe('+573001234567');
+		expect(toE164Phone('(415) 555-2671', 'US')).toBe('+14155552671');
+	});
+
+	it('sin dígitos devuelve string vacío', () => {
+		expect(toE164Phone('')).toBe('');
+		expect(toE164Phone(null)).toBe('');
+		expect(toE164Phone(undefined, 'MX')).toBe('');
 	});
 });

@@ -28,6 +28,27 @@ export function sanitizePhoneForWhatsapp(raw: string | null | undefined): string
 }
 
 /**
+ * Número en formato E.164 (`+` + lada + nacional), o '' si no hay dígitos.
+ *
+ * Es la forma canónica para llevar un teléfono de la base a una agenda: la base
+ * guarda mayormente el nacional a 10 dígitos, y las agendas (Google Contacts,
+ * WhatsApp) matchean por E.164 — sin lada, un `5549…` deja de ser México.
+ *
+ * Misma semántica de lada que `buildWhatsAppChatLink`: país resuelto con
+ * `resolveCountryToIso` (default MX) y, si el número no casa con ninguna regla
+ * del país, se devuelven sus dígitos tal cual — no se inventa uno.
+ */
+export function toE164Phone(
+	raw: string | null | undefined,
+	country?: string | null,
+): string {
+	const digits = sanitizePhoneForWhatsapp(raw);
+	if (!digits) return '';
+	const iso = resolveCountryToIso(country) ?? 'MX';
+	return `+${withCallingCode(digits, iso)}`;
+}
+
+/**
  * Completa la lada (código de país) de un número de SOLO dígitos.
  *
  * La base guarda el número NACIONAL (sin lada): la validación del registro

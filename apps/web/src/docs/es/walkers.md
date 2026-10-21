@@ -35,6 +35,29 @@ Puede importar múltiples caminantes desde un archivo Excel:
 3. Mapee las columnas a los campos del sistema
 4. Revise y confirme la importación
 
+## Exportar Caminantes
+
+El menú de opciones (los tres puntos) → **Exportar Participantes** ofrece tres formatos:
+**Excel (.xlsx)** y **CSV (.csv)** — con selección de columnas — y **Google Contacts (.csv)**.
+
+### Google Contacts: armar el grupo de WhatsApp sin enlace
+
+WhatsApp solo permite agregar directamente a un grupo a quienes ya están en los contactos del
+teléfono. Este formato genera el CSV listo para importar a tu agenda de Google:
+
+1. Elige **Google Contacts (.csv)** y escribe un **identificador** (p. ej. `Emaus ValleII`).
+   Se agrega al nombre y al apellido de cada contacto, y crea una etiqueta con ese nombre en
+   tu agenda — así los reconoces y puedes borrarlos en bloque cuando termine el retiro.
+2. Haz clic en **Exportar Datos** y guarda el archivo (incluye a los caminantes del filtro
+   activo, o solo a los seleccionados).
+3. Entra a **contacts.google.com → Importar**, sube el archivo y elige tu cuenta.
+4. Espera la sincronización de contactos en el teléfono (o forzala) y crea el grupo en
+   WhatsApp: al buscar el identificador aparecen solo los del retiro.
+
+El archivo lleva los celulares en formato internacional (`+52…`), según el país de cada
+caminante. Los caminantes sin celular se incluyen con el teléfono vacío. El mismo formato
+está disponible en la lista de **Servidores**.
+
 ## Editar Información del Caminante
 
 1. Encuentre el caminante en la lista usando el buscador o filtros

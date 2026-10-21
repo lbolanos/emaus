@@ -735,6 +735,52 @@ describe('ParticipantList Component', () => {
 		});
 	});
 
+	describe('Google Contacts Export', () => {
+		/**
+		 * CA9 de specs/export-google-contacts/spec.md: el handler arma y baja el
+		 * CSV (formato de buildGoogleContactsCsv) SIN disparar el audit de datos
+		 * de salud — las columnas son fijas y no incluyen salud.
+		 */
+		it('export-google-contacts descarga el CSV sin audit de salud', async () => {
+			const { mockAuditHealthDataExport } = await import('@/services/api');
+			mockAuditHealthDataExport.mockClear();
+
+			const createObjectURL = vi.fn(() => 'blob:google-contacts');
+			const revokeObjectURL = vi.fn();
+			vi.stubGlobal('URL', Object.assign(URL, { createObjectURL, revokeObjectURL }));
+			const anchorClick = vi.fn();
+			vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(anchorClick);
+
+			try {
+				const modal = wrapper.findComponent({ name: 'ExportParticipantsModal' });
+				expect(modal.exists()).toBe(true);
+				modal.vm.$emit('export-google-contacts', {
+					participants: [
+						{ id: 'p1', firstName: 'John', lastName: 'Doe', cellPhone: '5549442834', country: 'México' },
+					],
+					suffix: 'Emaus ValleII',
+					filename: 'google_contacts_walker_test',
+				});
+				await nextTick();
+
+				expect(mockAuditHealthDataExport).not.toHaveBeenCalled();
+				expect(createObjectURL).toHaveBeenCalledTimes(1);
+
+				const blob = createObjectURL.mock.calls[0][0] as Blob;
+				const csv = await blob.text();
+				expect(csv.charCodeAt(0)).toBe(0xfeff);
+				expect(csv).toContain('"John Doe Emaus ValleII","John","Doe Emaus ValleII"');
+				expect(csv).toContain('"+525549442834"');
+				expect(anchorClick).toHaveBeenCalledTimes(1);
+				const anchor = (anchorClick.mock.instances?.[0] ?? {}) as HTMLAnchorElement;
+				expect(anchor.download).toBe('google_contacts_walker_test.csv');
+			} finally {
+				vi.unstubAllGlobals();
+				vi.restoreAllMocks();
+			}
+		});
+	});
+
 	describe('Computed Properties', () => {
 		it('should compute filteredAndSortedParticipants', () => {
 			const computed = wrapper.vm.filteredAndSortedParticipants;

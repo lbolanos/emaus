@@ -74,6 +74,15 @@
                       />
                       <span class="text-sm">{{ $t('participants.export.formatCsv') }}</span>
                     </label>
+                    <label class="flex items-center space-x-2">
+                      <input
+                        type="radio"
+                        v-model="exportFormat"
+                        value="google-contacts"
+                        class="text-blue-600 focus:ring-blue-500"
+                      />
+                      <span class="text-sm">{{ $t('participants.export.formatGoogleContacts') }}</span>
+                    </label>
                   </div>
                 </div>
               </div>
@@ -88,10 +97,26 @@
                   class="max-w-sm"
                 />
               </div>
+
+              <!-- Google Contacts: identificador (sufijo del nombre y etiqueta) -->
+              <div v-if="isGoogleContactsFormat" class="space-y-2">
+                <label for="googleContactsSuffix" class="text-sm font-medium">
+                  {{ $t('participants.export.googleContactsLabel') }}
+                </label>
+                <Input
+                  id="googleContactsSuffix"
+                  v-model="googleContactsSuffix"
+                  :placeholder="$t('participants.export.googleContactsPlaceholder')"
+                  class="max-w-sm"
+                />
+                <p class="text-sm text-gray-500">
+                  {{ $t('participants.export.googleContactsHint') }}
+                </p>
+              </div>
             </div>
 
-            <!-- Column Selection -->
-            <div class="space-y-4">
+            <!-- Column Selection (no aplica a Google Contacts: columnas fijas) -->
+            <div v-if="!isGoogleContactsFormat" class="space-y-4">
               <div class="flex items-center justify-between">
                 <h3 class="text-lg font-semibold">{{ $t('participants.export.columns') }}</h3>
                 <div class="flex gap-2">
@@ -201,7 +226,7 @@
           </Button>
           <Button
             @click="confirmExport"
-            :disabled="selectedColumns.length === 0 || isExporting"
+            :disabled="!canExport"
           >
             <Download class="w-4 h-4 mr-2" />
             {{ $t('participants.export.startExport') }}
@@ -217,6 +242,7 @@ import { ref, computed, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import ExcelJS from 'exceljs';
 import { useToast } from '@repo/ui';
+import { toE164Phone } from '../utils/phone';
 import {
   Button,
   Dialog,
@@ -253,6 +279,7 @@ const emit = defineEmits<{
   'update:isOpen': [value: boolean];
   'update:selectedColumns': [columns: string[]];
   export: [data: any[], format: string, filename: string];
+  'export-google-contacts': [payload: { participants: any[]; suffix: string; filename: string }];
 }>();
 
 const { toast } = useToast();
@@ -261,7 +288,8 @@ const { t: $t } = useI18n();
 // Reactive state
 const modalOpen = ref(false);
 const exportScope = ref<'all' | 'selected'>('all');
-const exportFormat = ref<'xlsx' | 'csv'>('xlsx');
+const exportFormat = ref<'xlsx' | 'csv' | 'google-contacts'>('xlsx');
+const googleContactsSuffix = ref('');
 const customFilename = ref('');
 const isExporting = ref(false);
 const exportProgress = ref(0);
@@ -275,11 +303,24 @@ const selectedParticipantsCount = computed(() => props.selectedParticipants.size
 const previewData = ref<any[]>([]);
 const previewHeaders = ref<string[]>([]);
 
+const isGoogleContactsFormat = computed(() => exportFormat.value === 'google-contacts');
+
 const defaultFilename = computed(() => {
   const timestamp = new Date().toISOString().slice(0, 10);
   const scope = exportScope.value === 'selected' ? 'selected_' : '';
   const type = props.currentType || 'all';
+  if (isGoogleContactsFormat.value) {
+    return `${scope}google_contacts_${type}_${timestamp}`;
+  }
   return `${scope}participants_${type}_${timestamp}`;
+});
+
+// Para Google Contacts el botón no depende de columnas (son fijas), sino del
+// identificador: sin él el archivo pierde su razón de ser.
+const canExport = computed(() => {
+  if (isExporting.value) return false;
+  if (isGoogleContactsFormat.value) return googleContactsSuffix.value.trim().length > 0;
+  return props.selectedColumns.length > 0;
 });
 
 // Sync modalOpen with props.isOpen
@@ -310,6 +351,12 @@ watch(() => props.allParticipants, () => {
 watch([exportScope, () => props.selectedColumns], () => {
   updatePreview();
 }, { deep: true });
+
+// El preview de Google Contacts depende del formato y del identificador, no de
+// las columnas.
+watch([exportFormat, googleContactsSuffix], () => {
+  updatePreview();
+});
 
 // Methods
 const truncateText = (text: string, maxLength: number): string => {
@@ -342,16 +389,34 @@ const updatePreview = () => {
   const participantsToPreview = getParticipantsToExport();
   const previewSize = Math.min(5, participantsToPreview.length);
 
-  if (previewSize > 0) {
-    const previewParticipants = participantsToPreview.slice(0, previewSize);
-    const previewRecord = createExportRecord(previewParticipants[0], props.selectedColumns);
-
-    previewData.value = previewParticipants.map(p => createExportRecord(p, props.selectedColumns));
-    previewHeaders.value = Object.keys(previewRecord);
-  } else {
+  if (previewSize === 0) {
     previewData.value = [];
     previewHeaders.value = [];
+    return;
   }
+
+  const previewParticipants = participantsToPreview.slice(0, previewSize);
+
+  if (isGoogleContactsFormat.value) {
+    // Vista previa del contacto que va a quedar en la agenda: mismo nombre y
+    // teléfono que el CSV (ver buildGoogleContactsCsv).
+    const nameHeader = $t('participants.export.googleContactsPreviewName');
+    const phoneHeader = $t('participants.export.googleContactsPreviewPhone');
+    const suffix = googleContactsSuffix.value.trim();
+    previewData.value = previewParticipants.map(p => {
+      const given = (p.firstName ?? '').toString().trim();
+      const family = (p.lastName ?? '').toString().trim();
+      const familyWithSuffix = family && suffix ? `${family} ${suffix}` : (family || suffix);
+      const name = given && familyWithSuffix ? `${given} ${familyWithSuffix}` : (given || familyWithSuffix);
+      return { [nameHeader]: name, [phoneHeader]: toE164Phone(p.cellPhone, p.country) };
+    });
+    previewHeaders.value = [nameHeader, phoneHeader];
+    return;
+  }
+
+  const previewRecord = createExportRecord(previewParticipants[0], props.selectedColumns);
+  previewData.value = previewParticipants.map(p => createExportRecord(p, props.selectedColumns));
+  previewHeaders.value = Object.keys(previewRecord);
 };
 
 const createExportRecord = (participant: any, columns: string[]): Record<string, any> => {
@@ -405,6 +470,17 @@ const confirmExport = async () => {
     return;
   }
 
+  // Doble validación (el botón ya se deshabilita sin identificador): el emit
+  // dispara la descarga en el padre, no debe salir un CSV sin su etiqueta.
+  if (isGoogleContactsFormat.value && !googleContactsSuffix.value.trim()) {
+    toast({
+      title: $t('participants.export.errorTitle'),
+      description: $t('participants.export.googleContactsRequired'),
+      variant: 'destructive',
+    });
+    return;
+  }
+
   isExporting.value = true;
   exportProgress.value = 0;
   exportComplete.value = false;
@@ -413,18 +489,29 @@ const confirmExport = async () => {
     // Simulate progress
     exportProgress.value = 25;
 
-    const exportData = participantsToExport.map(p => createExportRecord(p, props.selectedColumns));
     const filename = customFilename.value.trim() || defaultFilename.value;
 
     exportProgress.value = 50;
 
-    // Perform the actual export
-    emit('export', exportData, exportFormat.value, filename);
+    if (isGoogleContactsFormat.value) {
+      // El CSV de Google Contacts lo arma el padre (ParticipantList), que tiene
+      // acceso a los participantes crudos: acá las columnas no aplican.
+      emit('export-google-contacts', {
+        participants: participantsToExport,
+        suffix: googleContactsSuffix.value.trim(),
+        filename,
+      });
+      finalFilename.value = `${filename}.csv`;
+    } else {
+      // Perform the actual export
+      const exportData = participantsToExport.map(p => createExportRecord(p, props.selectedColumns));
+      emit('export', exportData, exportFormat.value, filename);
+      finalFilename.value = `${filename}.${exportFormat.value}`;
+    }
 
     exportProgress.value = 100;
     exportComplete.value = true;
     exportedCount.value = participantsToExport.length;
-    finalFilename.value = `${filename}.${exportFormat.value}`;
 
   } catch (error: any) {
     console.error('Export error:', error);
@@ -442,6 +529,7 @@ const resetExport = () => {
   exportScope.value = 'all';
   exportFormat.value = 'xlsx';
   customFilename.value = '';
+  googleContactsSuffix.value = '';
   isExporting.value = false;
   exportProgress.value = 0;
   exportComplete.value = false;
