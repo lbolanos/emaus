@@ -1,6 +1,6 @@
 # Spec: Mesas — segundo ciclo (deuda del primero)
 
-**Estado**: prospectiva · **Branch**: `worktree-mesas-ciclo2` · **Fecha**: 2026-10-20
+**Estado**: retroactiva · **Branch**: `worktree-mesas-ciclo2` · **Fecha**: 2026-10-20
 
 Segunda vuelta sobre las specs `tables-mobile-ux` y `table-memory-photo` (ambas fusionadas a
 master el 2026-10-20). Este ciclo NO reabre sus decisiones: recoge la deuda que su propio
@@ -108,3 +108,59 @@ verificación (R2/R4 la necesitan).
 - Caché de presign compartida entre procesos / Redis: un solo proceso pm2 sirve el API.
 - Renumerar o migrar specs madre: sus Reconcile quedan como historia; este ciclo es una spec
   nueva que las cita.
+
+## Reconcile
+
+Cerrada el 2026-10-20, commits `0ef8dfed` (API: D3/D4/D5) y `ee9c7a66` (web: D1/D2).
+Verificación por dato en el dev del worktree (Buen Despacho `e9b3c568`, 10 mesas).
+
+### Verificación de requerimientos
+
+- **R1 ✅** — Playwright, contexto touch (390×844, descriptor iPhone, `hasTouch`): sticky
+  base (sin banner) = **109 px** ≤ 130. Matiz de medición: el scroller de la vista es
+  `<main>` (`overflow-y-auto`, no `window`) y con `pt-14` el sticky pina a **56 px** bajo el
+  topbar fijo — "pinned" se verificó como top constante al scrollear, no top 0.
+- **D1 scroll ✅** — bloque de pastillas expandido: tras scroll 600 px su bottom queda a
+  −435 px (fuera del viewport) mientras el sticky sigue a top 56; banner, búsqueda+⋮ y fila
+  de tabs+toggle permanecen pinned.
+- **Banner tap-assign (R1 segunda mitad + regresión de la spec madre) ✅** — tap en la
+  pastilla "Oscar M." (server sin asignar, tab "Servidores Sin Asignar (1)"): banner dentro
+  del sticky; con la página scrolleada queda pinned (top 114 en el scroller) con las pastillas
+  fuera (−329); tap en el slot ring-blue "Co-Líder 2" de Mesa 1 asigna; "Quitar" lo devuelve
+  a sin asignar. Estado de la DB restaurado tras la prueba.
+- **R2 ✅** — foto de prueba subida por `PUT /tables/:id/photo` (data-URI; modo base64 del
+  dev), dialog abierto desde la miniatura del card. Con instrumentación de red: el primer
+  toque en "Eliminar" arma el confirm inline ("¿Eliminar la foto?" + Confirmar/Cancelar,
+  botón Eliminar oculto) con **0 DELETE**; "Cancelar" restaura el footer sin llamada;
+  "Confirmar" dispara **exactamente 1 DELETE**, cierra el dialog y la miniatura desaparece
+  del grid. GET posterior: 10 mesas, 0 con foto (estado original restaurado).
+
+### Tests
+
+5 suites, 138 verdes (commit `0ef8dfed`): batch en `tableMemoryPhoto.test.ts` (1 query,
+agrupación, orden, paridad de respuesta), caché en `s3PresignPrivateUrl.test.ts` (reuso,
+re-firma a los 31 min, poda 501→500), zod en `tableMesaController.test.ts`. R2: 3 tests
+nuevos en `TableMemoryPhotoDialog.test.ts` (7/7, commit `ee9c7a66`). Suites del área de
+`TablesView` verdes tras D1; `vue-tsc` limpio.
+
+### Desviaciones
+
+1. **R5 probado en `tableMesaController.test.ts`**, no en `tableMemoryPhoto.test.ts` como
+   decía el criterio: el 400-pre-guard y el strip de extras son comportamiento de la frontera
+   del controller. El batch (R3) sí quedó en `tableMemoryPhoto.test.ts`.
+2. **`POST /tables` más estricto**: `name` vacío/blanco ahora es 400 (antes el service lo
+   trataba como ausente y auto-numeraba); `retreatId` no-uuid ahora es 400 (antes 500 al
+   fallar la FK). La UI no se ve afectada: `createTable` del store envía solo `{retreatId}`
+   (`tableMesaStore.ts:210`).
+3. **`STICKY_HEADER_OFFSET` quedó en 96** aunque el sticky base real es 109 px: ese umbral
+   decide si un resultado de búsqueda está tapado por el header; un match cuyo top caiga
+   entre 96 y 109 se da por visible con 13 px tapados. Tolerado a propósito (es margen de
+   scroll, no layout).
+4. **Higiene fuera de spec en el commit del API**: los 2 bytes NUL crudos del separador de
+   dedupe de `importSongsFromMam` pasaron a escapes `\u0000` (runtime idéntico) para que el
+   archivo sea UTF-8 texto y no quede invisible al grep de la shell.
+
+### Lo descartado se mantiene
+
+Auto-colapsar al scrollear (D1), `AlertDialog` anidado (D2), memoización por request (D4) y
+sanitizar en el service (D5): la verificación no encontró motivo para reabrirlos.
