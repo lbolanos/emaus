@@ -213,3 +213,75 @@ describe('re-import keeps the fields captured in emaus.cc', () => {
 		});
 	});
 });
+
+describe('re-import does not store the spreadsheet "no data" marker as text', () => {
+	// Same guard as {participant.nickname} in the message engine: free-text
+	// columns can arrive with "NA"/"N/A"/"." in cells with no data. Prod
+	// carried nicknames like "." (greeted "Hola, .") and 19 emergency-contact
+	// names holding a literal "NA". The mapping (strData) turns the marker
+	// into `undefined`, so the update branch treats it as "sin dato" instead
+	// of writing the marker over a value someone captured manually.
+	//
+	// NOTE on the mock: `merge` here is Object.assign, which copies
+	// `undefined` too — TypeORM's real merge skips it and keeps the stored
+	// value (PlainObjectToNewEntityTransformer checks `!== undefined`). So
+	// asserting `undefined` on the mutated entity proves the MAPPING dropped
+	// the marker; the real skip is TypeORM's, verified here by contract.
+	const SAME_RETREAT = () => ({
+		id: 'p-same',
+		firstName: 'Juan',
+		lastName: 'Pérez',
+		email: 'juan@example.com',
+		retreatId: RETREAT_ID,
+	});
+
+	it('maps "NA"/"N/A"/"." in apodo/ocupación/emerg1-2 to undefined', async () => {
+		for (const marker of ['NA', 'N/A', 'na', '.', ' . ']) {
+			sameRetreatMatch = SAME_RETREAT();
+			mockUpdate.mockClear();
+			const result = await importParticipants(
+				RETREAT_ID,
+				[
+					parishRow({
+						apodo: marker,
+						ocupacion: marker,
+						emerg1nombre: marker,
+						emerg1relacion: marker,
+						emerg2nombre: marker,
+						emerg2relacion: marker,
+					}),
+				],
+				{ id: 'u-1' },
+			);
+
+			expect(result.updatedCount).toBe(1);
+			expect(sameRetreatMatch.nickname).toBeUndefined();
+			expect(sameRetreatMatch.occupation).toBeUndefined();
+			expect(sameRetreatMatch.emergencyContact1Name).toBeUndefined();
+			expect(sameRetreatMatch.emergencyContact1Relation).toBeUndefined();
+			expect(sameRetreatMatch.emergencyContact2Name).toBeUndefined();
+			expect(sameRetreatMatch.emergencyContact2Relation).toBeUndefined();
+		}
+	});
+
+	it('keeps real values from those same columns intact', async () => {
+		sameRetreatMatch = SAME_RETREAT();
+		await importParticipants(
+			RETREAT_ID,
+			[
+				parishRow({
+					apodo: 'Juanci',
+					ocupacion: 'Ingeniero',
+					emerg1nombre: 'María García',
+					emerg1relacion: 'Esposa',
+				}),
+			],
+			{ id: 'u-1' },
+		);
+
+		expect(sameRetreatMatch.nickname).toBe('Juanci');
+		expect(sameRetreatMatch.occupation).toBe('Ingeniero');
+		expect(sameRetreatMatch.emergencyContact1Name).toBe('María García');
+		expect(sameRetreatMatch.emergencyContact1Relation).toBe('Esposa');
+	});
+});

@@ -2,8 +2,10 @@ import { describe, it, expect } from 'vitest';
 import { isMeaninglessNickname, participantLabel } from '../participant';
 
 describe('isMeaninglessNickname', () => {
-  it('trata como vacíos "N/A", variantes y espacios', () => {
-    for (const n of ['', '   ', 'N/A', 'n/a', 'NA', 'na', 'N.A.', 'N/D', '-']) {
+  it('trata como vacíos "N/A", variantes, espacios y solo puntuación', () => {
+    // La puntuación sola ('.', '..') entra por prod (nickname '.' saludó
+    // "Hola, ."): el criterio unificado de `usableName` la considera vacía.
+    for (const n of ['', '   ', 'N/A', 'n/a', 'NA', 'na', 'N.A.', 'N/D', '-', '.', '..', ' . ']) {
       expect(isMeaninglessNickname(n)).toBe(true);
     }
     expect(isMeaninglessNickname(null)).toBe(true);

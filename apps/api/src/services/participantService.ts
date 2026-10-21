@@ -1,4 +1,5 @@
 import crypto from "crypto";
+import { usableName } from "@repo/utils";
 import { AppDataSource } from "../data-source";
 import { Participant } from "../entities/participant.entity";
 import { ParticipantShirtSize } from "../entities/participantShirtSize.entity";
@@ -3598,6 +3599,15 @@ const mapToEnglishKeys = (participant: any): Partial<CreateParticipant> => {
   // Excel cells may be numbers, dates, or strings - safely coerce to trimmed string
   const str = (val: any): string | undefined =>
     val != null ? String(val).trim() : undefined;
+  // Free-text columns whose cell can carry the spreadsheet's "no data" marker
+  // ("NA"/"N/A"/".") instead of a value — seen in prod: nicknames like "." and
+  // 19 emergency-contact names holding a literal "NA" that later rendered in
+  // messages as "Hola NA". Treating the marker as `undefined` keeps the update
+  // branch from clobbering a real value someone captured manually on re-import.
+  const strData = (val: any): string | undefined => {
+    const s = str(val);
+    return usableName(s) || undefined;
+  };
   // For fields captured in emaus.cc that external exports don't carry (the
   // parish one has no palancas, scholarship, single-room or meals column): a
   // missing or blank cell is "no data", not "No"/"none". As explicit `false`
@@ -3636,7 +3646,7 @@ const mapToEnglishKeys = (participant: any): Partial<CreateParticipant> => {
     type: mappedType,
     firstName: str(participant.nombre) || "",
     lastName: str(participant.apellidos),
-    nickname: str(participant.apodo),
+    nickname: strData(participant.apodo),
     birthDate: new Date(
       Number(participant.anio) || 0,
       (Number(participant.mes) || 1) - 1,
@@ -3655,7 +3665,7 @@ const mapToEnglishKeys = (participant: any): Partial<CreateParticipant> => {
     workPhone: str(participant.teltrabajo),
     cellPhone: str(participant.telcelular),
     email: str(participant.email) || "",
-    occupation: str(participant.ocupacion),
+    occupation: strData(participant.ocupacion),
     snores: str(participant.ronca) === "S",
     hasMedication: str(participant.medicinaespecial) === "S",
     medicationDetails: str(participant.medicinacual),
@@ -3665,14 +3675,14 @@ const mapToEnglishKeys = (participant: any): Partial<CreateParticipant> => {
     sacraments: ["baptism", "communion", "confirmation", "marriage"].filter(
       (s) => str(participant[`sacramento${s}`]) === "S",
     ) as any,
-    emergencyContact1Name: str(participant.emerg1nombre),
-    emergencyContact1Relation: str(participant.emerg1relacion),
+    emergencyContact1Name: strData(participant.emerg1nombre),
+    emergencyContact1Relation: strData(participant.emerg1relacion),
     emergencyContact1HomePhone: str(participant.emerg1telcasa),
     emergencyContact1WorkPhone: str(participant.emerg1teltrabajo),
     emergencyContact1CellPhone: str(participant.emerg1telcelular),
     emergencyContact1Email: str(participant.emerg1email),
-    emergencyContact2Name: str(participant.emerg2nombre),
-    emergencyContact2Relation: str(participant.emerg2relacion),
+    emergencyContact2Name: strData(participant.emerg2nombre),
+    emergencyContact2Relation: strData(participant.emerg2relacion),
     emergencyContact2HomePhone: str(participant.emerg2telcasa),
     emergencyContact2WorkPhone: str(participant.emerg2teltrabajo),
     emergencyContact2CellPhone: str(participant.emerg2telcelular),

@@ -94,6 +94,28 @@ describe('Message variable replacement', () => {
 			);
 			expect(result).toBe('-');
 		});
+
+		it('emits empty for the "no data" marker instead of "Nombre: NA"', () => {
+			// Los Excel traen "NA"/"N/A"/"." en celdas sin dato (prod: 19
+			// emergencyContact1Name = 'NA'). Mejor vacío — invita a capturarlo —
+			// que saludar "Hola NA" al contacto de emergencia.
+			for (const marker of ['NA', 'N/A', 'na', '.', ' N.A. ']) {
+				const specific = replaceParticipantVariables(
+					'EC1: {participant.emergencyContact1Name} / EC2: {participant.emergencyContact2Name}',
+					buildParticipant({
+						emergencyContact1Name: marker,
+						emergencyContact2Name: marker,
+					}),
+				);
+				expect(specific).toBe('EC1:  / EC2: ');
+			}
+			const generic = replaceParticipantVariables(
+				'Nombre: {participant.emergencyContactName}',
+				buildParticipant({ emergencyContact1Name: 'NA' }),
+				'emergencyContact1CellPhone',
+			);
+			expect(generic).toBe('Nombre: ');
+		});
 	});
 
 	describe('Palanquero variables', () => {
@@ -239,6 +261,43 @@ describe('Message variable replacement', () => {
 			}
 			// Un apodo real que coincida por casualidad con otra cosa se respeta.
 			expect(replaceAllVariables(tpl, buildParticipant({ nickname: 'Nando' }), retreat)).toBe('Hola Nando');
+		});
+
+		it('recipientName saluda al contacto de emergencia sin copiar su "NA"', () => {
+			// Cuando el destinatario es el EC (EMERGENCY_CONTACT_VALIDATION), un
+			// nombre "NA" del Excel no debe producir "Hola NA": sale vacío y la
+			// plantilla invita a responder con el dato real.
+			const tpl = 'Hola {participant.recipientName}';
+			expect(
+				replaceAllVariables(
+					tpl,
+					buildParticipant({ emergencyContact1Name: 'NA' }),
+					retreat,
+					'emergencyContact1CellPhone',
+				),
+			).toBe('Hola ');
+			expect(
+				replaceAllVariables(
+					tpl,
+					buildParticipant({ emergencyContact2Name: 'N/A' }),
+					retreat,
+					'emergencyContact2CellPhone',
+				),
+			).toBe('Hola ');
+			// El propio participante nunca lleva marcador: nombre completo.
+			expect(
+				replaceAllVariables(tpl, buildParticipant(), retreat, 'cellPhone'),
+			).toBe('Hola Juan Pérez');
+		});
+
+		it('invitedBy "NA" no se cuela como quién invitó', () => {
+			expect(
+				replaceAllVariables(
+					'Te invitó: {participant.invitedBy}',
+					buildParticipant({ invitedBy: 'NA' }),
+					retreat,
+				),
+			).toBe('Te invitó: ');
 		});
 
 		it('resuelve variables {table.*} cuando se pasa el contexto de mesa', () => {

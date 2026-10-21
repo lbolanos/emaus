@@ -867,17 +867,18 @@ const escapeHtmlValue = (value: string): string =>
 		.replace(/'/g, '&#39;');
 
 /**
- * Nickname that is safe to greet with. Registration spreadsheets often carry
- * "NA"/"N/A" in columns with no data, and the odd row lands with just a "."
- * in the apodo cell (seen in prod: "{participant.nickname}" rendered ".,
- * qué gusto saber que vienes"). Returns '' when the value is empty, just that
- * marker, or only punctuation so callers fall back to the first name.
+ * A name value that is safe to show or greet with. Registration spreadsheets
+ * often carry "NA"/"N/A" (or "N/D", or just a ".") in cells with no data —
+ * seen in prod: "{participant.nickname}" rendered "., qué gusto saber que
+ * vienes", and 19 emergency-contact names hold a literal "NA". Returns ''
+ * when the value is empty, one of those markers, or only punctuation, so
+ * callers fall back to something real.
  */
-const usableNickname = (nickname?: string): string => {
-	const raw = (nickname ?? '').trim();
+export const usableName = (name?: string): string => {
+	const raw = (name ?? '').trim();
 	if (!raw) return '';
 	const bare = raw.replace(/[\s.,/-]/g, '').toUpperCase();
-	return bare === 'NA' || bare === '' ? '' : raw;
+	return bare === 'NA' || bare === 'ND' || bare === '' ? '' : raw;
 };
 
 /**
@@ -917,13 +918,14 @@ const buildParticipantReplacements = (
 	// envío: contacto de emergencia 1/2, invitador, o el propio participante.
 	// Permite que UNA plantilla salude a quien sea el destinatario con
 	// {participant.recipientName} / {participant.recipientFirstName}, sin tener
-	// que escribir condicionales por tipo de contacto.
+	// que escribir condicionales por tipo de contacto. Los nombres ajenos vienen
+	// de Excel con "NA" en celdas sin dato: sin el guard, el saludo sale "Hola NA".
 	const recipientName = selectedContactKey?.startsWith('emergencyContact1')
-		? participantData.emergencyContact1Name || ''
+		? usableName(participantData.emergencyContact1Name)
 		: selectedContactKey?.startsWith('emergencyContact2')
-			? participantData.emergencyContact2Name || ''
+			? usableName(participantData.emergencyContact2Name)
 			: selectedContactKey?.startsWith('inviter')
-				? participantData.invitedBy || ''
+				? usableName(participantData.invitedBy)
 				: `${participantData.firstName || ''} ${participantData.lastName || ''}`.trim();
 	const recipientFirstName = recipientName.split(' ')[0] || '';
 
@@ -935,7 +937,7 @@ const buildParticipantReplacements = (
 		// dejar el saludo en blanco o saludar "Hola NA". Muchas plantillas saludan
 		// con {participant.nickname}.
 		'participant.nickname':
-			usableNickname(participantData.nickname) ||
+			usableName(participantData.nickname) ||
 			(participantData.firstName || '').trim().split(/\s+/)[0] || '',
 		'participant.type': participantData.type || '',
 		'participant.birthDate': participantData.birthDate || '',
@@ -962,13 +964,15 @@ const buildParticipantReplacements = (
 		'participant.sacraments': Array.isArray(participantData.sacraments)
 			? participantData.sacraments.join(', ')
 			: '',
-		'participant.emergencyContact1Name': participantData.emergencyContact1Name || '',
+		// Los nombres de contactos de emergencia llegan de Excel con "NA" en
+		// celdas sin dato: mejor vacío (invita a capturarlo) que "Nombre: NA".
+		'participant.emergencyContact1Name': usableName(participantData.emergencyContact1Name),
 		'participant.emergencyContact1Relation': participantData.emergencyContact1Relation || '',
 		'participant.emergencyContact1HomePhone': participantData.emergencyContact1HomePhone || '',
 		'participant.emergencyContact1WorkPhone': participantData.emergencyContact1WorkPhone || '',
 		'participant.emergencyContact1CellPhone': participantData.emergencyContact1CellPhone || '',
 		'participant.emergencyContact1Email': participantData.emergencyContact1Email || '',
-		'participant.emergencyContact2Name': participantData.emergencyContact2Name || '',
+		'participant.emergencyContact2Name': usableName(participantData.emergencyContact2Name),
 		'participant.emergencyContact2Relation': participantData.emergencyContact2Relation || '',
 		'participant.emergencyContact2HomePhone': participantData.emergencyContact2HomePhone || '',
 		'participant.emergencyContact2WorkPhone': participantData.emergencyContact2WorkPhone || '',
@@ -978,14 +982,14 @@ const buildParticipantReplacements = (
 		// based on the contact selected in the message sending form.
 		'participant.recipientName': recipientName,
 		'participant.recipientFirstName': recipientFirstName,
-		'participant.emergencyContactName': ecName || '',
+		'participant.emergencyContactName': usableName(ecName),
 		'participant.emergencyContactRelation': ecRelation || '',
 		'participant.emergencyContactHomePhone': ecHomePhone || '',
 		'participant.emergencyContactWorkPhone': ecWorkPhone || '',
 		'participant.emergencyContactCellPhone': ecCellPhone || '',
 		'participant.emergencyContactEmail': ecEmail || '',
 		'participant.tshirtSize': participantData.tshirtSize || '',
-		'participant.invitedBy': participantData.invitedBy || '',
+		'participant.invitedBy': usableName(participantData.invitedBy),
 		'participant.isInvitedByEmausMember': participantData.isInvitedByEmausMember ? 'Sí' : 'No',
 		'participant.inviterHomePhone': participantData.inviterHomePhone || '',
 		'participant.inviterWorkPhone': participantData.inviterWorkPhone || '',
@@ -1091,7 +1095,7 @@ const buildSpouseReplacements = (spouseData: SpouseData): Record<string, string>
 	'spouse.fullName': [spouseData.firstName, spouseData.lastName].filter(Boolean).join(' '),
 	// Same "NA"/"N/A" guard as {participant.nickname}: fall back to the first
 	// name instead of greeting the spouse with "NA".
-	'spouse.nickname': usableNickname(spouseData.nickname) || spouseData.firstName || '',
+	'spouse.nickname': usableName(spouseData.nickname) || spouseData.firstName || '',
 	'spouse.email': spouseData.email || '',
 	'spouse.cellPhone': spouseData.cellPhone || '',
 });

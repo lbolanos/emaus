@@ -4,7 +4,7 @@ import { Retreat } from '../entities/retreat.entity';
 import { Participant } from '../entities/participant.entity';
 import { RetreatParticipant } from '../entities/retreatParticipant.entity';
 import { TableMesa } from '../entities/tableMesa.entity';
-import { formatDate as formatDateUtil } from '@repo/utils';
+import { formatDate as formatDateUtil, usableName } from '@repo/utils';
 
 export const exportBadgesToDocx = async (retreatId: string) => {
 	const {
@@ -328,7 +328,9 @@ export const exportBadgesToDocx = async (retreatId: string) => {
 		const badges = bedsWithParticipants.map((bed) => {
 			const participant = bed.participant!;
 			const getDisplayName = () => {
-				return participant.nickname || participant.firstName;
+				// Un apodo "NA"/"." del Excel de inscripción no es un nombre para
+				// colgar en el pecho: mismo criterio que el saludo de mensajes.
+				return usableName(participant.nickname) || participant.firstName;
 			};
 
 			const getRoomInfo = (): string => {
