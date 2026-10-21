@@ -41,7 +41,9 @@ const props = withDefaults(
 
 const formData = defineModel<Record<string, any>>({ required: true })
 
-const FALLBACK_SIZES = ['S', 'M', 'G', 'X', '2']
+// Default scale when the retreat's shirt type has no sizes configured (matches
+// the API's DEFAULT_SHIRT_SIZES seed).
+const FALLBACK_SIZES = ['M', 'L', 'XL', 'XXL']
 function sizesFor(t: ShirtType): string[] {
   return t.availableSizes && t.availableSizes.length > 0 ? t.availableSizes : FALLBACK_SIZES
 }

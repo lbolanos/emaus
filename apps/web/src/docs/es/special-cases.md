@@ -1,5 +1,7 @@
 # Casos especiales
 
+📺 **[Ver video tutorial](https://youtu.be/DeELlStzY2E)**
+
 Cuando el palanquero habla con un caminante antes del retiro, a veces se entera de algo que el coordinador tiene que revisar: necesita **habitación aparte**, tiene una **condición de salud**, u **otra** situación personal. Los casos especiales llevan ese aviso del palanquero al coordinador sin depender de mensajes sueltos.
 
 ## Marcar un caso (palanquero)

@@ -29,7 +29,7 @@ const loading = ref(false)
 const retreatId = computed(() => retreatStore.selectedRetreatId)
 
 const SIZE_PRESETS: Record<string, string[]> = {
-  México: ['S', 'M', 'G', 'X', '2'],
+  Emaús: ['M', 'L', 'XL', 'XXL'],
   Colombia: ['S', 'M', 'L', 'XL', 'XXL'],
   Internacional: ['XS', 'S', 'M', 'L', 'XL', 'XXL'],
 }
@@ -40,7 +40,7 @@ const draft = ref<Partial<ShirtTypeDTO> & { _newSize?: string; _sizePriceMap: Re
   requiredForWalkers: false,
   optionalForServers: true,
   sortOrder: 0,
-  availableSizes: ['S', 'M', 'G', 'X', '2'],
+  availableSizes: ['M', 'L', 'XL', 'XXL'],
   price: null,
   _newSize: '',
   _sizePriceMap: {},
@@ -122,13 +122,13 @@ async function load() {
   loading.value = true
   try {
     const fetched = await listShirtTypes(retreatId.value)
-    // Default to México preset when an existing type has no sizes configured.
+    // Default to the Emaús preset when an existing type has no sizes configured.
     items.value = fetched.map((t) => ({
       ...t,
       availableSizes:
         t.availableSizes && t.availableSizes.length > 0
           ? t.availableSizes
-          : [...SIZE_PRESETS['México']],
+          : [...SIZE_PRESETS['Emaús']],
       _newSize: '',
       _sizePriceMap: toSizePriceMap(t.sizePrices),
     }))

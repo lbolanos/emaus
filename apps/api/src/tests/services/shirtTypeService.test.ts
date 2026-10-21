@@ -23,7 +23,7 @@ import {
 	deleteShirtType,
 	seedDefaultShirtTypes,
 	validateSizesAgainstType,
-	MEXICAN_DEFAULT_SIZES,
+	DEFAULT_SHIRT_SIZES,
 } from '@/services/shirtTypeService';
 
 const getDS = () => TestDataFactory['testDataSource'];
@@ -117,7 +117,7 @@ describe('Shirt Type Service', () => {
 
 			const types = await listShirtTypes(retreatId);
 			for (const t of types) {
-				expect(t.availableSizes).toEqual(MEXICAN_DEFAULT_SIZES);
+				expect(t.availableSizes).toEqual(DEFAULT_SHIRT_SIZES);
 			}
 		});
 
@@ -159,7 +159,7 @@ describe('Shirt Type Service', () => {
 		it('falls back to Mexican sizes when availableSizes is omitted', async () => {
 			const retreatId = await makeRetreat();
 			const created = await createShirtType(retreatId, { name: 'Sin tallas' });
-			expect(created.availableSizes).toEqual(MEXICAN_DEFAULT_SIZES);
+			expect(created.availableSizes).toEqual(DEFAULT_SHIRT_SIZES);
 		});
 
 		it('accepts and persists a custom availableSizes list (Colombia)', async () => {

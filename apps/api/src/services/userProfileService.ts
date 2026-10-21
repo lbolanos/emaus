@@ -3,10 +3,23 @@ import { User } from '../entities/user.entity';
 import { UserProfile } from '../entities/userProfile.entity';
 import { Participant } from '../entities/participant.entity';
 import { In } from 'typeorm';
+import {
+	MENU_ROUTE_NAMES,
+	DEFAULT_FAVORITE_MENU_ITEMS,
+	FAVORITE_MENU_ITEMS_LIMIT,
+} from '@repo/types';
 
 const userRepository = AppDataSource.getRepository(User);
 const userProfileRepository = AppDataSource.getRepository(UserProfile);
 const participantRepository = AppDataSource.getRepository(Participant);
+
+// favoriteMenuItems is a private sidebar preference and must never leave the
+// owner's own GET /social/profile.
+const toPublicProfile = (profile: UserProfile | null): UserProfile => {
+	if (!profile) return {} as UserProfile;
+	const { favoriteMenuItems, ...publicProfile } = profile;
+	return publicProfile as UserProfile;
+};
 
 export interface UserProfileData {
 	bio?: string | null;
@@ -17,7 +30,71 @@ export interface UserProfileData {
 	showRetreats?: boolean;
 	interests?: string[];
 	skills?: string[];
+	favoriteMenuItems?: string[] | null;
 }
+
+// The menu routes the user visits most according to their own page_view
+// telemetry, filtered to routes that actually have a menu item (page names
+// like `community-dashboard` have no item and would waste a slot). Carries
+// the view count so the suggestions popover can show WHY a route is offered.
+const getTopViewedMenuRoutes = async (
+	userId: string,
+	limit: number,
+): Promise<Array<{ route: string; views: number }>> => {
+	const knownRoutes = new Set<string>(MENU_ROUTE_NAMES);
+	const rows: Array<{ page: string | null; views: number }> = await AppDataSource.query(
+		`SELECT json_extract(eventData, '$.page') AS page, COUNT(*) AS views
+		 FROM telemetry_events
+		 WHERE userId = ? AND eventType = 'page_view'
+		 GROUP BY page
+		 ORDER BY views DESC
+		 LIMIT 50`,
+		[userId],
+	);
+	return rows
+		.filter((row) => !!row.page && knownRoutes.has(row.page))
+		.map((row) => ({ route: row.page as string, views: Number(row.views) }))
+		.slice(0, limit);
+};
+
+// First-use seed for sidebar favorites (specs/menu-favorites D5): the 5 menu
+// items the user visits most, falling back to the aggregate default for users
+// with no useful history.
+export const seedFavoriteMenuItems = async (
+	userId: string,
+	profile: UserProfile,
+): Promise<UserProfile> => {
+	const seeded = await getTopViewedMenuRoutes(userId, 5);
+	profile.favoriteMenuItems =
+		seeded.length > 0
+			? [...new Set(seeded.map((entry) => entry.route))]
+			: [...DEFAULT_FAVORITE_MENU_ITEMS];
+	return await userProfileRepository.save(profile);
+};
+
+// Suggestions for the favorites popover (specs/menu-favorites D10): the menu
+// routes the user visits most that are NOT pinned yet — telemetry first, then
+// the aggregate defaults, so the list degrades gracefully for users with no
+// history. Computed on every read; never persisted. `views` is 0 for default
+// entries with no telemetry of their own (the popover hides the count then).
+export const getFavoriteSuggestions = async (
+	userId: string,
+	currentFavorites: string[],
+): Promise<Array<{ route: string; views: number }>> => {
+	const pinned = new Set(currentFavorites);
+	const topViewed = await getTopViewedMenuRoutes(userId, 12);
+	const byRoute = new Map<string, number>(
+		topViewed.map((entry) => [entry.route, entry.views]),
+	);
+	const candidates = [
+		...topViewed.map((entry) => entry.route),
+		...DEFAULT_FAVORITE_MENU_ITEMS,
+	];
+	return [...new Set(candidates)]
+		.filter((route) => !pinned.has(route))
+		.map((route) => ({ route, views: byRoute.get(route) ?? 0 }))
+		.slice(0, 5);
+};
 
 export const getUserProfile = async (userId: string): Promise<UserProfile | null> => {
 	const profile = await userProfileRepository.findOne({
@@ -25,9 +102,17 @@ export const getUserProfile = async (userId: string): Promise<UserProfile | null
 	});
 
 	if (!profile) {
-		// Create default profile if it doesn't exist
+		// Create default profile if it doesn't exist (and seed its favorites —
+		// the column would otherwise stay null until the next load).
 		const newProfile = userProfileRepository.create({ userId });
-		return await userProfileRepository.save(newProfile);
+		const saved = await userProfileRepository.save(newProfile);
+		return await seedFavoriteMenuItems(userId, saved);
+	}
+
+	// null = favorites never initialized (column just added or fresh profile):
+	// seed once. `[]` is a deliberate empty list and is left untouched.
+	if (profile.favoriteMenuItems === null) {
+		return await seedFavoriteMenuItems(userId, profile);
 	}
 
 	return profile;
@@ -43,7 +128,17 @@ export const updateUserProfile = async (
 		throw new Error('Profile not found');
 	}
 
-	Object.assign(profile, data);
+	const dataToAssign = { ...data };
+	// Private UI preference: dedupe and cap so a buggy client cannot grow it
+	// unbounded (the zod schema caps it too — this is defense in depth).
+	if (Array.isArray(dataToAssign.favoriteMenuItems)) {
+		dataToAssign.favoriteMenuItems = [...new Set(dataToAssign.favoriteMenuItems)].slice(
+			0,
+			FAVORITE_MENU_ITEMS_LIMIT,
+		);
+	}
+
+	Object.assign(profile, dataToAssign);
 	return await userProfileRepository.save(profile);
 };
 
@@ -84,6 +179,8 @@ export const getPublicProfile = async (
 	if (!profile.showEmail) {
 		delete (filteredProfile as any).email;
 	}
+	// favoriteMenuItems is a private UI preference, never shown to other users.
+	delete (filteredProfile as any).favoriteMenuItems;
 	if (!profile.showPhone) {
 		delete (filteredProfile as any).phone;
 	}
@@ -195,7 +292,8 @@ export const searchUsers = async (
 
 		results.push({
 			user,
-			profile: user.profile || (await getUserProfile(user.id)),
+			// Strip the private UI preference from search results too.
+			profile: toPublicProfile(user.profile || (await getUserProfile(user.id))),
 			participant,
 		});
 	}

@@ -14,6 +14,12 @@ import { config } from '../config/env';
 // read, so a 1-hour window comfortably covers a page session.
 const SIGNED_URL_TTL_SECONDS = 3600;
 
+// Signature cache (spec tables-second-cycle D4): reuse a cached signature while
+// more than this much of its life remains, and prune the cache oldest-first
+// past this many entries.
+const SIGNED_URL_REUSE_MS = 30 * 60 * 1000;
+const MAX_CACHED_SIGNED_URLS = 500;
+
 // Private prefixes whose objects are NOT world-readable in the bucket policy and
 // therefore must be served via presigned URLs. `avatars/` and `public-assets/`
 // are intentionally absent: they are public and their plain URLs pass through.
@@ -42,6 +48,8 @@ class S3Service {
 		publicAssets: string;
 	};
 	private initialized: boolean = false;
+	// Per-process signature cache; see getSignedReadUrl.
+	private signedUrlCache = new Map<string, { url: string; expiresAt: number }>();
 
 	constructor() {
 		this.bucketName = config.aws.s3BucketName;
@@ -400,13 +408,38 @@ class S3Service {
 	/**
 	 * Generate a short-lived presigned GET URL for a full S3 key. Used to serve
 	 * objects under private prefixes (the bucket policy denies public reads there).
+	 *
+	 * Signatures are cached per `${expiresIn}:${key}` (spec tables-second-cycle
+	 * D4): signing is local crypto with no network round-trip, but the same
+	 * table-photo key is presigned by the list, detail, upload and gallery
+	 * reads — dozens of times per session — so a signature is reused while
+	 * >30 min of its 60 min life remains. The cache is pruned oldest-first
+	 * past 500 entries; keys are stable (one per table photo), so a cached URL
+	 * keeps pointing at the current object even after the photo is replaced.
 	 */
 	async getSignedReadUrl(key: string, expiresIn: number = SIGNED_URL_TTL_SECONDS): Promise<string> {
+		const cacheKey = `${expiresIn}:${key}`;
+		const hit = this.signedUrlCache.get(cacheKey);
+		if (hit && hit.expiresAt - Date.now() > SIGNED_URL_REUSE_MS) return hit.url;
 		const command = new GetObjectCommand({
 			Bucket: this.bucketName,
 			Key: key,
 		});
-		return getSignedUrl(this.ensureClient(), command, { expiresIn });
+		const url = await getSignedUrl(this.ensureClient(), command, { expiresIn });
+		this.signedUrlCache.set(cacheKey, { url, expiresAt: Date.now() + expiresIn * 1000 });
+		if (this.signedUrlCache.size > MAX_CACHED_SIGNED_URLS) {
+			// Map preserves insertion order: the oldest signatures go first.
+			const excess = this.signedUrlCache.size - MAX_CACHED_SIGNED_URLS;
+			for (const oldest of Array.from(this.signedUrlCache.keys()).slice(0, excess)) {
+				this.signedUrlCache.delete(oldest);
+			}
+		}
+		return url;
+	}
+
+	/** Test hook: drop every cached signature. */
+	clearSignedUrlCache(): void {
+		this.signedUrlCache.clear();
 	}
 
 	/**

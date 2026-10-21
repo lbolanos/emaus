@@ -468,7 +468,7 @@ watch([husbandData, wifeData, sharedAddress, sharedEmergency, sharedOther], save
 
 // ---------- Playeras (walker) ----------
 
-const FALLBACK_SIZES = ['S', 'M', 'G', 'X', '2']
+const FALLBACK_SIZES = ['M', 'L', 'XL', 'XXL']
 const walkerShirtType = computed(() => {
 	const types: any[] = retreatData.value?.shirtTypes || []
 	if (types.length === 0) return null

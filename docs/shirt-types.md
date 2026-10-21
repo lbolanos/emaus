@@ -19,7 +19,7 @@ Shirt styles vary by country and region. Mexico uses "Blanca con rosa", "Blanca 
 | `requiredForWalkers` | boolean | walker registration must pick a size |
 | `optionalForServers` | boolean | server registration shows it as optional |
 | `sortOrder` | integer | render order in the form |
-| `availableSizes` | json text nullable | size codes accepted by this type, e.g. `["S","M","G","X","2"]` (Mexico) or `["S","M","L","XL","XXL"]` (Colombia). `null` means "any size accepted" (legacy/backward compat) |
+| `availableSizes` | json text nullable | size codes accepted by this type, e.g. `["M","L","XL","XXL"]` (default since 2026-10-20) or `["S","M","L","XL","XXL"]` (Colombia). Retreats created before that date carry the legacy Mexican `["S","M","G","X","2"]`. `null` means "any size accepted" (legacy/backward compat) |
 | `createdAt` / `updatedAt` | datetime | |
 
 ### `participant_shirt_size`
@@ -31,20 +31,20 @@ Many-to-many between participants and shirt types.
 | `id` | uuid PK | |
 | `participantId` | uuid FK → `participants` | cascades on delete |
 | `shirtTypeId` | uuid FK → `retreat_shirt_type` | cascades on delete |
-| `size` | varchar | any size code allowed by the parent shirt type's `availableSizes` (e.g. `S`, `M`, `G`, `X`, `2` for MX or `S`, `M`, `L`, `XL`, `XXL` for CO) |
+| `size` | varchar | any size code allowed by the parent shirt type's `availableSizes` (e.g. `M`, `L`, `XL`, `XXL`; whatever codes the retreat configured) |
 
 Unique on `(participantId, shirtTypeId)` — at most one size per shirt type per participant.
 
 ## Default seeding
 
-When a retreat is created (`retreatService.createRetreat`), `seedDefaultShirtTypes(retreatId)` inserts the four Mexican-style defaults:
+When a retreat is created (`retreatService.createRetreat`), `seedDefaultShirtTypes(retreatId)` inserts the four Mexican-style garment defaults. Since 2026-10-20 the seeded scale is `M, L, XL, XXL` (`DEFAULT_SHIRT_SIZES` — the supplier only carries those); retreats created before that date keep the legacy `S, M, G, X, 2` rows untouched:
 
 | name | sortOrder | optionalForServers | requiredForWalkers | availableSizes |
 | --- | --- | --- | --- | --- |
-| Blanca con rosa | 1 | true | false | `S, M, G, X, 2` |
-| Blanca Emaus | 2 | true | false | `S, M, G, X, 2` |
-| Azul | 3 | true | false | `S, M, G, X, 2` |
-| Chamarra | 4 | true | false | `S, M, G, X, 2` |
+| Blanca con rosa | 1 | true | false | `M, L, XL, XXL` |
+| Blanca Emaus | 2 | true | false | `M, L, XL, XXL` |
+| Azul | 3 | true | false | `M, L, XL, XXL` |
+| Chamarra | 4 | true | false | `M, L, XL, XXL` |
 
 Idempotent: if any shirt types already exist for the retreat, the seeder is a no-op.
 
@@ -106,7 +106,7 @@ Both `POST /participants/new` and `POST /participants/confirm-registration` acce
 {
   "shirtSizes": [
     { "shirtTypeId": "uuid-1", "size": "M" },
-    { "shirtTypeId": "uuid-2", "size": "G" }
+    { "shirtTypeId": "uuid-2", "size": "XL" }
   ]
 }
 ```
@@ -125,7 +125,7 @@ Provides:
 
 **Color**: native HTML color picker swatch + hex display. Legacy named colors (`white`, `blue`, `navy`, …) are mapped to hex on render so existing rows show correctly. Saving with the picker persists hex.
 
-**Sizes editor**: chips/bubbles. Each size is a removable pill; an inline input adds new sizes (`Enter` or `,` to commit, also flushes on blur and on Save). Three preset chips above each list — **México** (`S, M, G, X, 2`), **Colombia** (`S, M, L, XL, XXL`), **Internacional** (`XS, S, M, L, XL, XXL`) — apply the full set in one click. The active preset is highlighted in primary. Any list that comes from the server with `null`/empty falls back to México on load so the admin always sees a usable starting point.
+**Sizes editor**: chips/bubbles. Each size is a removable pill; an inline input adds new sizes (`Enter` or `,` to commit, also flushes on blur and on Save). Three preset chips above each list — **Emaús** (`M, L, XL, XXL`, the default since 2026-10-20), **Colombia** (`S, M, L, XL, XXL`), **Internacional** (`XS, S, M, L, XL, XXL`) — apply the full set in one click. The active preset is highlighted in primary. Any list that comes from the server with `null`/empty falls back to Emaús on load so the admin always sees a usable starting point.
 
 **Save semantics**: clicking Guardar shows a toast like `Guardado · Blanca con rosa · Tallas: S, M, L, XL, XXL` so the admin can verify which sizes hit the DB. The local row is then synced to the server response. If a pending size was being typed in the chip input, it is auto-flushed before the request fires.
 
@@ -134,7 +134,7 @@ Provides:
 ## Registration UX
 
 - **Server registration** (`Step5ServerInfo.vue`): renders one `Select` per shirt type with `optionalForServers === true`, ordered by `sortOrder`. Each defaults to "No necesita". Sizes are mirrored into `formData.shirtSizes` for submission.
-- **Walker registration** (`Step5OtherInfo.vue`): the single `tshirtSize` dropdown is now driven by the retreat's shirt types — picks the type marked `requiredForWalkers === true`, or the first by `sortOrder` if none is flagged. The dropdown shows the type's `availableSizes` and the field label includes the type name in parentheses ("Talla de playera (Blanca con rosa)"). If no shirt types are configured for the retreat, falls back to the Mexican defaults `['S','M','G','X','2']`.
+- **Walker registration** (`Step5OtherInfo.vue`): the single `tshirtSize` dropdown is now driven by the retreat's shirt types — picks the type marked `requiredForWalkers === true`, or the first by `sortOrder` if none is flagged. The dropdown shows the type's `availableSizes` and the field label includes the type name in parentheses ("Talla de playera (Blanca con rosa)"). If no shirt types are configured for the retreat, falls back to the default scale `['M','L','XL','XXL']`.
 - **Email-lookup confirm flow** (existing servers re-registering for a new retreat): a "¿Necesitas alguna playera o chamarra?" block shows the same selectors so servers can request additional shirts on top of what they already own.
 
 The walker-side change relaxed the entity column type, the route's `participantSchema.tshirtSize`, and `step5WalkerSchema.tshirtSize` from the closed enum `'S' | 'M' | 'G' | 'X' | '2'` to plain `string` so any size configured by the admin is accepted. The `Participant.tshirtSize` SQL column was always `varchar` (no CHECK in the live DB), so no migration was required.

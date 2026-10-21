@@ -35,21 +35,47 @@
 			</div>
 
 			<DialogFooter>
-				<Button
-					v-if="table.photoUrl"
-					variant="destructive"
-					:disabled="saving"
-					data-testid="table-photo-remove"
-					@click="removePhoto"
-				>
-					{{ $t('tables.photoMemory.remove') }}
-				</Button>
-				<Button variant="outline" :disabled="saving" @click="$emit('update:open', false)">
-					{{ $t('common.cancel') }}
-				</Button>
-				<Button :disabled="!previewUrl || saving" data-testid="table-photo-save" @click="save">
-					{{ saving ? $t('tables.photoMemory.saving') : $t('tables.photoMemory.save') }}
-				</Button>
+				<!-- Two-step inline confirm (spec tables-second-cycle D2): the first
+					tap only arms the question in place — a nested AlertDialog on top
+					of this dialog would re-trigger the reka-ui freeze bug. -->
+				<template v-if="table.photoUrl && confirmingRemove">
+					<span class="self-center text-sm font-medium text-destructive">
+						{{ $t('tables.photoMemory.removeConfirm') }}
+					</span>
+					<Button
+						variant="outline"
+						:disabled="saving"
+						data-testid="table-photo-remove-cancel"
+						@click="confirmingRemove = false"
+					>
+						{{ $t('common.cancel') }}
+					</Button>
+					<Button
+						variant="destructive"
+						:disabled="saving"
+						data-testid="table-photo-remove-confirm"
+						@click="removePhoto"
+					>
+						{{ $t('tables.photoMemory.removeConfirmAction') }}
+					</Button>
+				</template>
+				<template v-else>
+					<Button
+						v-if="table.photoUrl"
+						variant="destructive"
+						:disabled="saving"
+						data-testid="table-photo-remove"
+						@click="confirmingRemove = true"
+					>
+						{{ $t('tables.photoMemory.remove') }}
+					</Button>
+					<Button variant="outline" :disabled="saving" @click="$emit('update:open', false)">
+						{{ $t('common.cancel') }}
+					</Button>
+					<Button :disabled="!previewUrl || saving" data-testid="table-photo-save" @click="save">
+						{{ saving ? $t('tables.photoMemory.saving') : $t('tables.photoMemory.save') }}
+					</Button>
+				</template>
 			</DialogFooter>
 		</DialogContent>
 	</Dialog>
@@ -93,12 +119,17 @@ const tableStore = useTableMesaStore();
 
 const previewUrl = ref<string | null>(null);
 const saving = ref(false);
+// Armed by the first tap on "Eliminar"; only Confirm runs the DELETE (D2).
+const confirmingRemove = ref(false);
 
-// Drop any pending preview when the dialog (re)opens.
+// Drop any pending preview and disarm the remove confirm when the dialog (re)opens.
 watch(
 	() => props.open,
 	(open) => {
-		if (open) previewUrl.value = null;
+		if (open) {
+			previewUrl.value = null;
+			confirmingRemove.value = false;
+		}
 	},
 );
 
@@ -171,6 +202,9 @@ const removePhoto = async () => {
 		});
 	} finally {
 		saving.value = false;
+		// On failure the dialog stays open: back to the plain button, the toast
+		// already told the story. On success the reopen watch disarms anyway.
+		confirmingRemove.value = false;
 	}
 };
 </script>

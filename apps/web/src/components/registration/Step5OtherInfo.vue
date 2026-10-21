@@ -25,7 +25,9 @@ const formData = defineModel<Record<string, any>>({ required: true })
 const hasError = (field: string) => !!props.errors[field]
 const getErrorMessage = (field: string) => props.errors[field]
 
-const FALLBACK_SIZES = ['S', 'M', 'G', 'X', '2']
+// Default scale when the retreat's shirt type has no sizes configured (matches
+// the API's DEFAULT_SHIRT_SIZES seed).
+const FALLBACK_SIZES = ['M', 'L', 'XL', 'XXL']
 
 // Walker uses a single shirt: pick the type marked requiredForWalkers, or the first sorted type.
 const walkerShirtType = computed<ShirtType | null>(() => {

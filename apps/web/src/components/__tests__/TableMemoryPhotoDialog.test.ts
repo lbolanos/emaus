@@ -128,16 +128,49 @@ describe('TableMemoryPhotoDialog', () => {
 		expect(w.emitted('update:open')).toBeUndefined();
 	});
 
-	it('elimina la foto existente y cierra el dialog', async () => {
+	it('asks for inline confirmation: first tap calls no API, confirm deletes (D2)', async () => {
 		const w = mountDialog(baseTable('https://s3/presigned.webp'));
 		expect(w.find('[data-testid="table-photo-remove"]').exists()).toBe(true);
 
-		h.removeTablePhoto.mockResolvedValueOnce({});
 		await w.find('[data-testid="table-photo-remove"]').trigger('click');
+		await flushPromises();
+
+		// Armed in place, no API call yet.
+		expect(h.removeTablePhoto).not.toHaveBeenCalled();
+		expect(w.find('[data-testid="table-photo-remove-confirm"]').exists()).toBe(true);
+		expect(w.text()).toContain('removeConfirm');
+
+		h.removeTablePhoto.mockResolvedValueOnce({});
+		await w.find('[data-testid="table-photo-remove-confirm"]').trigger('click');
 		await flushPromises();
 
 		expect(h.removeTablePhoto).toHaveBeenCalledWith('t-1');
 		expect(w.emitted('update:open')?.at(-1)).toEqual([false]);
+	});
+
+	it('cancelling the confirmation restores the plain button without calling the API', async () => {
+		const w = mountDialog(baseTable('https://s3/presigned.webp'));
+		await w.find('[data-testid="table-photo-remove"]').trigger('click');
+		await w.find('[data-testid="table-photo-remove-cancel"]').trigger('click');
+		await flushPromises();
+
+		expect(h.removeTablePhoto).not.toHaveBeenCalled();
+		expect(w.find('[data-testid="table-photo-remove-confirm"]').exists()).toBe(false);
+		expect(w.find('[data-testid="table-photo-remove"]').exists()).toBe(true);
+	});
+
+	it('a failed DELETE returns to the plain button and keeps the dialog open', async () => {
+		const w = mountDialog(baseTable('https://s3/presigned.webp'));
+		await w.find('[data-testid="table-photo-remove"]').trigger('click');
+
+		h.removeTablePhoto.mockRejectedValueOnce(new Error('boom'));
+		await w.find('[data-testid="table-photo-remove-confirm"]').trigger('click');
+		await flushPromises();
+
+		expect(h.toast).toHaveBeenCalledWith(expect.objectContaining({ variant: 'destructive' }));
+		expect(w.emitted('update:open')).toBeUndefined();
+		expect(w.find('[data-testid="table-photo-remove"]').exists()).toBe(true);
+		expect(w.find('[data-testid="table-photo-remove-confirm"]').exists()).toBe(false);
 	});
 
 	it('descarta el preview pendiente al cerrar y reabrir', async () => {

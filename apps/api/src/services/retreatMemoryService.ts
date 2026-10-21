@@ -1,4 +1,4 @@
-import { DataSource } from 'typeorm';
+import { DataSource, In } from 'typeorm';
 import { v4 as uuidv4 } from 'uuid';
 import { getRepository } from '../utils/repositoryHelpers';
 import { Retreat } from '../entities/retreat.entity';
@@ -78,39 +78,64 @@ async function syncDerivedSongUrl(retreatId: string, ds?: DataSource): Promise<v
  * `retreat.memoryPhotoUrl` mirror. Shape matches a memory photo plus `label`
  * (the table name) and `source: 'table'` so the gallery can badge them.
  */
+export type TablePhotoItem = {
+	id: string;
+	retreatId: string;
+	url: string;
+	isPrimary: boolean;
+	sortOrder: number;
+	createdAt: Date;
+	label: string;
+	source: 'table';
+};
+
+const toTablePhotoItem = async (table: TableMesa, index: number): Promise<TablePhotoItem> => ({
+	id: table.id,
+	retreatId: table.retreatId,
+	url: (await s3Service.presignPrivateUrl(table.photoUrl)) as string,
+	isPrimary: false,
+	sortOrder: 1000 + index, // always after the gallery photos
+	createdAt: new Date(),
+	label: table.name,
+	source: 'table' as const,
+});
+
+/**
+ * Batched variant (spec tables-second-cycle D3): ONE query for every retreat
+ * instead of one per retreat — GET /retreats/attended used to fire N queries
+ * for a user with N attended retreats, on every login. Items within each
+ * retreat keep the exact shape and ordering of tablePhotosForRetreat, so the
+ * API response is byte-identical.
+ */
+export async function tablePhotosForRetreats(
+	retreatIds: string[],
+	ds?: DataSource,
+): Promise<Map<string, TablePhotoItem[]>> {
+	const grouped = new Map<string, TablePhotoItem[]>();
+	if (retreatIds.length === 0) return grouped;
+	const tableRepo = getRepository(TableMesa, ds);
+	const tables = await tableRepo.find({
+		where: { retreatId: In(retreatIds) },
+		select: ['id', 'retreatId', 'name', 'photoUrl'],
+	});
+	const withPhotoByRetreat = new Map<string, TableMesa[]>();
+	for (const table of tables.filter((t) => !!t.photoUrl)) {
+		const list = withPhotoByRetreat.get(table.retreatId) ?? [];
+		list.push(table);
+		withPhotoByRetreat.set(table.retreatId, list);
+	}
+	for (const retreatId of retreatIds) {
+		const withPhoto = sortByName(withPhotoByRetreat.get(retreatId) ?? []);
+		grouped.set(retreatId, await Promise.all(withPhoto.map(toTablePhotoItem)));
+	}
+	return grouped;
+}
+
 export async function tablePhotosForRetreat(
 	retreatId: string,
 	ds?: DataSource,
-): Promise<
-	{
-		id: string;
-		retreatId: string;
-		url: string;
-		isPrimary: boolean;
-		sortOrder: number;
-		createdAt: Date;
-		label: string;
-		source: 'table';
-	}[]
-> {
-	const tableRepo = getRepository(TableMesa, ds);
-	const tables = await tableRepo.find({
-		where: { retreatId },
-		select: ['id', 'retreatId', 'name', 'photoUrl'],
-	});
-	const withPhoto = sortByName(tables.filter((t) => !!t.photoUrl));
-	return Promise.all(
-		withPhoto.map(async (t, i) => ({
-			id: t.id,
-			retreatId,
-			url: (await s3Service.presignPrivateUrl(t.photoUrl)) as string,
-			isPrimary: false,
-			sortOrder: 1000 + i, // always after the gallery photos
-			createdAt: new Date(),
-			label: t.name,
-			source: 'table' as const,
-		})),
-	);
+): Promise<TablePhotoItem[]> {
+	return (await tablePhotosForRetreats([retreatId], ds)).get(retreatId) ?? [];
 }
 
 export const retreatMemoryService = {
@@ -334,7 +359,7 @@ export const retreatMemoryService = {
 		});
 
 		const existingMam = await songRepo.find({ where: { retreatId, source: 'mam' } });
-		const seen = new Set(existingMam.map((s) => `${s.url} ${s.title ?? ''}`));
+		const seen = new Set(existingMam.map((s) => `${s.url}\u0000${s.title ?? ''}`));
 		let sortOrder = existingMam.length;
 
 		let imported = 0;
@@ -343,7 +368,7 @@ export const retreatMemoryService = {
 			const url = (item.musicTrackUrl ?? '').trim();
 			if (!/^https?:\/\//i.test(url)) continue; // only real links
 			const title = item.name;
-			const key = `${url} ${title}`;
+			const key = `${url}\u0000${title}`;
 			if (seen.has(key)) {
 				skipped++;
 				continue;

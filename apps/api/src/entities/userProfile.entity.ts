@@ -38,6 +38,12 @@ export class UserProfile {
 	@Column({ type: 'simple-array', nullable: true })
 	skills?: string[] | null;
 
+	// Sidebar menu favorites (route names, specs/menu-favorites). Private UI
+	// preference: stripped from public profiles (userProfileService). null =
+	// never seeded (triggers the telemetry seed), [] = deliberately empty.
+	@Column({ type: 'simple-array', nullable: true })
+	favoriteMenuItems?: string[] | null;
+
 	@Column({ type: 'varchar', nullable: true })
 	avatarUrl?: string | null;
 

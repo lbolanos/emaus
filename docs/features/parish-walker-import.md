@@ -55,7 +55,7 @@ emergencia, que son obligatorios, no llegan.
 | Fecha de nacimiento → `dia`/`mes`/`anio` | El export trae una sola columna |
 | Estado civil → `S/C/D/V/O` | Por tabla, nunca por inicial: *Soltero* y *Separado-Divorciado* empiezan igual |
 | Sacramentos → cuatro columnas | El export trae una cadena separada por comas |
-| Tallas → catálogo del retiro | Hoy el mexicano (`S/M/G/X/2`). **Verificarlo por retiro** |
+| Tallas → catálogo del retiro | Default `M/L/XL/XXL` (desde 2026-10-20; retiros viejos pueden traer el mexicano `S/M/G/X/2`). **Verificarlo por retiro** |
 | Monto sin separador de miles | `parseFloat("3,100.00")` da **3**: un pago de tres pesos que pasa la validación |
 | Fecha de pago | El importador exige monto *y* fecha; sin ella el caminante entra debiendo todo y en recepción le cobran otra vez |
 | Saltos de línea y celdas vacías | Ver abajo |
