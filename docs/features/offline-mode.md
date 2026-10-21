@@ -11,11 +11,12 @@ criterios de aceptación) viven en **`specs/offline-mode/spec.md`**; el diseño 
 |---|---|---|
 | Cascarón (PWA) | `apps/web/vite.config.ts` (`VitePWA`), `src/pwa/registerSw.ts` | Service worker que precachea la app: recargar o abrir sin señal funciona. Solo dentro de `/app`. Nunca cachea `/api` |
 | Datos guardados | `src/offline/readCache.ts`, `storage.ts` | Los GET de las vistas del retiro se guardan en IndexedDB (`emaus-offline`) **sin datos de salud**; sin señal se responden desde ahí |
-| Cola de cambios | `src/offline/outbox.ts`, `outboxKinds.ts`, `syncService.ts` + API `middleware/idempotency.ts` | 11 escrituras pueden esperar la señal; se envían en orden con `Idempotency-Key` y la hora del dispositivo |
+| Cola de cambios | `src/offline/outbox.ts`, `outboxKinds.ts`, `syncService.ts` + API `middleware/idempotency.ts` | 12 escrituras pueden esperar la señal; se envían en orden con `Idempotency-Key` y la hora del dispositivo |
 
-Las 11 escrituras: llegada / deshacer / cobro / cancelar a quien no llegó (Recepción), bolsa
+Las 12 escrituras: llegada / deshacer / cobro / cancelar a quien no llegó (Recepción), bolsa
 hecha, iniciar / completar / ±5 / mover día (Minuto a minuto), asignar o liberar cama, asignar
-o quitar caminante de mesa.
+o quitar caminante de mesa, y corregir la ficha (solo los campos de
+`OFFLINE_EDITABLE_PARTICIPANT_FIELDS`; 409 si alguien cambió el mismo dato mientras tanto).
 
 ## Interruptor de apagado
 
@@ -35,7 +36,9 @@ vuelva a `true` (o se quite): nunca se descartan solos. `runtime-config.js` se s
 `nginx.conf` del repo trae tres `location =` en `no-cache`: `/sw.js`, `/manifest.webmanifest` y
 `/runtime-config.js`. Sin ellas, el regex de assets los sirve `immutable` un año: el service
 worker nunca se actualizaría y el interruptor no llegaría. **Aplicar el nginx del servidor antes
-del push** que trae el cascarón, y comprobar:
+del push** que trae el cascarón. El workflow de deploy no toca nginx y el archivo del servidor no
+es copia del repo (en octubre de 2026 ya servía `runtime-config.js` con `no-store`, cosa que el
+repo no hace): leerlo antes y añadir solo los bloques que falten. Después, comprobar:
 
 ```bash
 curl -sI https://emaus.cc/sw.js | grep -i cache-control              # no-cache
