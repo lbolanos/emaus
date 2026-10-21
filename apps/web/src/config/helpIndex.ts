@@ -530,6 +530,21 @@ export const helpIndex: HelpSection[] = [
 		],
 	},
 	{
+		key: 'special-cases',
+		title: 'Special Cases',
+		titleEs: 'Casos especiales',
+		icon: 'mdi-flag-outline',
+		routeContext: ['special-cases'],
+		topics: [
+			{
+				key: 'special-cases-overview',
+				title: 'Overview',
+				titleEs: 'Descripción general',
+				content: 'special-cases.md',
+			},
+		],
+	},
+	{
 		key: 'testimonials',
 		title: 'Testimonials',
 		titleEs: 'Testimonios',

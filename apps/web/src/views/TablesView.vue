@@ -66,51 +66,47 @@
             </div>
           </div>
 
-          <!-- Column Selector (hidden on mobile) -->
-          <Select v-model="columnCount" class="hidden sm:inline-flex">
-            <SelectTrigger class="w-[70px]">
-              <LayoutGrid class="h-4 w-4 mr-1" />
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="1">1</SelectItem>
-              <SelectItem value="2">2</SelectItem>
-              <SelectItem value="3">3</SelectItem>
-              <SelectItem value="4">4</SelectItem>
-            </SelectContent>
-          </Select>
+          <!-- Búsqueda + ⋮ (spec ux-mam-responsabilidades, D8). Las columnas viven
+               en el ⋮, junto a "Enviar info a líderes" (D7). -->
 
-          <!-- Enviar briefing a líderes (toda la mesa) -->
-          <Popover v-if="allLeaders.length > 0" v-model:open="leadersBriefingOpen">
-            <PopoverTrigger as-child>
-              <Button variant="outline" size="icon" title="Enviar briefing a líderes">
-                <Send class="h-4 w-4" />
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent align="end" class="w-80 p-1 max-h-[60vh] overflow-y-auto">
-              <p class="px-2 py-1.5 text-xs text-muted-foreground">Enviar briefing a un líder ({{ allLeaders.length }}):</p>
-              <button
-                v-for="opt in allLeaders"
-                :key="opt.table.id + '-' + opt.role"
-                type="button"
-                class="w-full text-left px-2 py-1.5 text-sm rounded hover:bg-accent flex items-center gap-2"
-                @click="sendBriefingToLeader(opt.table, opt.participant)"
-              >
-                <span class="text-xs text-muted-foreground w-16 shrink-0 truncate">{{ opt.table.name }}</span>
-                <span class="text-xs text-muted-foreground w-14 shrink-0">{{ $t('tables.roles.' + opt.role) }}</span>
-                <span class="truncate">{{ opt.participant.firstName }} {{ opt.participant.lastName }}</span>
-              </button>
-            </PopoverContent>
-          </Popover>
-
-          <!-- Actions Dropdown -->
           <DropdownMenu>
             <DropdownMenuTrigger as-child>
-            <Button variant="ghost" size="icon">
+            <Button
+              variant="outline"
+              size="icon"
+              class="shrink-0"
+              :title="$t('tables.moreActions')"
+              :aria-label="$t('tables.moreActions')"
+            >
               <MoreVertical class="h-5 w-5" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
+            <!-- La info de su mesa a cada líder, en un diálogo con la marca de
+                 envío (spec ux-mam-responsabilidades, D7). Abre un Dialog desde
+                 el menú: deferOpen (bug reka-ui pointer-events). -->
+            <DropdownMenuItem
+              :disabled="allLeaders.length === 0"
+              data-testid="leaders-briefing-item"
+              @select="deferOpen(openLeadersDialog)"
+            >
+              <Send class="mr-2 h-4 w-4" />
+              {{ $t('tables.byLeader.menuItem') }}
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <!-- Columnas: preferencia de escritorio (en móvil la rejilla es de una columna). -->
+            <div class="hidden sm:block">
+              <DropdownMenuLabel class="flex items-center gap-2 text-xs text-muted-foreground">
+                <LayoutGrid class="h-3.5 w-3.5" />
+                {{ $t('tables.columns') }}
+              </DropdownMenuLabel>
+              <DropdownMenuRadioGroup v-model="columnCount">
+                <DropdownMenuRadioItem v-for="n in ['1', '2', '3', '4']" :key="n" :value="n">
+                  {{ n }} {{ $t('tables.columns') }}
+                </DropdownMenuRadioItem>
+              </DropdownMenuRadioGroup>
+              <DropdownMenuSeparator />
+            </div>
             <DropdownMenuItem @click="isRebalanceDialogOpen = true">
               <RefreshCw class="mr-2 h-4 w-4" />
               {{ $t('tables.rebalanceWalkers') }}
@@ -157,23 +153,23 @@
                   {{ isExporting ? $t('tables.exporting') : $t('tables.exportDocx') }}
                   <span v-if="!online" class="ml-auto pl-2 text-xs text-muted-foreground">{{ $t('offline.needsConnection') }}</span>
                 </DropdownMenuItem>
-                <DropdownMenuItem @click="handlePrintTables">
+                <DropdownMenuItem @select="deferOpen(handlePrintTables)">
                   <Printer class="mr-2 h-4 w-4" />
                   {{ $t('tables.printTables') }}
                 </DropdownMenuItem>
-                <DropdownMenuItem @click="handlePrintTablesSimple">
+                <DropdownMenuItem @select="deferOpen(handlePrintTablesSimple)">
                   <Printer class="mr-2 h-4 w-4" />
                   {{ $t('tables.printTablesSimple') }}
                 </DropdownMenuItem>
-                <DropdownMenuItem @click="handlePrintTablesContacts">
+                <DropdownMenuItem @select="deferOpen(handlePrintTablesContacts)">
                   <Printer class="mr-2 h-4 w-4" />
                   {{ $t('tables.printTablesContacts') }}
                 </DropdownMenuItem>
-                <DropdownMenuItem @click="handlePrintTablesContactsPerParticipant">
+                <DropdownMenuItem @select="deferOpen(handlePrintTablesContactsPerParticipant)">
                   <Printer class="mr-2 h-4 w-4" />
                   {{ $t('tables.printTablesContactsPerParticipant') }}
                 </DropdownMenuItem>
-                <DropdownMenuItem @click="handlePrintWalkerContactsVerification">
+                <DropdownMenuItem @select="deferOpen(handlePrintWalkerContactsVerification)">
                   <Printer class="mr-2 h-4 w-4" />
                   {{ $t('tables.printWalkerContactsVerification') }}
                 </DropdownMenuItem>
@@ -201,10 +197,36 @@
     </div>
 
     <!-- Unassigned Areas (inside same glass panel) -->
-    <div class="px-2 sm:px-3 lg:px-4 py-2">
+    <div class="px-2 sm:px-3 lg:px-4 py-1.5 md:py-2">
 
-      <!-- Mobile: tab buttons (hidden on md+) -->
-      <div class="flex gap-1 mb-2 md:hidden">
+      <!-- Banner de tap-to-assign: reemplaza al botón flotante (tapaba
+           contenido y no explicaba qué hacer). Dice el paso siguiente y, si el
+           seleccionado ya estaba en una mesa, ofrece quitarlo. -->
+      <div
+        v-if="tappedParticipant"
+        data-testid="tap-assign-banner"
+        class="mb-2 flex flex-wrap items-center gap-2 rounded-lg border border-green-300 bg-green-50 px-3 py-1.5 text-sm dark:border-green-800 dark:bg-green-900/30"
+      >
+        <span class="min-w-0 flex-1 truncate">
+          {{ $t('tables.tapBanner', { name: `${tappedParticipant.firstName} ${tappedParticipant.lastName}` }) }}
+        </span>
+        <Button
+          v-if="(tappedParticipant as any).sourceTableId"
+          size="sm"
+          variant="destructive"
+          @click="onTapUnassign"
+        >
+          {{ $t('tables.tapUnassign') }}
+        </Button>
+        <Button size="sm" variant="outline" @click="clearTap">
+          {{ $t('common.cancel') }}
+        </Button>
+      </div>
+
+      <!-- Mobile: tab buttons (hidden on md+). El toggle colapsa el bloque de
+           pastillas para recuperar pantalla; nace expandido porque el flujo de
+           tap-to-assign necesita las pastillas visibles. -->
+      <div class="flex gap-1 mb-1 items-center md:hidden">
         <button
           @click="unassignedTab = 'server'"
           class="px-3 py-1 rounded-full text-xs font-medium transition-colors"
@@ -223,6 +245,19 @@
         >
           {{ $t('tables.unassignedWalkers') }} ({{ unassignedWalkers.length }})
         </button>
+        <Button
+          variant="ghost"
+          size="icon"
+          class="ml-auto h-7 w-7 shrink-0"
+          :title="unassignedPanelOpen ? $t('tables.unassignedPanel.collapse') : $t('tables.unassignedPanel.expand')"
+          :aria-label="unassignedPanelOpen ? $t('tables.unassignedPanel.collapse') : $t('tables.unassignedPanel.expand')"
+          :aria-expanded="unassignedPanelOpen"
+          data-testid="unassigned-panel-toggle"
+          @click="unassignedPanelOpen = !unassignedPanelOpen"
+        >
+          <ChevronUp v-if="unassignedPanelOpen" class="h-4 w-4" />
+          <ChevronDown v-else class="h-4 w-4" />
+        </Button>
       </div>
 
       <!-- Barra de la métrica de asistencia. Se enciende desde el menú "⋮" y sólo
@@ -344,7 +379,7 @@
       </div>
 
       <!-- Mobile: tabbed content (hidden on md+) - NO tooltip wrapper, touch handlers on outer span -->
-      <div class="md:hidden">
+      <div v-show="unassignedPanelOpen" class="md:hidden">
         <!-- Unassigned Servers -->
         <div v-show="unassignedTab === 'server'">
           <div class="p-2 bg-gray-50 dark:bg-gray-800 rounded-lg border min-h-[40px] max-h-24 overflow-y-auto flex flex-wrap gap-2">
@@ -528,6 +563,33 @@
 
   <TablesHelpDialog :open="isHelpOpen" @update:open="isHelpOpen = $event" />
 
+  <!-- "Enviar info a líderes" (spec ux-mam-responsabilidades, D7). Al pulsar
+       Enviar se cierra y se abre el MessageDialog; al cerrar ese, vuelve. Dos
+       Dialog de reka-ui abiertos a la vez dejan pointer-events:none en <body>. -->
+  <Dialog :open="leadersDialogOpen" @update:open="onLeadersDialogUpdate">
+    <DialogContent class="max-w-2xl max-h-[85vh] flex flex-col">
+      <DialogHeader>
+        <DialogTitle>{{ $t('tables.byLeader.title') }}</DialogTitle>
+        <DialogDescription>{{ $t('tables.byLeader.description') }}</DialogDescription>
+      </DialogHeader>
+      <Input
+        v-model="leaderSearch"
+        :placeholder="$t('tables.byLeader.searchPlaceholder')"
+        data-testid="leaders-search"
+      />
+      <div class="min-h-0 flex-1 overflow-y-auto -mx-1 px-1">
+        <BriefingSendList
+          v-model:filter="leaderFilter"
+          :rows="leaderRows"
+          :sent="leaderSent"
+          :empty-text="$t('tables.byLeader.empty')"
+          :sent-failed="leaderSentFailed"
+          @send="onSendToLeaderRow"
+        />
+      </div>
+    </DialogContent>
+  </Dialog>
+
   <!-- Mensaje a participante (compartido por todos los popovers de detalle) -->
   <MessageDialog
     v-model:open="messageDialogOpen"
@@ -537,22 +599,6 @@
     :table-data="messageTableData ?? undefined"
     :force-template-type="messageTemplateType ?? undefined"
   />
-
-  <!-- Floating unassign button — shown when an assigned participant is tap-selected -->
-  <Teleport to="body">
-    <div
-      v-if="tappedParticipant && (tappedParticipant as any).sourceTableId"
-      class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex gap-2 shadow-lg"
-    >
-      <Button size="sm" variant="destructive" @click="onTapUnassign">
-        <X class="w-4 h-4 mr-1" />
-        {{ $t('tables.tapUnassign') }}
-      </Button>
-      <Button size="sm" variant="outline" @click="clearTap">
-        {{ $t('common.cancel') }}
-      </Button>
-    </div>
-  </Teleport>
 </template>
 
 <script setup lang="ts">
@@ -562,7 +608,8 @@ import { useRetreatStore } from '@/stores/retreatStore';
 import { useParticipantStore } from '@/stores/participantStore';
 import { useCommunityStore } from '@/stores/communityStore';
 import TableCard from './TableCard.vue';
-import { Button, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, TooltipProvider, Popover, PopoverContent, PopoverTrigger } from '@repo/ui';
+import { Button, Input, TooltipProvider, Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@repo/ui';
+import BriefingSendList, { type BriefingSendRow } from '@/components/BriefingSendList.vue';
 import { buildTableData } from '@/utils/tableBriefing';
 import { highlightClassFor, participantMatchesTokens, searchTokens } from '@/utils/participantSearch';
 import type { SearchHighlight } from '@/utils/participantSearch';
@@ -572,13 +619,31 @@ import MessageDialog from '@/components/MessageDialog.vue';
 import LotteryCardsDialog from '@/components/LotteryCardsDialog.vue';
 import TablesHelpDialog from '@/components/TablesHelpDialog.vue';
 import { useParticipantMessageDialog } from '@/composables/useParticipantMessageDialog';
+import { useRekaDialogFix } from '@/composables/useRekaDialogFix';
 import { useToast } from '@repo/ui';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from '@repo/ui';
-import { ChevronLeft, ChevronRight, Download, HelpCircle, LayoutGrid, Loader2, MoreVertical, Plus, Printer, RefreshCw, Scissors, Send, Trash2, TrendingUp, UserX, X } from 'lucide-vue-next';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuTrigger,
+} from '@repo/ui';
+import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Download, HelpCircle, LayoutGrid, Loader2, MoreVertical, Plus, Printer, RefreshCw, Scissors, Send, Trash2, TrendingUp, UserX, X } from 'lucide-vue-next';
 import type { Participant, ParticipationFrequency, TableMesa } from '@repo/types';
 import { useServerAttendance } from '@/composables/useServerAttendance';
 import { useI18n } from 'vue-i18n';
-import { exportTablesToDocx, getCancelledParticipants } from '@/services/api';
+import {
+  exportTablesToDocx,
+  getCancelledParticipants,
+  getLatestSendsByTemplateType,
+  type LatestSendByParticipant,
+} from '@/services/api';
 import { useDragState } from '@/composables/useDragState';
 import { useTapAssign } from '@/composables/useTapAssign';
 import {
@@ -646,9 +711,31 @@ const {
 } = useParticipantMessageDialog();
 const { toast } = useToast();
 const { t } = useI18n();
+// The print items in the ⋮ menu call window.print as the menu closes; without
+// the deferral reka-ui leaves pointer-events:none on <body> and the page freezes.
+const { deferOpen } = useRekaDialogFix();
 
-// --- Enviar briefing a todos los líderes (consolidado a nivel retiro) ---
-const leadersBriefingOpen = ref(false);
+// --- "Enviar info a líderes": la info de su mesa a cada líder y colíder, en un
+// diálogo con la marca de a quién ya se le mandó (specs/ux-mam-responsabilidades, D7) ---
+const leadersDialogOpen = ref(false);
+const leaderSearch = ref('');
+const leaderFilter = ref<'all' | 'pending'>('all');
+// Se envió desde el diálogo: al cerrar el MessageDialog hay que volver a él.
+let returnToLeadersDialog = false;
+
+const openLeadersDialog = () => {
+  leadersDialogOpen.value = true;
+};
+
+// Solo llega cuando el usuario la cierra (✕, Esc, clic afuera): ahí se limpian
+// búsqueda y filtro. El cierre para abrir un mensaje es programático y los conserva.
+const onLeadersDialogUpdate = (open: boolean) => {
+  leadersDialogOpen.value = open;
+  if (!open) {
+    leaderSearch.value = '';
+    leaderFilter.value = 'all';
+  }
+};
 
 const allLeaders = computed(() => {
   const out: { table: any; role: string; participant: any }[] = [];
@@ -660,12 +747,79 @@ const allLeaders = computed(() => {
   return out;
 });
 
+// La búsqueda del diálogo filtra por nombre del líder o de la mesa.
+const leaderRows = computed<BriefingSendRow[]>(() => {
+  const tokens = searchTokens(leaderSearch.value);
+  return allLeaders.value
+    .filter(
+      ({ table, participant }) =>
+        !tokens.length ||
+        participantMatchesTokens(participant, tokens) ||
+        tokens.every((tk) => String(table.name ?? '').toLowerCase().includes(tk)),
+    )
+    .map(({ table, role, participant }) => ({
+      key: `${table.id}-${role}`,
+      participant,
+      lines: [
+        `${table.name} · ${t('tables.roles.' + role)}`,
+        t('tables.byLeader.walkersCount', { count: table.walkers?.length ?? 0 }),
+      ],
+    }));
+});
+
 const sendBriefingToLeader = (table: any, leader: any) => {
-  leadersBriefingOpen.value = false;
   const tableData = buildTableData(table, participantStore.participants);
   const target = participantStore.participants.find((x: any) => x.id === leader.id) ?? leader;
   nextTick(() => openMessageDialog(target, { tableData, templateType: 'TABLE_LEADER_BRIEFING' }));
 };
+
+// Cerrar la lista y abrir el mensaje en el mismo tick deja pointer-events:none
+// huérfano (bug reka-ui): se cierra, y el mensaje se abre diferido.
+const onSendToLeaderRow = (row: BriefingSendRow) => {
+  const entry = allLeaders.value.find(({ table, role }) => `${table.id}-${role}` === row.key);
+  if (!entry) return;
+  returnToLeadersDialog = true;
+  leadersDialogOpen.value = false;
+  deferOpen(() => sendBriefingToLeader(entry.table, entry.participant));
+};
+
+// Marca de envío (D3): último envío del briefing de mesa por persona, del historial.
+const leaderSent = ref<LatestSendByParticipant>({});
+const leaderSentFailed = ref(false);
+const loadLeaderSent = async (retreatId: string) => {
+  try {
+    const data = await getLatestSendsByTemplateType(retreatId, 'TABLE_LEADER_BRIEFING');
+    if (retreatStore.selectedRetreatId === retreatId) {
+      leaderSent.value = data;
+      leaderSentFailed.value = false;
+    }
+  } catch {
+    leaderSentFailed.value = true;
+  }
+};
+// Con el retiro, no al abrir la pestaña; participant ids are global, so another
+// retreat's marks must never show here.
+watch(
+  () => retreatStore.selectedRetreatId,
+  (retreatId) => {
+    leaderSent.value = {};
+    if (retreatId) loadLeaderSent(retreatId);
+  },
+  { immediate: true },
+);
+// El envío queda en el historial antes de que el dialog se pueda cerrar. Si el
+// mensaje salió de la lista, se vuelve a ella (diferido, mismo bug de reka-ui).
+watch(
+  () => messageDialogOpen?.value,
+  (open, wasOpen) => {
+    if (!wasOpen || open) return;
+    if (retreatStore.selectedRetreatId) loadLeaderSent(retreatStore.selectedRetreatId);
+    if (returnToLeadersDialog) {
+      returnToLeadersDialog = false;
+      deferOpen(openLeadersDialog);
+    }
+  },
+);
 const { draggedParticipantType, startDrag: startDragState, endDrag } = useDragState();
 const { tappedParticipant, onTouchStart: tapTouchStart, onTouchEnd: tapTouchEnd, clearSelection: clearTap, isSelected: isTapSelected } = useTapAssign();
 
@@ -697,6 +851,8 @@ const isExporting = ref(false);
 const isLotteryCardsOpen = ref(false);
 const isHelpOpen = ref(false);
 const unassignedTab = ref<'server' | 'walker'>('walker');
+// Unassigned pills block on mobile: born expanded (tap-to-assign needs the pills visible).
+const unassignedPanelOpen = ref(true);
 const columnCount = ref(localStorage.getItem('tables_column_count') || '3');
 
 // Persist column count to local storage

@@ -39,6 +39,8 @@ vi.mock('lucide-vue-next', () => ({
 	Plus: { name: 'Plus', template: '<svg></svg>' },
 	Trash2: { name: 'Trash2', template: '<svg></svg>' },
 	Edit: { name: 'Edit', template: '<svg></svg>' },
+	Copy: { name: 'Copy', template: '<svg></svg>' },
+	Pencil: { name: 'Pencil', template: '<svg></svg>' },
 	Loader2: { name: 'Loader2', template: '<svg></svg>' },
 	CheckCircle: { name: 'CheckCircle', template: '<svg></svg>' },
 	AlertTriangle: { name: 'AlertTriangle', template: '<svg></svg>' },
@@ -54,7 +56,7 @@ vi.mock('@repo/ui', () => ({
 	},
 	Input: {
 		name: 'Input',
-		template: '<input :value="modelValue" @input="$emit(\'update:modelValue\', $event.target.value)" />',
+		template: '<input :value="modelValue" :disabled="disabled" @input="$emit(\'update:modelValue\', $event.target.value)" />',
 		props: ['modelValue', 'type', 'id', 'placeholder', 'disabled', 'min', 'max', 'step', 'class'],
 		emits: ['update:modelValue'],
 	},
@@ -96,7 +98,7 @@ vi.mock('@repo/ui', () => ({
 	TooltipContent: { name: 'TooltipContent', template: '<div><slot /></div>' },
 	TooltipProvider: { name: 'TooltipProvider', template: '<div><slot /></div>' },
 	TooltipTrigger: { name: 'TooltipTrigger', template: '<div><slot /></div>' },
-	useToast: () => ({ toast: vi.fn() }),
+	useToast: () => ({ toast: mockToast }),
 }));
 
 // Mock API services
@@ -159,6 +161,29 @@ vi.mock('../ParticipantQuickPhoneEditor.vue', () => ({
 	},
 }));
 
+// Permission gate of the email correction button (D2/D7): mutable per test.
+// mockToast backs the @repo/ui useToast mock (clipboard feedback).
+const { mockHasPermission, mockToast } = vi.hoisted(() => ({
+	mockHasPermission: vi.fn<(permission: string) => boolean>(() => false),
+	mockToast: vi.fn(),
+}));
+vi.mock('@/composables/useAuthPermissions', () => ({
+	useAuthPermissions: () => ({
+		hasPermission: (permission: string) => mockHasPermission(permission),
+	}),
+}));
+
+// Stub for the email change dialog: exposes `open` so the gate test can check
+// the button opens it, and lets tests fire `saved` directly.
+vi.mock('../ParticipantEmailChangeDialog.vue', () => ({
+	default: {
+		name: 'ParticipantEmailChangeDialog',
+		template: '<div class="email-change-dialog-stub" />',
+		props: ['open', 'participant'],
+		emits: ['close', 'saved'],
+	},
+}));
+
 // --------------------------------------------------------------------------
 // Helper data
 // --------------------------------------------------------------------------
@@ -202,6 +227,7 @@ function mountForm(props: {
 	columnsToShow?: string[];
 	columnsToEdit?: string[];
 	allColumns?: any[];
+	mode?: 'default' | 'palancas';
 }) {
 	const pinia = createPinia();
 	setActivePinia(pinia);
@@ -209,6 +235,7 @@ function mountForm(props: {
 	return mount(EditParticipantForm, {
 		props: {
 			participant: props.participant,
+			mode: props.mode,
 			shirtTypes: props.shirtTypes ?? [],
 			columnsToShow: props.columnsToShow ?? ['firstName', 'lastName'],
 			columnsToEdit: props.columnsToEdit ?? ['firstName', 'lastName'],
@@ -430,6 +457,7 @@ describe('EditParticipantForm – quick phone editor wiring (palancas layout)', 
 			participant: makeParticipant({ type: 'walker', cellPhone: '5512345678' }),
 			columnsToShow: PALANCAS_COLUMNS,
 			columnsToEdit: ['palancasCoordinator', 'palancasNotes'],
+			mode: 'palancas',
 		});
 		await nextTick();
 
@@ -446,6 +474,7 @@ describe('EditParticipantForm – quick phone editor wiring (palancas layout)', 
 			participant: makeParticipant({ type: 'walker' }),
 			columnsToShow: PALANCAS_COLUMNS,
 			columnsToEdit: ['palancasCoordinator', 'palancasNotes'],
+			mode: 'palancas',
 		});
 		await nextTick();
 
@@ -461,6 +490,35 @@ describe('EditParticipantForm – quick phone editor wiring (palancas layout)', 
 				},
 			],
 		]);
+		wrapper.unmount();
+	});
+
+	it('keeps the regular layout when only the visible columns include palanca columns', async () => {
+		// Regression (walker demo bug): the mode used to be inferred from
+		// columnsToShow, which unions the user's column-picker preferences, so
+		// showing the palanca columns in a walker list flipped the dialog.
+		const wrapper = mountForm({
+			participant: makeParticipant({ type: 'walker', cellPhone: '5512345678' }),
+			columnsToShow: PALANCAS_COLUMNS,
+			columnsToEdit: ['palancasCoordinator', 'palancasNotes'],
+		});
+		await nextTick();
+
+		expect(wrapper.findComponent({ name: 'ParticipantQuickPhoneEditor' }).exists()).toBe(false);
+		expect(wrapper.findComponent({ name: 'ParticipantPaysAtHouseToggle' }).exists()).toBe(false);
+		wrapper.unmount();
+	});
+
+	it('renders the palancas layout regardless of visible columns when mode says so', async () => {
+		const wrapper = mountForm({
+			participant: makeParticipant({ type: 'walker', cellPhone: '5512345678' }),
+			columnsToShow: ['firstName', 'lastName'],
+			columnsToEdit: ['palancasCoordinator'],
+			mode: 'palancas',
+		});
+		await nextTick();
+
+		expect(wrapper.findComponent({ name: 'ParticipantQuickPhoneEditor' }).exists()).toBe(true);
 		wrapper.unmount();
 	});
 });
@@ -622,5 +680,119 @@ describe('EditParticipantForm – external patch while editing', () => {
 			expect(wrapper.find('[data-testid="offline-edit-notice"]').exists()).toBe(false);
 			wrapper.unmount();
 		});
+	});
+});
+
+// --------------------------------------------------------------------------
+// Email correction gate (D1/D7 of specs/participant-email-change)
+// --------------------------------------------------------------------------
+
+describe('EditParticipantForm – email field', () => {
+	afterEach(() => {
+		vi.clearAllMocks();
+		mockHasPermission.mockImplementation(() => false);
+	});
+
+	function mountWithEmail() {
+		// Mirrors the real caller: ParticipantList never puts email in
+		// columnsToEdit (nonEditableSystemKeys), so the field must render
+		// read-only through its own branch, not the generic inputs.
+		return mountForm({
+			participant: makeParticipant({ email: 'viejo@mail.test' }),
+			columnsToShow: ['email'],
+			columnsToEdit: [],
+			allColumns: [{ key: 'email', label: 'Correo Electrónico' }],
+		});
+	}
+
+	it('renders the email input disabled — never a plain editable field', async () => {
+		const wrapper = mountWithEmail();
+		await nextTick();
+
+		const emailInput = wrapper.findAll('input').find(
+			(i) => (i.element as HTMLInputElement).value === 'viejo@mail.test',
+		);
+		// Before this feature the label rendered with NO field at all; now the
+		// address is visible, read-only.
+		expect(emailInput).toBeDefined();
+		expect(emailInput!.attributes('disabled')).toBeDefined();
+		wrapper.unmount();
+	});
+
+	it('hides the correction button without participant:identity:update', async () => {
+		mockHasPermission.mockImplementation((p) => p === 'participant:update');
+		const wrapper = mountWithEmail();
+		await nextTick();
+
+		// Icon-only button: the affordance is the aria-label, not text.
+		const correct = wrapper
+			.findAll('button')
+			.find((b) => b.attributes('aria-label') === 'participants.emailChange.openButton');
+		expect(correct).toBeUndefined();
+		// Copy needs no permission: the address is already on screen.
+		const copy = wrapper
+			.findAll('button')
+			.find((b) => b.attributes('aria-label') === 'participants.emailChange.copy');
+		expect(copy).toBeDefined();
+		wrapper.unmount();
+	});
+
+	it('copies the address to the clipboard and confirms with a toast', async () => {
+		const writeText = vi.fn().mockResolvedValue(undefined);
+		// jsdom ships no clipboard; navigator.clipboard is a read-only getter,
+		// so it has to be defined (not assigned).
+		Object.defineProperty(navigator, 'clipboard', {
+			value: { writeText },
+			configurable: true,
+		});
+		mockHasPermission.mockImplementation(() => false);
+		const wrapper = mountWithEmail();
+		await nextTick();
+
+		const copy = wrapper
+			.findAll('button')
+			.find((b) => b.attributes('aria-label') === 'participants.emailChange.copy');
+		await copy!.trigger('click');
+
+		expect(writeText).toHaveBeenCalledWith('viejo@mail.test');
+		expect(mockToast).toHaveBeenCalledWith({
+			description: 'participants.emailChange.copied',
+		});
+		wrapper.unmount();
+	});
+
+	it('opens the dialog with the permission and re-emits the result', async () => {
+		mockHasPermission.mockImplementation((p) => p === 'participant:identity:update');
+		const wrapper = mountWithEmail();
+		await nextTick();
+
+		const button = wrapper
+			.findAll('button')
+			.find((b) => b.attributes('aria-label') === 'participants.emailChange.openButton');
+		expect(button).toBeDefined();
+
+		const dialog = wrapper.findComponent({ name: 'ParticipantEmailChangeDialog' });
+		expect(dialog.props('open')).toBe(false);
+		await button!.trigger('click');
+		expect(dialog.props('open')).toBe(true);
+
+		// The dialog saved: the form patches its copy and re-emits so the
+		// hosting view syncs participantToEdit.
+		dialog.vm.$emit('saved', {
+			participant: { id: 'p-1', email: 'nuevo@mail.test' },
+			changed: true,
+			effects: {
+				userLinked: false,
+				userWithOldEmail: false,
+				overlaysCleared: 0,
+				queueRegenerated: [],
+				spouseShareRetreats: [],
+			},
+		});
+		await nextTick();
+
+		const patched = wrapper.emitted('participant-patched');
+		expect(patched).toEqual([[{ id: 'p-1', email: 'nuevo@mail.test' }]]);
+		wrapper.unmount();
 	});
 });

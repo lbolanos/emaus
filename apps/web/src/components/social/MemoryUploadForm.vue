@@ -63,6 +63,9 @@
 				</button>
 			</div>
 			<p class="text-xs text-muted-foreground">JPG, PNG o WebP. Las fotos grandes se reducen solas. La principal se muestra primero en "Mis Retiros".</p>
+			<p v-if="tablePhotos.length" class="text-xs text-muted-foreground">
+				Las fotos de las mesas ({{ tablePhotos.length }}) se gestionan desde la vista de Mesas.
+			</p>
 		</div>
 
 		<!-- ===================== SONGS ===================== -->
@@ -218,6 +221,9 @@ const emit = defineEmits<{
 const { toast } = useToast();
 
 const photos = ref<RetreatMemoryPhoto[]>([]);
+// Table group photos (source 'table') ride along in the same list; they are
+// uploaded and edited from the Tables view, not from this grid.
+const tablePhotos = ref<RetreatMemoryPhoto[]>([]);
 const songs = ref<RetreatMemorySong[]>([]);
 const uploading = ref(false);
 const importing = ref(false);
@@ -255,11 +261,15 @@ const emitDerived = () => {
 	});
 };
 
+const applyMemories = (memories: { photos: RetreatMemoryPhoto[]; songs: RetreatMemorySong[] }) => {
+	photos.value = memories.photos.filter((p) => p.source !== 'table');
+	tablePhotos.value = memories.photos.filter((p) => p.source === 'table');
+	songs.value = memories.songs;
+};
+
 const load = async () => {
 	try {
-		const memories = await getRetreatMemories(props.retreatId);
-		photos.value = memories.photos;
-		songs.value = memories.songs;
+		applyMemories(await getRetreatMemories(props.retreatId));
 	} catch (error) {
 		toast({ title: 'Error al cargar recuerdos', description: apiErrorMessage(error), variant: 'destructive' });
 	}
@@ -347,8 +357,7 @@ const removePhoto = async (photoId: string) => {
 const makePrimaryPhoto = async (photoId: string) => {
 	try {
 		const memories = await setPrimaryRetreatMemoryPhoto(props.retreatId, photoId);
-		photos.value = memories.photos;
-		songs.value = memories.songs;
+		applyMemories(memories);
 		emitDerived();
 	} catch (error) {
 		toast({ title: 'Error', description: apiErrorMessage(error), variant: 'destructive' });
@@ -397,8 +406,7 @@ const removeSong = async (songId: string) => {
 const makePrimarySong = async (songId: string) => {
 	try {
 		const memories = await setPrimaryRetreatMemorySong(props.retreatId, songId);
-		photos.value = memories.photos;
-		songs.value = memories.songs;
+		applyMemories(memories);
 		emitDerived();
 	} catch (error) {
 		toast({ title: 'Error', description: apiErrorMessage(error), variant: 'destructive' });

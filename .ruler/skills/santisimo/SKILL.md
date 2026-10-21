@@ -270,6 +270,20 @@ Causa: `computeItemDateRange()` en `retreatScheduleService.ts` antes usaba `new 
 
 Fix: `computeItemDateRange()` recibe ahora un argumento `timezone: string`. Usa `makeDateInTimezone()` para anclar `h:m` en esa zona. Tests: `apps/api/src/tests/services/scheduleMaterializeTimezone.simple.test.ts` (26 tests cubriendo MX, CO, Madrid DST, edge cases).
 
+## Delete de slot individual — la cascada que se comió dos horarios (2026-10-15)
+
+`DELETE /api/santisimo/slots/:id` hace **cascada sobre las inscripciones** del slot. El
+2026-10-15 alguien quiso quitar a un inscrito y borró el slot completo: Buen Despacho perdió
+sus dos slots 5–6 AM (sáb y dom, `11:00→12:00 UTC`). Protecciones desde entonces:
+
+- El confirm del botón "Eliminar" de `SantisimoAdminView` discrimina: si el slot tiene
+  inscripciones muestra `santisimo.confirmDeleteSlotWithSignups` (cuántas se van + señala la ✕
+  como la vía para quitar a una sola persona); si está vacío, el texto corto de siempre.
+- Restaurar un slot perdido: `POST /api/santisimo/retreats/:retreatId/slots` con
+  `capacity=1, isDisabled=false` (los de madrugada llevan `mealWindow=false`, como sus
+  vecinos). **No** usar "Borrar todo y regenerar" para esto: en retiros cuyo Minuto a Minuto
+  se alineó a mano al Excel, lo revierte.
+
 ## Botón "Borrar todo y regenerar" (destructivo)
 
 Ítem rojo en el menú **⋮ Más acciones** del `SantisimoAdminView`. Útil cuando el retiro acumuló items duplicados (típicamente por doble-materialización pre/post fix de timezone) o cuando hay slots fantasma que el admin no puede limpiar slot a slot.

@@ -28,7 +28,7 @@ Agenda en tiempo real de un retiro Emaús. Reemplaza la hoja de cálculo "minuto
 - **Búsqueda sticky**: filtra por hora, nombre, responsabilidad, palanquita y nombre del participante asignado. Enter avanza, Esc limpia. Junto al buscador hay tres botones **solo-ícono con tooltip**: **`+`** (Nueva actividad, solo `schedule:manage`), **`⏱`** (ir a la próxima actividad pendiente de hoy; deshabilitado si no hay) y **`⋮`** (Más acciones). Con la agenda vacía no hay barra de búsqueda, así que `+ Nueva actividad` / `Importar desde template` / `⋮ Más acciones` aparecen en el header superior.
 - **Acciones junto al buscador** (refactor 2026-06-08): cuando hay agenda, los tres botones solo-ícono viven a la derecha del buscador → `+` (Nueva actividad) · `⏱` (ir a la próxima de hoy) · `⋮` (Más acciones). Con la agenda **vacía** (sin buscador) aparecen en el header superior `+ Nueva actividad` · `Importar desde template` · `⋮ Más acciones` (con texto).
   - El menú `⋮ Más acciones` se extrajo al componente **`MamMoreActions.vue`** (una sola fuente; se instancia con `icon-only` en el buscador y con texto en el header vacío, compartiendo `moreActionsOpen` + `groupBy` por `v-model`). Visible para TODOS los roles; items de manage filtrados con `v-if`:
-    - **Frecuente**: `🔔 Tocar campana` · `🖨 Imprimir` · `📦 Descargar guiones (zip)` · `📺 Copiar link de pantalla pública` · `❓ Ayuda`.
+    - **Frecuente**: `🔔 Tocar campana` · `🖨 Imprimir` · `🖨 Imprimir compacto (tipo Excel)` · `📦 Descargar guiones (zip)` · `📺 Copiar link de pantalla pública` · `❓ Ayuda`.
     - **Vista**: `📅 Agrupar por día` / `🎤 Agrupar por responsabilidad` (✓ en el activo).
     - **Manage**: `🔗 Re-vincular responsabilidades` · `👥 Apoyos / sobreescribir` · `✨ Auto-asignar angelitos` · `📥 Importar desde template (sobrescribe)`.
 
@@ -39,6 +39,17 @@ Agenda en tiempo real de un retiro Emaús. Reemplaza la hoja de cálculo "minuto
 - **Tiempo relativo compacto**: bajo la duración (`text-[9px]`), siempre oculto en print (`print:hidden` + `.print-mam .relative-time`) — la hora absoluta a la izquierda basta en papel.
 - Click en cualquier fila abre el modal de edición (responsable principal + N apoyos + nombre/hora/duración/notas/descripción + sección **📎 Documentos del template** read-only).
 - Indicador `● conectado (WS)` arriba.
+
+### Impresión compacta (formato Excel, 2026-10-19)
+
+`⋮ Más acciones → 🖨 Imprimir compacto (tipo Excel)` — el papel operativo del retiro sin mantener el Excel: tabla densa vertical **Hora | Actividad | Responsables**, **cada día en exactamente una página**, colores suaves por tipo (shade-100 1:1 con el badge en pantalla), franja oscura con "Minuto a Minuto — {parroquia} — {versión}" y "Día N — {fecha larga} · {rango}".
+
+- **Un clic, todos los días**: abre una ventana nueva por fuera de la vista (no es un `@media print` de la vista; el print existente queda intacto), con auto-print y cierre automático (`afterprint`). Si el navegador bloquea el popup, la vista muestra un toast con la instrucción.
+- **Módulo puro** `apps/web/src/views/mamCompactPrint.ts` (patrón `mamTime.ts`): `buildMamCompactPrintHtml(input)` es testeable sin mount; `openMamCompactPrint` maneja la ventana. Agrupa por `day` (fuente de verdad; horas <6 son after-midnight del mismo día) y ordena por `startTime` + `orderInDay`, espejo del getter `itemsByDay`.
+- **Horas 24h en la timezone del retiro** (`HH:MM–HH:MM`, `hourCycle: 'h23'`): el papel dice la verdad del wall-clock planificado aunque quien imprime esté en otra zona.
+- **Responsables**: `<b>Equipo</b>` + nombres (asignado al rol, luego apoyos) en la misma celda. Ítems con apoyos sin equipo → nombres solos; sin equipo ni apoyos → celda vacía.
+- **Densidad verificada** contra el peor caso real (Buen Despacho: día 2 con 56 ítems): A4 con margen 10mm, Arial 7.5pt — `pdfinfo` da **Pages: 3** con las 56 filas del día 2 completas en su página.
+- Ver detalle y decisiones en `specs/mam-compact-print/spec.md`.
 
 ### Coherencia de tiempos: huecos y solapes + botón "Ahora" (2026-06-08)
 
@@ -391,7 +402,8 @@ Pure-logic tests (sin TypeORM ni DB):
 | `apps/web/tests/e2e/mam-public-view.spec.ts` (Playwright)               | 1      | 5     | E2E auth-less: vista `/mam/:slug` no redirect a login, error claro 404, header structure, smoke del toast UI, ausencia de coordinator-only buttons |
 | `apps/web/tests/e2e/auth-gate.spec.ts` (Playwright)                     | 1      | 5     | E2E auth gate: `/app/*` redirect a login, `/mam/:slug` y `/santisimo/:slug` y `/` no requieren auth |
 | `apps/api/src/tests/services/templateDescriptionPopulate.simple.test.ts` | 1      | 8     | mirror del JOIN `populateTemplateAttachments` que inyecta description del schedule_template: presencia/ausencia, null description, missing template, mix custom+template items, dedup de templateIds, empty input, preserve fields |
-| `apps/web/src/components/__tests__/MamHelpDialog.test.ts`                | 1      | 8     | smoke del manual MaM: open/close, 8 secciones (qué es, durante retiro, drag, más acciones, pantalla pública, docs, atajos, tips), controles ▶ ✓ ±5 📎, items de menú "Más acciones", atajos Ctrl+P / ESC |
+| `apps/web/src/components/__tests__/MamHelpDialog.test.ts`                | 1      | 8     | smoke del manual MaM: open/close, 8 secciones (qué es, durante retiro, drag, más acciones, pantalla pública, docs, atajos, tips), controles ▶ ✓ ±5 📎, items de menú "Más acciones" (incl. Imprimir compacto), atajos Ctrl+P / ESC |
+| `apps/web/src/views/__tests__/mamCompactPrint.test.ts`                   | 5      | 19    | builder puro del impreso compacto: formatHHMM (h23 + tz explícita + fallback tz inválida), orden por día/startTime/orderInDay, after-midnight, salto de página por día, colores por tipo + fallback `otro`, escape de texto, celda responsables (equipo+nombres / nombres solos / vacía), header con fecha larga sin coma CLDR, shell del documento + script embebido, guard de 56 filas, popup bloqueado → callback |
 | `apps/web/src/components/__tests__/ScheduleTemplateHelpDialog.test.ts`   | 1      | 8     | smoke del manual del editor de templates: open/close, 6 secciones, ambos templates por nombre (México/Colombia), funciones de docs (subir/markdown/imprimir/versiones/restaurar), warnings sobre delete y rename |
 | `apps/web/src/stores/__tests__/dashboardSettingsStore.test.ts`          | 8      | 29    | toggle/move/persist/load + merge legacy sectionOrder + new keys (minutoAMinuto, santisimo) |
 | `apps/web/src/components/__tests__/mamGap.spec.ts`                       | 6      | 32    | helpers puros de tiempo (`mamTime.ts`): `gapAfter`/`durationToFill` (ISO), `hhmmToDayMinutes`/`dayMinutesToHHMM` (after-midnight + wrap), `templateGap`, y los block-aware `retreatGapAfter`/`templateGapAfter` (paralelos, completados, after-midnight, último item) |
@@ -522,6 +534,7 @@ pnpm --filter api exec vite-node src/cli/seed-template-responsibilities.ts
 - `apps/web/src/views/AssignResponsiblesView.vue` — bulk assign con sugerencias heurísticas
 - `apps/web/src/views/ScheduleTemplateView.vue` — ABM templates globales con columna `📎 Documentos` y toggle; orden cronológico after-midnight + detección de huecos/solapes
 - `apps/web/src/views/mamTime.ts` — helpers puros de tiempo compartidos (gap/duración ISO, `HH:MM`↔minutos after-midnight, gap block-aware retiro/template)
+- `apps/web/src/views/mamCompactPrint.ts` — builder puro + `openMamCompactPrint` del papel operativo compacto (un día por página, formato Excel)
 - `apps/web/src/components/ScheduleItemEditModal.vue` — modal con sección read-only "Documentos del template"; campo de **solo hora** (`type="time"`) — la fecha la deriva el backend del Día
 - `apps/web/src/components/ResponsabilityAttachmentsDialog.vue` — drag&drop, editor MD con preview en vivo, descarga MD/PDF (jspdf), gestión de múltiples archivos por rol
 - `apps/web/src/stores/scheduleStore.ts` — store + subscribeRealtime
@@ -597,7 +610,7 @@ Implementación: `:class="mdEditor.open ? 'sm:!max-w-[95vw] w-[95vw]' : 'max-w-3
 ### Bugs conocidos / limitaciones
 
 - **No hay drag-to-reorder** en el timeline — los `−5/+5` y la edición inline de hora son el escape actual.
-- **No hay export PDF** del minuto a minuto final (sí hay PDF de markdowns individuales vía jspdf en el dialog).
+- **No hay PDF generado por código** del minuto a minuto final: la salida a papel/PDF es por el diálogo del navegador («🖨 Imprimir» la vista completa; «🖨 Imprimir compacto» la hoja operativa densa). Un PDF con marcadores/encabezados por página (jsPDF) seguiría sin existir. Sí hay PDF de markdowns individuales vía jspdf en el dialog.
 - **Heurística de conflictos** usa solo overlap temporal; no contempla "el responsable también es servidor de mesa" (un escenario raro pero válido).
 - **No hay vista pública big-screen** (auth-less) para proyectar en el salón.
 - **Attachments no envían WS** al editarse — los servidores con MaM abierto necesitan refresh para ver un guion subido durante el retiro. Aceptable para V1 (uploads suelen ser pre-retiro).

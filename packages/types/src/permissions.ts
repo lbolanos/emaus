@@ -44,6 +44,10 @@ export const ROLES = {
 
 export type Role = keyof typeof ROLES;
 
+// Per-retreat special case: the palanquero flags a walker the coordinator must
+// review before the retreat. Part of SENSITIVE_HEALTH_FIELDS (see below).
+export const SPECIAL_CASE_FIELDS = ['specialCase', 'specialCaseCategory', 'specialCaseNotes'] as const;
+
 /**
  * Participant health and emergency-contact fields that only callers with
  * `participant:health` may read or write. The API strips them from responses
@@ -54,6 +58,11 @@ export type Role = keyof typeof ROLES;
  * Left out on purpose: `snores`/`hasMedication`/`hasDietaryRestrictions`
  * (booleans the bed assignment reads) and `sacraments` (religious data, not
  * health) — only the free-text details and the contacts.
+ *
+ * The per-retreat special case (`specialCase*`, flagged by the palanquero for
+ * the coordinator) lives here too, flag included: its reason is often a health
+ * condition, and even the bare flag tells a caller without the permission that
+ * something about the walker is under review.
  */
 export const SENSITIVE_HEALTH_FIELDS = [
 	'medicationDetails',
@@ -61,6 +70,7 @@ export const SENSITIVE_HEALTH_FIELDS = [
 	'dietaryRestrictionsDetails',
 	'disabilitySupport',
 	'notes',
+	...SPECIAL_CASE_FIELDS,
 	'emergencyContact1Name',
 	'emergencyContact1Relation',
 	'emergencyContact1HomePhone',

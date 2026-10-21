@@ -65,10 +65,6 @@ declare module "axios" {
   }
 }
 
-// Import type definitions
-import type { ImportMetaEnv } from "@/config/vite-env";
-declare const import_meta: ImportMeta;
-
 export const api = axios.create({
   baseURL: getApiUrl(),
   withCredentials: true,
@@ -254,6 +250,21 @@ export const updateTable = async (
   data: { name: string },
 ): Promise<TableMesa> => {
   const response = await api.put(`/tables/${tableId}`, data);
+  return response.data;
+};
+
+/** Uploads or replaces the group photo of a table (spec table-memory-photo). */
+export const uploadTablePhoto = async (
+  tableId: string,
+  photoData: string,
+): Promise<TableMesa> => {
+  const response = await api.put(`/tables/${tableId}/photo`, { photoData });
+  return response.data;
+};
+
+/** Removes the group photo of a table (spec table-memory-photo). */
+export const deleteTablePhoto = async (tableId: string): Promise<TableMesa> => {
+  const response = await api.delete(`/tables/${tableId}/photo`);
   return response.data;
 };
 
@@ -1291,6 +1302,23 @@ export const sendTestEmail = async (to: string) => {
 
 export const verifySmtpConnection = async () => {
   const response = await api.post("/participant-communications/email/verify");
+  return response.data;
+};
+
+export type LatestSendByParticipant = Record<
+  string,
+  { sentAt: string; messageType: "whatsapp" | "email" }
+>;
+
+/** Last send per participant of one template type ("ya enviado" marks). */
+export const getLatestSendsByTemplateType = async (
+  retreatId: string,
+  type: string,
+): Promise<LatestSendByParticipant> => {
+  const response = await api.get(
+    `/participant-communications/retreat/${retreatId}/latest-by-template-type`,
+    { params: { type } },
+  );
   return response.data;
 };
 
@@ -3374,6 +3402,42 @@ export async function updateParticipantPhones(
   const r = await api.patch(`/participants/${participantId}/phones`, {
     retreatId,
     ...phones,
+  });
+  return r.data;
+}
+
+// ---------- Email correction (global identity, specs/participant-email-change) ----------
+
+export interface ParticipantEmailChangeEffects {
+  userLinked: boolean;
+  userWithOldEmail: boolean;
+  overlaysCleared: number;
+  queueRegenerated: Array<{ retreatId: string; regenerated: number; skipped: number }>;
+  spouseShareRetreats: string[];
+}
+
+export interface ParticipantEmailChangeResult {
+  participant: { id: string; email: string };
+  changed: boolean;
+  effects: ParticipantEmailChangeEffects;
+}
+
+/**
+ * Correct a participant's email — their global identity, not a profile field.
+ * Dedicated endpoint (the generic PUT strips `email` server-side): the API
+ * validates collisions against other fichas (409 with a message naming the
+ * owner), links the user account when the ficha has none, clears community
+ * overlays still pointing at the old address and regenerates the pending
+ * message queue of the participant's active retreats.
+ */
+export async function changeParticipantEmail(
+  participantId: string,
+  email: string,
+  contextRetreatId?: string,
+): Promise<ParticipantEmailChangeResult> {
+  const r = await api.patch(`/participants/${participantId}/email`, {
+    email,
+    ...(contextRetreatId ? { contextRetreatId } : {}),
   });
   return r.data;
 }

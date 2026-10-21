@@ -173,6 +173,96 @@ describe('PUT /participants/:id — participant:health write gate', () => {
 		);
 	});
 
+	describe('special case (health regime)', () => {
+		it('rejects marking without participant:health: 403 listing the case fields, nothing saved', async () => {
+			grantedPermissions.add('participant:update');
+
+			const response = await request(app)
+				.put(`/participants/${PARTICIPANT_ID}`)
+				.send({ specialCase: true, specialCaseCategory: 'room', contextRetreatId: 'r-1' });
+
+			expect(response.status).toBe(403);
+			expect(response.body.fields).toEqual(['specialCase', 'specialCaseCategory']);
+			expect(mockUpdateParticipant).not.toHaveBeenCalled();
+		});
+
+		it("rejects an empty case note ('') and a bare unmark: both would erase what the caller cannot see", async () => {
+			grantedPermissions.add('participant:update');
+
+			const emptyNote = await request(app)
+				.put(`/participants/${PARTICIPANT_ID}`)
+				.send({ specialCaseNotes: '' });
+			expect(emptyNote.status).toBe(403);
+			expect(emptyNote.body.fields).toEqual(['specialCaseNotes']);
+
+			const unmark = await request(app)
+				.put(`/participants/${PARTICIPANT_ID}`)
+				.send({ specialCase: false });
+			expect(unmark.status).toBe(403);
+			expect(unmark.body.fields).toEqual(['specialCase']);
+
+			expect(mockUpdateParticipant).not.toHaveBeenCalled();
+		});
+
+		it('rejects a category outside the enum with 400 before reaching the controller', async () => {
+			grantedPermissions.add('participant:update');
+			grantedPermissions.add('participant:health');
+
+			const response = await request(app)
+				.put(`/participants/${PARTICIPANT_ID}`)
+				.send({ specialCase: true, specialCaseCategory: 'kitchen' });
+
+			expect(response.status).toBe(400);
+			expect(mockUpdateParticipant).not.toHaveBeenCalled();
+		});
+
+		it('writes the case for a caller with participant:health', async () => {
+			grantedPermissions.add('participant:update');
+			grantedPermissions.add('participant:health');
+
+			const response = await request(app)
+				.put(`/participants/${PARTICIPANT_ID}`)
+				.send({
+					specialCase: true,
+					specialCaseCategory: 'health',
+					specialCaseNotes: 'Usa silla de ruedas',
+					contextRetreatId: 'r-1',
+				});
+
+			expect(response.status).toBe(200);
+			expect(mockUpdateParticipant).toHaveBeenCalledWith(
+				PARTICIPANT_ID,
+				expect.objectContaining({
+					specialCase: true,
+					specialCaseCategory: 'health',
+					specialCaseNotes: 'Usa silla de ruedas',
+				}),
+			);
+		});
+
+		it('strips the case from the update response for a caller without participant:health', async () => {
+			grantedPermissions.add('participant:update');
+			mockUpdateParticipant.mockResolvedValue({
+				id: PARTICIPANT_ID,
+				retreatId: null,
+				pickupLocation: 'Parroquia',
+				specialCase: true,
+				specialCaseCategory: 'room',
+				specialCaseNotes: 'Cuarto aparte',
+			});
+
+			const response = await request(app)
+				.put(`/participants/${PARTICIPANT_ID}`)
+				.send({ pickupLocation: 'Parroquia' });
+
+			expect(response.status).toBe(200);
+			expect(response.body.pickupLocation).toBe('Parroquia');
+			expect(response.body).not.toHaveProperty('specialCase');
+			expect(response.body).not.toHaveProperty('specialCaseCategory');
+			expect(response.body).not.toHaveProperty('specialCaseNotes');
+		});
+	});
+
 	it('checks participant:update before the controller, so a reader never reaches the gate', async () => {
 		grantedPermissions.add('participant:health');
 

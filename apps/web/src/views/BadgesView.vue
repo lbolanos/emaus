@@ -10,6 +10,7 @@ import { useI18n } from 'vue-i18n';
 import type { Participant } from '@repo/types';
 import { createLocaleComparator } from '@/utils/sort';
 import { isMeaninglessNickname } from '@/utils/participant';
+import { useRekaDialogFix } from '@/composables/useRekaDialogFix';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -31,6 +32,11 @@ const { toast } = useToast();
 const { t } = useI18n();
 // Printing works without signal (window.print of this page); the DOCX is the server's.
 const online = computed(() => connectivity.online);
+// window.print() called from a DropdownMenuItem in the same tick blocks the
+// thread before reka-ui restores body pointer-events → frozen UI after the
+// print dialog closes (troubleshooting #1). Every menu action is deferred so
+// the menu closes first; the composable's polling also repairs orphaned locks.
+const { deferOpen } = useRekaDialogFix();
 const participants = ref<Participant[]>([]);
 const loading = ref(true);
 const isExporting = ref(false);
@@ -406,7 +412,7 @@ watch(retreatId, async (newId) => {
           <DropdownMenuSeparator />
 
           <!-- Export DOCX: built by the server, off without signal (specs/offline-mode, D11) -->
-          <DropdownMenuItem @click="exportBadges" :disabled="isExporting || !online">
+          <DropdownMenuItem @select="deferOpen(exportBadges)" :disabled="isExporting || !online">
             <Loader2 v-if="isExporting" class="mr-2 h-4 w-4 animate-spin" />
             <FileDown v-else class="mr-2 h-4 w-4" />
             {{ $t('badges.exportDocx') || 'Exportar DOCX' }}
@@ -414,19 +420,19 @@ watch(retreatId, async (newId) => {
           </DropdownMenuItem>
 
           <!-- Print -->
-          <DropdownMenuItem @click="printBadges">
+          <DropdownMenuItem @select="deferOpen(printBadges)">
             <Printer class="mr-2 h-4 w-4" />
             {{ $t('badges.printBadges') }}
           </DropdownMenuItem>
 
           <!-- Print double-sided -->
-          <DropdownMenuItem @click="printDoubleSided">
+          <DropdownMenuItem @select="deferOpen(printDoubleSided)">
             <Printer class="mr-2 h-4 w-4" />
             Imprimir doble cara
           </DropdownMenuItem>
 
           <!-- Print walkers for bag -->
-          <DropdownMenuItem @click="printWalkersForBag">
+          <DropdownMenuItem @select="deferOpen(printWalkersForBag)">
             <Printer class="mr-2 h-4 w-4" />
             Imprimir caminantes para bolsa
           </DropdownMenuItem>
@@ -436,7 +442,7 @@ watch(retreatId, async (newId) => {
           <!-- Print selected -->
           <DropdownMenuItem
             v-if="selectedCount > 0"
-            @click="printSelectedBadges"
+            @select="deferOpen(printSelectedBadges)"
             class="text-rose-600"
           >
             <Check class="mr-2 h-4 w-4" />
@@ -446,7 +452,7 @@ watch(retreatId, async (newId) => {
           <!-- Print selected double-sided -->
           <DropdownMenuItem
             v-if="selectedCount > 0"
-            @click="printSelectedDoubleSided"
+            @select="deferOpen(printSelectedDoubleSided)"
             class="text-rose-600"
           >
             <Check class="mr-2 h-4 w-4" />

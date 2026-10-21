@@ -371,7 +371,7 @@
 <script setup lang="ts">
 import { storeToRefs } from 'pinia';
 import { ref, computed, nextTick, onMounted, watch } from 'vue';
-import { LogOut, Users, UtensilsCrossed, LayoutDashboard, ChevronLeft, Home, Ban, Bed, HandHeart, DollarSign, NotebookPen, Building, UsersRound, Salad, FileX, UserCheck, ShoppingBag, Pill, Shirt, UserCog, Table, Settings, Package, Globe, Briefcase, Search, X, ArrowRight, ChevronDown, Lock, CreditCard, Activity, KeyRound, Heart, UserPlus, UserCircle, MessageSquare, Clock, ClipboardList, BookOpen, Plus, Edit as EditIcon, HelpCircle, Cross, User as UserIcon, Languages, DoorOpen, Trash2 } from 'lucide-vue-next';
+import { LogOut, Users, UtensilsCrossed, LayoutDashboard, ChevronLeft, Home, Ban, Bed, HandHeart, DollarSign, NotebookPen, Building, UsersRound, Salad, FileX, UserCheck, ShoppingBag, Pill, Shirt, UserCog, Table, Settings, Package, Globe, Briefcase, Search, X, ArrowRight, ChevronDown, Lock, CreditCard, Activity, KeyRound, Heart, UserPlus, UserCircle, MessageSquare, Clock, ClipboardList, BookOpen, Plus, Edit as EditIcon, HelpCircle, Cross, User as UserIcon, Languages, DoorOpen, Trash2, Flag } from 'lucide-vue-next';
 import { useAuthStore } from '@/stores/authStore';
 import { useReceptionStore } from '@/stores/receptionStore';
 import { useRouter, useRoute } from 'vue-router';
@@ -466,6 +466,9 @@ const participantCounts = computed(() => {
     angelitos: ps.filter(p => p.type === 'partial_server' && !p.isCancelled).length,
     waiting:   ps.filter(p => p.type === 'waiting'        && !p.isCancelled).length,
     canceled:  ps.filter(p => p.isCancelled).length,
+    // The API only sends specialCase to participant:health, the same set that
+    // sees the item: for everyone else this stays 0 (no badge).
+    specialCases: ps.filter(p => p.type === 'walker' && !p.isCancelled && p.specialCase === true).length,
   };
 });
 
@@ -476,6 +479,7 @@ const ITEM_BADGE: Record<string, { color: string; count: () => number | null }> 
   'waiting-list': { color: 'bg-amber-500', count: () => participantCounts.value.waiting  || null },
   canceled:     { color: 'bg-red-500',    count: () => participantCounts.value.canceled  || null },
   reception:    { color: 'bg-amber-500',  count: () => receptionStore.pendingCount       || null },
+  'special-cases': { color: 'bg-amber-500', count: () => participantCounts.value.specialCases || null },
 };
 
 function itemBadge(name: string): number | null {
@@ -949,6 +953,15 @@ const menuSections: MenuSection[] = [
         permission: 'participant',
         requiresRetreat: true,
         label: 'sidebar.palancas'
+      },
+      {
+        name: 'special-cases',
+        routeName: 'special-cases',
+        icon: Flag,
+        permission: 'participant',
+        permissionOperation: 'health',
+        requiresRetreat: true,
+        label: 'sidebar.specialCases'
       }
     ],
     position: 'top'

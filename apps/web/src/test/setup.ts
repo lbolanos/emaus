@@ -490,6 +490,7 @@ vi.mock('lucide-vue-next', () => ({
 	Loader2: { name: 'Loader2', template: '<svg class="animate-spin"></svg>' },
 	Download: { name: 'Download', template: '<svg></svg>' },
 	AlertTriangle: { name: 'AlertTriangle', template: '<svg></svg>' },
+	Flag: { name: 'Flag', template: '<svg></svg>' },
 	CheckCircle: { name: 'CheckCircle', template: '<svg></svg>' },
 	XCircle: { name: 'XCircle', template: '<svg></svg>' },
 	MessageSquare: { name: 'MessageSquare', template: '<svg></svg>' },

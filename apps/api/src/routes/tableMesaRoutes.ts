@@ -19,6 +19,18 @@ router.get('/:id', requirePermission('table:read'), tableMesaController.getTable
 router.post('/', requirePermission('table:create'), tableMesaController.createTable);
 router.put('/:id', requirePermission('table:update'), tableMesaController.updateTable);
 router.delete('/:id', requirePermission('table:delete'), tableMesaController.deleteTable);
+// Group photo of a table for the retreat keepsake (spec table-memory-photo);
+// retreat-level access is checked in the handlers via findTableRetreatId.
+router.put(
+	'/:id/photo',
+	requirePermission('table:update'),
+	tableMesaController.setTablePhoto,
+);
+router.delete(
+	'/:id/photo',
+	requirePermission('table:update'),
+	tableMesaController.removeTablePhoto,
+);
 router.post(
 	'/rebalance/:retreatId',
 	requirePermission('table:update'),

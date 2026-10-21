@@ -123,6 +123,27 @@ describe('MemoryUploadForm', () => {
 		expect(urlInputs.some((i) => (i.element as HTMLInputElement).value === 'https://a.com')).toBe(true);
 	});
 
+	it('excluye las fotos de mesa del grid editable y avisa dónde se gestionan', async () => {
+		mocks.getRetreatMemories.mockResolvedValue({
+			photos: [
+				photo('p1', 'urlA', true, 0),
+				// Foto de mesa (spec table-memory-photo): viene en la misma lista
+				// pero se sube/edita desde la vista de Mesas.
+				{ ...photo('t1', 'tablePhoto', false, 1000), source: 'table', label: 'Mesa 1' },
+			],
+			songs: [],
+		});
+		const wrapper = mount(MemoryUploadForm, { props: { retreatId: 'r1' } });
+		await flushPromises();
+
+		// No aparece en el grid (no se puede borrar ni marcar principal desde acá).
+		expect(wrapper.find('img[src="tablePhoto"]').exists()).toBe(false);
+		// El contador la excluye del máximo de 30.
+		expect(wrapper.text()).toContain('1/30');
+		// El hint indica dónde gestionarlas.
+		expect(wrapper.text()).toContain('Las fotos de las mesas (1) se gestionan desde la vista de Mesas.');
+	});
+
 	it('agrega una canción llamando a la API y recarga', async () => {
 		mocks.addRetreatMemorySong.mockResolvedValue(song('s2', 'https://new.com'));
 		const wrapper = mount(MemoryUploadForm, { props: { retreatId: 'r1' } });

@@ -357,5 +357,20 @@ minuto y 6 de las 7 hojas de Mesas salen idénticas. Hallazgos, corregidos:
 - "Preparar" guarda también la lista de cancelados de Mesas (15 pasos); sin ella el banner decía
   "Algunas pantallas no tienen datos guardados" con el tablero completo.
 
+**Integración con master (2026-10-20, ~50 commits)**. Lo que llegó y toca el modo sin señal:
+
+- **Casos especiales** (`specs/special-case`): los tres campos `specialCase*` entraron en
+  `SENSITIVE_HEALTH_FIELDS`, así que el teléfono ya no los guarda sin cambiar nada aquí. Pero
+  la bandeja y la tarjeta del dashboard contaban sobre la lista guardada y decían "0 por
+  atender". Ahora, si la lista viene del teléfono, dicen que se consultan con conexión
+  (`HealthNeedsConnection` con mensaje propio), como Alimentación y Medicamentos.
+- **Corrección de correo** (`specs/participant-email-change`): el correo es de solo lectura en
+  la ficha y el PUT genérico lo descarta. D13 no cambia (nunca estuvo en la lista); la ayuda
+  usaba el correo como ejemplo de campo que no se guarda sin señal y ahora usa la fecha de
+  nacimiento.
+- **Impresión compacta del minuto a minuto** (`specs/mam-compact-print`): se arma en el
+  navegador con lo cargado; sin señal imprime igual (e2e `offline-print.spec.ts`, las dos).
+- Días colapsables y menú ⋮ por mesa: solo los selectores del e2e de impresión.
+
 **Pendiente fuera de esta sesión**: prueba de campo en un iPhone y un Android reales; nginx de
 producción antes del primer push; los PR y despliegues (dos releases, decisión 2026-10-19).

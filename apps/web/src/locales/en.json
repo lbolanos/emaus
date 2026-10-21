@@ -12,6 +12,7 @@
         "attendance_confirmation": "Attendance confirmation",
         "anonymize": "Data anonymized (GDPR)",
         "merge": "Records merged (duplicate absorbed)",
+        "email_change": "Participant email corrected",
         "health_view": "Health record viewed",
         "health_export": "Health record exported",
         "health_data_purged": "Health data automatically purged"
@@ -834,7 +835,8 @@
     "scheduleTemplate": "Minute by Minute Template",
     "preRetreatTasks": "Pre-Retreat Tasks",
     "retreatPreparations": "Preparations",
-    "preRetreatTaskTemplate": "Pre-Retreat Task Template"
+    "preRetreatTaskTemplate": "Pre-Retreat Task Template",
+    "specialCases": "Special cases"
   },
   "communityTemplates": {
     "title": "Community Message Templates",
@@ -1004,6 +1006,33 @@
       "emergencyContact2": "Emergency contact 2 cell phone",
       "requiredEmpty": "This phone number cannot be empty.",
       "invalidFloor": "Must have between 6 and 15 digits."
+    },
+    "emailChange": {
+      "openButton": "Correct email",
+      "copy": "Copy email",
+      "copied": "Email copied",
+      "copyFailed": "Could not copy the email",
+      "title": "Correct email",
+      "description": "Email is the participant's identity: changing it relinks their account, clears community aliases and renews pending messages.",
+      "current": "Current email",
+      "newEmail": "New email",
+      "confirmEmail": "Type the new email again",
+      "summaryTitle": "Before you correct it",
+      "summary": "The system will check the address is not owned by another record, clear community aliases pointing at the old one, and regenerate the message queue of this person's active retreats.",
+      "mismatch": "The two emails do not match.",
+      "sameAsCurrent": "That is the email the record already has.",
+      "invalid": "Enter a valid email.",
+      "submit": "Correct email",
+      "submitting": "Correcting…",
+      "successTitle": "Email corrected",
+      "successNoop": "The record already had that email: nothing changed.",
+      "newEmailLabel": "Record's new email",
+      "effectUserLinked": "The record is now linked to the account that already used this email.",
+      "effectUserWithOldEmail": "Heads up: an account still carries the previous email. That account may hold an address its owner no longer controls; fixing it is a separate flow.",
+      "effectOverlaysCleared": "Community aliases pointing at the old email: {count}",
+      "effectQueueRegenerated": "Message queue regenerated for {retreats} retreat(s): {regenerated} message(s) rescheduled.",
+      "effectSpouseShare": "The email is shared with the spouse in {count} retreat(s) (allowed because genders differ).",
+      "effectNothingElse": "No additional effects."
     },
     "addWalker": "Add Walker",
     "name": "Name",
@@ -1635,7 +1664,9 @@
     "copyWazeUrl": "Copy Waze",
     "openMapsUrl": "Open Google Maps",
     "openWazeUrl": "Open Waze",
-    "addressCopied": "Address copied to clipboard!"
+    "addressCopied": "Address copied to clipboard!",
+    "specialCases": "Special cases",
+    "specialCasesPending": "To attend"
   },
   "reception": {
     "paysAtHouse": "Pays at the house",
@@ -1711,12 +1742,12 @@
       "colider1": "Co-Leader 1",
       "colider2": "Co-Leader 2"
     },
-    "briefing": {
-      "button": "Send info to leaders",
-      "chooseLeader": "Choose who to send to:"
-    },
     "unassignedServers": "Unassigned Servers",
     "unassignedWalkers": "Unassigned Walkers",
+    "unassignedPanel": {
+      "collapse": "Hide unassigned",
+      "expand": "Show unassigned"
+    },
     "rebalanceWalkers": "Rebalance Walkers",
     "rebalanceConfirmation": {
       "title": "Confirm Rebalance",
@@ -1840,6 +1871,30 @@
     },
     "photoAssignment": "Assign by Photo (AI)",
     "tapUnassign": "Remove from table",
+    "tapBanner": "Tap the destination table to assign {name}",
+    "tapZoneHint": "· Tap here to assign",
+    "photoMemory": {
+      "menuLabel": "Keepsake photo",
+      "title": "{name} photo",
+      "description": "Group photo of the table participants for the retreat keepsake. It shows in “My Retreats” labeled with the table name.",
+      "choose": "Choose photo",
+      "chooseOther": "Choose another photo",
+      "hint": "JPG, PNG or WebP. Large photos are resized automatically.",
+      "pendingReplace": "Preview: saving will replace the current photo.",
+      "remove": "Remove",
+      "save": "Save",
+      "saving": "Saving...",
+      "savedTitle": "Photo updated",
+      "saveErrorTitle": "Could not save the photo",
+      "removedTitle": "Photo removed",
+      "removeErrorTitle": "Could not remove the photo",
+      "tooLargeTitle": "File too large",
+      "tooLarge": "{name} exceeds 30MB",
+      "badFormatTitle": "Invalid format",
+      "badFormat": "{name}: only JPG, PNG and WebP",
+      "decodeErrorTitle": "Could not read the image",
+      "decodeError": "Could not process {name}. Try another photo."
+    },
     "photoAssign": {
       "title": "Photo Assignment",
       "description": "Take a photo of the walker cards and AI will assign walkers to tables.",
@@ -1926,7 +1981,18 @@
       "scope": "{count} preparations held",
       "notSynced": "Sync this retreat’s preparations to see attendance",
       "hide": "Hide preparation attendance"
-    }
+    },
+    "byLeader": {
+      "empty": "No leaders or co-leaders assigned",
+      "walkersCount": "{count} walkers",
+      "menuItem": "Send info to leaders",
+      "title": "Send each leader their table info",
+      "description": "Walkers, contacts and call script, to each leader and co-leader. When each message closes you come back to this list.",
+      "searchPlaceholder": "Search leader or table..."
+    },
+    "moreActions": "More actions",
+    "cardActions": "Actions for {name}",
+    "briefingSendTo": "Send info to {role} · {name}"
   },
   "bedAssignments": {
     "title": "Bed Assignments",
@@ -2344,19 +2410,36 @@
     "xlsx": "Export to XLSX",
     "csv": "Export to CSV"
   },
+  "briefingList": {
+    "summary": "{sent} of {total} already got it",
+    "filterAll": "All",
+    "filterPending": "Not sent",
+    "sentOn": "Sent on {date} by {channel}",
+    "notSent": "Not sent",
+    "send": "Send",
+    "resend": "Resend",
+    "emptyPending": "Everyone already got it",
+    "sentError": "Could not load who already got it.",
+    "channels": {
+      "whatsapp": "WhatsApp",
+      "email": "email"
+    }
+  },
   "responsibilities": {
     "title": "Retreat Responsibilities",
     "description": "Manage retreat responsibilities and assign servers to each one",
     "createResponsability": "Create Responsability",
     "sendTasks": {
-      "button": "Send tasks",
-      "title": "Send tasks to a server ({count}):",
-      "searchPlaceholder": "Search server...",
       "counts": "{responsibilities} responsibilities · {teams} teams",
       "documentsCount": "{count} documents",
       "documentsError": "Could not load the documents: the message will go without the links.",
       "empty": "No servers with assigned tasks"
     },
+    "byServer": {
+      "tab": "By server"
+    },
+    "moreActions": "More actions",
+    "cardActions": "Actions for {name}",
     "addToTeam": "Add servers to team",
     "addToTeamDescription": "Choose the active servers to add to this service team",
     "teamLabel": "Team",
@@ -3098,6 +3181,8 @@
     "enable": "Enable public sign-up",
     "copyPublicLink": "Copy public link",
     "linkCopied": "Link copied",
+    "printTitle": "Chapel Guard Schedule — {name}",
+    "printTitleNoName": "Chapel Guard Schedule",
     "print": "Print",
     "generate": "Generate slots",
     "generateHint": "Automatically creates slots between two dates. Existing slots at the same hour are preserved.",
@@ -3121,6 +3206,7 @@
     "empty": "free",
     "confirmRemove": "Remove this sign-up?",
     "confirmDeleteSlot": "Delete this slot and all its sign-ups?",
+    "confirmDeleteSlotWithSignups": "This slot has {count} sign-up. Deleting it removes its sign-up too; to remove a single person, use the ✕ next to their name. Delete the whole slot? | This slot has {count} sign-ups. Deleting it removes its sign-ups too; to remove a single person, use the ✕ next to their name. Delete the whole slot?",
     "publicHeading": "Chapel Watch Schedule",
     "signupHeading": "Sign me up",
     "signupHint": "Pick the hours you can accompany the Blessed Sacrament. Only the name is required.",
@@ -4027,6 +4113,7 @@
       "days": "1 day | {n} days"
     },
     "healthNeedsConnection": "Food and medication can only be checked with a connection: that data is not saved on the phone.",
+    "specialCasesNeedConnection": "Special cases can only be checked with a connection: that data is not saved on the phone.",
     "retry": "Try again",
     "queued": {
       "title": "Saved on this phone",
@@ -4088,5 +4175,38 @@
       "button": "Prepare to work without a connection",
       "running": "Downloading… {done}/{total}"
     }
+  },
+  "specialCases": {
+    "title": "Special cases",
+    "subtitle": "Walkers the palanquero flagged for the coordinator to review",
+    "pendingCount": "To attend: {count}",
+    "empty": "No special cases flagged",
+    "badge": "Special case",
+    "mark": "Flag as special case",
+    "markTitle": "Special case",
+    "markDescription": "Tell the coordinator what needs reviewing about {name}.",
+    "categoryLabel": "Category",
+    "categories": {
+      "room": "Separate room",
+      "health": "Health",
+      "other": "Other"
+    },
+    "notes": "Note (optional)",
+    "notesPlaceholder": "e.g. uses a wheelchair, travels with their mother…",
+    "noNotes": "No note",
+    "confirmRemove": "Remove the special-case flag from {name}? The reason is erased.",
+    "remove": "Remove flag",
+    "contact": "Contact",
+    "columns": {
+      "name": "Walker",
+      "phone": "Phone",
+      "category": "Category",
+      "notes": "Note",
+      "actions": "Actions"
+    }
+  },
+  "houses": {
+    "deleteConfirm": "Delete house \"{name}\"? This action cannot be undone.",
+    "deleteConfirmWithBeds": "Delete house \"{name}\"? All of its beds ({count}) will be deleted too. This action cannot be undone."
   }
 }

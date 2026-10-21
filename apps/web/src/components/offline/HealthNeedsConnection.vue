@@ -8,8 +8,10 @@ import { connectivity, onReconnect } from '@/offline/connectivity';
  * Shown instead of the food and medicine reports when the participant list came
  * from the device: health data is never saved offline (specs/offline-mode,
  * decision 2026-10-19), so the list would look complete while missing exactly
- * what these screens are for.
+ * what these screens are for. `message` names the screen when it is not food or
+ * medicine (special cases are health regime too).
  */
+const props = defineProps<{ message?: string }>();
 const { t } = useI18n();
 const participantStore = useParticipantStore();
 const retrying = ref(false);
@@ -40,7 +42,7 @@ onUnmounted(() => stop?.());
     class="flex flex-col items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 px-6 py-10 text-center"
     data-testid="health-needs-connection"
   >
-    <p class="max-w-md text-sm text-amber-900">{{ t('offline.healthNeedsConnection') }}</p>
+    <p class="max-w-md text-sm text-amber-900">{{ props.message ?? t('offline.healthNeedsConnection') }}</p>
     <button
       type="button"
       class="rounded-md bg-white px-3 py-1.5 text-sm font-medium text-amber-800 shadow-sm ring-1 ring-amber-200 hover:bg-amber-100 disabled:opacity-50"

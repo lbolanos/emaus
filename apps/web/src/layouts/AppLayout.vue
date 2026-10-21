@@ -46,6 +46,7 @@ const routeTitleMap: Record<string, string> = {
   'canceled': 'sidebar.canceled',
   'food': 'sidebar.food',
   'palancas': 'sidebar.palancas',
+  'special-cases': 'sidebar.specialCases',
   'notes-and-meeting-points': 'sidebar.notesAndMeetingPoints',
   'cancellation-and-notes': 'sidebar.cancellationAndNotes',
   'message-templates': 'sidebar.settings.messageTemplates',

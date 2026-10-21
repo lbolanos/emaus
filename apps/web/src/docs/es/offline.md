@@ -17,7 +17,7 @@ Durante el retiro el teléfono vuelve a descargar solo cada vez que abres el ret
 - **Minuto a minuto**: iniciar y completar actividades, mover una actividad **±5** minutos y mover el día entero.
 - **Camas**: asignar, mover y liberar una cama.
 - **Mesas**: asignar a un caminante a una mesa y quitarlo.
-- **Fichas**: corregir nombre, apellido, apodo, teléfonos, parroquia, ocupación, dirección, talla de playera y si ronca. La ficha lo avisa al abrirla. Si cambias otro dato (por ejemplo el correo) no se guarda nada y el aviso te dice cuál; deshaz ese cambio para guardar lo demás. Si mientras no había señal alguien más cambió ese mismo dato, tu cambio queda **rechazado** con el motivo y se conserva el de la otra persona: revisa la ficha con señal.
+- **Fichas**: corregir nombre, apellido, apodo, teléfonos, parroquia, ocupación, dirección, talla de playera y si ronca. La ficha lo avisa al abrirla. Si cambias otro dato (por ejemplo la fecha de nacimiento) no se guarda nada y el aviso te dice cuál; deshaz ese cambio para guardar lo demás. Si mientras no había señal alguien más cambió ese mismo dato, tu cambio queda **rechazado** con el motivo y se conserva el de la otra persona: revisa la ficha con señal.
 - **Imprimir**: los **gafetes**, todas las hojas de **Mesas** (también las tarjetas de los caminantes) y el **minuto a minuto**. **Imprimir Mesas** sale sin medicamentos, alimentación, apoyos ni contactos de emergencia, y la hoja lo dice; si los necesitas en papel, imprímela con señal.
 
 Todo lo demás necesita conexión. Si lo intentas sin señal, la app te dice que esa acción necesita señal; en Camas, **auto-asignar**, **exportar** y **vaciar** aparecen desactivados, igual que **Descargar Mesas (Word)** y **Exportar DOCX** de los gafetes.
@@ -26,7 +26,7 @@ Todo lo demás necesita conexión. Si lo intentas sin señal, la app te dice que
 
 - En el menú, bajo tu nombre, el estado: **En línea**, **Sin conexión** y cuántos **cambios sin enviar** hay.
 - Arriba de cada pantalla, un aviso con la antigüedad de los datos guardados («datos guardados hace 20 minutos»).
-- **Alimentación** y **Medicamentos** solo se consultan con conexión: los datos de salud (medicamentos, dietas, notas y contactos de emergencia) nunca se guardan en el teléfono.
+- **Alimentación**, **Medicamentos** y **Casos especiales** solo se consultan con conexión: los datos de salud (medicamentos, dietas, notas, casos especiales y contactos de emergencia) nunca se guardan en el teléfono.
 
 ## Cuando vuelve la señal
 

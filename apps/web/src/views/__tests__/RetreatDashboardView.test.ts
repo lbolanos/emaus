@@ -35,11 +35,31 @@ vi.mock('@repo/utils', async (importOriginal) => ({
 
 // Mock useAuthPermissions
 const mockCanRead = vi.fn(() => true);
+const mockHasPermission = vi.hoisted(() => vi.fn((_permission: string) => false));
 vi.mock('@/composables/useAuthPermissions', () => ({
 	useAuthPermissions: () => ({
 		can: {
 			read: mockCanRead,
 		},
+		hasPermission: mockHasPermission,
+	}),
+}));
+
+// Same shape as the global vue-router mock in setup.ts, plus a push spy shared
+// across calls so card navigation can be asserted.
+const mockPush = vi.hoisted(() => vi.fn());
+vi.mock('vue-router', () => ({
+	useRouter: () => ({ push: mockPush, replace: vi.fn(), resolve: vi.fn(() => ({ href: '/' })) }),
+	useRoute: () => ({
+		path: '/mocked-path',
+		name: 'mocked-route',
+		params: {},
+		query: {},
+		hash: '',
+		fullPath: '/mocked-path',
+		matched: [],
+		meta: {},
+		redirectedFrom: undefined,
 	}),
 }));
 
@@ -117,11 +137,11 @@ async function flushAll() {
 	}
 }
 
-async function mountDashboard() {
+async function mountDashboard(participants: any[] = allParticipants) {
 	const { api } = await import('@/services/api');
 	(api.get as any).mockImplementation(async (url: string) => {
 		if (url.includes('/retreats/')) return { data: mockRetreat };
-		if (url.includes('/participants')) return { data: allParticipants };
+		if (url.includes('/participants')) return { data: participants };
 		if (url.includes('/inventory')) return { data: [] };
 		return { data: {} };
 	});
@@ -137,7 +157,7 @@ async function mountDashboard() {
 	// Pre-populate stores
 	retreatStore.retreats = [mockRetreat as any];
 	retreatStore.selectRetreat('retreat-1');
-	participantStore.participants = allParticipants as any;
+	participantStore.participants = participants as any;
 
 	const wrapper = mount(RetreatDashboardView, {
 		...globalMountOptions,
@@ -159,6 +179,7 @@ describe('RetreatDashboardView', () => {
 		setActivePinia(createPinia());
 		vi.clearAllMocks();
 		mockCanRead.mockReturnValue(true);
+		mockHasPermission.mockReturnValue(false);
 	});
 
 	afterEach(() => {
@@ -497,6 +518,65 @@ describe('RetreatDashboardView', () => {
 			mockCanRead.mockReturnValue(false);
 			const { wrapper } = await mountDashboard();
 			expect(wrapper.text()).not.toContain('retreatDashboard.inventoryAlerts');
+			wrapper.unmount();
+		});
+	});
+
+	describe('Special cases card (health regime)', () => {
+		// Two flagged active walkers (room + health), plus flags that must NOT
+		// count: a cancelled walker and a server.
+		const flagged = [
+			createMockParticipant({ id: 'sc-1', type: 'walker', isCancelled: false, specialCase: true, specialCaseCategory: 'room' }),
+			createMockParticipant({ id: 'sc-2', type: 'walker', isCancelled: false, specialCase: true, specialCaseCategory: 'health' }),
+			createMockParticipant({ id: 'sc-3', type: 'walker', isCancelled: true, specialCase: true, specialCaseCategory: 'other' }),
+			createMockParticipant({ id: 'sc-4', type: 'server', isCancelled: false, specialCase: true, specialCaseCategory: 'other' }),
+		];
+		const withFlags = [...allParticipants, ...flagged];
+
+		it('is not rendered without participant:health, even with flagged walkers', async () => {
+			const { wrapper } = await mountDashboard(withFlags);
+			expect(mockHasPermission).toHaveBeenCalledWith('participant:health');
+			expect(wrapper.find('[data-testid="special-cases-card"]').exists()).toBe(false);
+			expect(wrapper.text()).not.toContain('retreatDashboard.specialCases');
+			wrapper.unmount();
+		});
+
+		it('counts only active flagged walkers, by category, with participant:health', async () => {
+			mockHasPermission.mockImplementation((p: string) => p === 'participant:health');
+			const { wrapper } = await mountDashboard(withFlags);
+			const card = wrapper.find('[data-testid="special-cases-card"]');
+			expect(card.exists()).toBe(true);
+			expect(card.find('[data-testid="special-cases-card-count"]').text()).toBe('2');
+			const counts = (wrapper.vm as any).$.setupState.specialCaseCountByCategory;
+			expect(counts).toEqual({ room: 1, health: 1, other: 0 });
+			wrapper.unmount();
+		});
+
+		it('shows 0 when nobody is flagged', async () => {
+			mockHasPermission.mockImplementation((p: string) => p === 'participant:health');
+			const { wrapper } = await mountDashboard();
+			expect(wrapper.find('[data-testid="special-cases-card-count"]').text()).toBe('0');
+			wrapper.unmount();
+		});
+
+		it('navigates to the inbox when the card content is clicked', async () => {
+			mockHasPermission.mockImplementation((p: string) => p === 'participant:health');
+			const { wrapper } = await mountDashboard(withFlags);
+			await wrapper.find('[data-testid="special-cases-card-content"]').trigger('click');
+			expect(mockPush).toHaveBeenCalledWith({ name: 'special-cases' });
+			wrapper.unmount();
+		});
+
+		it('from the phone says it needs a connection instead of counting 0 (specs/offline-mode)', async () => {
+			mockHasPermission.mockImplementation((p: string) => p === 'participant:health');
+			const { wrapper } = await mountDashboard();
+			const { useParticipantStore } = await import('@/stores/participantStore');
+			useParticipantStore().fromCache = true;
+			await nextTick();
+			expect(wrapper.find('[data-testid="special-cases-card-offline"]').text()).toBe(
+				'offline.specialCasesNeedConnection',
+			);
+			expect(wrapper.find('[data-testid="special-cases-card-count"]').exists()).toBe(false);
 			wrapper.unmount();
 		});
 	});

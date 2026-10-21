@@ -3,7 +3,7 @@ import { test, expect, type Page, type APIRequestContext, type BrowserContext } 
 /**
  * offline-mode E2E (specs/offline-mode, "Imprimir sin conexión"): at the retreat
  * house the team prints the badges, the table sheets and the minuto a minuto
- * without signal, from what "Preparar" saved and nothing else.
+ * (full and compact) without signal, from what "Preparar" saved and nothing else.
  *
  * Runs against `vite preview` of a production build (the service worker serves
  * the app and the badge logos offline); it skips itself on the dev server:
@@ -73,7 +73,8 @@ async function tablesMenuItem(page: Page, name: string | RegExp) {
 			: page.getByRole('menuitem', { name });
 	for (let attempt = 1; attempt <= 3; attempt++) {
 		await page.keyboard.press('Escape');
-		await page.locator('main button[aria-haspopup="menu"]:visible').last().click();
+		// The board's menu; every table card has its own ⋮ ("Acciones de Mesa N").
+		await page.getByRole('button', { name: 'Más acciones', exact: true }).click();
 		const submenu = page.getByRole('menuitem', { name: /^\s*Imprimir\s*$/ });
 		await submenu.focus();
 		await submenu.press('ArrowRight');
@@ -135,13 +136,21 @@ test('without signal, after only "Preparar", badges, tables and minuto a minuto 
 		expect(await brokenImages(page), 'no broken logo on the printed badges').toEqual([]);
 	});
 
-	await test.step('minuto a minuto: printed from the saved copy', async () => {
+	await test.step('minuto a minuto: printed from the saved copy, full and compact', async () => {
 		await page.goto(`/app/retreats/${RETREAT_ID}/minuto-a-minuto`);
-		await expect(page.locator('[id^="schedule-item-"]').first()).toBeVisible({ timeout: 30000 });
+		// A collapsed day hides its rows with a class (Ctrl/Cmd+P still prints them).
+		await expect(page.locator('[id^="schedule-item-"]:visible').first()).toBeVisible({ timeout: 30000 });
+		const menu = page.locator('main button[aria-haspopup="menu"]:visible').last();
 		const before = await printCalls(page);
-		await page.locator('main button[aria-haspopup="menu"]:visible').last().click();
-		await page.getByRole('menuitem', { name: /Imprimir/ }).first().click();
+		await menu.click();
+		await page.getByRole('menuitem', { name: '🖨 Imprimir', exact: true }).click();
 		await expect.poll(() => printCalls(page)).toBe(before + 1);
+
+		await menu.click();
+		const compact = await readPopup(context, () =>
+			page.getByRole('menuitem', { name: /Imprimir compacto/ }).click(),
+		);
+		expect(compact, 'the compact sheet has the activities with their times').toMatch(/\d{1,2}:\d{2}/);
 	});
 
 	await test.step('tables: every sheet prints; health says where it is instead of "—"', async () => {

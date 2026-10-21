@@ -17,6 +17,7 @@ import {
   UpdateParticipant,
   normalizeParticipantPhones,
   toNationalPhone,
+  normalizeEmail,
 } from "@repo/types";
 import {
   rebalanceTablesForRetreat,
@@ -41,6 +42,11 @@ import {
 
 // Campos de participante que vale la pena auditar (allowlist). Excluye datos médicos
 // y otros campos sensibles que no aportan al "quién hizo qué".
+//
+// Excepción deliberada: el caso especial (régimen de salud) SÍ se audita, porque la
+// traza de quién marcó, con qué motivo y quién quitó la marca es justo lo que el
+// coordinador necesita (al desmarcar, la fila pierde el motivo). La auditoría solo la
+// leen audit:read, el creador y los admin del retiro, todos con participant:health.
 const PARTICIPANT_AUDIT_FIELDS = [
   "firstName",
   "lastName",
@@ -55,6 +61,9 @@ const PARTICIPANT_AUDIT_FIELDS = [
   "paysAtHouse",
   "scholarshipAmount",
   "paymentAmount",
+  "specialCase",
+  "specialCaseCategory",
+  "specialCaseNotes",
 ];
 
 /**
@@ -80,6 +89,7 @@ import {
   CreateHistoryData,
 } from "./retreatParticipantService";
 import { RetreatParticipant } from "../entities/retreatParticipant.entity";
+import { ScheduledMessage } from "../entities/scheduledMessage.entity";
 import { User } from "../entities/user.entity";
 import { Responsability } from "../entities/responsability.entity";
 import { ParticipantCommunication } from "../entities/participantCommunication.entity";
@@ -821,6 +831,9 @@ export const findAllParticipants = async (
         "bagMade",
         "isScholarship",
         "paysAtHouse",
+        "specialCase",
+        "specialCaseCategory",
+        "specialCaseNotes",
         "scholarshipAmount",
         "mealCount",
         "takesFridayMeal",
@@ -857,6 +870,10 @@ export const findAllParticipants = async (
         p.bagMade = h.bagMade ?? false;
         p.isScholarship = h.isScholarship ?? false;
         p.paysAtHouse = h.paysAtHouse ?? false;
+        p.specialCase = h.specialCase ?? false;
+        if (h.specialCaseCategory != null)
+          p.specialCaseCategory = h.specialCaseCategory;
+        if (h.specialCaseNotes != null) p.specialCaseNotes = h.specialCaseNotes;
         if (h.scholarshipAmount !== undefined)
           p.scholarshipAmount = h.scholarshipAmount;
         if (h.mealCount !== undefined) p.mealCount = h.mealCount;
@@ -3019,6 +3036,9 @@ export const updateParticipant = async (
     family_friend_color,
     isScholarship,
     paysAtHouse,
+    specialCase,
+    specialCaseCategory,
+    specialCaseNotes,
     scholarshipAmount,
     mealCount,
     takesFridayMeal,
@@ -3136,6 +3156,9 @@ export const updateParticipant = async (
     isScholarship: currentRp?.isScholarship,
     paysAtHouse: currentRp?.paysAtHouse,
     scholarshipAmount: currentRp?.scholarshipAmount,
+    specialCase: currentRp?.specialCase,
+    specialCaseCategory: currentRp?.specialCaseCategory,
+    specialCaseNotes: currentRp?.specialCaseNotes,
   };
 
   // Update personal data on participants table
@@ -3163,6 +3186,22 @@ export const updateParticipant = async (
     // keep it (caught by paysAtHouseWritePath.test.ts, D4).
     if (isScholarship === true) {
       rpUpdates.paysAtHouse = false;
+    }
+    // Caso especial (régimen de salud: el 403 del controller ya filtró a quien
+    // no tiene participant:health).
+    if (specialCase !== undefined) rpUpdates.specialCase = !!specialCase;
+    if (specialCaseCategory !== undefined)
+      rpUpdates.specialCaseCategory = specialCaseCategory || null;
+    if (specialCaseNotes !== undefined)
+      rpUpdates.specialCaseNotes = specialCaseNotes || null;
+    // Data hygiene: attending the case (unmarking) clears its reason; the
+    // audit diff of this update keeps the trace. Unconditional for the same
+    // reason as the scholarship rule above: the re-sent hydrated DTO carries
+    // the stale category/notes. Never touches `notes` (the walker's general
+    // notes are not part of the case).
+    if (specialCase === false) {
+      rpUpdates.specialCaseCategory = null;
+      rpUpdates.specialCaseNotes = null;
     }
     if (scholarshipAmount !== undefined)
       rpUpdates.scholarshipAmount =
@@ -3373,6 +3412,18 @@ export const updateParticipant = async (
         : paysAtHouse !== undefined
           ? !!paysAtHouse
           : (currentRp?.paysAtHouse ?? false);
+    updatedParticipant.specialCase =
+      rpUpdates.specialCase !== undefined
+        ? rpUpdates.specialCase
+        : (currentRp?.specialCase ?? false);
+    updatedParticipant.specialCaseCategory =
+      rpUpdates.specialCaseCategory !== undefined
+        ? rpUpdates.specialCaseCategory
+        : (currentRp?.specialCaseCategory ?? null);
+    updatedParticipant.specialCaseNotes =
+      rpUpdates.specialCaseNotes !== undefined
+        ? rpUpdates.specialCaseNotes
+        : (currentRp?.specialCaseNotes ?? null);
     updatedParticipant.scholarshipAmount =
       scholarshipAmount !== undefined
         ? scholarshipAmount === null || scholarshipAmount === ""
@@ -5651,4 +5702,324 @@ export const anonymizeParticipantByToken = async (
   }
 
   return anonymized;
+};
+
+// --- Email correction (global identity) --------------------------------------
+// PATCH /participants/:id/email — specs/participant-email-change (D1-D7).
+// The email is the participant's GLOBAL identity: it drives the account
+// auto-link and the import ficha reuse, so correcting it must drag its
+// consequences along (collision validation, user link, community overlays,
+// message queue) and leave an audit trail. The generic PATCH never touches
+// email (the controller strips it): this is the only door.
+
+export type ParticipantEmailChangeErrorCode =
+  | "EMAIL_OWNED_BY_OTHER"
+  | "EMAIL_OWNED_BY_SAME_PERSON"
+  | "EMAIL_UNIQUE_VIOLATION";
+
+/** Every rejection is a collision the admin must resolve by hand → 409. */
+export class ParticipantEmailChangeError extends Error {
+  constructor(
+    public readonly code: ParticipantEmailChangeErrorCode,
+    message: string,
+    public readonly status = 409,
+  ) {
+    super(message);
+    this.name = "ParticipantEmailChangeError";
+  }
+}
+
+export interface ChangeParticipantEmailEffects {
+  /** A user account with the new email existed and the ficha had no link (D4). */
+  userLinked: boolean;
+  /** An account still carries the OLD email — login fix is a separate flow (D4). */
+  userWithOldEmail: boolean;
+  /** community_member overlays equal to the old email, cleared to null (D5). */
+  overlaysCleared: number;
+  /** Per active retreat, the result of regenerating the queued messages (D6). */
+  queueRegenerated: Array<{
+    retreatId: string;
+    regenerated: number;
+    skipped: number;
+  }>;
+  /** Retreats where a spouse (same retreat, different gender) already uses the new email. */
+  spouseShareRetreats: string[];
+}
+
+export interface ChangeParticipantEmailResult {
+  participant: { id: string; email: string };
+  changed: boolean;
+  effects: ChangeParticipantEmailEffects;
+}
+
+/** Short SHA-256 of an email for the audit log — correlation without PII. */
+const emailAuditHash = (email: string): string =>
+  crypto.createHash("sha256").update(email.trim().toLowerCase()).digest("hex").slice(0, 12);
+
+export const changeParticipantEmail = async (
+  participantId: string,
+  rawEmail: string,
+  contextRetreatId?: string,
+): Promise<ChangeParticipantEmailResult> => {
+  // Repos are resolved lazily on purpose (same reason as updateParticipantPhones:
+  // the module-level ones predate the test-DB swap).
+  const repo = AppDataSource.getRepository(Participant);
+  const participant = await repo.findOneBy({ id: participantId });
+  if (!participant) {
+    const err = new Error("Participant not found");
+    (err as any).status = 404;
+    throw err;
+  }
+
+  const newEmail = normalizeEmail(rawEmail);
+  const oldEmail = normalizeEmail(participant.email ?? "");
+  const newEmailLower = newEmail.toLowerCase();
+  const oldEmailLower = oldEmail.toLowerCase();
+
+  // (a) Same address (case-insensitive): no-op. The UI surfaces `changed:false`
+  // instead of pretending a correction happened; nothing is audited or linked.
+  if (newEmailLower === oldEmailLower) {
+    return {
+      participant: { id: participant.id, email: participant.email },
+      changed: false,
+      effects: {
+        userLinked: false,
+        userWithOldEmail: false,
+        overlaysCleared: 0,
+        queueRegenerated: [],
+        spouseShareRetreats: [],
+      },
+    };
+  }
+
+  // --- Collision validation (D3): always reject, never merge ---------------
+  // Global check against LOWER(email), not just this retreat: a silent
+  // cross-retreat duplicate is what breaks findParticipantByEmail reuse later.
+  const others = await repo
+    .createQueryBuilder("participant")
+    .where("LOWER(participant.email) = :email", { email: newEmailLower })
+    .andWhere("participant.id != :id", { id: participantId })
+    .getMany();
+
+  // Participations of this participant, loaded once: the collision branch needs
+  // them for the shared-retreat math and the queue branch reuses them below
+  // (the email change never touches memberships).
+  const rpRepo = AppDataSource.getRepository(RetreatParticipant);
+  const participations = await rpRepo.find({ where: { participantId } });
+  const selfRetreatIds = new Set(participations.map((r) => r.retreatId));
+
+  const spouseShareRetreats: string[] = [];
+  if (others.length > 0) {
+    const rows = await rpRepo.find({
+      where: { participantId: In(others.map((o) => o.id)) },
+    });
+    const retreatIdsOf = (pid: string): Set<string> =>
+      new Set(rows.filter((r) => r.participantId === pid).map((r) => r.retreatId));
+
+    for (const other of others) {
+      const otherRetreatIds = retreatIdsOf(other.id);
+      const shared = [...otherRetreatIds].filter((rid) => selfRetreatIds.has(rid));
+
+      // Spouse exception: same retreat with both genders set and different.
+      // UQ_participants_email_retreat carves exactly this case out so a couple
+      // can share a family address — allowed, but reported back so the admin
+      // can catch a data-entry slip. Deduped: several opposite-gender fichas
+      // sharing the family address in one retreat must not double-count it.
+      const spouseCase =
+        shared.length > 0 &&
+        !!participant.gender &&
+        !!other.gender &&
+        participant.gender !== other.gender;
+      if (spouseCase) {
+        for (const rid of shared) {
+          if (!spouseShareRetreats.includes(rid)) spouseShareRetreats.push(rid);
+        }
+        continue;
+      }
+
+      // Clearly another person → pedagogical 409, same shape as the import
+      // (importEmailReuse): whose the address is, where that ficha lives, and
+      // that nothing was touched. "Este retiro" means the retreat the caller
+      // is correcting FROM (contextRetreatId), not any retreat the two fichas
+      // happen to share — otherwise the admin hunts for the owner in the
+      // wrong retreat.
+      if (isImportNameConflict(other, participant)) {
+        const inContextRetreat =
+          !!contextRetreatId && shared.includes(contextRetreatId);
+        throw new ParticipantEmailChangeError(
+          "EMAIL_OWNED_BY_OTHER",
+          `el correo ya es de ${fullName(other)}, ` +
+            (inContextRetreat
+              ? "inscrito en este retiro"
+              : "registrado fuera de este retiro") +
+            `, y la ficha que corriges es de ${fullName(participant)}. No se tocó la ficha de ${fullName(other)}: ` +
+            `verifica que el correo sea propio de ${fullName(participant)}`,
+        );
+      }
+
+      // Seems to be the same person in two fichas sharing one address. That is
+      // what breaks global email reuse, and it is fixed by merging the fichas,
+      // not by re-emailing one of them.
+      throw new ParticipantEmailChangeError(
+        "EMAIL_OWNED_BY_SAME_PERSON",
+        `el correo ya está en la ficha de ${fullName(other)} y parece la misma persona ` +
+          `(${fullName(participant)}). Usa la fusión de fichas para unificarlas antes de corregir el correo`,
+      );
+    }
+  }
+
+  // --- User account link (D4) ----------------------------------------------
+  // Same criterion as the auto-link at creation: if an account with the new
+  // email exists and the ficha has no link, adopt it. If the ficha already has
+  // a link, nothing is touched (users.email is login identity, out of scope).
+  const userRepo = AppDataSource.getRepository(User);
+  let userLinked = false;
+  if (!participant.userId) {
+    const matchingUser = await userRepo
+      .createQueryBuilder("user")
+      .where("LOWER(user.email) = :email", { email: newEmailLower })
+      .getOne();
+    if (matchingUser) {
+      participant.userId = matchingUser.id;
+      userLinked = true;
+    }
+  }
+  // Does an account still carry the OLD address? That account points at a
+  // mailbox its owner does not control; fixing users.email is a separate flow.
+  let userWithOldEmail = false;
+  if (oldEmailLower) {
+    const staleUser = await userRepo
+      .createQueryBuilder("user")
+      .where("LOWER(user.email) = :email", { email: oldEmailLower })
+      .getOne();
+    userWithOldEmail = !!staleUser;
+  }
+
+  // --- Persist ---------------------------------------------------------------
+  participant.email = newEmail;
+  participant.lastUpdatedDate = new Date();
+  let saved: Participant;
+  try {
+    saved = await repo.save(participant);
+  } catch (err) {
+    // Race or an edge the pre-checks missed (e.g. same retreat with the same
+    // COALESCE(gender,'')): surface the unique index as a 409, not a 500.
+    const msg = err instanceof Error ? err.message : String(err);
+    if (/UNIQUE constraint failed|UQ_participants_email_retreat/i.test(msg)) {
+      throw new ParticipantEmailChangeError(
+        "EMAIL_UNIQUE_VIOLATION",
+        "otra ficha de este retiro ya usa ese correo (índice único); revísala antes de volver a intentar",
+      );
+    }
+    throw err;
+  }
+
+  // Reciprocal link, same as createParticipant: the matched user adopts this
+  // ficha if it had none. Only after the save, so a failed save leaves no
+  // side effects on the user row.
+  if (userLinked) {
+    await userRepo
+      .createQueryBuilder()
+      .update(User)
+      .set({ participantId: saved.id })
+      .where("id = :id AND participantId IS NULL", { id: saved.userId })
+      .execute();
+  }
+
+  // --- Community overlays (D5) ----------------------------------------------
+  // An overlay email equal to the old address keeps winning over the
+  // participant (resolveMemberProfile), so the community would keep writing to
+  // the wrong mailbox forever. Clear those overlays to null so the fallback
+  // picks up the corrected address.
+  const memberRepo = AppDataSource.getRepository(CommunityMember);
+  const members = await memberRepo.find({ where: { participantId: saved.id } });
+  const overlayIdsToClear = members
+    .filter((m) => (m.email ?? "").trim().toLowerCase() === oldEmailLower)
+    .map((m) => m.id);
+  if (overlayIdsToClear.length > 0) {
+    await memberRepo.update(overlayIdsToClear, { email: null });
+  }
+
+  // --- Message queue (D6) ---------------------------------------------------
+  // scheduled_message freezes resolvedContact (with the email) when queued, so
+  // pending rows would keep leaving for the old address.
+  // regenerateQueuedForRetreat is the existing audited remedy; it works per
+  // retreat, so run it for every ACTIVE retreat of this participant. "Active"
+  // uses the same TZ-aware rule as the message engine (the retreat lives its
+  // last day in its own timezone) — plus any retreat, closed or not, where
+  // THIS participant still has undispatched rows: days_after_retreat sequences
+  // keep dispatching AFTER_RETREAT_GRACE_DAYS past the end (and WhatsApp rows
+  // sit in the coordinator's tray as `queued`), so those frozen rows must not
+  // keep leaving for the old address either.
+  const queueRegenerated: ChangeParticipantEmailEffects["queueRegenerated"] = [];
+  const retreatRepo = AppDataSource.getRepository(Retreat);
+  const smRepo = AppDataSource.getRepository(ScheduledMessage);
+  const undispatchedRetreatIds = new Set(
+    (
+      await smRepo.find({
+        where: {
+          participantId: saved.id,
+          status: In(["pending", "processing", "queued"]),
+        },
+        select: { retreatId: true },
+      })
+    ).map((m) => m.retreatId),
+  );
+  const retreatIds = [
+    ...new Set([
+      ...participations.map((rp) => rp.retreatId),
+      ...undispatchedRetreatIds,
+    ]),
+  ];
+  if (retreatIds.length > 0) {
+    const retreats = await retreatRepo.find({ where: { id: In(retreatIds) } });
+    for (const retreat of retreats) {
+      if (
+        messageSequenceService.isRetreatClosed(retreat, undefined) &&
+        !undispatchedRetreatIds.has(retreat.id)
+      ) {
+        continue;
+      }
+      try {
+        const r = await messageSequenceService.regenerateQueuedForRetreat(retreat.id);
+        queueRegenerated.push({ retreatId: retreat.id, ...r });
+      } catch (err) {
+        // The email is already corrected; a failed regeneration must not fail
+        // the request. The remedy stays available by hand per retreat.
+        console.error(
+          `[participantService] queue regeneration failed for retreat ${retreat.id} after email change:`,
+          err,
+        );
+      }
+    }
+  }
+
+  // Hashes only — the plaintext email never enters the audit log.
+  void domainAuditService.log({
+    action: DomainAuditAction.PARTICIPANT_EMAIL_CHANGE,
+    resourceType: "participant",
+    resourceId: saved.id,
+    retreatId: contextRetreatId ?? saved.retreatId ?? null,
+    metadata: {
+      oldEmailHash: emailAuditHash(oldEmail),
+      newEmailHash: emailAuditHash(newEmail),
+      userLinked,
+      userWithOldEmail,
+      overlaysCleared: overlayIdsToClear.length,
+      queueRegenerated,
+      spouseShareRetreats,
+    },
+  });
+
+  return {
+    participant: { id: saved.id, email: saved.email },
+    changed: true,
+    effects: {
+      userLinked,
+      userWithOldEmail,
+      overlaysCleared: overlayIdsToClear.length,
+      queueRegenerated,
+      spouseShareRetreats,
+    },
+  };
 };
