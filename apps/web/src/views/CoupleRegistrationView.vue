@@ -51,6 +51,9 @@ const isSubmitting = ref(false)
 const retreatCountry = computed<string | undefined>(() => retreatData.value?.country || undefined)
 const mealChargesEnabled = computed(() => Number(retreatData.value?.mealCost) > 0)
 const isRegistrationClosed = computed(() => Boolean(retreatData.value?.isRegistrationClosed))
+// Retiro anunciado con fechas visibles cuyo registro aún no abrió. El
+// `=== false` mantiene abiertos los payloads viejos sin el campo.
+const isRegistrationNotOpen = computed(() => retreatData.value?.registrationOpen === false)
 
 // ---------- Estado del formulario ----------
 
@@ -717,6 +720,16 @@ onMounted(async () => {
 				<CardHeader>
 					<CardTitle>{{ retreatData.parish }}</CardTitle>
 					<CardDescription>{{ $t('coupleRegistration.registrationClosed') }}</CardDescription>
+				</CardHeader>
+			</Card>
+
+			<Card v-else-if="isRegistrationNotOpen">
+				<CardHeader>
+					<CardTitle>{{ retreatData.parish }}</CardTitle>
+					<CardDescription>
+						{{ $t('walkerRegistration.registrationNotOpen.title') }} —
+						{{ $t('walkerRegistration.registrationNotOpen.description') }}
+					</CardDescription>
 				</CardHeader>
 			</Card>
 

@@ -479,6 +479,7 @@ export const createParticipant = async (
       if (
         code === "RETREAT_CLOSED" ||
         code === "RETREAT_NOT_PUBLIC" ||
+        code === "RETREAT_REGISTRATION_NOT_OPEN" ||
         code === "RETREAT_NOT_FOUND" ||
         code === "MEAL_COUNT_EXCEEDS_RETREAT_MEALS"
       ) {
@@ -565,6 +566,7 @@ export const createCoupleParticipant = async (
       if (
         code === "RETREAT_CLOSED" ||
         code === "RETREAT_NOT_PUBLIC" ||
+        code === "RETREAT_REGISTRATION_NOT_OPEN" ||
         code === "RETREAT_NOT_FOUND" ||
         code === "RETREAT_NOT_COUPLES"
       ) {
@@ -881,6 +883,7 @@ export const confirmExistingParticipantEmail = async (
       if (
         code === "RETREAT_CLOSED" ||
         code === "RETREAT_NOT_PUBLIC" ||
+        code === "RETREAT_REGISTRATION_NOT_OPEN" ||
         code === "RETREAT_NOT_FOUND" ||
         code === "MEAL_COUNT_EXCEEDS_RETREAT_MEALS"
       ) {

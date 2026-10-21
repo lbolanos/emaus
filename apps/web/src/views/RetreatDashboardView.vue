@@ -140,6 +140,12 @@
                       <TooltipContent>{{ $t('retreatDashboard.showQr') }}</TooltipContent>
                     </Tooltip>
                   </div>
+                  <p
+                    v-if="selectedRetreat?.isPublic && selectedRetreat?.registrationOpen === false"
+                    class="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-md px-2 py-1.5"
+                  >
+                    {{ $t('retreatDashboard.registrationNotOpenHint') }}
+                  </p>
                 </div>
 
                 <!-- Server Registration -->

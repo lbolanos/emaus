@@ -86,6 +86,9 @@ export const getPublicRetreats = async (
         endDate: r.endDate,
         slug: r.slug ?? null,
         retreat_type: r.retreat_type ?? null,
+        // Retiros "Anunciados" (isPublic sin registrationOpen) pintan el badge
+        // de Próximamente y deshabilitan los CTAs del volante.
+        registrationOpen: r.registrationOpen ?? true,
         house: r.house ? { city: r.house.city ?? null, state: r.house.state ?? null } : null,
       })),
     );
@@ -131,6 +134,9 @@ function buildPublicRetreatDetail(
     id: retreat.id,
     parish: retreat.parish,
     isPublic: retreat.isPublic,
+    // Drives the "registration opens soon" screen on the public registration
+    // views (announced retreat: listed on the landing, sign-up not open yet).
+    registrationOpen: retreat.registrationOpen ?? true,
     startDate: retreat.startDate,
     endDate: retreat.endDate,
     isRegistrationClosed: isRetreatPast(retreat.endDate),

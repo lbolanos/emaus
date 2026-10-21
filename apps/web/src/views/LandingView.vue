@@ -168,6 +168,13 @@
                 :alt="retreat.parish"
                 class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
               />
+              <!-- Retiro anunciado: se ven las fechas pero la inscripción no abrió -->
+              <span
+                v-if="retreat.registrationOpen === false"
+                class="absolute bottom-4 left-4 bg-stone-900/85 backdrop-blur px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-tighter text-white"
+              >
+                {{ $t('landing.upcomingBadge') }}
+              </span>
               <button
                 @click="openRetreatFlyer(retreat, $event)"
                 class="absolute top-4 right-4 bg-white/90 backdrop-blur px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-tighter hover:bg-white hover:shadow-lg transition-all cursor-pointer"

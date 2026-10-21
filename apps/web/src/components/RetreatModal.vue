@@ -489,25 +489,28 @@
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div class="p-4 border rounded-lg">
                 <div class="space-y-1">
-                  <Label for="isPublic" class="font-medium">{{ $t('retreatModal.isPublic') }}</Label>
-                  <p class="text-xs text-muted-foreground">{{ $t('retreatModal.isPublicDescription') }}</p>
+                  <Label class="font-medium">{{ $t('retreatModal.visibility.label') }}</Label>
+                  <p class="text-xs text-muted-foreground">{{ $t('retreatModal.visibility.description') }}</p>
                 </div>
-                <RadioGroup v-model="formData.isPublic" :disabled="isSubmitting" class="flex space-x-4 mt-2">
+                <RadioGroup v-model="visibilityState" :disabled="isSubmitting" class="flex flex-col space-y-2 mt-2">
                   <div class="flex items-center space-x-2">
-                    <RadioGroupItem id="isPublic-yes" :value="true" />
-                    <Label for="isPublic-yes">{{ $t('common.yes') }}</Label>
+                    <RadioGroupItem id="visibility-draft" value="draft" />
+                    <Label for="visibility-draft">{{ $t('retreatModal.visibility.draft') }}</Label>
                   </div>
                   <div class="flex items-center space-x-2">
-                    <RadioGroupItem id="isPublic-no" :value="false" />
-                    <Label for="isPublic-no">{{ $t('common.no') }}</Label>
+                    <RadioGroupItem id="visibility-announced" value="announced" />
+                    <Label for="visibility-announced">{{ $t('retreatModal.visibility.announced') }}</Label>
+                  </div>
+                  <div class="flex items-center space-x-2">
+                    <RadioGroupItem id="visibility-published" value="published" />
+                    <Label for="visibility-published">{{ $t('retreatModal.visibility.published') }}</Label>
                   </div>
                 </RadioGroup>
                 <div
-                  v-if="formData.isPublic"
                   class="mt-3 p-2 rounded-md bg-blue-50 border border-blue-200 text-blue-900 text-xs flex gap-2"
                 >
                   <span class="text-base leading-none">ℹ️</span>
-                  <span>{{ $t('retreatModal.isPublicWarning') }}</span>
+                  <span>{{ $t(visibilityHintKey) }}</span>
                 </div>
               </div>
 
@@ -848,6 +851,14 @@
         </DialogDescription>
       </DialogHeader>
 
+      <div
+        v-if="createdRetreat?.isPublic && (createdRetreat as any).registrationOpen === false"
+        class="p-2 rounded-md bg-amber-50 border border-amber-200 text-amber-900 text-xs flex gap-2"
+      >
+        <span class="text-base leading-none">🗓️</span>
+        <span>{{ $t('retreatModal.stateHint.successAnnounced') }}</span>
+      </div>
+
       <div class="space-y-4">
         <div class="space-y-2">
           <Label class="text-sm font-medium">{{ $t('retreatModal.walkerUrl') }}</Label>
@@ -1077,6 +1088,7 @@ const formData = ref({
   max_walkers: undefined as number | undefined,
   max_servers: undefined as number | undefined,
   isPublic: false,
+  registrationOpen: false,
   roleInvitationEnabled: true,
   notifyParticipant: true,
   notifyInviter: true,
@@ -1283,6 +1295,30 @@ const isFormValid = computed(() => {
          slugAvailable.value &&
          Object.keys(errors.value).length === 0;
 });
+
+// Visibilidad en 3 estados sobre las dos banderas del backend:
+// Borrador (f/f) oculto; Anunciado (t/f) en landing con fechas pero sin
+// inscripción; Publicado (t/t) landing + inscripción abierta.
+const visibilityState = computed<'draft' | 'announced' | 'published'>({
+  get: () =>
+    formData.value.isPublic
+      ? formData.value.registrationOpen
+        ? 'published'
+        : 'announced'
+      : 'draft',
+  set: (val) => {
+    formData.value.isPublic = val !== 'draft';
+    formData.value.registrationOpen = val === 'published';
+  },
+});
+
+const visibilityHintKey = computed(() =>
+  visibilityState.value === 'draft'
+    ? 'retreatModal.visibility.draftHint'
+    : visibilityState.value === 'announced'
+      ? 'retreatModal.visibility.announcedHint'
+      : 'retreatModal.visibility.publishedHint',
+);
 
 // Aviso: el "Costo" es el cobro del caminante; si no contiene un número, el caminante
 // quedaría en 0 (paz y salvo automático) por error de captura.
@@ -1492,6 +1528,7 @@ const handleSubmit = async () => {
         communityId: formData.value.communityId,
         timezone: formData.value.timezone,
         isPublic: formData.value.isPublic,
+        registrationOpen: formData.value.registrationOpen,
         roleInvitationEnabled: formData.value.roleInvitationEnabled,
         notifyParticipant: formData.value.notifyParticipant,
         notifyInviter: formData.value.notifyInviter,
@@ -1569,6 +1606,7 @@ const resetForm = () => {
     max_walkers: undefined,
     max_servers: undefined,
     isPublic: false,
+    registrationOpen: false,
     roleInvitationEnabled: true,
     notifyParticipant: true,
     notifyInviter: true,
@@ -1764,6 +1802,8 @@ watch(() => props.open, (newOpen) => {
           max_walkers: props.retreat.max_walkers,
           max_servers: props.retreat.max_servers,
           isPublic: props.retreat.isPublic,
+          // Retiros creados antes de la migración traen undefined => abiertos.
+          registrationOpen: (props.retreat as any).registrationOpen ?? true,
           roleInvitationEnabled: props.retreat.roleInvitationEnabled,
           notifyParticipant: (props.retreat as any).notifyParticipant ?? true,
           notifyInviter: (props.retreat as any).notifyInviter ?? true,

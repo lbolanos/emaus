@@ -23,7 +23,19 @@ const mountModal = (props: Record<string, unknown> = {}) =>
 	mount(PublicRetreatFlyerModal, {
 		props: { open: true, retreat: RETREAT, ...props },
 		global: {
-			stubs: { teleport: true, transition: true, 'router-link': true },
+			// Los CTAs publicados son router-link. setup.ts pisa router-link con
+			// un stub GLOBAL que pinta <a><slot /></a> sin href; un stub a nivel
+			// mount LO REEMPLAZA (los stubs locales ganan a config.global.stubs),
+			// así que aquí el `to` sí llega al href y el selector por destino
+			// funciona.
+			stubs: {
+				teleport: true,
+				transition: true,
+				'router-link': {
+					props: ['to'],
+					template: '<a :href="typeof to === \'string\' ? to : \'#\'"><slot /></a>',
+				},
+			},
 		},
 	});
 
@@ -42,3 +54,26 @@ describe('PublicRetreatFlyerModal — detailFailed warning', () => {
 		expect(wrapper.text()).toContain(RETREAT.parish);
 	});
 });
+
+describe('PublicRetreatFlyerModal — retiro anunciado (registrationOpen false)', () => {
+	// Anunciado: el volante se puede ver (fechas, casa, teléfonos) pero los
+	// CTAs de inscripción quedan deshabilitados con el texto "abren pronto".
+	it('replaces the register CTAs with a disabled "opens soon" pill', () => {
+		const wrapper = mountModal({ retreat: { ...RETREAT, registrationOpen: false } });
+
+		expect(wrapper.text()).toContain('landing.registrationUpcoming');
+		expect(wrapper.text()).not.toContain('landing.registerNow');
+		expect(wrapper.findAll('a[href*="/register/"]')).toHaveLength(0);
+		expect(wrapper.findAll('[aria-disabled="true"]').length).toBeGreaterThanOrEqual(2);
+	});
+
+	it('keeps the registration CTAs enabled for published retreats', () => {
+		// registrationOpen ausente = legado abierto (back-compat del `=== false`).
+		const wrapper = mountModal();
+
+		expect(wrapper.text()).toContain('landing.registerNow');
+		expect(wrapper.text()).not.toContain('landing.registrationUpcoming');
+		expect(wrapper.findAll('a[href*="/register/walker/"]').length).toBe(1);
+	});
+});
+

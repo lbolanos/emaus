@@ -162,6 +162,28 @@ const formData = ref(getInitialFormData())
 
 const isServerType = computed(() => props.type === 'server' || props.type === 'partial_server')
 const isRegistrationClosed = computed(() => Boolean(retreatData.value?.isRegistrationClosed))
+// Retiro anunciado (visible en landing con fechas) cuyo registro aún no abrió.
+// El `=== false` (y no `!`) mantiene abiertos los payloads viejos sin el campo.
+const isRegistrationNotOpen = computed(() => retreatData.value?.registrationOpen === false)
+
+function formatDateRange(retreat: { startDate?: string; endDate?: string } | null): string {
+  if (!retreat?.startDate) return ''
+  // Las fechas date-only llegan como medianoche UTC: formatearlas en TZ local
+  // corre el día (2027-03-05 se pintaría como 4 de marzo en CST). Parsear el
+  // prefijo YYYY-MM-DD a componentes locales, igual que LandingView.
+  const fmt = (d: string) => {
+    const match = d.match(/^(\d{4})-(\d{2})-(\d{2})/)
+    const date = match
+      ? new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]))
+      : new Date(d)
+    return date.toLocaleDateString(locale.value === 'en' ? 'en-US' : 'es-MX', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    })
+  }
+  return retreat.endDate ? `${fmt(retreat.startDate)} – ${fmt(retreat.endDate)}` : fmt(retreat.startDate)
+}
 const showEmailLookup = ref(false)
 const emailLookup = ref('')
 const isSearching = ref(false)
@@ -1121,6 +1143,7 @@ onMounted(async () => {
         if (
           !isServerType.value &&
           !retreat.isRegistrationClosed &&
+          retreat.registrationOpen !== false &&
           external &&
           /^https?:\/\//i.test(external)
         ) {
@@ -1201,6 +1224,16 @@ defineExpose({ validateStep, formData, formErrors, retreatData, retreatCountry, 
         </div>
         <h1 class="text-3xl md:text-4xl font-bold mb-4">{{ $t('serverRegistration.retreatClosed.title') }}</h1>
         <p class="text-lg md:text-xl opacity-90">{{ $t('serverRegistration.retreatClosed.description') }}</p>
+      </div>
+      <div v-else-if="isRegistrationNotOpen" class="bg-black/20 backdrop-blur-sm rounded-2xl p-8 max-w-2xl mx-auto border border-white/10 shadow-2xl">
+        <div class="w-20 h-20 mx-auto mb-6 bg-white/10 rounded-full flex items-center justify-center">
+          <svg class="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+          </svg>
+        </div>
+        <h1 class="text-3xl md:text-4xl font-bold mb-4">{{ $t('walkerRegistration.registrationNotOpen.title') }}</h1>
+        <p class="text-lg md:text-xl opacity-90 mb-4">{{ $t('walkerRegistration.registrationNotOpen.description') }}</p>
+        <p v-if="retreatData?.startDate" class="text-xl font-semibold text-yellow-200">{{ formatDateRange(retreatData) }}</p>
       </div>
       <div v-else class="bg-black/20 backdrop-blur-sm rounded-2xl p-8 max-w-2xl mx-auto border border-white/10 shadow-2xl">
         <div class="mb-6">

@@ -761,6 +761,62 @@ describe('LandingView', () => {
 		});
 	});
 
+	// ─── Retreat cards ──────────────────────────────────────────────────────────
+
+	describe('Retreat cards', () => {
+		const makePublicRetreat = (overrides: Record<string, any> = {}) => ({
+			id: `r-${Math.random().toString(36).slice(2)}`,
+			parish: 'Parroquia Tlalpan',
+			startDate: new Date(Date.now() + 30 * 86_400_000).toISOString(),
+			endDate: new Date(Date.now() + 32 * 86_400_000).toISOString(),
+			...overrides,
+		});
+
+		const mountWithRetreats = async (retreats: any[]) => {
+			const { getPublicRetreats } = await import('@/services/api');
+			(getPublicRetreats as any).mockResolvedValue(retreats);
+
+			// Cada tarjeta es un <router-link> entero: el stub booleano de
+			// createTestWrapper ('router-link': true) traga los hijos y con
+			// ellos la tarjeta completa. Lo reemplazamos por un <a> que pinte
+			// el slot (los stubs del mount ganan a los globales de setup.ts).
+			const w = createTestWrapper(LandingView, {
+				global: {
+					stubs: {
+						'router-link': {
+							props: ['to'],
+							template: '<a :href="typeof to === \'string\' ? to : \'#\'"><slot /></a>',
+						},
+					},
+					mocks: { $t: (key: string) => key },
+				},
+			});
+			await nextTick();
+			await new Promise((r) => setTimeout(r, 100));
+			return w;
+		};
+
+		it('muestra el badge "Próximamente" en la tarjeta de un retiro anunciado', async () => {
+			const w = await mountWithRetreats([makePublicRetreat({ registrationOpen: false })]);
+
+			expect(w.text()).toContain('Parroquia Tlalpan');
+			expect(w.text()).toContain('landing.upcomingBadge');
+			w.unmount();
+		});
+
+		it('no muestra el badge para un retiro publicado (ni para payloads legados)', async () => {
+			const w = await mountWithRetreats([
+				makePublicRetreat({ registrationOpen: true, parish: 'Publicado' }),
+				makePublicRetreat({ parish: 'Legado sin campo' }), // pre-migración
+			]);
+
+			expect(w.text()).toContain('Publicado');
+			expect(w.text()).toContain('Legado sin campo');
+			expect(w.text()).not.toContain('landing.upcomingBadge');
+			w.unmount();
+		});
+	});
+
 	// ─── Community Search ──────────────────────────────────────────────────────
 
 	describe('Community Search', () => {

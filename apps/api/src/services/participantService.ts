@@ -225,7 +225,7 @@ const assertRetreatAcceptsRegistrations = async (
 ): Promise<void> => {
   const retreat = await manager.getRepository(Retreat).findOne({
     where: { id: retreatId },
-    select: ["id", "isPublic", "endDate"],
+    select: ["id", "isPublic", "registrationOpen", "endDate"],
   });
   if (!retreat) {
     const err = new Error("Retiro no encontrado.") as Error & { code?: string };
@@ -239,6 +239,17 @@ const assertRetreatAcceptsRegistrations = async (
       code?: string;
     };
     err.code = "RETREAT_NOT_PUBLIC";
+    throw err;
+  }
+  // Retiro "Anunciado": visible en la landing con sus fechas pero con la
+  // inscripción cerrada hasta que un admin lo publique.
+  if (retreat.registrationOpen === false) {
+    const err = new Error(
+      "Las inscripciones de este retiro aún no están abiertas.",
+    ) as Error & {
+      code?: string;
+    };
+    err.code = "RETREAT_REGISTRATION_NOT_OPEN";
     throw err;
   }
   if (isRetreatPast(retreat.endDate)) {

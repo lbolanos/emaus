@@ -88,6 +88,11 @@ export class TestDataFactory {
 			startDate: new Date(),
 			endDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000), // 3 days from now
 			houseId: savedHouse.id,
+			// Retiro "normal" de test: inscripción abierta. El default del entity
+			// (false, retiro nuevo aún sin publicar) NO aplica aquí — los tests de
+			// registro (walkers, parejas) asumen que pueden inscribir; los tests
+			// del gate (registrationOpenGate) setean false explícitamente.
+			registrationOpen: true,
 			...overrides,
 		};
 

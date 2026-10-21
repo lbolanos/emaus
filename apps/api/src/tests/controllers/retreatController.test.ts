@@ -388,6 +388,8 @@ describe("Retreat Controller", () => {
         endDate: env.retreat.endDate,
         slug: env.retreat.slug ?? null,
         retreat_type: env.retreat.retreat_type ?? null,
+        // La landing lo necesita para el badge "Próximamente" (Anunciado).
+        registrationOpen: env.retreat.registrationOpen ?? true,
         house: item.house, // shape-checked below, valor exacto no importa aquí
       });
       for (const forbidden of [

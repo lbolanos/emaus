@@ -149,8 +149,18 @@
 
             <!-- CTA -->
             <div class="relative pt-6">
+              <!-- Retiro anunciado sin inscripción abierta: fecha visible, CTAs off -->
+              <div v-if="registrationNotOpen" class="text-center">
+                <span
+                  class="inline-flex items-center gap-2 px-8 py-3 rounded-full bg-stone-200 text-stone-500 font-medium cursor-not-allowed"
+                  aria-disabled="true"
+                >
+                  <UserPlus :size="18" />
+                  {{ t('landing.registrationUpcoming') }}
+                </span>
+              </div>
               <!-- Centered Walker Registration -->
-              <div class="text-center">
+              <div v-else class="text-center">
                 <router-link
                   v-if="retreat?.id"
                   :to="`/register/walker/${retreat.id}`"
@@ -169,8 +179,15 @@
                 </router-link>
               </div>
               <!-- Server Registration - Bottom Right -->
+              <span
+                v-if="retreat?.id && registrationNotOpen"
+                class="absolute bottom-0 right-0 inline-flex items-center gap-1 px-4 py-2 rounded-full bg-stone-100 border border-stone-200 text-stone-400 text-xs font-medium cursor-not-allowed"
+                aria-disabled="true"
+              >
+                <span>{{ t('landing.registerServer') }}</span>
+              </span>
               <router-link
-                v-if="retreat?.id"
+                v-else-if="retreat?.id"
                 :to="`/register/server/${retreat.id}`"
                 class="absolute bottom-0 right-0 inline-flex items-center gap-1 px-4 py-2 rounded-full bg-white border border-stone-200 text-stone-600 text-xs font-medium hover:bg-stone-50 hover:border-stone-300 transition-all"
               >
@@ -227,6 +244,9 @@ interface Retreat {
   openingNotes?: string;
   house?: House;
   retreat_type?: string;
+  // false ⇒ retiro anunciado sin inscripción abierta: los CTAs se desactivan.
+  // Ausente ⇒ abierto (compat con payloads viejos).
+  registrationOpen?: boolean;
 }
 
 const props = defineProps<{
@@ -241,6 +261,9 @@ const props = defineProps<{
 defineEmits<{
   'update:open': [value: boolean];
 }>();
+
+// `=== false` para que un payload viejo sin el campo siga mostrando los CTAs.
+const registrationNotOpen = computed(() => props.retreat?.registrationOpen === false);
 
 const { t } = useI18n();
 

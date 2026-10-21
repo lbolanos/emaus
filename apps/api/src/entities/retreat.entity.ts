@@ -132,6 +132,20 @@ export class Retreat {
 	@Column({ type: 'boolean', default: false })
 	isPublic!: boolean;
 
+	/**
+	 * Public registration is independent of landing visibility: `isPublic` lists
+	 * the retreat on the landing, `registrationOpen` lets `POST /participants/new`
+	 * through. A retreat can be announced with its dates while registration stays
+	 * closed until it is published.
+	 *
+	 * Entity default false on purpose (new retreats are born closed) while the
+	 * migration adds the column with DEFAULT 1 so existing rows keep accepting
+	 * registrations — TypeORM always sends the entity value explicitly, so the
+	 * column default only covers raw SQL inserts (migrations/seeders).
+	 */
+	@Column({ type: 'boolean', default: false })
+	registrationOpen!: boolean;
+
 	@Column({ type: 'boolean', default: true })
 	roleInvitationEnabled!: boolean;
 

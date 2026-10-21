@@ -393,6 +393,13 @@ export const retreatSchema = z.object({
 			.optional(),
 	),
 	isPublic: z.boolean().default(false),
+	// La inscripción pública va independiente de la visibilidad: isPublic pone
+	// el retiro en la landing, registrationOpen habilita el POST de inscripción.
+	// Así un retiro puede anunciarse con sus fechas sin abrir inscripciones.
+	// OJO: el middleware NO asigna el body parseado, así que al CREAR el valor
+	// efectivo lo decide el default del entity (retreat.entity.ts, false); este
+	// default documenta la intención y cubre clientes que lean el parsed body.
+	registrationOpen: z.boolean().default(false),
 	roleInvitationEnabled: z.boolean().default(true),
 	walkerArrivalTime: arrivalTimeSchema,
 	serverArrivalTimeFriday: arrivalTimeSchema,

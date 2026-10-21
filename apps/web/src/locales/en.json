@@ -742,6 +742,8 @@
     },
     "registerNow": "Register Now",
     "registerServer": "Register as Server",
+    "upcomingBadge": "Coming soon",
+    "registrationUpcoming": "Registrations open soon",
     "important": "Important",
     "viewInMaps": "View in Google Maps",
     "storiesBadge": "Real Stories",
@@ -1491,6 +1493,16 @@
     "editTitle": "Edit Retreat",
     "addDescription": "Create a new retreat.",
     "editDescription": "Edit the details of the retreat.",
+    "visibility": {
+      "label": "Retreat state",
+      "description": "Controls landing visibility and whether registrations are open.",
+      "draft": "Draft",
+      "announced": "Announced",
+      "published": "Published",
+      "draftHint": "Draft: hidden from the landing and not accepting registrations.",
+      "announcedHint": "Announced: visible on the landing with its dates, but registrations are closed.",
+      "publishedHint": "Published: visible on the landing and accepting registrations."
+    },
     "parish": "Parish Name",
     "parishPlaceholder": "Enter the parish name",
     "retreatType": "Retreat Type",
@@ -1556,6 +1568,9 @@
     "serverUrl": "Server Registration URL",
     "linkCopied": "{type} link copied to clipboard",
     "closeAndContinue": "Close and Continue",
+    "stateHint": {
+      "successAnnounced": "The retreat is announced: visible on the landing with its dates. Registrations open when you switch it to Published."
+    },
     "sections": {
       "general": "General",
       "logistics": "Logistics",
@@ -1620,6 +1635,7 @@
     "title": "Retreat Dashboard",
     "partialServersDescription": "Participants who assist as angelitos",
     "selectedRetreat": "Selected Retreat",
+    "registrationNotOpenHint": "This retreat is announced: visible on the landing but registrations are closed. Edit it and switch to Published to open them.",
     "walkersCount": "# Walkers",
     "serversCount": "# Servers",
     "waitingCount": "# Waiting",
@@ -2176,6 +2192,10 @@
   "walkerRegistration": {
     "title": "Walker Registration",
     "description": "Please fill out the form below to register as a walker for the retreat.",
+    "registrationNotOpen": {
+      "title": "Registrations open soon",
+      "description": "This retreat already has a date, but registrations aren't open yet. Come back soon to register."
+    },
     "landing": {
       "title": "Emaus Retreat",
       "subtitle": "Register now to be a part of the retreat."

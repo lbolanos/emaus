@@ -741,6 +741,8 @@
     },
     "registerNow": "Registrarse Ahora",
     "registerServer": "Registrarse como Servidor",
+    "upcomingBadge": "Próximamente",
+    "registrationUpcoming": "Inscripciones abren pronto",
     "important": "Importante",
     "viewInMaps": "Ver en Google Maps",
     "storiesBadge": "Historias Reales",
@@ -1546,6 +1548,16 @@
     "editTitle": "Editar Retiro",
     "addDescription": "Crea un nuevo retiro.",
     "editDescription": "Edita los detalles del retiro.",
+    "visibility": {
+      "label": "Estado del retiro",
+      "description": "Controla la visibilidad en la landing y la apertura de inscripciones.",
+      "draft": "Borrador",
+      "announced": "Anunciado",
+      "published": "Publicado",
+      "draftHint": "Borrador: no aparece en la landing y no acepta inscripciones.",
+      "announcedHint": "Anunciado: se ve en la landing con sus fechas, pero las inscripciones están cerradas.",
+      "publishedHint": "Publicado: se ve en la landing y acepta inscripciones."
+    },
     "parish": "Nombre de la Parroquia",
     "parishPlaceholder": "Ingrese el nombre de la parroquia",
     "startDate": "Fecha de Inicio",
@@ -1596,6 +1608,9 @@
     "serverUrl": "URL de Registro de Servidor",
     "linkCopied": "Enlace de {type} copiado al portapapeles",
     "closeAndContinue": "Cerrar y Continuar",
+    "stateHint": {
+      "successAnnounced": "El retiro quedó anunciado: visible en la landing con sus fechas. Las inscripciones abren cuando lo cambies a Publicado."
+    },
     "sections": {
       "general": "General",
       "logistics": "Logística",
@@ -1716,6 +1731,7 @@
     "title": "Dashboard del Retiro",
     "partialServersDescription": "Participantes que asisten como angelitos",
     "selectedRetreat": "Retiro Seleccionado",
+    "registrationNotOpenHint": "Este retiro está anunciado: se ve en la landing pero las inscripciones están cerradas. Edítalo y pásalo a Publicado para abrirlas.",
     "walkersCount": "# Caminantes",
     "serversCount": "# Servidores",
     "waitingCount": "# en Espera",
@@ -2267,6 +2283,10 @@
   "walkerRegistration": {
     "title": "Registro de Caminante",
     "description": "Por favor, completa el siguiente formulario para registrarte como caminante para el retiro.",
+    "registrationNotOpen": {
+      "title": "Las inscripciones abren pronto",
+      "description": "Este retiro ya tiene fecha, pero las inscripciones todavía no están abiertas. Vuelve pronto para registrarte."
+    },
     "landing": {
       "title": "Retiro de Emaús",
       "subtitle": "Regístrate ahora para ser parte del retiro."
