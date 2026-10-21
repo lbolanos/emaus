@@ -372,5 +372,16 @@ minuto y 6 de las 7 hojas de Mesas salen idénticas. Hallazgos, corregidos:
   navegador con lo cargado; sin señal imprime igual (e2e `offline-print.spec.ts`, las dos).
 - Días colapsables y menú ⋮ por mesa: solo los selectores del e2e de impresión.
 
+**Segunda integración (2026-10-21, `d1f7fd49`, ~30 commits)**: favoritos del menú, tercer ciclo
+de mesas, tallas M/L/XL/XXL.
+
+- **Favoritos del menú** (`specs/menu-favorites`): el menú pide el perfil en cada montaje; sin
+  señal el GET fallaba y salía un toast rojo en cada recarga en la casa. Ahora calla si es falta
+  de señal (el chip ya lo dice), como `houseStore`. El perfil no entra en la caché de lectura:
+  sin señal no hay favoritos ni sugerencias, y marcar uno falla con su toast (no es una de las
+  12 escrituras).
+- Mesas (crear con zod, fotos en lote, confirmar el borrado de foto) y tallas: no tocan las 12
+  escrituras ni la caché; la impresión de mesas sin señal sigue pasando su e2e.
+
 **Pendiente fuera de esta sesión**: prueba de campo en un iPhone y un Android reales; nginx de
 producción antes del primer push; los PR y despliegues (dos releases, decisión 2026-10-19).

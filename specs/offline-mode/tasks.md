@@ -350,6 +350,12 @@
       `/etc/nginx/sites-enabled/emaus` (archivo, no enlace); respaldo en
       `/var/backups/emaus/nginx-sites-enabled-emaus.bak-20261020`. `curl -sI` → `/sw.js` y el
       manifest en `no-cache` (404 hasta el deploy)
+- [x] Segunda integración de master (2026-10-21, `d1f7fd49`): 1 conflicto (checklist de videos,
+      las dos entradas); favoritos del menú callados sin señal (ver `## Reconcile`). Web 255
+      archivos / 3744 tests + el nuevo de favoritos, `vue-tsc` (con `@repo/ui` recompilado: el
+      `dist` del worktree era del 19-oct y no exportaba `ToastAction`); API 12 suites / 174 tests
+      de idempotencia, sincronización, edición offline, mesas y perfil; build de la web; 8 e2e
+      sin señal (cascarón, datos guardados, impresión y la cola)
 - [ ] PR(s) a master; esperar `gh pr checks` en verde antes de merge — **requiere autorización**
 - [x] Commits (OK 2026-10-20), cuatro en vez de uno por milestone: `16a880a6` M1, `00ab2e3d`
       M3, `a5ab9ea6` M2+M4+M5 y el de spec y documentación. **Desviación**: M2, M4 y M5 van
