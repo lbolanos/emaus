@@ -106,8 +106,27 @@ print('paginas:',len(re.findall(rb'/Type\s*/Page[^s]',d)));\
 print(sorted(set(re.findall(rb'/BaseFont\s*/([A-Za-z0-9+\-]+)',d))))" salida.pdf
 ```
 
-Si solo aparecen las fuentes mono, Google Fonts no cargó y el resto cayó al fallback: subí
-`--virtual-time-budget` o revisá la red.
+Si solo aparecen las fuentes mono, **no concluyas todavía** que Google Fonts no cargó: Chrome
+incrusta Newsreader e IBM Plex Sans (fuentes variables) como **Type 3**, y ese regex no las ve.
+Confirmalo con `pdffonts salida.pdf`: si ahí salen `Newsreader16pt-Regular` e
+`IBMPlexSans-Regular`, cargaron bien. Si de verdad faltan, subí `--virtual-time-budget` o revisá
+la red. (Que aparezca `Menlo` es normal: IBM Plex Mono no trae `≈` ni `÷` y Chrome las toma de
+ahí.)
+
+## Para imprimir en la Epson L1250 (papel Carta)
+
+`membrete.css` maqueta en A4, y la L1250 tiene Carta por defecto. En el `contenido.css` del
+documento:
+
+```css
+@page { size: Letter; margin: 12mm 13mm; }
+html,body{ width:189.9mm; max-width:189.9mm }   /* 215,9 − 2×13 */
+```
+
+Y al imprimir, `lp -d EPSON_L1250_Series -o media=Letter salida.pdf`. Si la cola no responde,
+lo normal es que la impresora cambió de IP (no tiene reserva DHCP): ubicala por su MAC con
+`arp -an` tras un barrido de ping de la subred, y repuntá la cola con
+`lpadmin -p EPSON_L1250_Series -v socket://<ip>:9100` (no pide sudo).
 
 ## Qué NO poner en un documento que sale de aquí
 
