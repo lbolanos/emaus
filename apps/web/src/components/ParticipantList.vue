@@ -61,6 +61,7 @@ import ParticipantSpecialCaseToggle from './ParticipantSpecialCaseToggle.vue';
 import FilterDialog from './FilterDialog.vue';
 import ImportParticipantsModal from './ImportParticipantsModal.vue';
 import ExportParticipantsModal from './ExportParticipantsModal.vue';
+import { buildGoogleContactsCsv } from '../utils/googleContactsExport';
 import TagBadge from './TagBadge.vue';
 import {
   DropdownMenu,
@@ -155,6 +156,15 @@ const { tags } = storeToRefs(participantStore);
 const retreatCountry = computed<string | null>(
     () => (retreatStore.selectedRetreat as any)?.house?.country ?? null,
 );
+
+// Default identifier for the Google Contacts export: the retreat edition
+// (`retreat_number_version`) prefixed with "Emaus" (e.g. "Emaus Del Valle II"),
+// so coordinators don't type it on every export. Empty when the retreat has
+// no version set (mismo cast que retreatCountry).
+const googleContactsDefaultSuffix = computed(() => {
+    const version = ((retreatStore.selectedRetreat as any)?.retreat_number_version ?? '').toString().trim();
+    return version ? `Emaus ${version}` : '';
+});
 const messageTemplateStore = useMessageTemplateStore();
 const { templates: allMessageTemplates } = storeToRefs(messageTemplateStore);
 const tableMesaStore = useTableMesaStore();
@@ -1478,6 +1488,21 @@ const handleExport = async (data: any[], format: string, filename: string) => {
     await exportAsFile(data, format as 'csv' | 'xlsx', filename);
 };
 
+// Export a Google Contacts: el modal emite los participantes crudos y el
+// identificador; el CSV lo arma buildGoogleContactsCsv (formato fijado por
+// Google). Sin audit de salud: las columnas son fijas y no incluyen salud.
+const handleExportGoogleContacts = (payload: { participants: any[]; suffix: string; filename: string }) => {
+    const csv = buildGoogleContactsCsv(payload.participants, payload.suffix);
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    // The default filename already carries ".csv"; a custom one may not.
+    a.download = payload.filename.endsWith('.csv') ? payload.filename : `${payload.filename}.csv`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+};
+
 const closeColumnDialog = () => {
     isColumnDialogOpen.value = false;
 };
@@ -2242,8 +2267,10 @@ const handleKeyboardShortcuts = (event: KeyboardEvent) => {
             :all-participants="filteredAndSortedParticipants"
             :selected-participants="selectedParticipants"
             :current-type="props.type"
+            :google-contacts-default-suffix="googleContactsDefaultSuffix"
             @update:selectedColumns="exportSelectedColumns = $event"
             @export="handleExport"
+            @export-google-contacts="handleExportGoogleContacts"
         />
 
         <!-- Message Dialog -->
