@@ -85,6 +85,25 @@ describe('ExportParticipantsModal — formato Google Contacts', () => {
 		const payload = emitted![0][0] as { participants: unknown[]; suffix: string; filename: string };
 		expect(payload.participants).toEqual(PARTICIPANTS);
 		expect(payload.suffix).toBe('Emaus ValleII');
-		expect(payload.filename).toMatch(/^google_contacts_walker_\d{4}-\d{2}-\d{2}$/);
+		expect(payload.filename).toMatch(/^google_contacts_walker_\d{4}-\d{2}-\d{2}\.csv$/);
+	});
+
+	it('prellena el identificador con el default del retiro y lo restaura al reabrir', async () => {
+		const wrapper = mountModal({ googleContactsDefaultSuffix: 'Emaus Del Valle II' });
+		await selectGoogleFormat(wrapper);
+
+		const input = wrapper.find('#googleContactsSuffix');
+		expect((input.element as HTMLInputElement).value).toBe('Emaus Del Valle II');
+		// Con el default cargado el botón sale habilitado sin teclear nada.
+		expect(findExportButton(wrapper).attributes('disabled')).toBeUndefined();
+
+		// Lo que el usuario editó no sobrevive al ciclo cerrar→abrir: vuelve el
+		// default (que a su vez puede haber cambiado con el retiro activo). El
+		// reset también devuelve el formato a xlsx, como a un usuario le pasa.
+		await input.setValue('Otro');
+		await wrapper.setProps({ isOpen: false });
+		await wrapper.setProps({ isOpen: true });
+		await selectGoogleFormat(wrapper);
+		expect((wrapper.find('#googleContactsSuffix').element as HTMLInputElement).value).toBe('Emaus Del Valle II');
 	});
 });

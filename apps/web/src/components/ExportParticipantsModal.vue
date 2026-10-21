@@ -265,7 +265,7 @@ import {
   CheckCircle,
 } from 'lucide-vue-next';
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   isOpen: boolean;
   allColumns: any[];
   visibleColumns: string[];
@@ -273,7 +273,12 @@ const props = defineProps<{
   allParticipants: any[];
   selectedParticipants: Set<string>;
   currentType?: string;
-}>();
+  // Default identifier for the Google Contacts format: the retreat edition
+  // ("Emaus Del Valle II"). Empty when the retreat has no version set.
+  googleContactsDefaultSuffix?: string;
+}>(), {
+  googleContactsDefaultSuffix: '',
+});
 
 const emit = defineEmits<{
   'update:isOpen': [value: boolean];
@@ -289,7 +294,7 @@ const { t: $t } = useI18n();
 const modalOpen = ref(false);
 const exportScope = ref<'all' | 'selected'>('all');
 const exportFormat = ref<'xlsx' | 'csv' | 'google-contacts'>('xlsx');
-const googleContactsSuffix = ref('');
+const googleContactsSuffix = ref(props.googleContactsDefaultSuffix);
 const customFilename = ref('');
 const isExporting = ref(false);
 const exportProgress = ref(0);
@@ -310,7 +315,7 @@ const defaultFilename = computed(() => {
   const scope = exportScope.value === 'selected' ? 'selected_' : '';
   const type = props.currentType || 'all';
   if (isGoogleContactsFormat.value) {
-    return `${scope}google_contacts_${type}_${timestamp}`;
+    return `${scope}google_contacts_${type}_${timestamp}.csv`;
   }
   return `${scope}participants_${type}_${timestamp}`;
 });
@@ -340,6 +345,9 @@ watch(() => props.isOpen, (isOpen) => {
   if (isOpen) {
     // Initialize with visible columns
     emit('update:selectedColumns', [...props.visibleColumns]);
+    // Re-apply the default identifier on open: it may have changed while the
+    // modal was closed (retreat switch).
+    googleContactsSuffix.value = props.googleContactsDefaultSuffix;
     updatePreview();
   }
 });
@@ -501,7 +509,8 @@ const confirmExport = async () => {
         suffix: googleContactsSuffix.value.trim(),
         filename,
       });
-      finalFilename.value = `${filename}.csv`;
+      // The default filename already carries ".csv"; a custom one may not.
+      finalFilename.value = filename.endsWith('.csv') ? filename : `${filename}.csv`;
     } else {
       // Perform the actual export
       const exportData = participantsToExport.map(p => createExportRecord(p, props.selectedColumns));
@@ -529,7 +538,7 @@ const resetExport = () => {
   exportScope.value = 'all';
   exportFormat.value = 'xlsx';
   customFilename.value = '';
-  googleContactsSuffix.value = '';
+  googleContactsSuffix.value = props.googleContactsDefaultSuffix;
   isExporting.value = false;
   exportProgress.value = 0;
   exportComplete.value = false;

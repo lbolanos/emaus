@@ -45,9 +45,10 @@ El menú de opciones (los tres puntos) → **Exportar Participantes** ofrece tre
 WhatsApp solo permite agregar directamente a un grupo a quienes ya están en los contactos del
 teléfono. Este formato genera el CSV listo para importar a tu agenda de Google:
 
-1. Elige **Google Contacts (.csv)** y escribe un **identificador** (p. ej. `Emaus ValleII`).
-   Se agrega al nombre y al apellido de cada contacto, y crea una etiqueta con ese nombre en
-   tu agenda — así los reconoces y puedes borrarlos en bloque cuando termine el retiro.
+1. Elige **Google Contacts (.csv)**. El **identificador** viene prellenado con `Emaus` + la
+   versión del retiro (p. ej. `Emaus Del Valle II`) y puedes editarlo. Se agrega al nombre y
+   al apellido de cada contacto, y crea una etiqueta con ese nombre en tu agenda — así los
+   reconoces y puedes borrarlos en bloque cuando termine el retiro.
 2. Haz clic en **Exportar Datos** y guarda el archivo (incluye a los caminantes del filtro
    activo, o solo a los seleccionados).
 3. Entra a **contacts.google.com → Importar**, sube el archivo y elige tu cuenta.

@@ -154,6 +154,15 @@ const { tags } = storeToRefs(participantStore);
 const retreatCountry = computed<string | null>(
     () => (retreatStore.selectedRetreat as any)?.house?.country ?? null,
 );
+
+// Default identifier for the Google Contacts export: the retreat edition
+// (`retreat_number_version`) prefixed with "Emaus" (e.g. "Emaus Del Valle II"),
+// so coordinators don't type it on every export. Empty when the retreat has
+// no version set (mismo cast que retreatCountry).
+const googleContactsDefaultSuffix = computed(() => {
+    const version = ((retreatStore.selectedRetreat as any)?.retreat_number_version ?? '').toString().trim();
+    return version ? `Emaus ${version}` : '';
+});
 const messageTemplateStore = useMessageTemplateStore();
 const { templates: allMessageTemplates } = storeToRefs(messageTemplateStore);
 const tableMesaStore = useTableMesaStore();
@@ -1455,7 +1464,8 @@ const handleExportGoogleContacts = (payload: { participants: any[]; suffix: stri
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${payload.filename}.csv`;
+    // The default filename already carries ".csv"; a custom one may not.
+    a.download = payload.filename.endsWith('.csv') ? payload.filename : `${payload.filename}.csv`;
     a.click();
     window.URL.revokeObjectURL(url);
 };
@@ -2224,6 +2234,7 @@ const handleKeyboardShortcuts = (event: KeyboardEvent) => {
             :all-participants="filteredAndSortedParticipants"
             :selected-participants="selectedParticipants"
             :current-type="props.type"
+            :google-contacts-default-suffix="googleContactsDefaultSuffix"
             @update:selectedColumns="exportSelectedColumns = $event"
             @export="handleExport"
             @export-google-contacts="handleExportGoogleContacts"

@@ -139,3 +139,21 @@ pendiente de commit):
   - Endpoint de API — generación 100% en el cliente.
   - Contactos de emergencia como filas, vCard/iCloud/Outlook, deduplicación dentro de
     Google, y crear el grupo de WhatsApp desde la app — siguen fuera de alcance.
+
+## Cambio posterior (2026-10-21)
+
+Pedido por Leonardo tras el reconcile, antes de fusionar:
+
+1. **Filename default con extensión**: `google_contacts_<scope><type>_<fecha>.csv`. El
+   handler y el `finalFilename` no duplican la extensión si el nombre custom ya la trae
+   (guard `endsWith('.csv')`).
+2. **Identificador por defecto**: prop nueva `googleContactsDefaultSuffix` en el modal;
+   `ParticipantList` la computa como `"Emaus " + retreat_number_version` del retiro activo
+   (trim; vacío si el retiro no tiene versión → campo queda requerido como antes). El
+   default se re-aplica al abrir el modal (un cambio de retiro con el modal cerrado
+   actualiza el valor) y en `resetExport`; lo tecleado por el usuario no sobrevive al ciclo
+   cerrar→abrir, consistente con el resto del modal.
+
+Tests: modal (prellenado + restauración al reabrir + filename con `.csv`) y ParticipantList
+(prop derivada del store + filename sin doble `.csv`) — 84/84 en las dos suites,
+`vue-tsc --noEmit` limpio.

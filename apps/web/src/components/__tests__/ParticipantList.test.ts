@@ -182,6 +182,18 @@ vi.mock('../ImportParticipantsModal.vue', () => ({
 vi.mock('../ExportParticipantsModal.vue', () => ({
 	default: {
 		name: 'ExportParticipantsModal',
+		// Declared so tests can assert the props ParticipantList passes in
+		// (e.g. googleContactsDefaultSuffix); undeclared ones fall into attrs.
+		props: [
+			'isOpen',
+			'allColumns',
+			'visibleColumns',
+			'selectedColumns',
+			'allParticipants',
+			'selectedParticipants',
+			'currentType',
+			'googleContactsDefaultSuffix',
+		],
 		template: '<div>Export Modal</div>',
 	},
 }));
@@ -777,6 +789,49 @@ describe('ParticipantList Component', () => {
 			} finally {
 				vi.unstubAllGlobals();
 				vi.restoreAllMocks();
+			}
+		});
+
+		/**
+		 * Defaults pedidos el 2026-10-21: el identificador sale del retiro activo
+		 * ("Emaus " + retreat_number_version) y el filename default ya trae .csv
+		 * (el handler no lo duplica si viene incluido).
+		 */
+		it('pasa el identificador por defecto del retiro y no duplica .csv', async () => {
+			const { useRetreatStore: useRetreatStoreImport } = await import('@/stores/retreatStore');
+			const retreatStore = useRetreatStoreImport();
+
+			const createObjectURL = vi.fn(() => 'blob:google-contacts');
+			const revokeObjectURL = vi.fn();
+			vi.stubGlobal('URL', Object.assign(URL, { createObjectURL, revokeObjectURL }));
+			const anchorClick = vi.fn();
+			vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(anchorClick);
+
+			try {
+				retreatStore.retreats = [{ id: 'r-versionada', parish: 'Buen Despacho', retreat_number_version: 'Del Valle II' } as any];
+				retreatStore.selectRetreat('r-versionada');
+				await nextTick();
+
+				const modal = wrapper.findComponent({ name: 'ExportParticipantsModal' });
+				expect(modal.props('googleContactsDefaultSuffix')).toBe('Emaus Del Valle II');
+
+				modal.vm.$emit('export-google-contacts', {
+					participants: [
+						{ id: 'p1', firstName: 'John', lastName: 'Doe', cellPhone: '5549442834', country: 'México' },
+					],
+					suffix: 'Emaus Del Valle II',
+					filename: 'google_contacts_walker_2026-10-21.csv',
+				});
+				await nextTick();
+
+				expect(anchorClick).toHaveBeenCalledTimes(1);
+				const anchor = (anchorClick.mock.instances?.[0] ?? {}) as HTMLAnchorElement;
+				expect(anchor.download).toBe('google_contacts_walker_2026-10-21.csv');
+			} finally {
+				vi.unstubAllGlobals();
+				vi.restoreAllMocks();
+				retreatStore.retreats = [];
+				retreatStore.selectRetreat('test-retreat-id');
 			}
 		});
 	});

@@ -41,6 +41,12 @@ import real el 2026-10-20):
   y no incluyen datos de salud.
 - Participantes sin `cellPhone`: la fila se exporta igual con el teléfono vacío (Google la
   acepta; quien importa decide).
+- **Defaults (2026-10-21)**: el identificador viene prellenado con `Emaus ` +
+  `retreat_number_version` del retiro activo (p. ej. "Emaus Del Valle II"; vacío si el retiro
+  no tiene versión), y el filename default ya incluye la extensión
+  (`google_contacts_walker_<fecha>.csv` — el handler no la duplica si el nombre custom ya la
+  trae). El identificador se re-aplica al abrir el modal, así un cambio de retiro mientras
+  está cerrado actualiza el default.
 
 ## Verificado
 

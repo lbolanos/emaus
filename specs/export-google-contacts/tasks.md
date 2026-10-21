@@ -29,3 +29,9 @@
 - La sección de ayuda in-app fue a `apps/web/src/docs/es/walkers.md` (la vista donde vive el
   modal), no a `crm.md` como decía el plan: la exportación Excel/CSV existente tampoco está
   documentada en `crm.md` y el flujo es operativo de la lista de caminantes, no del CRM.
+
+## M4 — defaults (2026-10-21, pedido post-reconcile)
+
+- [x] filename default con `.csv` incluido (sin duplicar si el custom ya lo trae)
+- [x] identificador prellenado con `Emaus ` + `retreat_number_version` del retiro activo
+- [x] tests (84/84 en modal+ParticipantList, `vue-tsc` limpio) + spec (sección "Cambio posterior")
