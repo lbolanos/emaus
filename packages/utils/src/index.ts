@@ -867,6 +867,20 @@ const escapeHtmlValue = (value: string): string =>
 		.replace(/'/g, '&#39;');
 
 /**
+ * Nickname that is safe to greet with. Registration spreadsheets often carry
+ * "NA"/"N/A" in columns with no data, and the odd row lands with just a "."
+ * in the apodo cell (seen in prod: "{participant.nickname}" rendered ".,
+ * qué gusto saber que vienes"). Returns '' when the value is empty, just that
+ * marker, or only punctuation so callers fall back to the first name.
+ */
+const usableNickname = (nickname?: string): string => {
+	const raw = (nickname ?? '').trim();
+	if (!raw) return '';
+	const bare = raw.replace(/[\s.,/-]/g, '').toUpperCase();
+	return bare === 'NA' || bare === '' ? '' : raw;
+};
+
+/**
  * Builds the participant variable replacement map from real data (no mock
  * fallback). Used by replaceParticipantVariables and findEmptyVariables.
  */
@@ -916,10 +930,13 @@ const buildParticipantReplacements = (
 	return {
 		'participant.firstName': participantData.firstName || '',
 		'participant.lastName': participantData.lastName || '',
-		// Si no hay apodo, usar un nombre corto (el primer nombre de pila) en vez de
-		// dejar el saludo en blanco. Muchas plantillas saludan con {participant.nickname}.
+		// Si no hay apodo (o dice "NA"/"N/A", marca de "sin dato" de los Excel de
+		// inscripción), usar un nombre corto (el primer nombre de pila) en vez de
+		// dejar el saludo en blanco o saludar "Hola NA". Muchas plantillas saludan
+		// con {participant.nickname}.
 		'participant.nickname':
-			participantData.nickname || (participantData.firstName || '').trim().split(/\s+/)[0] || '',
+			usableNickname(participantData.nickname) ||
+			(participantData.firstName || '').trim().split(/\s+/)[0] || '',
 		'participant.type': participantData.type || '',
 		'participant.birthDate': participantData.birthDate || '',
 		'participant.maritalStatus': participantData.maritalStatus || '',
@@ -1072,7 +1089,9 @@ const buildSpouseReplacements = (spouseData: SpouseData): Record<string, string>
 	'spouse.firstName': spouseData.firstName || '',
 	'spouse.lastName': spouseData.lastName || '',
 	'spouse.fullName': [spouseData.firstName, spouseData.lastName].filter(Boolean).join(' '),
-	'spouse.nickname': spouseData.nickname || spouseData.firstName || '',
+	// Same "NA"/"N/A" guard as {participant.nickname}: fall back to the first
+	// name instead of greeting the spouse with "NA".
+	'spouse.nickname': usableNickname(spouseData.nickname) || spouseData.firstName || '',
 	'spouse.email': spouseData.email || '',
 	'spouse.cellPhone': spouseData.cellPhone || '',
 });

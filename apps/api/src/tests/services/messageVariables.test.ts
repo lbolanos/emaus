@@ -221,6 +221,26 @@ describe('Message variable replacement', () => {
 			).toBe('Hola Hector');
 		});
 
+		it('trata el apodo "NA"/"N/A" como dato faltante y saluda por el nombre', () => {
+			const tpl = 'Hola {participant.nickname}';
+			// Los Excel de inscripción traen "NA" en columnas sin dato: no se
+			// saluda "Hola NA".
+			for (const marker of ['NA', 'na', 'N/A', 'n/a ', ' N.A. ']) {
+				expect(replaceAllVariables(tpl, buildParticipant({ firstName: 'Julio', nickname: marker }), retreat)).toBe(
+					'Hola Julio',
+				);
+			}
+			// Un apodo de solo puntuación (visto en prod: nickname '.') tampoco
+			// es un saludo: cae al nombre igual que el marcador.
+			for (const marker of ['.', '-', '..', ' . ']) {
+				expect(
+					replaceAllVariables(tpl, buildParticipant({ firstName: 'Javier Adrián', nickname: marker }), retreat),
+				).toBe('Hola Javier');
+			}
+			// Un apodo real que coincida por casualidad con otra cosa se respeta.
+			expect(replaceAllVariables(tpl, buildParticipant({ nickname: 'Nando' }), retreat)).toBe('Hola Nando');
+		});
+
 		it('resuelve variables {table.*} cuando se pasa el contexto de mesa', () => {
 			const tpl = 'Mesa {table.name} ({table.walkersCount}): {table.liderName}';
 			const result = replaceAllVariables(tpl, buildParticipant(), retreat, undefined, null, {

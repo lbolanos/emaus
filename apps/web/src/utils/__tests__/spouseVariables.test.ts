@@ -49,4 +49,10 @@ describe('Variables {spouse.*} (retiros de parejas)', () => {
 		});
 		expect(result).toBe('Pedro');
 	});
+
+	it('nickname "NA"/"N/A" o solo puntuación cae a firstName', () => {
+		for (const marker of ['NA', 'N/A', 'na', '.', '-']) {
+			expect(replaceSpouseVariables('{spouse.nickname}', { firstName: 'Pedro', nickname: marker })).toBe('Pedro');
+		}
+	});
 });
