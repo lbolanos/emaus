@@ -2,7 +2,10 @@
   <TooltipProvider :delay-duration="300">
   <div class="tables-view-root">
     <!-- Sticky Top: Header + Unassigned (single glass panel) -->
-    <div class="sticky top-0 z-20 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b">
+    <div
+      ref="stickyHeader"
+      class="sticky top-0 z-20 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b"
+    >
     <div class="p-1.5 sm:p-3 lg:p-4">
       <div class="sm:flex sm:items-center sm:justify-between gap-4">
         <div class="hidden sm:block sm:flex-auto">
@@ -874,6 +877,9 @@ const gridColumnsClass = computed(() => {
 const searchQuery = ref('');
 const currentMatchIndex = ref(0);
 const searchWrapper = ref<HTMLElement | null>(null);
+// The sticky panel itself, whose real height decides whether a search match
+// counts as visible (it grows when the tap-assign banner is up).
+const stickyHeader = ref<HTMLElement | null>(null);
 
 // Clear the search and hand focus back to the field, so the user can type the
 // next name without reaching for the mouse.
@@ -997,12 +1003,15 @@ const onSearchEnter = (event: KeyboardEvent) => {
 };
 
 // The sticky header covers the top of the page, so a pill hidden behind it is
-// not really visible.
+// not really visible. Its real height decides (109 px at 390 wide, more with
+// the tap-assign banner up); offsetHeight is 0 in happy-dom before layout, so
+// the constant keeps the previous behavior there.
 const STICKY_HEADER_OFFSET = 96;
 
 const isOnScreen = (element: Element) => {
   const { top, bottom } = element.getBoundingClientRect();
-  return top >= STICKY_HEADER_OFFSET && bottom <= window.innerHeight;
+  const headerOffset = stickyHeader.value?.offsetHeight || STICKY_HEADER_OFFSET;
+  return top >= headerOffset && bottom <= window.innerHeight;
 };
 
 // Scroll to the current match, wherever it is rendered: the unassigned lists,
