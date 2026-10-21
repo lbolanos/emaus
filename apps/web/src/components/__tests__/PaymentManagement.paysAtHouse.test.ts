@@ -57,7 +57,11 @@ vi.mock('@repo/ui', () => ({
 	useToast: () => ({ toast: vi.fn() }),
 }));
 
-vi.mock('@repo/utils', () => ({
+// Mock parcial: formatDate/formatCurrency deterministas para los asserts; el
+// resto (p. ej. usableName, que ParticipantSelect usa vía isMeaninglessNickname)
+// sale del paquete real — un factory cerrado lanza al tocar un export no listado.
+vi.mock('@repo/utils', async (importOriginal) => ({
+	...(await importOriginal<typeof import('@repo/utils')>()),
 	formatDate: (d: unknown) => String(d),
 	formatCurrency: (n: unknown) => `$${Number(n) || 0}`,
 }));
