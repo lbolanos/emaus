@@ -1,6 +1,6 @@
 # Spec: Mesas — tercer ciclo (guards de regresión del 1 y 2)
 
-**Estado**: prospectiva · **Branch**: por definir (`worktree-mesas-guards`) · **Fecha**: 2026-10-20
+**Estado**: retroactiva · **Branch**: `worktree-mesas-ciclo2` · **Fecha**: 2026-10-20
 
 Los ciclos 1 (`tables-mobile-ux`, `table-memory-photo`) y 2 (`tables-second-cycle`) entregaron
 UX móvil y foto de mesa verificados **a mano** con Playwright MCP: dos verificaciones
@@ -78,3 +78,51 @@ asignar verificado el 2026-10-20). El spec toma el primer server sin asignar din
   producto pendiente; este ciclo no la presupone.
 - Cambios visuales de la vista (nada del layout cambia; solo el margen de scroll de búsqueda).
 - Sweeps de tsc legacy y UTF-8: deuda general del repo, no del área.
+
+## Reconcile
+
+Cerrada el 2026-10-20, commit `63deac71` (e2e + offset dinámico en el mismo commit). El e2e
+corrió verde dos veces seguidas contra el dev del worktree (chromium, contexto touch 390×844,
+retiro Buen Despacho `e9b3c568`).
+
+### Verificación de requerimientos
+
+- **R1 ✅** — `tables-tap-assign.spec.ts` test 1: sticky base ≤ 130 (aserción sobre
+  `offsetHeight`; 109 px según la medición del ciclo 2); top del sticky constante al scrollear
+  600 px en `<main>` (pinned bajo el topbar fijo); bottom del bloque de pastillas queda por
+  encima del top del sticky (fuera del viewport).
+- **R2 ✅** — test 2, flujo completo: tap en la primera pastilla de "Servidores Sin Asignar"
+  (dinámica, sin nombres) → banner `tap-assign-banner` dentro del sticky (verificado por
+  bounding box contra el rect del sticky) → tap en slot libre `ring-blue-500` → el slot pasa a
+  contener al participante (`data-participant-id`), banner oculto y contador N−1 → tap en el
+  asignado → "Quitar de mesa" → slot vacío ("Sin asignar") y contador N. El `finally` restaura
+  por API (`DELETE /tables/:id/leader/:role`) si el flujo muere a mitad.
+- **R3 ✅** — `isOnScreen` usa `stickyHeader?.offsetHeight || STICKY_HEADER_OFFSET (96)`: el
+  `||` conserva el comportamiento en happy-dom (offsetHeight 0 antes de layout), por lo que las
+  suites existentes no cambian su verde. `TablesViewSearch` 8/8, `ServerAttendance` 6/6,
+  `Leaders` 8/8 (22/22) y `vue-tsc` limpio tras el cambio.
+- **R4 ✅** — el participante sale de la primera pastilla del tab; si el contador del tab es 0
+  el test **falla** con mensaje de precondición explícito (`requireUnassignedServer`), no con
+  timeout de selector.
+
+### Corrida y estado de la DB
+
+- 2 corridas verdes seguidas (1.9–2.0 s); tras cada una la DB quedó como estaba, verificado por
+  API: 10 mesas, 22 servers sentados, Oscar M. de vuelta en sin asignar.
+- Incidente de desarrollo (no del código guardado): la primera corrida dejó a Oscar asignado —
+  bug del propio spec (locator vivo que seguía al ring cuando saltaba al siguiente slot libre);
+  restaurado por API en el momento, y el spec corregido fija el slot con `elementHandle()` y
+  restaura en `finally`.
+
+### Desviaciones
+
+1. **Branch**: la spec decía "por definir (`worktree-mesas-guards`)"; se implementó sobre
+   `worktree-mesas-ciclo2` (sin merge del ciclo 2) por indicación del usuario en la sesión.
+2. **D2 sin test unitario propio del offset**: happy-dom mide `offsetHeight = 0`, así que un
+   unit test no distinguiría 96 del alto real — el guard del requisito es el e2e (que mide el
+   sticky real) más las suites existentes, que cubren la no-regresión del fallback.
+
+### Lo descartado se mantiene
+
+Test Vitest de estructura (validaría implementación, no conducta) y constante `109` (volvería a
+quedar corta con el banner activo): la implementación no dio motivo para reabrirlos.
