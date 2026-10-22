@@ -105,15 +105,21 @@ describe('Community Service', () => {
 
 	describe('Member Management', () => {
 		it('should import members from retreat', async () => {
-			const p1 = await TestDataFactory.createTestParticipant(testRetreat.id);
-			const p2 = await TestDataFactory.createTestParticipant(testRetreat.id);
+			// Distinct phones: the factory default is shared, and one phone per community applies.
+			const p1 = await TestDataFactory.createTestParticipant(testRetreat.id, {
+				cellPhone: '5511110001',
+			});
+			const p2 = await TestDataFactory.createTestParticipant(testRetreat.id, {
+				cellPhone: '5511110002',
+			});
 
 			const result = await service.importFromRetreat(testCommunity.id, testRetreat.id, [
 				p1.id,
 				p2.id,
 			]);
 
-			expect(result.length).toBe(2);
+			expect(result.imported.length).toBe(2);
+			expect(result.skipped).toEqual([]);
 
 			const members = await service.getMembers(testCommunity.id);
 			expect(members.length).toBe(2);
@@ -1384,9 +1390,16 @@ describe('Community Service', () => {
 	});
 
 	describe('importFromRetreat - Edge Cases', () => {
+		// Participants accumulate across tests (see the phone-uniqueness describe), so
+		// each one gets its own phone, as one phone per community applies.
+		let phoneSeq = 0;
+		const uniquePhone = () => `5522${String(Date.now() % 100_000).padStart(5, '0')}${phoneSeq++ % 10}`;
+		const mkParticipant = (over: Record<string, any> = {}) =>
+			TestDataFactory.createTestParticipant(testRetreat.id, { cellPhone: uniquePhone(), ...over });
+
 		it('should return existing members for already imported participants', async () => {
-			const p1 = await TestDataFactory.createTestParticipant(testRetreat.id);
-			const p2 = await TestDataFactory.createTestParticipant(testRetreat.id);
+			const p1 = await mkParticipant();
+			const p2 = await mkParticipant();
 
 			// Import p1 first
 			await service.importFromRetreat(testCommunity.id, testRetreat.id, [p1.id]);
@@ -1397,29 +1410,29 @@ describe('Community Service', () => {
 				p2.id,
 			]);
 
-			expect(result.length).toBe(2); // Both returned
-			expect(result[0].participantId).toBe(p1.id);
-			expect(result[1].participantId).toBe(p2.id);
+			expect(result.imported.length).toBe(2); // Both returned
+			expect(result.imported[0].participantId).toBe(p1.id);
+			expect(result.imported[1].participantId).toBe(p2.id);
 		});
 
 		it('should handle empty participant list', async () => {
 			const result = await service.importFromRetreat(testCommunity.id, testRetreat.id, []);
 
-			expect(result.length).toBe(0);
+			expect(result).toEqual({ imported: [], skipped: [] });
 		});
 
 		it('should not validate retreat existence', async () => {
 			// The service doesn't validate retreatId, it just tries to add members
-			const p = await TestDataFactory.createTestParticipant(testRetreat.id);
+			const p = await mkParticipant();
 
 			// This will work because retreatId isn't validated against participant's retreat
 			const result = await service.importFromRetreat(testCommunity.id, 'any-retreat-id', [p.id]);
 
-			expect(result.length).toBe(1);
+			expect(result.imported.length).toBe(1);
 		});
 
 		it('should set initial state to active_member', async () => {
-			const p = await TestDataFactory.createTestParticipant(testRetreat.id);
+			const p = await mkParticipant();
 
 			await service.importFromRetreat(testCommunity.id, testRetreat.id, [p.id]);
 
@@ -1433,6 +1446,59 @@ describe('Community Service', () => {
 			await expect(
 				service.importFromRetreat(testCommunity.id, testRetreat.id, ['non-existent-id']),
 			).rejects.toThrow();
+		});
+
+		it('skips and reports a participant whose phone a member already has, and keeps going', async () => {
+			// Buen Despacho, 2026-10-22: two relatives registered with the same phone; the
+			// first collision turned the whole import into a 500 halfway through the batch.
+			const familyPhone = uniquePhone();
+			const relative = await mkParticipant({
+				firstName: 'Eduardo',
+				lastName: 'Garay',
+				cellPhone: familyPhone,
+			});
+			await TestDataFactory.createTestCommunityMember(testCommunity.id, relative.id);
+			const before = await mkParticipant();
+			const sharing = await mkParticipant({
+				firstName: 'Alberto',
+				lastName: 'Garay',
+				cellPhone: `+52 ${familyPhone}`,
+			});
+			const after = await mkParticipant();
+
+			const result = await service.importFromRetreat(testCommunity.id, testRetreat.id, [
+				before.id,
+				sharing.id,
+				after.id,
+			]);
+
+			expect(result.imported.map((m) => m.participantId)).toEqual([before.id, after.id]);
+			expect(result.skipped).toEqual([
+				{
+					participantId: sharing.id,
+					name: 'Alberto Garay',
+					reason: 'phone_duplicate_in_community',
+					conflictWith: 'Eduardo Garay',
+				},
+			]);
+			const members = await service.getMembers(testCommunity.id);
+			expect(members.map((m: any) => m.participantId)).not.toContain(sharing.id);
+		});
+
+		it('skips the second of two selected participants that share a phone', async () => {
+			const familyPhone = uniquePhone();
+			const first = await mkParticipant({ firstName: 'Uno', lastName: 'Casa', cellPhone: familyPhone });
+			const second = await mkParticipant({ firstName: 'Dos', lastName: 'Casa', cellPhone: familyPhone });
+
+			const result = await service.importFromRetreat(testCommunity.id, testRetreat.id, [
+				first.id,
+				second.id,
+			]);
+
+			expect(result.imported.map((m) => m.participantId)).toEqual([first.id]);
+			expect(result.skipped).toEqual([
+				expect.objectContaining({ participantId: second.id, conflictWith: 'Uno Casa' }),
+			]);
 		});
 	});
 

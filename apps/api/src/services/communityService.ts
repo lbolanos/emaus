@@ -8,7 +8,12 @@ import { User } from '../entities/user.entity';
 import { UserRole } from '../entities/userRole.entity';
 import { Participant } from '../entities/participant.entity';
 import { Retreat } from '../entities/retreat.entity';
-import { MemberState, type MemberCandidate, type MeetingFlyerOptions } from '@repo/types';
+import {
+	MemberState,
+	type ImportMembersSkip,
+	type MemberCandidate,
+	type MeetingFlyerOptions,
+} from '@repo/types';
 import { In, MoreThanOrEqual, Not } from 'typeorm';
 import { calculateNextOccurrence, nextWeekdayOccurrence } from '../utils/recurrenceUtils';
 import { EmailService } from './emailService';
@@ -1272,13 +1277,55 @@ export class CommunityService {
 		};
 	}
 
-	async importFromRetreat(communityId: string, retreatId: string, participantIds: string[]) {
-		const results = [];
+	/**
+	 * Adds the selected retreat participants as members. A participant whose
+	 * phone already belongs to another member is skipped and reported instead of
+	 * aborting the batch: before this, the first collision (two relatives
+	 * sharing a phone) turned the whole import into a 500 after the earlier rows
+	 * were already saved.
+	 */
+	async importFromRetreat(
+		communityId: string,
+		retreatId: string,
+		participantIds: string[],
+	): Promise<{ imported: CommunityMember[]; skipped: ImportMembersSkip[] }> {
+		const imported: CommunityMember[] = [];
+		const skipped: ImportMembersSkip[] = [];
 		for (const participantId of participantIds) {
-			const member = await this.addMember(communityId, participantId);
-			results.push(member);
+			const existing = await this.memberRepo.findOne({ where: { communityId, participantId } });
+			if (existing) {
+				imported.push(existing);
+				continue;
+			}
+
+			const participant = await this.participantRepo.findOne({ where: { id: participantId } });
+			const name = `${participant?.firstName ?? ''} ${participant?.lastName ?? ''}`.trim();
+			const collision = await this.findPhoneCollision(communityId, participant?.cellPhone);
+			if (collision) {
+				skipped.push({
+					participantId,
+					name,
+					reason: 'phone_duplicate_in_community',
+					conflictWith: resolveMemberProfile(collision).fullName,
+				});
+				continue;
+			}
+
+			try {
+				imported.push((await this.addMember(communityId, participantId)) as CommunityMember);
+			} catch (err: any) {
+				// The trigger still guards the window between the check above and the INSERT.
+				if (
+					typeof err?.message === 'string' &&
+					err.message.includes('PHONE_DUPLICATE_IN_COMMUNITY')
+				) {
+					skipped.push({ participantId, name, reason: 'phone_duplicate_in_community' });
+					continue;
+				}
+				throw err;
+			}
 		}
-		return results;
+		return { imported, skipped };
 	}
 
 	async getPotentialMembers(communityId: string, retreatId: string) {

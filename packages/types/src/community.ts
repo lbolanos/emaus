@@ -517,6 +517,19 @@ export const importMembersSchema = z.object({
 });
 
 /**
+ * A participant left out of POST /communities/:id/members/import because their
+ * phone already belongs to another member of the community (one phone per
+ * community, enforced by trigger trg_cm_phone_uniq_insert). `conflictWith` is
+ * that member's display name; it is missing when only the trigger caught it.
+ */
+export interface ImportMembersSkip {
+	participantId: string;
+	name: string;
+	reason: 'phone_duplicate_in_community';
+	conflictWith?: string;
+}
+
+/**
  * Candidato a vínculo devuelto en el 409 `EXISTING_PARTICIPANT_FOUND` de
  * `POST /communities/:id/members/create`. Deliberadamente SIN email ni
  * cellPhone: el admin no tecleó los datos de contacto del candidato y el

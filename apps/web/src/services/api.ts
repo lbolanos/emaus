@@ -6,6 +6,7 @@ import type {
   RetreatCloneSections,
   Community,
   CommunityMember,
+  ImportMembersSkip,
   CommunityMeeting,
   CommunityAdmin,
   CommunityAttendance,
@@ -1619,7 +1620,7 @@ export async function importMembersFromRetreat(
   communityId: string,
   retreatId: string,
   participantIds: string[],
-): Promise<CommunityMember[]> {
+): Promise<{ imported: CommunityMember[]; skipped: ImportMembersSkip[] }> {
   const response = await api.post(
     `/communities/${communityId}/members/import`,
     {

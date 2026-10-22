@@ -431,16 +431,26 @@ const confirmImport = async () => {
   let importSuccess = false;
 
   try {
-    await communityStore.importMembers(
+    const { imported, skipped } = await communityStore.importMembers(
       props.communityId,
       selectedRetreatId.value,
       selectedIds.value
     );
 
-    toast({
-      title: 'Importación exitosa',
-      description: `Se importaron ${selectedCount.value} ${selectedCount.value === 1 ? 'participante' : 'participantes'} a la comunidad`,
-    });
+    const importedText = `Se importaron ${imported.length} ${imported.length === 1 ? 'participante' : 'participantes'} a la comunidad`;
+    if (skipped.length === 0) {
+      toast({ title: 'Importación exitosa', description: importedText });
+    } else {
+      // One phone per community: whoever shares it with a member stays out.
+      const skippedList = skipped
+        .map((s) => (s.conflictWith ? `${s.name} (teléfono de ${s.conflictWith})` : s.name))
+        .join(', ');
+      toast({
+        title: 'Importación parcial',
+        description: `${importedText}. No se importaron porque su teléfono ya lo tiene otro miembro: ${skippedList}.`,
+        duration: 15000,
+      });
+    }
 
     emit('imported');
     importSuccess = true;

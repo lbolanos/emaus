@@ -16,6 +16,8 @@ import ImportMembersModal from '../ImportMembersModal.vue';
 
 const fetchPotentialMembers = vi.fn();
 const fetchRetreats = vi.fn();
+const importMembers = vi.fn();
+const toast = vi.fn();
 
 vi.mock('@repo/ui', () => {
 	const passthrough = (tag = 'div') => ({ template: `<${tag}><slot /></${tag}>` });
@@ -58,7 +60,7 @@ vi.mock('@repo/ui', () => {
 		TableHead: passthrough('th'),
 		TableBody: passthrough('tbody'),
 		TableCell: passthrough('td'),
-		useToast: () => ({ toast: vi.fn() }),
+		useToast: () => ({ toast }),
 	};
 });
 
@@ -66,7 +68,7 @@ vi.mock('@/stores/retreatStore', () => ({
 	useRetreatStore: () => ({ fetchRetreats, retreats: RETREATS }),
 }));
 vi.mock('@/stores/communityStore', () => ({
-	useCommunityStore: () => ({ fetchPotentialMembers }),
+	useCommunityStore: () => ({ fetchPotentialMembers, importMembers }),
 }));
 vi.mock('pinia', () => ({
 	storeToRefs: (store: any) => ({ retreats: { value: store.retreats } }),
@@ -150,5 +152,58 @@ describe('ImportMembersModal — participant selection', () => {
 		await checkboxes(wrapper)[0].trigger('click');
 
 		expect(states(wrapper)).toEqual(['unchecked', 'unchecked', 'unchecked', 'unchecked']);
+	});
+});
+
+describe('ImportMembersModal — import result', () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+		fetchRetreats.mockResolvedValue(RETREATS);
+		fetchPotentialMembers.mockResolvedValue(PARTICIPANTS);
+	});
+
+	const importAll = async () => {
+		const wrapper = await mountWithParticipants();
+		await checkboxes(wrapper)[0].trigger('click');
+		const confirm = wrapper.findAll('button').find((b) => b.text().includes('Confirmar importación'));
+		await confirm!.trigger('click');
+		await flushPromises();
+		return wrapper;
+	};
+
+	it('reports the members actually imported', async () => {
+		importMembers.mockResolvedValue({ imported: [{ id: 'm1' }, { id: 'm2' }, { id: 'm3' }], skipped: [] });
+
+		await importAll();
+
+		expect(importMembers).toHaveBeenCalledWith('community-1', 'retreat-1', ['p1', 'p2', 'p3']);
+		expect(toast).toHaveBeenCalledWith(
+			expect.objectContaining({
+				title: 'Importación exitosa',
+				description: 'Se importaron 3 participantes a la comunidad',
+			}),
+		);
+	});
+
+	it('names who was skipped for sharing a phone with a member', async () => {
+		importMembers.mockResolvedValue({
+			imported: [{ id: 'm1' }, { id: 'm2' }],
+			skipped: [
+				{
+					participantId: 'p3',
+					name: 'Caro Díaz',
+					reason: 'phone_duplicate_in_community',
+					conflictWith: 'Ana López',
+				},
+			],
+		});
+
+		await importAll();
+
+		const call = toast.mock.calls.at(-1)![0];
+		expect(call.title).toBe('Importación parcial');
+		expect(call.description).toContain('Se importaron 2 participantes');
+		expect(call.description).toContain('Caro Díaz (teléfono de Ana López)');
+		expect(call.variant).toBeUndefined();
 	});
 });
