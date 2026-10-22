@@ -1,6 +1,6 @@
 ---
 name: prod-performance-triage
-description: "Triage de lentitud percibida en producción: descomponer la latencia por capas (servidor Lightsail, API local, origen directo, Cloudflare) antes de tocar nada. Incluye el test A/B con --resolve para saltarse Cloudflare, la medición de distribución (p50/p90) en una sola conexión, el diagnóstico del server por SSH (load, swap por proceso, handles de la SQLite, reinicios de pm2) y el barrido de la zona de Cloudflare por API (token read-only, settings, workers routes). Usar cuando el usuario reporte que prod 'está lento', 'tarde en responder' o que la app 'se siente pesada', y no esté claro si la culpa es del servidor, del API, de la red o de Cloudflare."
+description: "Triage de lentitud percibida en producción: descomponer la latencia por capas (servidor Lightsail, API local, origen directo, Cloudflare) antes de tocar nada. Incluye el test A/B con --resolve para saltarse Cloudflare, la medición de distribución (p50/p90) en una sola conexión, el diagnóstico del server por SSH (load, swap por proceso, handles de la SQLite, reinicios de pm2) y el barrido de la zona de Cloudflare por API (token read-only, settings, workers routes). Cubre también el caso en que la latencia sale sana pero la descarga es lenta (pérdida de paquetes que colapsa a cubic → congestión BBR) y cómo encontrar respuestas pesadas en el log de nginx. Usar cuando el usuario reporte que prod 'está lento', 'tarde en responder' o que la app 'se siente pesada', y no esté claro si la culpa es del servidor, del API, de la red o de Cloudflare."
 ---
 
 # Triage de lentitud en producción — Emaús
@@ -11,6 +11,14 @@ description: "Triage de lentitud percibida en producción: descomponer la latenc
 el **mismo endpoint** (`/api/health`) por las 4 capas y comparar. El primer nivel cuyo número
 se dispara es el culpable. Nunca concluir desde una sola medición puntual: usar distribuciones
 (15 requests) y repetir con User-Agent de navegador (Cloudflare trata distinto a `curl`).
+
+**`/api/health` mide latencia, no ancho de banda.** Si las 4 capas salen sanas y el usuario
+sigue sintiéndolo lento, no está descartado: medir throughput (Capa 5). El caso 2026-10-22 tenía
+p50 de 70 ms y aun así cada primera carga tardaba ~9 s.
+
+> El clasificador de auto mode bloquea por SSH tanto `sudo` en el server como las consultas de
+> solo lectura a la DB de prod. No insistir con variantes: escribir el script en el scratchpad y
+> darle al usuario `! bash <ruta>`.
 
 Referencia del caso 2026-09-14 (números sanos vs. rotos):
 
@@ -117,6 +125,68 @@ curl -4 -s -D - -o /dev/null "https://emaus.cc$JS" | grep -i cf-cache-status  # 
 
 Lectura: HIT rápido + DYNAMIC lento = el origen y su ruta (origin pull) son el problema —
 no la zona, no el Worker. En plan Free eso no tiene fix dentro de CF → nube gris (DNS-only).
+
+## Capa 5 — Throughput: latencia sana, descarga lenta
+
+La primera carga del SPA pesa ~2 MB (`vendor-*.js` ~800 KB gz, `/api/retreats`, íconos) y
+cada deploy cambia los hashes y obliga a bajarla de nuevo. Comparar **MB/s, no ms**:
+
+```bash
+curl -s -o /dev/null -w '%{speed_download}\n' 'https://speed.cloudflare.com/__down?bytes=5000000'  # techo del cliente
+curl -s -o /dev/null -w '%{speed_download}\n' "https://emaus.cc/jesus_bg.png?x=$RANDOM"            # 3.6 MB del origen
+# Desde el server: salida del Lightsail sin la ruta al cliente
+ssh -i $KEY $HOST 'curl -s -o /dev/null -w "%{speed_upload}\n" --data-binary @/var/www/emaus/apps/web/dist/jesus_bg.png https://speed.cloudflare.com/__up'
+```
+
+Lectura: origen ≪ Cloudflare desde el cliente (25× en el caso real), con el server sirviendo
+en local en ms y saliendo a decenas de MB/s → el cuello es la ruta hacia el cliente, no la app
+ni el Lightsail.
+
+Confirmar con el estado TCP **mientras** el cliente descarga (lanzar la descarga grande en
+background y en paralelo):
+
+```bash
+ssh -i $KEY $HOST 'ss -tin state established "( sport = :443 )"'   # buscar la IP del cliente
+```
+
+`bytes_retrans` > 0 con `cwnd` de una decena y `ssthresh` bajo = pérdida de paquetes que
+colapsa a `cubic`. Con RTT 60 ms y ~1.5 % de pérdida, Mathis (MSS/RTT · 1.22/√p) da
+~230 KB/s, lo mismo que se midió. **`ping` no sirve**: el firewall de Lightsail descarta ICMP y
+da un 100 % de pérdida falso.
+
+**Fix aplicado 2026-10-22: congestión `bbr`** (tolera pérdida; el kernel AWS trae
+`tcp_bbr.ko`). Persistido en `/etc/sysctl.d/99-bbr.conf` y `/etc/modules-load.d/bbr.conf`.
+Aplica a conexiones nuevas sin reiniciar nginx ni el API. Revertir:
+`sysctl -w net.core.default_qdisc=fq_codel net.ipv4.tcp_congestion_control=cubic` y borrar
+ambos archivos. Si se rehace el servidor, comprobar primero
+`sysctl net.ipv4.tcp_congestion_control` antes de buscar otra causa.
+
+| Caso 2026-10-22 | `cubic` | `bbr` |
+|---|---|---|
+| `favicon.ico` 986 KB | 4.3–5.5 s · ~210 KB/s | 0.6–0.8 s · ~1.4 MB/s |
+| `jesus_bg.png` 3.6 MB | 16.1 s · 229 KB/s | 0.74 s · 4.96 MB/s |
+| `vendor-*.js` 798 KB gz | 2.6 s | 0.54 s |
+
+### Respuestas pesadas en el log de nginx
+
+`emaus-access.log` no registra `$request_time`, pero el campo `$10` son los bytes enviados (ya
+comprimidos si hubo gzip):
+
+```bash
+ssh -i $KEY $HOST "awk '{print \$10, \$7}' /var/log/nginx/emaus-access.log | sort -rn | head -20"
+```
+
+Así salieron en 2026-10-22 el `favicon.ico` de 986 KB (era un PNG de 636×636 renombrado; se
+cambió por un ICO real 48/32/16 de 15 KB) y `/api/retreats` con 513 KB **ya comprimido**.
+`image/x-icon` no está en `gzip_types`.
+
+Los 513 KB de `/api/retreats` eran **una sola foto de recuerdo guardada como data URL** (669 KB,
+de un retiro de abril de 2026): anterior a S3, la migración `CreateRetreatMemoryGallery` la copió tal
+cual a `retreat_memory_photo` y `presignPrivateUrl` la devuelve sin tocar. Para encontrarlas,
+sumar `length()` por columna de `retreat` y `house` (lo que serializa la lista) y contar
+`like 'data:%'`. Se arregló sin código, con un snippet de consola en la sesión del usuario: volver a
+subir el mismo data URL por `POST /:id/memory-photos` (ahora va a S3), `PUT …/primary` y `DELETE`
+de la vieja. La lista bajó a 22 KB sin comprimir.
 
 ## Barrido de la zona Cloudflare por API
 

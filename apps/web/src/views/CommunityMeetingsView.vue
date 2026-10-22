@@ -9,21 +9,8 @@
       <div class="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center">
         <div class="min-w-0">
           <h1 class="text-xl sm:text-2xl font-bold">{{ currentCommunity.name }} - {{ $t('community.meeting.title') }}</h1>
-          <div class="flex items-center text-sm text-muted-foreground">
-            <router-link :to="{ name: 'community-dashboard', params: { id: currentCommunity.id } }" class="hover:underline">
-              {{ $t('community.dashboard') }}
-            </router-link>
-            <ChevronRight class="w-4 h-4 mx-1" />
-            <span>{{ $t('community.meeting.title') }}</span>
-          </div>
         </div>
         <div class="flex flex-col sm:flex-row gap-2">
-          <Button variant="outline" as-child class="w-full sm:w-auto">
-            <router-link :to="{ name: 'community-attendance-stats', params: { id: currentCommunity.id } }">
-              <TrendingUp class="w-4 h-4 mr-2" />
-              {{ $t('community.attendanceStats.title') }}
-            </router-link>
-          </Button>
           <Tooltip>
             <TooltipTrigger as-child>
               <Button class="w-full sm:w-auto" @click="openCreateModal">
@@ -37,6 +24,9 @@
           </Tooltip>
         </div>
       </div>
+
+      <!-- Community sub-navigation (breadcrumb + tabs) -->
+      <CommunityNav :community-id="currentCommunity.id" />
 
       <!-- Filter bar: tabs + search -->
       <div class="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
@@ -375,7 +365,7 @@ import { pickFile } from '@/utils/filePicker';
 import { MAX_PHOTO_SOURCE_BYTES } from '@/utils/imageResize';
 import { stashGroupPhoto, useMeetingPhotoUpload } from '@/composables/useMeetingPhotoUpload';
 import { storeToRefs } from 'pinia';
-import { Loader2, CalendarPlus, Calendar, Clock, CheckSquare, ChevronRight, Pencil, Trash2, RefreshCw, Share, FileText, UserCheck, UserX, Search, ImagePlus, TrendingUp, Globe, Copy, EyeOff } from 'lucide-vue-next';
+import { Loader2, CalendarPlus, Calendar, Clock, CheckSquare, Pencil, Trash2, RefreshCw, Share, FileText, UserCheck, UserX, Search, ImagePlus, Globe, Copy, EyeOff } from 'lucide-vue-next';
 import {
   Button, Card, CardHeader, CardTitle, CardDescription, Badge,
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
@@ -383,6 +373,7 @@ import {
   RadioGroup, RadioGroupItem, Label, useToast,
   Tabs, TabsList, TabsTrigger, Input,
 } from '@repo/ui';
+import CommunityNav from '@/components/community/CommunityNav.vue';
 import MeetingFormModal from '@/components/community/MeetingFormModal.vue';
 import { formatDateInCommunityTimezone } from '@repo/utils';
 

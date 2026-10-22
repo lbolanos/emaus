@@ -264,6 +264,13 @@
         </div>
 
         <!-- Non-retreat top sections (community, social) -->
+        <!-- Community context section: replaces the flat one while browsing
+             communities/:id/* (hidden during search). -->
+        <CommunityContextSection
+          v-if="hideFlatCommunitySection"
+          :community-id="String(route.params.id)"
+          :is-collapsed-view="isCollapsedView"
+        />
         <template v-for="section in topNonRetreatSections" :key="section.category">
           <SidebarSection
             :section="section"
@@ -539,6 +546,7 @@ import SidebarSection from '@/components/layout/SidebarSection.vue';
 import { useI18n } from 'vue-i18n';
 import { storeLocale } from '@/i18n';
 import SidebarMenuItem from '@/components/layout/SidebarMenuItem.vue';
+import CommunityContextSection from '@/components/layout/CommunityContextSection.vue';
 import ConnectivityChip from '@/components/offline/ConnectivityChip.vue';
 import { pendingOps } from '@/offline/outbox';
 
@@ -1262,8 +1270,19 @@ const filteredMenuSections = computed(() => {
 });
 
 // Split top sections into retreat vs non-retreat
+// Inside a community (communities/:id/*) the flat community section is replaced
+// by the context section listing that community's sub-pages. While searching
+// the flat one comes back: the context section doesn't take part in the filter.
+const isInCommunityContext = computed(() =>
+  String(route.name ?? '').startsWith('community-') && !!route.params.id
+);
+const hideFlatCommunitySection = computed(() =>
+  isInCommunityContext.value && !searchQuery.value.trim()
+);
 const topNonRetreatSections = computed(() =>
-  filteredMenuSections.value.filter(s => s.position === 'top' && !RETREAT_CATEGORIES.includes(s.category))
+  filteredMenuSections.value
+    .filter(s => s.position === 'top' && !RETREAT_CATEGORIES.includes(s.category))
+    .filter(s => !(hideFlatCommunitySection.value && s.category === 'community'))
 );
 
 const topRetreatSections = computed(() =>
@@ -1476,6 +1495,12 @@ const handleSearchKeydown = () => {
   }
 };
 
+// Arrow navigation only lands on rendered items: collapsed sections are
+// skipped, and so is the flat community section while the context one
+// replaces it (allMenuItems still lists its items).
+const isSectionNavigable = (category: string) =>
+  !isSectionCollapsed(category) && !(hideFlatCommunitySection.value && category === 'community');
+
 const navigateUp = () => {
   if (allMenuItems.value.length === 0) return;
   let newIndex = focusedIndex.value <= 0 ? allMenuItems.value.length - 1 : focusedIndex.value - 1;
@@ -1483,7 +1508,7 @@ const navigateUp = () => {
   while (attempts < allMenuItems.value.length) {
     const item = allMenuItems.value[newIndex];
     const section = filteredMenuSections.value.find(s => s.items.some(i => i.name === item.name));
-    if (section && !isSectionCollapsed(section.category)) {
+    if (section && isSectionNavigable(section.category)) {
       focusedIndex.value = newIndex;
       focusSource.value = 'keyboard';
       scrollFocusedItemIntoView();
@@ -1501,7 +1526,7 @@ const navigateDown = () => {
   while (attempts < allMenuItems.value.length) {
     const item = allMenuItems.value[newIndex];
     const section = filteredMenuSections.value.find(s => s.items.some(i => i.name === item.name));
-    if (section && !isSectionCollapsed(section.category)) {
+    if (section && isSectionNavigable(section.category)) {
       focusedIndex.value = newIndex;
       focusSource.value = 'keyboard';
       scrollFocusedItemIntoView();

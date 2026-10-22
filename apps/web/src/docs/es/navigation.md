@@ -18,7 +18,7 @@ Estas secciones dependen de un retiro seleccionado. El selector de retiro aparec
 ### Secciones Globales
 Estas secciones no dependen de un retiro especifico. El selector de retiro se oculta y en su lugar se muestra el titulo de la seccion actual.
 
-- **Comunidad**: Comunidades, miembros, reuniones, administradores, plantillas
+- **Comunidad**: Comunidades, miembros, reuniones, administradores, plantillas. Al entrar a una comunidad, la sección muestra su nombre con accesos directos a sus páginas, y arriba el enlace **← Comunidades** para volver a la lista
 - **Familia Emaús**: Perfil, buscar hermanos, hermanos, seguidores, testimonios, mis retiros
 - **Configuracion Global**: Casas, telemetria, plantillas globales, articulos de inventario, cambiar contrasena, ayuda
 

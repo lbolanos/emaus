@@ -2,25 +2,14 @@
   <div class="p-4 md:p-6 space-y-6 max-w-7xl mx-auto">
     <!-- Header -->
     <div>
-      <div class="flex items-center text-sm text-muted-foreground/80">
-        <router-link :to="{ name: 'communities' }" class="hover:underline hover:text-foreground transition-colors">
-          {{ $t('community.title') }}
-        </router-link>
-        <ChevronRight class="w-4 h-4 mx-1" />
-        <router-link
-          :to="{ name: 'community-dashboard', params: { id } }"
-          class="hover:underline hover:text-foreground transition-colors"
-        >
-          {{ communityName || $t('community.dashboard') }}
-        </router-link>
-        <ChevronRight class="w-4 h-4 mx-1" />
-        <span>{{ $t('community.attendanceStats.title') }}</span>
-      </div>
       <h1 class="text-2xl md:text-3xl font-bold tracking-tight mt-2">
         {{ $t('community.attendanceStats.title') }}
       </h1>
       <p class="text-muted-foreground mt-1">{{ $t('community.attendanceStats.description') }}</p>
     </div>
+
+    <!-- Community sub-navigation (breadcrumb + tabs) -->
+    <CommunityNav :community-id="id" />
 
     <!-- Filtros -->
     <Card>
@@ -425,7 +414,7 @@ import {
   useToast,
 } from '@repo/ui';
 import {
-  CalendarDays, CalendarOff, ChevronDown, ChevronRight, ChevronUp, ChevronsUpDown,
+  CalendarDays, CalendarOff, ChevronDown, ChevronUp, ChevronsUpDown,
   Download, FileDown, Loader2, TrendingUp, Users, X,
 } from 'lucide-vue-next';
 import { Line } from 'vue-chartjs';
@@ -434,6 +423,7 @@ import {
 } from 'chart.js';
 import { formatDateInCommunityTimezone } from '@repo/utils';
 import { getCommunityAttendanceStats, getCommunityDuplicates } from '@/services/api';
+import CommunityNav from '@/components/community/CommunityNav.vue';
 import MergePairDialog from '@/components/community/MergePairDialog.vue';
 import { useCommunityStore } from '@/stores/communityStore';
 import type {

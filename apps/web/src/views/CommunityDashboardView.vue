@@ -18,13 +18,6 @@
               <h1 class="text-3xl md:text-4xl font-bold tracking-tight text-foreground">
                 {{ currentCommunity.name }}
               </h1>
-              <div class="flex items-center text-sm text-muted-foreground/80">
-                <router-link :to="{ name: 'communities' }" class="hover:underline hover:text-foreground transition-colors">
-                  {{ $t('community.title') }}
-                </router-link>
-                <ChevronRight class="w-4 h-4 mx-1" />
-                <span>{{ $t('community.dashboard') }}</span>
-              </div>
               <p class="text-muted-foreground flex items-center gap-2">
                 <MapPin class="w-4 h-4" />
                 {{ fullAddress }}
@@ -33,41 +26,12 @@
                 {{ currentCommunity.description }}
               </p>
             </div>
-            <div class="flex flex-wrap gap-2">
-              <Button variant="outline" as-child class="shadow-sm hover:shadow-md transition-shadow">
-                <router-link :to="{ name: 'community-members', params: { id: currentCommunity.id } }">
-                  <Users class="mr-2 h-4 w-4" />
-                  {{ $t('community.membersLabel') }}
-                </router-link>
-              </Button>
-              <Button variant="outline" as-child class="shadow-sm hover:shadow-md transition-shadow">
-                <router-link :to="{ name: 'community-meetings', params: { id: currentCommunity.id } }">
-                  <Calendar class="mr-2 h-4 w-4" />
-                  {{ $t('community.meetings') }}
-                </router-link>
-              </Button>
-              <Button variant="outline" as-child class="shadow-sm hover:shadow-md transition-shadow">
-                <router-link :to="{ name: 'community-attendance-stats', params: { id: currentCommunity.id } }">
-                  <TrendingUp class="mr-2 h-4 w-4" />
-                  {{ $t('community.attendanceStats.title') }}
-                </router-link>
-              </Button>
-              <Button variant="outline" as-child class="shadow-sm hover:shadow-md transition-shadow">
-                <router-link :to="{ name: 'community-admins', params: { id: currentCommunity.id } }">
-                  <UserCog class="mr-2 h-4 w-4" />
-                  {{ $t('community.adminsLabel') }}
-                </router-link>
-              </Button>
-              <Button variant="outline" as-child class="shadow-sm hover:shadow-md transition-shadow">
-                <router-link :to="{ name: 'community-templates', params: { id: currentCommunity.id } }">
-                  <MessageSquare class="mr-2 h-4 w-4" />
-                  {{ $t('community.templatesLabel') }}
-                </router-link>
-              </Button>
-            </div>
           </div>
         </div>
       </div>
+
+      <!-- Community sub-navigation (breadcrumb + tabs) -->
+      <CommunityNav :community-id="currentCommunity.id" />
 
       <!-- Stats Overview - 4 Column Grid -->
       <div class="grid gap-4 grid-cols-2 lg:grid-cols-4">
@@ -426,7 +390,6 @@ import {
 	CalendarCheck,
 	CalendarPlus,
 	Loader2,
-	UserCog,
 	MapPin,
 	TrendingUp,
 	Clock,
@@ -436,7 +399,6 @@ import {
 	ChevronRight,
 	PieChart,
 	BarChart3,
-	MessageSquare,
 	Cake,
 	Check,
 	Send,
@@ -445,6 +407,7 @@ import { Card, CardHeader, CardTitle, CardContent, Button, Badge } from '@repo/u
 import { Pie } from 'vue-chartjs';
 import { Chart as ChartJS, Title, Tooltip, Legend, ArcElement, CategoryScale } from 'chart.js';
 import { useI18n } from 'vue-i18n';
+import CommunityNav from '@/components/community/CommunityNav.vue';
 import MeetingFormModal from '@/components/community/MeetingFormModal.vue';
 import MessageDialog from '@/components/MessageDialog.vue';
 import MemberAvatar from '@/components/community/MemberAvatar.vue';
