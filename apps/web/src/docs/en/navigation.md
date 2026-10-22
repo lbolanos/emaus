@@ -18,7 +18,7 @@ These sections depend on a selected retreat. The retreat selector appears in the
 ### Global Sections
 These sections do not depend on a specific retreat. The retreat selector is hidden and the current section title is shown instead.
 
-- **Community**: Communities, members, meetings, admins, templates
+- **Community**: Communities, members, meetings, admins, templates. Inside a community, the section shows its name with shortcuts to its pages, and a **← Communities** link on top to go back to the list
 - **Social**: Profile, search users, friends, followers, testimonials, my retreats
 - **Global Settings**: Houses, telemetry, global templates, inventory items, change password, help
 

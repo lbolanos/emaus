@@ -479,6 +479,33 @@ describe('Sidebar Component', () => {
 			expect(routes).not.toContain('community-dashboard');
 		});
 
+		it('should skip the hidden flat community items on arrow navigation', async () => {
+			const ctxWrapper = await mountOnCommunityRoute('owner');
+			// Every section expanded on purpose: arrow navigation already skips
+			// collapsed ones, so a collapsed community section would make this
+			// pass without the fix, and some other section must stay reachable.
+			const vm = ctxWrapper.vm as any;
+			const { useUIStore: useUIStoreImport } = await import('@/stores/ui');
+			const uiStore = useUIStoreImport();
+			for (const section of vm.filteredMenuSections) {
+				uiStore.collapsedSections[section.category] = false;
+			}
+			await nextTick();
+
+			const aside = ctxWrapper.find('aside');
+			const hiddenFlatItems = ['my-communities', 'communities', 'pending-communities'];
+			const visited: string[] = [];
+			for (let i = 0; i < vm.allMenuItems.length; i++) {
+				await aside.trigger('keydown.down');
+				if (vm.focusedMenuItem) visited.push(vm.focusedMenuItem.name);
+			}
+
+			expect(visited.length).toBeGreaterThan(0);
+			expect(visited.filter(name => hiddenFlatItems.includes(name))).toEqual([]);
+
+			ctxWrapper.unmount();
+		});
+
 		it('should hide the admins item from members without a managing role', async () => {
 			const ctxWrapper = await mountOnCommunityRoute('member');
 			const routes = stubRoutes(ctxWrapper);

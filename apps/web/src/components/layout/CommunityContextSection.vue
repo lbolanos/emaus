@@ -49,58 +49,23 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
-import { useI18n } from 'vue-i18n';
-import {
-	ArrowLeft,
-	Calendar,
-	LayoutDashboard,
-	MessageSquare,
-	TrendingUp,
-	UserCog,
-	Users,
-	UsersRound,
-} from 'lucide-vue-next';
+import { ArrowLeft, UsersRound } from 'lucide-vue-next';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@repo/ui';
 import SidebarMenuItem from '@/components/layout/SidebarMenuItem.vue';
-import { useCommunityStore } from '@/stores/communityStore';
+import { useCommunityNav } from '@/composables/useCommunityNav';
 
 const props = defineProps<{
 	communityId: string;
 	isCollapsedView: boolean;
 }>();
 
-const { t } = useI18n();
-const communityStore = useCommunityStore();
+const { communityName, items: navItems } = useCommunityNav(() => props.communityId);
 
-const communityName = computed(
-	() => communityStore.currentCommunity?.name ?? t('sidebar.sections.community'),
+// SidebarMenuItem keys and identifies rows by `name`; prefixed so they never
+// collide with the real menu items.
+const items = computed(() =>
+	navItems.value.map(item => ({ ...item, name: `community-context-${item.routeName}` })),
 );
-
-// Same gating as CommunityNav: Admins only for community managers.
-const canManageCommunity = computed(() =>
-	['owner', 'admin', 'superadmin'].includes(communityStore.viewerRole ?? ''),
-);
-
-interface ContextMenuItem {
-	name: string;
-	routeName: string;
-	icon: unknown;
-	label: string;
-}
-
-const items = computed<ContextMenuItem[]>(() => {
-	const base: ContextMenuItem[] = [
-		{ name: 'community-context-dashboard', routeName: 'community-dashboard', icon: LayoutDashboard, label: 'community.dashboard' },
-		{ name: 'community-context-members', routeName: 'community-members', icon: Users, label: 'community.membersLabel' },
-		{ name: 'community-context-meetings', routeName: 'community-meetings', icon: Calendar, label: 'community.meetings' },
-		{ name: 'community-context-attendance', routeName: 'community-attendance-stats', icon: TrendingUp, label: 'community.attendanceStats.title' },
-	];
-	if (canManageCommunity.value) {
-		base.push({ name: 'community-context-admins', routeName: 'community-admins', icon: UserCog, label: 'community.adminsLabel' });
-	}
-	base.push({ name: 'community-context-templates', routeName: 'community-templates', icon: MessageSquare, label: 'community.templatesLabel' });
-	return base;
-});
 
 // Exit link above the header: goes to the list, so it carries no community id.
 const backToListItem = {

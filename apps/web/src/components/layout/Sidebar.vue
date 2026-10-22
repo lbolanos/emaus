@@ -1495,6 +1495,12 @@ const handleSearchKeydown = () => {
   }
 };
 
+// Arrow navigation only lands on rendered items: collapsed sections are
+// skipped, and so is the flat community section while the context one
+// replaces it (allMenuItems still lists its items).
+const isSectionNavigable = (category: string) =>
+  !isSectionCollapsed(category) && !(hideFlatCommunitySection.value && category === 'community');
+
 const navigateUp = () => {
   if (allMenuItems.value.length === 0) return;
   let newIndex = focusedIndex.value <= 0 ? allMenuItems.value.length - 1 : focusedIndex.value - 1;
@@ -1502,7 +1508,7 @@ const navigateUp = () => {
   while (attempts < allMenuItems.value.length) {
     const item = allMenuItems.value[newIndex];
     const section = filteredMenuSections.value.find(s => s.items.some(i => i.name === item.name));
-    if (section && !isSectionCollapsed(section.category)) {
+    if (section && isSectionNavigable(section.category)) {
       focusedIndex.value = newIndex;
       focusSource.value = 'keyboard';
       scrollFocusedItemIntoView();
@@ -1520,7 +1526,7 @@ const navigateDown = () => {
   while (attempts < allMenuItems.value.length) {
     const item = allMenuItems.value[newIndex];
     const section = filteredMenuSections.value.find(s => s.items.some(i => i.name === item.name));
-    if (section && !isSectionCollapsed(section.category)) {
+    if (section && isSectionNavigable(section.category)) {
       focusedIndex.value = newIndex;
       focusSource.value = 'keyboard';
       scrollFocusedItemIntoView();

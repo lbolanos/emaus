@@ -94,6 +94,22 @@ describe('CommunityNav', () => {
 		expect(linkTargets()).not.toContain(JSON.stringify({ name: 'community-admins', params: { id: 'community-1' } }));
 	});
 
+	it('ignores a previously loaded community until the requested one arrives', () => {
+		// The store still holds the community visited before, where the viewer
+		// was owner; the requested one (community-1) hasn't been fetched yet.
+		const communityStore = useCommunityStore();
+		communityStore.currentCommunity = {
+			id: 'other-community',
+			name: 'Otra comunidad',
+			viewerRole: 'owner',
+		} as never;
+		wrapper = mountNav();
+
+		expect(wrapper.text()).not.toContain('Otra comunidad');
+		expect(wrapper.text()).toContain('sidebar.sections.community');
+		expect(linkTargets()).not.toContain(JSON.stringify({ name: 'community-admins', params: { id: 'community-1' } }));
+	});
+
 	it('marks the current page link as active', async () => {
 		setCommunity('owner');
 		mockRoute.name = 'community-members';

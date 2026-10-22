@@ -96,6 +96,20 @@ describe('CommunityContextSection', () => {
 		expect(wrapper.text()).toContain('sidebar.sections.community');
 	});
 
+	it('ignores a previously loaded community until the requested one arrives', () => {
+		const communityStore = useCommunityStore();
+		communityStore.currentCommunity = {
+			id: 'other-community',
+			name: 'Otra comunidad',
+			viewerRole: 'owner',
+		} as never;
+		wrapper = mountSection();
+
+		expect(wrapper.text()).not.toContain('Otra comunidad');
+		expect(wrapper.text()).toContain('sidebar.sections.community');
+		expect(stubRoutes()).not.toContain('community-admins');
+	});
+
 	it('hides the admins item from members without a managing role', () => {
 		setCommunity('member');
 		wrapper = mountSection();

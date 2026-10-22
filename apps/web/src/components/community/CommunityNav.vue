@@ -18,7 +18,6 @@
     <nav :aria-label="t('community.title')" class="w-full">
       <div
         class="flex w-full items-center gap-[3px] overflow-x-auto rounded-lg bg-muted p-[3px] text-muted-foreground"
-        role="tablist"
       >
         <router-link
           v-for="item in navItems"
@@ -41,19 +40,10 @@
 </template>
 
 <script setup lang="ts">
-import { computed, type Component } from 'vue';
 import { useRoute } from 'vue-router';
 import { useI18n } from 'vue-i18n';
-import {
-	Calendar,
-	ChevronRight,
-	LayoutDashboard,
-	MessageSquare,
-	TrendingUp,
-	UserCog,
-	Users,
-} from 'lucide-vue-next';
-import { useCommunityStore } from '@/stores/communityStore';
+import { ChevronRight } from 'lucide-vue-next';
+import { useCommunityNav, type CommunityNavItem } from '@/composables/useCommunityNav';
 
 const props = defineProps<{
 	communityId: string;
@@ -61,37 +51,7 @@ const props = defineProps<{
 
 const route = useRoute();
 const { t } = useI18n();
-const communityStore = useCommunityStore();
+const { communityName, items: navItems } = useCommunityNav(() => props.communityId);
 
-const communityName = computed(
-	() => communityStore.currentCommunity?.name ?? t('sidebar.sections.community'),
-);
-
-// Same gating as the sidebar: only community managers see the Admins entry
-// (the route guard requires a global role anyway).
-const canManageCommunity = computed(() =>
-	['owner', 'admin', 'superadmin'].includes(communityStore.viewerRole ?? ''),
-);
-
-interface NavItem {
-	routeName: string;
-	label: string;
-	icon: Component;
-}
-
-const navItems = computed<NavItem[]>(() => {
-	const items: NavItem[] = [
-		{ routeName: 'community-dashboard', label: 'community.dashboard', icon: LayoutDashboard },
-		{ routeName: 'community-members', label: 'community.membersLabel', icon: Users },
-		{ routeName: 'community-meetings', label: 'community.meetings', icon: Calendar },
-		{ routeName: 'community-attendance-stats', label: 'community.attendanceStats.title', icon: TrendingUp },
-	];
-	if (canManageCommunity.value) {
-		items.push({ routeName: 'community-admins', label: 'community.adminsLabel', icon: UserCog });
-	}
-	items.push({ routeName: 'community-templates', label: 'community.templatesLabel', icon: MessageSquare });
-	return items;
-});
-
-const isActive = (item: NavItem) => route.name === item.routeName;
+const isActive = (item: CommunityNavItem) => route.name === item.routeName;
 </script>

@@ -646,7 +646,7 @@ Se llega a la vista desde:
 
 | Vista | Cómo |
 |-------|------|
-| `CommunityDashboardView` | Botón "Plantillas" |
+| `CommunityNav` (pestañas en las páginas de la comunidad) y sección contextual del sidebar | Pestaña / ítem "Plantillas" |
 | `CommunityListView` | Dropdown de cada card → "Plantillas" |
 | `CommunityAdminsView` | Header → botón outline "Plantillas" |
 | `CommunityMembersView` | Header → botón outline "Plantillas" |
