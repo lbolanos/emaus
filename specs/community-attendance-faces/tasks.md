@@ -62,40 +62,75 @@
 
 ## M1 — Vista de asistencia [P con M2-servidor]
 
-- [ ] `mergeMembers(prev, next)` en `utils/communityAttendanceList.ts` (conserva URL de foto del mismo
+- [x] `mergeMembers(prev, next)` en `utils/communityAttendanceList.ts` (conserva URL de foto del mismo
       objeto) + tests
-- [ ] `toggleAttendance` sin `fetchMembers`; refresco de fondo con debounce de 4 s que no reordena
-- [ ] `MemberAvatar` emite `error`; la vista pide firmas nuevas como mucho una vez por minuto
-- [ ] Avatar como botón (`@click.stop`) → `MemberPhotoDialog`; `saved` reemplaza la fila
-- [ ] Filtro «Sin foto» (`photo: all | with | without`) + tests
-- [ ] Móvil: filtros plegables con «Filtros (n)»
-- [ ] Orden y filtros en `localStorage` por comunidad (try/catch)
-- [ ] Tests de la vista: un toque no llama `fetchMembers`; el avatar no marca asistencia
-- [ ] Verificación en navegador (desktop y 390 px): Network sin descargas de foto al marcar (CA-1)
+- [x] `toggleAttendance` sin `fetchMembers`; refresco de fondo con debounce de 4 s que no reordena
+      (con orden «asistencia» congela el orden visible hasta cambiar de orden)
+- [x] `MemberAvatar` emite `error`; la vista pide firmas nuevas como mucho una vez por minuto
+- [x] Avatar como botón (`@click.stop`) → `MemberPhotoDialog`; `saved` reemplaza la fila
+- [x] Filtro «Sin foto» (`photo: all | with | without`) + tests
+- [x] Móvil: filtros plegables con «Filtros (n)»
+- [x] Orden y filtros en `localStorage` por comunidad (try/catch); un retiro recordado que ya no
+      existe vuelve a «todos»
+- [x] Tests de la vista: un toque no llama `fetchMembers`; el avatar no marca asistencia. 40/40 en
+      los tres archivos; 197/197 en las suites de comunidad
+- [x] Verificación en navegador (dev del worktree): un toque hace solo `POST attendance/single`; a los
+      4 s, un único `GET members`; ninguna descarga de foto (CA-1). 1280 px y 390 px revisados
+
+**Done**: 2026-10-22 (agente A en paralelo; verificación en navegador por la sesión principal)
+
+### Desviaciones 2026-10-22
+
+- Los helpers de preferencias (`loadAttendancePrefs` / `saveAttendancePrefs`) viven en
+  `communityAttendanceList.ts`, con sus propios tests.
+- Ícono `SlidersHorizontal` para «Filtros (n)»: agregado a la allowlist de lucide en
+  `apps/web/src/test/setup.ts` para que otros tests que monten la vista no se rompan.
+- Las clases de ancho de los `Select` pasaron de `sm:` a `md:` (el plegado empieza en `md`).
 
 ## M2 — Asistencia sin señal
 
-- [ ] Servidor [P con M1]: esquema Zod de `attendance/single` (+ `occurredAt`), middleware
+- [x] Servidor [P con M1]: esquema Zod de `attendance/single` (+ `occurredAt`), middleware
       `idempotency`, chequeo de que la reunión es de la comunidad, `recordedAt` desde `occurredAt`
-- [ ] Tests API: reenvío con la misma clave no duplica; reunión de otra comunidad → 404;
-      `occurredAt` futuro se ignora
-- [ ] Kind `community.attendance` en `outboxKinds.ts` + tests de `matchQueueable`
+- [x] Tests API: reenvío con la misma clave no duplica; reunión de otra comunidad → 404;
+      `occurredAt` futuro se ignora (en `communityFaceRecognition.test.ts`)
+- [x] Kind `community.attendance` en `outboxKinds.ts` + tests de `matchQueueable` (52/52 en
+      `outboxKinds.test.ts`); texto `offline.ops.communityAttendance` en es/en
+- [ ] Nombre del miembro en la lista de pendientes: `who()` lee `meta.name`, que hoy sale de los datos
+      guardados del retiro; comunidades no los tiene. Pasarlo al encolar (sin mandarlo al servidor)
 - [ ] Indicador «pendiente» en la tarjeta, limpiado al salir la operación de la cola
 - [ ] E2E chromium: modo avión → 3 marcas pendientes → señal → guardadas una vez (CA-3)
 
 ## M3 — Datos y servicio de Gemini
 
-- [ ] Migración `AddCommunityFaceRecognition` (skill `sqlite-migrations`; solo ADD COLUMN, idempotente):
-      `community.faceRecognitionEnabled`, `community_member.faceRecognitionOptOut`
-- [ ] Entities + tipos en `@repo/types`; `AI_FACE_MODEL` en `config.ts` y `.env.example`
-- [ ] `faceMatchService`: galería numerada (D11, caché invalidada por foto/exclusión), una llamada
-      `generateObject` con esquema Zod, post-proceso (fuera de rango, duplicados), recortes, modo
-      degradado ante `503`/`429`/timeout
-- [ ] Endpoints: encender/apagar (owner), exclusión por miembro, `face-match` (rate limit, 403 si
-      apagado), `face-match/confirm` (upsert sin borrar; foto solo si no tenía y no está excluido)
-- [ ] Tests API con Gemini mockeado (lista de Verificación de plan.md)
+- [x] Migración `20261022120000_AddCommunityFaceRecognition` (ADD COLUMN + tabla de etiquetas de M7,
+      idempotente; `transaction = false` por el `DROP TABLE` del `down()`, que exige el guard)
+- [x] Entities + tipos en `@repo/types`; `AI_FACE_MODEL` en `config.ts` y `.env.example`
+- [x] `faceModelClient` (única llamada a Gemini, abort a 45 s) + `faceMatchService` (galería con
+      caché de 10 min invalidada por foto/exclusión/toggle, post-proceso, recortes, degradado)
+- [x] Endpoints: encender/apagar (owner), exclusión por miembro, `face-match` (6/min por usuario, 403
+      si apagado, 404 antes que 403 para reuniones ajenas), `face-match/confirm`
+- [x] Tests API con Gemini mockeado: 26/26 en `communityFaceRecognition.test.ts`; 200/200 en las
+      cuatro suites de comunidad; 35/35 suites de migraciones. Bundle `pnpm --filter api build` sin
+      `__dirname`/`require` nuevos
 - [ ] UI: ajuste en la configuración de la comunidad (owner); interruptor «Excluir del
       reconocimiento» en el ⋮ del miembro
+
+### Desviaciones 2026-10-22 (agente B, revisadas por la sesión principal)
+
+- Modo degradado ante **cualquier** fallo del modelo (`reason`: `busy` | `quota` | `timeout` |
+  `error`), no solo 503/429/timeout (D12).
+- Los números de la galería se dibujan como rectángulos de 7 segmentos en SVG: un Linux sin
+  fuentes pintaría el texto vacío.
+- `confirm` ignora `photos` y `tags` de miembros que no están en `present` (no sirve para cambiar
+  fotos de cualquiera); devuelve 404 sin escribir nada si algún miembro es de otra comunidad.
+- La validación Zod del data URL revisa solo el prefijo (una regex sobre MBs revienta el stack en
+  Node 20/Linux); el formato real lo valida `sharp`.
+- `recordSingleAttendance` valida la reunión para todos los llamadores, también la asistencia
+  pública, que ahora responde 404 a una reunión de otra comunidad.
+- **Corregido en la revisión**: el derecho de eliminación (`anonymizeParticipantByToken`) no
+  borraba las etiquetas de la persona en las fotos de grupo, y el álbum público la habría mostrado
+  como «(eliminado)» sobre su cara. Ahora se borran sus etiquetas y el álbum excluye a quien tenga
+  `dataDeletedAt` (test nuevo).
 
 ## M4 — Revisión desde la portada
 
@@ -110,11 +145,25 @@
 
 ## M5 — Identificar por voz
 
-- [ ] `utils/nameMatcher.ts` + tests (acentos, solo nombre, apellidos compuestos, homónimos)
+- [x] `utils/nameMatcher.ts` + tests (acentos, solo nombre, apellidos compuestos, homónimos): 9/9;
+      `matchNames(spoken, candidates, {limit=3, minScore=0.8})`, Jaro-Winkler por token, sin
+      partículas «de/del/la/las/los/y», +0.05 si coincide el nombre de pila. `minScore` sin calibrar
+      con voz real
 - [ ] Paso «sin identificar» con micrófono (`useSpeechRecognition`), 3 candidatos, «saltar» por voz
 - [ ] Respaldo sin Web Speech: campo con autocompletado
 - [ ] Confirmar → `present` + `photos` (excluidos solo `present`)
 - [ ] Verificación en Chrome desktop, Android y iPhone (dictado del teclado)
+
+## M7 — Álbum público de la reunión (pedido 2026-10-22)
+
+- [x] Datos (en la migración de M3): tabla `community_meeting_photo_tag` y columnas de publicación
+      en `community_meeting`; `face-match/confirm` guarda etiquetas; reemplazar/borrar portada las borra
+- [x] Endpoints publicar/despublicar (admins de la comunidad; 409 si la reunión no tiene foto; volver a
+      publicar conserva el enlace) y `GET /public/album/:token` (60/min por IP, `no-store`,
+      `X-Robots-Tag: noindex`, 404 idéntico para token desconocido, mal formado o despublicado)
+- [ ] Vista pública `/album/:token` (D16) + botón «Publicar álbum / Copiar enlace» en la reunión
+- [ ] Tests: token inválido → 404; excluidos y no confirmados no salen; sin datos de contacto
+- [ ] Verificación en navegador (escritorio y 390 px)
 
 ## M6 — Cierre
 

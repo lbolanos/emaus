@@ -87,8 +87,13 @@ Detalle y desviaciones en tasks.md.
 
 - `community`: `faceRecognitionEnabled` boolean default 0.
 - `community_member`: `faceRecognitionOptOut` boolean default 0.
-- Solo `ADD COLUMN`, idempotente (guarda con `PRAGMA table_info`). Sin tablas nuevas: no hay
-  vectores ni índices de caras.
+- `community_meeting`: `albumToken` varchar(32) null (índice único parcial `WHERE albumToken IS
+  NOT NULL`), `albumPublishedAt` datetime null (M7).
+- Tabla nueva `community_meeting_photo_tag` (M7): `id` uuid, `meetingId` → `community_meeting`
+  `ON DELETE CASCADE`, `memberId` → `community_member` `ON DELETE CASCADE`, `yMin`/`xMin`/`yMax`/`xMax`
+  integer 0–1000, `createdAt`; único `(meetingId, memberId)`.
+- `ADD COLUMN` con guarda `PRAGMA table_info` + `CREATE TABLE/INDEX IF NOT EXISTS`: idempotente, sin
+  recreate-table. No hay vectores ni índices de caras.
 
 ### `apps/api/src/services/faceMatchService.ts`
 
@@ -121,6 +126,21 @@ Detalle y desviaciones en tasks.md.
 | `POST /api/communities/:id/meetings/:meetingId/face-match/confirm` `{present: memberId[], photos: [{memberId, crop}]}` | acceso | Asistencia (upsert `attended = true`, sin borrar a nadie, a diferencia de `recordAttendance`) + `setMemberPhoto` con el recorte solo si no tenía foto y no está excluido |
 
 Todas validan que la reunión y los miembros pertenezcan a la comunidad de la ruta (FR-23).
+
+`confirm` recibe además, por cada presente que salió de una cara, su caja (`box` 0–1000) y la guarda
+como etiqueta (FR-28, upsert por `(meetingId, memberId)`); los excluidos no se etiquetan.
+`setMeetingPhoto` y `deleteMeetingPhoto` borran las etiquetas de esa reunión (FR-29).
+
+### Álbum (M7)
+
+| Ruta | Permiso | Qué |
+|---|---|---|
+| `POST /api/communities/:id/meetings/:meetingId/album` | admin de la comunidad | Publica: genera `albumToken` (`crypto.randomBytes(16).toString('hex')`), fija `albumPublishedAt`; devuelve el token |
+| `DELETE /api/communities/:id/meetings/:meetingId/album` | admin de la comunidad | Despublica: token y fecha a `null` |
+| `GET /api/communities/public/album/:token` | público | `{communityName, meetingTitle, startDate, timezone, photoUrl (firmada), tags: [{name, box}]}`; `name` = nombre de pila + primer apellido (D14); sin miembros excluidos; 404 si no existe |
+
+Vista pública `apps/web/src/views/PublicMeetingAlbumView.vue` en la ruta `/album/:token` (sin
+`requiresAuth`), con `<meta name="robots" content="noindex">`.
 
 ## Capa 4 — Revisión desde la portada (M4)
 

@@ -57,6 +57,10 @@ Esta spec cubre lo que sigue sobre esa base.
 | D10 | **Orden y filtros recordados** | Por comunidad y por dispositivo. Al volver a la pantalla aparecen como se dejaron. La búsqueda no se recuerda. |
 | D11 | **Quién entra a la galería** | Miembros con foto de perfil y no excluidos. Si pasan de **48**, entran los de asistencia más reciente (la evaluación se hizo con 36; con más se mide en M4 antes de subir el tope). |
 | D12 | **Si Gemini falla** | Saturación (`503`), cuota (`429`) o tiempo agotado: la revisión abre sin sugerencias, con un aviso, y la asistencia se marca a mano o por voz. Ningún fallo del motor bloquea subir la portada. |
+| D13 | **Álbum público: quién lo ve** (pedido y aprobado por Leonardo 2026-10-22, con D14 y D15) | Enlace **no listado** con token aleatorio (`/album/<token>`), `noindex`, para compartir por WhatsApp. Se publica por reunión (owner o admin) y se puede despublicar: el token deja de servir. Publica caras **con nombres** de personas: por eso no es automático. |
+| D14 | **Álbum: qué nombre se muestra** (aprobado) | Nombre de pila y primer apellido del nombre efectivo (`resolveMemberProfile`). Nunca correo, teléfono ni datos de la ficha. |
+| D15 | **Álbum: quién sale etiquetado** (aprobado) | Solo los rostros **confirmados** en la revisión de la foto (D4/D5) y de miembros no excluidos (D8). Las caras sin identificar quedan sin etiqueta. Reemplazar la portada borra las etiquetas hasta la nueva revisión. |
+| D16 | **Álbum: diseño** | Como la referencia (`discipuloservidor.org/EMAUS`, segundo álbum): antetítulo «Comunidad · fecha», título «Conozcamos nuestros nombres», contador de integrantes, «Mostrar puntos», zoom, buscador por nombre; pasar el cursor o tocar un rostro muestra el nombre; lista desplegable que localiza a cada integrante. Pensado primero para celular. |
 
 ## Objetivo
 
@@ -152,6 +156,21 @@ siguiente. Que marcar a mano siga funcionando con mala señal y sin gastar datos
   foto de perfil (D6b). «No es de la comunidad» y «Saltar» no guardan nada.
 - **FR-21** Un miembro excluido sí puede marcarse presente por voz, pero su recorte no se vuelve su
   foto.
+
+### Álbum público de la reunión (pedido 2026-10-22)
+
+- **FR-28** Al confirmar la revisión se guardan las **etiquetas** de la foto: por cada miembro
+  confirmado, su caja normalizada (0–1000) en la portada. Un miembro, una etiqueta por reunión.
+- **FR-29** Reemplazar o borrar la portada borra sus etiquetas.
+- **FR-30** «Publicar álbum» / «Despublicar» por reunión (owner o admin); publicar genera un token
+  aleatorio; despublicar lo borra.
+- **FR-31** `GET /api/communities/public/album/:token` (sin sesión): comunidad, título y fecha de la
+  reunión, URL firmada de la portada y etiquetas `{name, box}` según D14/D15. Token inexistente o
+  despublicado → 404, sin distinguir los dos casos.
+- **FR-32** Vista pública `/album/:token` según D16, con `noindex`, accesible por teclado (cada
+  rostro es un botón con su nombre) y usable en celular (tocar, acercar, buscar).
+- **FR-33** El texto público cumple las reglas de la landing (sin palancas, cartas ni dinámicas
+  internas; guard `landingPublicContent.test.ts` como referencia).
 
 ### Seguridad
 
