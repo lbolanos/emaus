@@ -228,6 +228,37 @@ export const meetingNotifyLimiter = rateLimit({
 });
 
 /**
+ * Limiter del análisis de foto de grupo (POST .../face-match): cada llamada consume cuota del
+ * modelo de visión (costo) y manda hasta 5 MB. Por usuario, no por IP.
+ */
+export const faceMatchLimiter = rateLimit({
+	windowMs: 60 * 1000,
+	max: 6,
+	keyGenerator: (req: Request) => `face-match:${(req as any).user?.id || req.ip || 'unknown'}`,
+	handler: (req: Request, res: Response) => {
+		console.warn(`Rate limit - FaceMatch: user=${(req as any).user?.id}`);
+		res.status(429).json({
+			message: 'Demasiados análisis de fotos. Espera un minuto.',
+			error: 'FACE_MATCH_RATE_LIMIT_EXCEEDED',
+		});
+	},
+	skip: (req: Request) => {
+		return process.env.NODE_ENV === 'development' && process.env.SKIP_RATE_LIMIT === 'true';
+	},
+});
+
+/** Limiter por IP del álbum público (sin sesión): frena el sondeo de tokens. */
+export const publicAlbumLimiter = rateLimit({
+	windowMs: 60 * 1000,
+	max: 60,
+	keyGenerator: (req: Request) => `public-album:${req.ip || 'unknown'}`,
+	message: { message: 'Demasiadas solicitudes. Espera un momento.' },
+	skip: (req: Request) => {
+		return process.env.NODE_ENV === 'development' && process.env.SKIP_RATE_LIMIT === 'true';
+	},
+});
+
+/**
  * Limiter para el alta manual de miembro (POST /communities/:id/members/create).
  * El endpoint responde 409 con NOMBRES de personas globales cuando el
  * teléfono/email matchea — sin esto, un admin puede scriptear probetas de

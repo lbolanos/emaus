@@ -53,7 +53,7 @@ import {
   reportSuccess,
 } from "@/offline/connectivity";
 import { enqueue, newIdempotencyKey } from "@/offline/outbox";
-import { matchQueueable, type QueueableMatch } from "@/offline/outboxKinds";
+import { matchQueueable, type OutboxMeta, type QueueableMatch } from "@/offline/outboxKinds";
 import { noteQueuedWrite } from "@/offline/queuedToast";
 
 // Helper de mensajes de error legibles (módulo puro, sin side-effects).
@@ -167,6 +167,8 @@ interface OfflineOpConfig {
   occurredAt: string;
   path: string;
   match: QueueableMatch;
+  /** Label data set by the caller via `config.offlineMeta`; never sent to the server. */
+  meta?: Partial<OutboxMeta>;
 }
 
 const parseBody = (data: unknown): any => {
@@ -187,6 +189,7 @@ async function queueWrite(config: any) {
     body: parseBody(config.data),
     key: op.key,
     occurredAt: op.occurredAt,
+    meta: op.meta,
   });
   // The screen's next toast says "saved on the phone" (or the queue shows its own).
   noteQueuedWrite();
@@ -215,7 +218,7 @@ api.interceptors.request.use((config) => {
   config.headers["X-Client-Time"] = occurredAt;
   if (match.def.stampBody) cfg.data = { ...(body ?? {}), occurredAt };
   if (!config.timeout) config.timeout = WRITE_TIMEOUT_MS;
-  cfg.offlineOp = { key, occurredAt, path, match } satisfies OfflineOpConfig;
+  cfg.offlineOp = { key, occurredAt, path, match, meta: cfg.offlineMeta } satisfies OfflineOpConfig;
 
   if (!connectivity.online) {
     // Known to be offline: do not even try (and do not wait for a CSRF token).
@@ -1814,16 +1817,130 @@ export async function recordCommunityAttendance(
   return response.data;
 }
 
+/**
+ * Without signal the write is queued on the device (outbox kind `community.attendance`) and
+ * the answer comes back with `queued: true`. `memberName` only labels the pending change in
+ * the queue; it is not sent to the server.
+ */
 export async function recordSingleCommunityAttendance(
   communityId: string,
   meetingId: string,
   memberId: string,
   attended: boolean,
-): Promise<CommunityAttendance> {
+  opts: { memberName?: string } = {},
+): Promise<CommunityAttendance & { queued?: boolean }> {
   const response = await api.post(
     `/communities/${communityId}/meetings/${meetingId}/attendance/single`,
     { memberId, attended },
+    { offlineMeta: opts.memberName ? { name: opts.memberName } : undefined } as any,
   );
+  return (response as any).queued ? { ...response.data, queued: true } : response.data;
+}
+
+// ── Asistencia con foto de grupo y álbum público (specs/community-attendance-faces) ──
+
+/** [ymin, xmin, ymax, xmax], normalizada de 0 a 1000. */
+export type FaceBox = [number, number, number, number];
+
+export interface FaceMatchFace {
+  box: FaceBox;
+  /** Recorte de la cara, data URL JPEG (≤ 512 px). */
+  crop: string;
+  suggestedMemberId: string | null;
+}
+
+export interface FaceMatchResult {
+  faces: FaceMatchFace[];
+  /** El modelo falló: la revisión abre sin sugerencias (D12). */
+  degraded?: boolean;
+  reason?: "busy" | "quota" | "timeout" | "error";
+}
+
+export interface FaceMatchConfirmInput {
+  present: string[];
+  photos?: { memberId: string; crop: string }[];
+  tags?: { memberId: string; box: FaceBox }[];
+}
+
+export interface FaceMatchConfirmResult {
+  attendanceMarked: number;
+  photosSet: number;
+  tagsSaved: number;
+  skippedOptOut: number;
+}
+
+export interface PublicMeetingAlbum {
+  communityName: string;
+  meetingTitle: string;
+  startDate: string;
+  timezone: string;
+  photoUrl: string;
+  tags: { name: string; box: FaceBox }[];
+}
+
+/** Owner/superadmin. */
+export async function setCommunityFaceRecognition(
+  communityId: string,
+  enabled: boolean,
+): Promise<{ id: string; faceRecognitionEnabled: boolean }> {
+  const response = await api.patch(`/communities/${communityId}/face-recognition`, { enabled });
+  return response.data;
+}
+
+export async function setMemberFaceRecognitionOptOut(
+  communityId: string,
+  memberId: string,
+  optOut: boolean,
+): Promise<{ id: string; faceRecognitionOptOut: boolean }> {
+  const response = await api.patch(
+    `/communities/${communityId}/members/${memberId}/face-recognition`,
+    { optOut },
+  );
+  return response.data;
+}
+
+/** `image`: data URL de la foto de grupo (≤ 3.4 MB antes de base64). 403 si la función está apagada. */
+export async function analyzeMeetingGroupPhoto(
+  communityId: string,
+  meetingId: string,
+  image: string,
+): Promise<FaceMatchResult> {
+  const response = await api.post(
+    `/communities/${communityId}/meetings/${meetingId}/face-match`,
+    { image },
+    { timeout: 90_000 },
+  );
+  return response.data;
+}
+
+export async function confirmMeetingFaceMatch(
+  communityId: string,
+  meetingId: string,
+  input: FaceMatchConfirmInput,
+): Promise<FaceMatchConfirmResult> {
+  const response = await api.post(
+    `/communities/${communityId}/meetings/${meetingId}/face-match/confirm`,
+    { present: input.present, photos: input.photos ?? [], tags: input.tags ?? [] },
+  );
+  return response.data;
+}
+
+/** 409 si la reunión no tiene foto. Volver a publicar devuelve el mismo token. */
+export async function publishMeetingAlbum(
+  communityId: string,
+  meetingId: string,
+): Promise<{ albumToken: string; albumPublishedAt: string }> {
+  const response = await api.post(`/communities/${communityId}/meetings/${meetingId}/album`);
+  return response.data;
+}
+
+export async function unpublishMeetingAlbum(communityId: string, meetingId: string): Promise<void> {
+  await api.delete(`/communities/${communityId}/meetings/${meetingId}/album`);
+}
+
+/** Público (sin sesión). 404 si el token no existe o el álbum se despublicó. */
+export async function getPublicMeetingAlbum(token: string): Promise<PublicMeetingAlbum> {
+  const response = await api.get(`/communities/public/album/${encodeURIComponent(token)}`);
   return response.data;
 }
 

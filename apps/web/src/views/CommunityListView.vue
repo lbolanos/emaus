@@ -235,6 +235,40 @@
                 <Label for="description">{{ $t('community.description') }}</Label>
                 <Textarea id="description" v-model="form.description" rows="3" placeholder="Describe la comunidad..." />
               </div>
+
+              <!-- Face recognition (spec FR-11): owner/superadmin, existing community only.
+                   Applies immediately and independently of the modal's Save button. -->
+              <div v-if="editingCommunity && canManage(editingCommunity)" class="space-y-3 border rounded-lg p-4" data-testid="face-recognition-section">
+                <div class="flex items-center justify-between gap-4">
+                  <div>
+                    <Label for="face-recognition-switch" class="font-medium">Reconocimiento facial en la asistencia</Label>
+                    <p class="text-foreground/70 text-xs mt-1">Sugiere quién es cada persona al subir la foto de una reunión.</p>
+                  </div>
+                  <Switch
+                    id="face-recognition-switch"
+                    :model-value="!!editingCommunity.faceRecognitionEnabled"
+                    :disabled="isSavingFaceRecognition"
+                    @update:model-value="requestFaceRecognitionChange(!!$event)"
+                  />
+                </div>
+                <div v-if="pendingFaceRecognition !== null" class="bg-muted p-3 rounded-lg space-y-3" data-testid="face-recognition-confirm">
+                  <p class="text-sm">
+                    <template v-if="pendingFaceRecognition">
+                      Al subir la foto de una reunión, la app sugiere quién es cada persona comparando con las fotos de perfil. Las caras se envían a Google Gemini para el análisis. Los miembros pueden pedir que se les excluya.
+                    </template>
+                    <template v-else>
+                      Se desactivará el reconocimiento facial en la asistencia de esta comunidad. ¿Continuar?
+                    </template>
+                  </p>
+                  <div class="flex justify-end gap-2">
+                    <Button type="button" variant="outline" size="sm" :disabled="isSavingFaceRecognition" @click="pendingFaceRecognition = null">Cancelar</Button>
+                    <Button type="button" size="sm" :disabled="isSavingFaceRecognition" data-testid="face-recognition-confirm-button" @click="confirmFaceRecognitionChange">
+                      <Loader2 v-if="isSavingFaceRecognition" class="w-4 h-4 mr-2 animate-spin" />
+                      {{ pendingFaceRecognition ? 'Activar reconocimiento facial' : 'Desactivar reconocimiento facial' }}
+                    </Button>
+                  </div>
+                </div>
+              </div>
             </div>
 
             <!-- Footer -->
@@ -282,10 +316,11 @@ import { storeToRefs } from 'pinia';
 import { Plus, Users, MoreHorizontal, Edit, Trash2, ChevronRight, Loader2, Search, ExternalLink, FileText } from 'lucide-vue-next';
 import {
   Button, Card, CardHeader, CardTitle, CardDescription, CardFooter,
-  Label, Input, Textarea,
+  Label, Input, Textarea, Switch,
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator
 } from '@repo/ui';
 import { useToast } from '@repo/ui';
+import { setCommunityFaceRecognition } from '@/services/api';
 
 const communityStore = useCommunityStore();
 const { communities, loading } = storeToRefs(communityStore);
@@ -309,6 +344,42 @@ const canManage = (community: any): boolean => {
   return community?.viewerRole === 'owner' || community?.viewerRole === 'superadmin';
 };
 const communityToDelete = ref<any>(null);
+
+// Face recognition toggle (spec FR-11): confirmation first, then it persists on its own.
+const pendingFaceRecognition = ref<boolean | null>(null);
+const isSavingFaceRecognition = ref(false);
+
+const requestFaceRecognitionChange = (next: boolean) => {
+  if (next === !!editingCommunity.value?.faceRecognitionEnabled) return;
+  pendingFaceRecognition.value = next;
+};
+
+const confirmFaceRecognitionChange = async () => {
+  const next = pendingFaceRecognition.value;
+  const target = editingCommunity.value;
+  if (next === null || !target) return;
+  isSavingFaceRecognition.value = true;
+  try {
+    const res = await setCommunityFaceRecognition(target.id, next);
+    target.faceRecognitionEnabled = res.faceRecognitionEnabled;
+    // The modal may hold a copy: patch the list entry too.
+    const listed = communities.value.find((c: any) => c?.id === target.id);
+    if (listed) listed.faceRecognitionEnabled = res.faceRecognitionEnabled;
+    pendingFaceRecognition.value = null;
+    toast({
+      title: res.faceRecognitionEnabled ? 'Reconocimiento facial activado' : 'Reconocimiento facial desactivado',
+    });
+  } catch (error) {
+    console.error('Failed to update face recognition:', error);
+    toast({
+      title: 'No se pudo cambiar el reconocimiento facial',
+      description: error instanceof Error ? error.message : 'Unknown error',
+      variant: 'destructive',
+    });
+  } finally {
+    isSavingFaceRecognition.value = false;
+  }
+};
 const address1_is_editing = ref(true);
 const autocompleteField = ref<any>(null);
 
@@ -421,6 +492,7 @@ const openAddModal = () => {
 
 const openEditModal = (community: any) => {
   editingCommunity.value = community;
+  pendingFaceRecognition.value = null;
   form.value = {
     name: community.name,
     address1: community.address1,

@@ -4228,7 +4228,8 @@
       "bedAssign": "{name} to bed {bed}",
       "bedUnassign": "Free bed {bed}",
       "tableAssign": "{name} to {table}",
-      "tableUnassign": "Remove {name} from {table}"
+      "tableUnassign": "Remove {name} from {table}",
+      "communityAttendance": "Attendance of {name}"
     },
     "needsConnection": "Needs a connection",
     "edit": {

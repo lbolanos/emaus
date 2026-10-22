@@ -40,6 +40,14 @@ export class CommunityMeeting {
 	@Column({ type: 'varchar', nullable: true })
 	photoS3Key?: string | null;
 
+	// Public album (unlisted link). NULL token = not published. Never exposed by the
+	// admin meeting endpoints' consumers beyond what the album routes return.
+	@Column({ type: 'varchar', length: 32, nullable: true })
+	albumToken?: string | null;
+
+	@Column({ type: 'datetime', nullable: true, transformer: new DateTimeTransformer() })
+	albumPublishedAt?: Date | null;
+
 	@Column({ type: 'datetime', transformer: new DateTimeTransformer() })
 	startDate!: Date;
 

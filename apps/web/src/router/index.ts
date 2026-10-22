@@ -151,6 +151,14 @@ const router = createRouter({
 			meta: { requiresAuth: false },
 		},
 		{
+			// Álbum público no listado de una reunión de comunidad (specs/community-attendance-faces, D13)
+			path: '/album/:token',
+			name: 'public-meeting-album',
+			component: () => import('../views/PublicMeetingAlbumView.vue'),
+			props: true,
+			meta: { requiresAuth: false },
+		},
+		{
 			// Enlace personal cifrado de guardia para un servidor específico
 			// (specs/santisimo-guardia-links). Debe declararse antes que
 			// /santisimo/:slug para que "servidor" nunca se capture como slug.

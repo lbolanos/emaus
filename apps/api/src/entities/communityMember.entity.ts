@@ -118,4 +118,19 @@ export class CommunityMember {
 	/** Key del objeto en S3, para poder borrarlo. NULL en modo base64. */
 	@Column({ type: 'varchar', length: 255, nullable: true })
 	photoS3Key?: string | null;
+
+	/**
+	 * Retiro del que se importó al miembro ("Importar desde retiro"). NULL en
+	 * altas manuales, por Excel o por el bot. Sin FK a propósito: borrar un
+	 * retiro no toca la comunidad, y `getMembers` tolera un id huérfano.
+	 */
+	@Column({ type: 'varchar', length: 36, nullable: true })
+	sourceRetreatId?: string | null;
+
+	/**
+	 * Excluded from face recognition (spec D8): not in the gallery sent to the model, never
+	 * auto-gets a profile photo from a group photo, not tagged in the public album.
+	 */
+	@Column({ type: 'boolean', default: false })
+	faceRecognitionOptOut!: boolean;
 }

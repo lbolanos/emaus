@@ -135,6 +135,9 @@ export type MeetingFlyerOptions = z.infer<typeof meetingFlyerOptionsSchema>;
 // Community schema
 export const communitySchema = z.object({
 	id: z.string().uuid(),
+	// Reconocimiento facial en la asistencia (D3). Read-only here: it changes only through
+	// the owner-only PATCH /:id/face-recognition, so the write schemas below omit it.
+	faceRecognitionEnabled: z.boolean().optional(),
 	name: z.string().min(1).max(200),
 	description: z.string().optional(),
 	address1: z.string().min(1),
@@ -223,6 +226,16 @@ export const communityMemberSchema = z.object({
 	// caduca en una hora (o un data-URI en modo local). La key S3 nunca viaja
 	// al cliente: solo la usa el servidor para borrar el objeto.
 	photoUrl: z.string().nullable().optional(),
+	// Excluido del reconocimiento facial (D8): no entra a la galería de Gemini.
+	faceRecognitionOptOut: z.boolean().optional(),
+	// Retiro del que se importó ("Importar desde retiro"). NULL en altas
+	// manuales, por Excel o por el bot. `sourceRetreat` es lo que el API
+	// resuelve para la etiqueta; null si el retiro ya no existe.
+	sourceRetreatId: z.string().nullable().optional(),
+	sourceRetreat: z
+		.object({ id: z.string(), parish: z.string(), startDate: z.coerce.date() })
+		.nullable()
+		.optional(),
 	// Join relations (not always present)
 	participant: z.any().optional(),
 	// Calculated fields
@@ -249,6 +262,9 @@ export const communityMeetingSchema = z.object({
 	// del cliente: se gestiona vía el endpoint dedicado de foto, no en el PUT
 	// genérico de la reunión (ver updateCommunityMeetingSchema más abajo).
 	photoUrl: z.string().nullable().optional(),
+	// Álbum público (M7): only the publish/unpublish endpoints write these.
+	albumToken: z.string().nullable().optional(),
+	albumPublishedAt: z.coerce.date().nullable().optional(),
 	startDate: z.coerce.date(),
 	endDate: z.coerce.date().optional(),
 	durationMinutes: z.number().int().positive(),
@@ -305,6 +321,7 @@ export const createCommunitySchema = z.object({
 		createdBy: true,
 		createdAt: true,
 		updatedAt: true,
+		faceRecognitionEnabled: true,
 	}),
 });
 
@@ -323,6 +340,8 @@ export const updateCommunitySchema = z.object({
 			flyerBackgroundUrl: true,
 			flyerCardOpacity: true,
 			flyerOptions: true,
+			// Owner-only PATCH /:id/face-recognition is the one way to change it.
+			faceRecognitionEnabled: true,
 		})
 		.partial(),
 	params: z.object({ id: z.string().uuid() }),
@@ -359,6 +378,9 @@ export const updateCommunityMeetingSchema = z.object({
 			// photoUrl se gestiona vía el endpoint dedicado de foto, no en el PUT
 			// genérico — evita que el cliente setee URLs arbitrarias sin procesar.
 			photoUrl: true,
+			// Album publication goes through POST/DELETE …/album (random server-side token).
+			albumToken: true,
+			albumPublishedAt: true,
 		})
 		.partial(),
 	params: z.object({ id: z.string().uuid() }),
@@ -682,6 +704,92 @@ export const recordAttendanceSchema = z.object({
 			notes: z.string().optional(),
 		}),
 	),
+});
+
+// Asistencia de UN miembro en UNA reunión (toque en la vista de asistencia). `occurredAt`
+// lo manda la cola sin conexión: cuándo ocurrió el toque, no cuándo llegó. Cadena vacía
+// = ausente (bug recurrente de `.optional()` con strings vacíos).
+export const recordSingleAttendanceSchema = z.object({
+	body: z.object({
+		memberId: z.string().uuid(),
+		attended: z.boolean(),
+		occurredAt: z.preprocess(
+			(v) => (v === '' || v === null ? undefined : v),
+			z.string().datetime({ offset: true }).optional(),
+		),
+	}),
+	params: z.object({
+		id: z.string().uuid(),
+		meetingId: z.string().uuid(),
+	}),
+});
+
+// --- Reconocimiento facial en la asistencia (specs/community-attendance-faces) ---
+
+export const setCommunityFaceRecognitionSchema = z.object({
+	body: z.object({ enabled: z.boolean() }),
+	params: z.object({ id: z.string().uuid() }),
+});
+
+export const setMemberFaceRecognitionOptOutSchema = z.object({
+	body: z.object({ optOut: z.boolean() }),
+	params: z.object({ id: z.string().uuid(), memberId: z.string().uuid() }),
+});
+
+/** Máximo de un data-URI de imagen para análisis: 5 MB (el límite del `express.json`). */
+export const FACE_MATCH_MAX_DATA_URL_CHARS = 5 * 1024 * 1024;
+// Prefix only: a regex over a multi-MB base64 body overflows the stack on Node 20/Linux.
+// The real format check (magic bytes) happens in the service.
+const FACE_IMAGE_DATA_URL = /^data:image\/(jpeg|jpg|png|webp);base64,/;
+
+/** Caja normalizada 0-1000: [ymin, xmin, ymax, xmax]. */
+export const faceBoxSchema = z
+	.tuple([
+		z.number().int().min(0).max(1000),
+		z.number().int().min(0).max(1000),
+		z.number().int().min(0).max(1000),
+		z.number().int().min(0).max(1000),
+	])
+	.refine(([yMin, xMin, yMax, xMax]) => yMax > yMin && xMax > xMin, {
+		message: 'box must be [ymin, xmin, ymax, xmax] with max > min',
+	});
+export type FaceBox = z.infer<typeof faceBoxSchema>;
+
+export const faceMatchSchema = z.object({
+	body: z.object({
+		image: z
+			.string()
+			.max(FACE_MATCH_MAX_DATA_URL_CHARS, 'image is too large')
+			.regex(FACE_IMAGE_DATA_URL, 'image must be a jpeg, png or webp data URL'),
+	}),
+	params: z.object({ id: z.string().uuid(), meetingId: z.string().uuid() }),
+});
+
+export const faceMatchConfirmSchema = z.object({
+	body: z.object({
+		present: z.array(z.string().uuid()).max(500),
+		photos: z
+			.array(
+				z.object({
+					memberId: z.string().uuid(),
+					crop: z
+						.string()
+						.max(600_000, 'crop is too large')
+						.regex(FACE_IMAGE_DATA_URL, 'crop must be a jpeg, png or webp data URL'),
+				}),
+			)
+			.max(200)
+			.default([]),
+		tags: z
+			.array(z.object({ memberId: z.string().uuid(), box: faceBoxSchema }))
+			.max(500)
+			.default([]),
+	}),
+	params: z.object({ id: z.string().uuid(), meetingId: z.string().uuid() }),
+});
+
+export const albumMeetingParamsSchema = z.object({
+	params: z.object({ id: z.string().uuid(), meetingId: z.string().uuid() }),
 });
 
 // Asistencia de UN miembro en VARIAS reuniones (una llamada). Usado por el

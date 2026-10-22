@@ -45,6 +45,7 @@ import { Community } from '../entities/community.entity';
 import { CommunityMember } from '../entities/communityMember.entity';
 import { CommunityMeeting } from '../entities/communityMeeting.entity';
 import { CommunityAttendance } from '../entities/communityAttendance.entity';
+import { CommunityMeetingPhotoTag } from '../entities/communityMeetingPhotoTag.entity';
 import { CommunityAdmin } from '../entities/communityAdmin.entity';
 import { UserProfile } from '../entities/userProfile.entity';
 import { Follow } from '../entities/follow.entity';
@@ -133,6 +134,7 @@ const entities = [
 	CommunityMeeting,
 	CommunityAttendance,
 	CommunityAdmin,
+	CommunityMeetingPhotoTag,
 	ServiceTeam,
 	ServiceTeamMember,
 	RetreatShirtType,
@@ -346,6 +348,7 @@ export async function clearTestData() {
 	// This respects foreign key constraints
 	const clearOrder = [
 		'community_attendance',
+		'community_meeting_photo_tag',
 		'community_meeting',
 		'community_duplicate_dismissal',
 		'community_member',

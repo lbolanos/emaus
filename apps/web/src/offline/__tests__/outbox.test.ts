@@ -73,6 +73,26 @@ describe('outbox', () => {
 		expect(stored).toHaveLength(1);
 	});
 
+	it('a community attendance takes its label from the caller, not from the body', async () => {
+		const path = '/communities/c1/meetings/m1/attendance/single';
+		const body = { memberId: 'mem1', attended: true };
+		const match = matchQueueable('post', path, body)!;
+
+		const { op } = await enqueue({
+			match,
+			method: 'post',
+			path,
+			body,
+			key: crypto.randomUUID(),
+			occurredAt: AT,
+			meta: { name: 'Ana López' },
+		});
+
+		expect(op).toMatchObject({ kind: 'community.attendance', retreatId: null });
+		expect(op.meta).toMatchObject({ name: 'Ana López', memberId: 'mem1', meetingId: 'm1' });
+		expect(op.body).toEqual(body);
+	});
+
 	it('the queued check-in shows in Recepción even when the data comes from the phone', async () => {
 		await queue('put', '/participants/p1/checkin', { retreatId: R, checkedIn: true });
 

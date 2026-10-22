@@ -96,6 +96,7 @@ import { Responsability } from "../entities/responsability.entity";
 import { ParticipantCommunication } from "../entities/participantCommunication.entity";
 import { CommunityMember } from "../entities/communityMember.entity";
 import { CommunityMeeting } from "../entities/communityMeeting.entity";
+import { CommunityMeetingPhotoTag } from "../entities/communityMeetingPhotoTag.entity";
 import { calculateNextOccurrence } from "../utils/recurrenceUtils";
 import { getCommunityTimezone } from "./communityService";
 import { retreatFeeForType } from "../utils/retreatCharges";
@@ -5682,6 +5683,13 @@ export const anonymizeParticipantByToken = async (
         { participantId: p.id },
         { photoUrl: null, photoS3Key: null },
       );
+    }
+    // Face tags on meeting group photos (public album): the box points at this person's
+    // face in a published photo, so it goes with the rest of the face data.
+    if (membersWithPhoto.length > 0) {
+      await em.getRepository(CommunityMeetingPhotoTag).delete({
+        memberId: In(membersWithPhoto.map((m) => m.id)),
+      });
     }
 
     // Retiros de parejas: desvincular al cónyuge en TODOS los retiros, en los DOS

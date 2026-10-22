@@ -2,6 +2,8 @@ import { AppDataSource } from '../data-source';
 import { Community } from '../entities/community.entity';
 import { CommunityMember } from '../entities/communityMember.entity';
 import { CommunityMeeting } from '../entities/communityMeeting.entity';
+import { CommunityMeetingPhotoTag } from '../entities/communityMeetingPhotoTag.entity';
+import { invalidateFaceGallery } from './faceMatchService';
 import { CommunityAdmin } from '../entities/communityAdmin.entity';
 import { CommunityAttendance } from '../entities/communityAttendance.entity';
 import { User } from '../entities/user.entity';
@@ -371,6 +373,26 @@ export class CommunityService {
 
 	// --- Member Management ---
 
+	/**
+	 * The retreat each member was imported from, for its label in the roster.
+	 * Only id, parish and start date travel: the full Retreat carries payment
+	 * details no community admin needs. A deleted retreat simply isn't found.
+	 */
+	private async loadSourceRetreats(members: CommunityMember[]) {
+		const ids = [
+			...new Set(members.map((m) => m.sourceRetreatId).filter((id): id is string => !!id)),
+		];
+		const byId = new Map<string, { id: string; parish: string; startDate: Date }>();
+		if (ids.length === 0) return byId;
+
+		const retreats = await AppDataSource.getRepository(Retreat).find({
+			where: { id: In(ids) },
+			select: ['id', 'parish', 'startDate'],
+		});
+		for (const r of retreats) byId.set(r.id, { id: r.id, parish: r.parish, startDate: r.startDate });
+		return byId;
+	}
+
 	async getMembers(communityId: string, state?: MemberState) {
 		const where: any = { communityId };
 		if (state) {
@@ -386,6 +408,9 @@ export class CommunityService {
 				relations: ['participant'],
 			})
 		).filter((m) => !m.participant?.dataDeletedAt);
+		const sourceRetreats = await this.loadSourceRetreats(members);
+		const sourceRetreatOf = (m: CommunityMember) =>
+			(m.sourceRetreatId && sourceRetreats.get(m.sourceRetreatId)) || null;
 
 		// Last message sent (community scope) per participant — para que el
 		// frontend pueda ordenar por "último contacto" sin un round-trip extra.
@@ -434,6 +459,7 @@ export class CommunityService {
 					lastMeetingsAttended: 0,
 					lastMeetingsTotal: 0,
 					lastMessageSentAt: lastMessageByParticipant[m.participantId] || null,
+					sourceRetreat: sourceRetreatOf(m),
 				}))
 				.sort((a, b) => b.joinedAt.getTime() - a.joinedAt.getTime());
 		}
@@ -452,6 +478,7 @@ export class CommunityService {
 				lastMeetingsAttended: rate.attended,
 				lastMeetingsTotal: rate.total,
 				lastMessageSentAt: lastMessageByParticipant[member.participantId] || null,
+				sourceRetreat: sourceRetreatOf(member),
 			};
 		});
 
@@ -686,6 +713,7 @@ export class CommunityService {
 		}
 
 		await this.memberRepo.update(memberId, { photoUrl: url, photoS3Key: s3Key });
+		invalidateFaceGallery(communityId);
 		return this.findMemberWithBirthday(memberId);
 	}
 
@@ -709,6 +737,7 @@ export class CommunityService {
 		}
 
 		await this.memberRepo.update(memberId, { photoUrl: null, photoS3Key: null });
+		invalidateFaceGallery(communityId);
 		return this.findMemberWithBirthday(memberId);
 	}
 
@@ -919,6 +948,7 @@ export class CommunityService {
 		communityId: string,
 		participantId: string,
 		state: MemberState = 'active_member',
+		opts: { sourceRetreatId?: string | null } = {},
 	) {
 		const existing = await this.memberRepo.findOne({
 			where: { communityId, participantId },
@@ -936,6 +966,7 @@ export class CommunityService {
 			communityId,
 			participantId,
 			state,
+			sourceRetreatId: opts.sourceRetreatId ?? null,
 		});
 
 		return this.memberRepo.save(member);
@@ -1385,7 +1416,11 @@ export class CommunityService {
 					continue;
 				}
 
-				imported.push((await this.addMember(communityId, participantId)) as CommunityMember);
+				imported.push(
+					(await this.addMember(communityId, participantId, 'active_member', {
+						sourceRetreatId: retreatId,
+					})) as CommunityMember,
+				);
 				// Later rows of this same batch collide with whoever just came in.
 				memberParticipantIds.add(participantId);
 				if (key) memberNameByPhone.set(key, name);
@@ -1852,6 +1887,8 @@ export class CommunityService {
 		}
 
 		await this.meetingRepo.update(meetingId, { photoUrl: url, photoS3Key: s3Key });
+		// Tags are boxes over the previous photo: they mean nothing on the new one (FR-29).
+		await AppDataSource.getRepository(CommunityMeetingPhotoTag).delete({ meetingId });
 		return this.getMeetingById(meetingId);
 	}
 
@@ -1874,6 +1911,7 @@ export class CommunityService {
 		}
 
 		await this.meetingRepo.update(meetingId, { photoUrl: null, photoS3Key: null });
+		await AppDataSource.getRepository(CommunityMeetingPhotoTag).delete({ meetingId });
 		return this.getMeetingById(meetingId);
 	}
 
@@ -2654,7 +2692,18 @@ export class CommunityService {
 		meetingId: string,
 		memberId: string,
 		attended: boolean,
+		occurredAt?: string | Date | null,
 	) {
+		// The meeting must belong to the community in the route (FR-23): without this a
+		// coordinator of community A could write attendance onto a meeting of community B.
+		const meeting = await this.meetingRepo.findOne({
+			where: { id: meetingId, communityId },
+			select: ['id'],
+		});
+		if (!meeting) {
+			throw new Error('Meeting not found');
+		}
+
 		// Verify member belongs to community
 		const member = await this.memberRepo.findOne({
 			where: { id: memberId, communityId },
@@ -2664,6 +2713,17 @@ export class CommunityService {
 			throw new Error('Member not found');
 		}
 
+		// `occurredAt` comes from the offline queue: when the tap happened. Ignore it when it
+		// is invalid or in the future (device clock skew) so a bad clock cannot post-date a row.
+		const now = new Date();
+		let recordedAt = now;
+		if (occurredAt) {
+			const parsed = new Date(occurredAt);
+			if (!Number.isNaN(parsed.getTime()) && parsed.getTime() <= now.getTime()) {
+				recordedAt = parsed;
+			}
+		}
+
 		// Upsert attendance record
 		const existing = await this.attendanceRepo.findOne({
 			where: { meetingId, memberId },
@@ -2671,14 +2731,14 @@ export class CommunityService {
 
 		if (existing) {
 			existing.attended = attended;
-			existing.recordedAt = new Date();
+			existing.recordedAt = recordedAt;
 			return this.attendanceRepo.save(existing);
 		} else {
 			const attendance = this.attendanceRepo.create({
 				meetingId,
 				memberId,
 				attended,
-				recordedAt: new Date(),
+				recordedAt,
 			});
 			return this.attendanceRepo.save(attendance);
 		}

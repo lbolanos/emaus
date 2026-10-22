@@ -71,6 +71,7 @@ describe('matchQueueable', () => {
 		['put', '/retreat-beds/b2/assign', { participantId: 'p2' }, 'beds.assign', null],
 		['post', '/tables/t2/walkers', { participantId: 'p2' }, 'tables.assignWalker', null],
 		['delete', '/tables/t1/walkers/p1', undefined, 'tables.unassignWalker', null],
+		['post', '/communities/c1/meetings/m1/attendance/single', { memberId: 'mem1', attended: true }, 'community.attendance', null],
 	])('%s %s → %s', (method, path, body, kind, retreatId) => {
 		const m = matchQueueable(method, path, body);
 		expect(m?.def.kind).toBe(kind);
@@ -91,6 +92,32 @@ describe('matchQueueable', () => {
 		['get', '/participants'],
 	])('%s %s is not queueable', (method, path) => {
 		expect(matchQueueable(method, path, {})).toBeNull();
+	});
+
+	describe('community.attendance', () => {
+		const URL = '/communities/c1/meetings/m1/attendance/single';
+
+		it('carries the member, meeting and community ids and stamps the body', () => {
+			const m = matchQueueable('post', URL, { memberId: 'mem1', attended: true });
+			expect(m?.ids).toEqual({ communityId: 'c1', meetingId: 'm1', memberId: 'mem1' });
+			expect(m?.def.stampBody).toBe(true);
+			expect(m?.def.routes).toEqual([]);
+		});
+
+		it.each([
+			['put', URL],
+			['delete', URL],
+			['post', '/communities/c1/meetings/m1/attendance'],
+			['post', '/communities/c1/meetings/m1/attendance/single/extra'],
+			['post', '/communities/c1/attendance/single'],
+		])('%s %s is not queueable', (method, path) => {
+			expect(matchQueueable(method, path, { memberId: 'mem1' })).toBeNull();
+		});
+
+		it('applyOps leaves data untouched', () => {
+			const data = [{ id: 'x' }];
+			expect(applyOps('participants', data, [])).toEqual(data);
+		});
 	});
 
 	it('a payment without participant or retreat is not queued', () => {

@@ -23,7 +23,8 @@ export type OutboxKind =
 	| 'schedule.shiftDay'
 	| 'beds.assign'
 	| 'tables.assignWalker'
-	| 'tables.unassignWalker';
+	| 'tables.unassignWalker'
+	| 'community.attendance';
 
 export type OutboxStatus = 'pending' | 'syncing' | 'conflict';
 
@@ -34,6 +35,9 @@ export interface OutboxMeta {
 	bedId?: string;
 	tableId?: string;
 	walkerId?: string;
+	communityId?: string;
+	meetingId?: string;
+	memberId?: string;
 	day?: number;
 	name?: string;
 	item?: string;
@@ -473,6 +477,18 @@ export const KINDS: KindDef[] = [
 			});
 		},
 		label: (op) => ({ key: 'offline.ops.tableUnassign', params: { name: who(op), table: op.meta.table || '—' } }),
+	},
+	{
+		kind: 'community.attendance',
+		method: 'post',
+		pattern: /^\/communities\/([^/]+)\/meetings\/([^/]+)\/attendance\/single$/,
+		ids: (m, body) => ({ communityId: m[1], meetingId: m[2], memberId: body?.memberId }),
+		retreatId: () => null,
+		stampBody: true,
+		// No cached GET answer to patch: the view paints its own pending marker (FR-8).
+		routes: [],
+		reduce: (_route, data) => data,
+		label: (op) => ({ key: 'offline.ops.communityAttendance', params: { name: who(op) } }),
 	},
 ];
 

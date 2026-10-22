@@ -180,6 +180,55 @@
                   <p>{{ (meeting as any).photoUrl ? 'Cambiar foto' : 'Subir foto' }}</p>
                 </TooltipContent>
               </Tooltip>
+              <!-- Public album of the cover photo (FR-30): publish, copy the link, unpublish -->
+              <template v-if="(meeting as any).photoUrl">
+                <Tooltip v-if="!meeting.albumToken">
+                  <TooltipTrigger as-child>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      :disabled="albumBusyId === meeting.id"
+                      aria-label="Publicar álbum"
+                      @click="publishAlbum(meeting)"
+                    >
+                      <Loader2 v-if="albumBusyId === meeting.id" class="w-4 h-4 animate-spin" />
+                      <Globe v-else class="w-4 h-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Publicar álbum</p>
+                  </TooltipContent>
+                </Tooltip>
+                <template v-else>
+                  <Tooltip>
+                    <TooltipTrigger as-child>
+                      <Button size="sm" variant="ghost" aria-label="Copiar enlace del álbum" @click="copyAlbumLink(meeting)">
+                        <Copy class="w-4 h-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Copiar enlace del álbum</p>
+                    </TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger as-child>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        :disabled="albumBusyId === meeting.id"
+                        aria-label="Despublicar álbum"
+                        @click="unpublishAlbum(meeting)"
+                      >
+                        <Loader2 v-if="albumBusyId === meeting.id" class="w-4 h-4 animate-spin" />
+                        <EyeOff v-else class="w-4 h-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Despublicar álbum</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </template>
+              </template>
               <Tooltip>
                 <TooltipTrigger as-child>
                   <Button size="sm" variant="ghost" @click="openEditModal(meeting)">
@@ -229,6 +278,7 @@
       @created="handleMeetingCreated"
       @updated="handleMeetingUpdated"
       @deleted="handleMeetingDeleted"
+      @photo-saved="handleModalPhotoSaved"
     />
 
 
@@ -312,9 +362,10 @@ import { useI18n } from 'vue-i18n';
 import { useRoute, useRouter } from 'vue-router';
 import { useCommunityStore } from '@/stores/communityStore';
 import { pickFile } from '@/utils/filePicker';
-import { MAX_PHOTO_SOURCE_BYTES, PHOTO_MAX_SIDE, resizeImageToDataUrl } from '@/utils/imageResize';
+import { MAX_PHOTO_SOURCE_BYTES } from '@/utils/imageResize';
+import { stashGroupPhoto, useMeetingPhotoUpload } from '@/composables/useMeetingPhotoUpload';
 import { storeToRefs } from 'pinia';
-import { Loader2, CalendarPlus, Calendar, Clock, CheckSquare, Pencil, Trash2, RefreshCw, Share, FileText, UserCheck, UserX, Search, ImagePlus } from 'lucide-vue-next';
+import { Loader2, CalendarPlus, Calendar, Clock, CheckSquare, Pencil, Trash2, RefreshCw, Share, FileText, UserCheck, UserX, Search, ImagePlus, Globe, Copy, EyeOff } from 'lucide-vue-next';
 import {
   Button, Card, CardHeader, CardTitle, CardDescription, Badge,
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
@@ -553,6 +604,18 @@ const triggerPhotoUpload = async (meeting: any) => {
   await handlePhotoFile(file);
 };
 
+const photoUpload = useMeetingPhotoUpload();
+
+// With face recognition on, the cover upload is followed by the review of the faces, which lives
+// in the attendance view: the 3200 px version travels there in memory (never localStorage).
+const openAttendanceWithPhoto = (meetingId: string, image: string) => {
+  stashGroupPhoto({ communityId: props.id, meetingId, image });
+  router.push({ name: 'community-attendance', params: { id: props.id, meetingId } });
+};
+
+const handleModalPhotoSaved = (payload: { meetingId: string; analysisImage: string }) =>
+  openAttendanceWithPhoto(payload.meetingId, payload.analysisImage);
+
 const handlePhotoFile = async (file: File | null) => {
   const meetingId = photoTargetMeetingId.value;
   if (!file || !meetingId) return;
@@ -569,10 +632,16 @@ const handlePhotoFile = async (file: File | null) => {
   // Busy from the start: shrinking a phone photo takes a moment before the upload.
   uploadingPhotoId.value = meetingId;
   try {
-    // Shrunk in the browser: the server takes at most 2MB and a phone photo weighs 3-8MB.
-    const dataUrl = await resizeImageToDataUrl(file, { maxSide: PHOTO_MAX_SIDE });
-    await communityStore.setMeetingPhoto(meetingId, dataUrl);
+    const { analysisImage, analysisSkipped } = await photoUpload.uploadCover(meetingId, file);
     toast({ title: 'Foto actualizada', description: 'La foto de la reunión se guardó exitosamente.' });
+    if (analysisSkipped) {
+      toast({
+        title: 'No se pudo analizar la foto',
+        description: 'La foto se guardó; marca la asistencia a mano.',
+        variant: 'destructive',
+      });
+    }
+    if (analysisImage) openAttendanceWithPhoto(meetingId, analysisImage);
   } catch (error: any) {
     console.error('Failed to upload meeting photo:', error);
     toast({
@@ -583,6 +652,62 @@ const handlePhotoFile = async (file: File | null) => {
   } finally {
     uploadingPhotoId.value = null;
     photoTargetMeetingId.value = null;
+  }
+};
+
+// --- Public album (FR-30) ---
+const albumBusyId = ref<string | null>(null);
+
+const albumLink = (token: string) => `${window.location.origin}/album/${token}`;
+
+const copyAlbumLink = async (meeting: any) => {
+  const token = meeting.albumToken;
+  if (!token) return;
+  try {
+    await navigator.clipboard.writeText(albumLink(token));
+    toast({ title: 'Enlace del álbum copiado', description: 'Cualquiera que lo tenga puede ver la foto.' });
+  } catch (error) {
+    console.error('Failed to copy album link:', error);
+    toast({ title: 'No se pudo copiar el enlace', description: albumLink(token), variant: 'destructive' });
+  }
+};
+
+const publishAlbum = async (meeting: any) => {
+  albumBusyId.value = meeting.id;
+  try {
+    const { albumToken, albumPublishedAt } = await communityStore.publishAlbum(props.id, meeting.id);
+    meeting.albumToken = albumToken;
+    meeting.albumPublishedAt = albumPublishedAt;
+    toast({ title: 'Álbum publicado', description: 'Copia el enlace para compartirlo.' });
+    await copyAlbumLink(meeting);
+  } catch (error: any) {
+    console.error('Failed to publish album:', error);
+    toast({
+      title: 'Error',
+      description: error.response?.data?.message || error.message || 'No se pudo publicar el álbum.',
+      variant: 'destructive',
+    });
+  } finally {
+    albumBusyId.value = null;
+  }
+};
+
+const unpublishAlbum = async (meeting: any) => {
+  albumBusyId.value = meeting.id;
+  try {
+    await communityStore.unpublishAlbum(props.id, meeting.id);
+    meeting.albumToken = null;
+    meeting.albumPublishedAt = null;
+    toast({ title: 'Álbum despublicado', description: 'El enlace dejó de funcionar.' });
+  } catch (error: any) {
+    console.error('Failed to unpublish album:', error);
+    toast({
+      title: 'Error',
+      description: error.response?.data?.message || error.message || 'No se pudo despublicar el álbum.',
+      variant: 'destructive',
+    });
+  } finally {
+    albumBusyId.value = null;
   }
 };
 
