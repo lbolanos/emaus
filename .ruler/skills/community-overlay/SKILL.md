@@ -34,6 +34,11 @@ se escriben en `participants`— pero no tienen fallback:
 | `joinedAt` | Fecha de ingreso a la comunidad | Directo |
 | `birthDate` | Cumpleaños, texto `'YYYY-MM-DD'` o `'MM-DD'` (año opcional) | `resolveMemberBirthday()` |
 | `photoUrl` + `photoS3Key` | Foto de rostro, prefijo S3 **privado** | `s3Service.presignPrivateUrl()` |
+| `sourceRetreatId` | Retiro del que se importó (solo `importFromRetreat`, y solo si la persona está en su roster) | `getMembers` devuelve `sourceRetreat: { id, parish, startDate }`, nunca el Retreat entero |
+
+`sourceRetreatId` no tiene FK a propósito (borrar un retiro no toca la comunidad). Los miembros
+anteriores al 2026-10-22 se rellenaron con `participants.retreatId`: es aproximado para quien
+estuvo en varios retiros, porque el import no guardaba de cuál venía.
 
 ### Cumpleaños — el fallback tiene trampa
 

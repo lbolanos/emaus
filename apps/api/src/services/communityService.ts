@@ -360,6 +360,26 @@ export class CommunityService {
 
 	// --- Member Management ---
 
+	/**
+	 * The retreat each member was imported from, for its label in the roster.
+	 * Only id, parish and start date travel: the full Retreat carries payment
+	 * details no community admin needs. A deleted retreat simply isn't found.
+	 */
+	private async loadSourceRetreats(members: CommunityMember[]) {
+		const ids = [
+			...new Set(members.map((m) => m.sourceRetreatId).filter((id): id is string => !!id)),
+		];
+		const byId = new Map<string, { id: string; parish: string; startDate: Date }>();
+		if (ids.length === 0) return byId;
+
+		const retreats = await AppDataSource.getRepository(Retreat).find({
+			where: { id: In(ids) },
+			select: ['id', 'parish', 'startDate'],
+		});
+		for (const r of retreats) byId.set(r.id, { id: r.id, parish: r.parish, startDate: r.startDate });
+		return byId;
+	}
+
 	async getMembers(communityId: string, state?: MemberState) {
 		const where: any = { communityId };
 		if (state) {
@@ -375,6 +395,9 @@ export class CommunityService {
 				relations: ['participant'],
 			})
 		).filter((m) => !m.participant?.dataDeletedAt);
+		const sourceRetreats = await this.loadSourceRetreats(members);
+		const sourceRetreatOf = (m: CommunityMember) =>
+			(m.sourceRetreatId && sourceRetreats.get(m.sourceRetreatId)) || null;
 
 		// Last message sent (community scope) per participant — para que el
 		// frontend pueda ordenar por "último contacto" sin un round-trip extra.
@@ -423,6 +446,7 @@ export class CommunityService {
 					lastMeetingsAttended: 0,
 					lastMeetingsTotal: 0,
 					lastMessageSentAt: lastMessageByParticipant[m.participantId] || null,
+					sourceRetreat: sourceRetreatOf(m),
 				}))
 				.sort((a, b) => b.joinedAt.getTime() - a.joinedAt.getTime());
 		}
@@ -441,6 +465,7 @@ export class CommunityService {
 				lastMeetingsAttended: rate.attended,
 				lastMeetingsTotal: rate.total,
 				lastMessageSentAt: lastMessageByParticipant[member.participantId] || null,
+				sourceRetreat: sourceRetreatOf(member),
 			};
 		});
 
@@ -876,6 +901,7 @@ export class CommunityService {
 		communityId: string,
 		participantId: string,
 		state: MemberState = 'active_member',
+		opts: { sourceRetreatId?: string | null } = {},
 	) {
 		const existing = await this.memberRepo.findOne({
 			where: { communityId, participantId },
@@ -893,6 +919,7 @@ export class CommunityService {
 			communityId,
 			participantId,
 			state,
+			sourceRetreatId: opts.sourceRetreatId ?? null,
 		});
 
 		return this.memberRepo.save(member);
@@ -1291,6 +1318,20 @@ export class CommunityService {
 	): Promise<{ imported: CommunityMember[]; skipped: ImportMembersSkip[] }> {
 		const imported: CommunityMember[] = [];
 		const skipped: ImportMembersSkip[] = [];
+
+		// The retreat is recorded as the member's source only for people on its
+		// roster: the request carries both ids and nothing else ties them, so an
+		// unrelated retreatId would otherwise end up labelling the member.
+		const rosterRows: { participantId: string }[] =
+			participantIds.length > 0
+				? await AppDataSource.query(
+						`SELECT participantId FROM retreat_participants
+						 WHERE retreatId = ? AND participantId IN (${participantIds.map(() => '?').join(', ')})`,
+						[retreatId, ...participantIds],
+					)
+				: [];
+		const onRoster = new Set(rosterRows.map((r) => r.participantId));
+
 		for (const participantId of participantIds) {
 			const existing = await this.memberRepo.findOne({ where: { communityId, participantId } });
 			if (existing) {
@@ -1312,7 +1353,11 @@ export class CommunityService {
 			}
 
 			try {
-				imported.push((await this.addMember(communityId, participantId)) as CommunityMember);
+				imported.push(
+					(await this.addMember(communityId, participantId, 'active_member', {
+						sourceRetreatId: onRoster.has(participantId) ? retreatId : null,
+					})) as CommunityMember,
+				);
 			} catch (err: any) {
 				// The trigger still guards the window between the check above and the INSERT.
 				if (

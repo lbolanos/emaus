@@ -223,6 +223,14 @@ export const communityMemberSchema = z.object({
 	// caduca en una hora (o un data-URI en modo local). La key S3 nunca viaja
 	// al cliente: solo la usa el servidor para borrar el objeto.
 	photoUrl: z.string().nullable().optional(),
+	// Retiro del que se importó ("Importar desde retiro"). NULL en altas
+	// manuales, por Excel o por el bot. `sourceRetreat` es lo que el API
+	// resuelve para la etiqueta; null si el retiro ya no existe.
+	sourceRetreatId: z.string().nullable().optional(),
+	sourceRetreat: z
+		.object({ id: z.string(), parish: z.string(), startDate: z.coerce.date() })
+		.nullable()
+		.optional(),
 	// Join relations (not always present)
 	participant: z.any().optional(),
 	// Calculated fields

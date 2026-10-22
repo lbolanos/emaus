@@ -89,9 +89,15 @@ To remove a member from the community:
 
 1. Open a meeting from the meetings list
 2. Click **Record Attendance**
-3. Mark each member as present or absent
-4. Add notes for individual members if needed
-5. Click **Save Attendance**
+3. Tap each member's card to mark them present; it saves instantly, there is no save button
+
+Each card shows the member's photo (or initials if there is none) and the retreat they were
+imported from, to help recognize people. The search and filter bar stays on top while scrolling:
+
+- **Attendance**: everyone, present, or not marked yet. "Not marked" leaves who is missing.
+- **Retreat**: members imported from a given retreat, or those with no retreat.
+- **Frequency**: high, medium, low, or no attendance.
+- **Sort**: by name (A–Z), most attendance, most recent retreat, or most recent to join.
 
 ## Dashboard and Analytics
 

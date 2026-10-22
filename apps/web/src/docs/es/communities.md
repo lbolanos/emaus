@@ -101,9 +101,16 @@ Para eliminar un miembro de la comunidad:
 
 1. Abra una reunión de la lista de reuniones
 2. Haga clic en **Registrar Asistencia**
-3. Marque cada miembro como presente o ausente
-4. Agregue notas para miembros individuales si es necesario
-5. Haga clic en **Guardar Asistencia**
+3. Toque la tarjeta de cada miembro para marcarlo presente; se guarda al instante, no hay botón de guardar
+
+Cada tarjeta muestra la foto del miembro (o sus iniciales si no tiene) y el retiro del que se
+importó, para ubicar a la gente. La barra de búsqueda y filtros se queda arriba al bajar la lista:
+
+- **Asistencia**: todos, presentes o sin marcar. «Sin marcar» deja la lista de quienes faltan.
+- **Retiro**: los miembros importados de un retiro, o los que no tienen retiro.
+- **Frecuencia**: alta, media, baja o sin asistencias.
+- **Ordenar**: por nombre (A–Z), por más asistencia, por retiro más reciente o por ingreso más
+  reciente a la comunidad.
 
 **Por miembro** (marcar a un miembro en varias reuniones a la vez):
 

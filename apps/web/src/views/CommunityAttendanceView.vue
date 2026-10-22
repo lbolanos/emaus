@@ -43,29 +43,10 @@
             </div>
           </div>
         </div>
-        <div class="flex flex-col gap-2 sm:items-end sm:flex-shrink-0">
-          <Button class="w-full sm:w-auto" @click="isCreateModalOpen = true">
-            <UserPlus class="w-4 h-4 mr-2" />
-            Crear miembro
-          </Button>
-          <div class="relative w-full sm:w-64">
-            <Search class="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              v-model="searchQuery"
-              :placeholder="$t('community.attendance.searchPlaceholder')"
-              class="pl-8 pr-8"
-            />
-            <button
-              v-if="searchQuery"
-              type="button"
-              class="absolute right-2 top-2.5 text-muted-foreground hover:text-foreground transition-colors"
-              @click="searchQuery = ''"
-              aria-label="Limpiar búsqueda"
-            >
-              <X class="h-4 w-4" />
-            </button>
-          </div>
-        </div>
+        <Button class="w-full sm:w-auto sm:flex-shrink-0" @click="isCreateModalOpen = true">
+          <UserPlus class="w-4 h-4 mr-2" />
+          Crear miembro
+        </Button>
       </div>
 
       <!-- Stats Summary -->
@@ -84,24 +65,117 @@
         </Card>
       </div>
 
+      <!-- Search, filters and sort: sticky so they stay reachable while scrolling the list.
+           The negative top cancels <main>'s top padding (pt-14 on mobile, p-4 from md), which
+           would otherwise leave a strip where the cards show through above the bar. On mobile
+           the app header is already hidden by then: it hides once scrollTop passes 20px. -->
+      <div class="sticky -top-14 md:-top-4 z-10 space-y-2 border-b bg-gray-100 py-2">
+        <div class="flex flex-col gap-2 lg:flex-row lg:flex-wrap lg:items-center">
+          <!-- ml-6 on mobile clears the app's floating menu button once the bar is stuck -->
+          <div class="relative ml-6 md:ml-0 lg:w-64">
+            <Search class="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              v-model="searchQuery"
+              :placeholder="$t('community.attendance.searchPlaceholder')"
+              class="pl-8 pr-8 bg-background"
+            />
+            <button
+              v-if="searchQuery"
+              type="button"
+              class="absolute right-2 top-2.5 text-muted-foreground hover:text-foreground transition-colors"
+              @click="searchQuery = ''"
+              aria-label="Limpiar búsqueda"
+            >
+              <X class="h-4 w-4" />
+            </button>
+          </div>
+          <div class="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
+            <Select v-model="statusFilter">
+              <SelectTrigger class="w-full sm:w-40" aria-label="Filtrar por asistencia">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                <SelectItem value="present">Presentes</SelectItem>
+                <SelectItem value="absent">Sin marcar</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select v-model="retreatFilter">
+              <SelectTrigger class="w-full sm:w-56" aria-label="Filtrar por retiro">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos los retiros</SelectItem>
+                <SelectItem v-for="retreat in retreatOptions" :key="retreat.id" :value="retreat.id">
+                  {{ formatSourceRetreat(retreat) }}
+                </SelectItem>
+                <SelectItem value="none">Sin retiro</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select v-model="frequencyFilter">
+              <SelectTrigger class="w-full sm:w-44" aria-label="Filtrar por frecuencia de asistencia">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Toda frecuencia</SelectItem>
+                <SelectItem value="high">Frecuencia alta</SelectItem>
+                <SelectItem value="medium">Frecuencia media</SelectItem>
+                <SelectItem value="low">Frecuencia baja</SelectItem>
+                <SelectItem value="none">Sin asistencias</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select v-model="sortBy">
+              <SelectTrigger class="w-full sm:w-52" aria-label="Ordenar">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="name">Nombre (A–Z)</SelectItem>
+                <SelectItem value="attendance">Más asistencia primero</SelectItem>
+                <SelectItem value="retreat">Retiro más reciente primero</SelectItem>
+                <SelectItem value="joined">Ingreso más reciente primero</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+        <div class="flex min-h-7 items-center justify-between gap-2 text-sm text-muted-foreground">
+          <span>
+            <strong class="text-foreground">{{ presentCount }}</strong> presentes · mostrando
+            {{ filteredMembers.length }} de {{ membersWithAttendance.length }}
+          </span>
+          <Button v-if="hasActiveFilters" variant="ghost" size="sm" class="h-7 px-2" @click="clearFilters">
+            Limpiar filtros
+          </Button>
+        </div>
+      </div>
+
       <!-- Members List - Card-based Layout -->
-      <div class="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+      <div class="grid grid-cols-1 gap-3 md:grid-cols-2 2xl:grid-cols-3">
         <div
           v-for="member in filteredMembers"
           :key="member.id"
           class="member-card flex items-center justify-between p-4 border rounded-lg transition-all cursor-pointer"
           :class="{
             'bg-green-50 border-green-200 dark:bg-green-950 dark:border-green-800': member.attended,
+            'bg-card': !member.attended,
             'opacity-50 cursor-not-allowed': savingStates[member.id]
           }"
           @click="toggleAttendance(member)"
         >
+          <MemberAvatar
+            :photo-url="member.photoUrl"
+            :full-name="resolveMemberProfile(member).fullName"
+            size="lg"
+            class="mr-3 self-start"
+          />
           <div class="flex-1 min-w-0">
-            <div class="font-medium truncate">
+            <div class="font-medium break-words">
               {{ resolveMemberProfile(member).fullName }}
             </div>
             <div class="text-sm text-muted-foreground truncate" v-if="resolveMemberProfile(member).email">
               {{ resolveMemberProfile(member).email }}
+            </div>
+            <div v-if="member.sourceRetreat" class="text-xs text-muted-foreground">
+              Retiro: {{ formatSourceRetreat(member.sourceRetreat) }}
             </div>
             <div class="flex items-center gap-2 mt-1">
               <Badge :variant="getFrequencyBadgeVariant(member.lastMeetingsFrequency)">
@@ -125,7 +199,11 @@
       <!-- Empty State -->
       <div v-if="filteredMembers.length === 0" class="text-center py-12 border rounded-lg bg-muted/50 text-muted-foreground">
         <Users class="w-12 h-12 mx-auto mb-3 opacity-50" />
-        <p>No hay miembros en esta comunidad.</p>
+        <p v-if="membersWithAttendance.length === 0">No hay miembros en esta comunidad.</p>
+        <template v-else>
+          <p>Ningún miembro coincide con la búsqueda o los filtros.</p>
+          <Button variant="link" @click="clearFilters">Limpiar filtros</Button>
+        </template>
       </div>
 
       <!-- Modal: crear miembro de la comunidad -->
@@ -159,10 +237,34 @@ import { useI18n } from 'vue-i18n';
 import { useCommunityStore } from '@/stores/communityStore';
 import { storeToRefs } from 'pinia';
 import { ChevronRight, Check, Users, Search, Loader2, UserPlus, X } from 'lucide-vue-next';
-import { Button, Card, Badge, Input, Dialog, DialogContent, DialogHeader, DialogTitle } from '@repo/ui';
+import {
+  Button,
+  Card,
+  Badge,
+  Input,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@repo/ui';
 import { useToast } from '@repo/ui';
 import { formatDate, resolveMemberProfile, formatDateInCommunityTimezone } from '@repo/utils';
 import CreateMemberModal from '@/components/community/CreateMemberModal.vue';
+import MemberAvatar from '@/components/community/MemberAvatar.vue';
+import {
+  DEFAULT_ATTENDANCE_LIST_OPTIONS,
+  filterAndSortAttendanceMembers,
+  formatSourceRetreat,
+  sourceRetreatOptions,
+  type AttendanceSort,
+  type AttendanceStatusFilter,
+  type FrequencyFilter,
+} from '@/utils/communityAttendanceList';
 
 const { t: $t } = useI18n();
 
@@ -206,16 +308,39 @@ const handleMemberCreated = async () => {
 // Make members reactive with attended property
 const membersWithAttendance = ref<any[]>([]);
 
-// Computed property for filtered members
-const filteredMembers = computed(() => {
-  if (!searchQuery.value) return membersWithAttendance.value;
-  const query = searchQuery.value.toLowerCase().trim();
-  return membersWithAttendance.value.filter(member => {
-    const profile = resolveMemberProfile(member);
-    const fullName = profile.fullName.toLowerCase();
-    return fullName.includes(query) || (profile.email && profile.email.toLowerCase().includes(query));
-  });
-});
+const statusFilter = ref<AttendanceStatusFilter>(DEFAULT_ATTENDANCE_LIST_OPTIONS.status);
+const retreatFilter = ref<string>(DEFAULT_ATTENDANCE_LIST_OPTIONS.retreat);
+const frequencyFilter = ref<FrequencyFilter>(DEFAULT_ATTENDANCE_LIST_OPTIONS.frequency);
+// Alphabetical by default: it is how people are looked up at the door, and it
+// keeps a card in place when a tap refreshes the attendance rates.
+const sortBy = ref<AttendanceSort>(DEFAULT_ATTENDANCE_LIST_OPTIONS.sort);
+
+const retreatOptions = computed(() => sourceRetreatOptions(membersWithAttendance.value));
+
+const filteredMembers = computed(() =>
+  filterAndSortAttendanceMembers(membersWithAttendance.value, {
+    query: searchQuery.value,
+    status: statusFilter.value,
+    retreat: retreatFilter.value,
+    frequency: frequencyFilter.value,
+    sort: sortBy.value,
+  }),
+);
+
+const hasActiveFilters = computed(
+  () =>
+    !!searchQuery.value ||
+    statusFilter.value !== 'all' ||
+    retreatFilter.value !== 'all' ||
+    frequencyFilter.value !== 'all',
+);
+
+const clearFilters = () => {
+  searchQuery.value = '';
+  statusFilter.value = 'all';
+  retreatFilter.value = 'all';
+  frequencyFilter.value = 'all';
+};
 
 // Computed property for present count
 const presentCount = computed(() =>
