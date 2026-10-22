@@ -44,6 +44,14 @@ vi.mock('@repo/ui', () => {
 			template:
 				'<button role="checkbox" :data-state="modelValue === \'indeterminate\' ? \'indeterminate\' : (modelValue ? \'checked\' : \'unchecked\')" @click="$emit(\'update:modelValue\', modelValue !== true)"></button>',
 		},
+		// reka-ui's SwitchRoot: same `modelValue` contract as the checkbox.
+		Switch: {
+			name: 'Switch',
+			props: ['modelValue'],
+			emits: ['update:modelValue'],
+			template:
+				'<button role="switch" :data-state="modelValue ? \'checked\' : \'unchecked\'" @click="$emit(\'update:modelValue\', !modelValue)"></button>',
+		},
 		Select: {
 			name: 'Select',
 			props: ['modelValue'],
@@ -185,25 +193,144 @@ describe('ImportMembersModal — import result', () => {
 		);
 	});
 
-	it('names who was skipped for sharing a phone with a member', async () => {
+	it('keeps the dialog open with who stayed out and why, and reloads the list', async () => {
 		importMembers.mockResolvedValue({
-			imported: [{ id: 'm1' }, { id: 'm2' }],
+			imported: [{ id: 'm1' }],
 			skipped: [
 				{
-					participantId: 'p3',
-					name: 'Caro Díaz',
+					participantId: 'p2',
+					name: 'Beto Ruiz',
 					reason: 'phone_duplicate_in_community',
 					conflictWith: 'Ana López',
 				},
+				{ participantId: 'p3', name: 'Caro Díaz', reason: 'error' },
+				{ participantId: 'x', name: '', reason: 'not_in_retreat' },
 			],
 		});
 
-		await importAll();
+		const wrapper = await importAll();
 
-		const call = toast.mock.calls.at(-1)![0];
-		expect(call.title).toBe('Importación parcial');
-		expect(call.description).toContain('Se importaron 2 participantes');
-		expect(call.description).toContain('Caro Díaz (teléfono de Ana López)');
-		expect(call.variant).toBeUndefined();
+		const panel = wrapper.find('[role="status"]');
+		expect(panel.text()).toContain('Se importó 1 participante');
+		expect(panel.text()).toContain('Beto Ruiz: su teléfono ya es de Ana López');
+		expect(panel.text()).toContain('Caro Díaz: error inesperado');
+		expect(panel.text()).toContain('Participante sin nombre: ya no está en la lista del retiro');
+		expect(wrapper.emitted('update:open')).toBeUndefined();
+		expect(wrapper.emitted('imported')).toHaveLength(1);
+		// Second fetch: the ones that came in leave the list.
+		expect(fetchPotentialMembers).toHaveBeenCalledTimes(2);
+		expect(toast).not.toHaveBeenCalled();
+	});
+
+	it('shows the server message when the import fails', async () => {
+		importMembers.mockRejectedValue({
+			message: 'Request failed with status code 500',
+			response: { status: 500, data: { message: 'No se pudo importar a los participantes.' } },
+		});
+		const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+		await importAll();
+		errorSpy.mockRestore();
+
+		expect(toast).toHaveBeenCalledWith(
+			expect.objectContaining({
+				title: 'Error',
+				description: 'No se pudo importar a los participantes.',
+				variant: 'destructive',
+			}),
+		);
+	});
+});
+
+describe('ImportMembersModal — phone already taken by a member', () => {
+	const TAKEN = {
+		id: 'p4',
+		firstName: 'Alberto',
+		lastName: 'Garay',
+		email: 'alberto@example.com',
+		type: 'walker',
+		phoneConflictWith: 'Eduardo Garay',
+	};
+
+	beforeEach(() => {
+		vi.clearAllMocks();
+		fetchRetreats.mockResolvedValue(RETREATS);
+		fetchPotentialMembers.mockResolvedValue([...PARTICIPANTS, TAKEN]);
+	});
+
+	it('shows why and disables the row', async () => {
+		const wrapper = await mountWithParticipants();
+
+		expect(wrapper.text()).toContain('Su teléfono ya es de Eduardo Garay');
+		expect(checkboxes(wrapper)[4].attributes('disabled')).toBeDefined();
+	});
+
+	it('leaves it out of select-all', async () => {
+		const wrapper = await mountWithParticipants();
+
+		await checkboxes(wrapper)[0].trigger('click');
+
+		expect(wrapper.text()).toContain('3 seleccionados');
+		expect(states(wrapper)).toEqual(['checked', 'checked', 'checked', 'checked', 'unchecked']);
+	});
+
+	it('does not select it when its row is clicked', async () => {
+		const wrapper = await mountWithParticipants();
+
+		await wrapper.findAll('tbody tr')[3].trigger('click');
+
+		expect(states(wrapper)[4]).toBe('unchecked');
+		expect(wrapper.text()).not.toContain('1 seleccionado');
+	});
+});
+
+describe('ImportMembersModal — cancelled participants', () => {
+	const CANCELLED = {
+		id: 'p4',
+		firstName: 'Dani',
+		lastName: 'Mora',
+		email: 'dani@example.com',
+		type: 'walker',
+		isCancelled: true,
+	};
+
+	beforeEach(() => {
+		vi.clearAllMocks();
+		fetchRetreats.mockResolvedValue(RETREATS);
+		fetchPotentialMembers.mockResolvedValue([...PARTICIPANTS, CANCELLED]);
+	});
+
+	const toggleCancelled = (wrapper: ReturnType<typeof mount>) =>
+		wrapper.findComponent({ name: 'Switch' }).trigger('click');
+
+	it('leaves them out by default, so select-all imports only the active ones', async () => {
+		const wrapper = await mountWithParticipants();
+
+		expect(wrapper.text()).not.toContain('Dani Mora');
+		expect(wrapper.text()).toContain('Incluir cancelados (1)');
+
+		await checkboxes(wrapper)[0].trigger('click');
+		expect(wrapper.text()).toContain('3 seleccionados');
+	});
+
+	it('shows them, marked as cancelled, when asked for', async () => {
+		const wrapper = await mountWithParticipants();
+
+		await toggleCancelled(wrapper);
+
+		expect(wrapper.text()).toContain('Dani Mora');
+		expect(wrapper.text()).toContain('Cancelado');
+		expect(checkboxes(wrapper)).toHaveLength(PARTICIPANTS.length + 2);
+	});
+
+	it('drops them from the selection when hidden again', async () => {
+		const wrapper = await mountWithParticipants();
+		await toggleCancelled(wrapper);
+		await checkboxes(wrapper)[0].trigger('click');
+		expect(wrapper.text()).toContain('4 seleccionados');
+
+		await toggleCancelled(wrapper);
+
+		expect(wrapper.text()).toContain('3 seleccionados');
 	});
 });

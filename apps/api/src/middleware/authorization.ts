@@ -733,15 +733,19 @@ export const requireRetreatCreator = (retreatIdParam: string = 'retreatId'): any
 	};
 };
 
-export const requireRetreatAccessOrCreator = (retreatIdParam: string = 'retreatId'): any => {
+export const requireRetreatAccessOrCreator = (
+	retreatIdParam: string = 'retreatId',
+	source: 'params' | 'body' | 'query' = 'params',
+): any => {
 	return async (req: any, res: Response, next: NextFunction) => {
 		try {
 			if (!req.user) {
 				return res.status(401).json({ message: 'Unauthorized' });
 			}
 
-			const retreatId = req.params[retreatIdParam];
-			if (!retreatId) {
+			const retreatId = req[source]?.[retreatIdParam];
+			// A repeated query key arrives as an array; only a single id is valid.
+			if (!retreatId || typeof retreatId !== 'string') {
 				return res.status(400).json({ message: 'Retreat ID is required' });
 			}
 

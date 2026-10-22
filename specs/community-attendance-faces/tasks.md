@@ -211,7 +211,7 @@ suites de comunidad.
       álbum; y las instrucciones que el menú ⋮ había dejado viejas (Importar, Duplicados, Eliminar,
       Registrar asistencia por miembro)
 - [x] Skill `community-overlay`: exclusión del reconocimiento y etiquetas del álbum
-- [x] Skill `troubleshooting` #38: «doble barra de scroll» = `<select>` oculto de reka-ui sin ancestro
+- [x] Skill `troubleshooting` #39: «doble barra de scroll» = `<select>` oculto de reka-ui sin ancestro
       posicionado dentro de `<main>` (síntoma, cómo medirlo, fix con `relative`)
 - [ ] Prueba de campo en una reunión real (CA-9); anotar aciertos y sugerencias equivocadas aquí
 - [ ] Reconcile de criterios CA-1..CA-9 en `spec.md`

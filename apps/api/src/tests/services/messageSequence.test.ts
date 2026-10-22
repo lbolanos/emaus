@@ -786,8 +786,10 @@ describe('MessageSequenceService', () => {
 		it('excluye los estados de canal roto y no-contactar', async () => {
 			const { community, retreat } = await linkedRetreatWithRoster();
 			await addRosterMember(community.id, retreat.id, { cellPhone: '5511111111' });
-			for (const state of ['wrong_contact_info', 'paused', 'do_not_contact']) {
-				await addRosterMember(community.id, retreat.id, { cellPhone: '5599999999' }, state);
+			// One phone each: the community phone-uniqueness trigger rejects a shared one.
+			const excluded = ['wrong_contact_info', 'paused', 'do_not_contact'];
+			for (const [i, state] of excluded.entries()) {
+				await addRosterMember(community.id, retreat.id, { cellPhone: `559999999${i}` }, state);
 			}
 
 			const seq = await convocationSeq(retreat.id);

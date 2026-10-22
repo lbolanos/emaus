@@ -8,6 +8,8 @@ import { MemberStateEnum } from '@repo/types';
 import { AppDataSource } from '@/data-source';
 import { CommunityAdmin } from '@/entities/communityAdmin.entity';
 import { CommunityMeeting } from '@/entities/communityMeeting.entity';
+import { RetreatParticipant } from '@/entities/retreatParticipant.entity';
+import { Participant } from '@/entities/participant.entity';
 
 // Mock EmailService antes de cargar el servicio. Factory sin referencias externas
 // (regla del proyecto con ESM experimental — ver test-setup.ts).
@@ -1207,6 +1209,60 @@ describe('Community Service', () => {
 			).toBeUndefined();
 		});
 
+		it('getPotentialMembers reads the roster from retreat_participants, with type and cancellation', async () => {
+			const walker = await TestDataFactory.createTestParticipant(testRetreat.id, { cellPhone: '5533330001' });
+			const cancelled = await TestDataFactory.createTestParticipant(testRetreat.id, {
+				cellPhone: '5533330002',
+				type: 'server',
+				isCancelled: true,
+			} as any);
+			// Primary retreat elsewhere, but serving in this one: participants.retreatId missed them.
+			const otherRetreat = await TestDataFactory.createTestRetreat();
+			const servingHere = await TestDataFactory.createTestParticipant(otherRetreat.id, {
+				cellPhone: '5533330003',
+			});
+			await AppDataSource.getRepository(RetreatParticipant).save({
+				participantId: servingHere.id,
+				retreatId: testRetreat.id,
+				roleInRetreat: 'server',
+				type: 'partial_server',
+				isCancelled: false,
+				isPrimaryRetreat: false,
+			});
+			const elsewhereOnly = await TestDataFactory.createTestParticipant(otherRetreat.id, {
+				cellPhone: '5533330004',
+			});
+
+			const candidates = await service.getPotentialMembers(testCommunity.id, testRetreat.id);
+			const byId = new Map(candidates.map((c: any) => [c.id, c]));
+
+			expect(byId.get(walker.id)).toMatchObject({ type: 'walker', isCancelled: false });
+			expect(byId.get(cancelled.id)).toMatchObject({ type: 'server', isCancelled: true });
+			expect(byId.get(servingHere.id)).toMatchObject({ type: 'partial_server', isCancelled: false });
+			expect(byId.has(elsewhereOnly.id)).toBe(false);
+		});
+
+		it('getPotentialMembers flags a candidate whose phone a member already has', async () => {
+			const member = await TestDataFactory.createTestParticipant(testRetreat.id, {
+				firstName: 'Eduardo',
+				lastName: 'Garay',
+				cellPhone: '55 4462 9194',
+			});
+			await TestDataFactory.createTestCommunityMember(testCommunity.id, member.id);
+			const relative = await TestDataFactory.createTestParticipant(testRetreat.id, {
+				cellPhone: '+52 5544629194',
+			});
+			const unrelated = await TestDataFactory.createTestParticipant(testRetreat.id);
+
+			const candidates = await service.getPotentialMembers(testCommunity.id, testRetreat.id);
+			const byId = new Map(candidates.map((c: any) => [c.id, c]));
+
+			expect(byId.get(relative.id).phoneConflictWith).toBe('Eduardo Garay');
+			expect(byId.get(unrelated.id).phoneConflictWith).toBeUndefined();
+			// The member itself is not "in conflict" with itself.
+			expect(byId.get(member.id)).toMatchObject({ alreadyMember: true, phoneConflictWith: undefined });
+		});
+
 		it('getDashboardStats no cuenta al miembro con datos borrados en totales ni distribución', async () => {
 			const { pNormal, pDeleted } = await makeNormalAndDeleted();
 			await TestDataFactory.createTestCommunityMember(testCommunity.id, pNormal.id, {
@@ -1421,14 +1477,35 @@ describe('Community Service', () => {
 			expect(result).toEqual({ imported: [], skipped: [] });
 		});
 
-		it('should not validate retreat existence', async () => {
-			// The service doesn't validate retreatId, it just tries to add members
-			const p = await mkParticipant();
+		it('skips whoever is not on the retreat roster, without naming them', async () => {
+			// The ids come from the client: someone from another retreat must not get in.
+			const otherRetreat = await TestDataFactory.createTestRetreat();
+			const outsider = await TestDataFactory.createTestParticipant(otherRetreat.id);
+			const insider = await mkParticipant();
 
-			// This will work because retreatId isn't validated against participant's retreat
-			const result = await service.importFromRetreat(testCommunity.id, 'any-retreat-id', [p.id]);
+			const result = await service.importFromRetreat(testCommunity.id, testRetreat.id, [
+				outsider.id,
+				insider.id,
+			]);
 
-			expect(result.imported.length).toBe(1);
+			expect(result.imported.map((m) => m.participantId)).toEqual([insider.id]);
+			expect(result.skipped).toEqual([
+				{ participantId: outsider.id, name: '', reason: 'not_in_retreat' },
+			]);
+			const members = await service.getMembers(testCommunity.id);
+			expect(members.map((m: any) => m.participantId)).not.toContain(outsider.id);
+		});
+
+		it('skips a participant whose data was deleted', async () => {
+			const deleted = await mkParticipant();
+			await AppDataSource.getRepository(Participant).update(deleted.id, { dataDeletedAt: new Date() });
+
+			const result = await service.importFromRetreat(testCommunity.id, testRetreat.id, [deleted.id]);
+
+			expect(result.imported).toEqual([]);
+			expect(result.skipped).toEqual([
+				{ participantId: deleted.id, name: '', reason: 'not_in_retreat' },
+			]);
 		});
 
 		it('should set initial state to active_member', async () => {
@@ -1440,12 +1517,77 @@ describe('Community Service', () => {
 			expect(members[0].state).toBe('active_member');
 		});
 
-		it('should handle non-existent participants with foreign key error', async () => {
-			// This will cause a foreign key constraint error
-			// The service doesn't handle this gracefully, so we expect it to fail
-			await expect(
-				service.importFromRetreat(testCommunity.id, testRetreat.id, ['non-existent-id']),
-			).rejects.toThrow();
+		it('counts a repeated id once (double submit)', async () => {
+			const p = await mkParticipant();
+
+			const result = await service.importFromRetreat(testCommunity.id, testRetreat.id, [p.id, p.id]);
+
+			expect(result.imported.map((m) => m.participantId)).toEqual([p.id]);
+			expect(result.skipped).toEqual([]);
+		});
+
+		it('skips an id that does not exist instead of failing the batch', async () => {
+			const result = await service.importFromRetreat(testCommunity.id, testRetreat.id, [
+				'non-existent-id',
+			]);
+
+			expect(result).toEqual({
+				imported: [],
+				skipped: [{ participantId: 'non-existent-id', name: '', reason: 'not_in_retreat' }],
+			});
+		});
+
+		it('reports a row that fails unexpectedly and keeps going', async () => {
+			const failing = await mkParticipant({ firstName: 'Falla', lastName: 'Rara' });
+			const fine = await mkParticipant();
+			const addMember = service.addMember.bind(service);
+			const addSpy = jest
+				.spyOn(service, 'addMember')
+				.mockImplementation((communityId: string, participantId: string, ...rest: any[]) =>
+					participantId === failing.id
+						? Promise.reject(new Error('disk I/O error'))
+						: (addMember as any)(communityId, participantId, ...rest),
+				);
+			const logSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+			try {
+				const result = await service.importFromRetreat(testCommunity.id, testRetreat.id, [
+					failing.id,
+					fine.id,
+				]);
+
+				expect(result.imported.map((m) => m.participantId)).toEqual([fine.id]);
+				expect(result.skipped).toEqual([
+					{ participantId: failing.id, name: 'Falla Rara', reason: 'error' },
+				]);
+				expect(logSpy).toHaveBeenCalled();
+			} finally {
+				addSpy.mockRestore();
+				logSpy.mockRestore();
+			}
+		});
+
+		it('skips when only the trigger catches the shared phone (check→INSERT race)', async () => {
+			const familyPhone = uniquePhone();
+			const relative = await mkParticipant({ cellPhone: familyPhone });
+			await TestDataFactory.createTestCommunityMember(testCommunity.id, relative.id);
+			const sharing = await mkParticipant({ firstName: 'Tarde', lastName: 'Garay', cellPhone: familyPhone });
+			// State at check time: the relative "was not a member yet".
+			const collisionSpy = jest.spyOn(service as any, 'loadMemberPhoneIndex').mockResolvedValue({
+				memberParticipantIds: new Set<string>(),
+				memberNameByPhone: new Map<string, string>(),
+			});
+			try {
+				const result = await service.importFromRetreat(testCommunity.id, testRetreat.id, [
+					sharing.id,
+				]);
+
+				expect(result.imported).toEqual([]);
+				expect(result.skipped).toEqual([
+					{ participantId: sharing.id, name: 'Tarde Garay', reason: 'phone_duplicate_in_community' },
+				]);
+			} finally {
+				collisionSpy.mockRestore();
+			}
 		});
 
 		it('skips and reports a participant whose phone a member already has, and keeps going', async () => {
@@ -3711,34 +3853,8 @@ describe('Community Service', () => {
 			PH = mkPhones();
 		});
 
-		// trg_cm_phone_uniq_insert vive solo en la migration 20260521170000;
-		// synchronize no lo crea. El test que documenta esa invariante de DB lo
-		// instala a mano con el SQL exacto de la migración original.
-		const CM_PHONE_UNIQ_TRIGGER_SQL = `
-			CREATE TRIGGER IF NOT EXISTS "trg_cm_phone_uniq_insert"
-			BEFORE INSERT ON "community_member"
-			BEGIN
-				SELECT RAISE(ABORT, 'PHONE_DUPLICATE_IN_COMMUNITY')
-				WHERE EXISTS (
-					SELECT 1
-					FROM "community_member" cm
-					LEFT JOIN "participants" p ON p.id = cm.participantId
-					LEFT JOIN "participants" pNew ON pNew.id = NEW.participantId
-					WHERE cm.communityId = NEW.communityId
-					  AND cm.id != COALESCE(NEW.id, '')
-					  AND length(COALESCE(NEW.cellPhone, pNew.cellPhone, '')) > 0
-					  AND length(COALESCE(cm.cellPhone, p.cellPhone, '')) > 0
-					  AND substr(
-					        REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(COALESCE(NEW.cellPhone, pNew.cellPhone), ' ', ''), '-', ''), '(', ''), ')', ''), '+', ''),
-					        -10
-					      ) =
-					      substr(
-					        REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(COALESCE(cm.cellPhone, p.cellPhone), ' ', ''), '-', ''), '(', ''), ')', ''), '+', ''),
-					        -10
-					      )
-					  AND length(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(COALESCE(NEW.cellPhone, pNew.cellPhone), ' ', ''), '-', ''), '(', ''), ')', ''), '+', '')) >= 7
-				);
-			END`;
+		// trg_cm_phone_uniq_insert (migration 20260521170000) is installed for the
+		// whole suite by setupTestDatabase, as in prod.
 
 		const input = (over: Record<string, any> = {}) => ({
 			firstName: 'Nuevo',
@@ -4177,9 +4293,6 @@ describe('Community Service', () => {
 			const memberRepo = AppDataSource.getRepository(
 				require('@/entities/communityMember.entity').CommunityMember,
 			);
-			// synchronize no corre migrations: el trigger se instala a mano con el
-			// SQL de 20260521170000 (ver comentario del describe).
-			await AppDataSource.query(CM_PHONE_UNIQ_TRIGGER_SQL);
 			// Sin pasar por el service: el trigger de DB es la defensa de la ventana
 			// check→INSERT (race condition).
 			await expect(
@@ -4205,7 +4318,6 @@ describe('Community Service', () => {
 				cellPhone: PH.a,
 			});
 			await TestDataFactory.createTestCommunityMember(testCommunity.id, primero.id);
-			await AppDataSource.query(CM_PHONE_UNIQ_TRIGGER_SQL);
 
 			// Estado al momento del chequeo: el primer miembro "aún no existía".
 			const linkSpy = jest

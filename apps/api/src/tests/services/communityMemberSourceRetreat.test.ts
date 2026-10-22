@@ -38,7 +38,7 @@ describe('Retiro de origen del miembro de comunidad', () => {
 
 	const memberRepo = () => TestDataFactory.getDataSource().getRepository(CommunityMember);
 
-	// One phone per community member is enforced, and the factory default is shared.
+	// One phone per community member is enforced: each participant gets its own.
 	let phoneSeq = 0;
 	const mkParticipant = (retreatId: string) =>
 		TestDataFactory.createTestParticipant(retreatId, {
@@ -55,13 +55,13 @@ describe('Retiro de origen del miembro de comunidad', () => {
 		expect(saved.sourceRetreatId).toBe(retreat.id);
 	});
 
-	it('no etiqueta con un retiro en cuyo roster no está la persona', async () => {
+	it('salta y no crea a quien no está en el roster del retiro', async () => {
 		const p = await mkParticipant(otherRetreat.id);
 
-		await service.importFromRetreat(community.id, retreat.id, [p.id]);
+		const result = await service.importFromRetreat(community.id, retreat.id, [p.id]);
 
-		const saved = await memberRepo().findOneOrFail({ where: { participantId: p.id } });
-		expect(saved.sourceRetreatId).toBeNull();
+		expect(result.skipped[0].reason).toBe('not_in_retreat');
+		expect(await memberRepo().findOne({ where: { participantId: p.id } })).toBeNull();
 	});
 
 	it('getMembers devuelve solo id, parroquia y fecha del retiro, y null sin retiro', async () => {

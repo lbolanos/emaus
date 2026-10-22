@@ -10,6 +10,7 @@ import {
 	requireCommunityAccess,
 	requireCommunityOwner,
 	requireCommunityMeetingAccess,
+	requireRetreatAccessOrCreator,
 } from '../middleware/authorization';
 import {
 	publicCommunityRegisterLimiter,
@@ -142,17 +143,20 @@ router.delete('/:id', requirePermission('community:delete'), (req, res) =>
 router.get('/:id/members', requireCommunityAccess(), (req, res) =>
 	CommunityController.getMembers(req, res),
 );
-router.get('/:id/members/potential', requireCommunityAccess(), (req, res) =>
-	CommunityController.getPotentialMembers(req, res),
+// SECURITY: the roster belongs to the retreat, not the community. Without the
+// retreat check, any community admin could list any retreat's people (and import
+// them) by passing its id. Same rule as the retreat list the import modal offers.
+router.get(
+	'/:id/members/potential',
+	requireCommunityAccess(),
+	requireRetreatAccessOrCreator('retreatId', 'query'),
+	(req, res) => CommunityController.getPotentialMembers(req, res),
 );
 // Próximos cumpleaños (panel "Cumplen pronto"). Lectura para cualquier admin de
 // la comunidad: felicitar no requiere ser owner. El año de nacimiento y la edad
 // los filtra el service según el rol.
 router.get('/:id/birthdays', requireCommunityAccess(), (req, res) =>
 	CommunityController.getUpcomingBirthdays(req, res),
-);
-router.post('/:id/members', requireCommunityAccess(), (req, res) =>
-	CommunityController.addMember(req, res),
 );
 // SECURITY: rate limit antes del handler — este endpoint responde 409 con
 // nombres de personas globales al matchear teléfono/email; sin limiter un
@@ -168,6 +172,7 @@ router.post(
 router.post(
 	'/:id/members/import',
 	requireCommunityAccess(),
+	requireRetreatAccessOrCreator('retreatId', 'body'),
 	validateRequest(importMembersSchema),
 	(req, res) => CommunityController.importFromRetreat(req, res),
 );

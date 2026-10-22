@@ -10,6 +10,7 @@ import { User } from '../entities/user.entity';
 import { UserRole } from '../entities/userRole.entity';
 import { Participant } from '../entities/participant.entity';
 import { Retreat } from '../entities/retreat.entity';
+import { RetreatParticipant } from '../entities/retreatParticipant.entity';
 import {
 	MemberState,
 	type ImportMembersSkip,
@@ -128,6 +129,16 @@ export class MemberCreateConflictError extends Error {
  */
 export const isMeetingEmailNotificationsEnabled = (): boolean =>
 	process.env.MEETING_EMAIL_NOTIFICATIONS_ENABLED === 'true';
+
+/**
+ * Key for "same phone" inside a community: the last 10 digits, or null when fewer
+ * than 7 remain (too short to trust). Shared by the import pre-check and the
+ * candidate list so the dialog never flags a conflict the import would not.
+ */
+const phoneKey = (phone: string | null | undefined): string | null => {
+	const key = (phone ?? '').replace(/\D/g, '').slice(-10);
+	return key.length >= 7 ? key : null;
+};
 
 export class CommunityService {
 	private communityRepo = AppDataSource.getRepository(Community);
@@ -742,9 +753,8 @@ export class CommunityService {
 		cellPhone: string | null | undefined,
 		excludeMemberId?: string,
 	): Promise<CommunityMember | null> {
-		if (!cellPhone) return null;
-		const last10 = cellPhone.replace(/\D/g, '').slice(-10);
-		if (last10.length < 7) return null; // tels muy cortos no son confiables
+		const key = phoneKey(cellPhone);
+		if (!key) return null;
 
 		// Trae los miembros de la comunidad con su participant para evaluar overlay+participant.
 		const qb = this.memberRepo
@@ -755,10 +765,7 @@ export class CommunityService {
 		const members = await qb.getMany();
 
 		for (const m of members) {
-			const effective = (m.cellPhone ?? m.participant?.cellPhone ?? '')
-				.replace(/\D/g, '')
-				.slice(-10);
-			if (effective.length >= 7 && effective === last10) return m;
+			if (phoneKey(m.cellPhone ?? m.participant?.cellPhone) === key) return m;
 		}
 		return null;
 	}
@@ -864,6 +871,42 @@ export class CommunityService {
 		}
 
 		return results.slice(0, limit);
+	}
+
+	/**
+	 * Who is already a member and which phones are taken, loaded once (instead of
+	 * findPhoneCollision's scan per row) and with only the columns needed: the
+	 * effective phone is overlay ?? participant, as in trg_cm_phone_uniq_insert.
+	 */
+	private async loadMemberPhoneIndex(communityId: string): Promise<{
+		memberParticipantIds: Set<string>;
+		memberNameByPhone: Map<string, string>;
+	}> {
+		const members = await this.memberRepo
+			.createQueryBuilder('cm')
+			.leftJoin('cm.participant', 'p')
+			.select([
+				'cm.id',
+				'cm.participantId',
+				'cm.cellPhone',
+				'cm.firstName',
+				'cm.lastName',
+				'p.id',
+				'p.cellPhone',
+				'p.firstName',
+				'p.lastName',
+			])
+			.where('cm.communityId = :cid', { cid: communityId })
+			.getMany();
+
+		const memberNameByPhone = new Map<string, string>();
+		for (const m of members) {
+			const key = phoneKey(m.cellPhone ?? m.participant?.cellPhone);
+			if (key && !memberNameByPhone.has(key)) {
+				memberNameByPhone.set(key, resolveMemberProfile(m).fullName);
+			}
+		}
+		return { memberParticipantIds: new Set(members.map((m) => m.participantId)), memberNameByPhone };
 	}
 
 	/**
@@ -1309,11 +1352,13 @@ export class CommunityService {
 	}
 
 	/**
-	 * Adds the selected retreat participants as members. A participant whose
-	 * phone already belongs to another member is skipped and reported instead of
-	 * aborting the batch: before this, the first collision (two relatives
-	 * sharing a phone) turned the whole import into a 500 after the earlier rows
-	 * were already saved.
+	 * Adds the selected retreat participants as members. Every row ends up either
+	 * imported or skipped with a reason; none aborts the batch. Before this, the
+	 * first phone collision (two relatives sharing a phone) turned the whole
+	 * import into a 500 after the earlier rows were already saved.
+	 *
+	 * SECURITY: only people on this retreat's roster come in. The ids arrive from
+	 * the client, and this endpoint, not the dialog, is the boundary.
 	 */
 	async importFromRetreat(
 		communityId: string,
@@ -1322,46 +1367,63 @@ export class CommunityService {
 	): Promise<{ imported: CommunityMember[]; skipped: ImportMembersSkip[] }> {
 		const imported: CommunityMember[] = [];
 		const skipped: ImportMembersSkip[] = [];
+		// A repeated id (double submit) would be reported as imported twice.
+		const ids = [...new Set(participantIds)];
 
-		// The retreat is recorded as the member's source only for people on its
-		// roster: the request carries both ids and nothing else ties them, so an
-		// unrelated retreatId would otherwise end up labelling the member.
-		const rosterRows: { participantId: string }[] =
-			participantIds.length > 0
-				? await AppDataSource.query(
-						`SELECT participantId FROM retreat_participants
-						 WHERE retreatId = ? AND participantId IN (${participantIds.map(() => '?').join(', ')})`,
-						[retreatId, ...participantIds],
-					)
+		const rosterParticipants =
+			ids.length > 0
+				? await this.participantRepo
+						.createQueryBuilder('participant')
+						.innerJoin(
+							RetreatParticipant,
+							'rp',
+							'rp.participantId = participant.id AND rp.retreatId = :retreatId',
+							{ retreatId },
+						)
+						.where('participant.id IN (:...ids)', { ids })
+						.andWhere('participant.dataDeletedAt IS NULL')
+						.getMany()
 				: [];
-		const onRoster = new Set(rosterRows.map((r) => r.participantId));
+		const roster = new Map(rosterParticipants.map((p) => [p.id, p]));
+		const { memberParticipantIds, memberNameByPhone } =
+			ids.length > 0
+				? await this.loadMemberPhoneIndex(communityId)
+				: { memberParticipantIds: new Set<string>(), memberNameByPhone: new Map<string, string>() };
 
-		for (const participantId of participantIds) {
-			const existing = await this.memberRepo.findOne({ where: { communityId, participantId } });
-			if (existing) {
-				imported.push(existing);
+		for (const participantId of ids) {
+			const participant = roster.get(participantId);
+			if (!participant) {
+				// No name: it would tell a community admin who is behind an id they
+				// have no business holding.
+				skipped.push({ participantId, name: '', reason: 'not_in_retreat' });
 				continue;
 			}
 
-			const participant = await this.participantRepo.findOne({ where: { id: participantId } });
-			const name = `${participant?.firstName ?? ''} ${participant?.lastName ?? ''}`.trim();
-			const collision = await this.findPhoneCollision(communityId, participant?.cellPhone);
-			if (collision) {
-				skipped.push({
-					participantId,
-					name,
-					reason: 'phone_duplicate_in_community',
-					conflictWith: resolveMemberProfile(collision).fullName,
-				});
-				continue;
-			}
-
+			const name = `${participant.firstName ?? ''} ${participant.lastName ?? ''}`.trim();
+			const key = phoneKey(participant.cellPhone);
 			try {
+				if (memberParticipantIds.has(participantId)) {
+					const existing = await this.memberRepo.findOne({ where: { communityId, participantId } });
+					if (existing) {
+						imported.push(existing);
+						continue;
+					}
+				}
+
+				const conflictWith = key ? memberNameByPhone.get(key) : undefined;
+				if (conflictWith) {
+					skipped.push({ participantId, name, reason: 'phone_duplicate_in_community', conflictWith });
+					continue;
+				}
+
 				imported.push(
 					(await this.addMember(communityId, participantId, 'active_member', {
-						sourceRetreatId: onRoster.has(participantId) ? retreatId : null,
+						sourceRetreatId: retreatId,
 					})) as CommunityMember,
 				);
+				// Later rows of this same batch collide with whoever just came in.
+				memberParticipantIds.add(participantId);
+				if (key) memberNameByPhone.set(key, name);
 			} catch (err: any) {
 				// The trigger still guards the window between the check above and the INSERT.
 				if (
@@ -1371,34 +1433,54 @@ export class CommunityService {
 					skipped.push({ participantId, name, reason: 'phone_duplicate_in_community' });
 					continue;
 				}
-				throw err;
+				console.error(`[communityService] importFromRetreat failed for ${participantId}:`, err);
+				skipped.push({ participantId, name, reason: 'error' });
 			}
 		}
 		return { imported, skipped };
 	}
 
 	async getPotentialMembers(communityId: string, retreatId: string) {
-		// Get all participant IDs that are already in this community
-		const existingMembers = await this.memberRepo.find({
-			where: { communityId },
-			select: ['participantId'],
-		});
-		const existingParticipantIds = new Set(existingMembers.map((m) => m.participantId));
+		// Who is already a member, and which phones are taken: one phone per
+		// community, so the dialog shows up front who the import would refuse.
+		const { memberParticipantIds: existingParticipantIds, memberNameByPhone } =
+			await this.loadMemberPhoneIndex(communityId);
 
-		// Get all participants from the retreat. Excluir los que ejercieron su
-		// derecho de borrado de datos (dataDeletedAt): su nombre quedó anonimizado
-		// a "(eliminado)" y no deben ofrecerse como candidatos a agregar.
+		// The roster comes from retreat_participants, like the retreat's own lists:
+		// participants.retreatId is only the primary retreat, so it missed whoever
+		// later joined another one and brought no `type` or `isCancelled`, which the
+		// import dialog needs to filter by type and leave cancelled people out.
+		const rosterRows = await AppDataSource.getRepository(RetreatParticipant).find({
+			where: { retreatId },
+			select: ['participantId', 'type', 'isCancelled'],
+		});
+		const rosterByParticipantId = new Map(
+			rosterRows.filter((r) => r.participantId).map((r) => [r.participantId as string, r]),
+		);
+		if (rosterByParticipantId.size === 0) return [];
+
+		// Excluir los que ejercieron su derecho de borrado de datos (dataDeletedAt):
+		// su nombre quedó anonimizado a "(eliminado)" y no deben ofrecerse como
+		// candidatos a agregar.
 		const retreatParticipants = await this.participantRepo
 			.createQueryBuilder('participant')
-			.where('participant.retreatId = :retreatId', { retreatId })
+			.where('participant.id IN (:...ids)', { ids: [...rosterByParticipantId.keys()] })
 			.andWhere('participant.dataDeletedAt IS NULL')
 			.getMany();
 
 		// Filter out participants who are already in the community and add a flag
-		return retreatParticipants.map((p) => ({
-			...p,
-			alreadyMember: existingParticipantIds.has(p.id),
-		}));
+		return retreatParticipants.map((p) => {
+			const roster = rosterByParticipantId.get(p.id)!;
+			const alreadyMember = existingParticipantIds.has(p.id);
+			const key = alreadyMember ? null : phoneKey(p.cellPhone);
+			return {
+				...p,
+				type: roster.type ?? undefined,
+				isCancelled: roster.isCancelled,
+				alreadyMember,
+				phoneConflictWith: (key && memberNameByPhone.get(key)) || undefined,
+			};
+		});
 	}
 
 	/**

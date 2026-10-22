@@ -1,6 +1,7 @@
 import { DataSource } from 'typeorm';
 import { AppDataSource } from '../data-source';
 import { TestDataFactory } from './test-utils/testDataFactory';
+import { UniquePhonePerCommunity20260521170000 } from '../migrations/sqlite/20260521170000_UniquePhonePerCommunity';
 import { House } from '../entities/house.entity';
 import { Bed } from '../entities/bed.entity';
 import { Retreat } from '../entities/retreat.entity';
@@ -210,6 +211,17 @@ export async function setupTestDatabase() {
 	// Build metadata explicitly to ensure all entities are registered
 	// This is critical for TypeORM to have complete metadata before any repository operations
 	await testDataSource.buildMetadatas();
+
+	// Schema objects that live only in migrations: synchronize never creates them.
+	// This one is installed for the whole suite because any member insert can hit it;
+	// missing it let a 500 reach prod on 2026-10-22. Other migration-only indexes are
+	// still absent and get installed per test (skill sqlite-migrations).
+	const migrationRunner = testDataSource.createQueryRunner();
+	try {
+		await new UniquePhonePerCommunity20260521170000().up(migrationRunner);
+	} finally {
+		await migrationRunner.release();
+	}
 
 	// Debug: Check what metadata was built
 	console.log(

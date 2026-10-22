@@ -534,20 +534,25 @@ export const deleteCommunityMemberPhotoSchema = z.object({
 export const importMembersSchema = z.object({
 	body: z.object({
 		retreatId: z.string().uuid(),
-		participantIds: z.array(z.string().uuid()),
+		// The largest retreat has a few hundred people; the cap keeps the roster
+		// query's IN list and the per-row loop of one request bounded.
+		participantIds: z.array(z.string().uuid()).max(1000),
 	}),
 });
 
 /**
- * A participant left out of POST /communities/:id/members/import because their
- * phone already belongs to another member of the community (one phone per
- * community, enforced by trigger trg_cm_phone_uniq_insert). `conflictWith` is
- * that member's display name; it is missing when only the trigger caught it.
+ * A participant left out of POST /communities/:id/members/import, and why:
+ *  - `phone_duplicate_in_community`: their phone already belongs to another member
+ *    (one phone per community, trigger trg_cm_phone_uniq_insert). `conflictWith`
+ *    is that member's display name; missing when only the trigger caught it.
+ *  - `not_in_retreat`: the id is not on the retreat's roster (or their data was
+ *    deleted). `name` is empty on purpose.
+ *  - `error`: the row failed unexpectedly; the API log has the detail.
  */
 export interface ImportMembersSkip {
 	participantId: string;
 	name: string;
-	reason: 'phone_duplicate_in_community';
+	reason: 'phone_duplicate_in_community' | 'not_in_retreat' | 'error';
 	conflictWith?: string;
 }
 
