@@ -439,6 +439,9 @@
                   :is-owner="communityStore.isOwnerOrSuperadmin"
                   :is-contacted="contactedMarks.isMarked(member.id)"
                   :contacted-at="contactedMarks.getMarkedAt(member.id)"
+                  :show-face-recognition="faceRecognitionEnabled"
+                  :face-recognition-opt-out="!!member.faceRecognitionOptOut"
+                  @toggle-face-optout="toggleFaceOptOut(member)"
                   @toggle-contacted="contactedMarks.toggle(member.id)"
                   @attendance="openAttendanceDialog(member)"
                   @message="openMessageDialog(member)"
@@ -504,6 +507,9 @@
               :is-owner="communityStore.isOwnerOrSuperadmin"
               :is-contacted="contactedMarks.isMarked(member.id)"
               :contacted-at="contactedMarks.getMarkedAt(member.id)"
+              :show-face-recognition="faceRecognitionEnabled"
+              :face-recognition-opt-out="!!member.faceRecognitionOptOut"
+              @toggle-face-optout="toggleFaceOptOut(member)"
               @toggle-contacted="contactedMarks.toggle(member.id)"
               @attendance="openAttendanceDialog(member)"
               @message="openMessageDialog(member)"
@@ -696,6 +702,7 @@ import MemberAvatar from '@/components/community/MemberAvatar.vue';
 import MemberPhotoDialog from '@/components/community/MemberPhotoDialog.vue';
 import MemberBirthdayDialog from '@/components/community/MemberBirthdayDialog.vue';
 import { MemberStateEnum, type MemberState } from '@repo/types';
+import { setMemberFaceRecognitionOptOut } from '@/services/api';
 import { useContactedMarks } from '@/composables/useContactedMarks';
 import { useRekaDialogFix } from '@/composables/useRekaDialogFix';
 
@@ -1147,6 +1154,27 @@ const exportMembers = () => {
     console.error('Failed to export members:', error);
     toast({
       title: $t('community.members.exportFailed'),
+      description: error instanceof Error ? error.message : 'Unknown error',
+      variant: 'destructive',
+    });
+  }
+};
+
+// Face-recognition opt-out (spec FR-12/D8): persists immediately and patches the row in place.
+const faceRecognitionEnabled = computed(() => !!currentCommunity.value?.faceRecognitionEnabled);
+
+const toggleFaceOptOut = async (member: any) => {
+  const next = !member.faceRecognitionOptOut;
+  try {
+    const res = await setMemberFaceRecognitionOptOut(props.id, member.id, next);
+    member.faceRecognitionOptOut = res.faceRecognitionOptOut;
+    toast({
+      title: res.faceRecognitionOptOut ? 'Excluido del reconocimiento facial' : 'Incluido en el reconocimiento facial',
+    });
+  } catch (error) {
+    console.error('Failed to update face recognition opt-out:', error);
+    toast({
+      title: 'No se pudo actualizar el reconocimiento facial',
       description: error instanceof Error ? error.message : 'Unknown error',
       variant: 'destructive',
     });

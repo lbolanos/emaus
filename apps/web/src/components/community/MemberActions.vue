@@ -56,6 +56,17 @@
           <Camera class="w-4 h-4 mr-2" />
           Foto
         </DropdownMenuItem>
+        <!-- Face-recognition opt-out toggle (spec FR-12/D8). Opens no dialog, so no deferOpen. -->
+        <DropdownMenuItem v-if="showFaceRecognition" @select="emit('toggle-face-optout')">
+          <template v-if="faceRecognitionOptOut">
+            <Eye class="w-4 h-4 mr-2" />
+            Incluir en el reconocimiento facial
+          </template>
+          <template v-else>
+            <EyeOff class="w-4 h-4 mr-2" />
+            Excluir del reconocimiento facial
+          </template>
+        </DropdownMenuItem>
         <template v-if="isOwner">
           <DropdownMenuSeparator />
           <DropdownMenuItem @select="deferOpen(() => emit('edit'))">
@@ -82,17 +93,25 @@ import {
   Tooltip, TooltipContent, TooltipTrigger,
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator,
 } from '@repo/ui';
-import { CheckCircle2, Circle, ClipboardCheck, MessageSquare, MoreVertical, FileText, History, Pencil, UserMinus, Camera } from 'lucide-vue-next';
+import { CheckCircle2, Circle, ClipboardCheck, MessageSquare, MoreVertical, FileText, History, Pencil, UserMinus, Camera, Eye, EyeOff } from 'lucide-vue-next';
 import { useRekaDialogFix } from '@/composables/useRekaDialogFix';
 
-const props = defineProps<{
-  isOwner: boolean;
-  isContacted: boolean;
-  contactedAt?: string;
-}>();
+const props = withDefaults(
+  defineProps<{
+    isOwner: boolean;
+    isContacted: boolean;
+    contactedAt?: string;
+    /** Community has face recognition on: show the opt-out toggle. */
+    showFaceRecognition?: boolean;
+    /** Member asked to be excluded from face recognition. */
+    faceRecognitionOptOut?: boolean;
+  }>(),
+  { showFaceRecognition: false, faceRecognitionOptOut: false },
+);
 
 const emit = defineEmits<{
   'toggle-contacted': [];
+  'toggle-face-optout': [];
   attendance: [];
   message: [];
   notes: [];

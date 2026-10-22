@@ -35,13 +35,15 @@ vi.mock('lucide-vue-next', () => {
 			'Pencil',
 			'UserMinus',
 			'Camera',
+			'Eye',
+			'EyeOff',
 		].map((n) => [n, stub(n)]),
 	);
 });
 
 import MemberActions from '../MemberActions.vue';
 
-const mountActions = (props: Partial<{ isOwner: boolean; isContacted: boolean; contactedAt: string }> = {}) =>
+const mountActions = (props: Partial<{ isOwner: boolean; isContacted: boolean; contactedAt: string; showFaceRecognition: boolean; faceRecognitionOptOut: boolean }> = {}) =>
 	mount(MemberActions, { props: { isOwner: false, isContacted: false, ...props } });
 
 const item = (wrapper: ReturnType<typeof mountActions>, text: string) => {
@@ -92,5 +94,22 @@ describe('MemberActions', () => {
 		const owner = mountActions({ isOwner: true });
 		expect(owner.text()).toContain('Editar datos');
 		expect(owner.text()).toContain('Eliminar miembro');
+	});
+
+	it('hides the face-recognition item unless the community has it enabled', () => {
+		const wrapper = mountActions();
+		expect(wrapper.text()).not.toContain('reconocimiento facial');
+	});
+
+	it('offers to exclude a member and emits toggle-face-optout', async () => {
+		const wrapper = mountActions({ showFaceRecognition: true });
+		await item(wrapper, 'Excluir del reconocimiento facial').trigger('click');
+		expect(wrapper.emitted('toggle-face-optout')).toHaveLength(1);
+	});
+
+	it('offers to include a member who opted out', () => {
+		const wrapper = mountActions({ showFaceRecognition: true, faceRecognitionOptOut: true });
+		expect(item(wrapper, 'Incluir en el reconocimiento facial')).toBeTruthy();
+		expect(wrapper.text()).not.toContain('Excluir del');
 	});
 });
