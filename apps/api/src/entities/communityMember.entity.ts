@@ -126,4 +126,11 @@ export class CommunityMember {
 	 */
 	@Column({ type: 'varchar', length: 36, nullable: true })
 	sourceRetreatId?: string | null;
+
+	/**
+	 * Excluded from face recognition (spec D8): not in the gallery sent to the model, never
+	 * auto-gets a profile photo from a group photo, not tagged in the public album.
+	 */
+	@Column({ type: 'boolean', default: false })
+	faceRecognitionOptOut!: boolean;
 }

@@ -760,7 +760,7 @@ export class CommunityController {
 
 	static async recordSingleAttendance(req: Request, res: Response) {
 		const { id: communityId, meetingId } = req.params;
-		const { memberId, attended } = req.body;
+		const { memberId, attended, occurredAt } = req.body;
 
 		try {
 			const attendance = await communityService.recordSingleAttendance(
@@ -768,11 +768,15 @@ export class CommunityController {
 				meetingId,
 				memberId,
 				attended,
+				occurredAt,
 			);
 			res.status(201).json(attendance);
 		} catch (error: any) {
 			if (error.message === 'Member not found') {
 				return res.status(404).json({ message: 'Member not found' });
+			}
+			if (error.message === 'Meeting not found') {
+				return res.status(404).json({ message: 'Meeting not found' });
 			}
 			throw error;
 		}
@@ -859,6 +863,9 @@ export class CommunityController {
 		} catch (error: any) {
 			if (error.message === 'Member not found') {
 				return res.status(404).json({ message: 'Member not found' });
+			}
+			if (error.message === 'Meeting not found') {
+				return res.status(404).json({ message: 'Meeting not found' });
 			}
 			throw error;
 		}

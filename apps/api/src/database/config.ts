@@ -40,6 +40,7 @@ import { CommunityMember } from '../entities/communityMember.entity';
 import { CommunityMeeting } from '../entities/communityMeeting.entity';
 import { CommunityAdmin } from '../entities/communityAdmin.entity';
 import { CommunityAttendance } from '../entities/communityAttendance.entity';
+import { CommunityMeetingPhotoTag } from '../entities/communityMeetingPhotoTag.entity';
 import { NewsletterSubscriber } from '../entities/newsletterSubscriber.entity';
 
 // Social system entities
@@ -133,6 +134,7 @@ export function createDatabaseConfig() {
 		CommunityMeeting,
 		CommunityAdmin,
 		CommunityAttendance,
+		CommunityMeetingPhotoTag,
 		// Newsletter entities
 		NewsletterSubscriber,
 		// Social system entities

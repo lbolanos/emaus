@@ -1,5 +1,7 @@
 import { Router } from 'express';
 import { CommunityController } from '../controllers/communityController';
+import { CommunityFaceController } from '../controllers/communityFaceController';
+import { idempotency } from '../middleware/idempotency';
 import { isAuthenticated } from '../middleware/isAuthenticated';
 import { validateRequest } from '../middleware/validateRequest';
 import {
@@ -13,6 +15,8 @@ import {
 	publicCommunityRegisterLimiter,
 	meetingNotifyLimiter,
 	memberCreateLimiter,
+	faceMatchLimiter,
+	publicAlbumLimiter,
 } from '../middleware/rateLimiting';
 import {
 	createCommunitySchema,
@@ -33,6 +37,12 @@ import {
 	setCommunityMemberPhotoSchema,
 	deleteCommunityMemberPhotoSchema,
 	recordAttendanceSchema,
+	recordSingleAttendanceSchema,
+	setCommunityFaceRecognitionSchema,
+	setMemberFaceRecognitionOptOutSchema,
+	faceMatchSchema,
+	faceMatchConfirmSchema,
+	albumMeetingParamsSchema,
 	bulkMemberAttendanceSchema,
 	inviteCommunityAdminSchema,
 	addCommunityAdminSchema,
@@ -62,6 +72,12 @@ router.get('/public/attendance/:communityId/:meetingId', (req, res) =>
 );
 router.post('/public/attendance/:communityId/:meetingId', (req, res) =>
 	CommunityController.recordPublicAttendance(req, res),
+);
+
+// Public meeting album (NO AUTH). Unlisted link: the 128-bit token is the only credential.
+// Registered before every `/:id` route so `public` is never read as a community id.
+router.get('/public/album/:token', publicAlbumLimiter, (req, res, next) =>
+	CommunityFaceController.getPublicAlbum(req, res).catch(next),
 );
 
 // Public community registration (NO AUTH required) — pending superadmin approval
@@ -318,8 +334,57 @@ router.post(
 	validateRequest(recordAttendanceSchema),
 	(req, res) => CommunityController.recordAttendance(req, res),
 );
-router.post('/:id/meetings/:meetingId/attendance/single', requireCommunityAccess(), (req, res) =>
-	CommunityController.recordSingleAttendance(req, res),
+// idempotency: the offline queue resends the same tap with the same key (FR-9).
+router.post(
+	'/:id/meetings/:meetingId/attendance/single',
+	requireCommunityAccess(),
+	validateRequest(recordSingleAttendanceSchema),
+	idempotency,
+	(req, res, next) => CommunityController.recordSingleAttendance(req, res).catch(next),
+);
+
+// Face recognition (specs/community-attendance-faces). Every route is scoped by the
+// community in the URL and the service checks the meeting/members belong to it (FR-23).
+// SECURITY: the community switch is owner-only (it decides whether member photos are sent to
+// a third-party model); the rest is `requireCommunityAccess` like the member photo.
+router.patch(
+	'/:id/face-recognition',
+	requireCommunityOwner(),
+	validateRequest(setCommunityFaceRecognitionSchema),
+	(req, res, next) => CommunityFaceController.setEnabled(req, res).catch(next),
+);
+router.patch(
+	'/:id/members/:memberId/face-recognition',
+	requireCommunityAccess(),
+	validateRequest(setMemberFaceRecognitionOptOutSchema),
+	(req, res, next) => CommunityFaceController.setMemberOptOut(req, res).catch(next),
+);
+router.post(
+	'/:id/meetings/:meetingId/face-match',
+	faceMatchLimiter,
+	requireCommunityAccess(),
+	validateRequest(faceMatchSchema),
+	(req, res, next) => CommunityFaceController.faceMatch(req, res).catch(next),
+);
+router.post(
+	'/:id/meetings/:meetingId/face-match/confirm',
+	requireCommunityAccess(),
+	validateRequest(faceMatchConfirmSchema),
+	(req, res, next) => CommunityFaceController.confirm(req, res).catch(next),
+);
+
+// Public album publish / unpublish (community admins).
+router.post(
+	'/:id/meetings/:meetingId/album',
+	requireCommunityAccess(),
+	validateRequest(albumMeetingParamsSchema),
+	(req, res, next) => CommunityFaceController.publishAlbum(req, res).catch(next),
+);
+router.delete(
+	'/:id/meetings/:meetingId/album',
+	requireCommunityAccess(),
+	validateRequest(albumMeetingParamsSchema),
+	(req, res, next) => CommunityFaceController.unpublishAlbum(req, res).catch(next),
 );
 
 // Dashboard

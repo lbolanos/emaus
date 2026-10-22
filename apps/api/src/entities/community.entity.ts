@@ -86,6 +86,10 @@ export class Community {
 	@Column({ type: 'varchar', length: 64, nullable: true })
 	timezone?: string | null;
 
+	/** Face recognition in attendance (spec FR-11). Owner/superadmin switch; off by default. */
+	@Column({ type: 'boolean', default: false })
+	faceRecognitionEnabled!: boolean;
+
 	@Column({ type: 'uuid', nullable: true })
 	createdBy?: string | null;
 

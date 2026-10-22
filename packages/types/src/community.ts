@@ -687,6 +687,92 @@ export const recordAttendanceSchema = z.object({
 	),
 });
 
+// Asistencia de UN miembro en UNA reunión (toque en la vista de asistencia). `occurredAt`
+// lo manda la cola sin conexión: cuándo ocurrió el toque, no cuándo llegó. Cadena vacía
+// = ausente (bug recurrente de `.optional()` con strings vacíos).
+export const recordSingleAttendanceSchema = z.object({
+	body: z.object({
+		memberId: z.string().uuid(),
+		attended: z.boolean(),
+		occurredAt: z.preprocess(
+			(v) => (v === '' || v === null ? undefined : v),
+			z.string().datetime({ offset: true }).optional(),
+		),
+	}),
+	params: z.object({
+		id: z.string().uuid(),
+		meetingId: z.string().uuid(),
+	}),
+});
+
+// --- Reconocimiento facial en la asistencia (specs/community-attendance-faces) ---
+
+export const setCommunityFaceRecognitionSchema = z.object({
+	body: z.object({ enabled: z.boolean() }),
+	params: z.object({ id: z.string().uuid() }),
+});
+
+export const setMemberFaceRecognitionOptOutSchema = z.object({
+	body: z.object({ optOut: z.boolean() }),
+	params: z.object({ id: z.string().uuid(), memberId: z.string().uuid() }),
+});
+
+/** Máximo de un data-URI de imagen para análisis: 5 MB (el límite del `express.json`). */
+export const FACE_MATCH_MAX_DATA_URL_CHARS = 5 * 1024 * 1024;
+// Prefix only: a regex over a multi-MB base64 body overflows the stack on Node 20/Linux.
+// The real format check (magic bytes) happens in the service.
+const FACE_IMAGE_DATA_URL = /^data:image\/(jpeg|jpg|png|webp);base64,/;
+
+/** Caja normalizada 0-1000: [ymin, xmin, ymax, xmax]. */
+export const faceBoxSchema = z
+	.tuple([
+		z.number().int().min(0).max(1000),
+		z.number().int().min(0).max(1000),
+		z.number().int().min(0).max(1000),
+		z.number().int().min(0).max(1000),
+	])
+	.refine(([yMin, xMin, yMax, xMax]) => yMax > yMin && xMax > xMin, {
+		message: 'box must be [ymin, xmin, ymax, xmax] with max > min',
+	});
+export type FaceBox = z.infer<typeof faceBoxSchema>;
+
+export const faceMatchSchema = z.object({
+	body: z.object({
+		image: z
+			.string()
+			.max(FACE_MATCH_MAX_DATA_URL_CHARS, 'image is too large')
+			.regex(FACE_IMAGE_DATA_URL, 'image must be a jpeg, png or webp data URL'),
+	}),
+	params: z.object({ id: z.string().uuid(), meetingId: z.string().uuid() }),
+});
+
+export const faceMatchConfirmSchema = z.object({
+	body: z.object({
+		present: z.array(z.string().uuid()).max(500),
+		photos: z
+			.array(
+				z.object({
+					memberId: z.string().uuid(),
+					crop: z
+						.string()
+						.max(600_000, 'crop is too large')
+						.regex(FACE_IMAGE_DATA_URL, 'crop must be a jpeg, png or webp data URL'),
+				}),
+			)
+			.max(200)
+			.default([]),
+		tags: z
+			.array(z.object({ memberId: z.string().uuid(), box: faceBoxSchema }))
+			.max(500)
+			.default([]),
+	}),
+	params: z.object({ id: z.string().uuid(), meetingId: z.string().uuid() }),
+});
+
+export const albumMeetingParamsSchema = z.object({
+	params: z.object({ id: z.string().uuid(), meetingId: z.string().uuid() }),
+});
+
 // Asistencia de UN miembro en VARIAS reuniones (una llamada). Usado por el
 // diálogo "Registrar asistencia" de la lista de miembros.
 export const bulkMemberAttendanceSchema = z.object({

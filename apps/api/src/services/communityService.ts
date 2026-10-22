@@ -2,6 +2,8 @@ import { AppDataSource } from '../data-source';
 import { Community } from '../entities/community.entity';
 import { CommunityMember } from '../entities/communityMember.entity';
 import { CommunityMeeting } from '../entities/communityMeeting.entity';
+import { CommunityMeetingPhotoTag } from '../entities/communityMeetingPhotoTag.entity';
+import { invalidateFaceGallery } from './faceMatchService';
 import { CommunityAdmin } from '../entities/communityAdmin.entity';
 import { CommunityAttendance } from '../entities/communityAttendance.entity';
 import { User } from '../entities/user.entity';
@@ -700,6 +702,7 @@ export class CommunityService {
 		}
 
 		await this.memberRepo.update(memberId, { photoUrl: url, photoS3Key: s3Key });
+		invalidateFaceGallery(communityId);
 		return this.findMemberWithBirthday(memberId);
 	}
 
@@ -723,6 +726,7 @@ export class CommunityService {
 		}
 
 		await this.memberRepo.update(memberId, { photoUrl: null, photoS3Key: null });
+		invalidateFaceGallery(communityId);
 		return this.findMemberWithBirthday(memberId);
 	}
 
@@ -1801,6 +1805,8 @@ export class CommunityService {
 		}
 
 		await this.meetingRepo.update(meetingId, { photoUrl: url, photoS3Key: s3Key });
+		// Tags are boxes over the previous photo: they mean nothing on the new one (FR-29).
+		await AppDataSource.getRepository(CommunityMeetingPhotoTag).delete({ meetingId });
 		return this.getMeetingById(meetingId);
 	}
 
@@ -1823,6 +1829,7 @@ export class CommunityService {
 		}
 
 		await this.meetingRepo.update(meetingId, { photoUrl: null, photoS3Key: null });
+		await AppDataSource.getRepository(CommunityMeetingPhotoTag).delete({ meetingId });
 		return this.getMeetingById(meetingId);
 	}
 
@@ -2603,7 +2610,18 @@ export class CommunityService {
 		meetingId: string,
 		memberId: string,
 		attended: boolean,
+		occurredAt?: string | Date | null,
 	) {
+		// The meeting must belong to the community in the route (FR-23): without this a
+		// coordinator of community A could write attendance onto a meeting of community B.
+		const meeting = await this.meetingRepo.findOne({
+			where: { id: meetingId, communityId },
+			select: ['id'],
+		});
+		if (!meeting) {
+			throw new Error('Meeting not found');
+		}
+
 		// Verify member belongs to community
 		const member = await this.memberRepo.findOne({
 			where: { id: memberId, communityId },
@@ -2613,6 +2631,17 @@ export class CommunityService {
 			throw new Error('Member not found');
 		}
 
+		// `occurredAt` comes from the offline queue: when the tap happened. Ignore it when it
+		// is invalid or in the future (device clock skew) so a bad clock cannot post-date a row.
+		const now = new Date();
+		let recordedAt = now;
+		if (occurredAt) {
+			const parsed = new Date(occurredAt);
+			if (!Number.isNaN(parsed.getTime()) && parsed.getTime() <= now.getTime()) {
+				recordedAt = parsed;
+			}
+		}
+
 		// Upsert attendance record
 		const existing = await this.attendanceRepo.findOne({
 			where: { meetingId, memberId },
@@ -2620,14 +2649,14 @@ export class CommunityService {
 
 		if (existing) {
 			existing.attended = attended;
-			existing.recordedAt = new Date();
+			existing.recordedAt = recordedAt;
 			return this.attendanceRepo.save(existing);
 		} else {
 			const attendance = this.attendanceRepo.create({
 				meetingId,
 				memberId,
 				attended,
-				recordedAt: new Date(),
+				recordedAt,
 			});
 			return this.attendanceRepo.save(attendance);
 		}
