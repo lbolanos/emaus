@@ -13,13 +13,6 @@
       <div class="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center">
         <div class="min-w-0">
           <h1 class="text-xl sm:text-2xl font-bold">{{ currentCommunity.name }} - {{ $t('community.membersLabel') }}</h1>
-          <div class="flex items-center text-sm text-muted-foreground">
-            <router-link :to="{ name: 'community-dashboard', params: { id: currentCommunity.id } }" class="hover:underline">
-              {{ $t('community.dashboard') }}
-            </router-link>
-            <ChevronRight class="w-4 h-4 mx-1" />
-            <span>{{ $t('community.membersLabel') }}</span>
-          </div>
         </div>
         <div class="flex gap-2 flex-wrap">
           <Button variant="outline" as-child>
@@ -69,6 +62,9 @@
           </Tooltip>
         </div>
       </div>
+
+      <!-- Community sub-navigation (breadcrumb + tabs) -->
+      <CommunityNav :community-id="currentCommunity.id" />
 
       <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
         <div class="relative w-full sm:flex-1 sm:max-w-sm">
@@ -654,7 +650,7 @@ import { ref, onMounted, computed, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useCommunityStore } from '@/stores/communityStore';
 import { storeToRefs } from 'pinia';
-import { Loader2, UserPlus, Search, ChevronRight, ChevronUp, ChevronDown, Download, FileText, Settings2, Eye, EyeOff, Check, Info, RotateCcw, X, Cake } from 'lucide-vue-next';
+import { Loader2, UserPlus, Search, ChevronUp, ChevronDown, Download, FileText, Settings2, Eye, EyeOff, Check, Info, RotateCcw, X, Cake } from 'lucide-vue-next';
 import {
   Button, Input, Card, Badge,
   Table, TableHeader, TableRow, TableHead, TableBody, TableCell,
@@ -671,6 +667,7 @@ import {
   todayInTimezone,
 } from '@repo/utils';
 import { sanitizePhoneForWhatsapp } from '@/utils/phone';
+import CommunityNav from '@/components/community/CommunityNav.vue';
 import ImportMembersModal from '@/components/community/ImportMembersModal.vue';
 import CreateMemberModal from '@/components/community/CreateMemberModal.vue';
 import MemberAttendanceDialog from '@/components/community/MemberAttendanceDialog.vue';

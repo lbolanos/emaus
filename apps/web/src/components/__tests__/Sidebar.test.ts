@@ -12,6 +12,7 @@ import {
 } from '../../test/utils';
 import { useAuthPermissions } from '@/composables/useAuthPermissions';
 import { useMenuFavoritesStore } from '@/stores/menuFavoritesStore';
+import { useCommunityStore } from '@/stores/communityStore';
 
 // Mock axios first
 vi.mock('axios', () => {
@@ -80,20 +81,26 @@ vi.mock('@/services/api', () => ({
 const mockPush = vi.fn();
 const mockReplace = vi.fn();
 
-vi.mock('vue-router', () => ({
-	useRouter: () => ({
-		push: mockPush,
-		replace: mockReplace,
-		resolve: vi.fn(() => ({ href: '/test-route' })),
-	}),
-	useRoute: () => ({
+// Mutable route so tests can exercise route-aware rendering (the community
+// context section): mutate before mounting — the plain object is not reactive.
+const { mockRoute } = vi.hoisted(() => ({
+	mockRoute: {
 		name: 'walkers',
 		params: { id: 'test-retreat-id' },
 		path: '/walkers/test-retreat-id',
 		meta: {},
 		query: {},
 		fullPath: '/walkers/test-retreat-id',
+	},
+}));
+
+vi.mock('vue-router', () => ({
+	useRouter: () => ({
+		push: mockPush,
+		replace: mockReplace,
+		resolve: vi.fn(() => ({ href: '/test-route' })),
 	}),
+	useRoute: () => mockRoute,
 }));
 
 // Mock child components
@@ -223,6 +230,7 @@ vi.mock('lucide-vue-next', () => ({
 	Briefcase: { template: '<div data-icon="Briefcase" />' },
 	Search: { template: '<div data-icon="Search" />' },
 	X: { template: '<div data-icon="X" />' },
+	ArrowLeft: { template: '<div data-icon="ArrowLeft" />' },
 	ArrowRight: { template: '<div data-icon="ArrowRight" />' },
 	ChevronDown: { template: '<div data-icon="ChevronDown" />' },
 	Lock: { template: '<div data-icon="Lock" />' },
@@ -233,6 +241,8 @@ vi.mock('lucide-vue-next', () => ({
 	UserPlus: { template: '<div data-icon="UserPlus" />' },
 	UserCircle: { template: '<div data-icon="UserCircle" />' },
 	MessageSquare: { template: '<div data-icon="MessageSquare" />' },
+	Calendar: { template: '<div data-icon="Calendar" />' },
+	TrendingUp: { template: '<div data-icon="TrendingUp" />' },
 	Clock: { template: '<div data-icon="Clock" />' },
 	ClipboardList: { template: '<div data-icon="ClipboardList" />' },
 	BookOpen: { template: '<div data-icon="BookOpen" />' },
@@ -393,6 +403,107 @@ describe('Sidebar Component', () => {
 			// Search button should be visible; input only appears after clicking it
 			const searchSection = wrapper.find('.flex.justify-center');
 			expect(searchSection.exists()).toBe(true);
+		});
+	});
+
+	describe('Community Context Section', () => {
+		const DEFAULT_ROUTE = {
+			name: 'walkers',
+			params: { id: 'test-retreat-id' },
+			path: '/walkers/test-retreat-id',
+			fullPath: '/walkers/test-retreat-id',
+		};
+
+		const resetRoute = () => {
+			Object.assign(mockRoute, DEFAULT_ROUTE, { params: { ...DEFAULT_ROUTE.params } });
+		};
+
+		afterEach(() => {
+			resetRoute();
+		});
+
+		// Mounts a fresh sidebar while on a community sub-page. The shared
+		// beforeEach wrapper mounted against the default (walkers) route and
+		// the mocked route object is not reactive, so a remount is the only
+		// way to pick up the changed route name. Store state is set AFTER the
+		// mount against the wrapper's own pinia (createTestWrapper activates
+		// it) — pinia state is reactive, so the sidebar re-renders.
+		const mountOnCommunityRoute = async (viewerRole: string | null) => {
+			mockRoute.name = 'community-members';
+			mockRoute.params = { id: 'community-1' };
+			mockRoute.path = '/communities/community-1/members';
+			mockRoute.fullPath = '/communities/community-1/members';
+
+			const ctxWrapper = createTestWrapper(Sidebar);
+			const communityStore = useCommunityStore();
+			communityStore.communities = [{ id: 'community-1', name: 'Emaús del Valle' } as never];
+			communityStore.currentCommunity = {
+				id: 'community-1',
+				name: 'Emaús del Valle',
+				viewerRole,
+			} as never;
+			await nextTick();
+			return ctxWrapper;
+		};
+
+		const stubRoutes = (w: VueWrapper<any>) =>
+			w.findAll('.menu-item-stub').map(s => s.attributes('data-route'));
+
+		it('should replace the flat community section with the contextual one on community routes', async () => {
+			const ctxWrapper = await mountOnCommunityRoute('owner');
+			const routes = stubRoutes(ctxWrapper);
+
+			expect(routes).toContain('community-dashboard');
+			expect(routes).toContain('community-members');
+			expect(routes).toContain('community-meetings');
+			expect(routes).toContain('community-attendance-stats');
+			expect(routes).toContain('community-admins');
+			expect(routes).toContain('community-templates');
+			// The flat entries are gone while inside the community; 'communities'
+			// still appears once, as the context section's back link to the list.
+			expect(routes.filter(r => r === 'communities')).toHaveLength(1);
+			expect(routes).not.toContain('my-communities');
+
+			ctxWrapper.unmount();
+		});
+
+		it('should keep the flat community section on non-community routes', async () => {
+			// The shared wrapper mounted on the default walkers route.
+			const communityStore = useCommunityStore();
+			communityStore.communities = [{ id: 'community-1', name: 'Emaús del Valle' } as never];
+			await nextTick();
+
+			const routes = stubRoutes(wrapper);
+			expect(routes).toContain('communities');
+			expect(routes).toContain('my-communities');
+			expect(routes).not.toContain('community-dashboard');
+		});
+
+		it('should hide the admins item from members without a managing role', async () => {
+			const ctxWrapper = await mountOnCommunityRoute('member');
+			const routes = stubRoutes(ctxWrapper);
+
+			expect(routes).not.toContain('community-admins');
+			expect(routes).toContain('community-dashboard');
+
+			ctxWrapper.unmount();
+		});
+
+		it('should hide the contextual section while searching', async () => {
+			const ctxWrapper = await mountOnCommunityRoute('owner');
+
+			await ctxWrapper.find('.border-t > .flex.justify-center button').trigger('click');
+			const input = ctxWrapper.find('#sidebar-search');
+			expect(input.exists()).toBe(true);
+			await input.setValue('communities');
+			await nextTick();
+
+			const routes = stubRoutes(ctxWrapper);
+			expect(routes).not.toContain('community-dashboard');
+			// The flat section comes back so the search can filter it.
+			expect(routes).toContain('communities');
+
+			ctxWrapper.unmount();
 		});
 	});
 

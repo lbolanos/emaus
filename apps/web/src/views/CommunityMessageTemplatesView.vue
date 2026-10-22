@@ -9,9 +9,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Input } from '@repo/ui';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@repo/ui';
 import { Badge } from '@repo/ui';
-import { Search, ChevronUp, ChevronDown, Download, ChevronRight, Globe, Copy } from 'lucide-vue-next';
+import { Search, ChevronUp, ChevronDown, Download, Globe, Copy } from 'lucide-vue-next';
 import { useI18n } from 'vue-i18n';
 import type { MessageTemplate } from '@repo/types';
+import CommunityNav from '@/components/community/CommunityNav.vue';
 import BaseMessageTemplateModal from '@/components/BaseMessageTemplateModal.vue';
 import CommunityTemplateImportModal from '@/components/CommunityTemplateImportModal.vue';
 import { createLocaleComparator } from '@/utils/sort';
@@ -185,14 +186,8 @@ const handleImportComplete = () => {
 
 <template>
 	<div class="p-4 md:p-8">
-		<!-- Breadcrumb -->
-		<div v-if="currentCommunity" class="flex items-center text-sm text-muted-foreground mb-4">
-			<router-link :to="{ name: 'community-dashboard', params: { id: currentCommunity.id } }" class="hover:underline">
-				{{ currentCommunity.name }}
-			</router-link>
-			<ChevronRight class="w-4 h-4 mx-1" />
-			<span>{{ t('communityTemplates.title') }}</span>
-		</div>
+		<!-- Community sub-navigation (breadcrumb + tabs) -->
+		<CommunityNav v-if="currentCommunity" :community-id="currentCommunity.id" class="mb-4" />
 
 		<Card>
 			<CardHeader class="flex flex-row items-center justify-between">

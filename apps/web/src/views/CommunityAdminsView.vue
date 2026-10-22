@@ -8,13 +8,6 @@
       <div class="flex justify-between items-center">
         <div>
           <h1 class="text-2xl font-bold">{{ currentCommunity.name }} - {{ $t('community.admin.admins') }}</h1>
-          <div class="flex items-center text-sm text-muted-foreground">
-            <router-link :to="{ name: 'community-dashboard', params: { id: currentCommunity.id } }" class="hover:underline">
-              {{ $t('community.dashboard') }}
-            </router-link>
-            <ChevronRight class="w-4 h-4 mx-1" />
-            <span>{{ $t('community.admin.admins') }}</span>
-          </div>
         </div>
         <div class="flex items-center gap-2">
           <Button variant="outline" as-child>
@@ -32,6 +25,9 @@
           </Button>
         </div>
       </div>
+
+      <!-- Community sub-navigation (breadcrumb + tabs) -->
+      <CommunityNav :community-id="currentCommunity.id" />
 
       <div class="grid gap-6">
         <!-- Current Admins -->
@@ -218,13 +214,14 @@ import { ref, onMounted, computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useCommunityStore } from '@/stores/communityStore';
 import { storeToRefs } from 'pinia';
-import { Loader2, UserPlus, UserX, Copy, Trash2, ChevronRight, FileText } from 'lucide-vue-next';
+import { Loader2, UserPlus, UserX, Copy, Trash2, FileText } from 'lucide-vue-next';
 import {
   Button, Card, CardHeader, CardTitle, Badge,
   Table, TableHeader, TableRow, TableHead, TableBody, TableCell,
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter
 } from '@repo/ui';
 import { useToast } from '@repo/ui';
+import CommunityNav from '@/components/community/CommunityNav.vue';
 import InviteAdminModal from '@/components/community/InviteAdminModal.vue';
 
 const { t: $t } = useI18n();
