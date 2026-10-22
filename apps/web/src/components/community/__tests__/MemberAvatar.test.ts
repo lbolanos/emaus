@@ -36,6 +36,15 @@ describe('MemberAvatar', () => {
 		expect(wrapper.text()).toBe('AL');
 	});
 
+	it('emite error cuando la imagen falla, para que el padre pida firmas nuevas', async () => {
+		const wrapper = mount(MemberAvatar, {
+			props: { photoUrl: 'https://example.com/caducada.webp', fullName: 'Ana López' },
+		});
+		expect(wrapper.emitted('error')).toBeUndefined();
+		await wrapper.find('img').trigger('error');
+		expect(wrapper.emitted('error')).toHaveLength(1);
+	});
+
 	it('vuelve a intentar cuando cambia la URL', async () => {
 		const wrapper = mount(MemberAvatar, {
 			props: { photoUrl: 'https://example.com/rota.webp', fullName: 'Ana López' },

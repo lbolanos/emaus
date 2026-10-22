@@ -1,8 +1,11 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import {
 	DEFAULT_ATTENDANCE_LIST_OPTIONS,
 	filterAndSortAttendanceMembers,
 	formatSourceRetreat,
+	loadAttendancePrefs,
+	saveAttendancePrefs,
+	mergeMembers,
 	sourceRetreatOptions,
 	type AttendanceListMember,
 	type AttendanceListOptions,
@@ -105,5 +108,102 @@ describe('formatSourceRetreat', () => {
 	it('shows the start month in UTC so a calendar date does not slip a month', () => {
 		const firstOfMonth = { id: 'r', parish: 'San Agustín', startDate: '2026-06-01T00:00:00.000Z' };
 		expect(formatSourceRetreat(firstOfMonth)).toMatch(/^San Agustín · jun\.? 2026$/);
+	});
+});
+
+describe('photo filter', () => {
+	const withPhoto = [
+		member('m-a', 'Ana', 'López', { photoUrl: 'https://s3.example.com/a.jpg?sig=1' }),
+		member('m-b', 'Beto', 'Ruiz', { photoUrl: null }),
+		member('m-c', 'Carla', 'Díaz'),
+	];
+	const run = (photo: 'all' | 'with' | 'without') =>
+		filterAndSortAttendanceMembers(withPhoto, { ...DEFAULT_ATTENDANCE_LIST_OPTIONS, photo }).map(
+			(m) => m.id,
+		);
+
+	it('keeps everyone by default', () => {
+		expect(run('all')).toEqual(['m-a', 'm-b', 'm-c']);
+	});
+
+	it('shows only members with a photo', () => {
+		expect(run('with')).toEqual(['m-a']);
+	});
+
+	it('shows only members without a photo (null or missing)', () => {
+		expect(run('without')).toEqual(['m-b', 'm-c']);
+	});
+});
+
+describe('mergeMembers', () => {
+	const row = (id: string, photoUrl: string | null, extra: object = {}) => ({ id, photoUrl, ...extra });
+
+	it('keeps the previous URL when the new one points to the same object', () => {
+		const prev = [row('m-1', 'https://s3.example.com/m-1.jpg?sig=old')];
+		const next = [row('m-1', 'https://s3.example.com/m-1.jpg?sig=new', { rate: 80 })];
+		expect(mergeMembers(prev, next)).toEqual([
+			row('m-1', 'https://s3.example.com/m-1.jpg?sig=old', { rate: 80 }),
+		]);
+	});
+
+	it('takes the new URL when the photo is a different object', () => {
+		const prev = [row('m-1', 'https://s3.example.com/m-1-v1.jpg?sig=a')];
+		const next = [row('m-1', 'https://s3.example.com/m-1-v2.jpg?sig=b')];
+		expect(mergeMembers(prev, next)[0].photoUrl).toBe('https://s3.example.com/m-1-v2.jpg?sig=b');
+	});
+
+	it('handles photos added, removed and members that are new', () => {
+		const prev = [row('m-1', null), row('m-2', 'https://s3.example.com/m-2.jpg?sig=a')];
+		const next = [
+			row('m-1', 'https://s3.example.com/m-1.jpg?sig=a'),
+			row('m-2', null),
+			row('m-3', 'https://s3.example.com/m-3.jpg?sig=a'),
+		];
+		expect(mergeMembers(prev, next).map((m) => m.photoUrl)).toEqual([
+			'https://s3.example.com/m-1.jpg?sig=a',
+			null,
+			'https://s3.example.com/m-3.jpg?sig=a',
+		]);
+	});
+
+	it('does not mutate its inputs', () => {
+		const prev = [row('m-1', 'https://s3.example.com/m-1.jpg?sig=old')];
+		const next = [row('m-1', 'https://s3.example.com/m-1.jpg?sig=new')];
+		mergeMembers(prev, next);
+		expect(next[0].photoUrl).toBe('https://s3.example.com/m-1.jpg?sig=new');
+	});
+});
+
+describe('attendance prefs', () => {
+	const { query: _q, ...defaults } = DEFAULT_ATTENDANCE_LIST_OPTIONS;
+
+	beforeEach(() => {
+		localStorage.clear();
+		vi.restoreAllMocks();
+	});
+
+	it('round-trips per community', () => {
+		const prefs = { status: 'absent', retreat: 'r-1', frequency: 'low', photo: 'without', sort: 'joined' } as const;
+		saveAttendancePrefs('c-1', prefs);
+		expect(loadAttendancePrefs('c-1')).toEqual(prefs);
+		expect(loadAttendancePrefs('c-2')).toEqual(defaults);
+	});
+
+	it('falls back to defaults on invalid values or corrupt JSON', () => {
+		localStorage.setItem('emaus:community-attendance:c-1', JSON.stringify({ status: 'bogus', sort: 'attendance' }));
+		expect(loadAttendancePrefs('c-1')).toEqual({ ...defaults, sort: 'attendance' });
+		localStorage.setItem('emaus:community-attendance:c-1', '{nope');
+		expect(loadAttendancePrefs('c-1')).toEqual(defaults);
+	});
+
+	it('survives storage that throws', () => {
+		vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+			throw new Error('blocked');
+		});
+		vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+			throw new Error('blocked');
+		});
+		expect(loadAttendancePrefs('c-1')).toEqual(defaults);
+		expect(() => saveAttendancePrefs('c-1', defaults)).not.toThrow();
 	});
 });

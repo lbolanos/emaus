@@ -12,7 +12,7 @@
       :alt="fullName ? `Foto de ${fullName}` : 'Foto del miembro'"
       class="h-full w-full object-cover"
       loading="lazy"
-      @error="failed = true"
+      @error="onImageError"
     />
     <span v-else aria-hidden="true">{{ initials }}</span>
   </span>
@@ -39,7 +39,16 @@ const props = withDefaults(defineProps<Props>(), {
 
 // Las URLs de S3 vienen firmadas y caducan en una hora. Si la pestaña llevaba
 // mucho abierta, la imagen falla: en vez de un roto, iniciales.
+const emit = defineEmits<{
+  /** La imagen no cargó: el padre puede pedir URLs firmadas nuevas. */
+  error: [];
+}>();
+
 const failed = ref(false);
+const onImageError = () => {
+  failed.value = true;
+  emit('error');
+};
 watch(() => props.photoUrl, () => (failed.value = false));
 
 const sizeClass = computed(

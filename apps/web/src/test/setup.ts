@@ -530,6 +530,7 @@ vi.mock('lucide-vue-next', () => ({
 	Music: { name: 'Music', template: '<svg></svg>' },
 	QrCode: { name: 'QrCode', template: '<svg></svg>' },
 	UserPlus: { name: 'UserPlus', template: '<svg></svg>' },
+	SlidersHorizontal: { name: 'SlidersHorizontal', template: '<svg></svg>' },
 	BedDouble: { name: 'BedDouble', template: '<svg></svg>' },
 	ClipboardList: { name: 'ClipboardList', template: '<svg></svg>' },
 	Heart: { name: 'Heart', template: '<svg></svg>' },
