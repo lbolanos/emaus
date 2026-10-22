@@ -3,7 +3,10 @@
     <a href="#members-content" class="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:px-4 focus:py-2 focus:bg-background focus:border focus:rounded-md">
       Saltar al contenido principal
     </a>
-    <div id="members-content" class="p-4 space-y-4" role="main" aria-label="Gestión de miembros de comunidad">
+    <!-- relative: reka-ui's Select renders a hidden native <select> with position:absolute.
+         Without a positioned ancestor inside <main> (the scroll container), one per member card
+         lands relative to <body>, stretches the document and adds a second scrollbar. -->
+    <div id="members-content" class="relative p-4 space-y-4" role="main" aria-label="Gestión de miembros de comunidad">
     <div v-if="loadingCommunity" class="space-y-4" role="status" aria-live="polite">
       <SkeletonCard v-for="i in 5" :key="i" />
       <span class="sr-only">Cargando miembros...</span>
@@ -21,52 +24,46 @@
             <span>{{ $t('community.membersLabel') }}</span>
           </div>
         </div>
-        <div class="flex gap-2 flex-wrap">
-          <Button variant="outline" as-child>
-            <router-link
-              :to="{ name: 'community-templates', params: { id: currentCommunity.id } }"
-            >
-              <FileText class="w-4 h-4 mr-2" />
-              {{ $t('communityTemplates.title') }}
-            </router-link>
+        <!-- Only "Crear miembro" stays visible; the rest lives in the ⋮ menu (spec
+             community-attendance-faces FR-25). Items that open a dialog use deferOpen. -->
+        <div class="flex items-center gap-2">
+          <Button @click="isCreateModalOpen = true">
+            <UserPlus class="w-4 h-4 mr-2" />
+            Crear miembro
           </Button>
-          <Button variant="outline" @click="exportMembers">
-            <Download class="w-4 h-4 mr-2" />
-            {{ $t('community.members.export') }}
-          </Button>
-          <Tooltip>
-            <TooltipTrigger as-child>
-              <Button @click="isCreateModalOpen = true">
-                <UserPlus class="w-4 h-4 mr-2" />
-                Crear miembro
+          <DropdownMenu>
+            <DropdownMenuTrigger as-child>
+              <Button variant="outline" size="icon" class="relative" aria-label="Más acciones">
+                <MoreVertical class="w-4 h-4" />
+                <!-- Pending duplicates stay visible on the trigger (owner-only count);
+                     :key remounts it after each merge so the number drops live. -->
+                <span v-if="communityStore.isOwnerOrSuperadmin" class="absolute -top-2 -right-2">
+                  <DuplicateCountBadge :key="duplicatesVersion" :community-id="props.id" />
+                </span>
               </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>Crear nuevo miembro de comunidad</p>
-            </TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger as-child>
-              <Button @click="isImportModalOpen = true">
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" class="w-60">
+              <DropdownMenuItem @select="deferOpen(() => (isImportModalOpen = true))">
                 <UserPlus class="w-4 h-4 mr-2" />
                 {{ $t('community.import.title') }}
-              </Button>
-              <Button variant="outline" @click="isDuplicatesOpen = true">
-                <Users class="mr-2 h-4 w-4" />
+              </DropdownMenuItem>
+              <DropdownMenuItem @select="exportMembers">
+                <Download class="w-4 h-4 mr-2" />
+                {{ $t('community.members.export') }}
+              </DropdownMenuItem>
+              <DropdownMenuItem @select="deferOpen(() => (isDuplicatesOpen = true))">
+                <Users class="w-4 h-4 mr-2" />
                 {{ $t('community.duplicates.action') }}
-                <!-- :key remonta el badge tras cada fusión para que el número
-                     baje en vivo; v-if porque el count es owner-only. -->
-                <DuplicateCountBadge
-                  v-if="communityStore.isOwnerOrSuperadmin"
-                  :key="duplicatesVersion"
-                  :community-id="props.id"
-                />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>Importar miembros desde un retiro</p>
-            </TooltipContent>
-          </Tooltip>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                @select="router.push({ name: 'community-templates', params: { id: currentCommunity.id } })"
+              >
+                <FileText class="w-4 h-4 mr-2" />
+                {{ $t('communityTemplates.title') }}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
@@ -390,6 +387,11 @@
                     />
                   </button>
                   <span>{{ resolveMemberProfile(member).fullName }}</span>
+                  <CheckCircle2
+                    v-if="contactedMarks.isMarked(member.id)"
+                    class="w-4 h-4 flex-shrink-0 text-green-600"
+                    aria-label="Contactado"
+                  />
                 </div>
               </TableCell>
               <TableCell v-if="visibleColumns.email" class="py-2">{{ resolveMemberProfile(member).email }}</TableCell>
@@ -467,7 +469,14 @@
         >
           <div class="flex items-start justify-between gap-2">
             <div class="min-w-0">
-              <div class="font-medium truncate">{{ resolveMemberProfile(member).fullName }}</div>
+              <div class="flex items-center gap-1.5 min-w-0">
+                <span class="font-medium truncate">{{ resolveMemberProfile(member).fullName }}</span>
+                <CheckCircle2
+                  v-if="contactedMarks.isMarked(member.id)"
+                  class="w-4 h-4 flex-shrink-0 text-green-600"
+                  aria-label="Contactado"
+                />
+              </div>
               <div v-if="resolveMemberProfile(member).email" class="text-xs text-muted-foreground truncate">
                 {{ resolveMemberProfile(member).email }}
               </div>
@@ -651,10 +660,11 @@
 
 <script setup lang="ts">
 import { ref, onMounted, computed, watch } from 'vue';
+import { useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { useCommunityStore } from '@/stores/communityStore';
 import { storeToRefs } from 'pinia';
-import { Loader2, UserPlus, Search, ChevronRight, ChevronUp, ChevronDown, Download, FileText, Settings2, Eye, EyeOff, Check, Info, RotateCcw, X, Cake } from 'lucide-vue-next';
+import { Loader2, UserPlus, Search, ChevronRight, ChevronUp, ChevronDown, Download, FileText, Settings2, Eye, EyeOff, Check, Info, RotateCcw, X, Cake, MoreVertical, Users, CheckCircle2 } from 'lucide-vue-next';
 import {
   Button, Input, Card, Badge,
   Table, TableHeader, TableRow, TableHead, TableBody, TableCell,
@@ -692,7 +702,8 @@ import { useRekaDialogFix } from '@/composables/useRekaDialogFix';
 // Poll global que limpia el pointer-events:none huérfano de reka-ui. Una sola
 // instancia a nivel vista; los MemberActions usan deferOpen con poll:false para
 // no registrar 25 intervals (uno por fila).
-useRekaDialogFix();
+const { deferOpen } = useRekaDialogFix();
+const router = useRouter();
 
 const { t: $t } = useI18n();
 
