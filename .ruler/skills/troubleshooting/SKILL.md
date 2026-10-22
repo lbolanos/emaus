@@ -48,6 +48,7 @@ Cuando el usuario reporta un problema, primero ubicá el **síntoma** en la tabl
 | "el test dice que se llamó una función que este test no llama", "`not.toHaveBeenCalled()` falla con el código bien", "`toHaveBeenCalledTimes(n)` cuenta de más", "pasa aislado con `-t` pero falla en el archivo" (Vitest web) | [#35 Vitest no limpia los mocks entre tests](#35-vitest-no-limpia-los-mocks-entre-tests-not-tohavebeencalled-falla-con-llamadas-de-otro-test) |
 | "con mi rol no veo los contactos al editar", "a mí me faltan campos que otro usuario sí ve", "la sección de emergencia no aparece en la ficha", "el coordinador no ve el monto de la beca", "al guardar dice que no tengo permiso para modificar datos de salud" | [#36 Un permiso RBAC recorta campos y el formulario oculta la sección](#36-un-permiso-rbac-recorta-campos-y-el-formulario-oculta-la-sección) |
 | "no se pueden subir fotos de más de 5MB", "dice que supera los 2MB", "desde el celular no sube la foto", "la foto sale cortada/cuadrada", "en el recuerdo falta gente de las orillas" | [#37 La foto no sube por tamaño, o sube y sale cortada en cuadrado](#37-la-foto-no-sube-por-tamaño-o-sube-y-sale-cortada-en-cuadrado) |
+| "veo doble scroll vertical", "hay dos barras de scroll", "la página sigue bajando después del final de la lista" | [#38 Doble barra de scroll: un `<select>` oculto de reka-ui fuera de `<main>`](#38-doble-barra-de-scroll-un-select-oculto-de-reka-ui-fuera-de-main) |
 
 ---
 
@@ -1739,3 +1740,32 @@ comunidad (`specs/flyer-background-resize/`): 2 MB en el navegador; el servidor 
 el navegador y cuadrado de 512 en S3; 12 objetos en `community-meetings/`. Ese mismo día, fotos del recuerdo del retiro: el formulario decía "máx. 5MB", el servidor
 cortaba en 2 MB y las 10 fotos de `retreat-memories/` eran de 512×512. Spec y decisiones:
 `specs/memory-photo-resize/`.
+
+---
+
+## 38. Doble barra de scroll: un `<select>` oculto de reka-ui fuera de `<main>`
+
+**Síntoma**: en una vista (sobre todo en celular) se ven **dos** barras de scroll verticales: la del
+contenido y otra de la página entera, que sigue bajando después del final de la lista.
+
+**Causa**: en `AppLayout.vue` el que hace scroll es `<main>` (`overflow-y-auto`), no la página. Cada
+`Select` de `@repo/ui` (reka-ui) deja un `<select>` nativo oculto con `position: absolute` para los
+formularios. Si ningún ancestro dentro de `<main>` está posicionado, ese `<select>` se ubica respecto
+a `<body>`: `<main>` no lo recorta y estira el documento. Con un `Select` por fila o por tarjeta (el
+estado del miembro en las tarjetas móviles de Miembros) el documento midió 3618 px en una pantalla de
+844.
+
+**Cómo medirlo** (en la consola o con Playwright):
+
+```js
+[innerHeight, document.documentElement.scrollHeight]          // documento más alto que la pantalla
+[...document.querySelectorAll('select')].filter((s) => s.offsetParent === document.body).length
+```
+
+**Fix**: `relative` en el contenedor raíz de la vista (dentro de `<main>`). Con eso los `<select>`
+ocultos se posicionan dentro y `<main>` los recorta. Verificar que `scrollHeight === innerHeight` en
+390 px y en 1280 px.
+
+**Caso**: 2026-10-22, `CommunityMembersView.vue` (spec `community-attendance-faces`). Las otras seis
+vistas de comunidad no lo tenían: su `Select` vive en una barra `sticky` o en un contenedor
+posicionado.

@@ -31,6 +31,8 @@ import { Input } from '@repo/ui';
 export interface PickerCandidate {
   id: string;
   name: string;
+  /** Profile photo, so a voice/text match can be checked against the face crop. */
+  photoUrl?: string | null;
 }
 
 const props = withDefaults(

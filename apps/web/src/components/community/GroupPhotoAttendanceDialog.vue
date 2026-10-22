@@ -142,7 +142,16 @@
                   :assign="(memberId: string) => assign(item.index, memberId)"
                   :skip="() => decide(item.index, { kind: 'skip' })"
                   :mark-not-member="() => decide(item.index, { kind: 'none' })"
-                />
+                >
+                  <!-- Default content: the voice step. The picker above is its text fallback. -->
+                  <FaceVoiceIdentifier
+                    :candidates="availableCandidates"
+                    :show-picker="false"
+                    @assign="(memberId: string) => assign(item.index, memberId)"
+                    @skip="decide(item.index, { kind: 'skip' })"
+                    @not-member="decide(item.index, { kind: 'none' })"
+                  />
+                </slot>
                 <div class="flex flex-wrap gap-2">
                   <Button
                     type="button"
@@ -231,6 +240,7 @@ import { resolveMemberProfile } from '@repo/utils';
 import type { FaceBox, FaceMatchFace, FaceMatchResult } from '@/services/api';
 import MemberAvatar from '@/components/community/MemberAvatar.vue';
 import FaceMemberPicker from '@/components/community/FaceMemberPicker.vue';
+import FaceVoiceIdentifier from '@/components/community/FaceVoiceIdentifier.vue';
 
 /** What the review hands back; the parent sends it to `confirmMeetingFaceMatch`. */
 export interface GroupPhotoConfirmPayload {
@@ -335,7 +345,7 @@ const availableCandidates = computed(() => {
   const taken = new Set(confirmed.value.map((c) => c.memberId));
   return props.members
     .filter((m) => !taken.has(m.id))
-    .map((m) => ({ id: m.id, name: nameOf(m) }))
+    .map((m) => ({ id: m.id, name: nameOf(m), photoUrl: m.photoUrl ?? null }))
     .sort((a, b) => a.name.localeCompare(b.name, 'es'));
 });
 

@@ -35,6 +35,13 @@ se escriben en `participants`— pero no tienen fallback:
 | `birthDate` | Cumpleaños, texto `'YYYY-MM-DD'` o `'MM-DD'` (año opcional) | `resolveMemberBirthday()` |
 | `photoUrl` + `photoS3Key` | Foto de rostro, prefijo S3 **privado** | `s3Service.presignPrivateUrl()` |
 | `sourceRetreatId` | Retiro del que se importó (solo `importFromRetreat`, y solo si la persona está en su roster) | `getMembers` devuelve `sourceRetreat: { id, parish, startDate }`, nunca el Retreat entero |
+| `faceRecognitionOptOut` | Excluido del reconocimiento facial: no entra a la galería de Gemini, su recorte nunca se vuelve su foto y no sale en el álbum público | Directo; se cambia solo por `PATCH /:id/members/:memberId/face-recognition` |
+
+Fuera de `community_member` pero de la misma persona: `community_meeting_photo_tag` (dónde está su
+cara en la foto de una reunión, para el álbum público). Se borra en cascada al quitar al miembro, al
+reemplazar o borrar la foto de la reunión, y en `anonymizeParticipantByToken`; el álbum además excluye
+a quien tenga `dataDeletedAt`. Detalle del reconocimiento y el álbum:
+`specs/community-attendance-faces/`.
 
 `sourceRetreatId` no tiene FK a propósito (borrar un retiro no toca la comunidad). Los miembros
 anteriores al 2026-10-22 se rellenaron con `participants.retreatId`: es aproximado para quien

@@ -42,7 +42,7 @@ Será agregado automáticamente como propietario de la comunidad.
 
 1. Abra el panel de la comunidad
 2. Vaya a la pestaña **Miembros**
-3. Haga clic en **Importar desde Retiro**
+3. En el menú **⋮** de arriba a la derecha, elija **Importar Miembros**
 4. Seleccione el retiro
 5. Elija los participantes a importar
 6. Haga clic en **Importar Seleccionados**
@@ -63,10 +63,10 @@ Puede actualizar el estado de un miembro haciendo clic en su estado actual en la
 📺 **[Ver video tutorial](https://youtu.be/FrMbNdk3Kio)**
 
 Cuando la misma persona termina con dos fichas (mismo correo, teléfono o nombre parecido),
-el sistema lo sugiere en el botón **Duplicados** de la pestaña **Miembros**; el número en el
-botón indica cuántos pares quedan por revisar.
+el sistema lo sugiere en **Duplicados**, dentro del menú **⋮** de la pestaña **Miembros**; el
+número sobre el botón **⋮** indica cuántos pares quedan por revisar.
 
-1. Haga clic en **Duplicados** y revise cada pareja sugerida: son sugerencias, no veredictos
+1. En el menú **⋮**, elija **Duplicados** y revise cada pareja sugerida: son sugerencias, no veredictos
 2. Pulse **Ver qué se movería**: muestra qué inscripciones, asistencias y mensajes pasarán a
    la ficha que se conserva (la de más registros; puede cambiarla)
 3. Haga clic en **Fusionar**: todo queda en una sola ficha y la otra se archiva — no se borra
@@ -78,8 +78,12 @@ botón indica cuántos pares quedan por revisar.
 Para eliminar un miembro de la comunidad:
 
 1. Encuentre al miembro en la lista de miembros
-2. Haga clic en el botón **Eliminar**
+2. En el menú **⋮** de su fila, elija **Eliminar miembro**
 3. Confirme la acción
+
+En ese mismo menú **⋮** están Registrar asistencia, Marcar como contactado (queda un check verde
+junto al nombre), Notas, Historial, Foto y Editar datos. En la fila queda a la vista solo
+**Mensajes**.
 
 ## Reuniones y Asistencia
 
@@ -109,17 +113,59 @@ importó, para ubicar a la gente. La barra de búsqueda y filtros se queda arrib
 - **Asistencia**: todos, presentes o sin marcar. «Sin marcar» deja la lista de quienes faltan.
 - **Retiro**: los miembros importados de un retiro, o los que no tienen retiro.
 - **Frecuencia**: alta, media, baja o sin asistencias.
+- **Foto**: todas, con foto o sin foto. «Sin foto» sirve para ir completando las fotos: toque el
+  avatar de una tarjeta para tomar o elegir la foto (tocar el avatar no marca asistencia).
 - **Ordenar**: por nombre (A–Z), por más asistencia, por retiro más reciente o por ingreso más
   reciente a la comunidad.
+
+En el celular los filtros se pliegan en el botón **Filtros (n)**. Los filtros y el orden se
+recuerdan en cada dispositivo para la próxima reunión.
+
+**Sin señal**: si se cae el internet, siga tocando tarjetas. Cada una queda marcada con
+**Pendiente** y se guarda sola cuando vuelve la señal. La pantalla tiene que haberse abierto con
+señal.
 
 **Por miembro** (marcar a un miembro en varias reuniones a la vez):
 
 1. En la lista de **Miembros**, ubique al miembro
-2. Haga clic en el botón de **Registrar asistencia** (ícono de portapapeles) en su fila
+2. En el menú **⋮** de su fila, elija **Registrar asistencia**
 3. Marque las reuniones a las que asistió (puede usar **Marcar todas** / **Limpiar**)
 4. Haga clic en **Guardar** — solo se actualizan las reuniones que cambió
 
 Solo se listan las reuniones pasadas o de hoy (no anuncios ni reuniones futuras).
+
+### Asistencia con la foto de la reunión
+
+Si la comunidad tiene encendido el reconocimiento facial, cada vez que se sube la foto de la
+reunión (desde la lista de reuniones, desde la reunión o con **Subir foto de la reunión** en la
+pantalla de asistencia) la app sugiere quién es cada persona comparando con las fotos de perfil:
+
+1. Suba la foto de grupo. Se guarda como foto de la reunión y se abre la revisión
+2. **Sugerencias**: cada cara de la foto aparece junto a la foto de perfil del miembro sugerido.
+   Quite las que no sean: la app a veces confunde a alguien que no es de la comunidad con un
+   miembro
+3. **Sin identificar**: toque el micrófono y diga el nombre, o escríbalo; elija entre las
+   coincidencias. También puede marcar **No es de la comunidad** o **Saltar**
+4. **Confirmar N presentes**: los marca presentes. A quien no tenía foto de perfil se le pone la
+   cara de la foto de grupo, así la próxima vez se le reconoce
+
+Nada se guarda hasta confirmar. Volver a subir la foto suma presentes, nunca quita. Si el servicio
+de reconocimiento no responde, la foto se guarda igual y la revisión abre sin sugerencias.
+
+**Encenderlo** (solo el dueño de la comunidad): en **Comunidades**, menú de la comunidad →
+**Editar comunidad** → **Reconocimiento facial en la asistencia**. Las caras se envían a Google
+Gemini para el análisis.
+
+**Excluir a un miembro**: si alguien pide no ser reconocido, en el menú **⋮** de su fila elija
+**Excluir del reconocimiento facial**. Se le puede seguir marcando presente a mano o por voz.
+
+### Álbum de la reunión
+
+Con la foto de la reunión ya revisada, en la lista de reuniones pulse **Publicar álbum**: se
+copia un enlace para compartir (por ejemplo por WhatsApp). La página muestra la foto y, al tocar
+cada rostro, el nombre de pila y el primer apellido de quien fue confirmado en la revisión.
+Nunca muestra correos ni teléfonos, ni a quien está excluido del reconocimiento. El enlace no
+aparece en buscadores; **Despublicar álbum** lo desactiva.
 
 ## Panel y Análisis
 

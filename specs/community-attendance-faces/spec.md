@@ -210,3 +210,22 @@ siguiente. Que marcar a mano siga funcionando con mala señal y sin gastar datos
   mal).
 - Cerrar el hueco de `importFromRetreat` (personas que no están en el retiro): lo resuelve la rama
   `worktree-community-import-hardening` (specs/community-import-hardening/).
+
+## Reconcile
+
+2026-10-22, sobre `worktree-community-attendance-faces`. «Navegador» = dev del worktree (3003/5175,
+base copia desechable, fotos en la base porque `AVATAR_STORAGE` es `base64` en dev).
+
+| CA | Estado | Cómo se verificó |
+|---|---|---|
+| CA-1 | ✅ | Navegador: un toque hace solo `POST attendance/single`; a los 4 s, un `GET members`; ninguna descarga de foto. Test de la vista |
+| CA-2 | ✅ (tests) | `MemberAvatar` emite `error` y la vista pide firmas nuevas como mucho una vez por minuto (test). No se simuló una firma caducada en el navegador |
+| CA-3 | ✅ | E2E `offline-community-attendance.spec.ts` (chromium) |
+| CA-4 | ✅ | Tests API (403 con la función apagada); la revisión no se abre si está apagada (tests web) |
+| CA-5 | ✅ | Navegador con Gemini real (`gemini-flash-lite-latest`): 9/10, 10/10 y 10/10 sugerencias correctas en tres corridas, preseleccionadas; confirmar marcó los presentes |
+| CA-6 | ✅ (parcial) | Asignar por texto y por voz con `SpeechRecognition` simulado en el navegador; tests. Falta voz real en celulares |
+| CA-7 | ✅ | Test API: un excluido no entra a la galería ni a las etiquetas ni al álbum |
+| CA-8 | ✅ | Test API: `503` → degradado con la portada guardada; diálogo en modo degradado (tests web) |
+| CA-9 | ⏳ | Prueba de campo con una foto real de una reunión de Buen despacho, después del deploy |
+
+Pendiente además: la medición con galerías de 48 y 96 (D11), que espera cuota de Gemini.

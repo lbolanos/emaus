@@ -100,7 +100,11 @@
       cuerpo (test en `outbox.test.ts`)
 - [x] Indicador «Pendiente» en la tarjeta: por la respuesta `queued: true` o por una operación
       `community.attendance` en `outbox.ops` (sobrevive a recargar); un toque encolado no se revierte
-- [ ] E2E chromium: modo avión → 3 marcas pendientes → señal → guardadas una vez (CA-3)
+- [x] E2E chromium (`tests/e2e/offline-community-attendance.spec.ts`, detrás de
+      `E2E_OFFLINE_WRITES=1` como `offline-outbox.spec.ts` porque escribe en la base): sin señal, 3
+      toques quedan «Pendiente» sin ninguna petición al servidor; al volver la señal se mandan 3 con
+      `Idempotency-Key` y la base tiene exactamente una fila `attended=true` por miembro (CA-3). Pasa
+      en ~3 s contra el dev del worktree
 
 ## M3 — Datos y servicio de Gemini
 
@@ -174,10 +178,18 @@ en S3.
       `matchNames(spoken, candidates, {limit=3, minScore=0.8})`, Jaro-Winkler por token, sin
       partículas «de/del/la/las/los/y», +0.05 si coincide el nombre de pila. `minScore` sin calibrar
       con voz real
-- [ ] Paso «sin identificar» con micrófono (`useSpeechRecognition`), 3 candidatos, «saltar» por voz
-- [ ] Respaldo sin Web Speech: campo con autocompletado
-- [ ] Confirmar → `present` + `photos` (excluidos solo `present`)
-- [ ] Verificación en Chrome desktop, Android y iPhone (dictado del teclado)
+- [x] Paso «sin identificar» con micrófono (`FaceVoiceIdentifier.vue` en el slot `voice` del
+      diálogo): «Decir nombre», 3 candidatos con su foto de perfil, «saltar»/«siguiente» y «no es de la
+      comunidad» por voz, mensajes de permiso y de «no encontré a nadie»
+- [x] Respaldo sin Web Speech: campo con autocompletado (`FaceMemberPicker`) y la indicación de usar el
+      micrófono del teclado; el audio grabado nunca se usa (D5)
+- [x] Confirmar → `present` + `photos` (excluidos solo `present`): lo decide el diálogo
+- [ ] Verificación con voz real en Chrome desktop, Android y iPhone (dictado del teclado). En el
+      navegador automatizado se verificó con un `SpeechRecognition` simulado: «luis» → 3 candidatos
+      libres con avatar, sin los que ya estaban sugeridos
+
+**Done** (salvo la prueba con voz real): 2026-10-22. Tests: 9 de `FaceVoiceIdentifier`, 247 en las
+suites de comunidad.
 
 ## M7 — Álbum público de la reunión (pedido 2026-10-22)
 
@@ -195,9 +207,11 @@ en S3.
 
 ## M6 — Cierre
 
-- [ ] Ayuda in-app (`docs/es` y `docs/en` de comunidades): foto de grupo, voz, exclusión, sin señal
-- [ ] Skill `community-overlay`: exclusión del reconocimiento y galería de Gemini
-- [ ] Skill `troubleshooting`: «doble barra de scroll» = `<select>` oculto de reka-ui sin ancestro
+- [x] Ayuda in-app (`docs/es` y `docs/en` de comunidades): foto de grupo, voz, exclusión, sin señal,
+      álbum; y las instrucciones que el menú ⋮ había dejado viejas (Importar, Duplicados, Eliminar,
+      Registrar asistencia por miembro)
+- [x] Skill `community-overlay`: exclusión del reconocimiento y etiquetas del álbum
+- [x] Skill `troubleshooting` #38: «doble barra de scroll» = `<select>` oculto de reka-ui sin ancestro
       posicionado dentro de `<main>` (síntoma, cómo medirlo, fix con `relative`)
 - [ ] Prueba de campo en una reunión real (CA-9); anotar aciertos y sugerencias equivocadas aquí
 - [ ] Reconcile de criterios CA-1..CA-9 en `spec.md`
