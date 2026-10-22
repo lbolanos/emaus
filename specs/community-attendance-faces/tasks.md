@@ -95,9 +95,11 @@
       `occurredAt` futuro se ignora (en `communityFaceRecognition.test.ts`)
 - [x] Kind `community.attendance` en `outboxKinds.ts` + tests de `matchQueueable` (52/52 en
       `outboxKinds.test.ts`); texto `offline.ops.communityAttendance` en es/en
-- [ ] Nombre del miembro en la lista de pendientes: `who()` lee `meta.name`, que hoy sale de los datos
-      guardados del retiro; comunidades no los tiene. Pasarlo al encolar (sin mandarlo al servidor)
-- [ ] Indicador «pendiente» en la tarjeta, limpiado al salir la operación de la cola
+- [x] Nombre del miembro en la lista de pendientes: `enqueue` acepta `meta` local y `api.ts` lo toma de
+      `config.offlineMeta` (`recordSingleCommunityAttendance(..., { memberName })`); no viaja en el
+      cuerpo (test en `outbox.test.ts`)
+- [x] Indicador «Pendiente» en la tarjeta: por la respuesta `queued: true` o por una operación
+      `community.attendance` en `outbox.ops` (sobrevive a recargar); un toque encolado no se revierte
 - [ ] E2E chromium: modo avión → 3 marcas pendientes → señal → guardadas una vez (CA-3)
 
 ## M3 — Datos y servicio de Gemini
@@ -112,8 +114,9 @@
 - [x] Tests API con Gemini mockeado: 26/26 en `communityFaceRecognition.test.ts`; 200/200 en las
       cuatro suites de comunidad; 35/35 suites de migraciones. Bundle `pnpm --filter api build` sin
       `__dirname`/`require` nuevos
-- [ ] UI: ajuste en la configuración de la comunidad (owner); interruptor «Excluir del
-      reconocimiento» en el ⋮ del miembro
+- [x] UI: ajuste en el modal de edición de `CommunityListView` (owner/superadmin, con confirmación
+      que dice que las caras van a Gemini) e ítem «Excluir / Incluir en el reconocimiento facial» en el
+      ⋮ del miembro (solo con la función encendida). Verificado en navegador
 
 ### Desviaciones 2026-10-22 (agente B, revisadas por la sesión principal)
 
@@ -134,14 +137,36 @@
 
 ## M4 — Revisión desde la portada
 
-- [ ] Cliente: versión de 3200 px con compresión progresiva a ≤ 3.4 MB
-- [ ] `useMeetingPhotoUpload`: sube la portada y, con la función encendida, corre el análisis
-- [ ] Conectar los puntos de subida: lista de reuniones, modal de la reunión y botón «Subir foto de la
-      reunión» en la vista de asistencia
-- [ ] `GroupPhotoAttendanceDialog.vue`: analizando → sugerencias (preseleccionadas, recorte junto a la
-      foto de perfil) → resumen; modo degradado
-- [ ] Tests: post-proceso, confirm, diálogo con el endpoint mockeado
+- [x] Cliente: versión de 3200 px con compresión progresiva a ≤ 3.4 MB (`resizeImageForAnalysis`)
+- [x] `useMeetingPhotoUpload`: sube la portada y, con la función encendida, corre el análisis
+- [x] Conectar los puntos de subida: lista de reuniones, modal de la reunión (evento `photo-saved`) y
+      botón «Subir foto de la reunión» en la vista de asistencia
+- [x] `GroupPhotoAttendanceDialog.vue` (+ `FaceMemberPicker.vue`): sugerencias preseleccionadas con el
+      recorte junto a la foto de perfil, «Sin identificar» con selector, «Agregar a mano», degradado;
+      slot `voice` para M5
+- [x] Tests: post-proceso, confirm, diálogo con el endpoint mockeado. Web completo 3913/3913
 - [ ] Medición con galerías de 48 y 96 antes de fijar el tope de D11
+
+**Prueba de punta a punta (2026-10-22, dev del worktree, Gemini real)**: con
+`AI_FACE_MODEL=gemini-flash-lite-latest` (la cuota gratuita diaria de `gemini-3.5-flash` estaba
+agotada) y 10 miembros con fotos de perfil del set de rostros uzbekos, subir la foto de grupo dio en
+dos corridas 9/10 y 10/10 sugerencias correctas, con los 4 intrusos en «sin identificar»; confirmar
+marcó los presentes y guardó las etiquetas; el álbum publicado mostró los 10 nombres sobre los rostros
+correctos. El dev guarda fotos en la base (`AVATAR_STORAGE` = `base64` por defecto): nada se escribió
+en S3.
+
+### Desviaciones 2026-10-22 (segunda tanda)
+
+- Recortes más ceñidos y cuadrados (margen 30 %, sin mínimo de 160 px): en la foto de grupo el recorte
+  traía las caras vecinas y no se sabía a quién se refería la sugerencia. Gemini lite devuelve cajas
+  amplias, así que aún pueden asomar vecinos; en la revisión el recorte se muestra a 80 px.
+- Botones de álbum como iconos en la lista de reuniones (no hay ⋮ ahí), visibles para quien abre la
+  lista; un no-admin recibiría el 403 del servidor.
+- **Seguridad, corregido en la revisión**: `POST /:id/meetings` y `PUT /meetings/:id` solo validaban;
+  el controlador pasaba `req.body` crudo al repositorio, así que un admin podía cambiar `communityId`
+  (mover la reunión a otra comunidad), `photoUrl` o el token del álbum. Ahora usan
+  `assignParsedBody` (test `communityMeetingWriteRoutes.simple.test.ts`). `faceRecognitionEnabled`,
+  `albumToken` y `albumPublishedAt` se omiten de los esquemas de escritura.
 
 ## M5 — Identificar por voz
 
@@ -161,9 +186,12 @@
 - [x] Endpoints publicar/despublicar (admins de la comunidad; 409 si la reunión no tiene foto; volver a
       publicar conserva el enlace) y `GET /public/album/:token` (60/min por IP, `no-store`,
       `X-Robots-Tag: noindex`, 404 idéntico para token desconocido, mal formado o despublicado)
-- [ ] Vista pública `/album/:token` (D16) + botón «Publicar álbum / Copiar enlace» en la reunión
-- [ ] Tests: token inválido → 404; excluidos y no confirmados no salen; sin datos de contacto
-- [ ] Verificación en navegador (escritorio y 390 px)
+- [x] Vista pública `/album/:token` (D16) + botón «Publicar álbum / Copiar enlace» en la reunión
+- [x] Tests: token inválido → 404; excluidos y no confirmados no salen; sin datos de contacto
+- [x] Verificación en navegador (escritorio y 390 px): con datos simulados y con el álbum real
+      publicado en el dev del worktree. Corregido tras revisarlo: etiqueta de rostros en la orilla
+      (abajo y alineada al borde), sin barra de scroll a 100 %, flecha de la lista en el mismo renglón,
+      marcador nativo del `<summary>` oculto
 
 ## M6 — Cierre
 
