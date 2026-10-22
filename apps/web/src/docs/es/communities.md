@@ -47,6 +47,16 @@ Será agregado automáticamente como propietario de la comunidad.
 5. Elija los participantes a importar
 6. Haga clic en **Importar Seleccionados**
 
+Al elegir participantes:
+
+- **Los cancelados no aparecen** por defecto. Si quiere traer a alguno, active **Incluir cancelados**.
+- Cada comunidad admite **un solo miembro por teléfono**. Si el teléfono de un participante ya lo
+  tiene otro miembro (por ejemplo, dos familiares registrados con el mismo número), aparece en
+  gris con el aviso **Su teléfono ya es de…** y no se puede seleccionar. Para agregarlo, use
+  **Crear miembro** con su propio número.
+- Solo aparecen los retiros a los que usted tiene acceso.
+- Si alguien no pudo entrar al importar, la ventana sigue abierta y le dice quién y por qué.
+
 ### Estados de Miembros
 
 Los miembros pueden estar en uno de los siguientes estados:

@@ -24,6 +24,11 @@ import * as bcrypt from 'bcrypt';
  * Can work with either the default AppDataSource or a custom test DataSource.
  * Pass a custom dataSource when working with isolated test databases.
  */
+// One phone per participant by default: the community phone-uniqueness trigger
+// (installed by test-setup, as in prod) rejects two members sharing one.
+let defaultPhoneSeq = 0;
+const nextDefaultPhone = () => `55${String(++defaultPhoneSeq).padStart(8, '0')}`;
+
 export class TestDataFactory {
 	private static testDataSource: DataSource = AppDataSource;
 
@@ -318,7 +323,7 @@ export class TestDataFactory {
 			city: 'Test City',
 			state: 'TS',
 			country: 'Test Country',
-			cellPhone: '1234567890',
+			cellPhone: nextDefaultPhone(),
 			occupation: 'Test Occupation',
 			snores: false,
 			hasMedication: false,

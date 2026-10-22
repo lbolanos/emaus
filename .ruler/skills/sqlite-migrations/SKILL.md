@@ -244,7 +244,17 @@ const qr = TestDataFactory.getDataSource().createQueryRunner();
 await migration.down(qr); await migration.up(qr); await qr.release();
 ```
 
-Dos trampas al hacerlo (ambas mordieron el 2026-08-22):
+**Excepción, instalada para toda la suite:** `setupTestDatabase()` ya corre el `up()` de
+`20260521170000_UniquePhonePerCommunity` (trigger e índice de un teléfono por comunidad), y la
+factory da un teléfono distinto a cada participante. Antes no lo hacía, y los tests del import de
+miembros pasaban creando dos miembros con el mismo número, algo que prod rechaza con 500 (Buen
+Despacho, 2026-10-22). Si una migración nueva crea un trigger o un índice que **cualquier alta
+normal** puede disparar, súmala a ese bloque de `test-setup.ts` en vez de instalarla test por test:
+así un test que viole la regla falla igual que prod. Al sumarla, corre la suite completa: aparecerán
+tests con datos imposibles en prod (tres miembros con el mismo teléfono en `messageSequence.test.ts`)
+y se corrige el dato, no se quita la regla.
+
+Dos trampas al instalarla test por test (ambas mordieron el 2026-08-22):
 
 - **`clearTestData()` no limpia `participants`** — su lista dice `'participant'`, en singular, y el
   DELETE falla en silencio dentro de su `try/catch`. Las filas sobreviven entre tests y al recrear

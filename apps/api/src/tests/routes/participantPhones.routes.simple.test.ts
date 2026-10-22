@@ -119,6 +119,7 @@ describe('PATCH /participants/:id/phones', () => {
 		]);
 		const participant = await TestDataFactory.createTestParticipant(retreatId, {
 			type: 'walker',
+			cellPhone: '1234567890',
 		} as any);
 		participantId = participant.id;
 	});

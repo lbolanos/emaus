@@ -448,12 +448,13 @@ describe('Shirt Report Service', () => {
 			firstName: 'Sin',
 			lastName: 'Chulo',
 			type: 'server',
+			cellPhone: '1234567890',
 		} as any);
 		await assignShirtSize(server.id, shirt.id, 'M');
 
 		const result = await getShirtOrdersForRetreat(retreatId);
 		expect(result.participants[0].shirtOrderConfirmedAt).toBeNull();
-		// Defaults de la factory: alimentan el botón de WhatsApp del reporte.
+		// Teléfono y país alimentan el botón de WhatsApp del reporte.
 		expect(result.participants[0].cellPhone).toBe('1234567890');
 		expect(result.participants[0].country).toBe('Test Country');
 	});

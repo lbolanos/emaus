@@ -37,6 +37,16 @@ You will automatically be added as the community owner.
 5. Choose the participants to import
 6. Click **Import Selected**
 
+When choosing participants:
+
+- **Cancelled participants are hidden** by default. Turn on **Include cancelled** to bring one in.
+- A community allows **one member per phone number**. If a participant's phone already belongs to
+  another member (for example, two relatives registered with the same number), they show greyed
+  out with **Their phone already belongs to…** and can't be selected. To add them, use
+  **Create member** with their own number.
+- Only retreats you have access to are listed.
+- If someone couldn't be imported, the dialog stays open and tells you who and why.
+
 ### Member States
 
 Members can be in one of the following states:

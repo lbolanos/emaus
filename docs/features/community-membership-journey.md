@@ -28,7 +28,7 @@ Documento exhaustivo del journey de una persona desde que descubre una comunidad
 |---|---|---|---|---|---|---|
 | 1 | Registro público (landing) | `POST /communities/:id/join-public` | `pending_verification` | Sí (mínimo) | No | 2 (admin + solicitante) |
 | 2 | Importar desde retiro | `POST /communities/:id/members/import` | `active_member` | No | Admin | 0 |
-| 3 | Manual existente | `POST /communities/:id/members` | `active_member` | No | Admin | 0 |
+| 3 | Manual existente | `POST /communities/:id/members/create` (fase 2a, vincula) | `active_member` | No | Admin | 0 |
 | 4 | Manual nuevo | `POST /communities/:id/members/create` | `active_member` | Sí (completo) | Admin | 0 |
 | 5 | Invitar admin (CommunityAdmin, no Member) | `POST /communities/:id/admins/invite` | N/A | No | Admin | 1 (token) |
 
@@ -44,13 +44,24 @@ Documento exhaustivo del journey de una persona desde que descubre una comunidad
 
 #### 2. Importar desde retiro
 - Componente UI: `apps/web/src/components/community/ImportMembersModal.vue`
-- Servicio: `communityService.importFromRetreat()` (líneas 261-268)
+- Servicio: `communityService.importFromRetreat()`; candidatos: `communityService.getPotentialMembers()`
 - El admin selecciona retreatId + lista de participantIds del retiro
 - Estado inicial: `active_member` (asume confianza por haber hecho retiro)
+- Acceso: además de administrar la comunidad, hace falta acceso al retiro
+  (`requireRetreatAccessOrCreator`, la misma regla que la lista de retiros del modal), tanto para
+  listar candidatos como para importar.
+- Los candidatos salen de `retreat_participants` (con `type` e `isCancelled`); el modal oculta los
+  cancelados por defecto y marca con `phoneConflictWith` a quien comparte teléfono con un miembro.
+- La respuesta es `{ imported, skipped }`: ninguna fila corta el lote. Motivos de `skipped`:
+  `phone_duplicate_in_community`, `not_in_retreat` (id fuera del roster o con datos borrados, sin
+  nombre) y `error`. Diseño y decisiones: `specs/community-import-hardening/`.
 
 #### 3. Manual existente
-- Servicio: `communityService.addMember()` (líneas 192-206)
-- El admin busca un Participant existente por email/nombre y lo agrega
+- Es la fase 2a del alta manual: «Crear miembro» encuentra al Participant por correo o teléfono y
+  el admin confirma vincularlo (`createCommunityMember` con `linkParticipantId`).
+- `POST /communities/:id/members` (agregar por `participantId`, sin validar retiro ni teléfono) se
+  eliminó el 2026-10-22: ninguna pantalla la usaba y no tuvo llamadas en 14 días de logs de prod.
+  `communityService.addMember()` sigue como helper interno del import y del alta en lote.
 
 #### 4. Manual nuevo
 - Componente UI: `apps/web/src/components/community/CreateMemberModal.vue`
@@ -207,7 +218,7 @@ SELECT COUNT(*) FROM community_attendance;
 - `GET /communities/pending` (superadmin)
 - `POST /communities/:id/approve` (superadmin)
 - `POST /communities/:id/reject` (superadmin)
-- **Miembros:** `GET /:id/members`, `POST /:id/members`, `POST /:id/members/create`, `POST /:id/members/import`, `PUT /:id/members/:memberId`, `DELETE /:id/members/:memberId`, `PATCH /:id/members/:memberId/notes`, `GET /:id/members/:memberId/timeline`, `GET /:id/members/potential?retreatId=`
+- **Miembros:** `GET /:id/members`, `POST /:id/members/create`, `POST /:id/members/import`, `PUT /:id/members/:memberId`, `DELETE /:id/members/:memberId`, `PATCH /:id/members/:memberId/notes`, `GET /:id/members/:memberId/timeline`, `GET /:id/members/potential?retreatId=`
 - **Reuniones:** `GET /:id/meetings`, `POST /:id/meetings`, `PUT /meetings/:id`, `DELETE /meetings/:id`, `POST /meetings/:id/next-instance`
 - **Asistencia:** `GET /:id/meetings/:meetingId/attendance`, `POST /:id/meetings/:meetingId/attendance`, `POST /:id/meetings/:meetingId/attendance/single`
 - **Dashboard:** `GET /:id/dashboard`

@@ -28,6 +28,7 @@ jest.mock('../../middleware/authorization', () => ({
 	requireCommunityAccess: () => (_req: any, _res: any, next: any) => next(),
 	requireCommunityOwner: () => (_req: any, _res: any, next: any) => next(),
 	requireCommunityMeetingAccess: () => (_req: any, _res: any, next: any) => next(),
+	requireRetreatAccessOrCreator: () => (_req: any, _res: any, next: any) => next(),
 }));
 
 const setMeetingPhoto = jest.fn();

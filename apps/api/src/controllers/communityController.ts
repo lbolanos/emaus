@@ -162,13 +162,6 @@ export class CommunityController {
 		res.json(birthdays);
 	}
 
-	static async addMember(req: Request, res: Response) {
-		const { id } = req.params;
-		const { participantId } = req.body;
-		const member = await communityService.addMember(id, participantId);
-		res.status(201).json(member);
-	}
-
 	/**
 	 * Alta manual de miembro con reconocimiento de persona existente (dos
 	 * fases — ver communityService.createCommunityMember). El 409 de fase 1
@@ -242,8 +235,17 @@ export class CommunityController {
 	static async importFromRetreat(req: Request, res: Response) {
 		const { id } = req.params;
 		const { retreatId, participantIds } = req.body;
-		const results = await communityService.importFromRetreat(id, retreatId, participantIds);
-		res.status(201).json(results);
+		try {
+			const results = await communityService.importFromRetreat(id, retreatId, participantIds);
+			res.status(201).json(results);
+		} catch (err) {
+			// Rows never throw (they come back as skipped), so this is a failure before
+			// any insert: nobody was imported.
+			console.error('[communityController] importFromRetreat failed:', err);
+			res.status(500).json({
+				message: 'No se pudo importar a los participantes. No se agregó a nadie; inténtalo de nuevo.',
+			});
+		}
 	}
 
 	static async getPotentialMembers(req: Request, res: Response) {
