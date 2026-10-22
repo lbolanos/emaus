@@ -78,14 +78,17 @@
       </div>
 
       <!-- Search, filters and sort: sticky so they stay reachable while scrolling the list.
-           The negative top cancels <main>'s top padding (pt-14 on mobile, p-4 from md), which
-           would otherwise leave a strip where the cards show through above the bar. On mobile
-           the app header is already hidden by then: it hides once scrollTop passes 20px. -->
-      <div class="sticky -top-14 md:-top-4 z-10 space-y-2 border-b bg-gray-100 py-2">
+           The negative top cancels <main>'s top padding (pt-14 on mobile, p-4 from md) so the
+           bar sits at the very top. On mobile the app header is already hidden by then: it
+           hides once scrollTop passes 20px.
+           The bar has no background: the cards scrolling under it stay visible between the
+           controls, which paint their own. pointer-events-none lets a tap on a gap reach the
+           card below; each control opts back in with pointer-events-auto. -->
+      <div class="pointer-events-none sticky -top-14 md:-top-4 z-10 space-y-2 py-2">
         <div class="flex flex-col gap-2 lg:flex-row lg:flex-wrap lg:items-center">
           <div class="flex items-center gap-2 md:contents">
           <!-- ml-6 on mobile clears the app's floating menu button once the bar is stuck -->
-          <div class="relative ml-6 flex-1 md:ml-0 md:flex-none lg:w-64">
+          <div class="pointer-events-auto relative ml-6 flex-1 md:ml-0 md:flex-none lg:w-64">
             <Search class="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
               v-model="searchQuery"
@@ -105,7 +108,7 @@
           <!-- Below md the selects fold behind this button; the search stays in view -->
           <Button
             variant="outline"
-            class="shrink-0 md:hidden"
+            class="pointer-events-auto shrink-0 md:hidden"
             :aria-expanded="showFilters"
             @click="showFilters = !showFilters"
           >
@@ -114,7 +117,7 @@
           </Button>
           </div>
           <div
-            class="grid-cols-2 gap-2 md:flex md:flex-wrap md:items-center"
+            class="pointer-events-auto grid-cols-2 gap-2 md:flex md:flex-wrap md:items-center"
             :class="showFilters ? 'grid' : 'hidden'"
           >
             <Select v-model="statusFilter">
@@ -175,11 +178,17 @@
           </div>
         </div>
         <div class="flex min-h-7 items-center justify-between gap-2 text-sm text-muted-foreground">
-          <span>
+          <span class="pointer-events-auto rounded-md bg-background/90 px-2 py-0.5">
             <strong class="text-foreground">{{ presentCount }}</strong> presentes · mostrando
             {{ filteredMembers.length }} de {{ membersWithAttendance.length }}
           </span>
-          <Button v-if="hasActiveFilters" variant="ghost" size="sm" class="h-7 px-2" @click="clearFilters">
+          <Button
+            v-if="hasActiveFilters"
+            variant="ghost"
+            size="sm"
+            class="pointer-events-auto h-7 bg-background px-2"
+            @click="clearFilters"
+          >
             Limpiar filtros
           </Button>
         </div>
