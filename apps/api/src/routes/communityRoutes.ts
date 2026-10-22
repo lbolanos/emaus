@@ -239,16 +239,19 @@ router.post(
 router.get('/:id/meetings', requireCommunityAccess(), (req, res) =>
 	CommunityController.getMeetings(req, res),
 );
+// assignParsedBody on both meeting writes: the controllers hand req.body straight to the
+// repository, so without it any column travelled through — communityId (moving the meeting
+// into another community), photoUrl, albumToken/albumPublishedAt — despite the schemas.
 router.post(
 	'/:id/meetings',
 	requireCommunityAccess(),
-	validateRequest(createCommunityMeetingSchema),
+	validateRequest(createCommunityMeetingSchema, { assignParsedBody: true }),
 	(req, res) => CommunityController.createMeeting(req, res),
 );
 router.put(
 	'/meetings/:id',
 	requireCommunityMeetingAccess(),
-	validateRequest(updateCommunityMeetingSchema),
+	validateRequest(updateCommunityMeetingSchema, { assignParsedBody: true }),
 	(req, res) => CommunityController.updateMeeting(req, res),
 );
 router.delete('/meetings/:id', requireCommunityMeetingAccess(), (req, res) =>

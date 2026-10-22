@@ -135,6 +135,9 @@ export type MeetingFlyerOptions = z.infer<typeof meetingFlyerOptionsSchema>;
 // Community schema
 export const communitySchema = z.object({
 	id: z.string().uuid(),
+	// Reconocimiento facial en la asistencia (D3). Read-only here: it changes only through
+	// the owner-only PATCH /:id/face-recognition, so the write schemas below omit it.
+	faceRecognitionEnabled: z.boolean().optional(),
 	name: z.string().min(1).max(200),
 	description: z.string().optional(),
 	address1: z.string().min(1),
@@ -223,6 +226,8 @@ export const communityMemberSchema = z.object({
 	// caduca en una hora (o un data-URI en modo local). La key S3 nunca viaja
 	// al cliente: solo la usa el servidor para borrar el objeto.
 	photoUrl: z.string().nullable().optional(),
+	// Excluido del reconocimiento facial (D8): no entra a la galería de Gemini.
+	faceRecognitionOptOut: z.boolean().optional(),
 	// Retiro del que se importó ("Importar desde retiro"). NULL en altas
 	// manuales, por Excel o por el bot. `sourceRetreat` es lo que el API
 	// resuelve para la etiqueta; null si el retiro ya no existe.
@@ -257,6 +262,9 @@ export const communityMeetingSchema = z.object({
 	// del cliente: se gestiona vía el endpoint dedicado de foto, no en el PUT
 	// genérico de la reunión (ver updateCommunityMeetingSchema más abajo).
 	photoUrl: z.string().nullable().optional(),
+	// Álbum público (M7): only the publish/unpublish endpoints write these.
+	albumToken: z.string().nullable().optional(),
+	albumPublishedAt: z.coerce.date().nullable().optional(),
 	startDate: z.coerce.date(),
 	endDate: z.coerce.date().optional(),
 	durationMinutes: z.number().int().positive(),
@@ -313,6 +321,7 @@ export const createCommunitySchema = z.object({
 		createdBy: true,
 		createdAt: true,
 		updatedAt: true,
+		faceRecognitionEnabled: true,
 	}),
 });
 
@@ -331,6 +340,8 @@ export const updateCommunitySchema = z.object({
 			flyerBackgroundUrl: true,
 			flyerCardOpacity: true,
 			flyerOptions: true,
+			// Owner-only PATCH /:id/face-recognition is the one way to change it.
+			faceRecognitionEnabled: true,
 		})
 		.partial(),
 	params: z.object({ id: z.string().uuid() }),
@@ -367,6 +378,9 @@ export const updateCommunityMeetingSchema = z.object({
 			// photoUrl se gestiona vía el endpoint dedicado de foto, no en el PUT
 			// genérico — evita que el cliente setee URLs arbitrarias sin procesar.
 			photoUrl: true,
+			// Album publication goes through POST/DELETE …/album (random server-side token).
+			albumToken: true,
+			albumPublishedAt: true,
 		})
 		.partial(),
 	params: z.object({ id: z.string().uuid() }),
