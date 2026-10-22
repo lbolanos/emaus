@@ -70,6 +70,7 @@ jest.mock('../../middleware/authorization', () => ({
 	},
 	requireCommunityOwner: () => (_req: any, _res: any, next: any) => next(),
 	requireCommunityMeetingAccess: () => (_req: any, _res: any, next: any) => next(),
+	requireRetreatAccessOrCreator: () => (_req: any, _res: any, next: any) => next(),
 }));
 
 import communityRoutes from '../../routes/communityRoutes';

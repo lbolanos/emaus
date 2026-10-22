@@ -39,6 +39,7 @@ jest.mock('../../middleware/authorization', () => ({
 		next();
 	},
 	requireCommunityMeetingAccess: () => (_req: any, _res: any, next: any) => next(),
+	requireRetreatAccessOrCreator: () => (_req: any, _res: any, next: any) => next(),
 }));
 
 const controller = {

@@ -22,7 +22,7 @@
             Seleccionar Retiro
             <span class="text-red-500">*</span>
           </Label>
-          <Select id="retreat-select" v-model="selectedRetreatId" @update:model-value="handleRetreatChange">
+          <Select id="retreat-select" v-model="selectedRetreatId" @update:model-value="onRetreatSelected">
             <SelectTrigger class="w-full">
               <SelectValue :placeholder="retreats.length === 0 ? 'Cargando retiros...' : 'Selecciona un retiro'" />
             </SelectTrigger>
@@ -38,6 +38,24 @@
               </SelectItem>
             </SelectContent>
           </Select>
+        </div>
+
+        <!-- Result of the last import, when someone stayed out: it stays until the
+             dialog closes or another retreat is picked, unlike a toast. -->
+        <div
+          v-if="importResult"
+          role="status"
+          class="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 space-y-2"
+        >
+          <p class="font-medium">
+            {{ importResult.imported === 1 ? 'Se importó 1 participante' : `Se importaron ${importResult.imported} participantes` }}.
+            No {{ importResult.skipped.length === 1 ? 'entró' : 'entraron' }}:
+          </p>
+          <ul class="list-disc pl-5 space-y-1">
+            <li v-for="skip in importResult.skipped" :key="skip.participantId">
+              <span class="font-medium">{{ skip.name || 'Participante sin nombre' }}</span>: {{ skipReason(skip) }}
+            </li>
+          </ul>
         </div>
 
         <!-- Loading State -->
@@ -87,13 +105,21 @@
                 variant="outline"
                 size="sm"
                 class="shrink-0"
-                :disabled="filteredParticipants.length === 0"
+                :disabled="selectableParticipants.length === 0"
                 @click="toggleAllFiltered"
               >
                 <Check v-if="allFilteredSelected" class="w-4 h-4 mr-1" />
                 <Square v-else class="w-4 h-4 mr-1" />
-                {{ allFilteredSelected ? 'Deseleccionar' : 'Seleccionar' }} todos ({{ filteredCount }})
+                {{ allFilteredSelected ? 'Deseleccionar' : 'Seleccionar' }} todos ({{ selectableParticipants.length }})
               </Button>
+            </div>
+
+            <!-- Cancelled participants stay out unless asked for -->
+            <div v-if="cancelledCount > 0" class="flex items-center gap-2 text-sm">
+              <Switch id="include-cancelled" v-model="includeCancelled" />
+              <Label for="include-cancelled" class="font-normal cursor-pointer">
+                Incluir cancelados ({{ cancelledCount }})
+              </Label>
             </div>
 
             <!-- Results Summary -->
@@ -142,12 +168,13 @@
                   <TableRow
                     v-for="participant in filteredParticipants"
                     :key="participant.id"
-                    class="cursor-pointer hover:bg-muted/50"
+                    :class="participant.phoneConflictWith ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer hover:bg-muted/50'"
                     @click="toggleParticipant(participant.id)"
                   >
                     <TableCell @click.stop>
                       <Checkbox
                         :model-value="selectedIds.includes(participant.id)"
+                        :disabled="!!participant.phoneConflictWith"
                         @update:model-value="toggleParticipant(participant.id)"
                       />
                     </TableCell>
@@ -157,12 +184,20 @@
                           {{ participant.firstName }} {{ participant.lastName }}
                         </span>
                         <span class="text-xs text-muted-foreground">{{ participant.email }}</span>
+                        <span v-if="participant.phoneConflictWith" class="text-xs text-amber-700">
+                          Su teléfono ya es de {{ participant.phoneConflictWith }}: no se puede importar
+                        </span>
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Badge :variant="participant.type === 'walker' ? 'default' : 'secondary'" class="text-xs">
-                        {{ participant.type === 'walker' ? 'Caminante' : 'Servidor' }}
-                      </Badge>
+                      <div class="flex flex-wrap gap-1">
+                        <Badge :variant="participant.type === 'walker' ? 'default' : 'secondary'" class="text-xs">
+                          {{ typeLabel(participant.type) }}
+                        </Badge>
+                        <Badge v-if="participant.isCancelled" variant="destructive" class="text-xs">
+                          Cancelado
+                        </Badge>
+                      </div>
                     </TableCell>
                     <TableCell class="text-right">
                       <Badge
@@ -263,11 +298,13 @@ import { storeToRefs } from 'pinia';
 import { Search, Users, Check, Square, Calendar, Loader2 } from 'lucide-vue-next';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
-  Button, Input, Checkbox, Label, Badge,
+  Button, Input, Checkbox, Label, Badge, Switch,
   Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
   Table, TableHeader, TableRow, TableHead, TableBody, TableCell,
 } from '@repo/ui';
 import { useToast } from '@repo/ui';
+import type { ImportMembersSkip } from '@repo/types';
+import { apiErrorMessage } from '@/services/apiError';
 
 const props = defineProps<{
   open: boolean;
@@ -284,6 +321,8 @@ const { toast } = useToast();
 const selectedRetreatId = ref('');
 const searchQuery = ref('');
 const typeFilter = ref<'all' | 'walker' | 'server'>('all');
+const includeCancelled = ref(false);
+const importResult = ref<{ imported: number; skipped: ImportMembersSkip[] } | null>(null);
 const participants = ref<any[]>([]);
 const selectedIds = ref<string[]>([]);
 const loadingParticipants = ref(false);
@@ -301,12 +340,20 @@ const selectedRetreat = computed(() =>
   sortedRetreats.value.find(r => r.id === selectedRetreatId.value)
 );
 
+const cancelledCount = computed(() => participants.value.filter(p => p.isCancelled).length);
+
 const filteredParticipants = computed(() => {
   let filtered = participants.value;
 
-  // Filter by type
-  if (typeFilter.value !== 'all') {
-    filtered = filtered.filter(p => p.type === typeFilter.value);
+  if (!includeCancelled.value) {
+    filtered = filtered.filter(p => !p.isCancelled);
+  }
+
+  // Filter by type; angelitos (partial_server) are part of the serving team
+  if (typeFilter.value === 'walker') {
+    filtered = filtered.filter(p => p.type === 'walker');
+  } else if (typeFilter.value === 'server') {
+    filtered = filtered.filter(p => p.type === 'server' || p.type === 'partial_server');
   }
 
   // Filter by search query
@@ -324,20 +371,31 @@ const filteredParticipants = computed(() => {
 
 const filteredCount = computed(() => filteredParticipants.value.length);
 
+// A candidate whose phone a member already has would be refused by the import
+// (one phone per community), so it can't be picked.
+const selectableParticipants = computed(() =>
+  filteredParticipants.value.filter(p => !p.phoneConflictWith)
+);
+
 const allFilteredSelected = computed(() => {
-  return filteredCount.value > 0 &&
-    filteredParticipants.value.every(p => selectedIds.value.includes(p.id));
+  return selectableParticipants.value.length > 0 &&
+    selectableParticipants.value.every(p => selectedIds.value.includes(p.id));
 });
 
 const someFilteredSelected = computed(() => {
-  const filteredSet = new Set(filteredParticipants.value.map(p => p.id));
-  const selectedInFiltered = selectedIds.value.filter(id => filteredSet.has(id));
-  return selectedInFiltered.length > 0 && selectedInFiltered.length < filteredCount.value;
+  const selectableSet = new Set(selectableParticipants.value.map(p => p.id));
+  const selectedInFiltered = selectedIds.value.filter(id => selectableSet.has(id));
+  return selectedInFiltered.length > 0 && selectedInFiltered.length < selectableParticipants.value.length;
 });
 
 const selectedCount = computed(() => selectedIds.value.length);
 
 // Methods
+const typeLabel = (type?: string) =>
+  ({ walker: 'Caminante', server: 'Servidor', partial_server: 'Angelito', waiting: 'En espera' } as Record<string, string>)[
+    type ?? ''
+  ] ?? 'Servidor';
+
 const parseLocalDate = (dateStr: string): Date => {
   const match = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
   return match
@@ -388,12 +446,31 @@ const handleRetreatChange = async () => {
   }
 };
 
+const onRetreatSelected = () => {
+  importResult.value = null;
+  handleRetreatChange();
+};
+
+const skipReason = (skip: ImportMembersSkip) => {
+  switch (skip.reason) {
+    case 'phone_duplicate_in_community':
+      return skip.conflictWith
+        ? `su teléfono ya es de ${skip.conflictWith}`
+        : 'su teléfono ya lo tiene otro miembro';
+    case 'not_in_retreat':
+      return 'ya no está en la lista del retiro';
+    default:
+      return 'error inesperado, inténtalo de nuevo';
+  }
+};
+
 const clearFilters = () => {
   searchQuery.value = '';
   typeFilter.value = 'all';
 };
 
 const toggleParticipant = (id: string) => {
+  if (participants.value.find(p => p.id === id)?.phoneConflictWith) return;
   const index = selectedIds.value.indexOf(id);
   if (index > -1) {
     selectedIds.value = selectedIds.value.filter(selectedId => selectedId !== id);
@@ -408,10 +485,9 @@ const toggleAllFiltered = () => {
     const filteredSet = new Set(filteredParticipants.value.map(p => p.id));
     selectedIds.value = selectedIds.value.filter(id => !filteredSet.has(id));
   } else {
-    // Select all in current filtered view
-    const filteredSet = new Set(filteredParticipants.value.map(p => p.id));
+    // Select all in current filtered view, except who can't be imported
     const newSelected = [...selectedIds.value];
-    filteredParticipants.value.forEach(p => {
+    selectableParticipants.value.forEach(p => {
       if (!selectedIds.value.includes(p.id)) {
         newSelected.push(p.id);
       }
@@ -437,28 +513,24 @@ const confirmImport = async () => {
       selectedIds.value
     );
 
-    const importedText = `Se importaron ${imported.length} ${imported.length === 1 ? 'participante' : 'participantes'} a la comunidad`;
-    if (skipped.length === 0) {
-      toast({ title: 'Importación exitosa', description: importedText });
-    } else {
-      // One phone per community: whoever shares it with a member stays out.
-      const skippedList = skipped
-        .map((s) => (s.conflictWith ? `${s.name} (teléfono de ${s.conflictWith})` : s.name))
-        .join(', ');
-      toast({
-        title: 'Importación parcial',
-        description: `${importedText}. No se importaron porque su teléfono ya lo tiene otro miembro: ${skippedList}.`,
-        duration: 15000,
-      });
-    }
-
     emit('imported');
-    importSuccess = true;
+    if (skipped.length === 0) {
+      toast({
+        title: 'Importación exitosa',
+        description: `Se importaron ${imported.length} ${imported.length === 1 ? 'participante' : 'participantes'} a la comunidad`,
+      });
+      importSuccess = true;
+    } else {
+      // Someone stayed out: keep the dialog open with who and why, and reload the
+      // list so the ones that did come in drop out of it.
+      importResult.value = { imported: imported.length, skipped };
+      await handleRetreatChange();
+    }
   } catch (error: any) {
     console.error('Failed to import members:', error);
     toast({
       title: 'Error',
-      description: error.message || 'No se pudieron importar los participantes',
+      description: apiErrorMessage(error, 'No se pudieron importar los participantes'),
       variant: 'destructive'
     });
   } finally {
@@ -490,7 +562,17 @@ watch(() => props.open, (isOpen) => {
     selectedIds.value = [];
     searchQuery.value = '';
     typeFilter.value = 'all';
+    includeCancelled.value = false;
+    importResult.value = null;
     showConfirmDialog.value = false;
   }
+});
+
+// Hiding the cancelled again also drops them from the selection, so the import
+// never carries someone the list no longer shows.
+watch(includeCancelled, (include) => {
+  if (include) return;
+  const cancelled = new Set(participants.value.filter(p => p.isCancelled).map(p => p.id));
+  selectedIds.value = selectedIds.value.filter(id => !cancelled.has(id));
 });
 </script>

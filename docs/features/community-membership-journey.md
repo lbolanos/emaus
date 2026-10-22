@@ -44,9 +44,17 @@ Documento exhaustivo del journey de una persona desde que descubre una comunidad
 
 #### 2. Importar desde retiro
 - Componente UI: `apps/web/src/components/community/ImportMembersModal.vue`
-- Servicio: `communityService.importFromRetreat()` (líneas 261-268)
+- Servicio: `communityService.importFromRetreat()`; candidatos: `communityService.getPotentialMembers()`
 - El admin selecciona retreatId + lista de participantIds del retiro
 - Estado inicial: `active_member` (asume confianza por haber hecho retiro)
+- Acceso: además de administrar la comunidad, hace falta acceso al retiro
+  (`requireRetreatAccessOrCreator`, la misma regla que la lista de retiros del modal), tanto para
+  listar candidatos como para importar.
+- Los candidatos salen de `retreat_participants` (con `type` e `isCancelled`); el modal oculta los
+  cancelados por defecto y marca con `phoneConflictWith` a quien comparte teléfono con un miembro.
+- La respuesta es `{ imported, skipped }`: ninguna fila corta el lote. Motivos de `skipped`:
+  `phone_duplicate_in_community`, `not_in_retreat` (id fuera del roster o con datos borrados, sin
+  nombre) y `error`. Diseño y decisiones: `specs/community-import-hardening/`.
 
 #### 3. Manual existente
 - Servicio: `communityService.addMember()` (líneas 192-206)

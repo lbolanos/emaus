@@ -48,6 +48,7 @@ Cuando el usuario reporta un problema, primero ubicá el **síntoma** en la tabl
 | "el test dice que se llamó una función que este test no llama", "`not.toHaveBeenCalled()` falla con el código bien", "`toHaveBeenCalledTimes(n)` cuenta de más", "pasa aislado con `-t` pero falla en el archivo" (Vitest web) | [#35 Vitest no limpia los mocks entre tests](#35-vitest-no-limpia-los-mocks-entre-tests-not-tohavebeencalled-falla-con-llamadas-de-otro-test) |
 | "con mi rol no veo los contactos al editar", "a mí me faltan campos que otro usuario sí ve", "la sección de emergencia no aparece en la ficha", "el coordinador no ve el monto de la beca", "al guardar dice que no tengo permiso para modificar datos de salud" | [#36 Un permiso RBAC recorta campos y el formulario oculta la sección](#36-un-permiso-rbac-recorta-campos-y-el-formulario-oculta-la-sección) |
 | "no se pueden subir fotos de más de 5MB", "dice que supera los 2MB", "desde el celular no sube la foto", "la foto sale cortada/cuadrada", "en el recuerdo falta gente de las orillas" | [#37 La foto no sube por tamaño, o sube y sale cortada en cuadrado](#37-la-foto-no-sube-por-tamaño-o-sube-y-sale-cortada-en-cuadrado) |
+| "importé miembros de un retiro y salió Request failed with status code 500", "agregué un miembro y dio error 500", "entraron unos sí y otros no", "no me deja importar a un familiar" | [#38 Alta de miembro de comunidad que choca por teléfono](#38-alta-de-miembro-de-comunidad-que-choca-por-teléfono) |
 
 ---
 
@@ -1739,3 +1740,40 @@ comunidad (`specs/flyer-background-resize/`): 2 MB en el navegador; el servidor 
 el navegador y cuadrado de 512 en S3; 12 objetos en `community-meetings/`. Ese mismo día, fotos del recuerdo del retiro: el formulario decía "máx. 5MB", el servidor
 cortaba en 2 MB y las 10 fotos de `retreat-memories/` eran de 512×512. Spec y decisiones:
 `specs/memory-photo-resize/`.
+
+## 38. Alta de miembro de comunidad que choca por teléfono
+
+**Síntoma**: al importar miembros desde un retiro (o en cualquier alta de `community_member`) sale
+«Request failed with status code 500». Mirando la comunidad, **una parte sí entró**. O el admin
+reporta que «no le deja» agregar a alguien.
+
+**Causa**: cada comunidad admite **un miembro por teléfono** (últimos 10 dígitos). Lo impone el
+trigger `trg_cm_phone_uniq_insert` (migración `20260521170000`) con `RAISE(ABORT,
+'PHONE_DUPLICATE_IN_COMMUNITY')`. Dos familiares registrados con el mismo número es el caso típico.
+Si el camino de alta no revisa el teléfono antes y no traduce el RAISE, el error escala crudo como
+500 a mitad del lote, con las filas anteriores ya guardadas.
+
+**Diagnóstico**, en prod:
+
+```bash
+grep -n "PHONE_DUPLICATE_IN_COMMUNITY" ~/.pm2/logs/emaus-api-error.log | tail
+```
+
+**Fix** (import, 2026-10-22, `specs/community-import-hardening/`): `importFromRetreat` revisa con
+`findPhoneCollision` antes de cada alta, atrapa el RAISE, y responde `{ imported, skipped }` sin
+cortar el lote. El modal marca antes de importar a quien choca (`phoneConflictWith`). Un camino de
+alta nuevo tiene que hacer lo mismo: comparar con `phoneKey` (la misma normalización del listado)
+y traducir el RAISE a 409 o a `skipped`, nunca dejarlo pasar.
+
+**Por qué los tests no lo veían**: la base de test se arma con `synchronize` y no tenía el trigger.
+Desde este fix, `setupTestDatabase` lo instala para toda la suite (ver skill `sqlite-migrations`).
+
+**Auditar el repo**:
+
+```bash
+# Altas de community_member: cada una debe revisar el teléfono o atrapar el RAISE
+grep -n "memberRepo.save\|addMember(" apps/api/src/services/communityService.ts
+```
+
+**Casos**: 2026-10-22, Buen Despacho: Alberto Garay tenía el teléfono de Eduardo Garay, ya miembro.
+El import dio 500 tras guardar 25 de los seleccionados.

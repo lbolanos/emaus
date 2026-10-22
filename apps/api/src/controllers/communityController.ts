@@ -242,8 +242,17 @@ export class CommunityController {
 	static async importFromRetreat(req: Request, res: Response) {
 		const { id } = req.params;
 		const { retreatId, participantIds } = req.body;
-		const results = await communityService.importFromRetreat(id, retreatId, participantIds);
-		res.status(201).json(results);
+		try {
+			const results = await communityService.importFromRetreat(id, retreatId, participantIds);
+			res.status(201).json(results);
+		} catch (err) {
+			// Rows never throw (they come back as skipped), so this is a failure before
+			// any insert: nobody was imported.
+			console.error('[communityController] importFromRetreat failed:', err);
+			res.status(500).json({
+				message: 'No se pudo importar a los participantes. No se agregó a nadie; inténtalo de nuevo.',
+			});
+		}
 	}
 
 	static async getPotentialMembers(req: Request, res: Response) {
