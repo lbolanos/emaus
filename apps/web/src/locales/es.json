@@ -4550,7 +4550,8 @@
       "bedAssign": "{name} a la cama {bed}",
       "bedUnassign": "Liberar la cama {bed}",
       "tableAssign": "{name} a {table}",
-      "tableUnassign": "Quitar a {name} de {table}"
+      "tableUnassign": "Quitar a {name} de {table}",
+      "communityAttendance": "Asistencia de {name}"
     },
     "needsConnection": "Necesita conexión",
     "edit": {
