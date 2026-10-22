@@ -43,10 +43,22 @@
             </div>
           </div>
         </div>
-        <Button class="w-full sm:w-auto sm:flex-shrink-0" @click="isCreateModalOpen = true">
-          <UserPlus class="w-4 h-4 mr-2" />
-          Crear miembro
-        </Button>
+        <div class="flex flex-col gap-2 sm:flex-row sm:flex-shrink-0">
+          <Button
+            variant="outline"
+            class="w-full sm:w-auto"
+            :disabled="photoBusy"
+            @click="pickAndUploadPhoto"
+          >
+            <Loader2 v-if="photoBusy" class="w-4 h-4 mr-2 animate-spin" />
+            <ImagePlus v-else class="w-4 h-4 mr-2" />
+            Subir foto de la reunión
+          </Button>
+          <Button class="w-full sm:w-auto" @click="isCreateModalOpen = true">
+            <UserPlus class="w-4 h-4 mr-2" />
+            Crear miembro
+          </Button>
+        </div>
       </div>
 
       <!-- Stats Summary -->
@@ -214,6 +226,15 @@
               <Badge :variant="getFrequencyBadgeVariant(member.lastMeetingsFrequency)">
                 {{ Math.round(member.lastMeetingsAttendanceRate || 0) }}%
               </Badge>
+              <!-- Saved on this device, waiting for signal (FR-8) -->
+              <Badge
+                v-if="isPending(member.id)"
+                variant="warning"
+                data-testid="pending-badge"
+                title="Guardado en este dispositivo; se enviará al volver la señal"
+              >
+                Pendiente
+              </Badge>
             </div>
           </div>
           <button
@@ -256,6 +277,16 @@
         @saved="handlePhotoSaved"
       />
 
+      <!-- Foto de grupo: reconocimiento y revisión (specs/community-attendance-faces, M4) -->
+      <GroupPhotoAttendanceDialog
+        v-model:open="isGroupPhotoOpen"
+        :analyzing="groupPhotoAnalyzing"
+        :result="groupPhotoResult"
+        :members="membersWithAttendance"
+        :confirming="groupPhotoConfirming"
+        @confirm="handleGroupPhotoConfirm"
+      />
+
       <!-- Lightbox: foto de la reunión ampliada -->
       <Dialog :open="photoPreview" @update:open="(v: boolean) => (photoPreview = v)">
         <DialogContent class="max-w-3xl p-4">
@@ -279,7 +310,7 @@ import { ref, onMounted, onBeforeUnmount, computed, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useCommunityStore } from '@/stores/communityStore';
 import { storeToRefs } from 'pinia';
-import { ChevronRight, Check, Users, Search, Loader2, UserPlus, X, SlidersHorizontal } from 'lucide-vue-next';
+import { ChevronRight, Check, Users, Search, Loader2, UserPlus, X, SlidersHorizontal, ImagePlus } from 'lucide-vue-next';
 import {
   Button,
   Card,
@@ -300,6 +331,14 @@ import { formatDate, resolveMemberProfile, formatDateInCommunityTimezone } from 
 import CreateMemberModal from '@/components/community/CreateMemberModal.vue';
 import MemberAvatar from '@/components/community/MemberAvatar.vue';
 import MemberPhotoDialog from '@/components/community/MemberPhotoDialog.vue';
+import GroupPhotoAttendanceDialog, {
+  type GroupPhotoConfirmPayload,
+} from '@/components/community/GroupPhotoAttendanceDialog.vue';
+import { outbox } from '@/offline/outbox';
+import { pickFile } from '@/utils/filePicker';
+import { MAX_PHOTO_SOURCE_BYTES } from '@/utils/imageResize';
+import { takeGroupPhoto, useMeetingPhotoUpload } from '@/composables/useMeetingPhotoUpload';
+import type { FaceMatchResult } from '@/services/api';
 import {
   DEFAULT_ATTENDANCE_LIST_OPTIONS,
   filterAndSortAttendanceMembers,
@@ -464,6 +503,8 @@ onMounted(async () => {
   } finally {
     loadingMeeting.value = false;
   }
+
+  await analyzeStashedPhoto();
 });
 
 // Background refresh of the attendance rates, 4 s after the last tap, so a tap
@@ -531,6 +572,49 @@ const handlePhotoSaved = (updated: any) => {
   );
 };
 
+// Taps answered with `queued: true` were saved on the device without signal (FR-8). The card
+// says "Pendiente" until that operation leaves the outbox; the queue itself is reactive.
+const queuedLocal = ref<Record<string, boolean>>({});
+
+const queuedMemberIds = computed(
+  () =>
+    new Set(
+      outbox.ops
+        .filter(
+          (op) =>
+            op.kind === 'community.attendance' &&
+            op.status !== 'conflict' &&
+            op.meta?.meetingId === props.meetingId &&
+            op.meta?.memberId,
+        )
+        .map((op) => op.meta.memberId as string),
+    ),
+);
+
+// Also true after a reload: the op is still in the persisted queue.
+const isPending = (memberId: string) =>
+  !!queuedLocal.value[memberId] || queuedMemberIds.value.has(memberId);
+
+// When an op leaves the queue its card stops saying "pendiente", and the rates are due a refresh.
+watch(queuedMemberIds, (ids) => {
+  const cleared = Object.keys(queuedLocal.value).filter((id) => !ids.has(id));
+  if (!cleared.length) return;
+  const next = { ...queuedLocal.value };
+  cleared.forEach((id) => delete next[id]);
+  queuedLocal.value = next;
+  scheduleRatesRefresh();
+});
+
+const setQueuedLocal = (memberId: string, queued: boolean) => {
+  if (queued) {
+    queuedLocal.value = { ...queuedLocal.value, [memberId]: true };
+  } else if (queuedLocal.value[memberId] && !queuedMemberIds.value.has(memberId)) {
+    const next = { ...queuedLocal.value };
+    delete next[memberId];
+    queuedLocal.value = next;
+  }
+};
+
 // Toggle attendance with auto-save
 const toggleAttendance = async (member: any) => {
   if (savingStates.value[member.id]) return;
@@ -544,14 +628,25 @@ const toggleAttendance = async (member: any) => {
   };
 
   try {
-    await communityStore.recordSingleAttendance(props.id, props.meetingId, member.id, newStatus);
+    const answer = await communityStore.recordSingleAttendance(
+      props.id,
+      props.meetingId,
+      member.id,
+      newStatus,
+      { memberName: resolveMemberProfile(member).fullName },
+    );
+    // A queued write is not an error: the mark stays and shows "pendiente".
+    const queued = !!(answer as { queued?: boolean } | undefined)?.queued;
+    setQueuedLocal(member.id, queued);
     setAttended(newStatus);
-    scheduleRatesRefresh();
+    // Nothing to refresh yet if it only waits on the device.
+    if (!queued) scheduleRatesRefresh();
 
     // Show subtle feedback
     if (newStatus) {
       toast({
         title: `${resolveMemberProfile(member).firstName} marcado como presente`,
+        description: queued ? 'Guardado en el dispositivo; se enviará al volver la señal' : undefined,
         duration: 1500,
       });
     }
@@ -566,6 +661,102 @@ const toggleAttendance = async (member: any) => {
     setAttended(!newStatus);
   } finally {
     savingStates.value[member.id] = false;
+  }
+};
+
+// --- Group photo: upload the cover and review the face analysis (M4) ---
+const photoUpload = useMeetingPhotoUpload();
+const photoBusy = computed(() => photoUpload.uploading.value || groupPhotoAnalyzing.value);
+const isGroupPhotoOpen = ref(false);
+const groupPhotoAnalyzing = ref(false);
+const groupPhotoResult = ref<FaceMatchResult | null>(null);
+const groupPhotoConfirming = ref(false);
+
+const startGroupPhotoReview = () => {
+  groupPhotoResult.value = null;
+  groupPhotoAnalyzing.value = true;
+  isGroupPhotoOpen.value = true;
+};
+
+const finishGroupPhotoReview = (analysis: FaceMatchResult) => {
+  groupPhotoResult.value = analysis;
+  groupPhotoAnalyzing.value = false;
+};
+
+// The list of meetings uploads the cover, leaves the 3200 px version in memory and navigates here.
+const analyzeStashedPhoto = async () => {
+  const stashed = takeGroupPhoto(props.id, props.meetingId);
+  if (!stashed) return;
+  startGroupPhotoReview();
+  finishGroupPhotoReview(await photoUpload.analyze(props.id, props.meetingId, stashed.image));
+};
+
+const pickAndUploadPhoto = async () => {
+  const file = await pickFile({ accept: 'image/png,image/jpeg,image/jpg,image/gif,image/webp' });
+  if (!file) return;
+  if (!file.type.startsWith('image/')) {
+    toast({ title: 'Error', description: 'El archivo debe ser una imagen', variant: 'destructive' });
+    return;
+  }
+  if (file.size > MAX_PHOTO_SOURCE_BYTES) {
+    toast({ title: 'Error', description: 'La imagen no puede exceder 30MB', variant: 'destructive' });
+    return;
+  }
+
+  try {
+    const { meeting, analysis, analysisSkipped } = await photoUpload.uploadAndAnalyze(
+      props.id,
+      props.meetingId,
+      file,
+      { onAnalyzing: startGroupPhotoReview },
+    );
+    if (meeting) currentMeeting.value = { ...currentMeeting.value, ...meeting };
+    toast({ title: 'Foto actualizada', description: 'La foto de la reunión se guardó exitosamente.' });
+    if (analysisSkipped) {
+      toast({
+        title: 'No se pudo analizar la foto',
+        description: 'La foto se guardó; marca la asistencia a mano.',
+        variant: 'destructive',
+      });
+    }
+    if (analysis) finishGroupPhotoReview(analysis);
+  } catch (error: any) {
+    console.error('Failed to upload meeting photo:', error);
+    groupPhotoAnalyzing.value = false;
+    isGroupPhotoOpen.value = false;
+    toast({
+      title: 'Error',
+      description: error?.response?.data?.message || error?.message || 'No se pudo subir la foto.',
+      variant: 'destructive',
+    });
+  }
+};
+
+const handleGroupPhotoConfirm = async (payload: GroupPhotoConfirmPayload) => {
+  groupPhotoConfirming.value = true;
+  try {
+    await communityStore.confirmFaceMatch(props.id, props.meetingId, payload);
+    // Only adds presents (the server never unmarks anyone): no full reload of the attendance.
+    const present = new Set(payload.present);
+    membersWithAttendance.value = membersWithAttendance.value.map((m) =>
+      present.has(m.id) ? { ...m, attended: true } : m,
+    );
+    isGroupPhotoOpen.value = false;
+    toast({
+      title: `${payload.present.length} ${payload.present.length === 1 ? 'presente' : 'presentes'} registrados`,
+    });
+    // New profile photos live on the server: sign them in and refresh the rates.
+    if (payload.photos.length) await reloadMembers({ freshPhotos: true });
+    else scheduleRatesRefresh();
+  } catch (error: any) {
+    console.error('Failed to confirm group photo attendance:', error);
+    toast({
+      title: 'Error',
+      description: error?.response?.data?.message || 'No se pudo guardar la asistencia de la foto',
+      variant: 'destructive',
+    });
+  } finally {
+    groupPhotoConfirming.value = false;
   }
 };
 

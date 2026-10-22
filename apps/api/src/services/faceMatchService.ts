@@ -20,8 +20,8 @@ const TILE_H = 160;
 const LABEL_H = 28;
 const CELL_H = TILE_H + LABEL_H;
 const GROUP_PHOTO_MAX_SIDE = 3200;
-const CROP_MARGIN = 0.4;
-const CROP_MIN_SIDE = 160;
+const CROP_MARGIN = 0.3;
+const CROP_MIN_SIDE = 48;
 const CROP_OUT_MAX = 512;
 const GALLERY_CACHE_TTL_MS = 10 * 60 * 1000;
 
@@ -253,10 +253,12 @@ async function cropFace(photo: Buffer, width: number, height: number, box: FaceB
 	const by = (yMin / 1000) * height;
 	const bw = ((xMax - xMin) / 1000) * width;
 	const bh = ((yMax - yMin) / 1000) * height;
-	let w = Math.max(bw * (1 + 2 * CROP_MARGIN), CROP_MIN_SIDE);
-	let h = Math.max(bh * (1 + 2 * CROP_MARGIN), CROP_MIN_SIDE);
-	w = Math.min(w, width);
-	h = Math.min(h, height);
+	// Square and tight around the face: in a group photo faces are ~50 px apart, and a wider
+	// crop showed the neighbours too, so the reviewer could not tell which face was meant. The
+	// same crop may become the member's profile photo (D6), where a centred square fits.
+	const side = Math.max(Math.max(bw, bh) * (1 + 2 * CROP_MARGIN), CROP_MIN_SIDE);
+	const w = Math.min(side, width);
+	const h = Math.min(side, height);
 	let left = bx + bw / 2 - w / 2;
 	let top = by + bh / 2 - h / 2;
 	left = Math.max(0, Math.min(left, width - w));

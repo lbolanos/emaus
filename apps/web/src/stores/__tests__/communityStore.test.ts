@@ -27,6 +27,11 @@ vi.mock('@/services/api', () => ({
 	inviteCommunityAdmin: vi.fn(),
 	addCommunityAdmin: vi.fn(),
 	revokeCommunityAdmin: vi.fn(),
+	recordSingleCommunityAttendance: vi.fn(),
+	analyzeMeetingGroupPhoto: vi.fn(),
+	confirmMeetingFaceMatch: vi.fn(),
+	publishMeetingAlbum: vi.fn(),
+	unpublishMeetingAlbum: vi.fn(),
 }));
 
 // Mock @repo/ui useToast
@@ -333,6 +338,37 @@ describe('CommunityStore', () => {
 		it('setMeetingPhoto propaga el error de la API', async () => {
 			(api.setCommunityMeetingPhoto as any).mockRejectedValue(new Error('Boom'));
 			await expect(store.setMeetingPhoto('m-1', PHOTO_DATA)).rejects.toThrow('Boom');
+		});
+	});
+
+	describe('Group photo attendance', () => {
+		it('recordSingleAttendance passes the member name and returns the queued answer', async () => {
+			(api.recordSingleCommunityAttendance as any).mockResolvedValue({ id: 'a-1', queued: true });
+
+			const result = await store.recordSingleAttendance('c-1', 'm-1', 'mem-1', true, {
+				memberName: 'Ana López',
+			});
+
+			expect(api.recordSingleCommunityAttendance).toHaveBeenCalledWith('c-1', 'm-1', 'mem-1', true, {
+				memberName: 'Ana López',
+			});
+			expect(result.queued).toBe(true);
+		});
+
+		it('delegates the analysis, the confirmation and the album to the API', async () => {
+			(api.analyzeMeetingGroupPhoto as any).mockResolvedValue({ faces: [] });
+			(api.confirmMeetingFaceMatch as any).mockResolvedValue({ attendanceMarked: 1 });
+			(api.publishMeetingAlbum as any).mockResolvedValue({ albumToken: 'tok' });
+
+			await store.analyzeGroupPhoto('c-1', 'm-1', 'data:image/jpeg;base64,AA');
+			await store.confirmFaceMatch('c-1', 'm-1', { present: ['mem-1'] });
+			const published = await store.publishAlbum('c-1', 'm-1');
+			await store.unpublishAlbum('c-1', 'm-1');
+
+			expect(api.analyzeMeetingGroupPhoto).toHaveBeenCalledWith('c-1', 'm-1', 'data:image/jpeg;base64,AA');
+			expect(api.confirmMeetingFaceMatch).toHaveBeenCalledWith('c-1', 'm-1', { present: ['mem-1'] });
+			expect(published.albumToken).toBe('tok');
+			expect(api.unpublishMeetingAlbum).toHaveBeenCalledWith('c-1', 'm-1');
 		});
 	});
 });

@@ -82,3 +82,49 @@ export async function resizeImageToDataUrl(
 	// PNG en silencio, y un PNG sin comprimir de 512px puede superar el límite.
 	return canvas.toDataURL('image/jpeg', quality);
 }
+
+/**
+ * Longest side of the group-photo version sent for face analysis (specs/community-attendance-faces
+ * D1): faces in a group are small, so it is twice the cover's 1600. It is never stored.
+ */
+export const ANALYSIS_MAX_SIDE = 3200;
+
+/**
+ * Largest binary size of the analysis image. `express.json` takes 5 MB and base64 adds a
+ * third, so 3.4 MB of JPEG (about 4.5 MB encoded) is the ceiling.
+ */
+export const ANALYSIS_MAX_BYTES = 3.4 * 1024 * 1024;
+
+/** JPEG qualities tried in order until the image fits `ANALYSIS_MAX_BYTES`. */
+export const ANALYSIS_QUALITIES = [0.85, 0.7, 0.55] as const;
+
+/** Binary size of a base64 data URL, without decoding it. */
+export const dataUrlByteSize = (dataUrl: string): number => {
+	const comma = dataUrl.indexOf(',');
+	const base64 = comma === -1 ? dataUrl : dataUrl.slice(comma + 1);
+	const padding = base64.endsWith('==') ? 2 : base64.endsWith('=') ? 1 : 0;
+	return Math.floor((base64.length * 3) / 4) - padding;
+};
+
+/**
+ * 3200 px JPEG of the original for face analysis. Quality drops 0.85 → 0.7 → 0.55 until it is at
+ * most `ANALYSIS_MAX_BYTES`; the image is decoded and drawn once. Throws if even the lowest
+ * quality is too big, so the caller can skip the analysis without losing the cover upload.
+ */
+export async function resizeImageForAnalysis(file: File | Blob): Promise<string> {
+	const img = await loadImage(file);
+	const longest = Math.max(img.naturalWidth, img.naturalHeight);
+	const scale = longest > ANALYSIS_MAX_SIDE ? ANALYSIS_MAX_SIDE / longest : 1;
+	const canvas = document.createElement('canvas');
+	canvas.width = Math.max(1, Math.round(img.naturalWidth * scale));
+	canvas.height = Math.max(1, Math.round(img.naturalHeight * scale));
+	const ctx = canvas.getContext('2d');
+	if (!ctx) throw new Error('El navegador no soporta canvas');
+	ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+	for (const quality of ANALYSIS_QUALITIES) {
+		const dataUrl = canvas.toDataURL('image/jpeg', quality);
+		if (dataUrlByteSize(dataUrl) <= ANALYSIS_MAX_BYTES) return dataUrl;
+	}
+	throw new Error('La foto es demasiado pesada para analizarla');
+}

@@ -435,14 +435,40 @@ export const useCommunityStore = defineStore('community', () => {
 		meetingId: string,
 		memberId: string,
 		attended: boolean,
+		opts: { memberName?: string } = {},
 	) => {
 		try {
-			return await api.recordSingleCommunityAttendance(communityId, meetingId, memberId, attended);
+			// Answers `{ ..., queued: true }` when the write was queued without signal: the caller
+			// must not treat that as an error.
+			return await api.recordSingleCommunityAttendance(
+				communityId,
+				meetingId,
+				memberId,
+				attended,
+				opts,
+			);
 		} catch (err: any) {
 			error.value = err.message || 'Failed to record attendance';
 			throw err;
 		}
 	};
+
+	// Group photo, face match and public album (specs/community-attendance-faces). Plain
+	// passthroughs: the errors reach the caller, which decides what to tell the user.
+	const analyzeGroupPhoto = (communityId: string, meetingId: string, image: string) =>
+		api.analyzeMeetingGroupPhoto(communityId, meetingId, image);
+
+	const confirmFaceMatch = (
+		communityId: string,
+		meetingId: string,
+		input: api.FaceMatchConfirmInput,
+	) => api.confirmMeetingFaceMatch(communityId, meetingId, input);
+
+	const publishAlbum = (communityId: string, meetingId: string) =>
+		api.publishMeetingAlbum(communityId, meetingId);
+
+	const unpublishAlbum = (communityId: string, meetingId: string) =>
+		api.unpublishMeetingAlbum(communityId, meetingId);
 
 	const stats = ref<any>(null);
 
@@ -699,6 +725,10 @@ export const useCommunityStore = defineStore('community', () => {
 		fetchAttendance,
 		recordAttendance,
 		recordSingleAttendance,
+		analyzeGroupPhoto,
+		confirmFaceMatch,
+		publishAlbum,
+		unpublishAlbum,
 		fetchDashboardStats,
 		fetchAdmins,
 		fetchInvitationStatus,

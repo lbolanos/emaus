@@ -1,5 +1,10 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { resizeImageToDataUrl } from '../imageResize';
+import {
+	ANALYSIS_MAX_BYTES,
+	dataUrlByteSize,
+	resizeImageForAnalysis,
+	resizeImageToDataUrl,
+} from '../imageResize';
 
 /**
  * `resizeImageToDataUrl` es lo que hace que subir una foto desde el móvil no
@@ -177,5 +182,52 @@ describe('resizeImageToDataUrl', () => {
 		vi.stubGlobal('Image', BrokenImage as any);
 
 		await expect(resizeImageToDataUrl(blob())).rejects.toThrow('No se pudo leer la imagen');
+	});
+});
+
+describe('resizeImageForAnalysis', () => {
+	/** A data URL whose binary size is exactly `bytes` (multiples of 3 need no padding). */
+	const urlOfBytes = (bytes: number) => `data:image/jpeg;base64,${'A'.repeat((bytes * 4) / 3)}`;
+
+	it('measures the binary size of a data URL', () => {
+		expect(dataUrlByteSize('data:image/jpeg;base64,AAAA')).toBe(3);
+		expect(dataUrlByteSize('data:image/jpeg;base64,AAA=')).toBe(2);
+		expect(dataUrlByteSize('data:image/jpeg;base64,AA==')).toBe(1);
+	});
+
+	it('shrinks to 3200 px on the longest side and keeps quality 0.85 when it fits', async () => {
+		stubImage(6000, 4000);
+		fakeCanvas.toDataURL.mockReturnValue(urlOfBytes(999_999));
+		await resizeImageForAnalysis(blob());
+
+		expect(fakeCanvas.width).toBe(3200);
+		expect(fakeCanvas.height).toBe(2133);
+		expect(fakeCanvas.toDataURL).toHaveBeenCalledTimes(1);
+		expect(fakeCanvas.toDataURL).toHaveBeenCalledWith('image/jpeg', 0.85);
+	});
+
+	it('does not enlarge a smaller photo', async () => {
+		stubImage(1200, 800);
+		await resizeImageForAnalysis(blob());
+		expect(fakeCanvas.width).toBe(1200);
+	});
+
+	it('lowers quality 0.85 -> 0.7 -> 0.55 until it is at most 3.4 MB', async () => {
+		stubImage(6000, 4000);
+		const tooBig = urlOfBytes(Math.ceil(ANALYSIS_MAX_BYTES / 3) * 3 + 3);
+		fakeCanvas.toDataURL
+			.mockReturnValueOnce(tooBig)
+			.mockReturnValueOnce(tooBig)
+			.mockReturnValueOnce(urlOfBytes(2_000_001));
+		const result = await resizeImageForAnalysis(blob());
+
+		expect(fakeCanvas.toDataURL.mock.calls.map((c) => c[1])).toEqual([0.85, 0.7, 0.55]);
+		expect(dataUrlByteSize(result)).toBe(2_000_001);
+	});
+
+	it('throws when even the lowest quality is too big', async () => {
+		stubImage(6000, 4000);
+		fakeCanvas.toDataURL.mockReturnValue(urlOfBytes(Math.ceil(ANALYSIS_MAX_BYTES / 3) * 3 + 3));
+		await expect(resizeImageForAnalysis(blob())).rejects.toThrow(/demasiado pesada/);
 	});
 });

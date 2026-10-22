@@ -13,6 +13,10 @@ const mockDeleteMeeting = vi.fn();
 const mockCreateNextMeetingInstance = vi.fn();
 const mockSetMeetingPhoto = vi.fn();
 const mockDeleteMeetingPhoto = vi.fn();
+const mockPublishAlbum = vi.fn();
+const mockUnpublishAlbum = vi.fn();
+const mockPush = vi.fn();
+const mockResizeAnalysis = vi.fn();
 
 // El selector de archivos ya no es un <input> del template: se crea al vuelo
 // para que no lo rompan Safari (display:none) ni el hot-reload (referencia a
@@ -29,6 +33,7 @@ const mockResize = vi.fn();
 vi.mock('@/utils/imageResize', async (importOriginal) => ({
 	...(await importOriginal<typeof import('@/utils/imageResize')>()),
 	resizeImageToDataUrl: (...args: any[]) => mockResize(...args),
+	resizeImageForAnalysis: (...args: any[]) => mockResizeAnalysis(...args),
 }));
 
 vi.mock('@/stores/communityStore', () => ({
@@ -42,6 +47,8 @@ vi.mock('@/stores/communityStore', () => ({
 		createNextMeetingInstance: mockCreateNextMeetingInstance,
 		setMeetingPhoto: mockSetMeetingPhoto,
 		deleteMeetingPhoto: mockDeleteMeetingPhoto,
+		publishAlbum: mockPublishAlbum,
+		unpublishAlbum: mockUnpublishAlbum,
 	}),
 }));
 
@@ -49,7 +56,7 @@ vi.mock('@/stores/communityStore', () => ({
 const mockReplace = vi.fn();
 vi.mock('vue-router', () => ({
 	useRoute: () => ({ query: {} }),
-	useRouter: () => ({ replace: mockReplace }),
+	useRouter: () => ({ replace: mockReplace, push: mockPush }),
 }));
 
 // Stub child component pesado
@@ -145,6 +152,7 @@ vi.mock('@repo/ui', async () => {
 });
 
 import CommunityMeetingsView from '../CommunityMeetingsView.vue';
+import { takeGroupPhoto } from '@/composables/useMeetingPhotoUpload';
 
 const daysFromNow = (n: number) => {
 	const d = new Date();
@@ -506,5 +514,120 @@ describe('CommunityMeetingsView — meeting photo', () => {
 
 		expect(mockResize).not.toHaveBeenCalled();
 		expect(mockSetMeetingPhoto).not.toHaveBeenCalled();
+	});
+});
+
+describe('CommunityMeetingsView — face review and public album', () => {
+	const writeText = vi.fn();
+
+	beforeEach(() => {
+		mockMeetings.value = [];
+		mockCurrentCommunity.value = { id: 'comm-1', name: 'Test Community' };
+		mockSetMeetingPhoto.mockReset();
+		mockPublishAlbum.mockReset();
+		mockUnpublishAlbum.mockReset();
+		mockPickFile.mockReset();
+		mockResize.mockReset();
+		mockResizeAnalysis.mockReset();
+		mockPush.mockReset();
+		writeText.mockReset();
+		writeText.mockResolvedValue(undefined);
+		Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+		mockResize.mockResolvedValue('data:cover');
+		mockResizeAnalysis.mockResolvedValue('data:analysis');
+	});
+
+	const mountWithMeeting = async (overrides: Partial<any> = {}) => {
+		const meeting = baseMeeting({ title: 'Reunión', startDate: daysFromNow(5), photoUrl: null, ...overrides });
+		mockMeetings.value = [meeting];
+		const wrapper = factory();
+		await flushPromises();
+		await nextTick();
+		return { wrapper, meeting };
+	};
+
+	const pickPhoto = async (wrapper: any) => {
+		mockPickFile.mockResolvedValue(new File([new Uint8Array([1])], 'grupo.jpg', { type: 'image/jpeg' }));
+		await wrapper.find('button[aria-label="Subir foto"]').trigger('click');
+		await flushPromises();
+	};
+
+	it('with face recognition on, uploads the cover and takes the photo to the attendance view', async () => {
+		mockCurrentCommunity.value = { id: 'comm-1', name: 'Test Community', faceRecognitionEnabled: true };
+		const { wrapper, meeting } = await mountWithMeeting();
+		mockSetMeetingPhoto.mockResolvedValue({ ...meeting, photoUrl: 'https://x/cover.jpg' });
+
+		await pickPhoto(wrapper);
+
+		expect(mockSetMeetingPhoto).toHaveBeenCalledWith(meeting.id, 'data:cover');
+		expect(mockPush).toHaveBeenCalledWith({
+			name: 'community-attendance',
+			params: { id: 'comm-1', meetingId: meeting.id },
+		});
+		// The 3200 px version waits in memory for the attendance view.
+		expect(takeGroupPhoto('comm-1', meeting.id)?.image).toBe('data:analysis');
+	});
+
+	it('with face recognition off, uploads the cover and stays on the list', async () => {
+		const { wrapper, meeting } = await mountWithMeeting();
+		mockSetMeetingPhoto.mockResolvedValue({ ...meeting, photoUrl: 'https://x/cover.jpg' });
+
+		await pickPhoto(wrapper);
+
+		expect(mockSetMeetingPhoto).toHaveBeenCalledTimes(1);
+		expect(mockResizeAnalysis).not.toHaveBeenCalled();
+		expect(mockPush).not.toHaveBeenCalled();
+	});
+
+	it('does not leave the list when the cover upload fails', async () => {
+		mockCurrentCommunity.value = { id: 'comm-1', name: 'Test Community', faceRecognitionEnabled: true };
+		vi.spyOn(console, 'error').mockImplementation(() => {});
+		const { wrapper } = await mountWithMeeting();
+		mockSetMeetingPhoto.mockRejectedValue(new Error('boom'));
+
+		await pickPhoto(wrapper);
+
+		expect(mockPush).not.toHaveBeenCalled();
+	});
+
+	it('offers "Publicar álbum" only when the meeting has a photo', async () => {
+		const { wrapper } = await mountWithMeeting();
+		expect(wrapper.find('button[aria-label="Publicar álbum"]').exists()).toBe(false);
+	});
+
+	it('publishes the album and copies its link', async () => {
+		const { wrapper, meeting } = await mountWithMeeting({ photoUrl: 'https://x/cover.jpg' });
+		mockPublishAlbum.mockResolvedValue({ albumToken: 'abc123', albumPublishedAt: '2026-10-22T10:00:00Z' });
+
+		await wrapper.find('button[aria-label="Publicar álbum"]').trigger('click');
+		await flushPromises();
+
+		expect(mockPublishAlbum).toHaveBeenCalledWith('comm-1', meeting.id);
+		expect(writeText).toHaveBeenCalledWith(`${window.location.origin}/album/abc123`);
+		// Now published: the buttons switch to copy / unpublish.
+		expect(wrapper.find('button[aria-label="Publicar álbum"]').exists()).toBe(false);
+		expect(wrapper.find('button[aria-label="Copiar enlace del álbum"]').exists()).toBe(true);
+		expect(wrapper.find('button[aria-label="Despublicar álbum"]').exists()).toBe(true);
+	});
+
+	it('copies the link of an already published album without calling the server', async () => {
+		const { wrapper } = await mountWithMeeting({ photoUrl: 'https://x/cover.jpg', albumToken: 'tok999' });
+
+		await wrapper.find('button[aria-label="Copiar enlace del álbum"]').trigger('click');
+		await flushPromises();
+
+		expect(writeText).toHaveBeenCalledWith(`${window.location.origin}/album/tok999`);
+		expect(mockPublishAlbum).not.toHaveBeenCalled();
+	});
+
+	it('unpublishes the album and goes back to "Publicar álbum"', async () => {
+		const { wrapper, meeting } = await mountWithMeeting({ photoUrl: 'https://x/cover.jpg', albumToken: 'tok999' });
+		mockUnpublishAlbum.mockResolvedValue(undefined);
+
+		await wrapper.find('button[aria-label="Despublicar álbum"]').trigger('click');
+		await flushPromises();
+
+		expect(mockUnpublishAlbum).toHaveBeenCalledWith('comm-1', meeting.id);
+		expect(wrapper.find('button[aria-label="Publicar álbum"]').exists()).toBe(true);
 	});
 });

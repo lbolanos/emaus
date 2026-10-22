@@ -315,6 +315,7 @@ import {
 import { useToast } from '@repo/ui';
 import { pickFile } from '@/utils/filePicker';
 import { MAX_PHOTO_SOURCE_BYTES, PHOTO_MAX_SIDE, resizeImageToDataUrl } from '@/utils/imageResize';
+import { isFaceRecognitionEnabled, prepareAnalysisImage } from '@/composables/useMeetingPhotoUpload';
 import type { MeetingType, RecurrenceFrequency } from '@repo/types';
 import { MEETING_TYPES } from '@/constants/meetingTypes';
 import MeetingDateTimeForm from './forms/MeetingDateTimeForm.vue';
@@ -333,7 +334,9 @@ const props = defineProps<{
   meetingToEdit?: any;
 }>();
 
-const emit = defineEmits(['update:open', 'created', 'updated', 'deleted']);
+// `photo-saved`: a new cover was uploaded and face recognition is on; carries the 3200 px version
+// for the analysis. The parent decides where the review opens (it needs the attendance view).
+const emit = defineEmits(['update:open', 'created', 'updated', 'deleted', 'photo-saved']);
 
 const communityStore = useCommunityStore();
 const { toast } = useToast();
@@ -385,6 +388,8 @@ const errors = ref<Record<string, string>>({});
 //  - pendingPhotoRemove: marcar para borrar la foto existente al guardar.
 const photoPreview = ref<string>('');
 const pendingPhotoData = ref<string | null>(null);
+// The original file behind `pendingPhotoData`, kept to make the 3200 px analysis version on save.
+let pendingPhotoFile: File | null = null;
 const pendingPhotoRemove = ref(false);
 // True while the chosen photo is being shrunk: saving then would drop it silently.
 const isProcessingPhoto = ref(false);
@@ -414,6 +419,7 @@ const applyPhotoFile = async (file: File | null) => {
     const dataUrl = await resizeImageToDataUrl(file, { maxSide: PHOTO_MAX_SIDE });
     photoPreview.value = dataUrl;
     pendingPhotoData.value = dataUrl;
+    pendingPhotoFile = file;
     pendingPhotoRemove.value = false;
   } catch (error: any) {
     toast({ title: 'Error', description: error?.message || 'No se pudo leer la imagen', variant: 'destructive' });
@@ -425,6 +431,7 @@ const applyPhotoFile = async (file: File | null) => {
 const handleRemovePhoto = () => {
   photoPreview.value = '';
   pendingPhotoData.value = null;
+  pendingPhotoFile = null;
   // Solo hay que borrar en el server si la reunión ya tenía foto guardada.
   pendingPhotoRemove.value = !!editingMeeting.value?.photoUrl;
 };
@@ -587,11 +594,24 @@ watch(() => form.value.isAnnouncement, (newValue) => {
 // Sincroniza la foto tras guardar la reunión. La foto vive en un endpoint
 // aparte (necesita el id de la reunión, que al crear no existe hasta guardar).
 // Un fallo aquí no revierte la reunión ya guardada: se avisa sin romper el flujo.
-const syncMeetingPhoto = async (meetingId?: string) => {
-  if (!meetingId) return;
+const syncMeetingPhoto = async (
+  meetingId?: string,
+): Promise<{ meetingId: string; analysisImage: string } | null> => {
+  if (!meetingId) return null;
   try {
     if (pendingPhotoData.value) {
+      const file = pendingPhotoFile;
       await communityStore.setMeetingPhoto(meetingId, pendingPhotoData.value);
+      // A new cover with face recognition on is followed by the review of the faces (D1).
+      if (file && isFaceRecognitionEnabled(communityStore.currentCommunity)) {
+        const analysisImage = await prepareAnalysisImage(file);
+        if (analysisImage) return { meetingId, analysisImage };
+        toast({
+          title: 'No se pudo analizar la foto',
+          description: 'La foto se guardó; marca la asistencia a mano.',
+          variant: 'destructive',
+        });
+      }
     } else if (pendingPhotoRemove.value) {
       await communityStore.deleteMeetingPhoto(meetingId);
     }
@@ -603,6 +623,7 @@ const syncMeetingPhoto = async (meetingId?: string) => {
       variant: 'destructive',
     });
   }
+  return null;
 };
 
 const handleSubmit = async () => {
@@ -655,20 +676,22 @@ const handleSubmit = async () => {
         data,
         scope
       );
-      await syncMeetingPhoto(editingMeeting.value.id);
+      const photoReview = await syncMeetingPhoto(editingMeeting.value.id);
       toast({
         title: 'Reunión actualizada',
         description: 'La reunión ha sido actualizada exitosamente.',
       });
       emit('updated', editingMeeting.value.id);
+      if (photoReview) emit('photo-saved', photoReview);
     } else {
       const created = await communityStore.createMeeting(props.communityId, data);
-      await syncMeetingPhoto(created?.id);
+      const photoReview = await syncMeetingPhoto(created?.id);
       toast({
         title: 'Reunión creada',
         description: 'La reunión ha sido creada exitosamente.',
       });
       emit('created');
+      if (photoReview) emit('photo-saved', photoReview);
     }
     isSaving.value = false;
     handleClose();
@@ -733,6 +756,7 @@ const resetForm = () => {
   updateScope.value = 'this';
   photoPreview.value = '';
   pendingPhotoData.value = null;
+  pendingPhotoFile = null;
   pendingPhotoRemove.value = false;
 };
 
@@ -749,6 +773,7 @@ watch(() => props.meetingToEdit, (meeting) => {
     editingMeeting.value = meeting;
     photoPreview.value = meeting.photoUrl || '';
     pendingPhotoData.value = null;
+    pendingPhotoFile = null;
     pendingPhotoRemove.value = false;
     const startDate = new Date(meeting.startDate);
     const isRecurring = meeting.isRecurrenceTemplate === true;

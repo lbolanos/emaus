@@ -10,6 +10,7 @@ import { mount, flushPromises } from '@vue/test-utils';
 
 const createMeeting = vi.fn(async () => ({ id: 'new-meeting' }));
 const setMeetingPhoto = vi.fn(async () => ({}));
+const storeState = vi.hoisted(() => ({ community: null as any }));
 
 vi.mock('@/stores/communityStore', () => ({
 	useCommunityStore: () => ({
@@ -19,7 +20,9 @@ vi.mock('@/stores/communityStore', () => ({
 		deleteMeetingPhoto: vi.fn(),
 		deleteMeeting: vi.fn(),
 		fetchCommunity: vi.fn(),
-		currentCommunity: null,
+		get currentCommunity() {
+			return storeState.community;
+		},
 	}),
 }));
 
@@ -51,9 +54,11 @@ vi.mock('@/utils/filePicker', () => ({ pickFile: (...a: any[]) => mockPickFile(.
 
 // The real resize draws on a <canvas>, which happy-dom lacks.
 const mockResize = vi.fn();
+const mockResizeAnalysis = vi.fn();
 vi.mock('@/utils/imageResize', async (importOriginal) => ({
 	...(await importOriginal<typeof import('@/utils/imageResize')>()),
 	resizeImageToDataUrl: (...a: any[]) => mockResize(...a),
+	resizeImageForAnalysis: (...a: any[]) => mockResizeAnalysis(...a),
 }));
 
 import MeetingFormModal from '../MeetingFormModal.vue';
@@ -81,6 +86,8 @@ describe('MeetingFormModal — meeting photo', () => {
 		mockToast.mockReset();
 		mockPickFile.mockReset();
 		mockResize.mockReset();
+		mockResizeAnalysis.mockReset();
+		storeState.community = null;
 	});
 
 	it('shrinks the chosen photo to 1600px, blocks saving meanwhile, and uploads the shrunk version', async () => {
@@ -132,5 +139,64 @@ describe('MeetingFormModal — meeting photo', () => {
 		expect(mockToast).toHaveBeenCalledWith(
 			expect.objectContaining({ description: 'La imagen no puede exceder 30MB' }),
 		);
+	});
+
+	describe('face review after the cover (D1)', () => {
+		const saveWithPhoto = async () => {
+			mockResize.mockResolvedValue('data:cover');
+			mockResizeAnalysis.mockResolvedValue('data:analysis');
+			mockPickFile.mockResolvedValue(makeFile('grupo.jpg', 5 * MB));
+			const wrapper = factory();
+			await flushPromises();
+			wrapper.vm.form.title = 'Reunión con foto';
+			wrapper.vm.form.date = new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString().slice(0, 10);
+			wrapper.vm.form.time = '20:00';
+			await flushPromises();
+			await addPhotoButton(wrapper).trigger('click');
+			await flushPromises();
+			await wrapper.vm.handleSubmit();
+			await flushPromises();
+			return wrapper;
+		};
+
+		it('emits photo-saved with the 3200 px version when face recognition is on', async () => {
+			storeState.community = { id: 'comm-1', faceRecognitionEnabled: true };
+			const wrapper = await saveWithPhoto();
+
+			expect(setMeetingPhoto).toHaveBeenCalledWith('new-meeting', 'data:cover');
+			expect(wrapper.emitted('photo-saved')).toEqual([[{ meetingId: 'new-meeting', analysisImage: 'data:analysis' }]]);
+		});
+
+		it('only saves the cover when face recognition is off', async () => {
+			storeState.community = { id: 'comm-1', faceRecognitionEnabled: false };
+			const wrapper = await saveWithPhoto();
+
+			expect(setMeetingPhoto).toHaveBeenCalledTimes(1);
+			expect(mockResizeAnalysis).not.toHaveBeenCalled();
+			expect(wrapper.emitted('photo-saved')).toBeUndefined();
+		});
+
+		it('keeps the cover and warns when the analysis version cannot be made', async () => {
+			storeState.community = { id: 'comm-1', faceRecognitionEnabled: true };
+			vi.spyOn(console, 'error').mockImplementation(() => {});
+			mockResizeAnalysis.mockReset();
+			mockResize.mockResolvedValue('data:cover');
+			mockPickFile.mockResolvedValue(makeFile('grupo.jpg', 5 * MB));
+			mockResizeAnalysis.mockRejectedValue(new Error('too big'));
+			const wrapper = factory();
+			await flushPromises();
+			wrapper.vm.form.title = 'Reunión con foto';
+			wrapper.vm.form.date = new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString().slice(0, 10);
+			wrapper.vm.form.time = '20:00';
+			await flushPromises();
+			await addPhotoButton(wrapper).trigger('click');
+			await flushPromises();
+			await wrapper.vm.handleSubmit();
+			await flushPromises();
+
+			expect(setMeetingPhoto).toHaveBeenCalled();
+			expect(wrapper.emitted('photo-saved')).toBeUndefined();
+			expect(mockToast).toHaveBeenCalledWith(expect.objectContaining({ title: 'No se pudo analizar la foto' }));
+		});
 	});
 });

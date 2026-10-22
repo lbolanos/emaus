@@ -260,6 +260,11 @@ export interface EnqueueInput {
 	body: unknown;
 	key: string;
 	occurredAt: string;
+	/**
+	 * Label data the caller already knows (e.g. the member's name) for writes whose screens
+	 * keep no saved answers to look it up in. Stays on the device: it is not part of `body`.
+	 */
+	meta?: Partial<OutboxMeta>;
 }
 
 /**
@@ -291,7 +296,7 @@ export async function enqueue(input: EnqueueInput): Promise<{ op: OutboxOp; resp
 		attempts: 0,
 		lastError: null,
 		lastStatus: null,
-		meta,
+		meta: { ...meta, ...input.meta },
 	};
 	outbox.ops.push(op);
 	await persistOp(op);
