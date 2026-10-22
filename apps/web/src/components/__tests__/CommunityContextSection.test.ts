@@ -64,21 +64,21 @@ describe('CommunityContextSection', () => {
 		const stubs = wrapper.findAll('.menu-item-stub');
 		const routes = stubRoutes();
 		expect(routes).toEqual([
+			// Back link to the list, on top of the section.
+			'communities',
 			'community-dashboard',
 			'community-members',
 			'community-meetings',
 			'community-attendance-stats',
 			'community-admins',
 			'community-templates',
-			// Back link to the list, below a divider.
-			'communities',
 		]);
+		// The back link targets the list, without a community id.
+		expect(stubs[0].attributes('data-params')).not.toContain('"id"');
 		// Every sub-page item carries the community id as its route param.
-		for (const stub of stubs.slice(0, 6)) {
+		for (const stub of stubs.slice(1)) {
 			expect(stub.attributes('data-params')).toContain('"id":"community-1"');
 		}
-		// The back link targets the list, without a community id.
-		expect(stubs[6].attributes('data-params')).not.toContain('"id"');
 		// Outside the keyboard flow, like the favorites rows.
 		expect(stubs.every(s => s.attributes('data-index') === '-1')).toBe(true);
 	});

@@ -1,5 +1,16 @@
 <template>
   <div class="mt-1">
+    <!-- Way back to the community list, on top: the flat section is hidden
+         while in context, so without this item the list is unreachable from
+         the sidebar (only the in-page breadcrumb offers an exit). -->
+    <SidebarMenuItem
+      :item="backToListItem"
+      :is-collapsed-view="isCollapsedView"
+      :is-focused="false"
+      :global-index="-1"
+      :route-with-params="{ name: 'communities' }"
+    />
+
     <!-- Header: community name. Always expanded (no accordion), unlike the
          flat sections: it only shows up once you're inside the community, so
          collapsing it by default makes no sense. -->
@@ -31,17 +42,6 @@
         :is-focused="false"
         :global-index="-1"
         :route-with-params="{ name: item.routeName, params: { id: communityId } }"
-      />
-      <!-- Way back to the community list: the flat section is hidden while in
-           context, so without this item the list is unreachable from the
-           sidebar (only the in-page breadcrumb offers an exit). -->
-      <div class="mt-1 border-t border-gray-700" />
-      <SidebarMenuItem
-        :item="backToListItem"
-        :is-collapsed-view="isCollapsedView"
-        :is-focused="false"
-        :global-index="-1"
-        :route-with-params="{ name: 'communities' }"
       />
     </div>
   </div>
@@ -102,7 +102,7 @@ const items = computed<ContextMenuItem[]>(() => {
 	return base;
 });
 
-// Exit link below a divider: goes to the list, so it carries no community id.
+// Exit link above the header: goes to the list, so it carries no community id.
 const backToListItem = {
 	name: 'community-context-back-to-list',
 	routeName: 'communities',
