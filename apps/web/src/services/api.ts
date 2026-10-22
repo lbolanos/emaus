@@ -1575,16 +1575,6 @@ export async function getUpcomingBirthdays(
   return response.data;
 }
 
-export async function addCommunityMember(
-  communityId: string,
-  participantId: string,
-): Promise<CommunityMember> {
-  const response = await api.post(`/communities/${communityId}/members`, {
-    participantId,
-  });
-  return response.data;
-}
-
 /** Candidato a vínculo que devuelve el 409 EXISTING_PARTICIPANT_FOUND (identidad mínima, sin contacto). */
 export interface MemberCandidate {
   participantId: string;

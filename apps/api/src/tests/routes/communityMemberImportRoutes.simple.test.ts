@@ -121,6 +121,16 @@ describe('community import routes need access to the retreat', () => {
 		expect(mockImportFromRetreat).not.toHaveBeenCalled();
 	});
 
+	it('no longer adds a member by bare participantId (route removed 2026-10-22)', async () => {
+		// POST /:id/members took any participantId with no retreat or phone check, and
+		// nothing called it. Membership comes in through import, create or bulk only.
+		const res = await request(app)
+			.post(`/communities/${COMMUNITY}/members`)
+			.send({ participantId: PARTICIPANT });
+
+		expect(res.status).toBe(404);
+	});
+
 	it('rejects more than 1000 ids in one request', async () => {
 		const res = await request(app)
 			.post(`/communities/${COMMUNITY}/members/import`)

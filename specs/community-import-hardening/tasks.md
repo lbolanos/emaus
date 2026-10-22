@@ -82,6 +82,15 @@ Desviaciones:
   el log del API
 - [x] Desviaciones anotadas en este archivo
 
+### Después del cierre: `POST /communities/:id/members` eliminada
+
+El mismo hueco del import, en otra ruta: agregaba cualquier `participantId` sin validar retiro ni
+teléfono. Antes de borrarla se verificó que nadie la usa: ninguna pantalla llama
+`addCommunityMember` (solo existía en `api.ts`), los e2e solo hacen `GET`, y en prod hubo 0 `POST`
+a esa ruta en los 15 logs de nginx (~14 días). Como control, el mismo patrón sí encontró los
+`POST …/members/import` del día. Se borraron la ruta, el controlador y `addCommunityMember`;
+`communityService.addMember` sigue como helper interno. Guard: test de rutas que espera 404.
+
 ### Revisión de código del cierre
 
 Arreglado:

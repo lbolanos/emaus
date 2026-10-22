@@ -162,13 +162,6 @@ export class CommunityController {
 		res.json(birthdays);
 	}
 
-	static async addMember(req: Request, res: Response) {
-		const { id } = req.params;
-		const { participantId } = req.body;
-		const member = await communityService.addMember(id, participantId);
-		res.status(201).json(member);
-	}
-
 	/**
 	 * Alta manual de miembro con reconocimiento de persona existente (dos
 	 * fases — ver communityService.createCommunityMember). El 409 de fase 1

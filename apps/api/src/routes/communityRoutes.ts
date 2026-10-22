@@ -142,9 +142,6 @@ router.get(
 router.get('/:id/birthdays', requireCommunityAccess(), (req, res) =>
 	CommunityController.getUpcomingBirthdays(req, res),
 );
-router.post('/:id/members', requireCommunityAccess(), (req, res) =>
-	CommunityController.addMember(req, res),
-);
 // SECURITY: rate limit antes del handler — este endpoint responde 409 con
 // nombres de personas globales al matchear teléfono/email; sin limiter un
 // admin puede scriptear probes de enumeración. validateRequest: antes este
