@@ -143,7 +143,11 @@
     </div>
 
     <nav class="flex flex-col flex-1 min-h-0">
-      <div class="flex-1 px-2 py-1 space-y-0 overflow-y-auto min-h-0">
+      <!-- relative: the hidden native <select> that each reka-ui Select leaves (the retreat
+           picker) is placed against this scroller and clipped by it. Without a positioned
+           ancestor it is placed against <body> and stretches the page: double scrollbar on
+           desktop whenever the picker sits below the fold (troubleshooting #39). -->
+      <div class="relative flex-1 px-2 py-1 space-y-0 overflow-y-auto min-h-0">
 
         <!-- Favorites: pinned items, fixed at the top. Collapsible through
              its own uiStore flag (independent of the section accordion —

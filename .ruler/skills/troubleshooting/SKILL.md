@@ -1806,4 +1806,7 @@ ocultos se posicionan dentro y `<main>` los recorta. Verificar que `scrollHeight
 
 **Caso**: 2026-10-22, `CommunityMembersView.vue` (spec `community-attendance-faces`). Las otras seis
 vistas de comunidad no lo tenían: su `Select` vive en una barra `sticky` o en un contenedor
-posicionado.
+posicionado. Ese mismo día, en **todas** las páginas de escritorio: el selector de retiro de
+`Sidebar.vue` quedaba debajo del pliegue del sidebar y el documento medía 1028 px en una ventana de
+800. Fix: `relative` en el contenedor con `overflow-y-auto` del `<nav>`. La medición de arriba lo
+encuentra igual: el `<select>` con `offsetParent === document.body` estaba en el `<aside>`.
