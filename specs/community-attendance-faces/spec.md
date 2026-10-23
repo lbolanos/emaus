@@ -55,7 +55,7 @@ Esta spec cubre lo que sigue sobre esa base.
 | D8 | **Exclusión y borrado** | Un miembro excluido no entra a la galería, su recorte nunca se vuelve su foto, y se le puede marcar presente a mano o por voz. Como no hay índice de caras, el derecho de eliminación y quitar al miembro ya cubren todo con el borrado de foto que existe. |
 | D9 | **Asistencia sin señal** | El toque sin señal se guarda en el celular y se manda solo al volver la señal, con la cola que ya existe. La tarjeta muestra «pendiente» mientras tanto. Requiere haber abierto la pantalla con señal: en v1 la lista de miembros no se guarda para abrirla sin conexión. La asistencia con foto necesita señal. |
 | D10 | **Orden y filtros recordados** | Por comunidad y por dispositivo. Al volver a la pantalla aparecen como se dejaron. La búsqueda no se recuerda. |
-| D11 | **Quién entra a la galería** | Miembros con foto de perfil y no excluidos. Si pasan de **48**, entran los de asistencia más reciente (la evaluación se hizo con 36; con más se mide en M4 antes de subir el tope). |
+| D11 | **Quién entra a la galería** | Miembros con foto de perfil y no excluidos. Si pasan de **48**, entran los de asistencia más reciente. Medido el 2026-10-22: con 48 acierta 8–10 de 10 sin errores; con 96 baja a 5 de 10 y equivoca hasta 4, así que el tope no sube (detalle en `research.md`). |
 | D12 | **Si Gemini falla** | Saturación (`503`), cuota (`429`) o tiempo agotado: la revisión abre sin sugerencias, con un aviso, y la asistencia se marca a mano o por voz. Ningún fallo del motor bloquea subir la portada. |
 | D13 | **Álbum público: quién lo ve** (pedido y aprobado por Leonardo 2026-10-22, con D14 y D15) | Enlace **no listado** con token aleatorio (`/album/<token>`), `noindex`, para compartir por WhatsApp. Se publica por reunión (owner o admin) y se puede despublicar: el token deja de servir. Publica caras **con nombres** de personas: por eso no es automático. |
 | D14 | **Álbum: qué nombre se muestra** (aprobado) | Nombre de pila y primer apellido del nombre efectivo (`resolveMemberProfile`). Nunca correo, teléfono ni datos de la ficha. |
@@ -228,4 +228,4 @@ base copia desechable, fotos en la base porque `AVATAR_STORAGE` es `base64` en d
 | CA-8 | ✅ | Test API: `503` → degradado con la portada guardada; diálogo en modo degradado (tests web) |
 | CA-9 | ⏳ | Prueba de campo con una foto real de una reunión de Buen despacho, después del deploy |
 
-Pendiente además: la medición con galerías de 48 y 96 (D11), que espera cuota de Gemini.
+D11 medido el 2026-10-22 (galerías de 48 y 96): el tope de 48 se queda.

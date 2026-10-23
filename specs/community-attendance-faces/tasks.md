@@ -149,7 +149,8 @@
       recorte junto a la foto de perfil, «Sin identificar» con selector, «Agregar a mano», degradado;
       slot `voice` para M5
 - [x] Tests: post-proceso, confirm, diálogo con el endpoint mockeado. Web completo 3913/3913
-- [ ] Medición con galerías de 48 y 96 antes de fijar el tope de D11
+- [x] Medición con galerías de 48 y 96 antes de fijar el tope de D11 (2026-10-22): 48 → 8 y 10 de
+      10 sin errores; 96 → 5 de 10 y hasta 4 equivocados. El tope de 48 se queda (`research.md`)
 
 **Prueba de punta a punta (2026-10-22, dev del worktree, Gemini real)**: con
 `AI_FACE_MODEL=gemini-flash-lite-latest` (la cuota gratuita diaria de `gemini-3.5-flash` estaba
