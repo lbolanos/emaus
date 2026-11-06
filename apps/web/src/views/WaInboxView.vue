@@ -3,9 +3,10 @@ import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { storeToRefs } from 'pinia'
 import { MessageCircle, RefreshCw } from 'lucide-vue-next'
-import { Button } from '@repo/ui'
+import { Button, Switch } from '@repo/ui'
 import { useRetreatStore } from '@/stores/retreatStore'
 import { useAuthStore } from '@/stores/authStore'
+import { useAuthPermissions } from '@/composables/useAuthPermissions'
 import { useWaInboxStore } from '@/stores/waInboxStore'
 import WaLinkPanel from '@/components/wa/WaLinkPanel.vue'
 import WaLinkModal from '@/components/wa/WaLinkModal.vue'
@@ -21,8 +22,10 @@ import WaChatThread from '@/components/wa/WaChatThread.vue'
 const { t } = useI18n()
 const retreatStore = useRetreatStore()
 const authStore = useAuthStore()
+const { isSuperadmin } = useAuthPermissions()
 const store = useWaInboxStore()
-const { links, conversations, realtimeConnected, loadingConversations } = storeToRefs(store)
+const { links, conversations, realtimeConnected, loadingConversations, inboxEnabled } =
+  storeToRefs(store)
 
 const retreatId = computed(
   () => retreatStore.selectedRetreatId || retreatStore.mostRecentRetreat?.id || null,
@@ -64,6 +67,34 @@ function onUnlink(linkId: string) {
   if (!id) return
   void store.unlink(id, linkId)
 }
+
+async function onToggleEnabled(value: boolean | string | number) {
+  const id = retreatId.value
+  if (!id) return
+  await store.setEnabled(id, value === true).catch(() => {
+    // El estado real llega en el siguiente refetch del tablero.
+    void store.fetchLinks(id)
+  })
+}
+
+// Terminación en dos pasos: el primer click arma, el segundo ejecuta (D14).
+const terminateArmed = ref(false)
+let terminateArmTimer: ReturnType<typeof setTimeout> | null = null
+async function onTerminateAll() {
+  const id = retreatId.value
+  if (!id) return
+  if (!terminateArmed.value) {
+    terminateArmed.value = true
+    if (terminateArmTimer) clearTimeout(terminateArmTimer)
+    terminateArmTimer = setTimeout(() => {
+      terminateArmed.value = false
+    }, 4000)
+    return
+  }
+  terminateArmed.value = false
+  if (terminateArmTimer) clearTimeout(terminateArmTimer)
+  await store.terminateAll(id).catch(() => {})
+}
 </script>
 
 <template>
@@ -99,8 +130,37 @@ function onUnlink(linkId: string) {
     <WaLinkPanel
       :links="links"
       :current-user-id="myUserId"
+      :is-superadmin="isSuperadmin"
       @unlink="onUnlink"
     />
+
+    <!-- Activación por retiro (D13) y terminación de servidores (D14):
+         SOLO superadmin. El puente consume RAM por cuenta vinculada. -->
+    <div
+      v-if="isSuperadmin"
+      class="rounded-lg border p-3 flex flex-col sm:flex-row sm:items-center gap-3"
+      data-testid="wa-superadmin-controls"
+    >
+      <label class="flex items-center gap-2 text-sm">
+        <Switch
+          :model-value="inboxEnabled"
+          data-testid="wa-enabled-switch"
+          @update:model-value="onToggleEnabled"
+        />
+        <span>{{ t('waInbox.superadmin.activate') }}</span>
+      </label>
+      <span class="text-xs text-muted-foreground">{{ t('waInbox.superadmin.activateHint') }}</span>
+      <Button
+        v-if="links.length > 0"
+        variant="destructive"
+        size="sm"
+        class="sm:ml-auto"
+        data-testid="wa-terminate-all"
+        @click="onTerminateAll"
+      >
+        {{ terminateArmed ? t('waInbox.superadmin.terminateConfirm') : t('waInbox.superadmin.terminate') }}
+      </Button>
+    </div>
 
     <div class="grid grid-cols-1 lg:grid-cols-[340px_1fr] gap-4">
       <WaConversationList

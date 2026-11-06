@@ -12,6 +12,7 @@ import { WaBridgeController } from '../../controllers/waBridgeController';
 import { waBridgeService } from '../../services/waBridge';
 import { authorizationService } from '../../middleware/authorization';
 import { config } from '../../config';
+import { AppDataSource } from '../../data-source';
 
 const RETREAT_ID = '33333333-3333-4333-8333-333333333333';
 const LINK_ID = '55555555-5555-4555-8555-555555555555';
@@ -116,7 +117,16 @@ describe('waBridgeController', () => {
 	});
 
 	describe('listLinks', () => {
+		// listLinks consulta retreat.whatsappInboxEnabled (D13): mockear el repo
+		// del DataSource (el test no inicializa metadata).
+		const mockRetreatRepo = () => {
+			jest
+				.spyOn(AppDataSource, 'getRepository')
+				.mockReturnValue({ findOneBy: jest.fn().mockResolvedValue({ whatsappInboxEnabled: true }) } as any);
+		};
+
 		it('strippea linkedPhone ajeno, conserva el propio (S12)', async () => {
+			mockRetreatRepo();
 			jest.spyOn(authorizationService, 'hasRole').mockResolvedValue(false);
 			jest.spyOn(waBridgeService, 'listLinksForRetreat').mockResolvedValue([
 				link(),
@@ -126,12 +136,15 @@ describe('waBridgeController', () => {
 
 			await controller.listLinks(req(), r);
 
-			const links = (r.json.mock.calls[0][0] as { links: Array<Record<string, unknown>> }).links;
+			const body = r.json.mock.calls[0][0] as { links: Array<Record<string, unknown>>; enabled: boolean };
+			const links = body.links;
 			expect(links.find((l) => l.id === LINK_ID)?.linkedPhone).toBe('5512345678');
 			expect(links.find((l) => l.id === 'other')?.linkedPhone).toBeNull();
+			expect(body.enabled).toBe(true);
 		});
 
 		it('superadmin ve todos los teléfonos', async () => {
+			mockRetreatRepo();
 			jest.spyOn(authorizationService, 'hasRole').mockResolvedValue(true);
 			jest.spyOn(waBridgeService, 'listLinksForRetreat').mockResolvedValue([
 				link({ id: 'other', userId: 'user-2' }) as any,
@@ -220,6 +233,65 @@ describe('waBridgeController', () => {
 				r,
 			);
 			expect(r.status).toHaveBeenCalledWith(400);
+		});
+	});
+
+	describe('setEnabled / terminateAll — solo superadmin (D13/D14, v1.1)', () => {
+		it('403 al no-superadmin en setEnabled, sin tocar nada', async () => {
+			jest.spyOn(authorizationService, 'hasRole').mockResolvedValue(false);
+			const spy = jest.spyOn(waBridgeService, 'setEnabled');
+			const r = res();
+
+			await controller.setEnabled(req({ body: { enabled: true } }), r);
+
+			expect(r.status).toHaveBeenCalledWith(403);
+			expect(spy).not.toHaveBeenCalled();
+		});
+
+		it('400 con enabled no-boolean, aunque sea superadmin', async () => {
+			jest.spyOn(authorizationService, 'hasRole').mockResolvedValue(true);
+			const r = res();
+
+			await controller.setEnabled(req({ body: { enabled: 'sí' } }), r);
+
+			expect(r.status).toHaveBeenCalledWith(400);
+		});
+
+		it('superadmin activa y el servicio recibe el usuario actor', async () => {
+			jest.spyOn(authorizationService, 'hasRole').mockResolvedValue(true);
+			const spy = jest
+				.spyOn(waBridgeService, 'setEnabled')
+				.mockResolvedValue(undefined);
+			const r = res();
+
+			await controller.setEnabled(req({ body: { enabled: true } }), r);
+
+			expect(spy).toHaveBeenCalledWith(RETREAT_ID, true, expect.objectContaining({ id: 'user-1' }));
+			expect(r.json).toHaveBeenCalledWith({ ok: true, enabled: true });
+		});
+
+		it('403 al no-superadmin en terminate-all', async () => {
+			jest.spyOn(authorizationService, 'hasRole').mockResolvedValue(false);
+			const spy = jest.spyOn(waBridgeService, 'terminateAll');
+			const r = res();
+
+			await controller.terminateAll(req({ body: {} }), r);
+
+			expect(r.status).toHaveBeenCalledWith(403);
+			expect(spy).not.toHaveBeenCalled();
+		});
+
+		it('superadmin termina todo; default disable=true (D14)', async () => {
+			jest.spyOn(authorizationService, 'hasRole').mockResolvedValue(true);
+			const spy = jest
+				.spyOn(waBridgeService, 'terminateAll')
+				.mockResolvedValue({ terminated: 2 });
+			const r = res();
+
+			await controller.terminateAll(req({ body: {} }), r);
+
+			expect(spy).toHaveBeenCalledWith(RETREAT_ID, expect.anything(), { disable: true });
+			expect(r.json).toHaveBeenCalledWith({ ok: true, terminated: 2, disabled: true });
 		});
 	});
 });

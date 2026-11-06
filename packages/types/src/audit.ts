@@ -237,6 +237,9 @@ export const DomainAuditAction = {
 	WA_BRIDGE_PURGED: 'wa_bridge.purged',
 	WA_BRIDGE_SYNC_ERROR: 'wa_bridge.sync_error',
 	WA_BRIDGE_WINDOW_DENIED: 'wa_bridge.window_denied',
+	// Activación por retiro (v1.1 D13): solo el superadmin la mueve.
+	WA_BRIDGE_RETREAT_ENABLED: 'wa_bridge.retreat_enabled',
+	WA_BRIDGE_RETREAT_DISABLED: 'wa_bridge.retreat_disabled',
 } as const;
 
 export type DomainAuditActionType = (typeof DomainAuditAction)[keyof typeof DomainAuditAction];

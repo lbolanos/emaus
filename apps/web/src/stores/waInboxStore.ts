@@ -10,6 +10,8 @@ import {
   markWaChatSeen,
   startWaLink,
   unlinkWaLink,
+  setWaBridgeEnabled,
+  terminateWaBridgeAll,
   type WaLinkStatus,
 } from '@/services/api';
 
@@ -20,6 +22,8 @@ import {
  */
 export const useWaInboxStore = defineStore('waInbox', () => {
   const links = ref<WaLinkDto[]>([]);
+  /** Activación del retiro (D13) — viene en la respuesta de links. */
+  const inboxEnabled = ref(false);
   const conversations = ref<WaConversationDto[]>([]);
   const activeChatJid = ref<string | null>(null);
   const threadMessages = ref<WaInboxMessageDto[]>([]);
@@ -40,9 +44,34 @@ export const useWaInboxStore = defineStore('waInbox', () => {
     try {
       const data = await getWaLinks(retreatId);
       links.value = data.links ?? [];
+      inboxEnabled.value = data.enabled ?? false;
     } finally {
       loadingLinks.value = false;
     }
+  }
+
+  /** Activación por retiro — SOLO superadmin (D13). */
+  async function setEnabled(retreatId: string, enabled: boolean) {
+    await setWaBridgeEnabled(retreatId, enabled);
+    inboxEnabled.value = enabled;
+    if (!enabled) {
+      // Al apagar se terminan las sesiones: limpiar el tablero local.
+      links.value = [];
+      conversations.value = [];
+      threadMessages.value = [];
+      activeChatJid.value = null;
+    }
+  }
+
+  /** Terminar todos los servidores del puente — SOLO superadmin (D14). */
+  async function terminateAll(retreatId: string) {
+    const r = await terminateWaBridgeAll(retreatId, true);
+    links.value = [];
+    conversations.value = [];
+    threadMessages.value = [];
+    activeChatJid.value = null;
+    inboxEnabled.value = false;
+    return r.terminated;
   }
 
   async function fetchConversations(retreatId: string) {
@@ -140,6 +169,7 @@ export const useWaInboxStore = defineStore('waInbox', () => {
 
   return {
     links,
+    inboxEnabled,
     conversations,
     activeChatJid,
     activeConversation,
@@ -155,6 +185,8 @@ export const useWaInboxStore = defineStore('waInbox', () => {
     linkStatus,
     link,
     unlink,
+    setEnabled,
+    terminateAll,
     subscribeRealtime,
     reset,
   };

@@ -4612,6 +4612,13 @@
     "title": "WhatsApp del Retiro",
     "subtitle": "Mensajes que los caminantes envían a los teléfonos del equipo. Solo lectura.",
     "realtimeOn": "En vivo",
+    "notEnabled": "El superadmin no ha activado la bandeja de WhatsApp para este retiro.",
+    "superadmin": {
+      "activate": "Bandeja activada para este retiro",
+      "activateHint": "Solo el superadmin la enciende: consume memoria del servidor por cada teléfono vinculado.",
+      "terminate": "Terminar servidores",
+      "terminateConfirm": "¿Terminar todo? Clic otra vez"
+    },
     "realtimeOff": "Sin conexión en vivo",
     "refresh": "Actualizar",
     "loading": "Cargando…",

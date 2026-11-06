@@ -12,6 +12,8 @@ import type { WaLinkDto } from '@repo/types'
 defineProps<{
   links: WaLinkDto[]
   currentUserId: string | null
+  /** El superadmin puede desvincular cualquier vínculo (D14). */
+  isSuperadmin?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -64,7 +66,7 @@ const statusClass = (status: string): string => {
         <span v-if="waLink.lastError" class="text-xs text-red-600">{{ waLink.lastError }}</span>
       </div>
       <Button
-        v-if="currentUserId && waLink.userId === currentUserId"
+        v-if="currentUserId && (waLink.userId === currentUserId || isSuperadmin)"
         variant="outline"
         size="sm"
         @click="emit('unlink', waLink.id)"

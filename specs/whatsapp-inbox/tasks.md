@@ -96,6 +96,34 @@
       multimedia placeholder, gate de consentimiento del modal
 - [x] `pnpm --filter web build` verde (vue-tsc + vite)
 
+## M7 — Activación por retiro + terminar servidores (v1.1)
+
+- [x] Migración `20261108120000_AddRetreatWhatsappInboxEnabled`: ADD COLUMN guardado
+      (plantilla simple) + down con DROP COLUMN nativo; entidad `Retreat.whatsappInboxEnabled`
+- [x] Service: `canLink` rechaza `not_enabled`; respawn y poller saltan retiros apagados;
+      teardown extraído (`teardownLink`) y reutilizado; `setEnabled` (apagar = terminar todo)
+      y `terminateAll` con audit + emitInboxChanged
+- [x] Endpoints `PATCH /retreat/:id/enabled` y `POST /retreat/:id/terminate-all` — superadmin
+      via `hasRole` (403 al resto); tablero devuelve `enabled`
+- [x] UI: switch + "Terminar servidores" (confirmación en dos pasos) solo para superadmin;
+      Desvincular ajeno para superadmin en el tablero; locales es+en
+- [x] Tests: migración 3, controller +5 (403/400/OK) — 61 verdes; build web verde;
+      verificado en vivo: switch → PATCH → activado, tablero con 2 vínculos
+
+## M8 — Comprobantes de pago desde WhatsApp (v1.1, BLOQUEADO)
+
+- [ ] **Dependencia**: merge de `specs/payment-receipt-photo` (otra sesión/worktree:
+      `Payment.receiptUrl/receiptS3Key` + `receiptPhoto` en POST/PUT /payments + modal con
+      Adjuntar). No existe en esta base — implementarlo aquí duplicaría ese trabajo
+- [ ] Diseño acordado (aplicar tras el merge): endpoint
+      `POST /wa-bridge/messages/:id/receipt-data-url` — valida permisos
+      (`whatsappInbox:read` + `payment:create`), descarga on-demand con
+      `wacli media download --chat --id --output` (tope de tamaño), reusa
+      `imageService.processPhoto` (WebP 1600px) y devuelve data-URL + participante;
+      `PaymentManagement` expone `openPaymentForWithReceipt(participantId, dataUrl)`
+      (molde `openPaymentFor`, defineExpose existente); botón en `WaChatThread` para
+      `messageType='image'` solo si el usuario tiene `payment:create`
+
 ## M5bis — Video-demo (`record-wa-inbox.mjs`)
 
 - [x] Escenario: San Agustín con fechas movidas (ventana abierta), 7 mensajes de
@@ -107,7 +135,9 @@
       5500. Verificada por frames (intro/sidebar/tablero/lista/hilo/responder/
       consentimiento/QR/conectado/ciclo/outro) y volumen (-18.3 dB)
 - [x] mp4 en `~/Desktop/WhatsApp-del-Retiro-demo.mp4` + `.meta.json` con capítulos
-      (subida a YouTube SOLO con OK de Leo — regla de siempre)
+      (subida a YouTube SOLO con OK de Leo — regla de siempre) — **v1.1 regrabado
+      (1:37, 14 beats)**: scroll del sidebar para ver el ítem (feedback de Leo),
+      beat del switch de activación por retiro, controles D13/D14 visibles
 - Trampas nuevas anotadas: el `--max-messages` del supervisor matchea el case
   `*"messages"*` de un fake-shell (ordenar los cases con anclas de palabra); el
   testid de `DialogContent` de reka-ui no se props-forward (anclar en un hijo);

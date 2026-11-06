@@ -4982,8 +4982,28 @@ export const startWaLink = async (
   return r.data;
 };
 
-export const getWaLinks = async (retreatId: string): Promise<{ links: WaLinkDto[] }> => {
+export const getWaLinks = async (
+  retreatId: string,
+): Promise<{ links: WaLinkDto[]; enabled: boolean }> => {
   const r = await api.get(`/wa-bridge/retreat/${retreatId}/links`);
+  return r.data;
+};
+
+/** Activación por retiro — SOLO superadmin (D13, specs/whatsapp-inbox v1.1). */
+export const setWaBridgeEnabled = async (
+  retreatId: string,
+  enabled: boolean,
+): Promise<{ ok: boolean; enabled: boolean }> => {
+  const r = await api.patch(`/wa-bridge/retreat/${retreatId}/enabled`, { enabled });
+  return r.data;
+};
+
+/** Terminar todos los servidores del puente del retiro — SOLO superadmin (D14). */
+export const terminateWaBridgeAll = async (
+  retreatId: string,
+  disable = true,
+): Promise<{ ok: boolean; terminated: number; disabled: boolean }> => {
+  const r = await api.post(`/wa-bridge/retreat/${retreatId}/terminate-all`, { disable });
   return r.data;
 };
 

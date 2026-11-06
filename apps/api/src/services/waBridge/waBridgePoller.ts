@@ -1,5 +1,6 @@
 import { AppDataSource } from '../../data-source';
 import { config } from '../../config';
+import { Retreat } from '../../entities/retreat.entity';
 import { WhatsappBridgeLink } from '../../entities/whatsappBridgeLink.entity';
 import { WhatsappInboxMessage } from '../../entities/whatsappInboxMessage.entity';
 import { domainAuditService } from '../domainAuditService';
@@ -109,7 +110,17 @@ export class WaBridgePoller {
 			const links = await AppDataSource.getRepository(WhatsappBridgeLink).find({
 				where: { status: 'connected' },
 			});
+			// Solo retiros con la bandeja activada por el superadmin (D13).
+			let enabledRetreatIds: Set<string> | null = null;
+			if (links.length > 0) {
+				const retreatIds = Array.from(new Set(links.map((l) => l.retreatId)));
+				const retreats = await AppDataSource.getRepository(Retreat).findByIds(retreatIds);
+				enabledRetreatIds = new Set(
+					retreats.filter((r) => r.whatsappInboxEnabled).map((r) => r.id),
+				);
+			}
 			for (const link of links) {
+				if (enabledRetreatIds && !enabledRetreatIds.has(link.retreatId)) continue;
 				try {
 					await this.pollLink(link);
 				} catch (err) {

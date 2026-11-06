@@ -36,6 +36,7 @@ export interface WaLinkDto {
 /** Motivos tipados de rechazo de vinculación (UI muestra mensaje por caso). */
 export type WaLinkRefusalReason =
 	| 'disabled'
+	| 'not_enabled'
 	| 'outside_window'
 	| 'cap_reached'
 	| 'already_linked';

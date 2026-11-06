@@ -40,6 +40,7 @@ const OVERLAY = OVERLAY_INIT.replace('✝ Emaús · Tareas Pre-Retiro', '✝ Ema
 const LINES = [
   { id: 'intro', text: 'Este es el WhatsApp del Retiro: los mensajes que los caminantes mandan al equipo, en un solo lugar.' },
   { id: 'donde', text: 'Vive en el menú Comunicaciones: WhatsApp del Retiro.' },
+  { id: 'activa', text: 'La activa el superadmin, retiro por retiro: consume memoria por cada teléfono conectado.' },
   { id: 'consolidada', text: 'Es de solo lectura y consolidada: lo que llega a cualquier teléfono del equipo, lo ve todo el equipo.' },
   { id: 'enlaces', text: 'Cada logístico vincula su WhatsApp escaneando un código. Arriba ves quién está conectado.' },
   { id: 'conversaciones', text: 'Aquí aparecen las conversaciones de los caminantes, con su nombre y lo que no has leído.' },
@@ -54,7 +55,8 @@ const LINES = [
 ];
 
 const CHAPTER_LABELS = {
-  intro: 'Intro', donde: 'Dónde vive', consolidada: 'Solo lectura y consolidada',
+  intro: 'Intro', donde: 'Dónde vive', activa: 'Se activa por retiro',
+  consolidada: 'Solo lectura y consolidada',
   enlaces: 'Teléfonos vinculados', conversaciones: 'Conversaciones', hilo: 'Abrir un chat',
   leer: 'Leído sin visto azul', responder: 'Responder desde mi WhatsApp',
   vincular: 'Vincular: aviso y consentimiento', qr: 'Escanear el QR',
@@ -145,6 +147,10 @@ async function main() {
     await expandSection(page, 'Comunicaciones');
     const item = page.getByRole('link', { name: 'WhatsApp del Retiro', exact: true });
     await item.waitFor({ state: 'attached', timeout: 6000 });
+    // La sección Comunicaciones queda debajo del pliegue del sidebar (la nav
+    // es scrollable): bajarla a la vista ANTES de calcular el cue.
+    await item.scrollIntoViewIfNeeded();
+    await sleep(page, 400);
     const box = await item.boundingBox();
     if (box) await nar.cueAt(box.x + box.width / 2, box.y + box.height / 2);
     await sleep(page, 500);
@@ -154,6 +160,17 @@ async function main() {
     await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => {});
     await nar.clearCue();
     await sleep(page, 800);
+
+    // ── activa (switch del superadmin, D13) ──
+    const controls = page.locator('[data-testid="wa-superadmin-controls"]');
+    const sw = page.locator('[data-testid="wa-enabled-switch"]');
+    if (await controls.count()) {
+      const cbox = await controls.boundingBox();
+      if (cbox) await nar.cueAt(cbox.x + 60, cbox.y + cbox.height / 2);
+      await sleep(page, 400);
+    }
+    await nar.say(clips.activa);
+    await nar.clearCue();
 
     // ── consolidada + enlaces (tablero arriba) ──
     await page.evaluate(() => window.scrollTo({ top: 0 }));

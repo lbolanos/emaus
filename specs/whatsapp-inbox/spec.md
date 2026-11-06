@@ -2,7 +2,9 @@
 
 > SDD spec — versión 1.0 (2026-11-05), decisiones confirmadas por Leo el 2026-11-05
 > (D3 consolidada, D7 con voluntariedad, D9 multimedia pospuesta, D12 tope 2 en prod);
-> pendiente de implementación.
+> **v1.1 (2026-11-06)**: D13 activación por retiro solo-superadmin, D14 terminar
+> servidores del puente, y comprobantes→pagos diseñado (depende del merge de
+> `payment-receipt-photo`). Implementada hasta M7 + video.
 > Artefactos hermanos: [research.md](research.md) (estado actual y verificaciones),
 > [plan.md](plan.md) (diseño técnico), [tasks.md](tasks.md) (milestones).
 
@@ -39,6 +41,9 @@ equipo autorizado, solo durante la ventana del retiro.
 | D10 | Responder = **deep link desde el teléfono propio del staff** (`buildWhatsAppChatLink`), nunca desde el puente | El envío por el puente contradiría D1 y dispara el baneo. Cada quien responde desde su número, como lo hacen hoy |
 | D11 | Badges de no-leído **por usuario** en la app (`read_state` por usuario/chat); el puente no marca "visto" en WhatsApp (presence quiet) | La lectura de otro staff no debe ensuciar la bandeja ajena ni mentirle al caminante con un visto que nadie leyó |
 | D12 | Tope duro de sesiones simultáneas por env (`WA_BRIDGE_MAX_SESSIONS`, default 3 en código, **2 en prod al inicio**) | Presupuesto de RAM del servidor medido 2026-11-05: 914 MB con ~323 libres; 2 sesiones ≈ 80 MB. Subir el tope solo tras medir 48 h |
+| D13 | **Activación POR RETIRO, solo superadmin** (v1.1): nueva bandera `retreat.whatsappInboxEnabled`; sin ella nadie vincula, no se respawnea ningún hijo y el poller ignora el retiro | Decisión de Leo (2026-11-06): el puente consume RAM por cuenta vinculada — decidir qué retiro paga ese costo es del superadmin, no un permiso de plantilla |
+| D14 | **El superadmin termina los servidores del puente** (v1.1): desvinculación forzada de cualquier vínculo (ya existía) + "terminar todo" del retiro (stop + logout + wipe + purga + desactivación) | Decisión de Leo (2026-11-06): los stores son llaves de sesión de cuentas personales; un retiro apagado no puede dejar sesiones vivas |
+| D15 | **Comprobantes de pago desde WhatsApp** (v1.1, DISEÑADO — bloqueado): los mensajes con imagen ofrecen "Registrar como pago"; la media se descarga bajo demanda (`wacli media download`, tope) y se entrega como data-URL al modal de pago existente. **DEPENDENCIA**: `specs/payment-receipt-photo` (otra sesión, sin merge) — `Payment.receiptUrl` + `receiptPhoto` no existen aún en esta base | Decisión de Leo (2026-11-06). No descargar media masivamente (D9 sigue); solo bajo demanda, porque el servidor tiene 1 GB |
 
 ## Historias de usuario
 
@@ -83,6 +88,16 @@ equipo autorizado, solo durante la ventana del retiro.
   (vincular/desvincular la propia cuenta), otorgados a superadmin, admin, logistics y
   communications; rutas y sala de socket protegidas por ambos niveles (permiso + acceso al
   retiro).
+- **FR12 (v1.1)**: Activación por retiro: `PATCH /wa-bridge/retreat/:id/enabled` — solo
+  superadmin; sin activación: vinculación rechazada (`not_enabled`), sin respawn ni
+  ingesta. Switch en la bandeja visible solo para superadmin; auditado.
+- **FR13 (v1.1)**: Terminar servidores: `POST /wa-bridge/retreat/:id/terminate-all`
+  (solo superadmin) — stop + logout + wipe + purga de todos los vínculos del retiro y
+  desactivación; auditado por vínculo. El superadmin también puede desvincular cualquier
+  vínculo individual desde el tablero.
+- **FR14 (v1.1, bloqueado)**: Comprobantes: botón "Registrar como pago" en mensajes con
+  imagen → descarga bajo demanda → data-URL al modal de pago existente
+  (`receiptPhoto`). Espera el merge de `payment-receipt-photo`.
 
 ## Criterios de aceptación
 

@@ -4290,6 +4290,13 @@
     "title": "Retreat WhatsApp",
     "subtitle": "Messages walkers send to the team's phones. Read-only.",
     "realtimeOn": "Live",
+    "notEnabled": "The superadmin has not enabled the WhatsApp inbox for this retreat.",
+    "superadmin": {
+      "activate": "Inbox enabled for this retreat",
+      "activateHint": "Only the superadmin turns this on: it costs server memory per linked phone.",
+      "terminate": "Terminate servers",
+      "terminateConfirm": "Terminate everything? Click again"
+    },
     "realtimeOff": "No live connection",
     "refresh": "Refresh",
     "loading": "Loading…",

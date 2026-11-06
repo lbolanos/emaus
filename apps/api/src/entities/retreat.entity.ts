@@ -206,6 +206,15 @@ export class Retreat {
 	@Column({ type: 'boolean', default: false })
 	santisimoEnabled!: boolean;
 
+	/**
+	 * Bandeja WhatsApp de solo lectura activada para ESTE retiro
+	 * (specs/whatsapp-inbox v1.1, D13). Solo el superadmin la enciende: el
+	 * puente consume RAM (~40 MB por cuenta vinculada). Sin esta bandera nadie
+	 * puede vincular y no se respawnea ningún hijo.
+	 */
+	@Column({ type: 'boolean', default: false })
+	whatsappInboxEnabled!: boolean;
+
 	@Column({ type: 'varchar', length: 64, nullable: true })
 	timezone?: string | null;
 

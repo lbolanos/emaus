@@ -12,8 +12,10 @@ import {
 	toNationalPhone,
 	DomainAuditAction,
 	PHONE_CALLING_CODE_BY_COUNTRY,
+	type WaLinkRefusalReason,
 } from '@repo/types';
 import { resolveSafeTimeZone } from '../../utils/date.transformer';
+import { emitInboxChanged } from '../../realtime';
 import {
 	WaBridgeSupervisor,
 	type WaSupervisorEvent,
@@ -98,7 +100,8 @@ export function acceptedJidDigitVariants(national: string, country: string): str
 	return code === '52' ? [base, `${code}1${national}`] : [base];
 }
 
-export type WaLinkRefusalReason = 'disabled' | 'outside_window' | 'cap_reached' | 'already_linked';
+// La unión de motivos vive en @repo/types (waBridge.ts) — una sola fuente.
+export type { WaLinkRefusalReason };
 
 export type WaLinkStartResult =
 	| { ok: true; link: WhatsappBridgeLink }
@@ -138,6 +141,9 @@ export class WaBridgeService {
 		if (!config.waBridge.enabled) return 'disabled';
 		const found = await this.getWindowForRetreat(retreatId);
 		if (!found) return 'outside_window';
+		// Activación por retiro (D13): solo el superadmin la enciende; consume
+		// RAM por cada cuenta vinculada.
+		if (!found.retreat.whatsappInboxEnabled) return 'not_enabled';
 		if (!found.window.canLink) return 'outside_window';
 
 		const activeCount = await this.linkRepo.count({
@@ -306,6 +312,18 @@ export class WaBridgeService {
 
 	/** Desvinculación total: logout + rm del store + DELETE (cascade limpia todo). */
 	async unlink(user: User, link: WhatsappBridgeLink): Promise<void> {
+		await this.teardownLink(link, { actorUserId: user.id, system: false });
+	}
+
+	/**
+	 * Teardown común de un vínculo (unlink del dueño, terminación del
+	 * superadmin y retención): stop del supervisor, logout best-effort, rm del
+	 * store y DELETE (el CASCADE borra mensajes y read-state).
+	 */
+	private async teardownLink(
+		link: WhatsappBridgeLink,
+		opts: { actorUserId?: string | null; system: boolean },
+	): Promise<void> {
 		await this.stopSupervisorById(link.id);
 		try {
 			await wacliLogout(link.storePath);
@@ -322,9 +340,65 @@ export class WaBridgeService {
 			resourceType: 'whatsapp_bridge_link',
 			resourceId: link.id,
 			retreatId: link.retreatId,
-			actorUserId: user.id,
+			actorUserId: opts.actorUserId ?? null,
+			metadata: { system: opts.system },
+		});
+	}
+
+	/**
+	 * Activación por retiro (D13): solo superadmin (lo valida el controller).
+	 * Al apagar se TERMINAN todos los vínculos del retiro (D14): los stores son
+	 * llaves de sesión de cuentas personales — un retiro apagado no puede
+	 * dejar sesiones vivas.
+	 */
+	async setEnabled(retreatId: string, enabled: boolean, actor: User): Promise<void> {
+		if (!enabled) {
+			await this.terminateAll(retreatId, actor, { disable: false });
+		}
+		const repo = AppDataSource.getRepository(Retreat);
+		const retreat = await repo.findOneByOrFail({ id: retreatId });
+		retreat.whatsappInboxEnabled = enabled;
+		await repo.save(retreat);
+
+		void domainAuditService.log({
+			action: enabled
+				? DomainAuditAction.WA_BRIDGE_RETREAT_ENABLED
+				: DomainAuditAction.WA_BRIDGE_RETREAT_DISABLED,
+			resourceType: 'retreat',
+			resourceId: retreatId,
+			retreatId,
+			actorUserId: actor.id,
 			metadata: { system: false },
 		});
+		emitInboxChanged({ retreatId, newCount: 0 });
+	}
+
+	/** Termina TODOS los servidores del puente de un retiro (D14, superadmin). */
+	async terminateAll(
+		retreatId: string,
+		actor: User,
+		opts: { disable: boolean } = { disable: true },
+	): Promise<{ terminated: number }> {
+		const links = await this.linkRepo.find({ where: { retreatId } });
+		for (const link of links) {
+			await this.teardownLink(link, { actorUserId: actor.id, system: true });
+		}
+		if (opts.disable) {
+			const repo = AppDataSource.getRepository(Retreat);
+			const retreat = await repo.findOneByOrFail({ id: retreatId });
+			retreat.whatsappInboxEnabled = false;
+			await repo.save(retreat);
+			void domainAuditService.log({
+				action: DomainAuditAction.WA_BRIDGE_RETREAT_DISABLED,
+				resourceType: 'retreat',
+				resourceId: retreatId,
+				retreatId,
+				actorUserId: actor.id,
+				metadata: { system: true, terminatedLinks: links.length },
+			});
+		}
+		emitInboxChanged({ retreatId, newCount: 0 });
+		return { terminated: links.length };
 	}
 
 	/**
@@ -405,6 +479,8 @@ export class WaBridgeService {
 		for (const link of links) {
 			const retreat = await AppDataSource.getRepository(Retreat).findOneBy({ id: link.retreatId });
 			if (!retreat) continue;
+			// Sin activación del superadmin, ningún hijo se levanta (D13).
+			if (!retreat.whatsappInboxEnabled) continue;
 			const tz = resolveSafeTimeZone(retreat.timezone);
 			const window = computeLinkWindow(retreat, this.todayCivil(tz));
 			if (!window.syncAllowed) continue;

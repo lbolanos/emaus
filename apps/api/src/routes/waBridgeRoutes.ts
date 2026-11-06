@@ -42,6 +42,20 @@ router.post(
 	requireRetreatAccess('retreatId'),
 	controller.startLink,
 );
+// Activación por retiro y terminación de servidores: SOLO superadmin
+// (validación de rol dentro del controller; D13/D14 de specs/whatsapp-inbox v1.1).
+router.patch(
+	'/retreat/:retreatId/enabled',
+	requirePermission('whatsappInbox:manage'),
+	requireRetreatAccess('retreatId'),
+	controller.setEnabled,
+);
+router.post(
+	'/retreat/:retreatId/terminate-all',
+	requirePermission('whatsappInbox:manage'),
+	requireRetreatAccess('retreatId'),
+	controller.terminateAll,
+);
 router.get(
 	'/link/:linkId/status',
 	requirePermission('whatsappInbox:manage'),

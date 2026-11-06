@@ -2,6 +2,7 @@ import type { Request, Response } from 'express';
 import { AppDataSource } from '../data-source';
 import { config } from '../config';
 import { Participant } from '../entities/participant.entity';
+import { Retreat } from '../entities/retreat.entity';
 import { RetreatParticipant } from '../entities/retreatParticipant.entity';
 import { User } from '../entities/user.entity';
 import { WhatsappBridgeLink } from '../entities/whatsappBridgeLink.entity';
@@ -32,6 +33,7 @@ const REFUSAL_HTTP: Record<string, number> = {
 	already_linked: 409,
 	cap_reached: 409,
 	outside_window: 422,
+	not_enabled: 422,
 	disabled: 503,
 };
 
@@ -42,6 +44,8 @@ const REFUSAL_MESSAGE: Record<string, string> = {
 		'Ya hay el máximo de sesiones vinculadas. Pide a otro compañero que se desvincule o contacta al administrador.',
 	outside_window:
 		'La vinculación solo está disponible durante la ventana del retiro (una semana antes del inicio y hasta el último día).',
+	not_enabled:
+		'El superadmin no ha activado la bandeja de WhatsApp para este retiro.',
 	disabled: 'La bandeja de WhatsApp está desactivada por el administrador.',
 };
 
@@ -96,10 +100,16 @@ export class WaBridgeController {
 		const userId = currentUser(req).id;
 		const superadmin = await authorizationService.hasRole(userId, 'superadmin');
 		const links = await waBridgeService.listLinksForRetreat(req.params.retreatId);
+		// Estado de activación del retiro (D13): el switch del superadmin se
+		// pinta con este dato.
+		const retreat = await AppDataSource.getRepository(Retreat).findOneBy({
+			id: req.params.retreatId,
+		});
 		return res.json({
 			links: links.map((link) =>
 				toLinkDto(link as WhatsappBridgeLink, superadmin || link.userId === userId),
 			),
+			enabled: retreat?.whatsappInboxEnabled ?? false,
 		});
 	}
 
@@ -299,4 +309,41 @@ export class WaBridgeController {
 		await stateRepo.save(created);
 		return res.json({ ok: true, lastSeen: created.lastSeenMessageTimestamp });
 	}
+
+	/**
+	 * PATCH /retreat/:retreatId/enabled — activación por retiro (D13, v1.1).
+	 * SOLO superadmin: el puente consume RAM por cada cuenta vinculada; decidir
+	 * en qué retiro se enciende no es un permiso de plantilla.
+	 */
+	setEnabled = async (req: Request, res: Response): Promise<Response> => {
+		const user = currentUser(req);
+		if (!(await authorizationService.hasRole(user.id, 'superadmin'))) {
+			return res.status(403).json({
+				message: 'Solo el superadmin puede activar o desactivar la bandeja de un retiro.',
+			});
+		}
+		const enabled = req.body?.enabled;
+		if (typeof enabled !== 'boolean') {
+			return res.status(400).json({ message: 'enabled debe ser boolean' });
+		}
+		await waBridgeService.setEnabled(req.params.retreatId, enabled, user);
+		return res.json({ ok: true, enabled });
+	};
+
+	/**
+	 * POST /retreat/:retreatId/terminate-all — termina TODOS los servidores del
+	 * puente del retiro (D14, superadmin): stop + logout + wipe + purga de
+	 * vínculos; opcionalmente desactiva el retiro (default true).
+	 */
+	terminateAll = async (req: Request, res: Response): Promise<Response> => {
+		const user = currentUser(req);
+		if (!(await authorizationService.hasRole(user.id, 'superadmin'))) {
+			return res.status(403).json({
+				message: 'Solo el superadmin puede terminar los servidores del puente.',
+			});
+		}
+		const disable = req.body?.disable !== false;
+		const result = await waBridgeService.terminateAll(req.params.retreatId, user, { disable });
+		return res.json({ ok: true, terminated: result.terminated, disabled: disable });
+	};
 }
