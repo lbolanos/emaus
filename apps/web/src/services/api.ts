@@ -5012,7 +5012,11 @@ export const lettersApi = {
     retreatId: string,
     retreatParticipantId: string,
     mailboxEnabled: boolean,
-  ): Promise<{ mailboxCode: string | null; mailboxEnabled: boolean }> => {
+  ): Promise<{
+    mailboxCode: string | null;
+    mailboxAddress: string | null;
+    mailboxEnabled: boolean;
+  }> => {
     const r = await api.patch(
       `/letters/retreats/${retreatId}/letters/mailbox/${retreatParticipantId}`,
       { mailboxEnabled },

@@ -137,7 +137,12 @@ export async function setMailboxEnabled(
 	return repo.save(rp);
 }
 
-const fullName = (p: { firstName?: string | null; lastName?: string | null; nickname?: string | null } | null | undefined): string => {
+/** Nombre legible de un participante: "Nombre Apellido" o el apodo como fallback. */
+export const fullName = (p: {
+	firstName?: string | null;
+	lastName?: string | null;
+	nickname?: string | null;
+} | null | undefined): string => {
 	if (!p) return '—';
 	return [p.firstName, p.lastName].filter(Boolean).join(' ') || p.nickname || '—';
 };

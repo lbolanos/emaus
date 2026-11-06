@@ -100,11 +100,18 @@ export default {
 				message.setReject('Adjuntos demasiado grandes (máx 8 MB c/u, 12 MB en total).');
 				return;
 			}
-			console.log('letter delivered:', to, apiStatus, body.duplicate ? 'duplicate' : 'accepted');
+			if (apiStatus >= 200 && apiStatus < 300) {
+				console.log('letter delivered:', to, apiStatus, body.duplicate ? 'duplicate' : 'accepted');
+			} else {
+				// 4xx no-reintentable (400 payload / 401 secret): log y drop — reintentar
+				// no lo arregla y rebotar revelaría el endpoint.
+				console.error('letter webhook unexpected status:', to, apiStatus, body);
+			}
 		} catch (err) {
-			// Error de red/timeout/5xx: NO rebota (no revela que el endpoint existe);
-			// solo log — Cloudflare reintenta la entrega del email.
-			console.error('letter webhook error:', to, apiStatus, err);
+			// Error de red/timeout/5xx: re-lanzar — Cloudflare SOLO reintenta cuando el
+			// Worker lanza; tragar el error perdería la carta en silencio.
+			console.error('letter webhook error:', to, err);
+			throw err;
 		}
 	},
 };

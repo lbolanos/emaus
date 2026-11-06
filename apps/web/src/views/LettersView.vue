@@ -69,9 +69,16 @@ const load = async () => {
 };
 
 onMounted(async () => {
+	// Deep-link a un retiro distinto del seleccionado: alinear el store para que
+	// las mesas del filtro y el print por mesa sean del MISMO retiro que la bandeja.
+	if (route.params.id && route.params.id !== retreatStore.selectedRetreatId) {
+		retreatStore.selectedRetreatId = route.params.id as string;
+	}
 	await load();
 	tableMesaStore.fetchTables();
 	if (retreatStore.retreats.length === 0) retreatStore.fetchRetreats();
+	// Buzones precargados: 'Difundir' y 'Copiar dirección' leen de esta lista.
+	letterStore.fetchMailboxes(retreatId.value).catch(() => {});
 });
 
 watch(retreatId, () => {
@@ -165,7 +172,7 @@ const printBatch = async (scope: 'retreat' | 'table', tableId?: string) => {
 			toast({ title: t('letters.print.markedTitle', { count: letterIds.length }) });
 		}
 	} catch {
-		toast({ title: t('letters.printError'), variant: 'destructive' });
+		toast({ title: t('letters.print.error'), variant: 'destructive' });
 	} finally {
 		printing.value = false;
 	}

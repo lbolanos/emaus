@@ -81,8 +81,12 @@ export const useLetterStore = defineStore('letters', () => {
 			const row = mailboxes.value.find((m) => m.retreatParticipantId === retreatParticipantId);
 			if (row) {
 				row.mailboxEnabled = updated.mailboxEnabled;
-				if (updated.mailboxCode) row.mailboxCode = updated.mailboxCode;
-				if (updated.mailboxCode) row.mailboxAddress = `carta.${updated.mailboxCode}@emaus.cc`;
+				// El API devuelve la dirección completa (con el dominio de su config) —
+				// no reconstruirla en el cliente con un dominio hardcodeado.
+				if (updated.mailboxAddress) {
+					row.mailboxCode = updated.mailboxCode;
+					row.mailboxAddress = updated.mailboxAddress;
+				}
 			}
 		} catch (e: unknown) {
 			error.value = apiErrorMessage(e, 'No se pudo actualizar el buzón');

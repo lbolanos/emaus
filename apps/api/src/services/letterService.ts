@@ -5,7 +5,7 @@ import { Letter, LetterStatus } from '../entities/letter.entity';
 import { LetterAttachment } from '../entities/letterAttachment.entity';
 import { RetreatParticipant } from '../entities/retreatParticipant.entity';
 import { s3Service } from './s3Service';
-import { resolveMailbox } from './letterMailboxService';
+import { resolveMailbox, fullName } from './letterMailboxService';
 import { tableNumberOf } from '../utils/tableNaming';
 import type { InboundLetterPayload, LetterPrintBatchEntry } from '@repo/types';
 
@@ -386,13 +386,6 @@ export async function markPrinted(
 	return result.affected ?? 0;
 }
 
-const fullName = (p: {
-	firstName?: string | null;
-	lastName?: string | null;
-	nickname?: string | null;
-} | null | undefined): string =>
-	p ? [p.firstName, p.lastName].filter(Boolean).join(' ') || p.nickname || '—' : '—';
-
 /** Detalle de una carta con adjuntos presigned (la URL cruda nunca sale del API). */
 export async function getLetterDetail(letterId: string) {
 	const letter = await AppDataSource.getRepository(Letter).findOne({
@@ -440,7 +433,12 @@ export async function getPrintBatch(
 	if (scope === 'table' && tableId) {
 		qb.andWhere('rp.tableId = :tableId', { tableId });
 	}
-	if (scope === 'participant' && participantIds.length > 0) {
+	// Guard anti-footgun: pedir un participante sin ids NO puede regresar el
+	// retiro entero (el caller marcaría todas las cartas como impresas).
+	if (scope === 'participant' && participantIds.length === 0) {
+		return [];
+	}
+	if (scope === 'participant') {
 		qb.andWhere('rp.participantId IN (:...participantIds)', { participantIds });
 	}
 	const letters = await qb.orderBy('letter.receivedAt', 'ASC').getMany();

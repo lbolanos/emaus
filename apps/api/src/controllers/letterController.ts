@@ -5,6 +5,8 @@ import { DomainAuditAction } from '@repo/types';
 import { s3Service } from '../services/s3Service';
 import {
 	activateMailboxesForRetreat,
+	buildMailboxAddress,
+	fullName,
 	getMailboxesForRetreat,
 	setMailboxEnabled,
 } from '../services/letterMailboxService';
@@ -50,11 +52,7 @@ const letterToDTO = async (letter: Letter): Promise<LetterDTO> => {
 		retreatId: letter.retreatId,
 		retreatParticipantId: letter.retreatParticipantId,
 		participantId: rp?.participantId ?? null,
-		participantName: rp?.participant
-			? [rp.participant.firstName, rp.participant.lastName].filter(Boolean).join(' ') ||
-				rp.participant.nickname ||
-				'—'
-			: undefined,
+		participantName: rp?.participant ? fullName(rp.participant) : undefined,
 		tableId: rp?.tableId ?? null,
 		tableName: rp?.tableMesa?.name ?? null,
 		fromEmail: letter.fromEmail,
@@ -195,6 +193,7 @@ export const toggleMailboxHandler = async (req: Request, res: Response) => {
 		res.json({
 			retreatParticipantId: rp.id,
 			mailboxCode: rp.mailboxCode,
+			mailboxAddress: rp.mailboxCode ? buildMailboxAddress(rp.mailboxCode) : null,
 			mailboxEnabled: rp.mailboxEnabled,
 			mailboxIssuedAt: rp.mailboxIssuedAt,
 		});
