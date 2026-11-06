@@ -387,6 +387,13 @@ export interface ParticipantData {
 	family_friend_color?: string;
 	pickupLocation?: string;
 	arrivesOnOwn?: boolean;
+	/**
+	 * Buzón de cartas de familias del participante (specs/letters-email):
+	 * dirección completa carta.{CODE}@dominio, hidratada desde
+	 * retreat_participants. Vacío si aún no se activaron los buzones del retiro
+	 * o el buzón está deshabilitado.
+	 */
+	letterMailbox?: string | null;
 	paymentDate?: string;
 	paymentAmount?: number;
 	/** Saldo pendiente (computado por el backend): 0 = paz y salvo. */
@@ -819,6 +826,7 @@ const getMockParticipant = (): ParticipantData => {
 		inviterEmail: 'pedro.martinez@email.com',
 		family_friend_color: 'Azul',
 		pickupLocation: 'Iglesia San Judas Tadeo',
+		letterMailbox: 'carta.AB23CD45@emaus.cc',
 		arrivesOnOwn: false,
 		paymentDate: '2024-01-15',
 		paymentAmount: 1500,
@@ -997,6 +1005,7 @@ const buildParticipantReplacements = (
 		'participant.inviterEmail': participantData.inviterEmail || '',
 		'participant.family_friend_color': participantData.family_friend_color || '',
 		'participant.pickupLocation': participantData.pickupLocation || '',
+		'participant.letterMailbox': participantData.letterMailbox || '',
 		'participant.arrivesOnOwn': participantData.arrivesOnOwn ? 'Sí' : 'No',
 		'participant.paymentDate': participantData.paymentDate || '',
 		'participant.paymentAmount': participantData.paymentAmount?.toString() || '',

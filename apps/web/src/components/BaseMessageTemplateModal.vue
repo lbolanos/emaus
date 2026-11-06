@@ -745,6 +745,10 @@ const participantVariables = computed(() => [
   { key: 'paymentRemaining', label: 'Saldo pendiente (falta por pagar)' },
   { key: 'shirtOrderSummary', label: 'Resumen de prendas pedidas (servidor)' },
   { key: 'shirtCharge', label: 'Valor total de las prendas' },
+  {
+    key: 'letterMailbox',
+    label: 'Correo de cartas del caminante (buzón; requiere activar buzones del retiro)',
+  },
   { key: 'santisimoGuardiaLink', label: 'Enlace personal de guardia del Santísimo (servidor)' },
 ]);
 

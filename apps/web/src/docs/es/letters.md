@@ -43,3 +43,14 @@ impresión.
 La vista **Palancas** sigue siendo el control logístico de las cartas físicas entre hermandades
 (cuántas se pidieron y cuántas llegaron). Este módulo es solo para las cartas que las familias
 mandan por email. No se sincronizan entre sí.
+
+## La variable en las plantillas de mensajes
+
+Las plantillas de mensajes (globales y por retiro) ya incluyen una línea que informa el buzón
+a la familia usando `{participant.letterMailbox}` — la variable resuelve a la dirección
+completa del caminante (`carta.XXXX@emaus.cc`). También puedes agregarla a cualquier plantilla
+nueva desde el selector de variables del editor.
+
+**Importante**: la variable resuelve **vacía** si aún no activaste los buzones del retiro
+("Activar buzones") o si apagaste el buzón de ese participante. Antes de enviar mensajes a
+familias, activa los buzones.

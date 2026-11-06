@@ -1117,7 +1117,13 @@ export class MessageSequenceService {
 		retreatId: string,
 		templateMessage: string,
 	): Promise<Participant> {
-		if (!templateMessage.includes('{participant.paymentRemaining}')) return participant;
+		// letterMailbox vive en retreat_participants (contexto per-retiro): sin el
+		// guard el placeholder quedaría literal en los correos de las secuencias.
+		if (
+			!templateMessage.includes('{participant.paymentRemaining}') &&
+			!templateMessage.includes('{participant.letterMailbox}')
+		)
+			return participant;
 		const hydrated = await AppDataSource.getRepository(Participant).findOne({
 			where: { id: participant.id },
 			// `sizePrices` incluida: totalShirtCharge da prioridad al sobreprecio
