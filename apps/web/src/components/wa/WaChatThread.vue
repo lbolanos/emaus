@@ -1,18 +1,20 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { ExternalLink } from 'lucide-vue-next'
-import { Button } from '@repo/ui'
+import { ArrowLeft, ExternalLink } from 'lucide-vue-next'
+import { Button, Dialog, DialogContent, DialogHeader, DialogTitle } from '@repo/ui'
 import { buildWhatsAppChatLink } from '@/utils/phone'
 import { toNationalPhone } from '@repo/types'
 import type { WaConversationDto, WaInboxMessageDto } from '@repo/types'
 
 /**
- * Hilo de un chat (FR3/FR8/D9/D10):
+ * Hilo de un chat (FR3/FR8/D9/D10 + UX móvil v1.1):
  *  - Mensajes SOLO con interpolación `{{ }}` — jamás v-html: el contenido es
  *    texto de terceros (S8 de specs/whatsapp-inbox).
- *  - Multimedia no se descarga (D9): placeholder con el tipo.
+ *  - Multimedia no se descarga (D9): placeholder con el tipo + registrar pago.
  *  - "Responder" abre el chat desde el teléfono propio del staff (D10).
+ *  - Móvil: botón Volver (el padre oculta la lista cuando hay chat activo) y
+ *    tap en la burbuja → vista ampliada legible ("ver más grande").
  */
 const props = defineProps<{
   messages: WaInboxMessageDto[]
@@ -24,6 +26,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: 'register-receipt', message: WaInboxMessageDto): void
+  (e: 'back'): void
 }>()
 
 const { t } = useI18n()
@@ -39,6 +42,14 @@ const replyLink = computed(() => {
 })
 
 const ordered = computed(() => props.messages)
+
+// Vista ampliada ("ver más grande"): tap en la burbuja → texto grande + fecha
+// completa. En textos largos de caminantes, text-sm no se lee cómodo.
+const enlarged = ref<WaInboxMessageDto | null>(null)
+
+function enlarge(message: WaInboxMessageDto): void {
+  enlarged.value = message
+}
 
 function openReply(): void {
   if (!replyLink.value) return;
@@ -56,6 +67,19 @@ function formatTime(ts: string | Date): string {
     hour12: false,
   })
 }
+
+function formatFull(ts: string | Date): string {
+  const date = typeof ts === 'string' ? new Date(ts) : ts
+  return date.toLocaleString('es-MX', {
+    weekday: 'long',
+    day: '2-digit',
+    month: 'long',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  })
+}
 </script>
 
 <template>
@@ -68,8 +92,21 @@ function formatTime(ts: string | Date): string {
     </div>
     <template v-else>
       <div class="px-3 py-2 border-b flex items-center justify-between gap-2">
-        <div class="text-sm font-medium truncate">
-          {{ conversation.participantFirstName }} {{ conversation.participantLastName }}
+        <div class="flex items-center gap-1 min-w-0">
+          <!-- Móvil: volver a la lista (el padre oculta el hilo al volver). -->
+          <Button
+            variant="ghost"
+            size="sm"
+            class="lg:hidden px-2"
+            data-testid="wa-thread-back"
+            :aria-label="t('waInbox.back')"
+            @click="emit('back')"
+          >
+            <ArrowLeft class="w-4 h-4" />
+          </Button>
+          <div class="text-sm font-medium truncate">
+            {{ conversation.participantFirstName }} {{ conversation.participantLastName }}
+          </div>
         </div>
         <Button
           v-if="replyLink"
@@ -96,12 +133,17 @@ function formatTime(ts: string | Date): string {
           :data-testid="`wa-message-${m.id}`"
         >
           <div class="max-w-[85%]">
-            <div class="rounded-lg bg-muted px-3 py-2">
+            <button
+              type="button"
+              class="block text-left rounded-lg bg-muted hover:bg-muted/70 transition-colors px-3 py-2 w-full cursor-pointer"
+              :aria-label="t('waInbox.enlarge')"
+              @click="enlarge(m)"
+            >
               <div class="text-sm whitespace-pre-wrap break-words">{{ m.body ?? t('waInbox.multimedia') }}</div>
               <div class="text-[10px] text-muted-foreground mt-1 text-right">
                 {{ formatTime(m.timestamp) }}
               </div>
-            </div>
+            </button>
             <!-- FR14 (v1.1): imagen de caminante → comprobante de pago. -->
             <button
               v-if="canRegisterPayment && m.messageType === 'image'"
@@ -119,5 +161,36 @@ function formatTime(ts: string | Date): string {
         </div>
       </div>
     </template>
+
+    <!-- Vista ampliada ("ver más grande"): texto grande, fecha completa. -->
+    <Dialog :open="!!enlarged" @update:open="enlarged = null">
+      <DialogContent class="sm:max-w-lg" data-testid="wa-message-enlarged">
+        <DialogHeader>
+          <DialogTitle>{{ conversation?.participantFirstName }} {{ conversation?.participantLastName }}</DialogTitle>
+        </DialogHeader>
+        <p
+          v-if="enlarged"
+          class="text-lg leading-relaxed whitespace-pre-wrap break-words min-h-[80px]"
+          data-testid="wa-enlarged-body"
+        >
+          {{ enlarged.body ?? t('waInbox.multimedia') }}
+        </p>
+        <p v-if="enlarged" class="text-xs text-muted-foreground">
+          {{ formatFull(enlarged.timestamp) }}
+        </p>
+        <div
+          v-if="enlarged && canRegisterPayment && enlarged.messageType === 'image'"
+          class="text-sm"
+        >
+          <button
+            type="button"
+            class="text-emerald-700 hover:underline"
+            @click="emit('register-receipt', enlarged); enlarged = null"
+          >
+            {{ t('waInbox.registerPayment') }}
+          </button>
+        </div>
+      </DialogContent>
+    </Dialog>
   </div>
 </template>

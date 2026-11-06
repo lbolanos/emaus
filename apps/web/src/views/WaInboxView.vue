@@ -64,6 +64,8 @@ function onSelect(chatJid: string) {
   const id = retreatId.value
   if (!id) return
   void store.openChat(id, chatJid)
+  // Móvil: el hilo abre en vista exclusiva arriba del viewport.
+  if (window.innerWidth < 1024) window.scrollTo({ top: 0 })
 }
 
 function onUnlink(linkId: string) {
@@ -126,7 +128,7 @@ async function onRegisterReceipt(message: { id: string }) {
 </script>
 
 <template>
-  <div class="p-4 md:p-6 space-y-4">
+  <div class="p-4 md:p-6 flex flex-col gap-4">
     <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
       <div>
         <h1 class="text-xl font-semibold flex items-center gap-2">
@@ -155,56 +157,67 @@ async function onRegisterReceipt(message: { id: string }) {
       </div>
     </div>
 
-    <WaLinkPanel
-      :links="links"
-      :current-user-id="myUserId"
-      :is-superadmin="isSuperadmin"
-      @unlink="onUnlink"
-    />
+    <!-- Móvil: las conversaciones van PRIMERO (order-1); el tablero y los
+         controles de superadmin pasan al final. En escritorio, orden normal. -->
+    <div class="order-1 lg:order-2 flex flex-col gap-4">
+      <WaLinkPanel
+        :links="links"
+        :current-user-id="myUserId"
+        :is-superadmin="isSuperadmin"
+        @unlink="onUnlink"
+      />
 
-    <!-- Activación por retiro (D13) y terminación de servidores (D14):
-         SOLO superadmin. El puente consume RAM por cuenta vinculada. -->
-    <div
-      v-if="isSuperadmin"
-      class="rounded-lg border p-3 flex flex-col sm:flex-row sm:items-center gap-3"
-      data-testid="wa-superadmin-controls"
-    >
-      <label class="flex items-center gap-2 text-sm">
-        <Switch
-          :model-value="inboxEnabled"
-          data-testid="wa-enabled-switch"
-          @update:model-value="onToggleEnabled"
-        />
-        <span>{{ t('waInbox.superadmin.activate') }}</span>
-      </label>
-      <span class="text-xs text-muted-foreground">{{ t('waInbox.superadmin.activateHint') }}</span>
-      <Button
-        v-if="links.length > 0"
-        variant="destructive"
-        size="sm"
-        class="sm:ml-auto"
-        data-testid="wa-terminate-all"
-        @click="onTerminateAll"
+      <!-- Activación por retiro (D13) y terminación de servidores (D14):
+           SOLO superadmin. El puente consume RAM por cuenta vinculada. -->
+      <div
+        v-if="isSuperadmin"
+        class="rounded-lg border p-3 flex flex-col sm:flex-row sm:items-center gap-3"
+        data-testid="wa-superadmin-controls"
       >
-        {{ terminateArmed ? t('waInbox.superadmin.terminateConfirm') : t('waInbox.superadmin.terminate') }}
-      </Button>
+        <label class="flex items-center gap-2 text-sm">
+          <Switch
+            :model-value="inboxEnabled"
+            data-testid="wa-enabled-switch"
+            @update:model-value="onToggleEnabled"
+          />
+          <span>{{ t('waInbox.superadmin.activate') }}</span>
+        </label>
+        <span class="text-xs text-muted-foreground">{{ t('waInbox.superadmin.activateHint') }}</span>
+        <Button
+          v-if="links.length > 0"
+          variant="destructive"
+          size="sm"
+          class="sm:ml-auto"
+          data-testid="wa-terminate-all"
+          @click="onTerminateAll"
+        >
+          {{ terminateArmed ? t('waInbox.superadmin.terminateConfirm') : t('waInbox.superadmin.terminate') }}
+        </Button>
+      </div>
     </div>
 
-    <div class="grid grid-cols-1 lg:grid-cols-[340px_1fr] gap-4">
-      <WaConversationList
-        :conversations="conversations"
-        :active-chat-jid="store.activeChatJid"
-        :loading="loadingConversations"
-        :empty-text="links.length === 0 ? t('waInbox.noLinks') : t('waInbox.empty')"
-        @select="onSelect"
-      />
-      <WaChatThread
-        :messages="store.threadMessages"
-        :conversation="store.activeConversation"
-        :loading="store.loadingThread"
-        :can-register-payment="canRegisterPayment"
-        @register-receipt="onRegisterReceipt"
-      />
+    <!-- Móvil: lista y hilo son EXCLUYENTES — tocar un chat abre solo el hilo
+         (con Volver); sin chat activo se ve solo la lista. Escritorio: ambos. -->
+    <div class="order-2 lg:order-1 grid grid-cols-1 lg:grid-cols-[340px_1fr] gap-4">
+      <div :class="store.activeChatJid ? 'hidden lg:block' : 'block'">
+        <WaConversationList
+          :conversations="conversations"
+          :active-chat-jid="store.activeChatJid"
+          :loading="loadingConversations"
+          :empty-text="links.length === 0 ? t('waInbox.noLinks') : t('waInbox.empty')"
+          @select="onSelect"
+        />
+      </div>
+      <div :class="store.activeChatJid ? 'block' : 'hidden lg:block'">
+        <WaChatThread
+          :messages="store.threadMessages"
+          :conversation="store.activeConversation"
+          :loading="store.loadingThread"
+          :can-register-payment="canRegisterPayment"
+          @register-receipt="onRegisterReceipt"
+          @back="store.activeChatJid = null"
+        />
+      </div>
     </div>
 
     <WaLinkModal v-model:open="linkModalOpen" :retreat-id="retreatId" @linked="refresh" />
