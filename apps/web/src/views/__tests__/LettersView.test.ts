@@ -23,7 +23,7 @@ vi.mock('@/services/api', () => api);
 vi.mock('@/stores/retreatStore', () => ({
 	useRetreatStore: () => ({
 		selectedRetreatId: 'r1',
-		retreats: [{ id: 'r1', name: 'Buen Despacho' }],
+		retreats: [{ id: 'r1', parish: 'Buen Despacho' }],
 		fetchRetreats: vi.fn(),
 	}),
 }));

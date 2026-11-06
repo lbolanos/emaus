@@ -60,7 +60,7 @@ const letterBlockHtml = (letter: AnyLetter): string => {
 	`;
 };
 
-const participantHeaderHtml = (entry: Entry): string => {
+const participantHeaderHtml = (entry: LetterPrintBatchEntry): string => {
 	// tableName ya trae su propio "Mesa N" — no anteponer nada.
 	const bits = [entry.tableName, entry.idOnRetreat != null ? `Nº ${entry.idOnRetreat}` : null].filter(
 		Boolean,

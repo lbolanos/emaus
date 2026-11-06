@@ -42,7 +42,7 @@ const tableMesaStore = useTableMesaStore();
 
 const retreatId = computed(() => (route.params.id as string) || retreatStore.selectedRetreatId || '');
 const retreatName = computed(
-	() => retreatStore.retreats.find((r) => r.id === retreatId.value)?.name ?? '',
+	() => retreatStore.retreats.find((r) => r.id === retreatId.value)?.parish ?? '',
 );
 
 // -- Filtros --

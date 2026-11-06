@@ -26,6 +26,9 @@ export const RESOURCES = {
 	preRetreatTaskTemplate: ['read', 'manage'] as const,
 	retreatPreparation: ['read', 'manage'] as const,
 	shirtType: ['read', 'manage'] as const,
+	// Cartas de familias (specs/letters-email): sin create/delete — las crea el
+	// webhook y v1 no borra (solo status hidden).
+	letter: ['read', 'update', 'print', 'manage'] as const,
 } as const;
 
 export type ResourceType = keyof typeof RESOURCES;
