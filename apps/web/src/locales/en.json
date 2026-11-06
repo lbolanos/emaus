@@ -371,6 +371,14 @@
       "selectMethod": "Select method",
       "reference": "Reference Number",
       "notes": "Notes",
+      "receipt": "Receipt",
+      "receiptAttach": "Attach photo",
+      "receiptReplace": "Replace",
+      "receiptRemove": "Remove",
+      "receiptWillRemove": "The receipt will be removed when you save",
+      "receiptUndo": "Undo",
+      "receiptTooLarge": "The image is too large",
+      "receiptViewerDesc": "Photo of the payment receipt",
       "markScholarship": "Mark as Scholarship",
       "markPaysAtHouse": "Mark as pays at the retreat house",
       "removePaysAtHouse": "Remove pays-at-the-house",
@@ -1742,7 +1750,12 @@
     "cancelNoShow": "Did not arrive",
     "cancelNoShowTitle": "Cancel who did not arrive",
     "cancelNoShowConfirm": "Cancel {name}? Their bed and table are freed. You can write the reason later in their record.",
-    "cancelNoShowDone": "{name} was cancelled"
+    "cancelNoShowDone": "{name} was cancelled",
+    "chargeReceipt": "Receipt photo (optional)",
+    "chargeReceiptAdd": "Attach photo",
+    "receiptProcessing": "Processing image…",
+    "receiptTooLarge": "The image is too large",
+    "receiptRemove": "Remove"
   },
   "retreatFlyer": {
     "printButton": "Print Flyer",

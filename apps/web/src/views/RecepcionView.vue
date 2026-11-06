@@ -9,7 +9,9 @@ import { getReceptionStats, checkInParticipant, createPayment, setParticipantCan
 import { useAuthPermissions } from '@/composables/useAuthPermissions'
 import { useToast } from '@repo/ui'
 import { participantMatchesTokens, searchTokens } from '@/utils/participantSearch'
-import { CheckCircle, Clock, Users, Search, Loader2, RotateCcw, X, AlertCircle, DollarSign } from 'lucide-vue-next'
+import { pickFile } from '@/utils/filePicker'
+import { receiptPhotoFromFile } from '@/utils/imageResize'
+import { CheckCircle, Clock, Users, Search, Loader2, RotateCcw, X, AlertCircle, DollarSign, Camera, Trash2 } from 'lucide-vue-next'
 import { storeToRefs } from 'pinia'
 
 const route = useRoute()
@@ -190,11 +192,31 @@ const chargeParticipant = ref<ReceptionParticipant | null>(null)
 const chargeAmount = ref<string>('')
 const chargeMethod = ref<'cash' | 'transfer' | 'card'>('cash')
 const chargeSaving = ref(false)
+// Optional photo of the payment receipt (specs/payment-receipt-photo/spec.md):
+// it rides inside the same POST /payments body, so it is queued offline with
+// the payment and replayed together with it.
+const chargeReceipt = ref<string | null>(null)
+const chargeReceiptLoading = ref(false)
 
 function openCharge(p: ReceptionParticipant) {
   chargeParticipant.value = p
   chargeAmount.value = ''
   chargeMethod.value = 'cash'
+  chargeReceipt.value = null
+  chargeReceiptLoading.value = false
+}
+
+async function pickChargeReceipt() {
+  const file = await pickFile({ accept: 'image/*', capture: 'environment' })
+  if (!file) return
+  chargeReceiptLoading.value = true
+  try {
+    chargeReceipt.value = await receiptPhotoFromFile(file)
+  } catch {
+    toast({ title: t('reception.receiptTooLarge'), variant: 'destructive' })
+  } finally {
+    chargeReceiptLoading.value = false
+  }
 }
 
 async function confirmCharge() {
@@ -203,13 +225,15 @@ async function confirmCharge() {
   if (!p?.participantId || !amount || amount <= 0) return
   chargeSaving.value = true
   try {
-    await createPayment({
+    const body: Record<string, unknown> = {
       retreatId: retreatId.value,
       participantId: p.participantId,
       amount,
       paymentDate: new Date().toISOString().split('T')[0],
       paymentMethod: chargeMethod.value,
-    })
+    }
+    if (chargeReceipt.value) body.receiptPhoto = chargeReceipt.value
+    await createPayment(body)
     chargeParticipant.value = null
     await fetchStats()
     toast({ title: t('reception.paymentRegistered', { name: `${p.firstName} ${p.lastName}` }) })
@@ -597,11 +621,35 @@ onUnmounted(() => {
             <option value="card">{{ t('reception.methodCard') }}</option>
           </select>
         </div>
+        <div class="space-y-1">
+          <label class="text-sm font-medium">{{ t('reception.chargeReceipt') }}</label>
+          <div v-if="chargeReceipt" class="flex items-center gap-2">
+            <img :src="chargeReceipt" class="h-14 w-14 rounded object-cover border border-input" alt="" />
+            <button
+              type="button"
+              class="text-xs text-destructive hover:underline inline-flex items-center gap-1"
+              @click="chargeReceipt = null"
+            >
+              <Trash2 class="w-3 h-3" /> {{ t('reception.receiptRemove') }}
+            </button>
+          </div>
+          <button
+            v-else
+            type="button"
+            class="w-full h-10 rounded-md border border-input bg-background px-3 text-sm text-muted-foreground hover:bg-muted inline-flex items-center gap-2 disabled:opacity-50"
+            :disabled="chargeReceiptLoading"
+            @click="pickChargeReceipt"
+          >
+            <Loader2 v-if="chargeReceiptLoading" class="w-4 h-4 animate-spin" />
+            <Camera v-else class="w-4 h-4" />
+            {{ chargeReceiptLoading ? t('reception.receiptProcessing') : t('reception.chargeReceiptAdd') }}
+          </button>
+        </div>
         <div class="flex justify-end gap-2 pt-1">
           <button class="px-3 py-2 rounded-lg text-sm border border-input hover:bg-muted" @click="chargeParticipant = null">{{ t('common.actions.cancel') }}</button>
           <button
             class="px-3 py-2 rounded-lg text-sm font-medium bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50 inline-flex items-center gap-1"
-            :disabled="chargeSaving || !Number(chargeAmount)"
+            :disabled="chargeSaving || chargeReceiptLoading || !Number(chargeAmount)"
             @click="confirmCharge"
           >
             <Loader2 v-if="chargeSaving" class="w-3 h-3 animate-spin" />

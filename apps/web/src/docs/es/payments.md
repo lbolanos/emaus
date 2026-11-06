@@ -49,7 +49,18 @@ Para registrar un pago para un participante:
    - Método de pago (efectivo, cheque, tarjeta, transferencia)
    - Fecha de pago
    - Número de referencia (si aplica)
+   - Foto del comprobante (opcional: la captura de la transferencia o el recibo)
 5. Haga clic en **Guardar**
+
+## Comprobante de pago
+
+Cada pago puede llevar una **foto del comprobante** (captura de transferencia, recibo).
+
+- Al registrar el pago, use **Adjuntar foto** en el formulario para elegirla o tomarla.
+- En la lista de pagos, los pagos con comprobante muestran una **miniatura** junto a la
+  referencia: haga clic para ampliarla.
+- En la **edición** del pago puede **Reemplazar** la foto o **Quitar** el comprobante; los
+  cambios aplican al guardar.
 
 ## Gestionar Becas
 

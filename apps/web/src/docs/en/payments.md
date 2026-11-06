@@ -51,7 +51,18 @@ To record a payment for a participant:
    - Payment method (cash, check, card, transfer)
    - Payment date
    - Reference number (if applicable)
+   - Receipt photo (optional: the transfer screenshot or the slip)
 5. Click **Save**
+
+## Payment receipt
+
+Each payment can carry a **photo of its receipt** (transfer screenshot, slip).
+
+- When recording the payment, use **Attach photo** in the form to pick or take it.
+- In the payments list, payments with a receipt show a **thumbnail** next to the reference:
+  click it to enlarge.
+- In the payment's **edit** form you can **Replace** the photo or **Remove** the receipt;
+  changes apply when you save.
 
 ## Managing Scholarships
 

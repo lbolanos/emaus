@@ -180,6 +180,31 @@ describe('reducers', () => {
 		expect(list[0].payments).toHaveLength(1);
 	});
 
+	it('a payment with an embedded receipt photo still queues (specs/payment-receipt-photo R7)', () => {
+		const body = {
+			retreatId: R,
+			participantId: 'p1',
+			amount: 750,
+			paymentMethod: 'transfer',
+			receiptPhoto: 'data:image/jpeg;base64,/9j/4AAQ',
+		};
+		const m = matchQueueable('post', '/payments', body);
+		expect(m?.def.kind).toBe('reception.payment');
+		// The photo rides inside the op body that IndexedDB stores and the replay
+		// sends; a plain string survives the structured clone unchanged.
+		expect(structuredClone(body.receiptPhoto)).toBe(body.receiptPhoto);
+	});
+
+	it('the receipt photo does not disturb the cached totals while offline', () => {
+		const pay = op(
+			'reception.payment',
+			{ retreatId: R, participantId: 'p1', amount: 750, paymentMethod: 'transfer', receiptPhoto: 'data:image/jpeg;base64,/9j/4AAQ' },
+			{ participantId: 'p1' },
+		);
+		const rec: any = applyOps('reception', reception(), [pay]);
+		expect(rec.pendingList[0].totalPaid).toBe(750);
+	});
+
 	it('cancelling a no-show takes them out of reception, their bed and their table', () => {
 		const cancel = op('participant.setCancelled', { isCancelled: true, contextRetreatId: R }, { participantId: 'p1' });
 		const rec: any = applyOps('reception', reception(), [cancel]);
