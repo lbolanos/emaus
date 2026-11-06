@@ -18,6 +18,12 @@ Next to each walker you see how much they've paid: **green** if already paid, or
 
 Walkers who said they will pay on arrival show the sky **Pays at the house** label next to the **Charge** button: it is informative only — charge them as usual when they pay. The label disappears as soon as a payment is registered.
 
+### Receipt photo (optional)
+
+📺 **[Watch the tutorial: receipt photo](https://youtu.be/s1OMxk1MQXY)**
+
+When charging you can attach the **receipt photo** —the transfer screenshot or the slip— with the **Attach photo** button: pick or take the photo and it is stored with the payment. It is optional: cash payments don't need one. It also works without signal: the photo is saved on your phone together with the payment and uploads by itself once you are back online. You can view it later in **Payments**, next to every payment that has a receipt.
+
 ## Cancel who did not arrive
 
 The team waits until Friday night; on Saturday morning, whoever is still **pending** is cancelled with **Did not arrive** on their row. Their bed and table are freed. Write the reason later in their record. It also works without signal (see **Working without a connection**).

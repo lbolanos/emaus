@@ -211,18 +211,22 @@ class ImageService {
 	}
 
 	base64ToBuffer(base64: string): { buffer: Buffer; contentType: string } {
-		const matches = base64.match(/^data:image\/(\w+);base64,(.+)$/);
-		if (!matches) {
+		// Plain string slicing, never a regex: the payload reaches ~2.7MB and
+		// RegExp on a string that size blows the call stack on Node 20/Linux
+		// (same lesson as responsabilityAttachmentService.parseDataUrl).
+		const marker = ';base64,';
+		const markerIndex = base64.indexOf(marker);
+		if (!base64.startsWith('data:image/') || markerIndex === -1) {
 			throw new FlyerAssetError('Invalid base64 image format');
 		}
 
-		const contentType = `image/${matches[1]}`;
+		const contentType = base64.slice('data:'.length, markerIndex);
 
 		if (!this.isValidImage(contentType)) {
 			throw new FlyerAssetError('Unsupported image type');
 		}
 
-		const buffer = Buffer.from(matches[2], 'base64');
+		const buffer = Buffer.from(base64.slice(markerIndex + marker.length), 'base64');
 
 		// Enforce size limit
 		if (buffer.length > this.MAX_FILE_SIZE) {

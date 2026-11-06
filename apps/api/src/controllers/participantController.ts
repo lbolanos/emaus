@@ -18,6 +18,7 @@ import { getParticipantShirtOrderSummary } from "../services/shirtReportService"
 import { domainAuditService, DomainAuditAction } from "../services/domainAuditService";
 import { parseOccurredAt, InvalidOccurredAtError } from "../utils/occurredAt";
 import { checkExpectedValues } from "../services/offlineEditService";
+import { presignPaymentReceipts } from "./paymentController";
 // Static on purpose: a dynamic `await import` inside the handler re-loads the
 // module after jest's resetModules, which hands back a fresh AppDataSource the
 // integration tests never swapped to the test database.
@@ -198,6 +199,12 @@ export const getParticipantById = async (
       typeof retreatId === "string" ? retreatId : undefined,
     );
     if (participant) {
+      if (Array.isArray(participant.payments) && participant.payments.length > 0) {
+        // Los endpoints de pagos presignan receiptUrl y ocultan receiptS3Key
+        // (specs/payment-receipt-photo/spec.md, R4/D3): el detalle de
+        // participante no puede filtrar la key ni la URL cruda.
+        participant.payments = await presignPaymentReceipts(participant.payments);
+      }
       const canSeeScholarship = await canViewScholarshipAmount(req);
       const canSeeHealth = await canViewHealthData(req);
       let result: unknown = participant;

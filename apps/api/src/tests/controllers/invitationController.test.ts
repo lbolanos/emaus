@@ -20,6 +20,15 @@ jest.mock('@/services/userManagementMailer', () => ({
 	})),
 }));
 
+// Mock reCAPTCHA: without a secret the real service lets every token through, so
+// these tests passed in CI but failed on any machine whose .env sets
+// RECAPTCHA_SECRET_KEY (requests without a token were then rejected).
+jest.mock('@/services/recaptchaService', () => ({
+	RecaptchaService: jest.fn().mockImplementation(() => ({
+		verifyToken: jest.fn().mockResolvedValue({ valid: true }),
+	})),
+}));
+
 describe('InvitationController', () => {
 	let controller: InvitationController;
 	let testUser: User;

@@ -23,11 +23,15 @@ const MAX_CACHED_SIGNED_URLS = 500;
 // Private prefixes whose objects are NOT world-readable in the bucket policy and
 // therefore must be served via presigned URLs. `avatars/` and `public-assets/`
 // are intentionally absent: they are public and their plain URLs pass through.
+// `payment-receipts/` requires an IAM statement for the prefix in the `EmausMediaRW`
+// policy (docs/s3-backup-permissions-fix-2026-05-14.md) BEFORE the deploy that
+// introduces it — see specs/payment-receipt-photo/spec.md (D3).
 const PRIVATE_PREFIXES = [
 	'retreat-memories/',
 	'community-meetings/',
 	'community-members/',
 	'letters/',
+	'payment-receipts/',
 ];
 
 interface UploadResult {
@@ -302,6 +306,44 @@ class S3Service {
 		const command = new DeleteObjectCommand({
 			Bucket: this.bucketName,
 			Key: `community-meetings/${meetingId}.webp`,
+		});
+
+		await this.ensureClient().send(command);
+	}
+
+	// Receipt photo attached to a payment. Fixed key per payment
+	// (payment-receipts/{paymentId}.webp): uploading again REPLACES the previous
+	// one — and since the presigned URL is stable (signature cache), the browser
+	// must revalidate to see the new bytes, hence `no-cache` instead of the
+	// photo buckets' `max-age=3600` (which would show a stale receipt for up to
+	// an hour after a replace). Private prefix — served via presignPrivateUrl.
+	async uploadPaymentReceipt(
+		paymentId: string,
+		buffer: Buffer,
+		contentType: string,
+	): Promise<UploadResult> {
+		const key = `payment-receipts/${paymentId}.webp`;
+
+		const command = new PutObjectCommand({
+			Bucket: this.bucketName,
+			Key: key,
+			Body: buffer,
+			ContentType: contentType,
+			CacheControl: 'private, no-cache',
+		});
+
+		await this.ensureClient().send(command);
+
+		return {
+			url: this.getPublicUrl(key),
+			key,
+		};
+	}
+
+	async deletePaymentReceipt(paymentId: string): Promise<void> {
+		const command = new DeleteObjectCommand({
+			Bucket: this.bucketName,
+			Key: `payment-receipts/${paymentId}.webp`,
 		});
 
 		await this.ensureClient().send(command);

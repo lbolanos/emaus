@@ -1160,6 +1160,11 @@ export const paymentSchema = z.object({
 	paymentMethod: z.enum(['cash', 'transfer', 'check', 'card', 'other']),
 	referenceNumber: z.string().optional(),
 	notes: z.string().optional(),
+	// Receipt photo (response shape): presigned S3 URL or a data-URI in base64
+	// storage mode. `receiptS3Key` is internal and must not reach clients — the
+	// controller strips it — but it belongs here so the type matches the API.
+	receiptUrl: z.string().nullable().optional(),
+	receiptS3Key: z.string().nullable().optional(),
 	recordedBy: idSchema,
 	createdAt: z.coerce.date(),
 	updatedAt: z.coerce.date(),
@@ -1168,6 +1173,15 @@ export const paymentSchema = z.object({
 	recordedByUser: z.any().optional(), // Use any to avoid circular reference
 });
 export type Payment = z.infer<typeof paymentSchema>;
+
+// Optional photo of the payment receipt, embedded in the request body as a
+// data-URL (specs/payment-receipt-photo/spec.md, D1). The preprocess only folds
+// `''` into undefined for VALIDATION — the routes read the raw req.body, so the
+// controller gives `''` its own meaning (clear the receipt on PUT).
+const receiptPhotoSchema = z.preprocess(
+	(v) => (typeof v === 'string' && v.trim() === '' ? undefined : v),
+	z.string().startsWith('data:image/').optional(),
+);
 
 // Payment Request Schemas
 // `amount` se coacciona (el form lo envía como string); `retreatId` es opcional
@@ -1182,10 +1196,13 @@ export const createPaymentSchema = z.object({
 			retreat: true,
 			recordedByUser: true,
 			recordedBy: true,
+			receiptUrl: true,
+			receiptS3Key: true,
 		})
 		.extend({
 			amount: z.coerce.number().positive(),
 			retreatId: idSchema.optional(),
+			receiptPhoto: receiptPhotoSchema,
 		}),
 });
 export type CreatePayment = z.infer<typeof createPaymentSchema.shape.body>;
@@ -1202,9 +1219,14 @@ export const updatePaymentSchema = z.object({
 			participant: true,
 			retreat: true,
 			recordedByUser: true,
+			receiptUrl: true,
+			receiptS3Key: true,
 		})
 		.partial()
-		.extend({ amount: z.coerce.number().positive().optional() }),
+		.extend({
+			amount: z.coerce.number().positive().optional(),
+			receiptPhoto: receiptPhotoSchema,
+		}),
 	params: z.object({ id: idSchema }),
 });
 export type UpdatePayment = z.infer<typeof updatePaymentSchema.shape.body>;

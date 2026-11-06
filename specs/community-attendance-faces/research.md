@@ -231,6 +231,30 @@ para decir de quién es cada una**. La confianza que declaran no está calibrada
 filtra los errores. No es un defecto del prompt: no son modelos de reconocimiento facial (no producen
 vectores de identidad), y los proveedores además los restringen para identificar personas.
 
+### Tercera medición: tamaño de la galería (D11, 2026-10-22)
+
+Llamada de producción tal cual: galería de 6 columnas con recuadros de 140×160 y números de
+segmentos, el mismo prompt y el mismo esquema, `gemini-flash-lite-latest` con la clave gratuita.
+Foto de grupo sintética de 14 caras (10 miembros + 4 intrusos) del set uzbeko. Relleno de la galería:
+los otros 51 uzbekos y, para llegar a 96, 35 caras de FairFace (CC BY 4.0, adultos no famosos de
+rasgos parecidos). Dos corridas por tamaño, con galerías barajadas distinto. Script
+`facetest/measure_gallery.mjs` en el scratchpad de la sesión; la clave sale de `apps/api/.env`.
+
+| Galería | Miembros bien | Equivocados | Sin sugerencia | Intrusos asignados a alguien |
+|---|---|---|---|---|
+| 48 (corrida 1) | 8/10 | 0 | 2 | 1/4 |
+| 48 (corrida 2) | **10/10** | 0 | 0 | 2/4 |
+| 96 (corrida 1) | 5/10 | 0 | 5 | 1/4 |
+| 96 (corrida 2) | 5/10 | **4** | 1 | 1/4 |
+
+- **El tope de 48 se queda.** Con 96 los aciertos caen a la mitad y aparecen sugerencias equivocadas.
+- La causa probable: Gemini cobró ~2,400 tokens de entrada con 48 y con 96. Escala cada imagen a un
+  presupuesto fijo, así que con 96 cada cara llega con la mitad de los píxeles. Si algún día hace
+  falta más de 48, la vía es mandar la galería partida en dos imágenes, no una más alta.
+- A los intrusos los sigue asignando (1–2 de 4): la revisión humana de cada sugerencia sigue siendo
+  obligatoria (D4).
+- Cada llamada tardó 5–8 s y ninguna dio `503` ni `429`.
+
 ## Tests disponibles
 
 - API: Jest con SQLite de test (`apps/api/src/tests/test-setup.ts`); servicios de AWS se mockean

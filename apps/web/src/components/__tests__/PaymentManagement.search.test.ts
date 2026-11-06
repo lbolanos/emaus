@@ -34,6 +34,8 @@ vi.mock('lucide-vue-next', () => ({
 	Printer: { name: 'Printer', template: '<svg></svg>' },
 	ChevronsUpDown: { name: 'ChevronsUpDown', template: '<svg></svg>' },
 	Check: { name: 'Check', template: '<svg></svg>' },
+	Camera: { name: 'Camera', template: '<svg></svg>' },
+	Loader2: { name: 'Loader2', template: '<svg></svg>' },
 }));
 
 // ----- Mock @repo/ui (Dialog renderiza siempre el slot → el form está montado) -----

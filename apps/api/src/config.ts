@@ -82,8 +82,9 @@ export const config = {
 		visionProvider: process.env.AI_VISION_PROVIDER || 'google',
 		visionModel: process.env.AI_VISION_MODEL || 'gemini-flash-latest',
 		// Face matching in community attendance. Always Google; independent from the
-		// vision model above (specs/community-attendance-faces, D2).
-		faceModel: process.env.AI_FACE_MODEL || 'gemini-3.5-flash',
+		// vision model above (specs/community-attendance-faces, D2). An alias for the
+		// same reason as the vision model, and the one measured and set in prod.
+		faceModel: process.env.AI_FACE_MODEL || 'gemini-flash-lite-latest',
 		// 4096 default — suficiente para respuestas largas del chat. Los modelos
 		// "thinking" (gemini-3-pro-preview, gemini-3.5-flash) consumen muchos tokens
 		// en razonamiento interno; si el stream se corta con finishReason=length

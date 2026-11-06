@@ -128,3 +128,19 @@ export async function resizeImageForAnalysis(file: File | Blob): Promise<string>
 	}
 	throw new Error('La foto es demasiado pesada para analizarla');
 }
+
+/**
+ * Payment receipt photo (specs/payment-receipt-photo/spec.md): a legible
+ * 1600px JPEG data-URL within the server's 2MB binary cap. Receipts are text
+ * (transfer screenshots, slips), so they keep the event-photo bound
+ * (`PHOTO_MAX_SIDE`) instead of the avatar's 512. Throws if even after the
+ * resize the payload exceeds `SERVER_MAX_IMAGE_BYTES`, so the caller can toast
+ * without sending a doomed request.
+ */
+export async function receiptPhotoFromFile(file: File): Promise<string> {
+	const dataUrl = await resizeImageToDataUrl(file, { maxSide: PHOTO_MAX_SIDE, quality: 0.85 });
+	if (dataUrlByteSize(dataUrl) > SERVER_MAX_IMAGE_BYTES) {
+		throw new Error('La imagen es demasiado pesada');
+	}
+	return dataUrl;
+}
