@@ -61,14 +61,16 @@
 
 ## M3 — Controller, rutas, realtime
 
-- [ ] `waBridgeController.ts` + `waBridgeRoutes.ts` + montaje en `routes/index.ts`
-      (matriz de rutas de plan.md §2; `linkedPhone` solo al dueño)
-- [ ] `realtime.ts`: room `retreat:<id>:inbox` + `inbox:subscribe/unsubscribe` (permiso +
-      retiro) + `emitInboxChanged`
-- [ ] `apps/api/src/config.ts`: bloque `waBridge`
-- [ ] Test de acceso: 401/403 sin permiso o sin acceso al retiro, 400 sin consentimiento,
-      409 tope/ya-vinculado, 422 fuera de ventana, 503 kill switch, QR owner-only, subscribe
-      de socket rechazado sin permiso
+- [x] `waBridgeController.ts` + `waBridgeRoutes.ts` + montaje en `routes/index.ts`
+      (`/api/wa-bridge`; matriz de plan.md §2; `linkedPhone` solo al dueño o superadmin)
+- [x] `realtime.ts`: room `retreat:<id>:inbox` + `inbox:subscribe/unsubscribe` (permiso +
+      retiro) + `emitInboxChanged` — hecho en M2 porque el poller lo importa
+- [x] `apps/api/src/config.ts`: bloque `waBridge` (hecho en M2 junto al núcleo)
+- [x] Test del controller (14 casos): 400 sin consentimiento, 503 kill switch, 409 tope,
+      422 ventana, 201 dueño-con-teléfono, strip de teléfonos ajenos, superadmin ve todo,
+      404/403 owner-only en status y unlink, validaciones de chatJid/before sin tocar DB
+- [ ] Suscripción de socket rechazada sin permiso: verificación en QA M5 (handler replica
+      el molde `sequences:subscribe` + `hasPermission`)
 
 ## M4 — Web
 
@@ -131,3 +133,12 @@
   la lógica de vencimiento (`isLinkPurgeDue`) sí está testeada como función pura.
 - **M2**: `@Index` de entidades y `CREATE INDEX` de la migración conviven (sync en test,
   migración en prod); los nombres de índice coinciden en ambos lados para no diverger.
+- **M3**: handlers como **arrows de clase** (`getQueue = async (req,res) => …`), estilo de
+  la casa que evita `unbound-method` en el lint de rutas — el plan no lo especificaba.
+- **M3**: `req.user` se tipa con helper local `currentUser(req)` (patrón `(req.user as any)`
+  de los controllers legacy, con cast explícito a la entidad User).
+- **M3**: `markSeen` computa el timestamp de "leído hasta aquí" en el **servidor** (el
+  cliente solo manda chatJid) — más estricto que lo escrito en plan.md §2.
+- **M3**: ramas de controller que tocan DB (conversations/messages/seen) sin test
+  integrado: se ejercitan en QA M5. El DTO `WaInboxMessageDto` perdió `senderJid`
+  (la entidad nunca lo tuvo).

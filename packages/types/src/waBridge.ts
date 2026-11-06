@@ -59,8 +59,6 @@ export interface WaConversationDto {
 export interface WaInboxMessageDto {
 	id: string;
 	chatJid: string;
-	/** JID del remitente humano (≠ chatJid solo si el staff escribió desde el teléfono). */
-	senderJid: string | null;
 	timestamp: string | Date;
 	body: string | null;
 	/** Tipo declarado por WhatsApp (text, image, audio, …) para el placeholder 📎. */
