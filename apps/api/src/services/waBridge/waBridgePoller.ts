@@ -133,9 +133,9 @@ export class WaBridgePoller {
 	}
 
 	private async pollLink(link: WhatsappBridgeLink): Promise<void> {
-		const acceptedJidDigits = await waBridgeService.getWalkerJidDigitIndex(link.retreatId);
+		const digitsMap = await waBridgeService.getWalkerDigitsMap(link.retreatId);
 		const chats = await listChats(link.storePath, 100);
-		const whitelisted = filterWhitelistedChats(chats, acceptedJidDigits);
+		const whitelisted = filterWhitelistedChats(chats, new Set(digitsMap.keys()));
 		if (whitelisted.length === 0) {
 			await this.touchSync(link);
 			return;
@@ -144,8 +144,11 @@ export class WaBridgePoller {
 		const afterIso = this.lookbackIso(link.lastSyncAt);
 		const messageRepo = AppDataSource.getRepository(WhatsappInboxMessage);
 		let inserted = 0;
+		let lastSenderName: string | null = null;
+		let lastPreview: string | null = null;
 		for (const chat of whitelisted) {
 			const chatPhone = jidToDigits(chat.jid) ?? '';
+			const participant = digitsMap.get(chatPhone);
 			const messages = await listMessages(link.storePath, chat.jid, {
 				limit: 50,
 				afterIso,
@@ -162,12 +165,24 @@ export class WaBridgePoller {
 					.values({ ...normalized, linkId: link.id, retreatId: link.retreatId })
 					.orIgnore()
 					.execute();
-				inserted += Number(result.raw?.changes ?? 0) || 0;
+				const changes = Number(result.raw?.changes ?? 0) || 0;
+				if (changes > 0) {
+					inserted += changes;
+					lastSenderName = participant
+						? `${participant.firstName} ${participant.lastName}`.trim()
+						: null;
+					lastPreview = normalized.body ?? null;
+				}
 			}
 		}
 		await this.touchSync(link);
 		if (inserted > 0) {
-			emitInboxChanged({ retreatId: link.retreatId, newCount: inserted });
+			emitInboxChanged({
+				retreatId: link.retreatId,
+				newCount: inserted,
+				senderName: lastSenderName,
+				preview: lastPreview,
+			});
 		}
 	}
 

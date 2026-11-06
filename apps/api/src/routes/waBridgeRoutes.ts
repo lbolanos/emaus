@@ -41,6 +41,19 @@ router.post(
 	requirePermission('payment:create'),
 	controller.receiptDataUrl,
 );
+// Badge del sidebar y búsqueda (v1.1): lectura pura.
+router.get(
+	'/retreat/:retreatId/unread',
+	requirePermission('whatsappInbox:read'),
+	requireRetreatAccess('retreatId'),
+	controller.unreadCount,
+);
+router.get(
+	'/retreat/:retreatId/search',
+	requirePermission('whatsappInbox:read'),
+	requireRetreatAccess('retreatId'),
+	controller.search,
+);
 
 // Gestión del vínculo propio: permiso manage; el dueño (o superadmin) lo
 // valida dentro del controller para /link/:linkId.

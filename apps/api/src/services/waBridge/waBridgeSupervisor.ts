@@ -38,8 +38,8 @@ const MAX_BACKOFF_MS = 60_000;
 const KILL_GRACE_MS = 5_000;
 
 /** Señal al GRUPO del hijo (shell + nietos); fallback al hijo directo. */
-function killProcessGroup(child: ChildProcess, signal: NodeJS.Signals): void {
-	if (process.platform !== 'win32' && child.pid && child.detached) {
+function killProcessGroup(child: ChildProcess, signal: NodeJS.Signals, detached: boolean): void {
+	if (process.platform !== 'win32' && detached && child.pid) {
 		process.kill(-child.pid, signal);
 		return;
 	}
@@ -91,6 +91,8 @@ export class WaBridgeSupervisor {
 	private mode: WaSupervisorMode | null = null;
 	private stopped = false;
 	private backoffMs: number = config.waBridge.restartBackoffSeconds * 1000;
+	/** El spawn usa grupo de procesos propio (excepto Windows) — lo consulta el stop. */
+	private readonly spawnedDetached = process.platform !== 'win32';
 	private restartTimer: NodeJS.Timeout | null = null;
 	private killTimer: NodeJS.Timeout | null = null;
 	private static readonly instances = new Set<WaBridgeSupervisor>();
@@ -246,7 +248,7 @@ export class WaBridgeSupervisor {
 			};
 			const killTimer = setTimeout(() => {
 				try {
-					killProcessGroup(child, 'SIGKILL');
+					killProcessGroup(child, 'SIGKILL', this.spawnedDetached);
 				} catch {
 					// Ya murió.
 				}
@@ -259,7 +261,7 @@ export class WaBridgeSupervisor {
 				finish();
 			});
 			try {
-				killProcessGroup(child, 'SIGTERM');
+				killProcessGroup(child, 'SIGTERM', this.spawnedDetached);
 			} catch {
 				clearTimeout(killTimer);
 				finish();

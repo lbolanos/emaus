@@ -148,6 +148,21 @@
 - [x] Verificado en 390x844 (navegación, ampliada, volver) y 1280x800 (regresión
       de dos paneles + ampliada); vitest 13 y build web en verde
 
+## M10 — UX ronda 2 (v1.1, elegido por Leo: 1+2+3+5/6)
+
+- [x] **Badge en sidebar**: `GET /retreat/:id/unread` (liviano) + `waInboxStore.totalUnread`
+      + entrada en `ITEM_BADGE` del Sidebar; refresco al cambiar retiro, cada 60 s, por
+      socket dentro de la vista y al marcar leído. Verificado en vivo: badge "5"
+- [x] **Toast en vivo**: `inbox:changed` lleva senderName + preview; el store muestra
+      toast (patrón authStore)
+- [x] **Búsqueda**: `GET /retreat/:id/search?q=` (LIKE con ESCAPE, límite 30) + input
+      con debounce 300 ms en la bandeja; el resultado abre el chat
+- [x] **Separadores Hoy/Ayer/fecha + horas en zona del retiro** (hilo y lista;
+      regla 5 de timezone-handling). Verificado en vivo: separador "Hoy", hora
+      08:05 CDMX para un UTC 14:05
+- [x] Refactor: poller usa `getWalkerDigitsMap` (una sola fuente del whitelist) y el
+      socket lleva remitente/vista previa; 50 tests API + 13 vitest + build verde
+
 ## M5bis — Video-demo (`record-wa-inbox.mjs`)
 
 - [x] Escenario: San Agustín con fechas movidas (ventana abierta), 7 mensajes de

@@ -269,6 +269,9 @@ export type InboxChangedPayload = {
 	retreatId: string;
 	/** Mensajes nuevos insertados en el último ciclo de ingesta. */
 	newCount: number;
+	/** Para el toast in-app: remitente y vista previa del último mensaje. */
+	senderName?: string | null;
+	preview?: string | null;
 };
 
 /**

@@ -32,6 +32,10 @@ const { links, conversations, realtimeConnected, loadingConversations, inboxEnab
 const retreatId = computed(
   () => retreatStore.selectedRetreatId || retreatStore.mostRecentRetreat?.id || null,
 )
+// Zona del retiro para horas/separadores (regla 5 de timezone-handling).
+const retreatTimezone = computed(
+  () => retreatStore.selectedRetreat?.timezone || 'America/Mexico_City',
+)
 // Mold de MessageSequencesView: el id del usuario actual decide si el tablero
 // muestra el teléfono de cada vínculo.
 const myUserId = computed(() => (authStore.user as any)?.id || null)
@@ -57,7 +61,51 @@ onBeforeUnmount(() => store.reset())
 async function refresh() {
   const id = retreatId.value
   if (!id) return
-  await Promise.all([store.fetchLinks(id), store.fetchConversations(id)])
+  await Promise.all([store.fetchLinks(id), store.fetchConversations(id), store.refreshBadge(id)])
+}
+
+function formatSearchTime(ts: string | Date): string {
+  const date = typeof ts === 'string' ? new Date(ts) : ts
+  return date.toLocaleString('es-MX', {
+    timeZone: retreatTimezone.value,
+    day: '2-digit',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  })
+}
+
+// ── Búsqueda de mensajes (v1.1): debounce 300 ms, mínimo 2 caracteres ──
+const searchQuery = ref('')
+const searching = ref(false)
+let searchTimer: ReturnType<typeof setTimeout> | null = null
+
+watch(searchQuery, (q) => {
+  if (searchTimer) clearTimeout(searchTimer)
+  const id = retreatId.value
+  if (!id) return
+  const trimmed = q.trim()
+  if (trimmed.length < 2) {
+    store.searchResults = []
+    return
+  }
+  searchTimer = setTimeout(() => {
+    searching.value = true
+    store
+      .searchMessages(id, trimmed)
+      .catch(() => {
+        store.searchResults = []
+      })
+      .finally(() => {
+        searching.value = false
+      })
+  }, 300)
+})
+
+function onSelectSearchResult(chatJid: string) {
+  searchQuery.value = ''
+  onSelect(chatJid)
 }
 
 function onSelect(chatJid: string) {
@@ -200,11 +248,46 @@ async function onRegisterReceipt(message: { id: string }) {
          (con Volver); sin chat activo se ve solo la lista. Escritorio: ambos. -->
     <div class="order-2 lg:order-1 grid grid-cols-1 lg:grid-cols-[340px_1fr] gap-4">
       <div :class="store.activeChatJid ? 'hidden lg:block' : 'block'">
+        <!-- Búsqueda de mensajes (v1.1): reemplaza la lista mientras hay texto. -->
+        <input
+          v-model="searchQuery"
+          type="search"
+          :placeholder="t('waInbox.searchPlaceholder')"
+          class="w-full mb-2 px-3 py-2 text-sm rounded-lg border bg-background"
+          data-testid="wa-search-input"
+        />
+        <div v-if="searchQuery.trim().length >= 2" class="rounded-lg border overflow-hidden">
+          <div v-if="searching" class="p-3 text-sm text-muted-foreground animate-pulse">
+            {{ t('waInbox.loading') }}
+          </div>
+          <div
+            v-else-if="store.searchResults.length === 0"
+            class="p-3 text-sm text-muted-foreground"
+          >
+            {{ t('waInbox.searchEmpty') }}
+          </div>
+          <ul v-else class="divide-y max-h-[60vh] overflow-y-auto">
+            <li v-for="r in store.searchResults" :key="r.id">
+              <button
+                type="button"
+                class="w-full text-left px-3 py-2 hover:bg-muted/60"
+                @click="onSelectSearchResult(r.chatJid)"
+              >
+                <div class="text-xs text-muted-foreground">
+                  {{ formatSearchTime(r.timestamp) }}
+                </div>
+                <div class="text-sm truncate">{{ r.body }}</div>
+              </button>
+            </li>
+          </ul>
+        </div>
         <WaConversationList
+          v-else
           :conversations="conversations"
           :active-chat-jid="store.activeChatJid"
           :loading="loadingConversations"
           :empty-text="links.length === 0 ? t('waInbox.noLinks') : t('waInbox.empty')"
+          :retreat-timezone="retreatTimezone"
           @select="onSelect"
         />
       </div>
@@ -214,6 +297,7 @@ async function onRegisterReceipt(message: { id: string }) {
           :conversation="store.activeConversation"
           :loading="store.loadingThread"
           :can-register-payment="canRegisterPayment"
+          :retreat-timezone="retreatTimezone"
           @register-receipt="onRegisterReceipt"
           @back="store.activeChatJid = null"
         />

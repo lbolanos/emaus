@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia';
 import { computed, ref } from 'vue';
+import { useToast } from '@repo/ui';
 import { getSocket } from '@/services/realtime';
 import type { WaConversationDto, WaInboxMessageDto, WaLinkDto } from '@repo/types';
 import {
@@ -8,6 +9,8 @@ import {
   getWaConversations,
   getWaMessages,
   getWaReceiptDataUrl,
+  getWaUnreadCount,
+  searchWaMessages,
   markWaChatSeen,
   startWaLink,
   unlinkWaLink,
@@ -15,6 +18,7 @@ import {
   terminateWaBridgeAll,
   type WaLinkStatus,
   type WaReceiptDownload,
+  type WaSearchResult,
 } from '@/services/api';
 
 /**
@@ -26,6 +30,9 @@ export const useWaInboxStore = defineStore('waInbox', () => {
   const links = ref<WaLinkDto[]>([]);
   /** Activación del retiro (D13) — viene en la respuesta de links. */
   const inboxEnabled = ref(false);
+  /** Badge del sidebar (v1.1): no leídos totales para el usuario actual. */
+  const totalUnread = ref(0);
+  const searchResults = ref<WaSearchResult[]>([]);
   const conversations = ref<WaConversationDto[]>([]);
   const activeChatJid = ref<string | null>(null);
   const threadMessages = ref<WaInboxMessageDto[]>([]);
@@ -81,6 +88,23 @@ export const useWaInboxStore = defineStore('waInbox', () => {
     return getWaReceiptDataUrl(messageId);
   }
 
+  /** Badge del sidebar (v1.1): liviano, apto para polling. */
+  async function refreshBadge(retreatId: string) {
+    try {
+      const data = await getWaUnreadCount(retreatId);
+      totalUnread.value = data.total ?? 0;
+    } catch {
+      // Sin permiso o sin retiro: el badge se queda como esté.
+    }
+  }
+
+  /** Búsqueda de texto (v1.1). */
+  async function searchMessages(retreatId: string, q: string) {
+    const data = await searchWaMessages(retreatId, q);
+    searchResults.value = data.results ?? [];
+    return searchResults.value;
+  }
+
   async function fetchConversations(retreatId: string) {
     loadingConversations.value = true;
     try {
@@ -114,6 +138,7 @@ export const useWaInboxStore = defineStore('waInbox', () => {
     await markWaChatSeen(retreatId, chatJid).catch(() => {});
     const c = conversations.value.find((x) => x.chatJid === chatJid);
     if (c) c.unreadCount = 0;
+    refreshBadge(retreatId).catch(() => {});
   }
 
   async function linkStatus(linkId: string): Promise<WaLinkStatus> {
@@ -144,13 +169,24 @@ export const useWaInboxStore = defineStore('waInbox', () => {
     if (socket.connected) join();
     socket.on('connect', join);
 
-    const listener = (e: { retreatId: string }) => {
+    const listener = (e: { retreatId: string; newCount?: number; senderName?: string | null; preview?: string | null }) => {
       const active = subscribedRetreatId;
       if (!active || e.retreatId !== active) return;
       fetchConversations(active).catch(() => {});
+      refreshBadge(active).catch(() => {});
       // Hilo abierto: refetch del chat activo (los nuevos entrantes aparecen).
       if (activeChatJid.value) {
         fetchThread(active, activeChatJid.value).catch(() => {});
+      }
+      // Aviso in-app (v1.1): el staff no vive mirando la bandeja.
+      const { toast } = useToast();
+      if (e.senderName) {
+        toast({
+          title: `${e.senderName}`,
+          description: e.preview || undefined,
+        });
+      } else if ((e.newCount ?? 0) > 0) {
+        toast({ title: `${e.newCount} mensaje(s) nuevo(s) de caminantes` });
       }
     };
 
@@ -171,12 +207,15 @@ export const useWaInboxStore = defineStore('waInbox', () => {
     links.value = [];
     conversations.value = [];
     threadMessages.value = [];
+    searchResults.value = [];
     activeChatJid.value = null;
   }
 
   return {
     links,
     inboxEnabled,
+    totalUnread,
+    searchResults,
     conversations,
     activeChatJid,
     activeConversation,
@@ -195,6 +234,8 @@ export const useWaInboxStore = defineStore('waInbox', () => {
     setEnabled,
     terminateAll,
     downloadReceipt,
+    refreshBadge,
+    searchMessages,
     subscribeRealtime,
     reset,
   };

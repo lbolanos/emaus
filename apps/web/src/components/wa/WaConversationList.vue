@@ -11,6 +11,8 @@ defineProps<{
   activeChatJid: string | null
   loading: boolean
   emptyText: string
+  /** Zona del retiro para las horas (timezone-handling). */
+  retreatTimezone?: string | null
 }>()
 
 const emit = defineEmits<{
@@ -19,9 +21,10 @@ const emit = defineEmits<{
 
 const { t } = useI18n()
 
-function formatTime(ts: string | Date): string {
+function formatTime(ts: string | Date, tz?: string | null): string {
   const date = typeof ts === 'string' ? new Date(ts) : ts
   return date.toLocaleString('es-MX', {
+    timeZone: tz || undefined,
     day: '2-digit',
     month: 'short',
     hour: '2-digit',
@@ -72,7 +75,7 @@ function formatTime(ts: string | Date): string {
               {{ c.lastMessagePreview || t('waInbox.multimedia') }}
             </span>
             <span class="text-xs text-muted-foreground whitespace-nowrap">
-              {{ formatTime(c.lastMessageAt) }}
+              {{ formatTime(c.lastMessageAt, retreatTimezone) }}
             </span>
           </div>
         </button>

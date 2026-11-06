@@ -358,6 +358,31 @@ export class WaBridgeController {
 	 * imagen sale de la bandeja con destino de comprobante. No se persiste
 	 * nada en esta llamada: la persistencia es la del propio pago.
 	 */
+	/**
+	 * GET /retreat/:retreatId/unread — total de no leídos DEL usuario (badge del
+	 * sidebar, v1.1). Endpoint liviano: cuenta con los read-states del caller.
+	 */
+	unreadCount = async (req: Request, res: Response): Promise<Response> => {
+		const total = await waBridgeService.countUnreadForUser(
+			req.params.retreatId,
+			currentUser(req).id,
+		);
+		return res.json({ total });
+	};
+
+	/**
+	 * GET /retreat/:retreatId/search?q= — búsqueda de texto sobre los cuerpos
+	 * persistidos (v1.1). Límite 30, más recientes primero.
+	 */
+	search = async (req: Request, res: Response): Promise<Response> => {
+		const q = String(req.query.q ?? '').trim();
+		if (q.length < 2) {
+			return res.json({ results: [] });
+		}
+		const results = await waBridgeService.searchMessages(req.params.retreatId, q.slice(0, 100));
+		return res.json({ results });
+	};
+
 	receiptDataUrl = async (req: Request, res: Response): Promise<Response> => {
 		const user = currentUser(req);
 		const canCreatePayment = await authorizationService.hasPermission(

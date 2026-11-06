@@ -504,10 +504,11 @@
 
 <script setup lang="ts">
 import { storeToRefs } from 'pinia';
-import { ref, computed, nextTick, onMounted, onBeforeUnmount, watch } from 'vue';
+import { ref, computed, nextTick, onMounted, onBeforeUnmount, onUnmounted, watch } from 'vue';
 import { LogOut, Users, UtensilsCrossed, LayoutDashboard, ChevronLeft, Home, Ban, Bed, HandHeart, DollarSign, NotebookPen, Building, UsersRound, Salad, FileX, UserCheck, ShoppingBag, Pill, Shirt, UserCog, Table, Settings, Package, Globe, Briefcase, Search, X, ArrowRight, ChevronDown, Lock, CreditCard, Activity, KeyRound, Heart, UserPlus, UserCircle, MessageSquare, MessageCircle, Clock, ClipboardList, BookOpen, Plus, Edit as EditIcon, HelpCircle, Cross, User as UserIcon, Languages, DoorOpen, Trash2, Flag } from 'lucide-vue-next';
 import { useAuthStore } from '@/stores/authStore';
 import { useReceptionStore } from '@/stores/receptionStore';
+import { useWaInboxStore } from '@/stores/waInboxStore';
 import { useRouter, useRoute } from 'vue-router';
 import { Button } from '@repo/ui';
 import {
@@ -589,6 +590,7 @@ const communityStore = useCommunityStore();
 const uiStore = useUIStore();
 const receptionStore = useReceptionStore();
 const participantStore = useParticipantStore();
+const waInboxStore = useWaInboxStore();
 const menuFavoritesStore = useMenuFavoritesStore();
 const { participants } = storeToRefs(participantStore);
 const { isSidebarCollapsed, isMobile, collapsedSections, isRetreatGroupCollapsed } = storeToRefs(uiStore);
@@ -620,6 +622,10 @@ const ITEM_BADGE: Record<string, { color: string; count: () => number | null }> 
   canceled:     { color: 'bg-red-500',    count: () => participantCounts.value.canceled  || null },
   reception:    { color: 'bg-amber-500',  count: () => receptionStore.pendingCount       || null },
   'special-cases': { color: 'bg-amber-500', count: () => participantCounts.value.specialCases || null },
+  // Bandeja WhatsApp (specs/whatsapp-inbox v1.1): no leídos del usuario. El
+  // store refresca al cambiar de retiro y con el socket de la vista; el poll
+  // de abajo cubre cuando la vista está cerrada.
+  'wa-inbox': { color: 'bg-emerald-500', count: () => waInboxStore.totalUnread || null },
 };
 
 function itemBadge(name: string): number | null {
@@ -628,6 +634,17 @@ function itemBadge(name: string): number | null {
 function itemBadgeColor(name: string): string {
   return ITEM_BADGE[name]?.color ?? 'bg-gray-500';
 }
+
+// Badge de la bandeja WhatsApp (v1.1): refresco al cambiar de retiro y cada
+// 60 s — la vista abierta además refresca al instante por socket. El API
+// responde 403 sin el permiso y el store lo traga (el badge queda como esté).
+const refreshWaBadge = () => {
+  const id = retreatStore.selectedRetreatId;
+  if (id) void waInboxStore.refreshBadge(id);
+};
+watch(() => retreatStore.selectedRetreatId, refreshWaBadge, { immediate: true });
+const waBadgeTimer = setInterval(refreshWaBadge, 60_000);
+onUnmounted(() => clearInterval(waBadgeTimer));
 
 const ROLE_DISPLAY_NAMES: Record<string, string> = {
   superadmin: 'Super Administrador',

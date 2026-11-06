@@ -5065,3 +5065,29 @@ export const getWaReceiptDataUrl = async (messageId: string): Promise<WaReceiptD
   const r = await api.post(`/wa-bridge/messages/${messageId}/receipt`);
   return r.data;
 };
+
+/** Badge del sidebar (v1.1): no leídos totales del retiro para el usuario. */
+export const getWaUnreadCount = async (
+  retreatId: string,
+): Promise<{ total: number }> => {
+  const r = await api.get(`/wa-bridge/retreat/${retreatId}/unread`);
+  return r.data;
+};
+
+export interface WaSearchResult {
+  id: string;
+  chatJid: string;
+  chatPhone: string;
+  timestamp: string | Date;
+  body: string | null;
+  messageType: string;
+}
+
+/** Búsqueda de texto sobre los mensajes persistidos (v1.1). */
+export const searchWaMessages = async (
+  retreatId: string,
+  q: string,
+): Promise<{ results: WaSearchResult[] }> => {
+  const r = await api.get(`/wa-bridge/retreat/${retreatId}/search`, { params: { q } });
+  return r.data;
+};

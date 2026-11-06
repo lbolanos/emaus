@@ -8,6 +8,7 @@ import { Retreat } from '../../entities/retreat.entity';
 import { User } from '../../entities/user.entity';
 import { WhatsappBridgeLink } from '../../entities/whatsappBridgeLink.entity';
 import { WhatsappInboxMessage } from '../../entities/whatsappInboxMessage.entity';
+import { WhatsappInboxReadState } from '../../entities/whatsappInboxReadState.entity';
 import { domainAuditService } from '../domainAuditService';
 import {
 	toNationalPhone,
@@ -500,6 +501,50 @@ export class WaBridgeService {
 		}
 		this.supervisors.clear();
 		this.qrCache.clear();
+	}
+
+	/**
+	 * No leídos totales del retiro PARA ESTE usuario (badge del sidebar, v1.1):
+	 * mensaje cuyo timestamp es mayor que el read-state de su chat.
+	 */
+	async countUnreadForUser(retreatId: string, userId: string): Promise<number> {
+		const messages = await AppDataSource.getRepository(WhatsappInboxMessage).find({
+			where: { retreatId },
+			select: ['chatJid', 'timestamp'],
+		});
+		if (messages.length === 0) return 0;
+		const states = await AppDataSource.getRepository(WhatsappInboxReadState).find({
+			where: { retreatId, userId },
+		});
+		const lastSeen = new Map(
+			states.map((state) => [state.chatJid, state.lastSeenMessageTimestamp]),
+		);
+		let unread = 0;
+		for (const message of messages) {
+			const seen = lastSeen.get(message.chatJid);
+			if (!seen || message.timestamp > seen) unread += 1;
+		}
+		return unread;
+	}
+
+	/** Búsqueda de texto sobre los cuerpos persistidos (v1.1, LIKE con escape). */
+	async searchMessages(
+		retreatId: string,
+		q: string,
+		limit = 30,
+	): Promise<
+		Array<Pick<WhatsappInboxMessage, 'id' | 'chatJid' | 'chatPhone' | 'timestamp' | 'body' | 'messageType'>>
+	> {
+		const escaped = q.replace(/[%_\\]/g, (ch) => '\\' + ch);
+		return AppDataSource.getRepository(WhatsappInboxMessage)
+			.createQueryBuilder('m')
+			.select(['m.id', 'm.chatJid', 'm.chatPhone', 'm.timestamp', 'm.body', 'm.messageType'])
+			.where('m.retreatId = :retreatId', { retreatId })
+			.andWhere('m.body IS NOT NULL')
+			.andWhere("m.body LIKE '%' || :q || '%' ESCAPE '\\'", { q: escaped })
+			.orderBy('m.timestamp', 'DESC')
+			.take(limit)
+			.getMany();
 	}
 
 	/**
