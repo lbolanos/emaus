@@ -4969,3 +4969,65 @@ export const updateParticipantNote = async (
 export const deleteParticipantNote = async (id: string): Promise<void> => {
   await api.delete(`/crm/notes/${id}`);
 };
+
+// ── Puente WhatsApp de solo lectura (specs/whatsapp-inbox) ──
+
+import type { WaLinkDto, WaConversationDto, WaInboxMessageDto } from "@repo/types";
+
+export const startWaLink = async (
+  retreatId: string,
+  consentAccepted: boolean,
+): Promise<{ link: WaLinkDto }> => {
+  const r = await api.post(`/wa-bridge/retreat/${retreatId}/link`, { consentAccepted });
+  return r.data;
+};
+
+export const getWaLinks = async (retreatId: string): Promise<{ links: WaLinkDto[] }> => {
+  const r = await api.get(`/wa-bridge/retreat/${retreatId}/links`);
+  return r.data;
+};
+
+export interface WaLinkStatus {
+  status: WaLinkDto["status"];
+  qr: string | null;
+  linkedPhone: string | null;
+  linkedJid: string | null;
+  lastError: string | null;
+  lastSyncAt: string | Date | null;
+}
+
+export const getWaLinkStatus = async (linkId: string): Promise<WaLinkStatus> => {
+  const r = await api.get(`/wa-bridge/link/${linkId}/status`);
+  return r.data;
+};
+
+export const unlinkWaLink = async (linkId: string): Promise<{ ok: boolean }> => {
+  const r = await api.delete(`/wa-bridge/link/${linkId}`);
+  return r.data;
+};
+
+export const getWaConversations = async (
+  retreatId: string,
+): Promise<{ conversations: WaConversationDto[] }> => {
+  const r = await api.get(`/wa-bridge/retreat/${retreatId}/conversations`);
+  return r.data;
+};
+
+export const getWaMessages = async (
+  retreatId: string,
+  chatJid: string,
+  before?: string,
+): Promise<{ messages: WaInboxMessageDto[] }> => {
+  const r = await api.get(`/wa-bridge/retreat/${retreatId}/messages`, {
+    params: { chatJid, before, limit: 50 },
+  });
+  return r.data;
+};
+
+export const markWaChatSeen = async (
+  retreatId: string,
+  chatJid: string,
+): Promise<{ ok: boolean; lastSeen: string | Date | null }> => {
+  const r = await api.post(`/wa-bridge/retreat/${retreatId}/seen`, { chatJid });
+  return r.data;
+};

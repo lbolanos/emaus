@@ -7,13 +7,18 @@
 
 ## M0 — Ops de preparación (manual)
 
-- [ ] Build del `wacli` desde el tag fijado al commit auditado (con el parche de hash del
-      Dockerfile del MCP local); anotar `sha256sum`
-- [ ] `scp` + `install -m 755` a `/opt/emaus-wa-bridge/wacli` en prod; crear
-      `/var/lib/emaus-wa-bridge` (0700)
-- [ ] Bloque `WA_BRIDGE_*` en `.env.production` con `WA_BRIDGE_ENABLED=false` y
-      `WA_BRIDGE_MAX_SESSIONS=2` (sed puntual + pm2 restart; regla: prod manda)
-- [ ] Bloque documentado en `apps/api/.env.example`
+- [x] Build del `wacli` v0.21.0 desde el commit auditado `ed31806e` — **rebuild glibc
+      amd64** (la imagen local del MCP es arm64; prod es x86_64). sha256:
+      `08353dd0de82e0c896805f5802cda09baeced7cff802cf2c89cbd60c1c7bd909`. El build musl
+      original quedó descartado. Verificado con `wacli --version` en contenedor amd64.
+- [x] `scp` + `install -m 755` a `/opt/emaus-wa-bridge/wacli` en prod (verificado:
+      `wacli --version` corre en el servidor); `/var/lib/emaus-wa-bridge` creado 0700,
+      dueño `ubuntu` (autorizado por Leo el 2026-11-05)
+- [x] Bloque `WA_BRIDGE_*` en `.env.production` con `WA_BRIDGE_ENABLED=false` y
+      `WA_BRIDGE_MAX_SESSIONS=2` (5 vars; backup previo en
+      `/var/backups/emaus/env.production.bak.20261105-wa-bridge`; sin pm2 restart —
+      nada las lee hasta M6; regla: prod manda)
+- [x] Bloque documentado en `apps/api/.env.example`
 
 ## M1 — Types + migración + entidades
 
@@ -74,18 +79,22 @@
 
 ## M4 — Web
 
-- [ ] Funciones de `services/api.ts` (7 endpoints)
-- [ ] [P] `stores/waInboxStore.ts` (realtime port + refetch)
-- [ ] [P] `components/wa/WaLinkModal.vue` (consentimiento → QR → conectado; polling 3 s)
-- [ ] [P] `components/wa/WaLinkPanel.vue`, `WaConversationList.vue`, `WaChatThread.vue`
-      (solo `{{ }}`, deep link respuesta)
-- [ ] `views/WaInboxView.vue` (dos paneles / apilado móvil)
-- [ ] Router (`wa-inbox` con `requiresPermission`) + Sidebar (sección communications, ícono
-      en allowlist del mock)
-- [ ] `locales/es.json` + `en.json` (ambos) + íconos nuevos en `test/setup.ts` si los hay
-- [ ] Tests vitest: store realtime (molde messageSequenceStore), hilo con payloads
-      maliciosos inertes (`<script>`/`<img onerror>` como texto), gate de consentimiento del
-      modal
+- [x] Funciones de `services/api.ts` (7 endpoints)
+- [x] [P] `stores/waInboxStore.ts` (realtime port + refetch; `openChat` marca seen en
+      servidor y limpia el badge local)
+- [x] [P] `components/wa/WaLinkModal.vue` (consentimiento → QR → conectado; polling 3 s;
+      montado siempre sin v-if)
+- [x] [P] `components/wa/WaLinkPanel.vue`, `WaConversationList.vue`, `WaChatThread.vue`
+      (solo `{{ }}`, deep link respuesta con `toNationalPhone` + `buildWhatsAppChatLink`)
+- [x] `views/WaInboxView.vue` (dos paneles / apilado móvil; realtime dot)
+- [x] Router (`wa-inbox` con `requiresPermission: 'whatsappInbox:read'`) + Sidebar (tras
+      palancas; `MessageCircle` ya estaba en la allowlist del mock) + `PermissionType`
+      del sidebar ampliado
+- [x] `locales/es.json` + `en.json` (ambos: `sidebar.waInbox` + bloque `waInbox.*`)
+- [x] Tests vitest (13): store realtime (join/ack/re-join/otro-retiro/unsubscribe),
+      `openChat` (orden cronológico + seen + badge), hilo con payloads maliciosos inertes,
+      multimedia placeholder, gate de consentimiento del modal
+- [x] `pnpm --filter web build` verde (vue-tsc + vite)
 
 ## M5 — E2E + QA manual
 
@@ -114,9 +123,9 @@
   mismos flags) en un builder `golang:1.27.2` debian. sha256 del binario glibc:
   `08353dd0de82e0c896805f5802cda09baeced7cff802cf2c89cbd60c1c7bd909`. El binario musl
   original queda descartado (dinámico contra `/lib/ld-musl-x86_64.so.1`, no corre en Ubuntu).
-- **M0 (pendiente)**: la instalación en prod (`/opt/emaus-wa-bridge`, `/var/lib/emaus-wa-bridge`,
-  bloque de `.env.production`) fue DENEGADA por el clasificador de permisos — requiere OK
-  explícito de Leo (el plan la marcaba manual). Runbook listo para cuando autorice.
+- **M0 (resuelto)**: la instalación en prod fue DENEGADA por el clasificador de permisos en
+  la primera pasada y **ejecutada tras autorización explícita de Leo** (2026-11-05,
+  AskUserQuestion). Todo inerte hasta M6 (sin pm2 restart).
 - **M1**: la migración usa `transaction = false as const` (plan.md decía que la plantilla
   simple no lo necesitaba): las migraciones de permisos hermanas lo fijan "por consistencia"
   y el runner propio lo respeta desde 2026-09-08 — plan.md corregido en el mismo commit
@@ -142,3 +151,10 @@
 - **M3**: ramas de controller que tocan DB (conversations/messages/seen) sin test
   integrado: se ejercitan en QA M5. El DTO `WaInboxMessageDto` perdió `senderJid`
   (la entidad nunca lo tuvo).
+- **M4**: el build (vue-tsc) cazó 3 errores que ni vitest ni eslint vieron (import de
+  `WaLinkDto` desde el lugar equivocado, `getWaLinkStatus` sin importar, `PermissionType`
+  del sidebar sin el recurso nuevo) — una vez más, el build es el chequeo definitivo.
+  Además el controller dejó de descartar `ownerName` (el servicio lo calculaba y el DTO
+  lo perdía) — bug cazado al escribir el tablero de la UI.
+- **M4**: los tests de texto visible montan un `useI18n` local con las cadenas reales de
+  es.json (el mock global devuelve la key cruda y las assertions de texto fallarían).

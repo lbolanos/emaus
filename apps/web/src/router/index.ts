@@ -9,6 +9,7 @@ const CanceledView = () => import('../views/CanceledView.vue');
 const HousesView = () => import('../views/HousesView.vue');
 const PalancasView = () => import('../views/PalancasView.vue');
 const SpecialCasesView = () => import('../views/SpecialCasesView.vue');
+const WaInboxView = () => import('../views/WaInboxView.vue');
 const PaymentsView = () => import('../views/PaymentsView.vue');
 const DomainAuditView = () => import('../views/DomainAuditView.vue');
 const NotesAndMeetingPointsView = () => import('../views/NotesAndMeetingPointsView.vue');
@@ -285,6 +286,13 @@ const router = createRouter({
 					name: 'special-cases',
 					component: SpecialCasesView,
 					meta: { requiresRetreat: true, requiresPermission: 'participant:health' },
+				},
+				{
+					// Bandeja WhatsApp de solo lectura (specs/whatsapp-inbox).
+					path: 'wa-inbox',
+					name: 'wa-inbox',
+					component: WaInboxView,
+					meta: { requiresRetreat: true, requiresPermission: 'whatsappInbox:read' },
 				},
 				{
 					path: 'payments',

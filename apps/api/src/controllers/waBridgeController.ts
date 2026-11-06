@@ -44,11 +44,15 @@ const REFUSAL_MESSAGE: Record<string, string> = {
 	disabled: 'La bandeja de WhatsApp está desactivada por el administrador.',
 };
 
-function toLinkDto(link: WhatsappBridgeLink, includePhone: boolean) {
+function toLinkDto(
+	link: WhatsappBridgeLink & { ownerName?: string | null },
+	includePhone: boolean,
+) {
 	return {
 		id: link.id,
 		retreatId: link.retreatId,
 		userId: link.userId,
+		ownerName: link.ownerName ?? null,
 		status: link.status,
 		linkedPhone: includePhone ? (link.linkedPhone ?? null) : null,
 		connectedAt: link.connectedAt,

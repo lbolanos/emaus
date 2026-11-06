@@ -765,6 +765,7 @@
     "servers": "Servers",
     "partialServers": "Angelitos",
     "palancas": "Palancas",
+    "waInbox": "Retreat WhatsApp",
     "payments": "Payments",
     "tables": "Tables",
     "walkerBadges": "Walker Badges",
@@ -4284,5 +4285,46 @@
   "houses": {
     "deleteConfirm": "Delete house \"{name}\"? This action cannot be undone.",
     "deleteConfirmWithBeds": "Delete house \"{name}\"? All of its beds ({count}) will be deleted too. This action cannot be undone."
+  },
+  "waInbox": {
+    "title": "Retreat WhatsApp",
+    "subtitle": "Messages walkers send to the team's phones. Read-only.",
+    "realtimeOn": "Live",
+    "realtimeOff": "No live connection",
+    "refresh": "Refresh",
+    "loading": "Loading…",
+    "empty": "No walker messages yet. They will appear here when they reach a linked phone.",
+    "noLinks": "No linked phone yet. Link yours to start feeding the inbox.",
+    "linkButton": "Link my WhatsApp",
+    "unlink": "Unlink",
+    "cancel": "Cancel",
+    "close": "Close",
+    "participants": "Walker",
+    "reply": "Reply from my WhatsApp",
+    "multimedia": "📎 Media (open it in WhatsApp)",
+    "selectChat": "Pick a conversation",
+    "threadEmpty": "No messages in this chat yet.",
+    "status": {
+      "pending": "Starting",
+      "qr": "Waiting for scan",
+      "connected": "Connected",
+      "error": "Error",
+      "logged_out": "Unlinked",
+      "expired": "Expired"
+    },
+    "consent": {
+      "title": "Link my WhatsApp",
+      "intro": "Before scanning the code, be clear about what linking your account means:",
+      "bullet1": "During the retreat window, messages arriving at your WhatsApp go through the system's server. Only this retreat's walkers' messages are stored; the rest are not kept.",
+      "bullet2": "When pairing, your phone sends recent history to the server (capped); it is deleted when you unlink or 15 days after the retreat.",
+      "bullet3": "We use an unofficial, read-only WhatsApp client: your personal number could be suspended. The risk is low, but not zero.",
+      "bullet4": "Linking is voluntary: nobody is required to. If you prefer not to link your number, you can still use the inbox as a reader.",
+      "bullet5": "Whatever arrives at your number will be visible to the retreat team in this inbox. Your number is never shown to other members.",
+      "accept": "I understand and want to link my number",
+      "continue": "Continue",
+      "scan": "Scan this code with your phone: WhatsApp → Settings → Linked devices → Link a device.",
+      "connecting": "Waiting for the scan…",
+      "connected": "Your WhatsApp is linked! Close this window."
+    }
   }
 }

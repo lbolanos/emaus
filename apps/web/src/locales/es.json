@@ -768,6 +768,7 @@
     "partial_servers": "Angelitos",
     "waitings": "Lista de Espera",
     "palancas": "Palancas",
+    "waInbox": "WhatsApp del Retiro",
     "payments": "Pagos",
     "tables": "Mesas",
     "walkerBadges": "Gafetes Caminantes",
@@ -4606,5 +4607,46 @@
   "houses": {
     "deleteConfirm": "¿Eliminar la casa «{name}»? Esta acción no se puede deshacer.",
     "deleteConfirmWithBeds": "¿Eliminar la casa «{name}»? Se eliminarán también todas sus camas ({count}). Esta acción no se puede deshacer."
+  },
+  "waInbox": {
+    "title": "WhatsApp del Retiro",
+    "subtitle": "Mensajes que los caminantes envían a los teléfonos del equipo. Solo lectura.",
+    "realtimeOn": "En vivo",
+    "realtimeOff": "Sin conexión en vivo",
+    "refresh": "Actualizar",
+    "loading": "Cargando…",
+    "empty": "Aún no hay mensajes de caminantes. Aparecerán aquí cuando lleguen a un teléfono vinculado.",
+    "noLinks": "Ningún teléfono vinculado todavía. Vincula el tuyo para empezar a alimentar la bandeja.",
+    "linkButton": "Vincular mi WhatsApp",
+    "unlink": "Desvincular",
+    "cancel": "Cancelar",
+    "close": "Cerrar",
+    "participants": "Caminante",
+    "reply": "Responder desde mi WhatsApp",
+    "multimedia": "📎 Multimedia (ábreselo en WhatsApp)",
+    "selectChat": "Elige una conversación",
+    "threadEmpty": "Sin mensajes en este chat todavía.",
+    "status": {
+      "pending": "Iniciando",
+      "qr": "Esperando escaneo",
+      "connected": "Conectado",
+      "error": "Error",
+      "logged_out": "Desvinculado",
+      "expired": "Expirado"
+    },
+    "consent": {
+      "title": "Vincular mi WhatsApp",
+      "intro": "Antes de escanear el código, ten claro qué implica vincular tu cuenta:",
+      "bullet1": "Durante la ventana del retiro, los mensajes que lleguen a tu WhatsApp pasan por el servidor del sistema. Solo se guardan los de caminantes de este retiro; el resto no se conserva.",
+      "bullet2": "Al emparejar, tu teléfono envía el historial reciente al servidor (con tope); se borra al desvincular o 15 días después del retiro.",
+      "bullet3": "Usamos un cliente no oficial de WhatsApp, solo de lectura: tu número personal podría ser suspendido. El riesgo es bajo, pero no es cero.",
+      "bullet4": "Vincular es voluntario: nadie está obligado. Si no quieres vincular tu número, puedes usar la bandeja como lector.",
+      "bullet5": "Lo que llegue a tu número lo verá el equipo del retiro en esta bandeja. Tu número nunca se muestra a los demás miembros.",
+      "accept": "Entiendo y quiero vincular mi número",
+      "continue": "Continuar",
+      "scan": "Escanea este código con tu teléfono: WhatsApp → Ajustes → Dispositivos vinculados → Vincular un dispositivo.",
+      "connecting": "Esperando el escaneo…",
+      "connected": "¡Tu WhatsApp quedó vinculado! Cierra esta ventana."
+    }
   }
 }
