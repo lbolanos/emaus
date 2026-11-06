@@ -177,11 +177,15 @@ export class WaBridgeService {
 		link.linkedPhone = null;
 		link.connectedAt = null;
 		link.lastSyncAt = null;
-		await this.linkRepo.save(link);
 
-		// Store limpio: un re-vinculado no hereda sesión ni historial previo.
+		// El store se crea ANTES de guardar la fila: si el dataDir no es
+		// escribible, el fallo no deja fila pending huérfana que después
+		// bloquee con already_linked (incidencia del QA 2026-11-06). Store
+		// limpio: un re-vinculado no hereda sesión ni historial previo.
 		fs.rmSync(link.storePath, { recursive: true, force: true });
 		fs.mkdirSync(link.storePath, { recursive: true, mode: 0o700 });
+
+		await this.linkRepo.save(link);
 
 		await this.stopSupervisorById(link.id);
 		const supervisor = this.createSupervisor(link);

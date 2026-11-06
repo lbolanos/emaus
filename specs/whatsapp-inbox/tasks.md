@@ -96,6 +96,24 @@
       multimedia placeholder, gate de consentimiento del modal
 - [x] `pnpm --filter web build` verde (vue-tsc + vite)
 
+## M5bis — Video-demo (`record-wa-inbox.mjs`)
+
+- [x] Escenario: San Agustín con fechas movidas (ventana abierta), 7 mensajes de
+      caminantes sembrados (3 walkers reales de la dev DB, cuerpos ficticios), vínculo
+      demo a nombre de otro usuario, y **fake-wacli** local (QR falso + envelopes
+      vacíos) para el flujo de vinculación sin WhatsApp real
+- [x] Grabación narrada (Deepgram Aura-2, 13 beats, 1:28) con masking canónico
+      (`maskRoute` sobre `**/api/**`): nombres → "Beatriz Prieto", teléfonos → bloque
+      5500. Verificada por frames (intro/sidebar/tablero/lista/hilo/responder/
+      consentimiento/QR/conectado/ciclo/outro) y volumen (-18.3 dB)
+- [x] mp4 en `~/Desktop/WhatsApp-del-Retiro-demo.mp4` + `.meta.json` con capítulos
+      (subida a YouTube SOLO con OK de Leo — regla de siempre)
+- Trampas nuevas anotadas: el `--max-messages` del supervisor matchea el case
+  `*"messages"*` de un fake-shell (ordenar los cases con anclas de palabra); el
+  testid de `DialogContent` de reka-ui no se props-forward (anclar en un hijo);
+  huérfanos del fake pelean el lock del store en macOS (el guard /proc es
+  Linux-only) → `pkill fake-wacli` antes de cada arranque del API en demo
+
 ## M5 — E2E + QA manual
 
 - [x] E2E dry-run (`apps/web/tests/e2e/wa-inbox.spec.ts`, 3 tests): superadmin ve la
