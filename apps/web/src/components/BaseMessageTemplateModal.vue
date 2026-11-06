@@ -749,6 +749,10 @@ const participantVariables = computed(() => [
     key: 'letterMailbox',
     label: 'Correo de cartas del caminante (buzón; requiere activar buzones del retiro)',
   },
+  {
+    key: 'paymentReceiptLink',
+    label: 'Link de comprobante de pago (se resuelve en secuencias; para envío manual usar la bandeja de comprobantes)',
+  },
   { key: 'santisimoGuardiaLink', label: 'Enlace personal de guardia del Santísimo (servidor)' },
 ]);
 

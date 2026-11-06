@@ -2,7 +2,9 @@ import { z } from 'zod';
 
 const idSchema = z.string().uuid();
 
-export const LETTER_STATUSES = ['pending', 'approved', 'hidden'] as const;
+// 'attached': el adjunto foto de esta carta se registró como comprobante de
+// pago (payment.receipt_from_letter) — sale de la revisión pero queda con traza.
+export const LETTER_STATUSES = ['pending', 'approved', 'hidden', 'attached'] as const;
 export type LetterStatus = (typeof LETTER_STATUSES)[number];
 
 export const LetterAttachmentSchema = z.object({

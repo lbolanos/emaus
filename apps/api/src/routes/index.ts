@@ -85,6 +85,9 @@ applyCsrfProtectionExcept(router, [
 	// Webhook del Worker de Cloudflare (cartas de familias): el remitente es un
 	// MTA, no un browser con sesión — la auth es el header secret.
 	'/letters/webhook',
+	// Upload público de comprobantes por link de capacidad (sin sesión: el token
+	// ES la capability; limiter propio + IAM/prefijo privado).
+	'/payments/public/receipt-link',
 ]);
 
 // Resto de las rutas (con protección CSRF)

@@ -4643,7 +4643,8 @@
       "all": "Todas",
       "pending": "Por revisar",
       "approved": "Aprobadas",
-      "hidden": "Ocultas"
+      "hidden": "Ocultas",
+      "attached": "Adjunta a pago"
     },
     "filter": {
       "allTables": "Todas las mesas"
@@ -4699,5 +4700,62 @@
       "doneTitle": "Buzones activados",
       "doneDescription": "{activated} buzones nuevos, {alreadyActive} ya existían."
     }
+  },
+  "paymentClaims": {
+    "tab": "Comprobantes",
+    "refresh": "Refrescar",
+    "empty": "Sin comprobantes con este filtro. Las familias los envían desde su link personal.",
+    "status": {
+      "pending": "Pendientes",
+      "attached": "Aplicados",
+      "dismissed": "Descartados"
+    },
+    "attachedTo": "Aplicado al pago",
+    "receiptAlt": "Comprobante",
+    "amountLabel": "Monto",
+    "methodLabel": "Método",
+    "method": {
+      "transfer": "Transferencia",
+      "cash": "Efectivo",
+      "check": "Cheque",
+      "card": "Tarjeta",
+      "other": "Otro"
+    },
+    "apply": "Aplicar al pago",
+    "dismiss": "Descartar",
+    "amountRequired": "Escribe el monto a registrar",
+    "appliedTitle": "Pago registrado con el comprobante",
+    "appliedDescription": "Pago {paymentId} creado. La foto quedó adjunta al pago.",
+    "applyError": "No se pudo aplicar el comprobante",
+    "dismissedTitle": "Comprobante descartado",
+    "dismissError": "No se pudo descartar el comprobante",
+    "share": {
+      "open": "Difundir links",
+      "title": "Links de comprobante por participante",
+      "description": "Envía a cada familia su link personal: lo abren desde el teléfono, adjuntan la captura de su transferencia y el equipo la registra.",
+      "copied": "Link copiado"
+    },
+    "shareError": "No se pudieron generar los links"
+  },
+  "receiptClaim": {
+    "title": "Comprobante de pago",
+    "loading": "Cargando…",
+    "invalidTitle": "Este enlace no es válido",
+    "invalidBody": "No pudimos validar este enlace.",
+    "invalidHint": "Pídele al equipo un enlace nuevo o manda tu comprobante por WhatsApp.",
+    "intro": "Sube la captura o foto de tu comprobante de transferencia. El equipo la revisará y la registrará como parte de tu pago del retiro.",
+    "pick": "Elegir foto del comprobante",
+    "pickLoading": "Procesando la foto…",
+    "previewAlt": "Comprobante",
+    "amountPlaceholder": "Monto (opcional)",
+    "referencePlaceholder": "Referencia / folio (opcional)",
+    "notePlaceholder": "Nota para el equipo (opcional)",
+    "senderPlaceholder": "Tu nombre o correo (opcional)",
+    "submit": "Enviar comprobante",
+    "submitting": "Enviando…",
+    "photoError": "No se pudo leer la foto. Prueba con otra imagen.",
+    "sendError": "No se pudo enviar el comprobante. Intenta de nuevo.",
+    "receivedTitle": "¡Comprobante recibido!",
+    "receivedBody": "El equipo lo revisará y lo registrará como parte del pago. Gracias."
   }
 }

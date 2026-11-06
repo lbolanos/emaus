@@ -422,6 +422,44 @@ class S3Service {
 		};
 	}
 
+	/**
+	 * Foto del comprobante que envía una familia vía el link de capacidad
+	 * (specs: comprobantes por link). Prefijo PRIVADO dentro de
+	 * `payment-receipts/` (mismo Deny público que el resto de prefijos privados;
+	 * la IAM del rol ya cubre `bucket/*`). Key fija por claim: re-envío reemplaza.
+	 */
+	async uploadPaymentReceiptClaim(
+		claimId: string,
+		buffer: Buffer,
+		contentType: string,
+	): Promise<UploadResult> {
+		const key = `payment-receipts/claims/${claimId}.webp`;
+
+		const command = new PutObjectCommand({
+			Bucket: this.bucketName,
+			Key: key,
+			Body: buffer,
+			ContentType: contentType,
+			CacheControl: 'private, no-cache',
+		});
+
+		await this.ensureClient().send(command);
+
+		return {
+			url: this.getPublicUrl(key),
+			key,
+		};
+	}
+
+	async deletePaymentReceiptClaim(claimId: string): Promise<void> {
+		const key = `payment-receipts/claims/${claimId}.webp`;
+		const command = new DeleteObjectCommand({
+			Bucket: this.bucketName,
+			Key: key,
+		});
+		await this.ensureClient().send(command);
+	}
+
 	async getDocumentUrl(path: string): Promise<string> {
 		const key = `${this.prefixes.documents}${path}`;
 		return this.getPublicUrl(key);

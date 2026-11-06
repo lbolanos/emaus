@@ -14,7 +14,7 @@ import { RetreatParticipant } from './retreatParticipant.entity';
 import { User } from './user.entity';
 import { LetterAttachment } from './letterAttachment.entity';
 
-export type LetterStatus = 'pending' | 'approved' | 'hidden';
+export type LetterStatus = 'pending' | 'approved' | 'hidden' | 'attached';
 
 /**
  * Carta de familia recibida por email en el buzón del participante

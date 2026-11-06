@@ -50,6 +50,12 @@ export const DomainAuditAction = {
 	PAYMENT_CREATE: 'payment.create',
 	PAYMENT_UPDATE: 'payment.update',
 	PAYMENT_DELETE: 'payment.delete',
+	// Comprobantes enviados por las familias (specs: comprobantes por link):
+	// aplicar convierte el claim en pago con la foto seteada; dismiss lo aparta;
+	// from-letter registra el adjunto foto de una carta del buzón.
+	PAYMENT_RECEIPT_CLAIM_APPLY: 'payment.receipt_claim_apply',
+	PAYMENT_RECEIPT_CLAIM_DISMISS: 'payment.receipt_claim_dismiss',
+	PAYMENT_RECEIPT_FROM_LETTER: 'payment.receipt_from_letter',
 	// Deudas de participantes
 	PARTICIPANT_DEBT_CREATE: 'participant_debt.create',
 	PARTICIPANT_DEBT_UPDATE: 'participant_debt.update',

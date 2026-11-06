@@ -101,11 +101,9 @@ export const useLetterStore = defineStore('letters', () => {
 			const previous = index >= 0 ? letters.value[index].status : 'pending';
 			if (index >= 0) letters.value[index] = { ...letters.value[index], ...updated };
 			if (previous !== status) {
-				counts.value = {
-					...counts.value,
-					[previous]: Math.max(0, counts.value[previous] - 1),
-					[status]: counts.value[status] + 1,
-				};
+				const countsTyped = counts.value as Record<string, number>;
+				countsTyped[previous] = Math.max(0, (countsTyped[previous] ?? 0) - 1);
+				countsTyped[status] = (countsTyped[status] ?? 0) + 1;
 			}
 			return updated;
 		} catch (e: unknown) {

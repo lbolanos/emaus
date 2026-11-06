@@ -196,7 +196,7 @@ const fmtDate = (value: string | Date): string =>
 	);
 
 const statusVariant = (status: LetterStatus): 'default' | 'secondary' | 'outline' | 'destructive' => {
-	if (status === 'approved') return 'default';
+	if (status === 'approved' || status === 'attached') return 'default';
 	if (status === 'hidden') return 'outline';
 	return 'secondary';
 };

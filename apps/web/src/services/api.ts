@@ -4992,6 +4992,81 @@ export interface LettersInbox {
   counts: { pending: number; approved: number; hidden: number };
 }
 
+// ---------------------------------------------------------------------------
+// Comprobantes de pago enviados por las familias (link de capacidad)
+// ---------------------------------------------------------------------------
+
+export const receiptClaimsApi = {
+  /** Contexto PÚBLICO del link (nombre del caminante + retiro) para el formulario. */
+  getContext: async (token: string): Promise<{ participantName: string; retreatParish: string }> => {
+    const r = await api.get(`/payments/public/receipt-link/${token}`);
+    return r.data;
+  },
+
+  /** Envío PÚBLICO del comprobante (foto data-URL ≤2MB + datos opcionales). */
+  submit: async (
+    token: string,
+    body: {
+      photo: string;
+      amountClaimed?: number;
+      reference?: string;
+      note?: string;
+      senderContact?: string;
+    },
+  ): Promise<{ status: "received"; claimId: string }> => {
+    const r = await api.post(`/payments/public/receipt-link/${token}`, body);
+    return r.data;
+  },
+
+  /** Links de comprobante por participante (con nombre) para difusión. */
+  getLinks: async (
+    retreatId: string,
+  ): Promise<{ participantId: string; participantName: string; link: string }[]> => {
+    const r = await api.get(`/payments/receipt-links`, { params: { retreatId } });
+    return r.data.links;
+  },
+
+  /** Bandeja de comprobantes (opcionalmente filtrada por estado). */
+  list: async (
+    retreatId: string,
+    status?: "pending" | "attached" | "dismissed",
+  ): Promise<ReceiptClaim[]> => {
+    const r = await api.get(`/payments/receipt-claims`, { params: { retreatId, status } });
+    return r.data.claims;
+  },
+
+  /** Aplica el claim: crea el pago con la foto seteada. */
+  apply: async (
+    claimId: string,
+    body: { amount: number; paymentMethod?: string; paymentDate?: string; reference?: string; notes?: string },
+  ): Promise<{ status: string; paymentId: string }> => {
+    const r = await api.post(`/payments/receipt-claims/${claimId}/apply`, body);
+    return r.data;
+  },
+
+  /** Aparta el claim sin crear pago. */
+  dismiss: async (claimId: string): Promise<void> => {
+    await api.post(`/payments/receipt-claims/${claimId}/dismiss`);
+  },
+};
+
+export interface ReceiptClaim {
+  id: string;
+  retreatId: string;
+  participantId: string;
+  participantName: string;
+  participantBalance: number | null;
+  status: "pending" | "attached" | "dismissed";
+  amountClaimed: number | null;
+  reference: string | null;
+  note: string | null;
+  senderContact: string | null;
+  photoUrl: string;
+  attachedPaymentId: string | null;
+  attachedAt: string | null;
+  createdAt: string;
+}
+
 export const lettersApi = {
   /** Activa los buzones del retiro (idempotente). */
   activateMailboxes: async (

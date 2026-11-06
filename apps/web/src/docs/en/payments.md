@@ -4,6 +4,21 @@
 
 This section explains how to track and manage payments for retreat participants.
 
+## Receipts sent by families
+
+The **Receipts** tab shows the receipts families send from their personal link (delivered in
+messages, or copied from **Share links**). Each receipt shows the participant, the amount the
+family declared, their pending balance, and the transfer photo.
+
+- **Apply to payment**: registers the payment with that photo attached (confirm amount and
+  method).
+- **Dismiss**: sets the receipt aside when it does not apply.
+- Both actions are audited.
+
+Also, emails arriving at the letters mailbox with a photo can be registered as a receipt from
+the letters inbox with **Register as payment receipt** (they get the *Attached to payment*
+status).
+
 ## Overview
 
 The payment tracking system helps you manage:

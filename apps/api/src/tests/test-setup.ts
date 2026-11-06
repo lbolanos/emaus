@@ -68,6 +68,7 @@ import { ParticipantNote } from '../entities/participantNote.entity';
 import { GlobalMessageSequence } from '../entities/globalMessageSequence.entity';
 import { GlobalSequenceStep } from '../entities/globalSequenceStep.entity';
 import { Letter } from '../entities/letter.entity';
+import { PaymentReceiptClaim } from '../entities/paymentReceiptClaim.entity';
 import { LetterAttachment } from '../entities/letterAttachment.entity';
 import { ScheduleTemplate } from '../entities/scheduleTemplate.entity';
 import { ScheduleTemplateSet } from '../entities/scheduleTemplateSet.entity';
@@ -170,6 +171,7 @@ const entities = [
 	GlobalSequenceStep,
 	Letter,
 	LetterAttachment,
+	PaymentReceiptClaim,
 ];
 
 // Test database configuration - will be created in setupTestDatabase

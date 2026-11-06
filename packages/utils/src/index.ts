@@ -429,6 +429,12 @@ export interface ParticipantData {
 	 * `buildSantisimoInviteUrl` (motor de secuencias, base FRONTEND_URL).
 	 */
 	santisimoGuardiaLink?: string;
+	/**
+	 * Link de capacidad para que la familia envíe el comprobante de pago del
+	 * participante (comprobantes por link). Lo hidrata el backend (AES server-side)
+	 * — vacío hasta que el caller lo inyecta.
+	 */
+	paymentReceiptLink?: string;
 }
 
 /**
@@ -851,6 +857,7 @@ const getMockParticipant = (): ParticipantData => {
 		tableMesa: { name: '01' },
 		retreatBed: { roomNumber: '101', bedNumber: '1' },
 		santisimoGuardiaLink: 'https://emaus.cc/santisimo/servidor/ejemplo-de-token',
+		paymentReceiptLink: 'https://emaus.cc/comprobante/ejemplo-de-token',
 	};
 };
 
@@ -1038,6 +1045,7 @@ const buildParticipantReplacements = (
 		// URL completa pre-construida por el caller (ver comentario en
 		// ParticipantData): aquí solo se pasa.
 		'participant.santisimoGuardiaLink': participantData.santisimoGuardiaLink || '',
+		'participant.paymentReceiptLink': participantData.paymentReceiptLink || '',
 	};
 };
 

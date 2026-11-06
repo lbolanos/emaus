@@ -55,6 +55,7 @@ const ScheduleTemplateView = () => import('../views/ScheduleTemplateView.vue');
 const AssignResponsiblesView = () => import('../views/AssignResponsiblesView.vue');
 const PublicSantisimoView = () => import('../views/PublicSantisimoView.vue');
 const PublicSantisimoServerView = () => import('../views/PublicSantisimoServerView.vue');
+const PublicReceiptClaimView = () => import('../views/PublicReceiptClaimView.vue');
 const PublicMinuteByMinuteView = () => import('../views/PublicMinuteByMinuteView.vue');
 const RecepcionView = () => import('../views/RecepcionView.vue');
 const RetreatShirtTypesView = () => import('../views/RetreatShirtTypesView.vue');
@@ -166,6 +167,15 @@ const router = createRouter({
 			path: '/santisimo/servidor/:token',
 			name: 'public-santisimo-server',
 			component: PublicSantisimoServerView,
+			props: true,
+			meta: { requiresAuth: false },
+		},
+		{
+			// Enlace de capacidad para que una familia envíe el comprobante de pago
+			// del participante (specs: comprobantes por link). Público, sin login.
+			path: '/comprobante/:token',
+			name: 'public-receipt-claim',
+			component: PublicReceiptClaimView,
 			props: true,
 			meta: { requiresAuth: false },
 		},
