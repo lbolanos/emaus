@@ -1,0 +1,13 @@
+name = "emaus-email-inbound"
+main = "worker.js"
+compatibility_date = "2026-11-01"
+# Email Workers: el trigger real lo configura el catch-all de Email Routing de
+# la zona emaus.cc (dashboard o cloudflare_email_routing_rule) — no existe
+# trigger declarativo en wrangler para email(); ver README §Email inbound.
+
+[observability]
+enabled = true
+
+# Secrets (NO en el repo — regla dura):
+#   npx wrangler secret put LETTER_WEBHOOK_SECRET
+#   npx wrangler secret put LETTER_WEBHOOK_API_URL   # https://emaus.cc
