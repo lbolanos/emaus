@@ -17,16 +17,18 @@
 
 ## M1 — Types + migración + entidades
 
-- [ ] `packages/types/src/permissions.ts`: recurso `whatsappInbox: ['read','manage']`
-- [ ] [P] `apps/web/src/utils/permissions.ts`: misma adición (copia del catálogo)
-- [ ] [P] `packages/types/src/audit.ts`: recurso `whatsapp_bridge_link` + acciones
+- [x] `packages/types/src/permissions.ts`: recurso `whatsappInbox: ['read','manage']`
+- [x] [P] `apps/web/src/utils/permissions.ts`: misma adición (copia del catálogo)
+- [x] [P] `packages/types/src/audit.ts`: recurso `whatsapp_bridge_link` + acciones
       `WA_BRIDGE_*`
-- [ ] [P] `packages/types/src/waBridge.ts` (DTOs) + export en el index del paquete
-- [ ] [P] 3 entidades TypeORM + registro en `apps/api/src/database/config.ts`
-- [ ] Migración `20261107120000_CreateWhatsappBridge.ts` (3 tablas + índices + seeds de
+- [x] [P] `packages/types/src/waBridge.ts` (DTOs) + export en el index del paquete
+- [x] [P] 3 entidades TypeORM + registro en `apps/api/src/database/config.ts`
+- [x] Migración `20261107120000_CreateWhatsappBridge.ts` (3 tablas + índices + seeds de
       permisos a superadmin/admin/logistics/communications; `down()` reversible)
-- [ ] Test de migración: `up()` en DB `:memory:` → tablas, 2 permisos, 4 grants por permiso;
-      `down()` limpia todo; re-`up()` idempotente
+- [x] Test de migración: `up()` en DB `:memory:` → tablas, 2 permisos, 4 grants por permiso;
+      `down()` limpia todo; re-`up()` idempotente — 8/8 verde (2026-11-05), más CHECK de
+      status y FKs enforceadas con tablas padre stub (TypeORM prende foreign_keys=ON).
+      Smoke del schema completo con `addCouplesRetreatSupport.test.ts` verde.
 
 ## M2 — Núcleo del puente (API)
 
@@ -98,4 +100,10 @@
 
 ## Desviaciones registradas
 
-(ninguna todavía — anotar aquí al cerrar cada milestone)
+- **M1**: la migración usa `transaction = false as const` (plan.md decía que la plantilla
+  simple no lo necesitaba): las migraciones de permisos hermanas lo fijan "por consistencia"
+  y el runner propio lo respeta desde 2026-09-08 — plan.md corregido en el mismo commit
+  (regla SDD 5).
+- **M1**: el test de migración descubre que TypeORM activa `PRAGMA foreign_keys=ON` en su
+  DataSource de sqlite; el test usa tablas padre stub (`retreat`, `users`) y convierte el
+  insert válido en prueba conductual de FK.

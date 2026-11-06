@@ -13,6 +13,10 @@ export const RESOURCES = {
 	responsability: [...DEFAULT_OPERATIONS] as const,
 	messageTemplate: [...DEFAULT_OPERATIONS] as const,
 	globalMessageTemplate: [...DEFAULT_OPERATIONS] as const,
+	// Bandeja de lectura de WhatsApp del retiro (specs/whatsapp-inbox):
+	// 'read' ve la bandeja consolidada y el tablero de vínculos; 'manage'
+	// vincula o desvincula la cuenta propia (y superadmin, la ajena).
+	whatsappInbox: ['read', 'manage'] as const,
 } as const;
 
 export type Resource = keyof typeof RESOURCES;

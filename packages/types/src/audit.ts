@@ -227,6 +227,16 @@ export const DomainAuditAction = {
 	RETREAT_PREPARATION_DOCUMENT_CREATE: 'retreat_preparation_document.create',
 	RETREAT_PREPARATION_DOCUMENT_UPDATE: 'retreat_preparation_document.update',
 	RETREAT_PREPARATION_DOCUMENT_DELETE: 'retreat_preparation_document.delete',
+	// Puente WhatsApp de solo lectura del retiro (specs/whatsapp-inbox). Cada
+	// transición del vínculo deja evento; los errores de sync van rate-limited
+	// desde el servicio. metadata lleva estado/contadores — NUNCA el contenido
+	// de los mensajes ni el número vinculado de un staff ajeno.
+	WA_BRIDGE_LINK_START: 'wa_bridge.link_start',
+	WA_BRIDGE_LINKED: 'wa_bridge.linked',
+	WA_BRIDGE_UNLINKED: 'wa_bridge.unlinked',
+	WA_BRIDGE_PURGED: 'wa_bridge.purged',
+	WA_BRIDGE_SYNC_ERROR: 'wa_bridge.sync_error',
+	WA_BRIDGE_WINDOW_DENIED: 'wa_bridge.window_denied',
 } as const;
 
 export type DomainAuditActionType = (typeof DomainAuditAction)[keyof typeof DomainAuditAction];
@@ -266,6 +276,7 @@ export const DOMAIN_RESOURCE_TYPES = [
 	'participant_note',
 	'retreat_preparation',
 	'retreat_preparation_document',
+	'whatsapp_bridge_link',
 ] as const;
 
 export type DomainResourceType = (typeof DOMAIN_RESOURCE_TYPES)[number];

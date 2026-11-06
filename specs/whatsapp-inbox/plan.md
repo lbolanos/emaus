@@ -7,7 +7,9 @@
 
 `apps/api/src/migrations/sqlite/20261107120000_CreateWhatsappBridge.ts` — plantilla simple
 idempotente del skill `sqlite-migrations` (solo agrega tablas + seeds de permisos: sin
-`transaction = false`, sin recreate-table). SQL plano; **sin imports de `@repo/types`**.
+recreate-table, sin DROP de padres). SQL plano; **sin imports de `@repo/types`**. Con
+`transaction = false as const` por consistencia con las migraciones de permisos hermanas
+(el runner propio lo respeta desde 2026-09-08).
 
 ### Tablas
 

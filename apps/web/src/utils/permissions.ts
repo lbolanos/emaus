@@ -26,6 +26,10 @@ export const RESOURCES = {
 	preRetreatTaskTemplate: ['read', 'manage'] as const,
 	retreatPreparation: ['read', 'manage'] as const,
 	shirtType: ['read', 'manage'] as const,
+	// Bandeja de lectura de WhatsApp del retiro (specs/whatsapp-inbox).
+	// 'read' = ver bandeja consolidada y tablero; 'manage' = vincular/desvincular
+	// la cuenta propia. Copia del catálogo de @repo/types — mantener en sync.
+	whatsappInbox: ['read', 'manage'] as const,
 } as const;
 
 export type ResourceType = keyof typeof RESOURCES;
