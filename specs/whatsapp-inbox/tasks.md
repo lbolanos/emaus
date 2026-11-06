@@ -135,6 +135,19 @@
       `participantLastName` (con test — 20/20) — los nombres reales de caminantes
       fugaban en las tomas anteriores
 
+## M9 — UX móvil (v1.1, feedback de Leo: «ver más grande» + pruebas en celular)
+
+- [x] Prueba en viewport 390x844 con Playwright MCP — hallazgos con datos: el hilo
+      quedaba en top=877px (viewport 844) tras tocar un chat, sin señal visible;
+      tablero + controles superadmin empujaban las conversaciones al fondo
+- [x] Móvil: lista y hilo EXCLUYENTES (chat activo ⇒ solo hilo, con botón Volver;
+      sin chat ⇒ solo lista); escritorio conserva dos paneles
+- [x] Móvil: conversaciones PRIMERO (order flex); tablero/superadmin al final
+- [x] "Ver más grande": tap en la burbuja → Dialog con texto grande, fecha completa
+      y acceso a registrar comprobante; burbujas como botones accesibles
+- [x] Verificado en 390x844 (navegación, ampliada, volver) y 1280x800 (regresión
+      de dos paneles + ampliada); vitest 13 y build web en verde
+
 ## M5bis — Video-demo (`record-wa-inbox.mjs`)
 
 - [x] Escenario: San Agustín con fechas movidas (ventana abierta), 7 mensajes de
