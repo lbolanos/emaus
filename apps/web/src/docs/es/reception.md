@@ -20,6 +20,8 @@ Quienes avisaron que pagarán al llegar muestran la etiqueta celeste **Paga en l
 
 ### Foto del comprobante (opcional)
 
+📺 **[Ver video: la foto del comprobante](https://youtu.be/s1OMxk1MQXY)**
+
 Al cobrar puedes adjuntar la **foto del comprobante** —la captura de la transferencia o el recibo— con el botón **Adjuntar foto**: eliges o tomas la foto y queda guardada con el pago. Es opcional: en efectivo no hace falta. Funciona también sin señal: la foto se guarda en el teléfono junto con el pago y sube sola al reconectar. Después puedes verla en **Pagos**, junto a cada pago que lleva comprobante.
 
 ## Cancelar a quien no llegó

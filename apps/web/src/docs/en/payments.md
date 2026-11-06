@@ -1,5 +1,7 @@
 # Payment Tracking
 
+📺 **[Watch the tutorial: receipt photo](https://youtu.be/s1OMxk1MQXY)**
+
 This section explains how to track and manage payments for retreat participants.
 
 ## Overview

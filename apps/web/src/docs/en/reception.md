@@ -20,6 +20,8 @@ Walkers who said they will pay on arrival show the sky **Pays at the house** lab
 
 ### Receipt photo (optional)
 
+📺 **[Watch the tutorial: receipt photo](https://youtu.be/s1OMxk1MQXY)**
+
 When charging you can attach the **receipt photo** —the transfer screenshot or the slip— with the **Attach photo** button: pick or take the photo and it is stored with the payment. It is optional: cash payments don't need one. It also works without signal: the photo is saved on your phone together with the payment and uploads by itself once you are back online. You can view it later in **Payments**, next to every payment that has a receipt.
 
 ## Cancel who did not arrive

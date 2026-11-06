@@ -1,5 +1,7 @@
 # Seguimiento de Pagos
 
+📺 **[Ver video: la foto del comprobante](https://youtu.be/s1OMxk1MQXY)**
+
 Esta sección explica cómo rastrear y gestionar los pagos para los participantes del retiro.
 
 ## Descripción General
