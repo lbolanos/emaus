@@ -5074,6 +5074,14 @@ export const getWaUnreadCount = async (
   return r.data;
 };
 
+/** Marca TODOS los chats como leídos para el usuario (v1.1). */
+export const markWaAllSeen = async (
+  retreatId: string,
+): Promise<{ ok: boolean; marked: number }> => {
+  const r = await api.post(`/wa-bridge/retreat/${retreatId}/seen-all`);
+  return r.data;
+};
+
 export interface WaSearchResult {
   id: string;
   chatJid: string;

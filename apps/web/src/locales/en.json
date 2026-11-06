@@ -4324,6 +4324,9 @@
     "enlarge": "View the message larger",
     "searchPlaceholder": "Search messages…",
     "searchEmpty": "No results.",
+    "onlyUnread": "Unread only",
+    "markAllSeen": "Mark all as read",
+    "allRead": "All read ✓",
     "today": "Today",
     "yesterday": "Yesterday",
     "reply": "Reply from my WhatsApp",
@@ -4352,6 +4355,7 @@
       "accept": "I understand and want to link my number",
       "continue": "Continue",
       "scan": "Scan this code with your phone: WhatsApp → Settings → Linked devices → Link a device.",
+      "qrRenews": "The code renews itself.",
       "connecting": "Waiting for the scan…",
       "connected": "Your WhatsApp is linked! Close this window."
     }

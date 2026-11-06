@@ -33,6 +33,12 @@ router.post(
 	requireRetreatAccess('retreatId'),
 	controller.markSeen,
 );
+router.post(
+	'/retreat/:retreatId/seen-all',
+	requirePermission('whatsappInbox:read'),
+	requireRetreatAccess('retreatId'),
+	controller.seenAll,
+);
 // Comprobante de pago desde WhatsApp (FR14, v1.1): doble permiso — leer la
 // bandeja y crear el pago (el destino de la imagen).
 router.post(

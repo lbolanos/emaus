@@ -8,7 +8,9 @@ import { useRetreatStore } from '@/stores/retreatStore'
 import { useAuthStore } from '@/stores/authStore'
 import { useAuthPermissions } from '@/composables/useAuthPermissions'
 import { useWaInboxStore } from '@/stores/waInboxStore'
+import { useParticipantStore } from '@/stores/participantStore'
 import PaymentManagement from '@/components/PaymentManagement.vue'
+import ParticipantInfoPopover from '@/components/ParticipantInfoPopover.vue'
 import WaLinkPanel from '@/components/wa/WaLinkPanel.vue'
 import WaLinkModal from '@/components/wa/WaLinkModal.vue'
 import WaConversationList from '@/components/wa/WaConversationList.vue'
@@ -26,6 +28,7 @@ const authStore = useAuthStore()
 const { isSuperadmin } = useAuthPermissions()
 const { can } = useAuthPermissions()
 const store = useWaInboxStore()
+const participantStore = useParticipantStore()
 const { links, conversations, realtimeConnected, loadingConversations, inboxEnabled } =
   storeToRefs(store)
 
@@ -41,6 +44,29 @@ const retreatTimezone = computed(
 const myUserId = computed(() => (authStore.user as any)?.id || null)
 // FR14: "Registrar como pago" solo para quien puede crear pagos.
 const canRegisterPayment = computed(() => can.create('payment'))
+// Ficha del caminante (backlog UX): el popover necesita el Participant completo
+// — sale del participantStore hidratado con la lista del retiro (con pagos).
+const { participants } = storeToRefs(participantStore)
+const onlyUnread = ref(false)
+const filteredConversations = computed(() =>
+  onlyUnread.value ? conversations.value.filter((c) => c.unreadCount > 0) : conversations.value,
+)
+const emptyListText = computed(() => {
+  if (onlyUnread.value && conversations.value.length > 0 && filteredConversations.value.length === 0) {
+    return t('waInbox.allRead')
+  }
+  return links.value.length === 0 ? t('waInbox.noLinks') : t('waInbox.empty')
+})
+const activeParticipant = computed(() => {
+  const pid = store.activeConversation?.participantId
+  if (!pid) return null
+  return (participantStore.participants || []).find((p) => p.id === pid) ?? null
+})
+async function onMarkAllSeen() {
+  const id = retreatId.value
+  if (!id) return
+  await store.markAllSeen(id).catch(() => {})
+}
 
 const linkModalOpen = ref(false)
 
@@ -48,7 +74,12 @@ async function load() {
   const id = retreatId.value
   if (!id) return
   store.subscribeRealtime(id)
-  await Promise.all([store.fetchLinks(id), store.fetchConversations(id)])
+  await Promise.all([store.fetchLinks(id), store.fetchConversations(id), store.refreshBadge(id)])
+  // Ficha del caminante (FR ficha): hidratar el participantStore con la lista
+  // del retiro (trae pagos) — regla del frontend para MessageDialog/popover.
+  participantStore.filters = {}
+  participantStore.filters.retreatId = id
+  await participantStore.fetchParticipants().catch(() => {})
 }
 
 watch(retreatId, () => {
@@ -207,7 +238,7 @@ async function onRegisterReceipt(message: { id: string }) {
 
     <!-- Móvil: las conversaciones van PRIMERO (order-1); el tablero y los
          controles de superadmin pasan al final. En escritorio, orden normal. -->
-    <div class="order-1 lg:order-2 flex flex-col gap-4">
+    <div class="order-2 lg:order-1 flex flex-col gap-4">
       <WaLinkPanel
         :links="links"
         :current-user-id="myUserId"
@@ -246,9 +277,9 @@ async function onRegisterReceipt(message: { id: string }) {
 
     <!-- Móvil: lista y hilo son EXCLUYENTES — tocar un chat abre solo el hilo
          (con Volver); sin chat activo se ve solo la lista. Escritorio: ambos. -->
-    <div class="order-2 lg:order-1 grid grid-cols-1 lg:grid-cols-[340px_1fr] gap-4">
+    <div class="order-1 lg:order-2 grid grid-cols-1 lg:grid-cols-[340px_1fr] gap-4">
       <div :class="store.activeChatJid ? 'hidden lg:block' : 'block'">
-        <!-- Búsqueda de mensajes (v1.1): reemplaza la lista mientras hay texto. -->
+        <!-- Búsqueda + filtros (v1.1): reemplaza la lista mientras hay texto. -->
         <input
           v-model="searchQuery"
           type="search"
@@ -281,15 +312,34 @@ async function onRegisterReceipt(message: { id: string }) {
             </li>
           </ul>
         </div>
-        <WaConversationList
-          v-else
-          :conversations="conversations"
-          :active-chat-jid="store.activeChatJid"
-          :loading="loadingConversations"
-          :empty-text="links.length === 0 ? t('waInbox.noLinks') : t('waInbox.empty')"
-          :retreat-timezone="retreatTimezone"
-          @select="onSelect"
-        />
+        <template v-else>
+          <div
+            v-if="conversations.length > 0"
+            class="flex items-center justify-between gap-2 mb-2"
+          >
+            <label class="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <input v-model="onlyUnread" type="checkbox" class="accent-emerald-600" data-testid="wa-only-unread" />
+              <span>{{ t('waInbox.onlyUnread') }}</span>
+            </label>
+            <button
+              v-if="store.totalUnread > 0"
+              type="button"
+              class="text-xs text-muted-foreground hover:text-foreground hover:underline"
+              data-testid="wa-mark-all-seen"
+              @click="onMarkAllSeen"
+            >
+              {{ t('waInbox.markAllSeen') }}
+            </button>
+          </div>
+          <WaConversationList
+            :conversations="filteredConversations"
+            :active-chat-jid="store.activeChatJid"
+            :loading="loadingConversations"
+            :empty-text="emptyListText"
+            :retreat-timezone="retreatTimezone"
+            @select="onSelect"
+          />
+        </template>
       </div>
       <div :class="store.activeChatJid ? 'block' : 'hidden lg:block'">
         <WaChatThread
@@ -298,6 +348,8 @@ async function onRegisterReceipt(message: { id: string }) {
           :loading="store.loadingThread"
           :can-register-payment="canRegisterPayment"
           :retreat-timezone="retreatTimezone"
+          :popover-participant="activeParticipant"
+          :retreat-id="retreatId"
           @register-receipt="onRegisterReceipt"
           @back="store.activeChatJid = null"
         />

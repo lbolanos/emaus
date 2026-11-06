@@ -5,7 +5,8 @@ import { ArrowLeft, ExternalLink } from 'lucide-vue-next'
 import { Button, Dialog, DialogContent, DialogHeader, DialogTitle } from '@repo/ui'
 import { buildWhatsAppChatLink } from '@/utils/phone'
 import { toNationalPhone } from '@repo/types'
-import type { WaConversationDto, WaInboxMessageDto } from '@repo/types'
+import ParticipantInfoPopover from '@/components/ParticipantInfoPopover.vue'
+import type { Participant, WaConversationDto, WaInboxMessageDto } from '@repo/types'
 
 /**
  * Hilo de un chat (FR3/FR8/D9/D10 + UX móvil v1.1):
@@ -26,6 +27,9 @@ const props = defineProps<{
   canRegisterPayment?: boolean
   /** Zona del retiro para horas y separadores de día. */
   retreatTimezone?: string | null
+  /** Ficha del caminante (backlog UX): Participant completo para el popover. */
+  popoverParticipant?: Participant | null
+  retreatId?: string | null
 }>()
 
 const emit = defineEmits<{
@@ -160,6 +164,13 @@ function formatFull(ts: string | Date): string {
           <div class="text-sm font-medium truncate">
             {{ conversation.participantFirstName }} {{ conversation.participantLastName }}
           </div>
+          <!-- Ficha del caminante sin salir de la bandeja (backlog UX). -->
+          <ParticipantInfoPopover
+            v-if="popoverParticipant"
+            variant="icon"
+            :participant="popoverParticipant"
+            :retreat-id="retreatId ?? undefined"
+          />
         </div>
         <Button
           v-if="replyLink"

@@ -148,6 +148,13 @@ function close() {
           </div>
           <Loader2 v-else class="w-8 h-8 animate-spin text-muted-foreground" />
         </div>
+        <!-- El QR rota ~20 s: barra de progreso que se reinicia con cada código. -->
+        <div v-if="qr" class="h-1 w-40 mx-auto rounded bg-muted overflow-hidden">
+          <div class="wa-qr-renew h-full bg-emerald-500" :key="qr" />
+        </div>
+        <p class="text-xs text-muted-foreground text-center">
+          {{ t('waInbox.consent.qrRenews') }}
+        </p>
         <p class="text-xs text-muted-foreground text-center">{{ t('waInbox.consent.connecting') }}</p>
         <p v-if="lastError" class="text-sm text-red-600 text-center">{{ lastError }}</p>
       </div>
@@ -175,3 +182,19 @@ function close() {
     </DialogContent>
   </Dialog>
 </template>
+
+<style scoped>
+/* Barra de renovación del QR: 20 s lineales; la clave :key="qr" la reinicia
+   cuando llega el código rotado del servidor. */
+.wa-qr-renew {
+  animation: wa-qr-renew 20s linear forwards;
+}
+@keyframes wa-qr-renew {
+  from {
+    width: 100%;
+  }
+  to {
+    width: 0%;
+  }
+}
+</style>

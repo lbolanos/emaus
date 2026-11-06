@@ -44,8 +44,10 @@ const LINES = [
   { id: 'consolidada', text: 'Es de solo lectura y consolidada: lo que llega a cualquier teléfono del equipo, lo ve todo el equipo.' },
   { id: 'enlaces', text: 'Cada logístico vincula su WhatsApp escaneando un código. Arriba ves quién está conectado.' },
   { id: 'conversaciones', text: 'Aquí aparecen las conversaciones de los caminantes, con su nombre y lo que no has leído.' },
+  { id: 'buscar', text: '¿Y la duda ya se resolvió hace rato? Buscas cualquier palabra y aparece el mensaje.' },
   { id: 'hilo', text: 'Abres un chat y ves la conversación completa.' },
   { id: 'leer', text: 'Al abrirlo se marca como leído para ti, sin avisar al caminante: nada de visto azul.' },
+  { id: 'ampliar', text: 'Y cualquier mensaje se lee más grande con un solo toque.' },
   { id: 'comprobante', text: 'Si el caminante manda su comprobante, lo registras como pago con un clic, con la foto ya adjunta.' },
   { id: 'responder', text: 'Y respondes desde tu propio WhatsApp, con este botón.' },
   { id: 'vincular', text: 'Para vincular el tuyo, tocas Vincular mi WhatsApp y aceptas el aviso: qué se sincroniza y los riesgos.' },
@@ -58,8 +60,9 @@ const LINES = [
 const CHAPTER_LABELS = {
   intro: 'Intro', donde: 'Dónde vive', activa: 'Se activa por retiro',
   consolidada: 'Solo lectura y consolidada',
-  enlaces: 'Teléfonos vinculados', conversaciones: 'Conversaciones', hilo: 'Abrir un chat',
-  leer: 'Leído sin visto azul', comprobante: 'Comprobante → pago', responder: 'Responder desde mi WhatsApp',
+  enlaces: 'Teléfonos vinculados', conversaciones: 'Conversaciones', buscar: 'Búsqueda',
+  hilo: 'Abrir un chat',
+  leer: 'Leído sin visto azul', ampliar: 'Ver más grande', comprobante: 'Comprobante → pago', responder: 'Responder desde mi WhatsApp',
   vincular: 'Vincular: aviso y consentimiento', qr: 'Escanear el QR',
   conectado: 'Conectado', ciclo: 'Se borra solo al terminar', outro: 'Cierre',
 };
@@ -207,6 +210,16 @@ async function main() {
     await nar.say(clips.conversaciones);
     await nar.clearCue();
 
+    // ── buscar (v1.1: escribe, aparece el mensaje) ──
+    const searchInput = page.locator('[data-testid="wa-search-input"]');
+    await searchInput.click();
+    await searchInput.pressSequentially('sabana', { delay: 90 });
+    await page.waitForSelector('button:has-text("sábana")', { timeout: 8000 }).catch(() => {});
+    await sleep(page, 700);
+    await nar.say(clips.buscar);
+    await searchInput.fill('');
+    await sleep(page, 500);
+
     // ── hilo (abrir el primer chat) ──
     const firstChat = page.locator('[data-testid^="wa-chat-row"]').first();
     await firstChat.click();
@@ -217,6 +230,17 @@ async function main() {
     // ── leer (sin visto azul) ──
     await sleep(page, 400);
     await nar.say(clips.leer);
+
+    // ── ampliar (v1.1: tap en la burbuja → vista grande; cierra con Escape) ──
+    // El PRIMER botón del contenedor es "Volver": la burbuja vive dentro de
+    // cada [data-testid^="wa-message-"].
+    const bubble = page.locator('[data-testid^="wa-message-"] button').first();
+    await bubble.click();
+    await page.waitForSelector('[role="dialog"]', { timeout: 8000 });
+    await sleep(page, 900);
+    await nar.say(clips.ampliar);
+    await page.keyboard.press('Escape');
+    await sleep(page, 600);
 
     // ── comprobante (FR14: imagen → modal de pago con la foto adjunta) ──
     // La fila del comprobante es la 2ª conversación por última actividad

@@ -527,7 +527,12 @@ export class WaBridgeService {
 		return unread;
 	}
 
-	/** Búsqueda de texto sobre los cuerpos persistidos (v1.1, LIKE con escape). */
+	/**
+	 * Búsqueda de texto sobre los cuerpos persistidos (v1.1). IGNORA ACENTOS:
+	 * los caminantes escriben "sabana" o "sábana" indistinto — se normaliza
+	 * NFD sin diacríticos en memoria (los últimos 500 mensajes; LIKE de SQLite
+	 * es byte-wise y no plegaría "sábana" contra "sabana").
+	 */
 	async searchMessages(
 		retreatId: string,
 		q: string,
@@ -535,16 +540,19 @@ export class WaBridgeService {
 	): Promise<
 		Array<Pick<WhatsappInboxMessage, 'id' | 'chatJid' | 'chatPhone' | 'timestamp' | 'body' | 'messageType'>>
 	> {
-		const escaped = q.replace(/[%_\\]/g, (ch) => '\\' + ch);
-		return AppDataSource.getRepository(WhatsappInboxMessage)
-			.createQueryBuilder('m')
-			.select(['m.id', 'm.chatJid', 'm.chatPhone', 'm.timestamp', 'm.body', 'm.messageType'])
-			.where('m.retreatId = :retreatId', { retreatId })
-			.andWhere('m.body IS NOT NULL')
-			.andWhere("m.body LIKE '%' || :q || '%' ESCAPE '\\'", { q: escaped })
-			.orderBy('m.timestamp', 'DESC')
-			.take(limit)
-			.getMany();
+		const strip = (s: string) =>
+			s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+		const needle = strip(q);
+		if (!needle) return [];
+		const rows = await AppDataSource.getRepository(WhatsappInboxMessage).find({
+			where: { retreatId },
+			select: ['id', 'chatJid', 'chatPhone', 'timestamp', 'body', 'messageType'],
+			order: { timestamp: 'DESC' },
+			take: 500,
+		});
+		return rows
+			.filter((row) => row.body && strip(row.body).includes(needle))
+			.slice(0, limit);
 	}
 
 	/**

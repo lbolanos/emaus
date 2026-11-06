@@ -12,6 +12,7 @@ import {
   getWaUnreadCount,
   searchWaMessages,
   markWaChatSeen,
+  markWaAllSeen,
   startWaLink,
   unlinkWaLink,
   setWaBridgeEnabled,
@@ -103,6 +104,16 @@ export const useWaInboxStore = defineStore('waInbox', () => {
     const data = await searchWaMessages(retreatId, q);
     searchResults.value = data.results ?? [];
     return searchResults.value;
+  }
+
+  /** Marca todos los chats como leídos para el usuario (v1.1). */
+  async function markAllSeen(retreatId: string) {
+    const r = await markWaAllSeen(retreatId);
+    conversations.value.forEach((c) => {
+      c.unreadCount = 0;
+    });
+    totalUnread.value = 0;
+    return r.marked;
   }
 
   async function fetchConversations(retreatId: string) {
@@ -236,6 +247,7 @@ export const useWaInboxStore = defineStore('waInbox', () => {
     downloadReceipt,
     refreshBadge,
     searchMessages,
+    markAllSeen,
     subscribeRealtime,
     reset,
   };

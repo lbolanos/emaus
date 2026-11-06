@@ -371,6 +371,47 @@ export class WaBridgeController {
 	};
 
 	/**
+	 * POST /retreat/:retreatId/seen-all — marca TODOS los chats como leídos
+	 * para el usuario (v1.1): upsert de read-state al último mensaje de cada
+	 * chat. Es estado de UI por usuario, no audita.
+	 */
+	seenAll = async (req: Request, res: Response): Promise<Response> => {
+		const retreatId = req.params.retreatId;
+		const userId = currentUser(req).id;
+		const messages = await AppDataSource.getRepository(WhatsappInboxMessage).find({
+			where: { retreatId },
+			select: ['chatJid', 'timestamp'],
+		});
+		const newestByChat = new Map<string, Date>();
+		for (const message of messages) {
+			const current = newestByChat.get(message.chatJid);
+			if (!current || message.timestamp > current) newestByChat.set(message.chatJid, message.timestamp);
+		}
+
+		const stateRepo = AppDataSource.getRepository(WhatsappInboxReadState);
+		const states = await stateRepo.find({ where: { retreatId, userId } });
+		const stateByChat = new Map(states.map((s) => [s.chatJid, s]));
+
+		let marked = 0;
+		for (const [chatJid, newest] of newestByChat) {
+			const existing = stateByChat.get(chatJid);
+			if (existing) {
+				if (newest > existing.lastSeenMessageTimestamp) {
+					existing.lastSeenMessageTimestamp = newest;
+					await stateRepo.save(existing);
+					marked += 1;
+				}
+				continue;
+			}
+			await stateRepo.save(
+				stateRepo.create({ userId, retreatId, chatJid, lastSeenMessageTimestamp: newest }),
+			);
+			marked += 1;
+		}
+		return res.json({ ok: true, marked });
+	};
+
+	/**
 	 * GET /retreat/:retreatId/search?q= — búsqueda de texto sobre los cuerpos
 	 * persistidos (v1.1). Límite 30, más recientes primero.
 	 */

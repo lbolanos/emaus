@@ -4646,6 +4646,9 @@
     "enlarge": "Ver el mensaje más grande",
     "searchPlaceholder": "Buscar en los mensajes…",
     "searchEmpty": "Sin resultados.",
+    "onlyUnread": "Solo no leídos",
+    "markAllSeen": "Marcar todo como leído",
+    "allRead": "Todo leído ✓",
     "today": "Hoy",
     "yesterday": "Ayer",
     "reply": "Responder desde mi WhatsApp",
@@ -4674,6 +4677,7 @@
       "accept": "Entiendo y quiero vincular mi número",
       "continue": "Continuar",
       "scan": "Escanea este código con tu teléfono: WhatsApp → Ajustes → Dispositivos vinculados → Vincular un dispositivo.",
+      "qrRenews": "El código se renueva solo.",
       "connecting": "Esperando el escaneo…",
       "connected": "¡Tu WhatsApp quedó vinculado! Cierra esta ventana."
     }
