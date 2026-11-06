@@ -110,19 +110,30 @@
 - [x] Tests: migración 3, controller +5 (403/400/OK) — 61 verdes; build web verde;
       verificado en vivo: switch → PATCH → activado, tablero con 2 vínculos
 
-## M8 — Comprobantes de pago desde WhatsApp (v1.1, BLOQUEADO)
+## M8 — Comprobantes de pago desde WhatsApp (v1.1, implementado tras el merge de master)
 
-- [ ] **Dependencia**: merge de `specs/payment-receipt-photo` (otra sesión/worktree:
-      `Payment.receiptUrl/receiptS3Key` + `receiptPhoto` en POST/PUT /payments + modal con
-      Adjuntar). No existe en esta base — implementarlo aquí duplicaría ese trabajo
-- [ ] Diseño acordado (aplicar tras el merge): endpoint
-      `POST /wa-bridge/messages/:id/receipt-data-url` — valida permisos
-      (`whatsappInbox:read` + `payment:create`), descarga on-demand con
-      `wacli media download --chat --id --output` (tope de tamaño), reusa
-      `imageService.processPhoto` (WebP 1600px) y devuelve data-URL + participante;
-      `PaymentManagement` expone `openPaymentForWithReceipt(participantId, dataUrl)`
-      (molde `openPaymentFor`, defineExpose existente); botón en `WaChatThread` para
-      `messageType='image'` solo si el usuario tiene `payment:create`
+- [x] **Dependencia resuelta**: `payment-receipt-photo` mergeada a master — traída a esta
+      rama por merge (2026-11-06, sin conflictos; 71 tests de ambas features en verde)
+- [x] `wacliClient.mediaDownload` (one-shot, sin --read-only; el servicio detiene al
+      supervisor por el lock del store y re-arranca el sync al terminar)
+- [x] `waBridgeService.downloadReceiptDataUrl`: tope 10 MB, `imageService.processPhoto`
+      (WebP 1600px), tmp en receipts-tmp/ (0700) borrado siempre; `getWalkerDigitsMap`
+      compartido con la bandeja
+- [x] Endpoint `POST /wa-bridge/messages/:messageId/receipt` — doble permiso
+      (`whatsappInbox:read` + `payment:create`) + `ensureRetreatAccess`; devuelve
+      data-URL + participante matcheado
+- [x] Web: `PaymentManagement.openPaymentForWithReceipt` (defineExpose nuevo); botón
+      "Registrar como pago" en el hilo para `messageType='image'` solo con
+      `payment:create`; modal montado oculto en la bandeja
+- [x] Verificado en vivo: click → descarga → modal "Agregar Pago" con participante
+      prellenado y comprobante WebP adjunto
+- [x] Fix de producción cazado aquí: `supervisor.stop()` esperaba `close`, pero el
+      nieto `sleep` del wrapper shell hereda los pipes y `close` no dispara → el
+      endpoint se colgaba. Ahora: spawn `detached` + señal al grupo de procesos
+      (`kill(-pid)`) + resolución por `exit` con destrucción de streams
+- [x] Fix de PII del demo: `maskNode` canónico ahora cubre `participantFirstName`/
+      `participantLastName` (con test — 20/20) — los nombres reales de caminantes
+      fugaban en las tomas anteriores
 
 ## M5bis — Video-demo (`record-wa-inbox.mjs`)
 
@@ -135,9 +146,9 @@
       5500. Verificada por frames (intro/sidebar/tablero/lista/hilo/responder/
       consentimiento/QR/conectado/ciclo/outro) y volumen (-18.3 dB)
 - [x] mp4 en `~/Desktop/WhatsApp-del-Retiro-demo.mp4` + `.meta.json` con capítulos
-      (subida a YouTube SOLO con OK de Leo — regla de siempre) — **v1.1 regrabado
-      (1:37, 14 beats)**: scroll del sidebar para ver el ítem (feedback de Leo),
-      beat del switch de activación por retiro, controles D13/D14 visibles
+      (subida a YouTube SOLO con OK de Leo — regla de siempre) — **v1.2 regrabado
+      (1:48, 15 beats)**: scroll del sidebar (feedback de Leo), switch de activación
+      por retiro, y beat nuevo de comprobante → pago con la foto adjunta
 - Trampas nuevas anotadas: el `--max-messages` del supervisor matchea el case
   `*"messages"*` de un fake-shell (ordenar los cases con anclas de palabra); el
   testid de `DialogContent` de reka-ui no se props-forward (anclar en un hijo);

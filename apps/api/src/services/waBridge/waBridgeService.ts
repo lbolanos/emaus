@@ -7,6 +7,7 @@ import { RetreatParticipant } from '../../entities/retreatParticipant.entity';
 import { Retreat } from '../../entities/retreat.entity';
 import { User } from '../../entities/user.entity';
 import { WhatsappBridgeLink } from '../../entities/whatsappBridgeLink.entity';
+import { WhatsappInboxMessage } from '../../entities/whatsappInboxMessage.entity';
 import { domainAuditService } from '../domainAuditService';
 import {
 	toNationalPhone,
@@ -16,6 +17,8 @@ import {
 } from '@repo/types';
 import { resolveSafeTimeZone } from '../../utils/date.transformer';
 import { emitInboxChanged } from '../../realtime';
+import { imageService } from '../imageService';
+import { mediaDownload, WacliError } from './wacliClient';
 import {
 	WaBridgeSupervisor,
 	type WaSupervisorEvent,
@@ -498,6 +501,93 @@ export class WaBridgeService {
 		this.supervisors.clear();
 		this.qrCache.clear();
 	}
+
+	/**
+	 * Mapa dígitos-JID → participante caminante del retiro (FR14): lo consume
+	 * la bandeja para mostrar el nombre y prellenar el pago. Mismo cálculo del
+	 * índice del poller, expuesto para el controller.
+	 */
+	async getWalkerDigitsMap(retreatId: string): Promise<Map<string, Participant>> {
+		const registrations = await AppDataSource.getRepository(RetreatParticipant).find({
+			where: { retreatId, type: 'walker', isCancelled: false },
+			select: ['participantId'],
+		});
+		const participantIds = registrations
+			.map((reg) => reg.participantId)
+			.filter((id): id is string => Boolean(id));
+		const map = new Map<string, Participant>();
+		if (participantIds.length === 0) return map;
+		const walkers = await AppDataSource.getRepository(Participant).find({
+			where: participantIds.map((id) => ({ id })),
+		});
+		for (const walker of walkers) {
+			if (!walker.cellPhone || !walker.country) continue;
+			const national = toNationalPhone(walker.cellPhone, walker.country);
+			if (!national) continue;
+			for (const digits of acceptedJidDigitVariants(national, walker.country)) {
+				if (!map.has(digits)) map.set(digits, walker);
+			}
+		}
+		return map;
+	}
+
+	/**
+	 * Descarga ON-DEMAND la imagen de un mensaje y la devuelve como data-URL
+	 * lista para `receiptPhoto` del modal de pagos (FR14/D15, v1.1).
+	 *
+	 * La descarga escribe en el store y el hijo sync sostiene el lock: se
+	 * detiene al supervisor, se descarga, y se re-arranca el sync antes de
+	 * devolver (o al fallar). La imagen NUNCA se persiste en esta tabla: vive
+	 * en el modal y, al guardar, en Payment.receiptUrl (payment-receipts/).
+	 */
+	async downloadReceiptDataUrl(message: WhatsappInboxMessage): Promise<string> {
+		const link = await this.linkRepo.findOneByOrFail({ id: message.linkId });
+		const tmpDir = `${config.waBridge.dataDir}/receipts-tmp`;
+		fs.mkdirSync(tmpDir, { recursive: true, mode: 0o700 });
+		const outPath = `${tmpDir}/${message.id}.img`;
+
+		await this.stopSupervisorById(link.id);
+		try {
+			await mediaDownload(link.storePath, message.chatJid, message.waMessageId, outPath);
+			const stat = fs.statSync(outPath);
+			if (stat.size > RECEIPT_MAX_BYTES) {
+				throw new WacliError(`La imagen pesa ${(stat.size / 1048576).toFixed(1)} MB (tope 10 MB)`);
+			}
+			const buffer = fs.readFileSync(outPath);
+			const processed = await imageService.processPhoto(buffer, detectImageContentType(buffer));
+			return `data:${processed.contentType};base64,${processed.buffer.toString('base64')}`;
+		} finally {
+			fs.rmSync(outPath, { force: true });
+			// El sync vuelve a correr tengamos éxito o no: la bandeja no queda muerta.
+			const supervisor = this.createSupervisor(link);
+			supervisor.startSync();
+		}
+	}
+}
+
+/** Tope de una imagen de comprobante descargada (10 MB — foto de teléfono). */
+const RECEIPT_MAX_BYTES = 10 * 1024 * 1024;
+
+/** Content-type por magic bytes (JPEG/PNG/WebP); fallback image/jpeg. */
+function detectImageContentType(buffer: Buffer): string {
+	if (buffer.length > 3 && buffer[0] === 0xff && buffer[1] === 0xd8) return 'image/jpeg';
+	if (
+		buffer.length > 12 &&
+		buffer[0] === 0x89 &&
+		buffer[1] === 0x50 &&
+		buffer[2] === 0x4e &&
+		buffer[3] === 0x47
+	)
+		return 'image/png';
+	if (
+		buffer.length > 12 &&
+		buffer[8] === 0x57 &&
+		buffer[9] === 0x45 &&
+		buffer[10] === 0x42 &&
+		buffer[11] === 0x50
+	)
+		return 'image/webp';
+	return 'image/jpeg';
 }
 
 export const waBridgeService = new WaBridgeService();

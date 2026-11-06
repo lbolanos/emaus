@@ -7,12 +7,14 @@ import {
   getWaLinks,
   getWaConversations,
   getWaMessages,
+  getWaReceiptDataUrl,
   markWaChatSeen,
   startWaLink,
   unlinkWaLink,
   setWaBridgeEnabled,
   terminateWaBridgeAll,
   type WaLinkStatus,
+  type WaReceiptDownload,
 } from '@/services/api';
 
 /**
@@ -72,6 +74,11 @@ export const useWaInboxStore = defineStore('waInbox', () => {
     activeChatJid.value = null;
     inboxEnabled.value = false;
     return r.terminated;
+  }
+
+  /** FR14 (v1.1): descargar la imagen de un mensaje para usarla de comprobante. */
+  async function downloadReceipt(messageId: string): Promise<WaReceiptDownload> {
+    return getWaReceiptDataUrl(messageId);
   }
 
   async function fetchConversations(retreatId: string) {
@@ -187,6 +194,7 @@ export const useWaInboxStore = defineStore('waInbox', () => {
     unlink,
     setEnabled,
     terminateAll,
+    downloadReceipt,
     subscribeRealtime,
     reset,
   };

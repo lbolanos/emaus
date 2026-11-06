@@ -91,10 +91,20 @@ export function maskNode(n) {
   // Identidad del objeto: un mismo fake para nombre y correo, para que la persona
   // enmascarada se vea consistente en pantalla.
   let person = null;
-  if (typeof n.firstName === 'string') {
-    person = fakeFor(n.id || n.participantId || (n.firstName + '|' + (n.lastName || '')));
-    n.firstName = person.first;
+  const participantFirst = typeof n.participantFirstName === 'string' ? n.participantFirstName : null;
+  if (typeof n.firstName === 'string' || participantFirst !== null) {
+    // `participantFirstName/participantLastName`: identidad compuesta de la
+    // bandeja WhatsApp (specs/whatsapp-inbox) — el match del comprobante llega
+    // con el nombre real del caminante en claves compuestas.
+    person = fakeFor(
+      n.id || n.participantId || (n.firstName || participantFirst) + '|' + (n.lastName || n.participantLastName || ''),
+    );
+    if ('firstName' in n) n.firstName = person.first;
     if ('lastName' in n) n.lastName = person.last;
+    if (participantFirst !== null) {
+      n.participantFirstName = person.first;
+      if ('participantLastName' in n) n.participantLastName = person.last;
+    }
     if ('nickname' in n && n.nickname) n.nickname = person.first;
     if ('displayName' in n && n.displayName) n.displayName = `${person.first} ${person.last}`;
     if ('fullName' in n && n.fullName) n.fullName = `${person.first} ${person.last}`;

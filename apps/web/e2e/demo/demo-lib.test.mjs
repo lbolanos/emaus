@@ -142,6 +142,38 @@ test('maskNode: ningún dato real sobrevive en un payload de participante', asyn
   assert.equal(p.email, `${p.firstName}.${p.lastName}@correo.com`.toLowerCase());
 });
 
+test('maskNode: identidad compuesta participantFirstName/LastName (bandeja WhatsApp) se enmascara', async () => {
+  const { maskNode, fakeFor } = await import('./demo-lib.mjs');
+  // Payload real de GET /wa-bridge/retreat/:id/conversations (specs/whatsapp-inbox):
+  // el match del comprobante lleva el nombre del caminante en claves compuestas,
+  // sin firstName/lastName al lado — fugó en la toma 4 del demo (2026-11-06).
+  const conversations = {
+    conversations: [
+      {
+        chatJid: '5215578446253@s.whatsapp.net',
+        chatPhone: '5215578446253',
+        participantId: 'p9',
+        participantFirstName: 'Elio Alberto',
+        participantLastName: 'Domador',
+        country: 'MX',
+        lastMessagePreview: 'Ya pagué el depósito',
+      },
+    ],
+  };
+  maskNode(conversations);
+  const c = conversations.conversations[0];
+  const flat = JSON.stringify(c);
+  assert.ok(!flat.includes('Elio'), 'sobrevivió: Elio');
+  assert.ok(!flat.includes('Domador'), 'sobrevivió: Domador');
+  // Consistencia de identidad: el fake es el determinista para p9 (misma
+  // persona que vería el resto del sistema enmascarado).
+  const expected = fakeFor('p9');
+  assert.equal(c.participantFirstName, expected.first);
+  assert.equal(c.participantLastName, expected.last);
+  // El preview (texto libre ficticio del guion) no lo toca el enmascarado.
+  assert.equal(c.lastMessagePreview, 'Ya pagué el depósito');
+});
+
 test('maskNode: determinista (mismo input → mismo fake)', async () => {
   const { maskNode } = await import('./demo-lib.mjs');
   const a = { id: 'x9', firstName: 'Rosa', lastName: 'Martínez' };

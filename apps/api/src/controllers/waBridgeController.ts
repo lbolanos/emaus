@@ -8,8 +8,9 @@ import { User } from '../entities/user.entity';
 import { WhatsappBridgeLink } from '../entities/whatsappBridgeLink.entity';
 import { WhatsappInboxMessage } from '../entities/whatsappInboxMessage.entity';
 import { WhatsappInboxReadState } from '../entities/whatsappInboxReadState.entity';
-import { authorizationService } from '../middleware/authorization';
+import { authorizationService, ensureRetreatAccess } from '../middleware/authorization';
 import { waBridgeService, acceptedJidDigitVariants } from '../services/waBridge';
+import { WacliError } from '../services/waBridge';
 import { toNationalPhone } from '@repo/types';
 
 /** El passport monta la entidad User en req.user, pero Express la tipa genérica. */
@@ -345,5 +346,58 @@ export class WaBridgeController {
 		const disable = req.body?.disable !== false;
 		const result = await waBridgeService.terminateAll(req.params.retreatId, user, { disable });
 		return res.json({ ok: true, terminated: result.terminated, disabled: disable });
+	};
+
+	/**
+	 * POST /messages/:messageId/receipt — comprobante de pago desde WhatsApp
+	 * (FR14/D15, v1.1): descarga ON-DEMAND la imagen del mensaje (tope 10 MB,
+	 * procesada a WebP por el imageService) y la devuelve como data-URL junto
+	 * al participante matcheado, lista para `receiptPhoto` del modal de pagos.
+	 *
+	 * Doble puerta: whatsappInbox:read (ruta) + payment:create (aquí) — la
+	 * imagen sale de la bandeja con destino de comprobante. No se persiste
+	 * nada en esta llamada: la persistencia es la del propio pago.
+	 */
+	receiptDataUrl = async (req: Request, res: Response): Promise<Response> => {
+		const user = currentUser(req);
+		const canCreatePayment = await authorizationService.hasPermission(
+			user.id,
+			'payment:create',
+		);
+		if (!canCreatePayment) {
+			return res.status(403).json({
+				message: 'Registrar comprobantes requiere el permiso de crear pagos.',
+			});
+		}
+
+		const message = await AppDataSource.getRepository(WhatsappInboxMessage).findOneBy({
+			id: req.params.messageId,
+		});
+		if (!message) {
+			return res.status(404).json({ message: 'Mensaje no encontrado' });
+		}
+		if (!(await ensureRetreatAccess(req, res, message.retreatId))) return res;
+		if (message.messageType !== 'image') {
+			return res.status(400).json({ message: 'Este mensaje no tiene imagen adjunta.' });
+		}
+
+		const digitsMap = await waBridgeService.getWalkerDigitsMap(message.retreatId);
+		const participant = digitsMap.get(message.chatPhone);
+
+		try {
+			const receiptPhoto = await waBridgeService.downloadReceiptDataUrl(message);
+			return res.json({
+				receiptPhoto,
+				participantId: participant?.id ?? null,
+				participantFirstName: participant?.firstName ?? '',
+				participantLastName: participant?.lastName ?? '',
+				country: participant?.country ?? null,
+			});
+		} catch (err) {
+			const status = err instanceof WacliError ? 502 : 500;
+			return res
+				.status(status)
+				.json({ message: `No se pudo descargar la imagen: ${(err as Error).message}` });
+		}
 	};
 }

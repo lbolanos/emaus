@@ -46,6 +46,7 @@ const LINES = [
   { id: 'conversaciones', text: 'Aquí aparecen las conversaciones de los caminantes, con su nombre y lo que no has leído.' },
   { id: 'hilo', text: 'Abres un chat y ves la conversación completa.' },
   { id: 'leer', text: 'Al abrirlo se marca como leído para ti, sin avisar al caminante: nada de visto azul.' },
+  { id: 'comprobante', text: 'Si el caminante manda su comprobante, lo registras como pago con un clic, con la foto ya adjunta.' },
   { id: 'responder', text: 'Y respondes desde tu propio WhatsApp, con este botón.' },
   { id: 'vincular', text: 'Para vincular el tuyo, tocas Vincular mi WhatsApp y aceptas el aviso: qué se sincroniza y los riesgos.' },
   { id: 'qr', text: 'Escaneas el código con tu teléfono, como un WhatsApp Web más.' },
@@ -58,7 +59,7 @@ const CHAPTER_LABELS = {
   intro: 'Intro', donde: 'Dónde vive', activa: 'Se activa por retiro',
   consolidada: 'Solo lectura y consolidada',
   enlaces: 'Teléfonos vinculados', conversaciones: 'Conversaciones', hilo: 'Abrir un chat',
-  leer: 'Leído sin visto azul', responder: 'Responder desde mi WhatsApp',
+  leer: 'Leído sin visto azul', comprobante: 'Comprobante → pago', responder: 'Responder desde mi WhatsApp',
   vincular: 'Vincular: aviso y consentimiento', qr: 'Escanear el QR',
   conectado: 'Conectado', ciclo: 'Se borra solo al terminar', outro: 'Cierre',
 };
@@ -128,9 +129,25 @@ async function main() {
   page.setDefaultNavigationTimeout(30000);
   // Enmascarado canónico de PII sobre TODO el API (nombres, correos, teléfonos).
   await page.route('**/api/**', maskRoute);
+  // Diagnóstico: todos los POST del contexto de grabación.
+  page.on('request', (r) => {
+    if (r.method() === 'POST' && r.url().includes('/api/')) log('   ↗ POST', r.url().replace(cfg.baseUrl, ''));
+  });
+  page.on('response', (r) => {
+    if (r.request().method() === 'POST' && r.url().includes('/api/')) log('   ↙ POST', r.status(), r.url().replace(cfg.baseUrl, ''));
+  });
   const video = page.video();
   const nar = new Narrator(page, cfg);
   nar.start();
+  // Diagnóstico: alerts del flujo (participantId null, fallos de descarga) y
+  // errores de consola quedan en el log de la corrida.
+  page.on('dialog', (d) => {
+    log(`   ⚠ dialog [${d.type()}]: ${d.message()}`);
+    void d.accept();
+  });
+  page.on('console', (m) => {
+    if (m.type() === 'error') log('   🖥 console error:', m.text().slice(0, 160));
+  });
 
   const DASHBOARD = `${cfg.baseUrl}/app/retreats/${RETREAT}/dashboard`;
 
@@ -200,6 +217,43 @@ async function main() {
     // ── leer (sin visto azul) ──
     await sleep(page, 400);
     await nar.say(clips.leer);
+
+    // ── comprobante (FR14: imagen → modal de pago con la foto adjunta) ──
+    // La fila del comprobante es la 2ª conversación por última actividad
+    // (siembra: WA-VIDEO-IMG de "Elio", enmascarado en pantalla). El click del
+    // botón va por DOM: el contenedor scrolleable del hilo intercepta puntero
+    // (misma lección que Configuración Global).
+    const receiptChat = page.locator('[data-testid^="wa-chat-row"]').nth(1);
+    if (await receiptChat.count()) {
+      await receiptChat.click();
+      await sleep(page, 900); // dejar asentar openChat (fetchThread + markSeen)
+      await page.waitForSelector('[data-testid^="wa-register-payment"]', { timeout: 8000 });
+      const regBtn = page.locator('[data-testid^="wa-register-payment"]').first();
+      // Instrumentación: capturar el POST del comprobante para diagnosticar.
+      const receiptResponse = page
+        .waitForResponse((r) => r.url().includes('/receipt') && r.request().method() === 'POST', {
+          timeout: 25000,
+        })
+        .catch(() => null);
+      await domClick(regBtn);
+      const resp = await receiptResponse;
+      if (resp) {
+        const body = await resp.json().catch(() => null);
+        log(
+          `   🧾 receipt POST → ${resp.status()} participantId=${body?.participantId ?? 'null'}`,
+        );
+      } else {
+        log('   🧾 receipt POST: sin respuesta en 25 s');
+      }
+      await page.waitForSelector('[role="dialog"]', { timeout: 20000 });
+      await sleep(page, 1200);
+      await nar.say(clips.comprobante);
+      // Cerrar el modal de pago: Escape (reka) + Cancelar por DOM; verificar
+      // que cerró antes de seguir (taparía el modal de consentimiento).
+      await page.keyboard.press('Escape').catch(() => {});
+      await domClick(page.locator('[role="dialog"] button:has-text("Cancelar")').first()).catch(() => {});
+      await sleep(page, 800);
+    }
 
     // ── responder (cue al botón; NO se clican ventanas externas) ──
     const reply = page.locator('[data-testid="wa-reply-button"]');

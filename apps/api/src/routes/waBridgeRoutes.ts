@@ -33,6 +33,14 @@ router.post(
 	requireRetreatAccess('retreatId'),
 	controller.markSeen,
 );
+// Comprobante de pago desde WhatsApp (FR14, v1.1): doble permiso — leer la
+// bandeja y crear el pago (el destino de la imagen).
+router.post(
+	'/messages/:messageId/receipt',
+	requirePermission('whatsappInbox:read'),
+	requirePermission('payment:create'),
+	controller.receiptDataUrl,
+);
 
 // Gestión del vínculo propio: permiso manage; el dueño (o superadmin) lo
 // valida dentro del controller para /link/:linkId.

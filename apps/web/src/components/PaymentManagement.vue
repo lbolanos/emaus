@@ -664,12 +664,26 @@ const openPaymentFor = (participantId: string) => {
 	showPaymentModal.value = true;
 };
 
+/**
+ * Abre el modal de registro con el comprobante YA adjunto (specs/whatsapp-inbox
+ * v1.1, FR14): la imagen viene de la bandeja WhatsApp, descargada y procesada
+ * por el API como data-URL. El participante llega prellenado — el staff solo
+ * completa monto/fecha/método.
+ */
+const openPaymentForWithReceipt = (participantId: string, receiptDataUrl: string) => {
+	editingPayment.value = null;
+	resetPaymentForm();
+	paymentForm.value.participantId = participantId;
+	newReceiptDataUrl.value = receiptDataUrl;
+	showPaymentModal.value = true;
+};
+
 const openChargeFor = (participantId: string) => {
 	debtParticipantId.value = participantId;
 	showDebtModal.value = true;
 };
 
-defineExpose({ openPaymentFor, openChargeFor });
+defineExpose({ openPaymentFor, openChargeFor, openPaymentForWithReceipt });
 
 const editPayment = (payment: Payment) => {
 	editingPayment.value = payment;

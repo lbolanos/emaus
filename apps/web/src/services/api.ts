@@ -5051,3 +5051,17 @@ export const markWaChatSeen = async (
   const r = await api.post(`/wa-bridge/retreat/${retreatId}/seen`, { chatJid });
   return r.data;
 };
+
+export interface WaReceiptDownload {
+  receiptPhoto: string;
+  participantId: string | null;
+  participantFirstName: string;
+  participantLastName: string;
+  country: string | null;
+}
+
+/** FR14 (v1.1): descarga ON-DEMAND la imagen del mensaje para `receiptPhoto`. */
+export const getWaReceiptDataUrl = async (messageId: string): Promise<WaReceiptDownload> => {
+  const r = await api.post(`/wa-bridge/messages/${messageId}/receipt`);
+  return r.data;
+};

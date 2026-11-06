@@ -37,6 +37,15 @@ export interface WaSupervisorEvent {
 const MAX_BACKOFF_MS = 60_000;
 const KILL_GRACE_MS = 5_000;
 
+/** Señal al GRUPO del hijo (shell + nietos); fallback al hijo directo. */
+function killProcessGroup(child: ChildProcess, signal: NodeJS.Signals): void {
+	if (process.platform !== 'win32' && child.pid && child.detached) {
+		process.kill(-child.pid, signal);
+		return;
+	}
+	child.kill(signal);
+}
+
 /** Events NDJSON de wacli → eventos del supervisor (formas defensivas). */
 export function parseWacliEventLine(line: string): WaSupervisorEvent | null {
 	const trimmed = line.trim();
@@ -159,6 +168,9 @@ export class WaBridgeSupervisor {
 				{
 					env: { PATH: process.env.PATH, HOME: process.env.HOME },
 					stdio: ['ignore', 'pipe', 'pipe'],
+					// Grupo de procesos propio: el stop mata al shell Y a sus hijos
+					// (el `sleep` nieto hereda los pipes y 'close' no dispararía).
+					detached: process.platform !== 'win32',
 				},
 			);
 		} catch (err) {
@@ -209,7 +221,13 @@ export class WaBridgeSupervisor {
 		this.backoffMs = config.waBridge.restartBackoffSeconds * 1000;
 	}
 
-	/** Parada limpia: SIGTERM y SIGKILL tras la gracia. Idempotente. */
+	/**
+	 * Parada limpia: señal al GRUPO de procesos (shell + nietos) y resolución
+	 * por `exit` — NO por `close`: el nieto (`sleep` de un wrapper shell)
+	 * hereda los pipes de stdio y `close` puede tardar lo que dure el nieto.
+	 * Colgado aquí = el API entero se cuelga en el endpoint que llame a stop
+	 * (incidencia del QA 2026-11-06: POST /receipt congelado 25 s+).
+	 */
 	async stop(): Promise<void> {
 		this.stopped = true;
 		if (this.restartTimer) {
@@ -219,22 +237,32 @@ export class WaBridgeSupervisor {
 		const child = this.child;
 		if (!child) return;
 		return new Promise((resolve) => {
+			let done = false;
+			const finish = () => {
+				if (done) return;
+				done = true;
+				clearTimeout(killTimer);
+				resolve();
+			};
 			const killTimer = setTimeout(() => {
 				try {
-					child.kill('SIGKILL');
+					killProcessGroup(child, 'SIGKILL');
 				} catch {
 					// Ya murió.
 				}
 			}, KILL_GRACE_MS);
-			child.on('close', () => {
-				clearTimeout(killTimer);
-				resolve();
+			child.once('exit', () => {
+				// Destruir los pipes por si un nieto los sostiene: sin esto el
+				// 'close' interno de Node no limpia y los fd quedan abiertos.
+				child.stdout?.destroy();
+				child.stderr?.destroy();
+				finish();
 			});
 			try {
-				child.kill('SIGTERM');
+				killProcessGroup(child, 'SIGTERM');
 			} catch {
 				clearTimeout(killTimer);
-				resolve();
+				finish();
 			}
 		});
 	}

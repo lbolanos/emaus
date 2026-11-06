@@ -213,3 +213,36 @@ export async function listMessages(
 export async function authStatus(storeDir: string): Promise<WacliAuthStatus> {
 	return wacliRead<WacliAuthStatus>(storeDir, ['auth', 'status']);
 }
+
+/**
+ * Descarga la media de un mensaje a `outputPath` (FR14, v1.1: comprobantes).
+ *
+ * NO lleva `--read-only`: escribe el archivo (y toca el store). El hijo sync
+ * sostiene el lock del store — el servicio debe detener al supervisor antes
+ * de llamar y re-arrancarlo después (ver waBridgeService.downloadReceiptDataUrl).
+ */
+export async function mediaDownload(
+	storeDir: string,
+	chatJid: string,
+	waMessageId: string,
+	outputPath: string,
+	timeoutSeconds = 120,
+): Promise<void> {
+	const { stdout, stderr, code } = await runWacli(
+		[
+			'--store',
+			storeDir,
+			'--json',
+			'media',
+			'download',
+			'--chat',
+			chatJid,
+			'--id',
+			waMessageId,
+			'--output',
+			outputPath,
+		],
+		{ timeoutSeconds },
+	);
+	parseEnvelope(stdout, stderr, code);
+}

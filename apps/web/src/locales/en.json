@@ -4322,6 +4322,9 @@
     "participants": "Walker",
     "reply": "Reply from my WhatsApp",
     "multimedia": "📎 Media (open it in WhatsApp)",
+    "registerPayment": "Register as payment",
+    "receiptNoParticipant": "This number does not match any retreat walker: register it from Payments.",
+    "receiptFailed": "The receipt image could not be downloaded.",
     "selectChat": "Pick a conversation",
     "threadEmpty": "No messages in this chat yet.",
     "status": {

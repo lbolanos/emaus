@@ -18,6 +18,12 @@ const props = defineProps<{
   messages: WaInboxMessageDto[]
   conversation: WaConversationDto | null
   loading: boolean
+  /** El usuario puede crear pagos: habilita "Registrar como pago" (FR14). */
+  canRegisterPayment?: boolean
+}>()
+
+const emit = defineEmits<{
+  (e: 'register-receipt', message: WaInboxMessageDto): void
 }>()
 
 const { t } = useI18n()
@@ -89,11 +95,23 @@ function formatTime(ts: string | Date): string {
           class="flex"
           :data-testid="`wa-message-${m.id}`"
         >
-          <div class="max-w-[85%] rounded-lg bg-muted px-3 py-2">
-            <div class="text-sm whitespace-pre-wrap break-words">{{ m.body ?? t('waInbox.multimedia') }}</div>
-            <div class="text-[10px] text-muted-foreground mt-1 text-right">
-              {{ formatTime(m.timestamp) }}
+          <div class="max-w-[85%]">
+            <div class="rounded-lg bg-muted px-3 py-2">
+              <div class="text-sm whitespace-pre-wrap break-words">{{ m.body ?? t('waInbox.multimedia') }}</div>
+              <div class="text-[10px] text-muted-foreground mt-1 text-right">
+                {{ formatTime(m.timestamp) }}
+              </div>
             </div>
+            <!-- FR14 (v1.1): imagen de caminante → comprobante de pago. -->
+            <button
+              v-if="canRegisterPayment && m.messageType === 'image'"
+              type="button"
+              class="mt-1 text-xs text-emerald-700 hover:underline"
+              :data-testid="`wa-register-payment-${m.id}`"
+              @click="emit('register-receipt', m)"
+            >
+              {{ t('waInbox.registerPayment') }}
+            </button>
           </div>
         </div>
         <div v-if="!loading && messages.length === 0" class="text-sm text-muted-foreground">

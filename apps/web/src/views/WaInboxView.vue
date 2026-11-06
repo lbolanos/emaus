@@ -8,6 +8,7 @@ import { useRetreatStore } from '@/stores/retreatStore'
 import { useAuthStore } from '@/stores/authStore'
 import { useAuthPermissions } from '@/composables/useAuthPermissions'
 import { useWaInboxStore } from '@/stores/waInboxStore'
+import PaymentManagement from '@/components/PaymentManagement.vue'
 import WaLinkPanel from '@/components/wa/WaLinkPanel.vue'
 import WaLinkModal from '@/components/wa/WaLinkModal.vue'
 import WaConversationList from '@/components/wa/WaConversationList.vue'
@@ -23,6 +24,7 @@ const { t } = useI18n()
 const retreatStore = useRetreatStore()
 const authStore = useAuthStore()
 const { isSuperadmin } = useAuthPermissions()
+const { can } = useAuthPermissions()
 const store = useWaInboxStore()
 const { links, conversations, realtimeConnected, loadingConversations, inboxEnabled } =
   storeToRefs(store)
@@ -33,6 +35,8 @@ const retreatId = computed(
 // Mold de MessageSequencesView: el id del usuario actual decide si el tablero
 // muestra el teléfono de cada vínculo.
 const myUserId = computed(() => (authStore.user as any)?.id || null)
+// FR14: "Registrar como pago" solo para quien puede crear pagos.
+const canRegisterPayment = computed(() => can.create('payment'))
 
 const linkModalOpen = ref(false)
 
@@ -94,6 +98,30 @@ async function onTerminateAll() {
   terminateArmed.value = false
   if (terminateArmTimer) clearTimeout(terminateArmTimer)
   await store.terminateAll(id).catch(() => {})
+}
+
+// FR14 (v1.1): descargar la imagen del mensaje y abrir el modal de pagos con
+// el comprobante ya adjunto y el participante prellenado.
+const paymentRef = ref<InstanceType<typeof PaymentManagement> | null>(null)
+const downloadingReceipt = ref(false)
+async function onRegisterReceipt(message: { id: string }) {
+  if (downloadingReceipt.value) return
+  downloadingReceipt.value = true
+  try {
+    const receipt = await store.downloadReceipt(message.id)
+    if (!receipt.participantId) {
+      alert(t('waInbox.receiptNoParticipant'))
+      return
+    }
+    paymentRef.value?.openPaymentForWithReceipt(receipt.participantId, receipt.receiptPhoto)
+  } catch (err) {
+    const apiMessage =
+      (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
+      (err as Error).message
+    alert(apiMessage || t('waInbox.receiptFailed'))
+  } finally {
+    downloadingReceipt.value = false
+  }
 }
 </script>
 
@@ -174,9 +202,17 @@ async function onTerminateAll() {
         :messages="store.threadMessages"
         :conversation="store.activeConversation"
         :loading="store.loadingThread"
+        :can-register-payment="canRegisterPayment"
+        @register-receipt="onRegisterReceipt"
       />
     </div>
 
     <WaLinkModal v-model:open="linkModalOpen" :retreat-id="retreatId" @linked="refresh" />
+
+    <!-- FR14: modal de pago reutilizado, montado oculto (el Dialog que abre
+         teletransporta a body). openPaymentForWithReceipt lo abre prellenado. -->
+    <div class="hidden">
+      <PaymentManagement ref="paymentRef" />
+    </div>
   </div>
 </template>

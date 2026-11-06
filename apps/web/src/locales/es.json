@@ -4644,6 +4644,9 @@
     "participants": "Caminante",
     "reply": "Responder desde mi WhatsApp",
     "multimedia": "📎 Multimedia (ábreselo en WhatsApp)",
+    "registerPayment": "Registrar como pago",
+    "receiptNoParticipant": "Este número no coincide con ningún caminante del retiro: regístralo desde Pagos.",
+    "receiptFailed": "No se pudo descargar la imagen del comprobante.",
     "selectChat": "Elige una conversación",
     "threadEmpty": "Sin mensajes en este chat todavía.",
     "status": {
