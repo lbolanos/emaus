@@ -224,6 +224,12 @@
         "create": "Document added to preparation",
         "update": "Preparation document edited",
         "delete": "Preparation document deleted"
+      },
+      "letter": {
+        "inbox_view": "Letters inbox viewed",
+        "review": "Letter review (approve/hide)",
+        "print_mark": "Letter batch marked as printed",
+        "mailbox_toggle": "Letter mailbox enabled/disabled"
       }
     },
     "resources": {
@@ -260,7 +266,8 @@
       "crm_task": "Task",
       "participant_note": "Participant note",
       "retreat_preparation": "Preparation",
-      "retreat_preparation_document": "Preparation document"
+      "retreat_preparation_document": "Preparation document",
+      "letter": "Family letters"
     },
     "ranges": {
       "1w": "1 week",
@@ -765,6 +772,7 @@
     "servers": "Servers",
     "partialServers": "Angelitos",
     "palancas": "Palancas",
+    "letters": "Family letters",
     "payments": "Payments",
     "tables": "Tables",
     "walkerBadges": "Walker Badges",
@@ -4284,5 +4292,77 @@
   "houses": {
     "deleteConfirm": "Delete house \"{name}\"? This action cannot be undone.",
     "deleteConfirmWithBeds": "Delete house \"{name}\"? All of its beds ({count}) will be deleted too. This action cannot be undone."
+  },
+  "letters": {
+    "title": "Family letters",
+    "subtitle": "Per-participant mailboxes, review and printing of letters arriving by email.",
+    "activate": "Activate mailboxes",
+    "mailboxes": "Mailboxes",
+    "searchPlaceholder": "Search by sender, text or subject…",
+    "empty": "No letters with these filters. Activate the mailboxes and share the addresses to start receiving them.",
+    "copyAddress": "Copy address",
+    "printed": "Printed",
+    "hasNonPrintable": "Non-printable photo",
+    "reviewedAt": "Reviewed: {date}",
+    "status": {
+      "all": "All",
+      "pending": "Pending review",
+      "approved": "Approved",
+      "hidden": "Hidden"
+    },
+    "filter": {
+      "allTables": "All tables"
+    },
+    "review": {
+      "approve": "Approve",
+      "hide": "Hide",
+      "approvedTitle": "Letter approved",
+      "hiddenTitle": "Letter hidden"
+    },
+    "reviewError": "Could not update the letter",
+    "mailboxToggleError": "Could not update the mailbox",
+    "activateError": "Could not activate the mailboxes",
+    "mailboxDialog": {
+      "title": "Letter mailboxes",
+      "description": "Unique address per participant. Families send the letter there; it lands in the review inbox.",
+      "searchPlaceholder": "Search participant, table or code…",
+      "empty": "No participants with a mailbox. Use «Activate mailboxes».",
+      "participant": "Participant",
+      "table": "Table",
+      "address": "Address",
+      "letters": "Letters",
+      "enabled": "Active",
+      "copy": "Copy address",
+      "noMailbox": "No mailbox"
+    },
+    "share": {
+      "title": "Share addresses",
+      "shortTitle": "Share",
+      "description": "Per-participant message with their address, ready to copy or send by WhatsApp to the family.",
+      "openBulk": "Share all",
+      "copyAll": "Copy all addresses",
+      "copy": "Copy message",
+      "copied": "Copied",
+      "whatsapp": "WhatsApp",
+      "noPhone": "This participant has no phone number on file",
+      "empty": "Activate the mailboxes first.",
+      "defaultDeadline": "before the retreat starts",
+      "messageTemplate": "Hello! For the {retreat} retreat, {participant}'s family can send their letter (support message with photos if they like) to {address} before the retreat ({deadline}). The team prints it and delivers it during the weekend. It is a surprise — please do not mention it!"
+    },
+    "print": {
+      "table": "Print table",
+      "retreat": "Print retreat",
+      "markedTitle": "Print launched — {count} letters marked",
+      "markedDescription": "If you cancelled the browser dialog, you can print again: they stay marked as printed.",
+      "popupBlocked": "The browser blocked the print window",
+      "emptyTitle": "Nothing to print",
+      "emptyDescription": "No approved letters in that scope. Approve letters first.",
+      "pickTable": "Pick a table in the filter to print by table",
+      "error": "Could not build the printout"
+    },
+    "activateDone": {
+      "doneTitle": "Mailboxes activated",
+      "doneDescription": "{activated} new mailboxes, {alreadyActive} already existed."
+    }
   }
 }

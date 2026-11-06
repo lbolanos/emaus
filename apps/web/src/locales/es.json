@@ -224,6 +224,12 @@
         "create": "Documento agregado a la preparación",
         "update": "Documento de preparación editado",
         "delete": "Documento de preparación eliminado"
+      },
+      "letter": {
+        "inbox_view": "Consulta de bandeja de cartas",
+        "review": "Revisión de carta (aprobar/ocultar)",
+        "print_mark": "Lote de cartas marcado como impreso",
+        "mailbox_toggle": "Buzón de cartas activado/desactivado"
       }
     },
     "resources": {
@@ -260,7 +266,8 @@
       "crm_task": "Tarea",
       "participant_note": "Nota del participante",
       "retreat_preparation": "Preparación",
-      "retreat_preparation_document": "Documento de preparación"
+      "retreat_preparation_document": "Documento de preparación",
+      "letter": "Cartas de familias"
     },
     "ranges": {
       "1w": "1 semana",
@@ -768,6 +775,7 @@
     "partial_servers": "Angelitos",
     "waitings": "Lista de Espera",
     "palancas": "Palancas",
+    "letters": "Cartas de familias",
     "payments": "Pagos",
     "tables": "Mesas",
     "walkerBadges": "Gafetes Caminantes",
@@ -4606,5 +4614,77 @@
   "houses": {
     "deleteConfirm": "¿Eliminar la casa «{name}»? Esta acción no se puede deshacer.",
     "deleteConfirmWithBeds": "¿Eliminar la casa «{name}»? Se eliminarán también todas sus camas ({count}). Esta acción no se puede deshacer."
+  },
+  "letters": {
+    "title": "Cartas de familias",
+    "subtitle": "Buzones por participante, revisión e impresión de las cartas que llegan por email.",
+    "activate": "Activar buzones",
+    "mailboxes": "Buzones",
+    "searchPlaceholder": "Buscar por remitente, texto o asunto…",
+    "empty": "No hay cartas con estos filtros. Activa los buzones y difunde las direcciones para empezar a recibirlas.",
+    "copyAddress": "Copiar dirección",
+    "printed": "Impresa",
+    "hasNonPrintable": "Foto no imprimible",
+    "reviewedAt": "Revisada: {date}",
+    "status": {
+      "all": "Todas",
+      "pending": "Por revisar",
+      "approved": "Aprobadas",
+      "hidden": "Ocultas"
+    },
+    "filter": {
+      "allTables": "Todas las mesas"
+    },
+    "review": {
+      "approve": "Aprobar",
+      "hide": "Ocultar",
+      "approvedTitle": "Carta aprobada",
+      "hiddenTitle": "Carta oculta"
+    },
+    "reviewError": "No se pudo actualizar la carta",
+    "mailboxToggleError": "No se pudo actualizar el buzón",
+    "activateError": "No se pudieron activar los buzones",
+    "mailboxDialog": {
+      "title": "Buzones de cartas",
+      "description": "Dirección única por participante. Las familias envían la carta a esa dirección; llega a la bandeja para revisión.",
+      "searchPlaceholder": "Buscar participante, mesa o código…",
+      "empty": "Sin participantes con buzón. Usa «Activar buzones».",
+      "participant": "Participante",
+      "table": "Mesa",
+      "address": "Dirección",
+      "letters": "Cartas",
+      "enabled": "Activo",
+      "copy": "Copiar dirección",
+      "noMailbox": "Sin buzón"
+    },
+    "share": {
+      "title": "Difundir direcciones",
+      "shortTitle": "Difundir",
+      "description": "Mensaje por participante con su dirección, listo para copiar o enviar por WhatsApp a la familia.",
+      "openBulk": "Difundir todas",
+      "copyAll": "Copiar todas las direcciones",
+      "copy": "Copiar mensaje",
+      "copied": "Copiado",
+      "whatsapp": "WhatsApp",
+      "noPhone": "El participante no tiene teléfono capturado",
+      "empty": "Activa los buzones primero.",
+      "defaultDeadline": "antes del inicio del retiro",
+      "messageTemplate": "¡Hola! Para el retiro de {retreat}, la familia de {participant} puede enviar su carta (mensaje de apoyo con fotos si quieren) al correo {address} antes del retiro ({deadline}). El equipo la imprime y la entregamos durante el fin de semana. Es una sorpresa, ¡no se lo comenten!"
+    },
+    "print": {
+      "table": "Imprimir mesa",
+      "retreat": "Imprimir retiro",
+      "markedTitle": "Impresión lanzada — {count} cartas marcadas",
+      "markedDescription": "Si cancelaste el diálogo del navegador, puedes volver a imprimir: quedan marcadas como impresas.",
+      "popupBlocked": "El navegador bloqueó la ventana de impresión",
+      "emptyTitle": "Nada que imprimir",
+      "emptyDescription": "No hay cartas aprobadas en ese alcance. Aprueba cartas primero.",
+      "pickTable": "Elige una mesa en el filtro para imprimir por mesa",
+      "error": "No se pudo armar la impresión"
+    },
+    "activateDone": {
+      "doneTitle": "Buzones activados",
+      "doneDescription": "{activated} buzones nuevos, {alreadyActive} ya existían."
+    }
   }
 }
