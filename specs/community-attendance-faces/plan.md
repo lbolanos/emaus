@@ -97,7 +97,7 @@ Detalle y desviaciones en tasks.md.
 
 ### `apps/api/src/services/faceMatchService.ts`
 
-- **Modelo**: `config.ai.faceModel` = `AI_FACE_MODEL` (default `gemini-3.5-flash`), siempre con
+- **Modelo**: `config.ai.faceModel` = `AI_FACE_MODEL` (default `gemini-flash-lite-latest`), siempre con
   `@ai-sdk/google`. Independiente de `AI_VISION_MODEL` (`gemini-flash-latest`), que el día de la
   evaluación estuvo saturado.
 - **Galería (FR-13, D11)**: miembros con foto y sin exclusión; si son más de 48, los de asistencia más
@@ -177,7 +177,7 @@ Vista pública `apps/web/src/views/PublicMeetingAlbumView.vue` en la ruta `/albu
 | Endpoints de la tabla de Capa 3 | `communityRoutes.ts` |
 | `attendance/single`: + `idempotency`, + `occurredAt`, + chequeo de reunión | M2 |
 | `community.faceRecognitionEnabled`, `community_member.faceRecognitionOptOut` | migración M3 |
-| `AI_FACE_MODEL` (default `gemini-3.5-flash`) | `.env.example`; prod opcional |
+| `AI_FACE_MODEL` (default `gemini-flash-lite-latest`) | `.env.example`; en prod, el mismo valor desde 2026-10-22 |
 | Kind de cola `community.attendance` | web |
 
 ## Riesgos y mitigación

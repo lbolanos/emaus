@@ -166,6 +166,13 @@
 						<span v-if="payment.referenceNumber" class="text-xs text-gray-500">
 							{{ $t('paymentManagement.table.ref') }}: {{ payment.referenceNumber }}
 						</span>
+						<img
+							v-if="payment.receiptUrl"
+							:src="payment.receiptUrl"
+							class="h-10 w-10 rounded object-cover border border-gray-200 cursor-pointer"
+							alt=""
+							@click="receiptViewerUrl = payment.receiptUrl"
+						/>
 						<span v-if="payment.recordedByUser?.displayName" class="text-xs text-gray-400">
 							· {{ payment.recordedByUser?.displayName }}
 						</span>
@@ -220,7 +227,16 @@
 								{{ getPaymentMethodLabel(payment.paymentMethod) }}
 							</td>
 							<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-								{{ payment.referenceNumber || '-' }}
+								<div class="flex items-center gap-2">
+									<img
+										v-if="payment.receiptUrl"
+										:src="payment.receiptUrl"
+										class="h-10 w-10 rounded object-cover border border-gray-200 cursor-pointer"
+										alt=""
+										@click="receiptViewerUrl = payment.receiptUrl"
+									/>
+									<span>{{ payment.referenceNumber || '-' }}</span>
+								</div>
 							</td>
 							<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
 								{{ payment.recordedByUser?.displayName }}
@@ -300,6 +316,53 @@
 						<div>
 							<label class="block text-sm font-medium text-gray-700 mb-1">{{ $t('paymentManagement.modal.notes') }}</label>
 							<Textarea v-model="paymentForm.notes" rows="3" />
+						</div>
+						<div>
+							<label class="block text-sm font-medium text-gray-700 mb-1">{{ $t('paymentManagement.modal.receipt') }}</label>
+							<div v-if="receiptMarkedForRemoval" class="flex items-center gap-2 text-sm text-gray-500">
+								<Trash2 class="w-4 h-4 text-red-500" />
+								<span>{{ $t('paymentManagement.modal.receiptWillRemove') }}</span>
+								<button type="button" class="text-xs text-blue-600 hover:underline" @click="receiptMarkedForRemoval = false">
+									{{ $t('paymentManagement.modal.receiptUndo') }}
+								</button>
+							</div>
+							<div v-else-if="newReceiptDataUrl" class="flex items-center gap-2">
+								<img :src="newReceiptDataUrl" class="h-14 w-14 rounded object-cover border border-gray-200" alt="" />
+								<button
+									type="button"
+									class="text-xs text-red-600 hover:underline inline-flex items-center gap-1"
+									@click="newReceiptDataUrl = null"
+								>
+									<X class="w-3 h-3" /> {{ $t('paymentManagement.modal.receiptRemove') }}
+								</button>
+							</div>
+							<div v-else class="flex items-center gap-3">
+								<img
+									v-if="currentReceiptUrl"
+									:src="currentReceiptUrl"
+									class="h-14 w-14 rounded object-cover border border-gray-200 cursor-pointer"
+									alt=""
+									@click="receiptViewerUrl = currentReceiptUrl"
+								/>
+								<button
+									type="button"
+									class="text-xs text-blue-600 hover:underline inline-flex items-center gap-1 disabled:opacity-50"
+									:disabled="receiptLoading"
+									@click="pickPaymentReceipt"
+								>
+									<Loader2 v-if="receiptLoading" class="w-3 h-3 animate-spin" />
+									<Camera v-else class="w-3 h-3" />
+									{{ currentReceiptUrl ? $t('paymentManagement.modal.receiptReplace') : $t('paymentManagement.modal.receiptAttach') }}
+								</button>
+								<button
+									v-if="currentReceiptUrl"
+									type="button"
+									class="text-xs text-red-600 hover:underline inline-flex items-center gap-1"
+									@click="receiptMarkedForRemoval = true"
+								>
+									<Trash2 class="w-3 h-3" /> {{ $t('paymentManagement.modal.receiptRemove') }}
+								</button>
+							</div>
 						</div>
 					</div>
 					<div class="mt-6 flex flex-col-reverse sm:flex-row sm:justify-between gap-2">
@@ -392,6 +455,17 @@
 				</div>
 			</DialogContent>
 		</Dialog>
+
+		<!-- Receipt viewer (enlarge) -->
+		<Dialog :open="!!receiptViewerUrl" @update:open="(open: boolean) => { if (!open) receiptViewerUrl = null }">
+			<DialogContent class="max-w-2xl">
+				<DialogHeader>
+					<DialogTitle>{{ $t('paymentManagement.modal.receipt') }}</DialogTitle>
+					<DialogDescription>{{ $t('paymentManagement.modal.receiptViewerDesc') }}</DialogDescription>
+				</DialogHeader>
+				<img v-if="receiptViewerUrl" :src="receiptViewerUrl" class="w-full rounded-md border border-gray-200" alt="" />
+			</DialogContent>
+		</Dialog>
 	</div>
 </template>
 
@@ -416,6 +490,7 @@ import {
 	DialogHeader,
 	DialogTitle,
 	DialogDescription,
+	useToast,
 } from '@repo/ui';
 import {
 	Plus,
@@ -428,14 +503,19 @@ import {
 	Pencil,
 	Trash2,
 	Printer,
+	Camera,
+	Loader2,
 } from 'lucide-vue-next';
 import type { Payment, CreatePayment, UpdatePayment } from '@repo/types';
 import { formatDate, formatCurrency } from '@repo/utils';
+import { pickFile } from '@/utils/filePicker';
+import { receiptPhotoFromFile } from '@/utils/imageResize';
 import ParticipantDebtManager from '@/components/ParticipantDebtManager.vue';
 import ParticipantSelect from '@/components/ParticipantSelect.vue';
 import { usePaysAtHouseToggle } from '@/composables/usePaysAtHouseToggle';
 
 const { t } = useI18n();
+const { toast } = useToast();
 const paymentStore = usePaymentStore();
 const retreatStore = useRetreatStore();
 const participantStore = useParticipantStore();
@@ -452,6 +532,16 @@ const deletingPayment = ref<Payment | null>(null);
 const summary = ref<any>(null);
 const markingScholarship = ref(false);
 
+// Receipt photo state (specs/payment-receipt-photo/spec.md). `newReceiptDataUrl`
+// holds the picked photo waiting to be sent; `receiptMarkedForRemoval` flags the
+// "Quitar" action in edit mode; `currentReceiptUrl` mirrors the stored receipt
+// (presigned) for the thumbnail; `receiptViewerUrl` opens the enlarge dialog.
+const newReceiptDataUrl = ref<string | null>(null);
+const receiptMarkedForRemoval = ref(false);
+const currentReceiptUrl = ref<string | null>(null);
+const receiptLoading = ref(false);
+const receiptViewerUrl = ref<string | null>(null);
+
 const filters = ref({
 	paymentMethod: '',
 	startDate: '',
@@ -465,10 +555,17 @@ const buildFetchFilters = () => ({
 	retreatId: activeRetreatId.value,
 });
 
+// Local calendar date (device timezone): `toISOString` would use UTC and date a
+// payment taken after ~18:00 CDMX as tomorrow ("fechas saltan un día" class).
+const todayLocal = () => {
+	const d = new Date();
+	return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+
 const paymentForm = ref({
 	participantId: '',
 	amount: '',
-	paymentDate: new Date().toISOString().split('T')[0],
+	paymentDate: todayLocal(),
 	paymentMethod: 'cash',
 	referenceNumber: '',
 	notes: '',
@@ -584,6 +681,9 @@ const editPayment = (payment: Payment) => {
 		referenceNumber: payment.referenceNumber || '',
 		notes: payment.notes || '',
 	};
+	newReceiptDataUrl.value = null;
+	receiptMarkedForRemoval.value = false;
+	currentReceiptUrl.value = payment.receiptUrl || null;
 	showPaymentModal.value = true;
 };
 
@@ -596,16 +696,34 @@ const resetPaymentForm = () => {
 	paymentForm.value = {
 		participantId: '',
 		amount: '',
-		paymentDate: new Date().toISOString().split('T')[0],
+		paymentDate: todayLocal(),
 		paymentMethod: 'cash',
 		referenceNumber: '',
 		notes: '',
 	};
+	newReceiptDataUrl.value = null;
+	receiptMarkedForRemoval.value = false;
+	currentReceiptUrl.value = null;
 };
 
 const handleModalClose = (open: boolean) => {
 	if (!open) {
 		closePaymentModal();
+	}
+};
+
+const pickPaymentReceipt = async () => {
+	const file = await pickFile({ accept: 'image/*' });
+	if (!file) return;
+	receiptLoading.value = true;
+	try {
+		newReceiptDataUrl.value = await receiptPhotoFromFile(file);
+		// Picking a new photo cancels a pending removal.
+		receiptMarkedForRemoval.value = false;
+	} catch {
+		toast({ title: t('paymentManagement.modal.receiptTooLarge'), variant: 'destructive' });
+	} finally {
+		receiptLoading.value = false;
 	}
 };
 
@@ -618,6 +736,13 @@ const savePayment = async () => {
 			// Bind payment to the retreat selected in the sidebar, not the
 			// participant's primary retreat.
 			retreatId: activeRetreatId.value,
+			// Receipt photo (specs/payment-receipt-photo/spec.md): new photo sends
+			// the data-URL; "Quitar" in edit mode sends '' (server clears it);
+			// otherwise undefined so the field is dropped from the JSON payload and
+			// the stored receipt stays untouched. Create never sends ''.
+			receiptPhoto:
+				newReceiptDataUrl.value ||
+				(receiptMarkedForRemoval.value && editingPayment.value ? '' : undefined),
 		};
 
 		if (editingPayment.value) {
