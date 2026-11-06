@@ -1,6 +1,8 @@
 # Inbox WhatsApp de solo lectura durante el retiro
 
-> SDD spec — versión 1.0 (2026-11-05), plan de sesión aprobado; pendiente de implementación.
+> SDD spec — versión 1.0 (2026-11-05), decisiones confirmadas por Leo el 2026-11-05
+> (D3 consolidada, D7 con voluntariedad, D9 multimedia pospuesta, D12 tope 2 en prod);
+> pendiente de implementación.
 > Artefactos hermanos: [research.md](research.md) (estado actual y verificaciones),
 > [plan.md](plan.md) (diseño técnico), [tasks.md](tasks.md) (milestones).
 
@@ -31,7 +33,7 @@ equipo autorizado, solo durante la ventana del retiro.
 | D4 | El filtro "solo caminantes" se aplica **en la ingesta** (server-side, whitelist de números), no en la UI | Lo que no pasa el filtro jamás se persiste: la base de datos del sistema solo contiene mensajes de caminantes del retiro activo |
 | D5 | **Ventana temporal**: vincular solo desde `startDate − 7 días` hasta `endDate` (zona del retiro); sesiones y mensajes se purgan tras `endDate + 15 días` | El puente solo vive durante el retiro (uso estacional, no 24/7): menos exposición de datos y menos superficie de baneo. No hay campo `status` en `Retreat`: la ventana se deriva de fechas, igual que `findActiveRetreats` |
 | D6 | Motor = binario **`wacli`** (el mismo engine ya auditado para el MCP local de Leo) corriendo **nativo en el servidor**, un hijo persistente por cuenta vinculada, supervisado por el API de Node. Sin Docker | El servidor de prod no tiene Docker y tiene 914 MB de RAM (~323 MB libres). Un hijo wacli ≈ 40 MB; un daemon Docker + un servidor Python por cuenta no caben. El binario Go single-file es la forma más liviana |
-| D7 | **Consentimiento explícito** exigido server-side antes de mostrar el QR: aviso de que los chats de la cuenta transitan el servidor durante la ventana (aunque solo se persistan los filtrados), que el historial de emparejamiento queda en disco temporalmente con tope, y del riesgo de baneo de Meta para el número personal | El staff está exponiendo datos de su vida privada; el consentimiento documentado es condición ética y legal (datos personales, LFPDPPP), no un checkbox de adorno |
+| D7 | **Consentimiento explícito** exigido server-side antes de mostrar el QR: aviso de que los chats de la cuenta transitan el servidor durante la ventana (aunque solo se persistan los filtrados), que el historial de emparejamiento queda en disco temporalmente con tope, del riesgo de baneo de Meta para el número personal, y de que **vincular es voluntario**: nadie del equipo está obligado; quien no quiera, participa de la bandeja como lector | El staff está exponiendo datos de su vida privada; el consentimiento documentado es condición ética y legal (datos personales, LFPDPPP), no un checkbox de adorno. Confirmado por Leo el 2026-11-05 |
 | D8 | Ingesta v1 por **polling** (lecturas one-shot cada ~45 s); el webhook HMAC de wacli queda como upgrade futuro | Superficie mínima para una primera temporada: ningún endpoint nuevo expuesto, ninguna firma que mantener. La latencia de ≤45 s es irrelevante para dudas de logística |
 | D9 | **Multimedia no se descarga ni se persiste**: los mensajes con media se muestran como "📎 Multimedia" | Reduce storage, exposición de datos y RAM; una duda de logística es texto en el 99% de los casos |
 | D10 | Responder = **deep link desde el teléfono propio del staff** (`buildWhatsAppChatLink`), nunca desde el puente | El envío por el puente contradiría D1 y dispara el baneo. Cada quien responde desde su número, como lo hacen hoy |
