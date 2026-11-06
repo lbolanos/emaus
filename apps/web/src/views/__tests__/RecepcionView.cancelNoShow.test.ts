@@ -49,6 +49,8 @@ vi.mock('lucide-vue-next', () => ({
 	X: { template: '<svg></svg>' },
 	AlertCircle: { template: '<svg></svg>' },
 	DollarSign: { template: '<svg></svg>' },
+	Camera: { template: '<svg></svg>' },
+	Trash2: { template: '<svg></svg>' },
 }));
 
 const walker = (overrides: Partial<ReceptionParticipant>): ReceptionParticipant => ({

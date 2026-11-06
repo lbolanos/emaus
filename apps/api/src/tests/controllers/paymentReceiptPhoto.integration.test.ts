@@ -81,11 +81,12 @@ describe('PaymentController — receipt photo (comprobante)', () => {
 		await controller.createPayment(req, res);
 
 		expect(res.statusCode).toBe(201);
-		expect(res.body.receiptUrl).toBe(TINY_PNG);
+		// Base64 mode persists the PROCESSED WebP as a data-URL, not the raw payload.
+		expect(res.body.receiptUrl).toMatch(/^data:image\/webp;base64,/);
 		// The internal S3 key never reaches the client.
 		expect(res.body.receiptS3Key).toBeUndefined();
 		const row = await rowFor(res.body.id);
-		expect(row?.receiptUrl).toBe(TINY_PNG);
+		expect(row?.receiptUrl).toMatch(/^data:image\/webp;base64,/);
 		expect(row?.receiptS3Key).toBeNull();
 	});
 
@@ -139,13 +140,14 @@ describe('PaymentController — receipt photo (comprobante)', () => {
 		const putRes = mockRes();
 		await controller.updatePayment(putReq, putRes);
 		expect(putRes.statusCode).toBe(200);
-		expect(putRes.body.receiptUrl).toBe(photoB);
+		expect(putRes.body.receiptUrl).toMatch(/^data:image\/webp;base64,/);
 
 		// Absent receiptPhoto must not touch the stored receipt.
 		const put2Req: any = { params: { id }, body: { amount: 250 }, user: { id: actor.id } };
 		const put2Res = mockRes();
 		await controller.updatePayment(put2Req, put2Res);
-		expect((await rowFor(id))?.receiptUrl).toBe(photoB);
+		const afterAbsentPut = (await rowFor(id))?.receiptUrl;
+		expect(afterAbsentPut).toMatch(/^data:image\/webp;base64,/);
 
 		// '' clears the receipt.
 		const put3Req: any = { params: { id }, body: { receiptPhoto: '' }, user: { id: actor.id } };
@@ -161,6 +163,7 @@ describe('PaymentController — receipt photo (comprobante)', () => {
 		const res = mockRes();
 		await controller.createPayment(req, res);
 		const id = res.body.id;
+		const receiptBefore = (await rowFor(id))?.receiptUrl;
 
 		const putReq: any = {
 			params: { id },
@@ -171,7 +174,8 @@ describe('PaymentController — receipt photo (comprobante)', () => {
 		await controller.updatePayment(putReq, putRes);
 
 		expect(putRes.statusCode).toBe(400);
-		expect((await rowFor(id))?.receiptUrl).toBe(TINY_PNG);
+		// The old receipt (processed WebP of TINY_PNG) is untouched by the failed PUT.
+		expect((await rowFor(id))?.receiptUrl).toBe(receiptBefore);
 	});
 
 	it('getPaymentSummaryByRetreat returns presigned receipts without receiptS3Key', async () => {
@@ -185,7 +189,7 @@ describe('PaymentController — receipt photo (comprobante)', () => {
 
 		expect(summaryRes.statusCode).toBe(200);
 		const nested = summaryRes.body.participantPayments[0].payments[0];
-		expect(nested.receiptUrl).toBe(TINY_PNG);
+		expect(nested.receiptUrl).toMatch(/^data:image\/webp;base64,/);
 		expect(nested.receiptS3Key).toBeUndefined();
 	});
 

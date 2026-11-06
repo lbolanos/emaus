@@ -555,10 +555,17 @@ const buildFetchFilters = () => ({
 	retreatId: activeRetreatId.value,
 });
 
+// Local calendar date (device timezone): `toISOString` would use UTC and date a
+// payment taken after ~18:00 CDMX as tomorrow ("fechas saltan un día" class).
+const todayLocal = () => {
+	const d = new Date();
+	return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+
 const paymentForm = ref({
 	participantId: '',
 	amount: '',
-	paymentDate: new Date().toISOString().split('T')[0],
+	paymentDate: todayLocal(),
 	paymentMethod: 'cash',
 	referenceNumber: '',
 	notes: '',
@@ -689,7 +696,7 @@ const resetPaymentForm = () => {
 	paymentForm.value = {
 		participantId: '',
 		amount: '',
-		paymentDate: new Date().toISOString().split('T')[0],
+		paymentDate: todayLocal(),
 		paymentMethod: 'cash',
 		referenceNumber: '',
 		notes: '',

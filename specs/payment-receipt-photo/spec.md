@@ -1,6 +1,6 @@
 # Spec: Foto del comprobante de pago
 
-**Estado**: aprobada 2026-11-05, en implementación · **Branch**: `worktree-worktree-payment-receipt-photo` · **Fecha**: 2026-11-05
+**Estado**: implementada y verificada 2026-11-06, pendiente de merge · **Branch**: `worktree-worktree-payment-receipt-photo` · **Fecha**: 2026-11-05
 
 ## Problema
 
@@ -98,3 +98,58 @@ la foto viaja dentro del mismo pago encolado offline.
   participante: solo donde se registra/ve el pago.
 - Limpiar objetos S3 al borrar un retiro completo (keys deterministas por pago; mismo criterio
   que las fotos de mesa).
+
+## Reconcile (cierre)
+
+**Implementada y verificada el 2026-11-06** en `worktree-worktree-payment-receipt-photo`
+(commits dffe3cb7 spec, 8097289a API, fecd4f7f web, c694a72b video/ayuda). Suites: Jest api
+(84 tests de 7 archivos tocados) y Vitest web (142 de 11 suites) verdes sobre el HEAD final;
+builds api/web y lints verdes; `pnpm build` del bundle sin `__dirname` nuevos.
+
+Verificado contra los criterios:
+
+- Migration idempotente aplicada sola al boot del API del worktree (`PRAGMA table_info`
+  confirma las dos columnas); test up/down roundtrip con filas existentes intactas.
+- Controller (12→17 tests): data-URL válida → WebP persistido; `data:text/html` y binario
+  >2MB → 400 sin fila; `''` → sin foto; PUT reemplaza/quita/intacto; modo S3 mockeado
+  verifica upload **antes** del insert y limpieza en DELETE; summary presignado sin
+  `receiptS3Key`.
+- Web: modal Cobrar manda `receiptPhoto` solo si hay foto (nunca `''` en create); form de
+  Pagos con reemplazar/quitar (`''`); outbox acepta el body con foto y `reduce` lo ignora.
+- Manual (Playwright, dev del worktree, DB copia): cobro con foto online (fuente 2.5MB →
+  JPEG 1330×1600), miniatura+visor en Pagos, reemplazar/quitar persistidos en DB, DELETE
+  limpio, y el flujo completo offline: chip «Sin conexión · 1 cambio sin enviar» → replay
+  → fila en DB **con la foto**.
+- Video https://youtu.be/s1OMxk1MQXY (unlisted, playlist posición 28), enlazado en la ayuda
+  in-app (`reception.md`/`payments.md`, es+en). Guion: `record-payment-receipt.mjs`
+  (sandbox: pendientes fabricados, escrituras interceptadas, abort offline).
+
+Desviaciones y hallazgos del cierre:
+
+1. **Modo base64 persiste el WebP procesado** (no el payload crudo del cliente): el review
+   de código señaló que se descartaba el buffer procesado; ahora ambas modalidades guardan
+   los mismos bytes (`data:image/webp;base64`).
+2. **`Cache-Control: private, no-cache`** para `payment-receipts/`: con key fija y URL
+   presignada estable, un reemplazo mostraba la foto vieja hasta 1h (caché de firma +
+   caché de navegador). Con `no-cache` el navegador revalida y ve el objeto actual.
+3. **Ventana residual aceptada (D4/D6)**: en PUT-reemplazar, si el upload a S3 triunfa y el
+   `save` falla, el objeto S3 queda con la imagen nueva y la fila con la vieja (el visor
+   mostraría la nueva para una edición que falló). Ordenar al revés dejaría peor caso: fila
+   apuntando a bytes viejos como si fueran nuevos. Documentado en el controller.
+4. **`GET /participants/:id?includePayments=true` devolvía `receiptS3Key` y la URL cruda**:
+   detectado por el review de seguridad (el endpoint no pasó por el presign; hallazgo Low,
+   sin acceso real — el prefijo privado niega GET sin firma). **Arreglado en este cierre**:
+   ese camino ahora pasa por `presignPaymentReceipts` y la invariante D3 se cumple en todos
+   los lectores.
+5. **`imageService.base64ToBuffer` parseado por slicing** en vez de regex: un data-URL de
+   MBs reventaba el stack de V8 en Node 20/Linux (lección ya documentada en
+   `responsabilityAttachmentService.parseDataUrl`); la ruta nueva era el caller más
+   frecuente. Corregido compartiendo el mismo enfoque.
+6. **`paymentDate` de Recepción y del formulario de Pagos en fecha LOCAL** del dispositivo
+   (antes `toISOString` → UTC: cobrar después de ~18:00 CDMX databa el pago mañana — clase
+   «fechas saltan un día»). Quedan otras superficies con el mismo patrón UTC (exports,
+   auditoría, RetreatModal) — barrido aparte, anotado en el TODO global.
+
+Pendiente de ops (fuera de código, dueño: Leo): statement IAM `s3:GetObject|PutObject|DeleteObject`
+sobre `arn:aws:s3:::emaus-media/payment-receipts/*` en `EmausMediaRW` de `emaus-app`
+**antes** del primer deploy (push a master deploya a prod; sin IAM, cobrar con foto da 500).

@@ -225,11 +225,16 @@ async function confirmCharge() {
   if (!p?.participantId || !amount || amount <= 0) return
   chargeSaving.value = true
   try {
+    // Local calendar date (the device's timezone). `toISOString` would use UTC
+    // and, after 18:00 in CDMX, date the payment TOMORROW — the "fechas saltan
+    // un día" bug class (skill timezone-handling).
+    const now = new Date()
+    const localDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
     const body: Record<string, unknown> = {
       retreatId: retreatId.value,
       participantId: p.participantId,
       amount,
-      paymentDate: new Date().toISOString().split('T')[0],
+      paymentDate: localDate,
       paymentMethod: chargeMethod.value,
     }
     if (chargeReceipt.value) body.receiptPhoto = chargeReceipt.value

@@ -309,8 +309,11 @@ class S3Service {
 	}
 
 	// Receipt photo attached to a payment. Fixed key per payment
-	// (payment-receipts/{paymentId}.webp): uploading again replaces the previous
-	// one. Private prefix — served via presignPrivateUrl, never the raw URL.
+	// (payment-receipts/{paymentId}.webp): uploading again REPLACES the previous
+	// one — and since the presigned URL is stable (signature cache), the browser
+	// must revalidate to see the new bytes, hence `no-cache` instead of the
+	// photo buckets' `max-age=3600` (which would show a stale receipt for up to
+	// an hour after a replace). Private prefix — served via presignPrivateUrl.
 	async uploadPaymentReceipt(
 		paymentId: string,
 		buffer: Buffer,
@@ -323,7 +326,7 @@ class S3Service {
 			Key: key,
 			Body: buffer,
 			ContentType: contentType,
-			CacheControl: 'private, max-age=3600',
+			CacheControl: 'private, no-cache',
 		});
 
 		await this.ensureClient().send(command);

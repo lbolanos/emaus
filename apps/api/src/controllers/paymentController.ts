@@ -42,7 +42,7 @@ interface ParticipantPaymentData {
  * excludes the receipt columns and the idempotency middleware stores only the
  * response (which carries the signed URL, not the payload).
  */
-async function presignPaymentReceipts(payments: Payment[]): Promise<Payment[]> {
+export async function presignPaymentReceipts(payments: Payment[]): Promise<Payment[]> {
 	return Promise.all(
 		payments.map(async (payment) => ({
 			...payment,
@@ -156,8 +156,10 @@ export class PaymentController {
 					receiptUrl = uploaded.url;
 					receiptS3Key = uploaded.key;
 				} else {
-					// Local/base64 storage mode: keep the validated data-URI in the column.
-					receiptUrl = receiptPhoto;
+					// Local/base64 storage mode: persist the PROCESSED WebP (the same
+					// bytes S3 mode stores), not the raw client payload — smaller rows
+					// and identical bytes across both storage modes.
+					receiptUrl = `data:image/webp;base64,${processed.buffer.toString('base64')}`;
 				}
 			}
 
@@ -320,8 +322,12 @@ export class PaymentController {
 
 			// Receipt photo: undefined = untouched, '' = clear, otherwise replace
 			// (specs/payment-receipt-photo/spec.md R2). Replacement uploads to the
-			// SAME fixed key, so it overwrites without leaving orphans; upload
-			// BEFORE save so a failure leaves the old photo intact (500).
+			// SAME fixed key, so it overwrites without leaving orphans. Upload runs
+			// BEFORE save so a failed upload (500) leaves the stored photo intact.
+			// Residual window, accepted in the spec's Reconcile: if the upload
+			// succeeds but the save then fails, the S3 object holds the NEW image
+			// while the row keeps the old one — the viewer would show the new
+			// receipt for an edit that reported failure.
 			if (receiptPhoto === '') {
 				payment.receiptUrl = null;
 				payment.receiptS3Key = null;
@@ -337,7 +343,7 @@ export class PaymentController {
 					payment.receiptUrl = uploaded.url;
 					payment.receiptS3Key = uploaded.key;
 				} else {
-					payment.receiptUrl = receiptPhoto;
+					payment.receiptUrl = `data:image/webp;base64,${processed.buffer.toString('base64')}`;
 					payment.receiptS3Key = null;
 				}
 			}
