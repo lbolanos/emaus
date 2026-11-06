@@ -956,6 +956,14 @@ const menuSections: MenuSection[] = [
         label: 'sidebar.minuteByMinute'
       },
       {
+        name: 'server-briefing',
+        routeName: 'server-briefing',
+        icon: Clock,
+        permission: 'schedule',
+        requiresRetreat: true,
+        label: 'sidebar.serverBriefing'
+      },
+      {
         name: 'pre-retreat-tasks',
         routeName: 'pre-retreat-tasks',
         icon: ClipboardList,
