@@ -194,6 +194,10 @@ export default defineConfig(({ mode }) => {
 					target: env.VITE_API_PROXY_TARGET || 'http://localhost:3084',
 					changeOrigin: true,
 					secure: false,
+					// El realtime (Socket.IO) sube por esta misma ruta: sin ws:true el
+					// upgrade de WebSocket no se proxia y toda la app queda "sin
+					// conexión realtime" en dev (el badge del Minuto a Minuto miente).
+					ws: true,
 					configure: (proxy) => {
 						proxy.on('proxyReq', (proxyReq, req) => {
 							const host = req.headers.host;
