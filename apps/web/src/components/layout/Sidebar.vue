@@ -505,7 +505,7 @@
 <script setup lang="ts">
 import { storeToRefs } from 'pinia';
 import { ref, computed, nextTick, onMounted, onBeforeUnmount, watch } from 'vue';
-import { LogOut, Users, UtensilsCrossed, LayoutDashboard, ChevronLeft, Home, Ban, Bed, HandHeart, DollarSign, NotebookPen, Building, UsersRound, Salad, FileX, UserCheck, ShoppingBag, Pill, Shirt, UserCog, Table, Settings, Package, Globe, Briefcase, Search, X, ArrowRight, ChevronDown, Lock, CreditCard, Activity, KeyRound, Heart, UserPlus, UserCircle, MessageSquare, Clock, ClipboardList, BookOpen, Plus, Edit as EditIcon, HelpCircle, Cross, User as UserIcon, Languages, DoorOpen, Trash2, Flag } from 'lucide-vue-next';
+import { LogOut, Users, UtensilsCrossed, LayoutDashboard, ChevronLeft, Home, Ban, Bed, HandHeart, DollarSign, NotebookPen, Building, UsersRound, Salad, FileX, UserCheck, ShoppingBag, Pill, Shirt, UserCog, Table, Settings, Package, Globe, Briefcase, Search, X, ArrowRight, ChevronDown, Lock, CreditCard, Activity, KeyRound, Heart, UserPlus, UserCircle, MessageSquare, Clock, ClipboardList, BookOpen, Plus, Edit as EditIcon, HelpCircle, Cross, User as UserIcon, Languages, DoorOpen, Trash2, Flag, Mail } from 'lucide-vue-next';
 import { useAuthStore } from '@/stores/authStore';
 import { useReceptionStore } from '@/stores/receptionStore';
 import { useRouter, useRoute } from 'vue-router';
@@ -554,7 +554,7 @@ import CommunityContextSection from '@/components/layout/CommunityContextSection
 import ConnectivityChip from '@/components/offline/ConnectivityChip.vue';
 import { pendingOps } from '@/offline/outbox';
 
-type PermissionType = 'retreat' | 'participant' | 'table' | 'house' | 'user' | 'retreatInventory' | 'inventoryItem' | 'payment' | 'responsability' | 'messageTemplate' | 'santisimo' | 'schedule' | 'scheduleTemplate' | 'preRetreatTask' | 'preRetreatTaskTemplate' | 'retreatPreparation' | 'superadmin';
+type PermissionType = 'retreat' | 'participant' | 'table' | 'house' | 'user' | 'retreatInventory' | 'inventoryItem' | 'payment' | 'responsability' | 'messageTemplate' | 'santisimo' | 'schedule' | 'scheduleTemplate' | 'preRetreatTask' | 'preRetreatTaskTemplate' | 'retreatPreparation' | 'letter' | 'superadmin';
 
 export interface MenuItem {
   name: string;
@@ -1049,6 +1049,18 @@ const menuSections: MenuSection[] = [
         permissionOperation: 'health',
         requiresRetreat: true,
         label: 'sidebar.specialCases'
+      },
+      {
+        // Cartas de familias por email (specs/letters-email): permiso propio,
+        // el contenido es sensible (no basta participant:read). Va después de
+        // special-cases: ese test fija palancas→special-cases contiguos.
+        name: 'letters',
+        routeName: 'letters',
+        icon: Mail,
+        permission: 'letter',
+        permissionOperation: 'read',
+        requiresRetreat: true,
+        label: 'sidebar.letters'
       }
     ],
     position: 'top'

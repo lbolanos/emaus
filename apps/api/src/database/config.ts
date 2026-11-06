@@ -83,6 +83,8 @@ import { CrmTask } from '../entities/crmTask.entity';
 import { ParticipantNote } from '../entities/participantNote.entity';
 import { GlobalMessageSequence } from '../entities/globalMessageSequence.entity';
 import { GlobalSequenceStep } from '../entities/globalSequenceStep.entity';
+import { Letter } from '../entities/letter.entity';
+import { LetterAttachment } from '../entities/letterAttachment.entity';
 
 export function createDatabaseConfig() {
 	const dbType = process.env.DB_TYPE || 'sqlite';
@@ -187,6 +189,9 @@ export function createDatabaseConfig() {
 		ParticipantFollowUp,
 		CrmTask,
 		ParticipantNote,
+		// Cartas de familias por email (specs/letters-email)
+		Letter,
+		LetterAttachment,
 		// Temporarily excluding entities with enum issues
 		// PermissionOverride,
 		// RoleRequest,

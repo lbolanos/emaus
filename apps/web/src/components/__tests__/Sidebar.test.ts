@@ -204,6 +204,7 @@ vi.mock('@repo/ui', () => {
 // Mock lucide-vue-next icons
 vi.mock('lucide-vue-next', () => ({
 	LogOut: { template: '<div data-icon="LogOut" />' },
+	Mail: { template: '<div data-icon="Mail" />' },
 	Users: { template: '<div data-icon="Users" />' },
 	UtensilsCrossed: { template: '<div data-icon="UtensilsCrossed" />' },
 	LayoutDashboard: { template: '<div data-icon="LayoutDashboard" />' },

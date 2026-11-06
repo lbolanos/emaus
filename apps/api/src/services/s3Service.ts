@@ -23,7 +23,12 @@ const MAX_CACHED_SIGNED_URLS = 500;
 // Private prefixes whose objects are NOT world-readable in the bucket policy and
 // therefore must be served via presigned URLs. `avatars/` and `public-assets/`
 // are intentionally absent: they are public and their plain URLs pass through.
-const PRIVATE_PREFIXES = ['retreat-memories/', 'community-meetings/', 'community-members/'];
+const PRIVATE_PREFIXES = [
+	'retreat-memories/',
+	'community-meetings/',
+	'community-members/',
+	'letters/',
+];
 
 interface UploadResult {
 	url: string;
@@ -36,6 +41,7 @@ export const S3_PREFIXES = {
 	RETREAT_MEMORIES: 'retreat-memories/',
 	DOCUMENTS: 'documents/',
 	PUBLIC_ASSETS: 'public-assets/',
+	LETTERS: 'letters/',
 } as const;
 
 class S3Service {
@@ -46,6 +52,7 @@ class S3Service {
 		retreatMemories: string;
 		documents: string;
 		publicAssets: string;
+		letters: string;
 	};
 	private initialized: boolean = false;
 	// Per-process signature cache; see getSignedReadUrl.
@@ -328,6 +335,49 @@ class S3Service {
 		});
 
 		await this.ensureClient().send(command);
+	}
+
+	/**
+	 * Adjunto de una carta de familia. Prefijo PRIVADO (`letters/`): el objeto solo
+	 * se lee con getSignedReadUrl y la bucket policy niega el GET público (runbook
+	 * en specs/letters-email — mismo Deny manual que retreat-memories/).
+	 * Key: `letters/{letterId}/{attachmentId}/{fileName}` — el nombre se sanitiza
+	 * porque viene del remitente del email (sin separadores de ruta ni controles).
+	 */
+	async uploadLetterAttachment(
+		letterId: string,
+		attachmentId: string,
+		fileName: string,
+		buffer: Buffer,
+		contentType: string,
+	): Promise<UploadResult> {
+		// El nombre viene del remitente del email: sin separadores de ruta ni
+		// caracteres de control (no-control-regex: filtrar por charCode, no regex).
+		const safeName = Array.from(fileName)
+			.map((ch) => (ch === '/' || ch === '\\' ? '_' : ch))
+			.filter((ch) => {
+				const code = ch.charCodeAt(0);
+				return code >= 0x20 && code !== 0x7f;
+			})
+			.join('')
+			.trim();
+		const key = `${this.prefixes.letters}${letterId}/${attachmentId}/${safeName || 'attachment'}`;
+
+		const command = new PutObjectCommand({
+			Bucket: this.bucketName,
+			Key: key,
+			Body: buffer,
+			ContentType: contentType,
+			ContentDisposition: `attachment; filename="${safeName.replace(/"/g, '')}"`,
+			CacheControl: 'private, max-age=3600',
+		});
+
+		await this.ensureClient().send(command);
+
+		return {
+			url: this.getPublicUrl(key),
+			key,
+		};
 	}
 
 	async getDocumentUrl(path: string): Promise<string> {

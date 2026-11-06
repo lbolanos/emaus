@@ -510,6 +510,11 @@ vi.mock('lucide-vue-next', () => ({
 	FileText: { name: 'FileText', template: '<svg></svg>' },
 	Link: { name: 'Link', template: '<svg></svg>' },
 	Mail: { name: 'Mail', template: '<svg></svg>' },
+	// Cartas de familias (specs/letters-email)
+	Mailbox: { name: 'Mailbox', template: '<svg></svg>' },
+	Stamp: { name: 'Stamp', template: '<svg></svg>' },
+	ImageOff: { name: 'ImageOff', template: '<svg></svg>' },
+	Check: { name: 'Check', template: '<svg></svg>' },
 	MailCheck: { name: 'MailCheck', template: '<svg></svg>' },
 	MapPin: { name: 'MapPin', template: '<svg></svg>' },
 	Navigation: { name: 'Navigation', template: '<svg></svg>' },

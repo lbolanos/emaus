@@ -13,6 +13,9 @@ export const RESOURCES = {
 	responsability: [...DEFAULT_OPERATIONS] as const,
 	messageTemplate: [...DEFAULT_OPERATIONS] as const,
 	globalMessageTemplate: [...DEFAULT_OPERATIONS] as const,
+	// Cartas de familias por email (specs/letters-email): sin create/delete —
+	// las crea el webhook y v1 no borra (solo status hidden).
+	letter: ['read', 'update', 'print', 'manage'] as const,
 } as const;
 
 export type Resource = keyof typeof RESOURCES;

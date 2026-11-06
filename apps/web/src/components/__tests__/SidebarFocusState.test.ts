@@ -135,6 +135,7 @@ vi.mock('lucide-vue-next', () => {
 		Edit: icon('Edit'), Trash2: icon('Trash2'), HelpCircle: icon('HelpCircle'),
 		Cross: icon('Cross'), User: icon('User'), Languages: icon('Languages'),
 		DoorOpen: icon('DoorOpen'), Star: icon('Star'), Flag: icon('Flag'),
+		Mail: icon('Mail'),
 	};
 });
 

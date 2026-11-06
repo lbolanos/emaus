@@ -5,11 +5,13 @@ import {
 	ManyToOne,
 	JoinColumn,
 	CreateDateColumn,
+	OneToMany,
 } from 'typeorm';
 import { User } from './user.entity';
 import { Participant } from './participant.entity';
 import { Retreat } from './retreat.entity';
 import { TableMesa } from './tableMesa.entity';
+import { Letter } from './letter.entity';
 
 @Entity('retreat_participants')
 export class RetreatParticipant {
@@ -198,4 +200,24 @@ export class RetreatParticipant {
 
 	@Column({ type: 'boolean', nullable: true })
 	requestsSingleRoom?: boolean | null;
+
+	// ---- Buzón de cartas de familias (specs/letters-email) ----
+
+	/**
+	 * Código del buzón carta.{CODE}@emaus.cc. Null = sin buzón (se genera bajo
+	 * demanda al activar cartas del retiro). Único entre NO-nulls (índice parcial
+	 * de la migration 20261105100000).
+	 */
+	@Column({ type: 'varchar', length: 12, nullable: true })
+	mailboxCode?: string | null;
+
+	// Off switch individual (abuso o petición del participante): el email rebota.
+	@Column({ type: 'boolean', default: false })
+	mailboxEnabled!: boolean;
+
+	@Column({ type: 'datetime', nullable: true })
+	mailboxIssuedAt?: Date | null;
+
+	@OneToMany(() => Letter, (letter) => letter.retreatParticipant)
+	letters?: Letter[];
 }

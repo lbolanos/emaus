@@ -30,6 +30,11 @@ import type {
   Retreat,
   Participant,
   FlyerTemplate,
+  Letter,
+  LetterAttachment,
+  LetterMailboxRow,
+  LetterPrintBatchEntry,
+  LetterStatus,
 } from "@repo/types";
 import type { AssignmentDocumentsData } from "@repo/utils";
 import { setupCsrfInterceptor } from "@/utils/csrf";
@@ -4968,4 +4973,108 @@ export const updateParticipantNote = async (
 
 export const deleteParticipantNote = async (id: string): Promise<void> => {
   await api.delete(`/crm/notes/${id}`);
+};
+
+// ---------------------------------------------------------------------------
+// Cartas de familias por email (specs/letters-email)
+// ---------------------------------------------------------------------------
+
+export type {
+  Letter,
+  LetterAttachment,
+  LetterMailboxRow,
+  LetterPrintBatchEntry,
+  LetterStatus,
+};
+
+export interface LettersInbox {
+  letters: Letter[];
+  counts: { pending: number; approved: number; hidden: number };
+}
+
+export const lettersApi = {
+  /** Activa los buzones del retiro (idempotente). */
+  activateMailboxes: async (
+    retreatId: string,
+  ): Promise<{ activated: number; alreadyActive: number }> => {
+    const r = await api.post(`/letters/retreats/${retreatId}/letters/mailbox/activate`);
+    return r.data;
+  },
+
+  /** Buzones por participante con contadores de cartas. */
+  getMailboxes: async (retreatId: string): Promise<LetterMailboxRow[]> => {
+    const r = await api.get(`/letters/retreats/${retreatId}/letters/mailbox`);
+    return r.data.mailboxes;
+  },
+
+  /** Toggle de un buzón individual. */
+  toggleMailbox: async (
+    retreatId: string,
+    retreatParticipantId: string,
+    mailboxEnabled: boolean,
+  ): Promise<{ mailboxCode: string | null; mailboxEnabled: boolean }> => {
+    const r = await api.patch(
+      `/letters/retreats/${retreatId}/letters/mailbox/${retreatParticipantId}`,
+      { mailboxEnabled },
+    );
+    return r.data;
+  },
+
+  /** Bandeja de cartas con filtros. */
+  listLetters: async (
+    retreatId: string,
+    filters: {
+      participantId?: string;
+      retreatParticipantId?: string;
+      tableId?: string;
+      status?: LetterStatus | "";
+      q?: string;
+    } = {},
+  ): Promise<LettersInbox> => {
+    const r = await api.get(`/letters/retreats/${retreatId}/letters`, { params: filters });
+    return r.data;
+  },
+
+  /** Detalle de carta con adjuntos presigned. */
+  getLetter: async (
+    id: string,
+  ): Promise<{ letter: Letter; participant: { name: string } | null; tableName: string | null }> => {
+    const r = await api.get(`/letters/${id}`);
+    return r.data;
+  },
+
+  /** Revisión: approve / hide. */
+  reviewLetter: async (id: string, status: "approved" | "hidden"): Promise<Letter> => {
+    const r = await api.patch(`/letters/${id}/review`, { status });
+    return r.data.letter;
+  },
+
+  /** Marca el lote impreso. */
+  markPrinted: async (
+    retreatId: string,
+    letterIds: string[],
+    batchId: string,
+  ): Promise<{ marked: number }> => {
+    const r = await api.post(`/letters/retreats/${retreatId}/letters/print-mark`, {
+      letterIds,
+      batchId,
+    });
+    return r.data;
+  },
+
+  /** Datos ordenados para el documento imprimible (solo approved). */
+  getPrintBatch: async (
+    retreatId: string,
+    scope: "participant" | "table" | "retreat",
+    opts: { participantIds?: string[]; tableId?: string } = {},
+  ): Promise<LetterPrintBatchEntry[]> => {
+    const r = await api.get(`/letters/retreats/${retreatId}/letters/print-batch`, {
+      params: {
+        scope,
+        participantIds: opts.participantIds?.join(",") || undefined,
+        tableId: opts.tableId || undefined,
+      },
+    });
+    return r.data.entries;
+  },
 };

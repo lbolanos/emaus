@@ -8,6 +8,7 @@ const AngelitosView = () => import('../views/AngelitosView.vue');
 const CanceledView = () => import('../views/CanceledView.vue');
 const HousesView = () => import('../views/HousesView.vue');
 const PalancasView = () => import('../views/PalancasView.vue');
+const LettersView = () => import('../views/LettersView.vue');
 const SpecialCasesView = () => import('../views/SpecialCasesView.vue');
 const PaymentsView = () => import('../views/PaymentsView.vue');
 const DomainAuditView = () => import('../views/DomainAuditView.vue');
@@ -419,6 +420,15 @@ const router = createRouter({
 					component: SantisimoAdminView,
 					props: true,
 					meta: { requiresRetreat: true },
+				},
+				{
+					// Cartas de familias por email (specs/letters-email). La bandeja
+					// exige letter:read a nivel API; el meta filtra la ruta en el menú.
+					path: 'retreats/:id/letters',
+					name: 'letters',
+					component: LettersView,
+					props: true,
+					meta: { requiresRetreat: true, requiresPermission: 'letter:read' },
 				},
 				{
 					path: 'settings/inventory-items',

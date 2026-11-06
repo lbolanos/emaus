@@ -227,6 +227,13 @@ export const DomainAuditAction = {
 	RETREAT_PREPARATION_DOCUMENT_CREATE: 'retreat_preparation_document.create',
 	RETREAT_PREPARATION_DOCUMENT_UPDATE: 'retreat_preparation_document.update',
 	RETREAT_PREPARATION_DOCUMENT_DELETE: 'retreat_preparation_document.delete',
+	// Cartas de familias (specs/letters-email). El inbox_view registra lectura
+	// porque el contenido es sensible (mismo criterio que participant.health_view).
+	// En metadata van solo contadores/ids — el texto de la carta jamás.
+	LETTER_INBOX_VIEW: 'letter.inbox_view',
+	LETTER_REVIEW: 'letter.review',
+	LETTER_PRINT_MARK: 'letter.print_mark',
+	LETTER_MAILBOX_TOGGLE: 'letter.mailbox_toggle',
 } as const;
 
 export type DomainAuditActionType = (typeof DomainAuditAction)[keyof typeof DomainAuditAction];
@@ -266,6 +273,7 @@ export const DOMAIN_RESOURCE_TYPES = [
 	'participant_note',
 	'retreat_preparation',
 	'retreat_preparation_document',
+	'letter',
 ] as const;
 
 export type DomainResourceType = (typeof DOMAIN_RESOURCE_TYPES)[number];
