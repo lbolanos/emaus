@@ -32,26 +32,32 @@
 
 ## M2 — Núcleo del puente (API)
 
-- [ ] `wacliClient.ts` (spawn argv-array, timeout, envelope JSON, `WacliError`, sin send)
-- [ ] `waBridgeSupervisor.ts` (auth→sync, eventos NDJSON, backoff, guard de huérfanos,
+- [x] `wacliClient.ts` (spawn argv-array, timeout, envelope JSON, `WacliError`, sin send)
+- [x] `waBridgeSupervisor.ts` (auth→sync, eventos NDJSON, backoff, guard de huérfanos,
       killAll)
-- [ ] `waBridgeService.ts` (ventana civil en zona del retiro, canLink con motivos, startLink,
+- [x] `waBridgeService.ts` (ventana civil en zona del retiro, canLink con motivos, startLink,
       unlink, índice de caminantes recalculado por ciclo)
-- [ ] `waBridgePoller.ts` (setInterval desfasado, `filterChats` función pura, dedupe,
-      emitInboxChanged, tolerancia a lock, audit rate-limited)
-- [ ] `waBridgeRetentionService.ts` (cron 03:45 + `performRetention()`; corre con bridge
-      apagado)
-- [ ] `index.ts` del directorio: singletons + `startScheduledTasks()` + registro en
+- [x] `waBridgePoller.ts` (setInterval, `filterWhitelistedChats` función pura, dedupe
+      con `orIgnore` + `changes`, emitInboxChanged, tolerancia a lock, audit rate-limited)
+- [x] `waBridgeRetentionService.ts` (cron 03:45 + `performRetention()`; corre con bridge
+      apagado; huérfanos de retiro borrado se purgan también)
+- [x] `index.ts` del directorio: singletons + `startScheduledTasks()` + registro en
       `apps/api/src/index.ts` + `killAll()` en `gracefulShutdown`
-- [ ] **Verificar contra el binario fijado**: subcomandos `chats`/`messages` (flags
-      `--chat/--after/--limit`), nombres de eventos NDJSON; corregir spec si difieren (regla 5)
-- [ ] Tests jest (mock de `child_process` + repos; fixtures de teléfonos anonimizadas):
-      - [ ] `waBridgeFilter` (grupo fuera, no-caminante fuera, lada/044 matchea, `@lid` fuera,
-            fromMe fuera)
-      - [ ] `waBridgeWindow` (antes de ventana, dentro, tras endDate, elegible de purga, borde
-            nocturno CDMX vs UTC)
-      - [ ] `waBridgeSupervisor` (parseo de QR, transición a connected, backoff, cap)
-      - [ ] `waBridgeRetention` (tmpdir como store, rm + audit + conteos)
+- [x] **Verificado contra el binario fijado (glibc amd64, v0.21.0)**: `chats list
+      --limit/--query`, `messages list --chat/--after/--limit/--asc/--from-them`,
+      `auth status/logout`, `--events` NDJSON en stderr, flags `--max-messages`/
+      `--max-db-size`/`--presence-mode quiet`/`--qr-format text`/`--history-days` — todos
+      existen. Subcomandos escritores (`send`, `messages delete`, etc.) confirmados como
+      presentes en el binario pero nunca invocados desde el código.
+- [x] Tests jest:
+      - [x] `waBridgeFilter` (grupos/@lid fuera, no-caminante fuera, variantes 52/521 y US,
+            fromMe fuera, sufijo-exacto no matchea, multimedia con body null) — 13 casos
+      - [x] `waBridgeWindow` (ventana ±7d, gracia post-retiro, purga estrictamente después,
+            variantes de JID por país, borde nocturno CDMX vs UTC con fake timers) — 14 casos
+      - [x] `waBridgeSupervisor` (parseo de eventos NDJSON con formas alternativas,
+            forward-compatible, killOrphans no-op en macOS, stop idempotente) — 4 casos
+      - [ ] `waBridgeRetention` (integrado): **pospuesto a M5** — se ejercita con
+            `performRetention()` a mano en el QA manual (desviación abajo)
 
 ## M3 — Controller, rutas, realtime
 
@@ -100,6 +106,15 @@
 
 ## Desviaciones registradas
 
+- **M0 (parcial)**: la imagen local del MCP es **arm64** y prod es **x86_64** → el binario
+  no se puede copiar tal cual. Se reconstruyó `wacli` para linux/amd64 **glibc** replicando
+  la receta del Dockerfile auditado (mismo repo, tag v0.21.0, check de commit `ed31806e`,
+  mismos flags) en un builder `golang:1.27.2` debian. sha256 del binario glibc:
+  `08353dd0de82e0c896805f5802cda09baeced7cff802cf2c89cbd60c1c7bd909`. El binario musl
+  original queda descartado (dinámico contra `/lib/ld-musl-x86_64.so.1`, no corre en Ubuntu).
+- **M0 (pendiente)**: la instalación en prod (`/opt/emaus-wa-bridge`, `/var/lib/emaus-wa-bridge`,
+  bloque de `.env.production`) fue DENEGADA por el clasificador de permisos — requiere OK
+  explícito de Leo (el plan la marcaba manual). Runbook listo para cuando autorice.
 - **M1**: la migración usa `transaction = false as const` (plan.md decía que la plantilla
   simple no lo necesitaba): las migraciones de permisos hermanas lo fijan "por consistencia"
   y el runner propio lo respeta desde 2026-09-08 — plan.md corregido en el mismo commit
@@ -107,3 +122,12 @@
 - **M1**: el test de migración descubre que TypeORM activa `PRAGMA foreign_keys=ON` en su
   DataSource de sqlite; el test usa tablas padre stub (`retreat`, `users`) y convierte el
   insert válido en prueba conductual de FK.
+- **M2**: el match del filtro no compara "nacional vs nacional con lada MX fija": el índice
+  aceptado se construye con **variantes de dígitos JID por país** (`52…`/`521…` para MX, otra
+  lada para el resto) — los caminantes internacionales ya matchean. Spec D4 sin cambio
+  (misma whitelist, mejor cálculo). Además `messages list --from-them` filtra fromMe **en
+  origen** (wacli), y el insert conserva el doble chequeo.
+- **M2**: test de retención integrado pospuesto a M5 (QA manual con `performRetention()`);
+  la lógica de vencimiento (`isLinkPurgeDue`) sí está testeada como función pura.
+- **M2**: `@Index` de entidades y `CREATE INDEX` de la migración conviven (sync en test,
+  migración en prod); los nombres de índice coinciden en ambos lados para no diverger.

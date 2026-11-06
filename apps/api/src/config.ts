@@ -19,6 +19,15 @@ export function parseDaysEnv(raw: string | undefined, fallback: number, max = 36
 }
 
 /**
+ * Igual que parseDaysEnv pero para valores que no son días (segundos, topes de
+ * sesiones, MB). Nombre explícito para no leer "maxSessions=45 días" en la
+ * config del puente WhatsApp.
+ */
+export function parseIntEnv(raw: string | undefined, fallback: number, max: number): number {
+	return parseDaysEnv(raw, fallback, max);
+}
+
+/**
  * Parsea AUDIT_LOG_RETENTION_DAYS a un número de días para la purga de las
  * tablas de auditoría. winston-daily-rotate-file (config.audit.retentionDays)
  * consume el valor crudo con sus propios sufijos; la purga de la DB necesita
@@ -131,5 +140,28 @@ export const config = {
 			masterUserName: process.env.SEED_MASTER_USER_NAME || 'Administrator',
 			masterUserPassword: process.env.SEED_MASTER_USER_PASSWORD || 'password',
 		},
+	},
+	// Puente WhatsApp de solo lectura (specs/whatsapp-inbox). El binario wacli
+	// (commit auditado, sha256 anotado en notas de ops) se despliega a mano; si
+	// falta, el bridge queda inerte con un warning único.
+	waBridge: {
+		// Kill switch: con false no se vincula, no se respawnean hijos y el
+		// poller queda idle. La retención corre INDEPENDIENTE de este flag.
+		enabled: process.env.WA_BRIDGE_ENABLED !== 'false',
+		wacliBin: process.env.WA_BRIDGE_WACLI_BIN || '/opt/emaus-wa-bridge/wacli',
+		dataDir: process.env.WA_BRIDGE_DATA_DIR || '/var/lib/emaus-wa-bridge',
+		// ~40 MB de RAM por hijo sync — el presupuesto de prod (914 MB) manda.
+		maxSessions: parseIntEnv(process.env.WA_BRIDGE_MAX_SESSIONS, 3, 20),
+		pollSeconds: parseIntEnv(process.env.WA_BRIDGE_POLL_SECONDS, 45, 3600),
+		retentionDays: parseIntEnv(process.env.WA_BRIDGE_RETENTION_DAYS, 15, 365),
+		linkWindowDays: parseIntEnv(process.env.WA_BRIDGE_LINK_WINDOW_DAYS, 7, 60),
+		commandTimeoutSeconds: parseIntEnv(process.env.WA_BRIDGE_COMMAND_TIMEOUT_SECONDS, 30, 600),
+		restartBackoffSeconds: parseIntEnv(process.env.WA_BRIDGE_RESTART_BACKOFF_SECONDS, 5, 300),
+		// Topes de cada store wacli: acotan el historial personal que aterriza en
+		// el disco del servidor (D7).
+		syncMaxMessages: parseIntEnv(process.env.WA_BRIDGE_SYNC_MAX_MESSAGES, 20000, 1000000),
+		syncMaxDbSizeMb: parseIntEnv(process.env.WA_BRIDGE_SYNC_MAX_DB_SIZE_MB, 50, 2048),
+		// Días de historial que pide el teléfono al emparejar (privacy D7).
+		historyDays: parseIntEnv(process.env.WA_BRIDGE_HISTORY_DAYS, 2, 90),
 	},
 };
