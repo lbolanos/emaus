@@ -1,5 +1,7 @@
 # Family letters
 
+📺 **[Watch the video tutorial](https://youtu.be/b5ADc_QGmCE)**
+
 Letters are the surprise of the retreat: participants' families (walkers **and** servers) write
 a support message that gets printed and delivered during the weekend. **Do not mention them to
 participants ahead of time.**

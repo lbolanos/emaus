@@ -1,5 +1,7 @@
 # Cartas de familias
 
+📺 **[Ver video tutorial](https://youtu.be/b5ADc_QGmCE)**
+
 Las cartas son la sorpresa del retiro: las familias de los participantes (caminantes **y**
 servidores) escriben un mensaje de apoyo que se imprime y se entrega durante el fin de semana.
 **No se menciona a los participantes antes de tiempo.**
