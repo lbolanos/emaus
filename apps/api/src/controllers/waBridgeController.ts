@@ -2,6 +2,7 @@ import type { Request, Response } from 'express';
 import { AppDataSource } from '../data-source';
 import { config } from '../config';
 import { Participant } from '../entities/participant.entity';
+import { RetreatParticipant } from '../entities/retreatParticipant.entity';
 import { User } from '../entities/user.entity';
 import { WhatsappBridgeLink } from '../entities/whatsappBridgeLink.entity';
 import { WhatsappInboxMessage } from '../entities/whatsappInboxMessage.entity';
@@ -148,9 +149,18 @@ export class WaBridgeController {
 			order: { timestamp: 'DESC' },
 		});
 
-		const walkers = await AppDataSource.getRepository(Participant).find({
+		const registrations = await AppDataSource.getRepository(RetreatParticipant).find({
 			where: { retreatId, type: 'walker', isCancelled: false },
+			select: ['participantId'],
 		});
+		const participantIds = registrations
+			.map((reg) => reg.participantId)
+			.filter((id): id is string => Boolean(id));
+		const walkers = participantIds.length
+			? await AppDataSource.getRepository(Participant).find({
+					where: participantIds.map((id) => ({ id })),
+				})
+			: [];
 		const digitsToParticipant = new Map<string, Participant>();
 		for (const walker of walkers) {
 			if (!walker.cellPhone || !walker.country) continue;

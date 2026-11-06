@@ -98,12 +98,13 @@
 
 ## M5 — E2E + QA manual
 
-- [ ] E2E dry-run (`apps/web/tests/e2e/`, reglas de `.claude/rules/e2e-tests.md`): con
-      `WA_BRIDGE_ENABLED=false`, entrada del sidebar ausente para `regular_server` y API 503;
-      sin WhatsApp real ni vínculo real
+- [x] E2E dry-run (`apps/web/tests/e2e/wa-inbox.spec.ts`, 3 tests): superadmin ve la
+      entrada en «Comunicaciones» y la vista carga; URL directa OK; sin permiso (simulado
+      vía `page.route` sobre el perfil auth) la entrada no aparece y el guard redirige.
+      Sin WhatsApp real ni escrituras en la base.
 - [ ] QA manual con cuenta staff real (checklist CA1-CA8 de spec.md, incl. reconexión tras
       `pm2 restart`, filter en vivo con grupo y no-caminante, presence quiet, purga con
-      `performRetention()` a mano)
+      `performRetention()` a mano) — **pendiente de Leo** (requiere dos teléfonos)
 - [ ] Ajustar `--history-days` según el resultado del emparejamiento real (decisión abierta
       de spec.md)
 
@@ -158,3 +159,13 @@
   lo perdía) — bug cazado al escribir el tablero de la UI.
 - **M4**: los tests de texto visible montan un `useI18n` local con las cadenas reales de
   es.json (el mock global devuelve la key cruda y las assertions de texto fallarían).
+- **M5 (bug cazado por la verificación visual, no por ningún test)**: `type`/`isCancelled`
+  del caminante viven en **`retreat_participants`** (RetreatParticipant), no en `Participant`
+  — las queries del índice de caminantes y del match de la bandeja consultaban a la entidad
+  equivocada (400 "Property type was not found"). Ni los 66 tests ni el build lo vieron (los
+  mocks no cargan metadata); lo cazó abrir la vista con datos reales. Fix en service y
+  controller: registrar en RetreatParticipant + fetch de participants por ids.
+- **M5**: la simulación de "sin permiso" en E2E necesita quitar TAMBIÉN `user:delete`:
+  el sidebar concede todos los menús a `isSuperadmin` (= tener `user:delete` en el perfil
+  combinado). Y las rutas de interceptación van ANTES del login (el store persistido no
+  re-evalúa con reload).

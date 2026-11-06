@@ -3,6 +3,7 @@ import { randomUUID } from 'crypto';
 import { AppDataSource } from '../../data-source';
 import { config } from '../../config';
 import { Participant } from '../../entities/participant.entity';
+import { RetreatParticipant } from '../../entities/retreatParticipant.entity';
 import { Retreat } from '../../entities/retreat.entity';
 import { User } from '../../entities/user.entity';
 import { WhatsappBridgeLink } from '../../entities/whatsappBridgeLink.entity';
@@ -326,12 +327,22 @@ export class WaBridgeService {
 	 * Dígitos JID aceptados para el retiro (D4): para cada caminante, su número
 	 * nacional + variantes de lada según su país. Se recalcula en cada ciclo:
 	 * barato (cientos de filas) y captura inscripciones tardías. El filtro
-	 * canónico del repo: type='walker' AND isCancelled=0.
+	 * canónico del repo: `retreat_participants.type='walker' AND isCancelled=0`
+	 * — el type/isCancelled viven en RetreatParticipant, NO en Participant.
 	 */
 	async getWalkerJidDigitIndex(retreatId: string): Promise<Set<string>> {
-		const walkers = await AppDataSource.getRepository(Participant).find({
+		const registrations = await AppDataSource.getRepository(RetreatParticipant).find({
 			where: { retreatId, type: 'walker', isCancelled: false },
-			select: ['cellPhone', 'country'],
+			select: ['participantId'],
+		});
+		const participantIds = registrations
+			.map((reg) => reg.participantId)
+			.filter((id): id is string => Boolean(id));
+		if (participantIds.length === 0) return new Set();
+
+		const walkers = await AppDataSource.getRepository(Participant).find({
+			where: participantIds.map((id) => ({ id })),
+			select: ['id', 'cellPhone', 'country'],
 		});
 		const index = new Set<string>();
 		for (const walker of walkers) {
