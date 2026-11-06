@@ -53,6 +53,17 @@ export class Payment {
 	@Column({ type: 'text', nullable: true })
 	notes?: string;
 
+	// Optional photo of the payment receipt (transfer screenshot, paper slip).
+	// Same pair of columns as CommunityMember.photo*: S3 URL (private prefix
+	// `payment-receipts/`, presigned on read) or the validated data-URI when
+	// storage is local (dev). `receiptS3Key` is required to delete the object
+	// and is NULL in base64 mode.
+	@Column({ type: 'text', nullable: true })
+	receiptUrl?: string | null;
+
+	@Column({ type: 'varchar', nullable: true })
+	receiptS3Key?: string | null;
+
 	@Column({ type: 'uuid', nullable: true })
 	recordedBy?: string;
 
