@@ -49,6 +49,10 @@ export function filterWhitelistedChats(
 /**
  * Normaliza un mensaje crudo de wacli a fila persistible; null si le falta id
  * o timestamp, o si es saliente (doble chequeo de --from-them).
+ *
+ * El store real v0.21.0 usa PascalCase (MsgID/ChatJID/Timestamp/FromMe/Text/
+ * MediaType — verificado contra el binario en el QA real 2026-11-06); el
+ * normalizador acepta también camelCase por si wacli cambia de forma.
  */
 export function normalizeWacliMessage(
 	raw: WacliMessage,
@@ -58,28 +62,37 @@ export function normalizeWacliMessage(
 	WhatsappInboxMessage,
 	'chatJid' | 'chatPhone' | 'waMessageId' | 'timestamp' | 'fromMe' | 'body' | 'messageType'
 > | null {
-	const waMessageId =
-		(typeof raw.id === 'string' && raw.id) ||
-		(typeof (raw as Record<string, unknown>).messageId === 'string' &&
-			((raw as Record<string, unknown>).messageId as string)) ||
-		'';
+	const r = raw as Record<string, unknown>;
+	const pick = (...keys: string[]): string => {
+		for (const key of keys) {
+			const v = r[key];
+			if (typeof v === 'string' && v.length > 0) return v;
+		}
+		return '';
+	};
+
+	const waMessageId = pick('MsgID', 'id', 'messageId');
 	if (!waMessageId) return null;
-	const timestampRaw = raw.timestamp;
+
+	const tsRaw = r.Timestamp ?? r.timestamp;
 	let timestamp: Date | null = null;
-	if (typeof timestampRaw === 'string' || typeof timestampRaw === 'number') {
-		const parsed = new Date(timestampRaw);
+	if (typeof tsRaw === 'string' || typeof tsRaw === 'number') {
+		const parsed = new Date(tsRaw);
 		if (!Number.isNaN(parsed.getTime())) timestamp = parsed;
 	}
 	if (!timestamp) return null;
-	if (raw.fromMe === true) return null;
+	if (r.FromMe === true || r.fromMe === true) return null;
+
+	const body = pick('Text', 'Body', 'body');
+	const messageType = pick('MediaType', 'messageType') || 'text';
 	return {
 		chatJid,
 		chatPhone,
 		waMessageId,
 		timestamp,
 		fromMe: false,
-		body: typeof raw.body === 'string' ? raw.body : null,
-		messageType: typeof raw.messageType === 'string' ? raw.messageType : 'text',
+		body: body || null,
+		messageType,
 	};
 }
 

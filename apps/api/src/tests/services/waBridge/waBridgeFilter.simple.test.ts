@@ -72,7 +72,36 @@ describe('normalizeWacliMessage', () => {
 	const chatJid = '5215512345678@s.whatsapp.net';
 	const chatPhone = '5215512345678';
 
-	it('normaliza un mensaje de texto entrante', () => {
+	it('normaliza la forma REAL PascalCase del store v0.21.0 (verificado en QA)', () => {
+		const row = normalizeWacliMessage(
+			{
+				ChatJID: chatJid,
+				ChatName: 'Leo',
+				MsgID: 'ACA92BB13F2AF8D81229A0D4276A3779',
+				SenderJID: chatJid,
+				SenderName: 'Leo',
+				Timestamp: '2026-11-07T01:29:46Z',
+				FromMe: false,
+				Text: 'A que hora es la charla del viernes',
+				DisplayText: 'A que hora es la charla del viernes',
+				MediaType: '',
+				Filename: '',
+			},
+			chatJid,
+			chatPhone,
+		);
+		expect(row).toEqual({
+			chatJid,
+			chatPhone,
+			waMessageId: 'ACA92BB13F2AF8D81229A0D4276A3779',
+			timestamp: new Date('2026-11-07T01:29:46Z'),
+			fromMe: false,
+			body: 'A que hora es la charla del viernes',
+			messageType: 'text',
+		});
+	});
+
+	it('normaliza también la forma camelCase (por si wacli cambia)', () => {
 		const row = normalizeWacliMessage(
 			{ id: 'MSG-1', timestamp: '2026-11-05T15:30:00Z', fromMe: false, body: 'A qué hora llego?' },
 			chatJid,
@@ -95,9 +124,9 @@ describe('normalizeWacliMessage', () => {
 		expect(normalizeWacliMessage({ id: 'MSG-3' }, chatJid, chatPhone)).toBeNull();
 	});
 
-	it('rechaza salientes (fromMe=true) aunque --from-them ya los filtrara', () => {
+	it('rechaza salientes (FromMe=true) aunque --from-them ya los filtrara', () => {
 		expect(
-			normalizeWacliMessage({ id: 'MSG-4', timestamp: '2026-11-05T15:30:00Z', fromMe: true }, chatJid, chatPhone),
+			normalizeWacliMessage({ id: 'MSG-4', timestamp: '2026-11-05T15:30:00Z', FromMe: true }, chatJid, chatPhone),
 		).toBeNull();
 	});
 

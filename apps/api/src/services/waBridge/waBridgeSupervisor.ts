@@ -21,6 +21,7 @@ export type WaSupervisorEventType =
 	| 'logged_out'
 	| 'warning'
 	| 'error'
+	| 'ignored'
 	| 'auth_exit'
 	| 'child_exit';
 
@@ -36,6 +37,10 @@ export interface WaSupervisorEvent {
 
 const MAX_BACKOFF_MS = 60_000;
 const KILL_GRACE_MS = 5_000;
+
+/** Eventos informativos de wacli que NO se loguean ni elevan (ruido de sync). */
+const KNOWN_NOISE_EVENT =
+	/"event":"(progress|idle_exit|offline_sync_completed|auth_starting|history_sync_suppressed|warning)"/;
 
 /** Señal al GRUPO del hijo (shell + nietos); fallback al hijo directo. */
 function killProcessGroup(child: ChildProcess, signal: NodeJS.Signals, detached: boolean): void {
@@ -71,6 +76,14 @@ export function parseWacliEventLine(line: string): WaSupervisorEvent | null {
 	const message = str('message') ?? fromNested('message') ?? str('error');
 
 	switch (rawType) {
+		// Informativos del sync/import: no se elevan (QA 2026-11-07).
+		case 'progress':
+		case 'idle_exit':
+		case 'offline_sync_completed':
+		case 'auth_starting':
+		case 'history_sync_suppressed':
+		case 'warning':
+			return { type: 'ignored' };
 		case 'qr_code':
 		case 'qr':
 			return { type: 'qr', qr: str('code') ?? fromNested('code') ?? str('qr') };
@@ -82,8 +95,6 @@ export function parseWacliEventLine(line: string): WaSupervisorEvent | null {
 			return { type: 'logged_out' };
 		case 'error':
 			return { type: 'error', message: message ?? str('error') };
-		case 'warning':
-			return { type: 'warning', message: message ?? str('warning') };
 		default:
 			return null;
 	}
@@ -188,25 +199,25 @@ export class WaBridgeSupervisor {
 
 		this.child = child;
 		this.mode = mode;
-		const buffer = (chunk: Buffer) => {
+		const buffer = (chunk: Buffer, isStderr: boolean) => {
 			for (const line of chunk.toString('utf8').split('\n')) {
 				const evt = parseWacliEventLine(line);
 				if (evt) {
-					this.onEvent(evt);
-				} else {
-					// QA/ops: los NDJSON que el parser aún no reconoce quedan en el
-					// log — así se descubre el nombre real de cada evento.
-					const trimmed = line.trim();
-					if (trimmed.startsWith('{')) {
-						console.log(
-							`[waBridge][${this.linkId}] evento no reconocido: ${trimmed.slice(0, 160)}`,
-						);
-					}
+					if (evt.type !== 'ignored') this.onEvent(evt);
+					continue;
+				}
+				// QA/ops (solo stderr): los NDJSON que el parser aún no reconoce
+				// quedan en el log — así se descubre el nombre real de cada evento.
+				const trimmed = line.trim();
+				if (isStderr && trimmed.startsWith('{') && !KNOWN_NOISE_EVENT.test(trimmed)) {
+					console.log(
+						`[waBridge][${this.linkId}] evento no reconocido: ${trimmed.slice(0, 160)}`,
+					);
 				}
 			}
 		};
-		child.stdout?.on('data', buffer);
-		child.stderr?.on('data', buffer);
+		child.stdout?.on('data', (chunk: Buffer) => buffer(chunk, false));
+		child.stderr?.on('data', (chunk: Buffer) => buffer(chunk, true));
 		child.on('error', (err) => {
 			this.onEvent({ type: 'error', message: `wacli ${mode} spawn error: ${err.message}` });
 		});

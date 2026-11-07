@@ -21,13 +21,15 @@ describe('parseWacliEventLine', () => {
 		expect(parseWacliEventLine(line)).toEqual({ type: 'qr', qr: 'waid://XYZ/987' });
 	});
 
-	it('parsea connected, logged_out, warning y error', () => {
+	it('parsea connected y logged_out; warning se ignora (ruido, v1.1)', () => {
 		expect(parseWacliEventLine(JSON.stringify({ type: 'connected' }))).toEqual({ type: 'connected' });
 		expect(parseWacliEventLine(JSON.stringify({ type: 'session_logged_out' }))).toEqual({
 			type: 'logged_out',
 		});
-		const warn = parseWacliEventLine(JSON.stringify({ type: 'warning', message: 'keepalive retry' }));
-		expect(warn).toEqual({ type: 'warning', message: 'keepalive retry' });
+		// Los warnings de wacli (keepalive, storage uncapped) son ruido: ignorados.
+		expect(parseWacliEventLine(JSON.stringify({ type: 'warning', message: 'keepalive retry' }))).toEqual({
+			type: 'ignored',
+		});
 		const err = parseWacliEventLine(JSON.stringify({ type: 'error', message: 'store locked' }));
 		expect(err).toEqual({ type: 'error', message: 'store locked' });
 	});
