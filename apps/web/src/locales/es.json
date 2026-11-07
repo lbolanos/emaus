@@ -4653,6 +4653,8 @@
     "yesterday": "Ayer",
     "reply": "Responder desde mi WhatsApp",
     "multimedia": "📎 Multimedia (ábreselo en WhatsApp)",
+    "viewPhoto": "Ver foto",
+    "receiptViewer": "Comprobante recibido",
     "registerPayment": "Registrar como pago",
     "receiptNoParticipant": "Este número no coincide con ningún caminante del retiro: regístralo desde Pagos.",
     "receiptFailed": "No se pudo descargar la imagen del comprobante.",
@@ -4680,6 +4682,7 @@
       "qrRenews": "El código se renueva solo.",
       "connecting": "Esperando el escaneo…",
       "connected": "¡Tu WhatsApp quedó vinculado! Cierra esta ventana."
-    }
+    },
+    "photoDownloading": "Descargando la foto…"
   }
 }

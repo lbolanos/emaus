@@ -459,6 +459,16 @@ export class WaBridgeController {
 			return res.status(400).json({ message: 'Este mensaje no tiene imagen adjunta.' });
 		}
 
+		// Mensajes huérfanos: su link fue desvinculado/purgado — la imagen ya no
+		// existe en ningún store (era temporal, D9).
+		const link = await waBridgeService.getLinkById(message.linkId);
+		if (!link) {
+			return res.status(410).json({
+				message:
+					'La imagen ya no está disponible: la sesión que la recibió fue desvinculada o purgada.',
+			});
+		}
+
 		const digitsMap = await waBridgeService.getWalkerDigitsMap(message.retreatId);
 		const participant = digitsMap.get(message.chatPhone);
 

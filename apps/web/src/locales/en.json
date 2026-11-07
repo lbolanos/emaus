@@ -4331,6 +4331,8 @@
     "yesterday": "Yesterday",
     "reply": "Reply from my WhatsApp",
     "multimedia": "📎 Media (open it in WhatsApp)",
+    "viewPhoto": "View photo",
+    "receiptViewer": "Receipt received",
     "registerPayment": "Register as payment",
     "receiptNoParticipant": "This number does not match any retreat walker: register it from Payments.",
     "receiptFailed": "The receipt image could not be downloaded.",
@@ -4358,6 +4360,7 @@
       "qrRenews": "The code renews itself.",
       "connecting": "Waiting for the scan…",
       "connected": "Your WhatsApp is linked! Close this window."
-    }
+    },
+    "photoDownloading": "Downloading the photo…"
   }
 }

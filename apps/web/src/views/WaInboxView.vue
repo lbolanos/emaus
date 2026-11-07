@@ -3,7 +3,7 @@ import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { storeToRefs } from 'pinia'
 import { MessageCircle, RefreshCw } from 'lucide-vue-next'
-import { Button, Switch } from '@repo/ui'
+import { Button, Switch, Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@repo/ui'
 import { useRetreatStore } from '@/stores/retreatStore'
 import { useAuthStore } from '@/stores/authStore'
 import { useAuthPermissions } from '@/composables/useAuthPermissions'
@@ -181,28 +181,70 @@ async function onTerminateAll() {
   await store.terminateAll(id).catch(() => {})
 }
 
-// FR14 (v1.1): descargar la imagen del mensaje y abrir el modal de pagos con
-// el comprobante ya adjunto y el participante prellenado.
+// FR14 (v1.1) + ver la foto antes de decidir (feedback Leo 2026-11-07):
+// la descarga bajo demanda alimenta AMBOS flujos — el visor (para validar que
+// sea un comprobante real) y el registro directo como pago.
 const paymentRef = ref<InstanceType<typeof PaymentManagement> | null>(null)
 const downloadingReceipt = ref(false)
-async function onRegisterReceipt(message: { id: string }) {
-  if (downloadingReceipt.value) return
+/** La foto descargada bajo demanda para el mensaje ampliado (FR14). */
+const enlargedPhotoDataUrl = ref<string | null>(null)
+const photoViewer = ref<{ dataUrl: string; participantId: string | null; participantName: string } | null>(null)
+
+async function downloadReceiptFor(message: { id: string }): Promise<string | null> {
+  if (downloadingReceipt.value) return null
   downloadingReceipt.value = true
   try {
     const receipt = await store.downloadReceipt(message.id)
     if (!receipt.participantId) {
       alert(t('waInbox.receiptNoParticipant'))
-      return
+      return null
     }
-    paymentRef.value?.openPaymentForWithReceipt(receipt.participantId, receipt.receiptPhoto)
+    return receipt.receiptPhoto
   } catch (err) {
     const apiMessage =
       (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
       (err as Error).message
     alert(apiMessage || t('waInbox.receiptFailed'))
+    return null
   } finally {
     downloadingReceipt.value = false
   }
+}
+
+async function onViewPhoto(message: { id: string }) {
+  const dataUrl = await downloadReceiptFor(message)
+  if (!dataUrl) return
+  photoViewer.value = {
+    dataUrl,
+    participantId: store.activeConversation?.participantId ?? null,
+    participantName: store.activeConversation
+      ? `${store.activeConversation.participantFirstName} ${store.activeConversation.participantLastName}`.trim()
+      : '',
+  }
+}
+
+async function onRegisterFromPhoto() {
+  if (!photoViewer.value) return
+  const id = photoViewer.value.participantId
+  if (!id) {
+    alert(t('waInbox.receiptNoParticipant'))
+    return
+  }
+  const dataUrl = photoViewer.value.dataUrl
+  photoViewer.value = null
+  paymentRef.value?.openPaymentForWithReceipt(id, dataUrl)
+}
+
+async function onRegisterReceipt(message: { id: string }) {
+  const dataUrl = await downloadReceiptFor(message)
+  if (!dataUrl) return
+  const c = store.activeConversation
+  const participantId = c?.participantId
+  if (!participantId) {
+    alert(t('waInbox.receiptNoParticipant'))
+    return
+  }
+  paymentRef.value?.openPaymentForWithReceipt(participantId, dataUrl)
 }
 </script>
 
@@ -356,6 +398,7 @@ async function onRegisterReceipt(message: { id: string }) {
           :popover-participant="activeParticipant"
           :retreat-id="retreatId"
           @register-receipt="onRegisterReceipt"
+          @view-photo="onViewPhoto"
           @back="store.activeChatJid = null"
         />
       </div>
@@ -368,5 +411,35 @@ async function onRegisterReceipt(message: { id: string }) {
     <div class="hidden">
       <PaymentManagement ref="paymentRef" />
     </div>
+
+    <!-- Visor de comprobante (feedback Leo 2026-11-07): ver la foto a tamaño
+         grande ANTES de decidir si es un comprobante real. -->
+    <Dialog :open="!!photoViewer" @update:open="photoViewer = null">
+      <DialogContent class="sm:max-w-lg" data-testid="wa-photo-viewer">
+        <DialogHeader>
+          <DialogTitle>{{ photoViewer?.participantName || t('waInbox.receiptViewer') }}</DialogTitle>
+        </DialogHeader>
+        <img
+          v-if="photoViewer"
+          :src="photoViewer.dataUrl"
+          class="w-full rounded-lg border"
+          alt="Comprobante"
+          data-testid="wa-photo-viewer-img"
+        />
+        <DialogFooter>
+          <Button variant="outline" size="sm" @click="photoViewer = null">
+            {{ t('waInbox.close') }}
+          </Button>
+          <Button
+            v-if="photoViewer?.participantId"
+            size="sm"
+            data-testid="wa-register-from-photo"
+            @click="onRegisterFromPhoto"
+          >
+            {{ t('waInbox.registerPayment') }}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   </div>
 </template>

@@ -30,14 +30,20 @@ const props = defineProps<{
   /** Ficha del caminante (backlog UX): Participant completo para el popover. */
   popoverParticipant?: Participant | null
   retreatId?: string | null
+  /** Data-URL de la foto descargada para el mensaje ampliado (FR14). */
+  enlargedPhotoDataUrl?: string | null
 }>()
 
 const emit = defineEmits<{
   (e: 'register-receipt', message: WaInboxMessageDto): void
+  (e: 'view-photo', message: WaInboxMessageDto): void
   (e: 'back'): void
 }>()
 
 const { t } = useI18n()
+
+const props2 = props
+const enlargedPhotoDataUrl = computed(() => props2.enlargedPhotoDataUrl ?? null)
 
 const tz = computed(() => props.retreatTimezone || 'America/Mexico_City')
 
@@ -59,6 +65,10 @@ const enlarged = ref<WaInboxMessageDto | null>(null)
 
 function enlarge(message: WaInboxMessageDto): void {
   enlarged.value = message
+  // Imagen → descargar bajo demanda para la vista ampliada (FR14).
+  if (message.messageType === 'image' && !enlargedPhotoDataUrl.value) {
+    emit('view-photo', message)
+  }
 }
 
 function asDate(ts: string | Date): Date {
@@ -212,16 +222,30 @@ function formatFull(ts: string | Date): string {
                   {{ formatTime(m.timestamp) }}
                 </div>
               </button>
-              <!-- FR14 (v1.1): imagen de caminante → comprobante de pago. -->
-              <button
+              <!-- FR14 (v1.1) + feedback Leo 2026-11-07: ver la foto ANTES de
+                   decidir si es comprobante real, y registrarla como pago. -->
+              <div
                 v-if="canRegisterPayment && m.messageType === 'image'"
-                type="button"
-                class="mt-1 text-xs text-emerald-700 hover:underline"
-                :data-testid="`wa-register-payment-${m.id}`"
-                @click="emit('register-receipt', m)"
+                class="mt-1 flex items-center gap-3"
               >
-                {{ t('waInbox.registerPayment') }}
-              </button>
+                <button
+                  type="button"
+                  class="text-xs text-muted-foreground hover:text-foreground hover:underline"
+                  :data-testid="`wa-view-photo-${m.id}`"
+                  @click="emit('view-photo', m)"
+                >
+                  {{ t('waInbox.viewPhoto') }}
+                </button>
+                <span class="text-muted-foreground">·</span>
+                <button
+                  type="button"
+                  class="text-xs text-emerald-700 hover:underline"
+                  :data-testid="`wa-register-payment-${m.id}`"
+                  @click="emit('register-receipt', m)"
+                >
+                  {{ t('waInbox.registerPayment') }}
+                </button>
+              </div>
             </div>
           </div>
         </template>
@@ -238,12 +262,34 @@ function formatFull(ts: string | Date): string {
           <DialogTitle>{{ conversation?.participantFirstName }} {{ conversation?.participantLastName }}</DialogTitle>
         </DialogHeader>
         <p
-          v-if="enlarged"
+          v-if="enlarged && enlarged.messageType !== 'image'"
           class="text-lg leading-relaxed whitespace-pre-wrap break-words min-h-[80px]"
           data-testid="wa-enlarged-body"
         >
-          {{ enlarged.body ?? t('waInbox.multimedia') }}
+          {{ enlarged.body }}
         </p>
+        <!-- Imagen: descarga bajo demanda → foto a tamaño grande (FR14). -->
+        <div v-if="enlarged && enlarged.messageType === 'image'" class="py-2">
+          <img
+            v-if="enlargedPhotoDataUrl"
+            :src="enlargedPhotoDataUrl"
+            class="w-full rounded-lg border"
+            alt="Foto recibida"
+            data-testid="wa-enlarged-photo"
+          />
+          <div v-else class="flex items-center justify-center gap-2 py-6 text-sm text-muted-foreground">
+            <span class="animate-pulse">{{ t('waInbox.photoDownloading') }}</span>
+          </div>
+          <button
+            v-if="canRegisterPayment"
+            type="button"
+            class="mt-2 text-sm text-emerald-700 hover:underline"
+            data-testid="wa-register-from-photo"
+            @click="emit('register-receipt', enlarged); enlarged = null"
+          >
+            {{ t('waInbox.registerPayment') }}
+          </button>
+        </div>
         <p v-if="enlarged" class="text-xs text-muted-foreground">
           {{ formatFull(enlarged.timestamp) }}
         </p>
