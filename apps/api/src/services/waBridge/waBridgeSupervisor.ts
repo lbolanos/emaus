@@ -66,6 +66,9 @@ export function parseWacliEventLine(line: string): WaSupervisorEvent | null {
 		const v = nested?.[key];
 		return typeof v === 'string' && v.length > 0 ? v : undefined;
 	};
+	// El binario real anida message/code dentro de data (v0.21.0 verificado:
+	// {"event":"error","data":{"message":…}}, {"event":"qr_code","data":{"code":…}}).
+	const message = str('message') ?? fromNested('message') ?? str('error');
 
 	switch (rawType) {
 		case 'qr_code':
@@ -78,9 +81,9 @@ export function parseWacliEventLine(line: string): WaSupervisorEvent | null {
 		case 'logged_out':
 			return { type: 'logged_out' };
 		case 'error':
-			return { type: 'error', message: str('message') ?? str('error') };
+			return { type: 'error', message: message ?? str('error') };
 		case 'warning':
-			return { type: 'warning', message: str('message') };
+			return { type: 'warning', message: message ?? str('warning') };
 		default:
 			return null;
 	}
@@ -162,11 +165,14 @@ export class WaBridgeSupervisor {
 		if (this.stopped) return;
 		this.killOrphans();
 
+		// El auth NO lleva --json: conflicta con --qr-format (ambos escriben a
+		// stdout — verificado contra el binario real v0.21.0 en el QA).
+		const globalFlags = mode === 'sync' ? ['--json'] : [];
 		let child: ChildProcess;
 		try {
 			child = spawn(
 				config.waBridge.wacliBin,
-				['--store', this.storeDir, '--json', '--events', ...commandArgs],
+				['--store', this.storeDir, ...globalFlags, '--events', ...commandArgs],
 				{
 					env: { PATH: process.env.PATH, HOME: process.env.HOME },
 					stdio: ['ignore', 'pipe', 'pipe'],
@@ -185,13 +191,34 @@ export class WaBridgeSupervisor {
 		const buffer = (chunk: Buffer) => {
 			for (const line of chunk.toString('utf8').split('\n')) {
 				const evt = parseWacliEventLine(line);
-				if (evt) this.onEvent(evt);
+				if (evt) {
+					this.onEvent(evt);
+				} else {
+					// QA/ops: los NDJSON que el parser aún no reconoce quedan en el
+					// log — así se descubre el nombre real de cada evento.
+					const trimmed = line.trim();
+					if (trimmed.startsWith('{')) {
+						console.log(
+							`[waBridge][${this.linkId}] evento no reconocido: ${trimmed.slice(0, 160)}`,
+						);
+					}
+				}
 			}
 		};
 		child.stdout?.on('data', buffer);
 		child.stderr?.on('data', buffer);
 		child.on('error', (err) => {
 			this.onEvent({ type: 'error', message: `wacli ${mode} spawn error: ${err.message}` });
+		});
+		// QA/ops: los eventos NDJSON que el parser aún no reconoce quedan en el
+		// log — es como se descubre el nombre real de cada evento del binario.
+		child.stderr?.on('data', (chunk: Buffer) => {
+			for (const line of chunk.toString('utf8').split('\n')) {
+				const trimmed = line.trim();
+				if (trimmed.startsWith('{') && !parseWacliEventLine(trimmed)) {
+					console.log(`[waBridge][${this.linkId}] evento NDJSON no reconocido: ${trimmed.slice(0, 160)}`);
+				}
+			}
 		});
 		child.on('close', (code) => {
 			this.child = null;

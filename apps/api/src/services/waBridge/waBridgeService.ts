@@ -157,8 +157,12 @@ export class WaBridgeService {
 				{ status: 'pending' },
 			],
 		});
+		// Solo un vínculo REALMENTE conectado bloquea la re-vinculación: los
+		// pendientes/qr/error son intentos muertos que startLink reinicia
+		// (incidencia del QA real 2026-11-06: un auth que murió sin emparejar
+		// dejaba la fila y bloqueaba el reintento con already_linked).
 		const existing = await this.linkRepo.findOneBy({ retreatId, userId });
-		const alreadyLinked = existing && existing.status !== 'expired';
+		const alreadyLinked = existing && existing.status === 'connected';
 		if (alreadyLinked) return 'already_linked';
 		if (activeCount >= config.waBridge.maxSessions) return 'cap_reached';
 		return null;
