@@ -74,6 +74,18 @@ describe('paymentReceiptClaimService (integration)', () => {
 		participant = await TestDataFactory.createTestParticipant(retreat.id, { type: 'walker' } as any);
 		const user = await TestDataFactory.createTestUser();
 		userId = user.id;
+		// Acceso del revisor al retiro: hasRetreatAccess lo exige en apply/dismiss
+		// (anti-IDOR) y los tests del servicio lo ejercitan con acceso real. El
+		// rol va creado por factory: la DB de test enforcea FKs (roleId=1 no existe).
+		const role = await TestDataFactory.createTestRole();
+		await getDS()
+			.getRepository(await import('@/entities/userRetreat.entity').then((m) => m.UserRetreat))
+			.save({
+				userId: user.id,
+				retreatId: retreat.id,
+				roleId: role.id,
+				status: 'active',
+			} as any);
 	});
 
 	const tokenFor = (participantId = participant.id): string =>

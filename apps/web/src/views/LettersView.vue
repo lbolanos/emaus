@@ -3,12 +3,10 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { useToast } from '@repo/ui';
-import { Badge } from '@repo/ui';
-import { Button } from '@repo/ui';
-import { Input } from '@repo/ui';
+import { Badge, Button, Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, Input } from '@repo/ui';
 import {
 	Check,
-	 ChevronDown,
+	ChevronDown,
 	Copy,
 	EyeOff,
 	ImageOff,
@@ -23,8 +21,8 @@ import { useLetterStore } from '@/stores/letterStore';
 import { useRetreatStore } from '@/stores/retreatStore';
 import { useTableMesaStore } from '@/stores/tableMesaStore';
 import { lettersApi, type Letter, type LetterMailboxRow, type LetterStatus } from '@/services/api';
-import { printHtmlDocument } from '@/composables/usePrintableDocument';
 import { getSocket } from '@/services/realtime';
+import { buildPrintableHtml } from '@repo/utils';
 import {
 	buildLettersBodyHtml,
 	lettersPrintTitle,
@@ -82,6 +80,8 @@ onMounted(async () => {
 	letterStore.fetchMailboxes(retreatId.value).catch(() => {});
 	// Badge en vivo: nueva carta en el buzón → refetch + aviso.
 	getSocket().on('letters:received', onLetterReceived);
+	// Atajos de revisión en volumen.
+	window.addEventListener('keydown', onKeydown);
 });
 
 function onLetterReceived(payload: { retreatId: string; participantName: string }) {
@@ -92,6 +92,7 @@ function onLetterReceived(payload: { retreatId: string; participantName: string 
 
 onBeforeUnmount(() => {
 	getSocket().off('letters:received', onLetterReceived);
+	window.removeEventListener('keydown', onKeydown);
 });
 
 const firstPhotoUrl = (letter: Letter): string | null =>
@@ -119,6 +120,40 @@ const review = async (letter: Letter, status: 'approved' | 'hidden') => {
 		toast({ title: t(`letters.review.${status}Title`) });
 	} catch {
 		toast({ title: t('letters.reviewError'), variant: 'destructive' });
+	}
+};
+
+// -- Estado de difusión: cuántos buzones del retiro están activos (resumen junto a «Difundir») --
+const diffusionState = computed(() => {
+	const boxes = letterStore.mailboxes;
+	if (boxes.length === 0) return null;
+	const active = boxes.filter((b) => b.mailboxEnabled).length;
+	return { active, total: boxes.length };
+});
+
+// -- Atajos de teclado (revisión en volumen): j/k navega, Enter expande, a aprueba, o oculta --
+const selectedId = ref<string | null>(null);
+
+const onKeydown = (e: KeyboardEvent) => {
+	const target = e.target as HTMLElement | null;
+	if (target && ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName)) return;
+	if (mailboxDialogOpen.value || shareDialogOpen.value || printPreviewOpen.value) return;
+	const letters = letterStore.letters;
+	if (letters.length === 0) return;
+	const idx = letters.findIndex((l) => l.id === selectedId.value);
+	const key = e.key.toLowerCase();
+	if (key === 'j' || key === 'arrowdown') {
+		e.preventDefault();
+		selectedId.value = letters[Math.min(idx + 1, letters.length - 1)].id;
+	} else if (key === 'k' || key === 'arrowup') {
+		e.preventDefault();
+		selectedId.value = letters[Math.max(idx - 1, 0)].id;
+	} else if (key === 'enter' && idx >= 0) {
+		toggleExpanded(letters[idx].id);
+	} else if (idx >= 0 && (key === 'a' || key === 'o')) {
+		const letter = letters[idx];
+		if (key === 'a' && letter.status === 'pending') review(letter, 'approved');
+		if (key === 'o' && letter.status !== 'hidden') review(letter, 'hidden');
 	}
 };
 
@@ -161,7 +196,12 @@ const copyAddress = async (letter: Letter) => {
 	if (row?.mailboxAddress) await navigator.clipboard.writeText(row.mailboxAddress);
 };
 
-// -- Impresión (D13) --
+// -- Impresión (D13): preview en modal + iframe print (sin popup window) --
+const printPreviewOpen = ref(false);
+const printPreviewUrl = ref<string | null>(null);
+const printPreviewMeta = ref<{ letterIds: string[]; title: string }>({ letterIds: [], title: '' });
+const previewFrame = ref<HTMLIFrameElement | null>(null);
+
 const printBatch = async (scope: 'retreat' | 'table', tableId?: string) => {
 	if (printing.value) return;
 	printing.value = true;
@@ -173,25 +213,47 @@ const printBatch = async (scope: 'retreat' | 'table', tableId?: string) => {
 		}
 		const bodyHtml = buildLettersBodyHtml(entries);
 		const title = lettersPrintTitle(scope, entries);
-		const opened = printHtmlDocument({
+		// Preview en modal (sin popup window ni autoPrint): el papel se renderiza
+		// en un iframe y el botón Imprimir dispara el print del iframe — sin
+		// popup blockers ni ventanas que mueren (lección del CDP colgado).
+		const html = buildPrintableHtml(
+			{ title, subtitle: retreatName.value, bodyHtml },
+			{ relaxedLeading: true, autoPrint: false },
+		);
+		printPreviewUrl.value = URL.createObjectURL(new Blob([html], { type: 'text/html' }));
+		printPreviewMeta.value = {
+			letterIds: entries.flatMap((entry) => entry.letters.map((l) => l.id)),
 			title,
-			subtitle: retreatName.value,
-			bodyHtml,
-			onPopupBlocked: () => toast({ title: t('letters.print.popupBlocked'), variant: 'destructive' }),
-		});
-		if (opened) {
-			// Marca optimista (D7): la impresión es re-ejecutable; el badge informa.
-			const batchId = newPrintBatchId();
-			const letterIds = entries.flatMap((entry) => entry.letters.map((l) => l.id));
-			await letterStore.markPrinted(retreatId.value, letterIds, batchId);
-			await load();
-			toast({ title: t('letters.print.markedTitle', { count: letterIds.length }) });
-		}
+		};
+		printPreviewOpen.value = true;
 	} catch {
 		toast({ title: t('letters.print.error'), variant: 'destructive' });
 	} finally {
 		printing.value = false;
 	}
+};
+
+const closePreview = () => {
+	URL.revokeObjectURL(printPreviewUrl.value ?? '');
+	printPreviewUrl.value = null;
+	printPreviewOpen.value = false;
+};
+
+const confirmPrint = () => {
+	if (!previewFrame.value) return;
+	previewFrame.value.contentWindow?.focus();
+	previewFrame.value.contentWindow?.print();
+	// Marca optimista (D7): la impresión es re-ejecutable; el badge informa.
+	const batchId = newPrintBatchId();
+	const letterIds = printPreviewMeta.value?.letterIds ?? [];
+	if (letterIds.length) {
+		letterStore
+			.markPrinted(retreatId.value, letterIds, batchId)
+			.then(() => load())
+			.catch(() => {});
+		toast({ title: t('letters.print.markedTitle', { count: letterIds.length }) });
+	}
+	closePreview();
 };
 
 const printTable = () => {
@@ -218,6 +280,8 @@ const statusVariant = (status: LetterStatus): 'default' | 'secondary' | 'outline
 };
 
 const toggleExpanded = (id: string) => {
+	// Click también fija la selección: los atajos (a/o) operan sobre la fila activa.
+	selectedId.value = id;
 	expandedId.value = expandedId.value === id ? null : id;
 };
 </script>
@@ -231,6 +295,10 @@ const toggleExpanded = (id: string) => {
 				<div>
 					<h1 class="text-xl font-semibold">{{ t('letters.title') }}</h1>
 					<p class="text-sm text-muted-foreground">{{ t('letters.subtitle') }}</p>
+					<!-- Estado de difusión: saber de un vistazo si las direcciones ya salieron -->
+					<p v-if="diffusionState" class="text-xs text-muted-foreground">
+						{{ t('letters.diffusionState', diffusionState) }}
+					</p>
 				</div>
 			</div>
 			<div class="flex flex-wrap gap-2">
@@ -290,8 +358,8 @@ const toggleExpanded = (id: string) => {
 			</Button>
 		</div>
 
-		<!-- Filtros -->
-		<div class="flex flex-wrap items-center gap-2">
+		<!-- Filtros (apilados en móvil) -->
+		<div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
 			<div class="relative flex-1 min-w-[220px]">
 				<Search class="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
 				<Input
@@ -336,6 +404,7 @@ const toggleExpanded = (id: string) => {
 				v-for="letter in letterStore.letters"
 				:key="letter.id"
 				class="group rounded-lg border"
+				:class="selectedId === letter.id ? 'ring-2 ring-primary' : ''"
 			>
 				<!-- Fila de resumen: acciones rápidas sin expandir (revisión en volumen) -->
 				<div
@@ -457,6 +526,10 @@ const toggleExpanded = (id: string) => {
 					</div>
 				</div>
 			</div>
+			<!-- Hint de atajos (solo escritorio: en táctil no aplican) -->
+			<p class="hidden sm:block text-xs text-muted-foreground">
+				{{ t('letters.shortcutsHint') }}
+			</p>
 		</div>
 
 		<!-- Dialogs montados siempre (regla de dialogs del repo) -->
@@ -474,5 +547,31 @@ const toggleExpanded = (id: string) => {
 			:retreat-id="retreatId"
 			:rows="shareRows"
 		/>
+
+		<!-- Preview de impresión: el papel se renderiza en un iframe; el botón
+		     Imprimir dispara el print del iframe y marca el lote (sin popup). -->
+		<Dialog :open="printPreviewOpen" @update:open="printPreviewOpen = $event">
+			<DialogContent class="max-w-4xl">
+				<DialogHeader>
+					<DialogTitle>{{ printPreviewMeta?.title || t('letters.print.previewTitle') }}</DialogTitle>
+				</DialogHeader>
+				<iframe
+					v-if="printPreviewUrl"
+					ref="previewFrame"
+					:src="printPreviewUrl"
+					class="h-[60vh] w-full rounded border bg-white"
+					:title="t('letters.print.previewTitle')"
+				/>
+				<DialogFooter>
+					<Button variant="outline" @click="closePreview">
+						{{ t('letters.print.close') }}
+					</Button>
+					<Button :disabled="!printPreviewUrl" @click="confirmPrint">
+						<Printer class="mr-2 h-4 w-4" />
+						{{ t('letters.print.printNow') }}
+					</Button>
+				</DialogFooter>
+			</DialogContent>
+		</Dialog>
 	</div>
 </template>

@@ -204,7 +204,12 @@ describe('letterController (integration)', () => {
 			);
 			expect(res.statusCode).toBe(200);
 			expect(res.body.letters).toHaveLength(1);
-			expect(res.body.counts).toEqual({ pending: 0, approved: 1, hidden: 0 });
+			expect(res.body.counts).toEqual({
+				pending: 0,
+				approved: 1,
+				hidden: 0,
+				attached: 0,
+			});
 		});
 	});
 

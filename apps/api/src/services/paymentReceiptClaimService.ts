@@ -32,12 +32,21 @@ export class PaymentClaimError extends Error {
 			| 'claim_not_pending'
 			| 'no_photo'
 			| 'invalid_photo'
-			| 'invalid_participant',
+			| 'invalid_participant'
+			| 'no_access',
 		public readonly httpStatus: number,
 		message?: string,
 	) {
 		super(message ?? code);
 		this.name = 'PaymentClaimError';
+	}
+}
+
+/** Anti-IDOR: el permiso payment:create/update NO basta — hay que tener acceso al retiro del claim. */
+async function assertRetreatAccess(userId: string, retreatId: string): Promise<void> {
+	const { authorizationService } = await import('../middleware/authorization');
+	if (!(await authorizationService.hasRetreatAccess(userId, retreatId))) {
+		throw new PaymentClaimError('no_access', 403);
 	}
 }
 

@@ -4656,6 +4656,8 @@
       "hiddenTitle": "Carta oculta"
     },
     "reviewError": "No se pudo actualizar la carta",
+    "diffusionState": "{active} de {total} buzones activos",
+    "shortcutsHint": "Atajos: j/k navega · Enter abre · a aprueba · o oculta",
     "mailboxToggleError": "No se pudo actualizar el buzón",
     "activateError": "No se pudieron activar los buzones",
     "mailboxDialog": {
@@ -4694,6 +4696,9 @@
       "emptyTitle": "Nada que imprimir",
       "emptyDescription": "No hay cartas aprobadas en ese alcance. Aprueba cartas primero.",
       "pickTable": "Elige una mesa en el filtro para imprimir por mesa",
+      "previewTitle": "Vista previa de impresión",
+      "printNow": "Imprimir ahora",
+      "close": "Cerrar",
       "error": "No se pudo armar la impresión"
     },
     "activateDone": {

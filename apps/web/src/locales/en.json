@@ -4334,6 +4334,8 @@
       "hiddenTitle": "Letter hidden"
     },
     "reviewError": "Could not update the letter",
+    "diffusionState": "{active} of {total} mailboxes active",
+    "shortcutsHint": "Shortcuts: j/k navigate · Enter opens · a approve · o hide",
     "mailboxToggleError": "Could not update the mailbox",
     "activateError": "Could not activate the mailboxes",
     "mailboxDialog": {
@@ -4372,6 +4374,9 @@
       "emptyTitle": "Nothing to print",
       "emptyDescription": "No approved letters in that scope. Approve letters first.",
       "pickTable": "Pick a table in the filter to print by table",
+      "previewTitle": "Print preview",
+      "printNow": "Print now",
+      "close": "Close",
       "error": "Could not build the printout"
     },
     "activateDone": {

@@ -624,7 +624,13 @@ const ITEM_BADGE: Record<string, { color: string; count: () => number | null }> 
   'special-cases': { color: 'bg-amber-500', count: () => participantCounts.value.specialCases || null },
   // Cartas de familias: pendientes de revisión (specs/letters-email).
   letters:      { color: 'bg-purple-600', count: () => letterStore.pendingCount          || null },
+  // Comprobantes de pago enviados por las familias, pendientes de aplicar.
+  payments:     { color: 'bg-emerald-600', count: () => pendingClaims.value              || null },
 };
+
+// Comprobantes pendientes (badge de «Pagos»): un fetch por cambio de retiro;
+// sin permiso payment:read el endpoint responde 403 y el badge queda vacío.
+const pendingClaims = ref<number | null>(null);
 
 function itemBadge(name: string): number | null {
   return ITEM_BADGE[name]?.count() ?? null;
@@ -757,6 +763,15 @@ watch(
         letters.subscribeRealtime(newId);
       } catch {
         // non-critical
+      }
+
+      // Comprobantes de pago pendientes de aplicar (badge de «Pagos»).
+      try {
+        const { receiptClaimsApi } = await import('@/services/api');
+        const claims = await receiptClaimsApi.list(newId, 'pending');
+        pendingClaims.value = claims.length;
+      } catch {
+        // non-critical (sin payment:read → sin badge)
       }
     }
   },

@@ -35,10 +35,6 @@ vi.mock('@/stores/tableMesaStore', () => ({
 	}),
 }));
 
-vi.mock('@/composables/usePrintableDocument', () => ({
-	printHtmlDocument: vi.fn(() => true),
-}));
-
 vi.mock('@/components/letters/LettersMailboxDialog.vue', () => ({
 	default: { name: 'LettersMailboxDialog', template: '<div class="mailbox-dialog-stub" />', props: ['open'] },
 }));
@@ -47,7 +43,6 @@ vi.mock('@/components/letters/LettersShareDialog.vue', () => ({
 }));
 
 import LettersView from '../LettersView.vue';
-import { printHtmlDocument } from '@/composables/usePrintableDocument';
 
 const letter = (over: Record<string, any> = {}) => ({
 	id: 'l1',
@@ -127,7 +122,7 @@ describe('LettersView', () => {
 		expect(api.lettersApi.reviewLetter).toHaveBeenCalledWith('l1', 'approved');
 	});
 
-	it('Imprimir retiro arma el documento y marca el lote impreso', async () => {
+	it('Imprimir retiro abre el preview y «Imprimir ahora» marca el lote impreso', async () => {
 		api.lettersApi.listLetters.mockResolvedValue(inbox([letter({ status: 'approved' })]));
 		api.lettersApi.getPrintBatch.mockResolvedValue([
 			{
@@ -148,9 +143,20 @@ describe('LettersView', () => {
 		await printBtn!.trigger('click');
 		await flushPromises();
 
-		expect(printHtmlDocument).toHaveBeenCalledWith(
-			expect.objectContaining({ subtitle: 'Buen Despacho' }),
-		);
+		// Preview abierto: el papel en un iframe con blob URL; aún SIN marcar.
+		const iframe = wrapper.find('iframe');
+		expect(iframe.exists()).toBe(true);
+		expect(iframe.attributes('src')?.startsWith('blob:')).toBe(true);
+		expect(api.lettersApi.markPrinted).not.toHaveBeenCalled();
+
+		// «Imprimir ahora»: dispara el print del iframe y marca el lote.
+		const nowBtn = wrapper
+			.findAll('button')
+			.find((b) => b.text().includes('letters.print.printNow'));
+		expect(nowBtn).toBeTruthy();
+		await nowBtn!.trigger('click');
+		await flushPromises();
+
 		expect(api.lettersApi.markPrinted).toHaveBeenCalledWith(
 			'r1',
 			['l1'],
@@ -158,8 +164,7 @@ describe('LettersView', () => {
 		);
 	});
 
-	it('si el navegador bloquea el popup NO marca el lote impreso', async () => {
-		vi.mocked(printHtmlDocument).mockReturnValueOnce(false);
+	it('cerrar el preview sin imprimir NO marca el lote impreso', async () => {
 		api.lettersApi.listLetters.mockResolvedValue(inbox([letter({ status: 'approved' })]));
 		api.lettersApi.getPrintBatch.mockResolvedValue([
 			{
@@ -177,8 +182,14 @@ describe('LettersView', () => {
 		const printBtn = wrapper.findAll('button').find((b) => b.text().includes('letters.print.retreat'));
 		await printBtn!.trigger('click');
 		await flushPromises();
+		expect(wrapper.find('iframe').exists()).toBe(true);
 
-		expect(printHtmlDocument).toHaveBeenCalled();
+		const closeBtn = wrapper
+			.findAll('button')
+			.find((b) => b.text().includes('letters.print.close'));
+		await closeBtn!.trigger('click');
+		await flushPromises();
+
 		expect(api.lettersApi.markPrinted).not.toHaveBeenCalled();
 	});
 
