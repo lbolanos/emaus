@@ -160,13 +160,15 @@ describe('buildBriefings', () => {
 		expect(p2?.documents).toBeNull();
 	});
 
-	it('excluye caminantes, cancelados y otros tipos (sin entradas fantasma)', () => {
+	it('excluye caminantes, cancelados, otros tipos y el dato legacy "(eliminado)"', () => {
 		const chosen = makeItem({ id: 'M1' });
 		const servers = [
 			makeServer('P1', 'Ana'),
 			{ id: 'W1', firstName: 'Walker', lastName: '', nickname: '', type: 'walker' } as any,
 			{ id: 'X1', firstName: 'X', lastName: '', nickname: '', type: 'server', isCancelled: true } as any,
 			{ id: 'PS1', firstName: 'Partial', lastName: '', nickname: '', type: 'partial_server' } as any,
+			// legacy San Agustín: participante renombrado "(eliminado)" al borrarse
+			{ id: 'DEL', firstName: '(eliminado)', lastName: '', nickname: '', type: 'server' } as any,
 		];
 		const { onStage, others } = buildBriefings({
 			...baseArgs(),

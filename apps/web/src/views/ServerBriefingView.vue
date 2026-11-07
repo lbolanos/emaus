@@ -1,70 +1,114 @@
 <template>
   <div class="space-y-6">
-    <div>
+    <div class="screen-only">
       <h1 class="text-3xl font-bold">En qué vamos</h1>
       <p class="text-gray-600 text-sm">
-        El cruce entre el Minuto a Minuto y las funciones: elige la actividad en curso y mira
-        dónde debe estar cada servidor y qué le toca. Abre cualquier servidor para ver su día
-        completo, sus responsabilidades y sus documentos.
+        El cruce entre el Minuto a Minuto y las funciones: elige la actividad en curso y mira dónde debe estar cada servidor y qué le toca. Abre cualquier servidor para ver su día completo, sus responsabilidades y sus documentos.
       </p>
       <div class="text-xs mt-1">
-        <span v-if="scheduleStore.connected" class="text-green-600">● conectado (WS)</span>
-        <span v-else class="text-gray-400">● sin conexión realtime</span>
+        <span v-if="scheduleStore.connected" class="text-green-600">● En vivo</span>
+        <span v-else class="text-gray-400">● Sin conexión</span>
       </div>
     </div>
 
-    <Card class="sticky top-0 z-10">
-      <CardContent class="py-3 flex flex-wrap items-center gap-2 sm:gap-3">
-        <label for="briefing-activity" class="text-sm text-gray-600 shrink-0">Estamos en:</label>
-        <select
-          id="briefing-activity"
-          v-model="selectedItemId"
-          class="border rounded px-2 py-1.5 text-sm min-w-0 flex-1 max-w-xl bg-white dark:bg-transparent"
-        >
-          <option :value="null">⏵ Automático (seguir la actividad en curso)</option>
-          <option v-for="opt in itemPickerOptions" :key="opt.id" :value="opt.id">
-            {{ opt.label }}
-          </option>
-        </select>
-        <Badge v-if="isManual" variant="outline">manual</Badge>
-        <Button
-          v-if="isManual"
-          variant="ghost"
-          size="sm"
-          @click="selectedItemId = null"
-        >
-          volver a automático
-        </Button>
-        <div class="flex-1 min-w-4" />
-        <Input
-          v-model="searchQuery"
-          type="search"
-          placeholder="Buscar servidor…"
-          class="w-full sm:w-56"
-        />
-      </CardContent>
-    </Card>
+    <!-- Skeleton de carga -->
+    <div v-if="loading" class="space-y-4 screen-only" data-testid="briefing-skeleton">
+      <div class="h-28 rounded-lg bg-gray-200 animate-pulse" />
+      <div class="h-10 rounded bg-gray-100 animate-pulse w-2/3" />
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        <div v-for="i in 3" :key="i" class="h-28 rounded-lg bg-gray-100 animate-pulse" />
+      </div>
+    </div>
 
-    <Card v-if="loading">
-      <CardContent class="pt-6 text-gray-500 text-sm">Cargando…</CardContent>
-    </Card>
+    <template v-else-if="scheduleStore.items.length > 0 && chosenItem">
+      <!-- ── Hero AHORA: la actividad elegida, con progreso y controles ── -->
+      <Card class="screen-only">
+        <CardContent class="pt-4 pb-4 space-y-2">
+          <div class="flex flex-wrap items-start justify-between gap-2">
+            <div class="min-w-0">
+              <div class="text-xs uppercase tracking-wide text-gray-500">
+                <span v-if="chosenItem.status === 'active'" class="text-green-700 font-semibold">● En curso</span>
+                <span v-else-if="chosenItem.status === 'completed'" class="text-gray-500">Completada</span>
+                <span v-else>Próxima / elegida</span>
+              </div>
+              <div class="text-xl font-bold mt-0.5">{{ chosenItem.name }}</div>
+              <div class="text-sm text-gray-600">
+                Día {{ chosenItem.day }} · {{ fmtTime(chosenItem.startTime) }}
+                <span v-if="chosenItem.location" class="text-gray-500">· 📍 {{ chosenItem.location }}</span>
+              </div>
+            </div>
+            <div class="text-right shrink-0">
+              <div v-if="heroProgress" class="text-2xl font-bold tabular-nums">{{ heroProgress.minutesElapsed }}<span class="text-sm text-gray-500 font-normal"> min</span></div>
+              <div v-else-if="minutesUntilChosen !== null && minutesUntilChosen > 0" class="text-2xl font-bold tabular-nums">
+                en {{ minutesUntilChosen }}<span class="text-sm text-gray-500 font-normal"> min</span>
+              </div>
+              <div class="text-xs text-gray-500">{{ chosenItem.durationMinutes }} min de actividad</div>
+            </div>
+          </div>
 
-    <Card v-else-if="scheduleStore.items.length === 0">
-      <CardContent class="pt-6 text-sm text-gray-600">
-        El Minuto a Minuto de este retiro está vacío. Materializa el horario desde
-        <strong>Minuto a Minuto</strong> para ver el briefing.
-      </CardContent>
-    </Card>
+          <div v-if="heroProgress" class="h-2 rounded bg-gray-200 overflow-hidden">
+            <div
+              class="h-full rounded transition-all"
+              :class="heroProgress.pct > 100 ? 'bg-amber-400' : 'bg-green-500'"
+              :style="{ width: Math.min(100, heroProgress.pct) + '%' }"
+            />
+          </div>
 
-    <template v-else-if="chosenItem">
-      <section class="space-y-3">
-        <div>
+          <div v-if="canManage.schedule" class="flex flex-wrap gap-2 pt-1">
+            <Button
+              v-if="chosenItem.status === 'pending'"
+              size="sm"
+              @click="doStart"
+            >
+              ▶ Iniciar
+            </Button>
+            <template v-if="chosenItem.status === 'active'">
+              <Button size="sm" variant="default" @click="doComplete">✓ Completar</Button>
+              <Button size="sm" variant="outline" @click="doShift(-5)">−5 min</Button>
+              <Button size="sm" variant="outline" @click="doShift(5)">+5 min</Button>
+            </template>
+          </div>
+        </CardContent>
+      </Card>
+
+      <!-- ── Barra sticky: selector + búsqueda ── -->
+      <Card class="sticky top-0 z-10 screen-only">
+        <CardContent class="py-3 flex flex-wrap items-center gap-2 sm:gap-3">
+          <label for="briefing-activity" class="text-sm text-gray-600 shrink-0">Estamos en:</label>
+          <select
+            id="briefing-activity"
+            v-model="selectedItemId"
+            class="border rounded px-2 py-1.5 text-sm min-w-0 flex-1 max-w-xl bg-white dark:bg-transparent"
+          >
+            <option :value="null">⏵ Automático (seguir la actividad en curso)</option>
+            <option v-for="opt in itemPickerOptions" :key="opt.id" :value="opt.id">
+              {{ opt.label }}
+            </option>
+          </select>
+          <Badge v-if="isManual" variant="outline">manual</Badge>
+          <Button v-if="isManual" variant="ghost" size="sm" @click="selectedItemId = null">
+            volver a automático
+          </Button>
+          <div class="flex-1 min-w-4" />
+          <Input
+            v-model="searchQuery"
+            type="search"
+            placeholder="Buscar servidor…"
+            class="w-full sm:w-56"
+          />
+        </CardContent>
+      </Card>
+
+      <!-- ── En escena ── -->
+      <section class="screen-only space-y-3">
+        <div class="flex flex-wrap items-center justify-between gap-2">
           <h2 class="text-lg font-semibold">En escena</h2>
-          <p class="text-sm text-gray-600">
-            Día {{ chosenItem.day }} · {{ fmtTime(chosenItem.startTime) }} — {{ chosenItem.name }}
-            <span v-if="chosenItem.location" class="text-gray-500">· 📍 {{ chosenItem.location }}</span>
-          </p>
+          <Button v-if="chosenItem" variant="outline" size="sm" @click="printBriefing">🖨 Imprimir</Button>
         </div>
+        <p class="text-sm text-gray-600 -mt-2">
+          Día {{ chosenItem.day }} · {{ fmtTime(chosenItem.startTime) }} — {{ chosenItem.name }}
+          <span v-if="chosenItem.location" class="text-gray-500">· 📍 {{ chosenItem.location }}</span>
+        </p>
 
         <div
           v-if="documentsFailed"
@@ -73,7 +117,7 @@
           ⚠️ No se pudieron cargar los documentos por servidor — el resto del briefing funciona.
         </div>
 
-        <div v-if="!visibleOnStage.length" class="text-gray-500 text-sm">
+        <div v-if="!groups.onStage.length" class="text-gray-500 text-sm">
           Nadie asignado a esta actividad.
           <RouterLink
             v-if="canManage.schedule"
@@ -83,6 +127,10 @@
             Asignar responsables
           </RouterLink>
         </div>
+        <div v-else-if="!visibleOnStage.length" class="text-gray-400 text-sm">
+          Sin resultados para la búsqueda.
+        </div>
+
         <div v-else class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           <Card
             v-for="b in visibleOnStage"
@@ -91,61 +139,161 @@
             class="cursor-pointer hover:border-blue-400 transition-colors"
             @click="openDetail(b)"
           >
-            <CardContent class="pt-4 space-y-1">
-              <div class="font-medium">{{ b.label }}</div>
-              <div class="flex flex-wrap gap-1.5 text-xs">
-                <Badge
-                  v-for="role in b.rolesHere"
-                  :key="role"
-                  variant="default"
-                >
-                  🎤 {{ role }}
-                </Badge>
-                <Badge v-if="mesaOf(b)" variant="secondary">🪑 {{ mesaOf(b) }}</Badge>
-              </div>
-              <div v-if="chosenItem?.location" class="text-xs text-gray-500">📍 {{ chosenItem.location }}</div>
-              <div v-if="docCount(b)" class="text-xs text-emerald-700">📎 {{ docCount(b) }} documento(s)</div>
+            <CardContent class="pt-4">
+              <button
+                type="button"
+                class="w-full text-left space-y-1 focus:outline-none focus:ring-2 focus:ring-blue-400 rounded"
+                @click.stop="openDetail(b)"
+                @keydown.enter.prevent="openDetail(b)"
+              >
+                <span class="block font-medium">{{ b.label }}</span>
+                <span class="flex flex-wrap gap-1.5 text-xs">
+                  <Badge v-for="role in b.rolesHere" :key="role" variant="default">🎤 {{ role }}</Badge>
+                  <Badge v-if="mesaOf(b)" variant="secondary">🪑 {{ mesaOf(b) }}</Badge>
+                </span>
+                <span v-if="chosenItem?.location" class="block text-xs text-gray-500">📍 {{ chosenItem.location }}</span>
+                <span v-if="docCount(b)" class="block text-xs text-emerald-700">📎 {{ docCount(b) }} documento(s)</span>
+              </button>
             </CardContent>
           </Card>
         </div>
+
+        <!-- Picker inline de responsables (solo gestión): el PATCH es add-only -->
+        <div v-if="canManage.schedule" class="flex flex-wrap items-center gap-2 border-t pt-3">
+          <span class="text-sm text-gray-600">Agregar responsable:</span>
+          <select
+            v-model="pickerPid"
+            class="border rounded px-2 py-1.5 text-sm bg-white dark:bg-transparent min-w-0 max-w-56"
+          >
+            <option value="">Elegir servidor…</option>
+            <option v-for="s in pickerCandidates" :key="s.participantId" :value="s.participantId">
+              {{ s.label }}
+            </option>
+          </select>
+          <Button size="sm" :disabled="!pickerPid || addingResponsable" @click="addResponsable">
+            {{ addingResponsable ? 'Agregando…' : 'Agregar' }}
+          </Button>
+          <span class="text-xs text-gray-400">quitar desde Asignar responsables</span>
+        </div>
       </section>
 
-      <section class="space-y-3">
+      <!-- ── Los demás servidores ── -->
+      <section class="screen-only space-y-3">
         <h2 class="text-lg font-semibold">Los demás servidores</h2>
+
+        <div class="flex flex-wrap items-center gap-1.5">
+          <span class="text-xs text-gray-500 mr-1">Mesa:</span>
+          <button
+            type="button"
+            class="px-2.5 py-1 rounded-full text-xs border transition-colors"
+            :class="!mesaFilter ? 'bg-gray-800 text-white border-gray-800' : 'border-gray-300 text-gray-600 hover:border-gray-500'"
+            @click="mesaFilter = ''"
+          >
+            Todas
+          </button>
+          <button
+            v-for="m in mesasAvailable"
+            :key="m"
+            type="button"
+            class="px-2.5 py-1 rounded-full text-xs border transition-colors"
+            :class="mesaFilter === m ? 'bg-gray-800 text-white border-gray-800' : 'border-gray-300 text-gray-600 hover:border-gray-500'"
+            @click="mesaFilter = mesaFilter === m ? '' : m"
+          >
+            {{ m }}
+          </button>
+          <span class="text-xs text-gray-500 mx-1">·</span>
+          <button
+            type="button"
+            class="px-2.5 py-1 rounded-full text-xs border transition-colors"
+            :class="!docFilter ? 'bg-gray-800 text-white border-gray-800' : 'border-gray-300 text-gray-600 hover:border-gray-500'"
+            @click="docFilter = ''"
+          >
+            Todos
+          </button>
+          <button
+            type="button"
+            class="px-2.5 py-1 rounded-full text-xs border transition-colors"
+            :class="docFilter === 'docs' ? 'bg-gray-800 text-white border-gray-800' : 'border-gray-300 text-gray-600 hover:border-gray-500'"
+            @click="docFilter = docFilter === 'docs' ? '' : 'docs'"
+          >
+            📎 con documentos
+          </button>
+          <button
+            type="button"
+            class="px-2.5 py-1 rounded-full text-xs border transition-colors"
+            :class="docFilter === 'sin-momentos' ? 'bg-gray-800 text-white border-gray-800' : 'border-gray-300 text-gray-600 hover:border-gray-500'"
+            @click="docFilter = docFilter === 'sin-momentos' ? '' : 'sin-momentos'"
+          >
+            sin momentos
+          </button>
+        </div>
+
         <div v-if="!visibleOthers.length" class="text-gray-500 text-sm">
-          Sin servidores para mostrar.
+          Sin servidores para este filtro.
         </div>
         <div v-else class="space-y-2">
-          <div
+          <button
             v-for="b in visibleOthers"
             :key="b.participantId"
+            type="button"
             data-testid="briefing-row"
-            class="border rounded p-3 flex flex-wrap items-center gap-x-4 gap-y-1 cursor-pointer hover:border-blue-400 transition-colors"
+            class="w-full text-left border rounded p-3 flex flex-wrap items-center gap-x-4 gap-y-1 cursor-pointer hover:border-blue-400 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-400"
             @click="openDetail(b)"
           >
-            <div class="font-medium min-w-40">{{ b.label }}</div>
-            <div v-if="b.nextMoment" class="text-sm text-gray-700">
+            <span class="font-medium min-w-40">{{ b.label }}</span>
+            <span v-if="b.nextMoment" class="text-sm text-gray-700">
               próximo: {{ fmtTime(b.nextMoment.item.startTime) }} · {{ b.nextMoment.item.name }}
-            </div>
-            <div v-else class="text-sm text-gray-400">sin momentos asignados</div>
-            <div v-if="mesaOf(b)" class="text-xs text-gray-500">🪑 {{ mesaOf(b) }}</div>
-            <div v-if="docCount(b)" class="text-xs text-emerald-700">📎 {{ docCount(b) }}</div>
-          </div>
+            </span>
+            <span v-else class="text-sm text-gray-400">sin momentos asignados</span>
+            <span v-if="mesaOf(b)" class="text-xs text-gray-500">🪑 {{ mesaOf(b) }}</span>
+            <span v-if="docCount(b)" class="text-xs text-emerald-700">📎 {{ docCount(b) }}</span>
+          </button>
         </div>
       </section>
+
+      <!-- ── Versión de impresión (A4): solo visible en papel ── -->
+      <div class="print-only">
+        <h1 class="text-lg font-bold">En escena — {{ chosenItem.name }}</h1>
+        <p class="text-sm">
+          Día {{ chosenItem.day }} · {{ fmtTime(chosenItem.startTime) }}
+          <span v-if="chosenItem.location"> · Lugar: {{ chosenItem.location }}</span>
+        </p>
+        <table class="w-full mt-3 text-sm border-collapse">
+          <thead>
+            <tr>
+              <th class="border px-2 py-1 text-left">Servidor</th>
+              <th class="border px-2 py-1 text-left">Rol</th>
+              <th class="border px-2 py-1 text-left">Mesa</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="b in groups.onStage" :key="b.participantId">
+              <td class="border px-2 py-1">{{ b.label }}</td>
+              <td class="border px-2 py-1">{{ b.rolesHere.join(', ') }}</td>
+              <td class="border px-2 py-1">{{ mesaOf(b) ?? '—' }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </template>
 
-    <Card v-else>
+    <Card v-else-if="scheduleStore.items.length > 0">
       <CardContent class="pt-6 text-sm text-gray-600">
         No hay actividad en curso. Inicia la actividad actual desde el
         <strong>Minuto a Minuto</strong>
-        <template v-if="canManage.schedule">
-          o elige otra con el selector de arriba.
-        </template>
+        <template v-if="canManage.schedule"> o elige otra con el selector de arriba.</template>
         <template v-else> — o pide al coordinador que la inicie.</template>
       </CardContent>
     </Card>
 
+    <Card v-else>
+      <CardContent class="pt-6 text-sm text-gray-600">
+        El Minuto a Minuto de este retiro está vacío. Materializa el horario desde
+        <strong>Minuto a Minuto</strong> para ver el briefing.
+      </CardContent>
+    </Card>
+
+    <!-- ── Briefing del servidor ── -->
     <Dialog :open="detailOpen" @update:open="onDetailOpenChange">
       <DialogContent class="max-w-2xl max-h-[85vh] overflow-y-auto">
         <template v-if="detailBriefing">
@@ -317,6 +465,7 @@ import {
   TabsContent,
   TabsList,
   TabsTrigger,
+  useToast,
 } from '@repo/ui';
 import { useScheduleStore } from '@/stores/scheduleStore';
 import { useRetreatStore } from '@/stores/retreatStore';
@@ -338,6 +487,7 @@ const participantStore = useParticipantStore();
 const responsabilityStore = useResponsabilityStore();
 const serviceTeamStore = useServiceTeamStore();
 const { canManage } = useAuthPermissions();
+const { toast } = useToast();
 
 const loading = ref(false);
 const documents = ref<Record<string, any> | null>(null);
@@ -345,6 +495,12 @@ const documentsFailed = ref(false);
 const selectedItemId = ref<string | null>(null); // null = automático
 const searchQuery = ref('');
 const detailParticipantId = ref<string | null>(null);
+const pickerPid = ref('');
+const addingResponsable = ref(false);
+const mesaFilter = ref('');
+const docFilter = ref<'' | 'docs' | 'sin-momentos'>('');
+const now = ref(Date.now());
+let nowTimer: any = null;
 let unsubscribe: (() => void) | null = null;
 
 const retreatId = computed(() => (props.id as string) || retreatStore.selectedRetreatId || '');
@@ -390,7 +546,28 @@ const matchesSearch = (b: ServerBriefing) =>
   );
 
 const visibleOnStage = computed(() => groups.value.onStage.filter(matchesSearch));
-const visibleOthers = computed(() => groups.value.others.filter(matchesSearch));
+
+const visibleOthers = computed(() =>
+  groups.value.others.filter((b) => {
+    if (!matchesSearch(b)) return false;
+    if (mesaFilter.value) {
+      const mesa = mesaOf(b);
+      if (!mesa || !mesa.toLowerCase().includes(mesaFilter.value.toLowerCase())) return false;
+    }
+    if (docFilter.value === 'docs' && docCount(b) === 0) return false;
+    if (docFilter.value === 'sin-momentos' && b.nextMoment) return false;
+    return true;
+  }),
+);
+
+const mesasAvailable = computed(() => {
+  const names = new Set<string>();
+  for (const b of [...groups.value.onStage, ...groups.value.others]) {
+    const m = mesaOf(b);
+    if (m) names.add(m.split(' (')[0]);
+  }
+  return [...names].sort((a, b) => (parseInt(a, 10) || 0) - (parseInt(b, 10) || 0) || a.localeCompare(b));
+});
 
 const itemPickerOptions = computed(() =>
   [...scheduleStore.items]
@@ -415,6 +592,88 @@ const detailBriefing = computed(
     ) ?? null,
 );
 
+// ── Hero: progreso y countdown ──
+const heroProgress = computed(() => {
+  const it = chosenItem.value;
+  if (!it) return null;
+  if (it.status !== 'active') return null;
+  const start = new Date(it.actualStartTime || it.startTime).getTime();
+  const end = start + (it.durationMinutes || 0) * 60_000;
+  if (Number.isNaN(start)) return null;
+  const pct = ((now.value - start) / (end - start)) * 100;
+  return {
+    pct: Math.round(Number.isNaN(pct) ? 0 : pct),
+    minutesElapsed: Math.max(0, Math.round((now.value - start) / 60_000)),
+    duration: it.durationMinutes,
+  };
+});
+
+const minutesUntilChosen = computed(() => {
+  const it = chosenItem.value;
+  if (!it || it.status !== 'pending') return null;
+  return Math.round((new Date(it.startTime).getTime() - now.value) / 60_000);
+});
+
+// ── Controles de actividad (gestión) ──
+async function doStart() {
+  const it = chosenItem.value;
+  if (!it) return;
+  try {
+    await scheduleStore.start(it.id);
+    toast({ title: `▶ Inició: ${it.name}` });
+  } catch {
+    toast({ title: 'No se pudo iniciar', variant: 'destructive' as any });
+  }
+}
+
+async function doComplete() {
+  const it = chosenItem.value;
+  if (!it) return;
+  try {
+    await scheduleStore.complete(it.id);
+    toast({ title: `✓ Completó: ${it.name}` });
+  } catch {
+    toast({ title: 'No se pudo completar', variant: 'destructive' as any });
+  }
+}
+
+async function doShift(minutes: number) {
+  const it = chosenItem.value;
+  if (!it) return;
+  try {
+    await scheduleStore.shift(it.id, minutes);
+  } catch {
+    toast({ title: `No se pudo mover ${minutes > 0 ? '+' : ''}${minutes} min`, variant: 'destructive' as any });
+  }
+}
+
+// ── Picker inline de responsables (add-only: el backend hace merge) ──
+const pickerCandidates = computed(() => {
+  const assigned = new Set((chosenItem.value?.responsables ?? []).map((r) => r.participantId));
+  return groups.value.others.filter((b) => !assigned.has(b.participantId));
+});
+
+async function addResponsable() {
+  const it = chosenItem.value;
+  const pid = pickerPid.value;
+  if (!it || !pid) return;
+  addingResponsable.value = true;
+  try {
+    const current = (it.responsables ?? []).map((r) => r.participantId);
+    await scheduleStore.updateItem(it.id, { responsableParticipantIds: [...current, pid] });
+    // El item parchado puede venir sin la relación responsables: recargar la
+    // lista garantiza que el card nuevo aparezca con su rol.
+    await scheduleStore.loadForRetreat(retreatId.value);
+    pickerPid.value = '';
+    toast({ title: 'Responsable agregado' });
+  } catch {
+    toast({ title: 'No se pudo agregar', variant: 'destructive' as any });
+  } finally {
+    addingResponsable.value = false;
+  }
+}
+
+// ── helpers de presentación ──
 function openDetail(b: ServerBriefing) {
   detailParticipantId.value = b.participantId;
 }
@@ -423,7 +682,6 @@ function onDetailOpenChange(v: boolean) {
   if (!v) detailParticipantId.value = null;
 }
 
-/** La mesa del briefing de documentos ("Mesa 3 — Colíder"), si la tiene. */
 function mesaOf(b: ServerBriefing): string | null {
   if (!b.documents?.table) return null;
   return `${b.documents.table.name} (${b.documents.table.role})`;
@@ -443,12 +701,17 @@ function fmtTime(iso: string): string {
   return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
+function printBriefing() {
+  // El @media print de este componente oculta el chrome de la app y deja
+  // solo la tabla .print-only (mismo patrón que el Minuto a Minuto).
+  setTimeout(() => window.print(), 50);
+}
+
 async function loadDocuments(id: string) {
   documentsFailed.value = false;
   try {
     documents.value = await retreatScheduleApi.assignmentDocuments(id);
   } catch {
-    // Degradado: la vista funciona sin documentos (no bloquea el briefing).
     documents.value = null;
     documentsFailed.value = true;
   }
@@ -476,7 +739,6 @@ async function setup(id: string) {
     loading.value = false;
   }
 
-  // Aparte: los documentos no bloquean el briefing si fallan.
   void loadDocuments(id);
 
   if (unsubscribe) unsubscribe();
@@ -487,14 +749,17 @@ async function setup(id: string) {
   });
 }
 
-onMounted(() => setup(retreatId.value));
+onMounted(() => {
+  setup(retreatId.value);
+  nowTimer = setInterval(() => {
+    now.value = Date.now();
+  }, 30_000);
+});
 onUnmounted(() => {
   unsubscribe?.();
+  if (nowTimer) clearInterval(nowTimer);
 });
 watch(retreatId, (id) => setup(id));
-
-// El guard de requiresRetreat sincroniza route.params.id con selectedRetreatId;
-// si la vista se abre sin :id (por el selector del sidebar) lo tomamos del store.
 watch(
   () => route.params.id,
   (v) => {
@@ -502,3 +767,30 @@ watch(
   },
 );
 </script>
+
+<style scoped>
+.print-only {
+  display: none;
+}
+
+@media print {
+  /* Oculta el chrome de la app (mismos selectores que el Minuto a Minuto) */
+  body > div > .flex.h-dvh > div:first-child,
+  body > div > .flex.h-dvh > button,
+  body > div > .flex.h-dvh > .fixed,
+  .screen-only {
+    display: none !important;
+  }
+
+  .print-only {
+    display: block !important;
+  }
+
+  body,
+  html {
+    background: white !important;
+    color: black !important;
+    font-size: 10pt;
+  }
+}
+</style>

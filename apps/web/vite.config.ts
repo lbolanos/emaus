@@ -33,6 +33,10 @@ export default defineConfig(({ mode }) => {
 	}
 
 	return {
+		// CacheDir configurable: correr DOS vite dev del mismo worktree en paralelo
+		// (p.ej. un temporal para verificar algo sin tocar el 5173 del main) pelea
+		// por node_modules/.vite y mete a los clientes en un bucle de reloads.
+		cacheDir: process.env.VITE_CACHE_DIR || 'node_modules/.vite',
 		define: {
 			__APP_VERSION__: JSON.stringify(gitHash),
 		},

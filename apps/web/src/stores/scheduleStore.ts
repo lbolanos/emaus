@@ -133,7 +133,10 @@ export const useScheduleStore = defineStore("schedule", () => {
     const updated = await retreatScheduleApi.reorderDay(retreatId, day, itemIds);
     if (updated[0]) await loadForRetreat(updated[0].retreatId);
   }
-  async function updateItem(id: string, data: Partial<RetreatScheduleItemDTO>) {
+  async function updateItem(
+    id: string,
+    data: Partial<RetreatScheduleItemDTO> & { responsableParticipantIds?: string[] },
+  ) {
     const updated = await retreatScheduleApi.update(id, data);
     patch(updated);
   }

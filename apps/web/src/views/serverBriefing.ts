@@ -116,6 +116,11 @@ export function buildBriefings(args: {
 		if (participant.isCancelled) continue;
 		if (participant.type !== 'server' && participant.type !== 'partial_server') continue;
 
+		const label = participantLabel(participant);
+		// Datos legacy (San Agustín): participantes renombrados "(eliminado)" al
+		// borrarse siguen referenciados por items del MaM — no los mostramos.
+		if (!label || /^\(?\s*eliminado\s*\)?$/i.test(label.trim())) continue;
+
 		const pid = participant.id;
 		const entries = entriesByParticipant.get(pid) ?? [];
 		const onStage = !!chosenItem && entries.some((e) => e.item.id === chosenItem.id);
@@ -137,7 +142,7 @@ export function buildBriefings(args: {
 
 		briefings.push({
 			participantId: pid,
-			label: participantLabel(participant),
+			label,
 			onStage,
 			rolesHere,
 			nextMoment,

@@ -468,6 +468,12 @@ const router = createRouter({
 					meta: { requiresRetreat: true },
 				},
 				{
+					path: 'my-briefing',
+					name: 'my-briefing',
+					component: () => import('../views/MyBriefingView.vue'),
+					meta: { requiresRetreat: true },
+				},
+				{
 					path: 'settings/schedule-template',
 					name: 'schedule-template',
 					component: ScheduleTemplateView,

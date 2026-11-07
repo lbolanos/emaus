@@ -988,6 +988,14 @@ const menuSections: MenuSection[] = [
         label: 'sidebar.mySchedule'
       },
       {
+        name: 'my-briefing',
+        routeName: 'my-briefing',
+        icon: Clock,
+        permission: 'schedule',
+        requiresRetreat: true,
+        label: 'sidebar.myBriefing'
+      },
+      {
         name: 'inventory',
         routeName: 'inventory',
         icon: Package,

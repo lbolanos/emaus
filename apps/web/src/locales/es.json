@@ -863,7 +863,8 @@
     "preRetreatTasks": "Tareas Pre-Retiro",
     "retreatPreparations": "Preparaciones",
     "preRetreatTaskTemplate": "Template Tareas Pre-Retiro",
-    "specialCases": "Casos especiales"
+    "specialCases": "Casos especiales",
+    "myBriefing": "Ahora me toca"
   },
   "changePassword": {
     "title": "Cambiar Contraseña",

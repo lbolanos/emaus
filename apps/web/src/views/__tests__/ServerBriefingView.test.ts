@@ -211,7 +211,13 @@ describe('ServerBriefingView', () => {
     await flushPromises();
 
     expect(wrapper.text()).toContain('Bea');
-    expect(wrapper.text()).not.toContain('Ana');
+    // Ana sigue en la tabla de impresión (oculta en pantalla): el assert es sobre
+    // las filas visibles, no sobre todo el texto del componente.
+    const rows = wrapper.findAll('[data-testid="briefing-row"]');
+    expect(rows.some((r) => r.text().includes('Ana'))).toBe(false);
+    expect(rows.some((r) => r.text().includes('Bea'))).toBe(true);
+    const cards = wrapper.findAll('[data-testid="briefing-card"]');
+    expect(cards.every((c) => !c.text().includes('Ana'))).toBe(true);
   });
 
   it('click en un servidor abre el detalle con su momento actual', async () => {
