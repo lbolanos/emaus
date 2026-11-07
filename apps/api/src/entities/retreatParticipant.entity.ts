@@ -218,6 +218,18 @@ export class RetreatParticipant {
 	@Column({ type: 'datetime', nullable: true })
 	mailboxIssuedAt?: Date | null;
 
+	/**
+	 * Cuándo se mandó a la familia la dirección del buzón (WhatsApp/copia) —
+	 * marca de difusión del dialog de share (mejora 9). Optimista: el envío
+	 * real lo hace el humano en wa.me.
+	 */
+	@Column({ type: 'datetime', nullable: true })
+	mailboxSharedAt?: Date | null;
+
+	/** Igual, para el link público de comprobante de pago. */
+	@Column({ type: 'datetime', nullable: true })
+	receiptLinkSharedAt?: Date | null;
+
 	@OneToMany(() => Letter, (letter) => letter.retreatParticipant)
 	letters?: Letter[];
 }

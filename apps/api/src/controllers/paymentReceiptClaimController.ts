@@ -1,8 +1,11 @@
 import { Request, Response } from 'express';
+import { domainAuditService } from '../services/domainAuditService';
+import { DomainAuditAction } from '@repo/types';
 import {
 	submitReceiptClaim,
 	getReceiptLinkContext,
 	getReceiptLinks,
+	markReceiptLinkShared,
 	listReceiptClaims,
 	presignClaimPhotos,
 	applyReceiptClaim,
@@ -57,6 +60,37 @@ export async function getReceiptLinksHandler(req: Request, res: Response) {
 	} catch (error) {
 		console.error('getReceiptLinks error:', error);
 		res.status(500).json({ message: 'Error al generar los links' });
+	}
+}
+
+/**
+ * POST /receipt-links/:retreatParticipantId/shared — marca de difusión
+ * (mejora 9): el link de comprobante ya se mandó a la familia. El retreatId
+ * va por query (mismo patrón que GET /receipt-links) y el service matchea
+ * {id, retreatId}: un rp de otro retiro responde 404.
+ */
+export async function markReceiptLinkSharedHandler(req: Request, res: Response) {
+	try {
+		const sharedAt = await markReceiptLinkShared(
+			req.query.retreatId as string,
+			req.params.retreatParticipantId,
+		);
+		void domainAuditService.log({
+			action: DomainAuditAction.PAYMENT_RECEIPT_LINK_MARK_SHARED,
+			resourceType: 'payment',
+			retreatId: req.query.retreatId as string,
+			metadata: { retreatParticipantId: req.params.retreatParticipantId },
+		});
+		res.json({
+			retreatParticipantId: req.params.retreatParticipantId,
+			sharedAt,
+		});
+	} catch (error) {
+		if (error instanceof PaymentClaimError) {
+			return res.status(error.httpStatus).json({ message: 'Enlace no válido' });
+		}
+		console.error('markReceiptLinkShared error:', error);
+		res.status(500).json({ message: 'Error al marcar la difusión' });
 	}
 }
 

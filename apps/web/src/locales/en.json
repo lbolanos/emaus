@@ -4363,7 +4363,14 @@
       "noPhone": "This participant has no phone number on file",
       "empty": "Activate the mailboxes first.",
       "defaultDeadline": "before the retreat starts",
-      "messageTemplate": "Hello! For the {retreat} retreat, {participant}'s family can send their letter (support message with photos if they like) to {address} before the retreat ({deadline}). The team prints it and delivers it during the weekend. It is a surprise — please do not mention it!"
+      "messageTemplate": "Hello! For the {retreat} retreat, {participant}'s family can send their letter (support message with photos if they like) to {address} before the retreat ({deadline}). The team prints it and delivers it during the weekend. It is a surprise — please do not mention it!",
+      "sentSummary": "{sent} of {total} sent",
+      "filterAll": "All",
+      "filterPending": "Not sent",
+      "sentOn": "Sent on {date}",
+      "notSent": "Not sent",
+      "resend": "Resend",
+      "emptyPending": "All addresses have been sent."
     },
     "print": {
       "table": "Print table",
@@ -4418,7 +4425,18 @@
       "open": "Share links",
       "title": "Receipt links per participant",
       "description": "Send each family their personal link: they open it from their phone, attach the transfer screenshot, and the team registers it.",
-      "copied": "Link copied"
+      "copied": "Link copied",
+      "sentSummary": "{sent} of {total} sent",
+      "filterAll": "All",
+      "filterPending": "Not sent",
+      "sentOn": "Sent on {date}",
+      "notSent": "Not sent",
+      "resend": "Resend",
+      "whatsapp": "WhatsApp",
+      "markSent": "Mark as sent (if you pasted the link in another chat)",
+      "markError": "Could not mark as sent",
+      "emptyPending": "Every family has received their link.",
+      "messageTemplate": "Hello! For the retreat, the family of {participant} can upload their payment receipt here: {link}. The team will register it upon receipt."
     },
     "shareError": "Could not generate the links",
     "confirm": {

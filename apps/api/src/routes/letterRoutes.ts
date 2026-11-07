@@ -5,6 +5,7 @@ import { validateRequest } from '../middleware/validateRequest';
 import {
 	ActivateLetterMailboxesSchema,
 	ListLettersQuerySchema,
+	MarkLetterMailboxSharedSchema,
 	MarkLettersPrintedSchema,
 	PrintBatchQuerySchema,
 	ReviewLetterSchema,
@@ -17,6 +18,7 @@ import {
 	getPrintBatchHandler,
 	letterCountsHandler,
 	listLettersHandler,
+	markMailboxSharedHandler,
 	markPrintedHandler,
 	reviewLetterHandler,
 	toggleMailboxHandler,
@@ -55,6 +57,14 @@ router.patch(
 	requireRetreatAccess('retreatId'),
 	validateRequest(UpdateLetterMailboxSchema),
 	toggleMailboxHandler,
+);
+router.post(
+	'/retreats/:retreatId/letters/mailbox/:retreatParticipantId/shared',
+	isAuthenticated,
+	requirePermission('letter:manage'),
+	requireRetreatAccess('retreatId'),
+	validateRequest(MarkLetterMailboxSharedSchema),
+	markMailboxSharedHandler,
 );
 
 // -- Bandeja y revisión --

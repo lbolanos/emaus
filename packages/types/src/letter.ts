@@ -56,6 +56,12 @@ export const UpdateLetterMailboxSchema = z.object({
 });
 export type UpdateLetterMailbox = z.infer<typeof UpdateLetterMailboxSchema>;
 
+/** Marca de difusión: la dirección del buzón ya se mandó a la familia. */
+export const MarkLetterMailboxSharedSchema = z.object({
+	params: z.object({ retreatId: idSchema, retreatParticipantId: idSchema }),
+});
+export type MarkLetterMailboxShared = z.infer<typeof MarkLetterMailboxSharedSchema>;
+
 // Query params llegan como strings; tolerar '' para filtros vacíos del frontend.
 const optionalIdQuery = z.string().uuid().or(z.literal('')).optional();
 
@@ -133,6 +139,8 @@ export interface LetterMailboxRow {
 	mailboxCode: string | null;
 	mailboxAddress: string | null;
 	mailboxEnabled: boolean;
+	/** Cuándo se mandó a la familia (marca de difusión, mejora 9). */
+	mailboxSharedAt: string | null;
 	letterCounts: { pending: number; approved: number; hidden: number };
 }
 

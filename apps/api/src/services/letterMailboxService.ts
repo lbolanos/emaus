@@ -111,6 +111,23 @@ export async function resolveMailbox(address: string): Promise<MailboxResolution
 	return { status: 'ok', retreatParticipant: rp };
 }
 
+/**
+ * Marca de difusión (mejora 9): la dirección ya se mandó a la familia. Se
+ * guarda sobre el buzón del retiro — si el buzón se re-emite el código cambia
+ * pero la marca sigue siendo útil como "última difusión".
+ */
+export async function markMailboxShared(
+	retreatId: string,
+	retreatParticipantId: string,
+): Promise<Date> {
+	const repo = AppDataSource.getRepository(RetreatParticipant);
+	const rp = await repo.findOne({ where: { id: retreatParticipantId, retreatId } });
+	if (!rp) throw new Error('RetreatParticipant not found');
+	rp.mailboxSharedAt = new Date();
+	await repo.save(rp);
+	return rp.mailboxSharedAt;
+}
+
 export async function setMailboxEnabled(
 	retreatId: string,
 	retreatParticipantId: string,
@@ -189,6 +206,7 @@ export async function getMailboxesForRetreat(retreatId: string): Promise<LetterM
 			mailboxCode: rp.mailboxCode ?? null,
 			mailboxAddress: rp.mailboxCode ? buildMailboxAddress(rp.mailboxCode) : null,
 			mailboxEnabled: rp.mailboxEnabled,
+			mailboxSharedAt: rp.mailboxSharedAt ? rp.mailboxSharedAt.toISOString() : null,
 			letterCounts: counts.get(rp.id) ?? { pending: 0, approved: 0, hidden: 0 },
 		}))
 		.sort((a, b) => {

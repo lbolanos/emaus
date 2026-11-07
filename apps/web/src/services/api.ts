@@ -5018,12 +5018,33 @@ export const receiptClaimsApi = {
     return r.data;
   },
 
-  /** Links de comprobante por participante (con nombre) para difusión. */
+  /** Links de comprobante por participante (con nombre y marca de difusión). */
   getLinks: async (
     retreatId: string,
-  ): Promise<{ participantId: string; participantName: string; link: string }[]> => {
+  ): Promise<{
+    participantId: string;
+    retreatParticipantId: string;
+    participantName: string;
+    link: string;
+    cellPhone: string | null;
+    sharedAt: string | null;
+  }[]> => {
     const r = await api.get(`/payments/receipt-links`, { params: { retreatId } });
     return r.data.links;
+  },
+
+  /** Marca de difusión (mejora 9): el link ya se mandó a la familia. */
+  markLinkShared: async (
+    retreatId: string,
+    retreatParticipantId: string,
+  ): Promise<{ sharedAt: string }> => {
+    // data undefined: axios no manda body (el parser JSON rechaza un body `null` literal).
+    const r = await api.post(
+      `/payments/receipt-links/${retreatParticipantId}/shared`,
+      undefined,
+      { params: { retreatId } },
+    );
+    return r.data;
   },
 
   /** Bandeja de comprobantes (opcionalmente filtrada por estado). */
@@ -5095,6 +5116,17 @@ export const lettersApi = {
     const r = await api.patch(
       `/letters/retreats/${retreatId}/letters/mailbox/${retreatParticipantId}`,
       { mailboxEnabled },
+    );
+    return r.data;
+  },
+
+  /** Marca de difusión (mejora 9): la dirección ya se mandó a la familia. */
+  markMailboxShared: async (
+    retreatId: string,
+    retreatParticipantId: string,
+  ): Promise<{ mailboxSharedAt: string }> => {
+    const r = await api.post(
+      `/letters/retreats/${retreatId}/letters/mailbox/${retreatParticipantId}/shared`,
     );
     return r.data;
   },

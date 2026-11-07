@@ -13,6 +13,7 @@ import {
 	getPublicReceiptLinkContext,
 	submitPublicReceiptClaim,
 	getReceiptLinksHandler,
+	markReceiptLinkSharedHandler,
 	listReceiptClaimsHandler,
 	applyReceiptClaimHandler,
 	dismissReceiptClaimHandler,
@@ -52,6 +53,14 @@ router.get(
 	requirePermission('payment:create'),
 	requireRetreatAccess('retreatId', 'query'),
 	getReceiptLinksHandler,
+);
+// Marca de difusión (mejora 9): el link ya se mandó. retreatId por query,
+// mismo patrón del GET; el service matchea {id, retreatId} → 404 si no es de ese retiro.
+router.post(
+	'/receipt-links/:retreatParticipantId/shared',
+	requirePermission('payment:update'),
+	requireRetreatAccess('retreatId', 'query'),
+	markReceiptLinkSharedHandler,
 );
 router.get(
 	'/receipt-claims',

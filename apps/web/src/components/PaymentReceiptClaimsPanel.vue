@@ -22,28 +22,79 @@
 			</Button>
 		</div>
 
-		<!-- Difusión de links por participante (patrón LettersShareDialog) -->
+		<!-- Difusión de links por participante (patrón LettersShareDialog + marca de envío) -->
 		<Dialog :open="shareOpen" @update:open="shareOpen = $event">
 			<DialogContent class="max-w-2xl max-h-[80vh] overflow-y-auto">
 				<DialogHeader>
 					<DialogTitle>{{ t('paymentClaims.share.title') }}</DialogTitle>
 				</DialogHeader>
-				<p class="text-sm text-muted-foreground">{{ t('paymentClaims.share.description') }}</p>
+				<div class="flex flex-wrap items-center gap-2">
+					<p class="text-sm text-muted-foreground">
+						{{ t('paymentClaims.share.sentSummary', { sent: sharedCount, total: shareLinks.length }) }}
+					</p>
+					<div class="ml-auto flex items-center gap-1">
+						<Button
+							v-for="f in [
+								{ value: 'all' as const, label: t('paymentClaims.share.filterAll'), count: shareLinks.length },
+								{ value: 'pending' as const, label: t('paymentClaims.share.filterPending'), count: pendingLinksCount },
+							]"
+							:key="f.value"
+							:variant="shareFilter === f.value ? 'default' : 'ghost'"
+							size="sm"
+							class="h-7 text-xs border"
+							@click="shareFilter = f.value"
+						>
+							{{ f.label }}
+							<span class="ml-1 opacity-70">({{ f.count }})</span>
+						</Button>
+					</div>
+				</div>
 				<div class="space-y-2">
 					<div
-						v-for="entry in shareLinks"
+						v-for="entry in visibleLinks"
 						:key="entry.participantId"
-						class="flex items-center justify-between gap-2 rounded border p-2"
+						class="rounded border p-2"
 					>
-						<span class="font-medium text-sm">{{ entry.participantName }}</span>
-						<div class="flex items-center gap-1">
-							<code class="text-xs bg-muted rounded px-1.5 py-0.5 max-w-[220px] truncate">
-								{{ entry.link }}
-							</code>
-							<Button variant="ghost" size="icon" @click="copyLink(entry)">
-								<Copy class="h-4 w-4" />
-							</Button>
+						<div class="flex items-center justify-between gap-2">
+							<div class="min-w-0">
+								<span class="font-medium text-sm">{{ entry.participantName }}</span>
+								<p class="text-xs" :class="entry.sharedAt ? 'text-green-700' : 'text-amber-700'">
+									<template v-if="entry.sharedAt">
+										✓ {{ t('paymentClaims.share.sentOn', { date: new Date(entry.sharedAt).toLocaleString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) }) }}
+									</template>
+									<template v-else>{{ t('paymentClaims.share.notSent') }}</template>
+								</p>
+							</div>
+							<div class="flex items-center gap-1">
+								<code class="text-xs bg-muted rounded px-1.5 py-0.5 max-w-[220px] truncate">
+									{{ entry.link }}
+								</code>
+								<Button variant="ghost" size="icon" @click="copyLink(entry)">
+									<Copy class="h-4 w-4" />
+								</Button>
+								<Button
+									v-if="whatsappLink(entry)"
+									variant="ghost"
+									size="icon"
+									:title="entry.sharedAt ? t('paymentClaims.share.resend') : t('paymentClaims.share.whatsapp')"
+									@click="openWhatsApp(entry)"
+								>
+									<MessageCircle class="h-4 w-4" />
+								</Button>
+								<Button
+									v-if="!entry.sharedAt"
+									variant="ghost"
+									size="icon"
+									:title="t('paymentClaims.share.markSent')"
+									@click="markSharedManually(entry)"
+								>
+									<Stamp class="h-4 w-4" />
+								</Button>
+							</div>
 						</div>
+					</div>
+					<div v-if="visibleLinks.length === 0 && shareLinks.length > 0" class="py-6 text-center text-sm text-muted-foreground">
+						{{ t('paymentClaims.share.emptyPending') }}
 					</div>
 				</div>
 			</DialogContent>
@@ -188,11 +239,12 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from '@repo/ui';
-import { Copy, Share2, Stamp } from 'lucide-vue-next';
+import { Copy, MessageCircle, Share2, Stamp } from 'lucide-vue-next';
 import {
 	receiptClaimsApi,
 	type ReceiptClaim,
 } from '@/services/api';
+import { buildWhatsAppSendLink, toE164Phone } from '@/utils/phone';
 import { useRetreatStore } from '@/stores/retreatStore';
 
 const route = useRoute();
@@ -203,7 +255,41 @@ const retreatStore = useRetreatStore();
 const retreatId = () => (route.params.id as string) || retreatStore.selectedRetreatId || '';
 
 const shareOpen = ref(false);
-const shareLinks = ref<{ participantId: string; participantName: string; link: string }[]>([]);
+const shareLinks = ref<
+	{
+		participantId: string;
+		retreatParticipantId: string;
+		participantName: string;
+		link: string;
+		cellPhone: string | null;
+		sharedAt: string | null;
+	}[]
+>([]);
+const shareFilter = ref<'all' | 'pending'>('all');
+
+const sharedCount = computed(() => shareLinks.value.filter((l) => l.sharedAt).length);
+const pendingLinksCount = computed(() => shareLinks.value.length - sharedCount.value);
+const visibleLinks = computed(() =>
+	shareFilter.value === 'pending'
+		? shareLinks.value.filter((l) => !l.sharedAt)
+		: shareLinks.value,
+);
+
+const receiptMessage = (entry: { participantName: string; link: string }): string =>
+	t('paymentClaims.share.messageTemplate', {
+		participant: entry.participantName,
+		link: entry.link,
+	});
+
+const whatsappLink = (entry: {
+	participantName: string;
+	link: string;
+	cellPhone: string | null;
+}): string | null => {
+	if (!entry.cellPhone) return null;
+	if (toE164Phone(entry.cellPhone, 'MX').length === 0) return null;
+	return buildWhatsAppSendLink(entry.cellPhone, receiptMessage(entry), 'MX');
+};
 
 const openShare = async () => {
 	shareOpen.value = true;
@@ -219,6 +305,38 @@ const copyLink = async (entry: { participantName: string; link: string }) => {
 		`${entry.participantName}: ${entry.link}`,
 	);
 	toast({ title: t('paymentClaims.share.copied') });
+};
+
+/** Marca de difusión (mejora 9): el link ya se mandó. Optimista sobre wa.me. */
+const openWhatsApp = async (entry: {
+	retreatParticipantId: string;
+	participantName: string;
+	link: string;
+	cellPhone: string | null;
+	sharedAt: string | null;
+}) => {
+	const link = whatsappLink(entry);
+	if (!link) return;
+	window.open(link, '_blank');
+	try {
+		const result = await receiptClaimsApi.markLinkShared(retreatId(), entry.retreatParticipantId);
+		entry.sharedAt = result.sharedAt;
+	} catch {
+		// Sin marca no se rompe el envío; el próximo fetch la trae.
+	}
+};
+
+/** Marca manual (sin WhatsApp directo): el equipo pegó el link en un chat propio. */
+const markSharedManually = async (entry: {
+	retreatParticipantId: string;
+	sharedAt: string | null;
+}) => {
+	try {
+		const result = await receiptClaimsApi.markLinkShared(retreatId(), entry.retreatParticipantId);
+		entry.sharedAt = result.sharedAt;
+	} catch {
+		toast({ title: t('paymentClaims.share.markError'), variant: 'destructive' });
+	}
 };
 
 const claims = ref<ReceiptClaim[]>([]);

@@ -8,6 +8,7 @@ import {
 	buildMailboxAddress,
 	fullName,
 	getMailboxesForRetreat,
+	markMailboxShared,
 	setMailboxEnabled,
 } from '../services/letterMailboxService';
 import {
@@ -215,6 +216,29 @@ export const toggleMailboxHandler = async (req: Request, res: Response) => {
 		}
 		console.error('toggleMailbox error:', error);
 		res.status(500).json({ message: 'Error al actualizar el buzón' });
+	}
+};
+
+/**
+ * POST /retreats/:retreatId/letters/mailbox/:retreatParticipantId/shared —
+ * marca de difusión (mejora 9): la dirección ya se mandó a la familia.
+ */
+export const markMailboxSharedHandler = async (req: Request, res: Response) => {
+	try {
+		const sharedAt = await markMailboxShared(req.params.retreatId, req.params.retreatParticipantId);
+		void domainAuditService.log({
+			action: DomainAuditAction.LETTER_MAILBOX_MARK_SHARED,
+			resourceType: 'letter',
+			retreatId: req.params.retreatId,
+			metadata: { retreatParticipantId: req.params.retreatParticipantId },
+		});
+		res.json({ retreatParticipantId: req.params.retreatParticipantId, mailboxSharedAt: sharedAt });
+	} catch (error) {
+		if (error instanceof Error && error.message === 'RetreatParticipant not found') {
+			return res.status(404).json({ message: 'Participante del retiro no encontrado' });
+		}
+		console.error('markMailboxShared error:', error);
+		res.status(500).json({ message: 'Error al marcar la difusión' });
 	}
 };
 

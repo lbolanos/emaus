@@ -39,6 +39,8 @@ import {
 	applyReceiptClaim,
 	dismissReceiptClaim,
 	createPaymentFromLetter,
+	getReceiptLinks,
+	markReceiptLinkShared,
 	PaymentClaimError,
 } from '@/services/paymentReceiptClaimService';
 import {
@@ -161,6 +163,45 @@ describe('paymentReceiptClaimService (integration)', () => {
 		await dismissReceiptClaim(claimId, userId);
 		const claim = await getDS().getRepository(PaymentReceiptClaim).findOneByOrFail({ id: claimId });
 		expect(claim.status).toBe('dismissed');
+	});
+
+	it('getReceiptLinks trae link y sharedAt null; markReceiptLinkShared lo sella (mejora 9)', async () => {
+		const links = await getReceiptLinks(retreat.id);
+		const mine = links.find((l) => l.participantId === participant.id);
+		expect(mine).toBeTruthy();
+		expect(mine!.link).toContain('/comprobante/');
+		expect(mine!.sharedAt).toBeNull();
+
+		// La marca usa el id de retreat_participants (no el participantId global).
+		const rp = (
+			await getDS().query(
+				`SELECT "id" FROM "retreat_participants" WHERE "participantId" = ? AND "retreatId" = ? LIMIT 1`,
+				[participant.id, retreat.id],
+			)
+		)[0];
+		expect(mine!.retreatParticipantId).toBe(rp.id);
+		const sharedAt = await markReceiptLinkShared(retreat.id, rp.id);
+		expect(sharedAt).toBeTruthy();
+
+		const after = await getReceiptLinks(retreat.id);
+		expect(after.find((l) => l.participantId === participant.id)!.sharedAt).toBeTruthy();
+	});
+
+	it('markReceiptLinkShared con rp de otro retiro → 404 (anti-IDOR)', async () => {
+		const otherRetreat = await TestDataFactory.createTestRetreat();
+		const other = await TestDataFactory.createTestParticipant(otherRetreat.id, {
+			type: 'walker',
+		} as any);
+		const rp = (
+			await getDS().query(
+				`SELECT "id" FROM "retreat_participants" WHERE "participantId" = ? AND "retreatId" = ? LIMIT 1`,
+				[other.id, otherRetreat.id],
+			)
+		)[0];
+		await expect(markReceiptLinkShared(retreat.id, rp.id)).rejects.toMatchObject({
+			code: 'unknown_claim',
+			httpStatus: 404,
+		});
 	});
 
 	it('from-letter crea el pago con la foto de la carta y la sella attached', async () => {

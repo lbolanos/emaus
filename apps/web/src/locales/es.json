@@ -4685,7 +4685,14 @@
       "noPhone": "El participante no tiene teléfono capturado",
       "empty": "Activa los buzones primero.",
       "defaultDeadline": "antes del inicio del retiro",
-      "messageTemplate": "¡Hola! Para el retiro de {retreat}, la familia de {participant} puede enviar su carta (mensaje de apoyo con fotos si quieren) al correo {address} antes del retiro ({deadline}). El equipo la imprime y la entregamos durante el fin de semana. Es una sorpresa, ¡no se lo comenten!"
+      "messageTemplate": "¡Hola! Para el retiro de {retreat}, la familia de {participant} puede enviar su carta (mensaje de apoyo con fotos si quieren) al correo {address} antes del retiro ({deadline}). El equipo la imprime y la entregamos durante el fin de semana. Es una sorpresa, ¡no se lo comenten!",
+      "sentSummary": "{sent} de {total} mandadas",
+      "filterAll": "Todas",
+      "filterPending": "Sin mandar",
+      "sentOn": "Mandada el {date}",
+      "notSent": "Sin mandar",
+      "resend": "Reenviar",
+      "emptyPending": "Todas las direcciones ya se mandaron."
     },
     "print": {
       "table": "Imprimir mesa",
@@ -4740,7 +4747,18 @@
       "open": "Difundir links",
       "title": "Links de comprobante por participante",
       "description": "Envía a cada familia su link personal: lo abren desde el teléfono, adjuntan la captura de su transferencia y el equipo la registra.",
-      "copied": "Link copiado"
+      "copied": "Link copiado",
+      "sentSummary": "{sent} de {total} mandadas",
+      "filterAll": "Todas",
+      "filterPending": "Sin mandar",
+      "sentOn": "Mandada el {date}",
+      "notSent": "Sin mandar",
+      "resend": "Reenviar",
+      "whatsapp": "WhatsApp",
+      "markSent": "Marcar como mandada (si pegaste el link en otro chat)",
+      "markError": "No se pudo marcar como mandada",
+      "emptyPending": "Todas las familias ya tienen su link mandado.",
+      "messageTemplate": "¡Hola! Para el retiro, la familia de {participant} puede subir su comprobante de pago aquí: {link}. El equipo lo registra al recibirlo."
     },
     "shareError": "No se pudieron generar los links",
     "confirm": {

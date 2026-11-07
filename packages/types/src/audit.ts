@@ -240,6 +240,8 @@ export const DomainAuditAction = {
 	LETTER_REVIEW: 'letter.review',
 	LETTER_PRINT_MARK: 'letter.print_mark',
 	LETTER_MAILBOX_TOGGLE: 'letter.mailbox_toggle',
+	LETTER_MAILBOX_MARK_SHARED: 'letter.mailbox_mark_shared',
+	PAYMENT_RECEIPT_LINK_MARK_SHARED: 'payment.receipt_link_mark_shared',
 } as const;
 
 export type DomainAuditActionType = (typeof DomainAuditAction)[keyof typeof DomainAuditAction];
