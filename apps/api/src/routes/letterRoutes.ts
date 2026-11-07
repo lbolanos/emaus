@@ -15,6 +15,7 @@ import {
 	getLetterHandler,
 	getMailboxesHandler,
 	getPrintBatchHandler,
+	letterCountsHandler,
 	listLettersHandler,
 	markPrintedHandler,
 	reviewLetterHandler,
@@ -80,6 +81,14 @@ router.get(
 	requireRetreatAccess('retreatId'),
 	validateRequest(PrintBatchQuerySchema),
 	getPrintBatchHandler,
+);
+// Conteo por estado para el badge del sidebar (ligero: solo counts).
+router.get(
+	'/retreats/:retreatId/letters/counts',
+	isAuthenticated,
+	requirePermission('letter:read'),
+	requireRetreatAccess('retreatId'),
+	letterCountsHandler,
 );
 router.get('/:id', isAuthenticated, requirePermission('letter:read'), getLetterHandler);
 router.patch(

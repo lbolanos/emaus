@@ -115,21 +115,30 @@ const openWhatsApp = (row: LetterMailboxRow) => {
 						<code v-if="row.mailboxAddress" class="text-xs bg-muted rounded px-1.5 py-0.5">{{ row.mailboxAddress }}</code>
 						<span v-else class="text-muted-foreground text-sm">{{ t('letters.mailboxDialog.noMailbox') }}</span>
 					</div>
-					<div v-if="row.mailboxAddress" class="flex flex-wrap gap-2">
-						<Button variant="outline" size="sm" @click="copyMessage(row)">
-							<Copy class="mr-2 h-4 w-4" />
-							{{ copiedIds.has(row.retreatParticipantId) ? t('letters.share.copied') : t('letters.share.copy') }}
-						</Button>
-						<Button
-							variant="outline"
-							size="sm"
-							:disabled="!canSend(row)"
-							:title="canSend(row) ? '' : t('letters.share.noPhone')"
-							@click="openWhatsApp(row)"
+					<div v-if="row.mailboxAddress" class="space-y-2">
+						<!-- Preview del mensaje real que se copia/envía (item 8): sin copiar a ciegas -->
+						<p
+							class="text-sm text-muted-foreground whitespace-pre-wrap border rounded p-2 bg-muted/30"
+							data-testid="share-message-preview"
 						>
-							<MessageCircle class="mr-2 h-4 w-4" />
-							{{ t('letters.share.whatsapp') }}
-						</Button>
+							{{ buildMessage(row) }}
+						</p>
+						<div class="flex flex-wrap gap-2">
+							<Button variant="outline" size="sm" @click="copyMessage(row)">
+								<Copy class="mr-2 h-4 w-4" />
+								{{ copiedIds.has(row.retreatParticipantId) ? t('letters.share.copied') : t('letters.share.copy') }}
+							</Button>
+							<Button
+								variant="outline"
+								size="sm"
+								:disabled="!canSend(row)"
+								:title="canSend(row) ? '' : t('letters.share.noPhone')"
+								@click="openWhatsApp(row)"
+							>
+								<MessageCircle class="mr-2 h-4 w-4" />
+								{{ t('letters.share.whatsapp') }}
+							</Button>
+						</div>
 					</div>
 				</div>
 			</div>

@@ -52,36 +52,44 @@
             <p v-if="photoError" class="text-sm text-red-600">{{ photoError }}</p>
           </div>
 
-          <input
-            v-model="amountInput"
-            type="number"
-            min="1"
-            step="0.01"
-            :placeholder="t('receiptClaim.amountPlaceholder')"
-            class="w-full border rounded px-3 py-2 text-sm"
-            data-testid="receipt-amount"
-          />
-          <input
-            v-model="referenceInput"
-            type="text"
-            :placeholder="t('receiptClaim.referencePlaceholder')"
-            class="w-full border rounded px-3 py-2 text-sm"
-            data-testid="receipt-reference"
-          />
-          <textarea
-            v-model="noteInput"
-            rows="2"
-            :placeholder="t('receiptClaim.notePlaceholder')"
-            class="w-full border rounded px-3 py-2 text-sm"
-            data-testid="receipt-note"
-          ></textarea>
-          <input
-            v-model="senderInput"
-            type="text"
-            :placeholder="t('receiptClaim.senderPlaceholder')"
-            class="w-full border rounded px-3 py-2 text-sm"
-            data-testid="receipt-sender"
-          />
+          <label class="block">
+            <span class="text-xs text-gray-600">{{ t('receiptClaim.amountLabel') }}</span>
+            <input
+              v-model="amountInput"
+              type="number"
+              min="1"
+              step="0.01"
+              class="mt-1 w-full border rounded px-3 py-2 text-sm"
+              data-testid="receipt-amount"
+            />
+          </label>
+          <label class="block">
+            <span class="text-xs text-gray-600">{{ t('receiptClaim.referenceLabel') }}</span>
+            <input
+              v-model="referenceInput"
+              type="text"
+              class="mt-1 w-full border rounded px-3 py-2 text-sm"
+              data-testid="receipt-reference"
+            />
+          </label>
+          <label class="block">
+            <span class="text-xs text-gray-600">{{ t('receiptClaim.noteLabel') }}</span>
+            <textarea
+              v-model="noteInput"
+              rows="2"
+              class="mt-1 w-full border rounded px-3 py-2 text-sm"
+              data-testid="receipt-note"
+            ></textarea>
+          </label>
+          <label class="block">
+            <span class="text-xs text-gray-600">{{ t('receiptClaim.senderLabel') }}</span>
+            <input
+              v-model="senderInput"
+              type="text"
+              class="mt-1 w-full border rounded px-3 py-2 text-sm"
+              data-testid="receipt-sender"
+            />
+          </label>
         </div>
 
         <button

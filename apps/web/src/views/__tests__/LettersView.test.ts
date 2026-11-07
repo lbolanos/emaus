@@ -116,11 +116,10 @@ describe('LettersView', () => {
 		api.lettersApi.reviewLetter.mockResolvedValue({ ...letter(), status: 'approved' });
 		const wrapper = await mountView();
 
-		// Expandir el detalle para ver las acciones de revisión.
-		await wrapper.find('button.flex.w-full').trigger('click');
-		await flushPromises();
-
-		const approveBtn = wrapper.findAll('button').find((b) => b.text().includes('letters.review.approve'));
+		// Acción rápida en la fila: botón de solo ícono con title (sin expandir).
+		const approveBtn = wrapper
+			.findAll('button')
+			.find((b) => b.attributes('title') === 'letters.review.approve');
 		expect(approveBtn).toBeTruthy();
 		await approveBtn!.trigger('click');
 		await flushPromises();

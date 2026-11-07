@@ -9,16 +9,65 @@ import {
 	type LetterStatus,
 } from '../services/api';
 import { apiErrorMessage } from '@/services/apiError';
+import { getSocket } from '@/services/realtime';
 
 export type LetterReviewStatus = 'approved' | 'hidden';
 
 export const useLetterStore = defineStore('letters', () => {
 	const letters = ref<Letter[]>([]);
-	const counts = ref<LettersInbox['counts']>({ pending: 0, approved: 0, hidden: 0 });
+	const counts = ref<LettersInbox['counts']>({
+		pending: 0,
+		approved: 0,
+		hidden: 0,
+		attached: 0,
+	});
 	const mailboxes = ref<LetterMailboxRow[]>([]);
 	const loading = ref(false);
 	const mailboxesLoading = ref(false);
 	const error = ref<string | null>(null);
+	// Badge del sidebar: pendientes del retiro seleccionado (ligero, sin bandeja).
+	const pendingCount = ref<number | null>(null);
+	let subscribedRetreatId: string | null = null;
+
+	/**
+	 * Badge en vivo (patrón de messageSequenceStore): se une a la sala del
+	 * retiro y con cada carta recibida incrementa el pendiente — un refetch
+	 * después trae lo mismo, así que el evento es idempotente para el estado.
+	 */
+	function subscribeRealtime(retreatId: string) {
+		const socket = getSocket();
+		subscribedRetreatId = retreatId;
+		const join = () => {
+			socket.emit('letters:subscribe', retreatId, (ok: boolean) => {
+				if (!ok) return;
+			});
+		};
+		if (socket.connected) join();
+		socket.on('connect', join);
+		socket.on('letters:received', (payload: { retreatId: string }) => {
+			if (payload.retreatId !== retreatId) return;
+			if (subscribedRetreatId === retreatId && pendingCount.value != null) {
+				pendingCount.value += 1;
+			}
+		});
+	}
+
+	function unsubscribeRealtime(retreatId: string) {
+		const socket = getSocket();
+		socket.emit('letters:unsubscribe', retreatId);
+		subscribedRetreatId = null;
+	}
+
+	/** Conteos ligeros para el badge del sidebar (sin bandeja). */
+	const fetchCounts = async (retreatId: string) => {
+		try {
+			const fetched = await lettersApi.getLetterCounts(retreatId);
+			counts.value = fetched;
+			pendingCount.value = fetched.pending;
+		} catch {
+			// El badge es best-effort: sin datos queda null (sin badge).
+		}
+	};
 
 	const fetchLetters = async (
 		retreatId: string,
@@ -132,11 +181,15 @@ export const useLetterStore = defineStore('letters', () => {
 	return {
 		letters,
 		counts,
+		pendingCount,
 		mailboxes,
 		loading,
 		mailboxesLoading,
 		error,
 		fetchLetters,
+		fetchCounts,
+		subscribeRealtime,
+		unsubscribeRealtime,
 		fetchMailboxes,
 		activateMailboxes,
 		toggleMailbox,

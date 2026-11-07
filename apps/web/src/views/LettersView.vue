@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { useToast } from '@repo/ui';
@@ -24,6 +24,7 @@ import { useRetreatStore } from '@/stores/retreatStore';
 import { useTableMesaStore } from '@/stores/tableMesaStore';
 import { lettersApi, type Letter, type LetterMailboxRow, type LetterStatus } from '@/services/api';
 import { printHtmlDocument } from '@/composables/usePrintableDocument';
+import { getSocket } from '@/services/realtime';
 import {
 	buildLettersBodyHtml,
 	lettersPrintTitle,
@@ -79,7 +80,22 @@ onMounted(async () => {
 	if (retreatStore.retreats.length === 0) retreatStore.fetchRetreats();
 	// Buzones precargados: 'Difundir' y 'Copiar dirección' leen de esta lista.
 	letterStore.fetchMailboxes(retreatId.value).catch(() => {});
+	// Badge en vivo: nueva carta en el buzón → refetch + aviso.
+	getSocket().on('letters:received', onLetterReceived);
 });
+
+function onLetterReceived(payload: { retreatId: string; participantName: string }) {
+	if (payload.retreatId !== retreatId.value) return;
+	load();
+	toast({ title: t('letters.receivedToast', { name: payload.participantName }) });
+}
+
+onBeforeUnmount(() => {
+	getSocket().off('letters:received', onLetterReceived);
+});
+
+const firstPhotoUrl = (letter: Letter): string | null =>
+	letter.attachments?.find((a) => a.isBrowserSafeImage)?.storageUrl ?? null;
 
 watch(retreatId, () => {
 	expandedId.value = null;
@@ -319,13 +335,19 @@ const toggleExpanded = (id: string) => {
 			<div
 				v-for="letter in letterStore.letters"
 				:key="letter.id"
-				class="rounded-lg border"
+				class="group rounded-lg border"
 			>
-				<!-- Fila de resumen -->
-				<button
-					class="flex w-full items-start justify-between gap-3 p-3 text-left hover:bg-muted/40"
+				<!-- Fila de resumen: acciones rápidas sin expandir (revisión en volumen) -->
+				<div
+					class="flex items-start gap-3 p-3 cursor-pointer hover:bg-muted/40"
 					@click="toggleExpanded(letter.id)"
 				>
+					<img
+						v-if="firstPhotoUrl(letter)"
+						:src="firstPhotoUrl(letter)!"
+						:alt="t('letters.receiptAlt')"
+						class="h-14 w-20 shrink-0 object-cover border rounded"
+					/>
 					<div class="min-w-0 flex-1">
 						<div class="flex flex-wrap items-center gap-2">
 							<span class="font-medium">{{ letter.participantName ?? '—' }}</span>
@@ -347,11 +369,32 @@ const toggleExpanded = (id: string) => {
 						</div>
 						<p class="mt-1 truncate text-sm text-muted-foreground">{{ letterSnippet(letter) }}</p>
 					</div>
+					<div class="flex shrink-0 items-center gap-1" @click.stop>
+						<!-- Acciones rápidas de revisión sin abrir el detalle -->
+						<Button
+							v-if="letter.status === 'pending'"
+							variant="outline"
+							size="sm"
+							:title="t('letters.review.approve')"
+							@click.stop="review(letter, 'approved')"
+						>
+							<Check class="h-4 w-4 text-green-600" />
+						</Button>
+						<Button
+							v-if="letter.status !== 'hidden'"
+							variant="outline"
+							size="sm"
+							:title="t('letters.review.hide')"
+							@click.stop="review(letter, 'hidden')"
+						>
+							<EyeOff class="h-4 w-4" />
+						</Button>
+					</div>
 					<ChevronDown
 						class="h-4 w-4 shrink-0 text-muted-foreground transition-transform"
 						:class="{ 'rotate-180': expandedId === letter.id }"
 					/>
-				</button>
+				</div>
 
 				<!-- Detalle expandido: texto interpolado (Vue escapa; NUNCA v-html, D10) -->
 				<div v-if="expandedId === letter.id" class="border-t p-4">

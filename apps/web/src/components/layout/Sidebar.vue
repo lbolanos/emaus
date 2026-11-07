@@ -508,6 +508,7 @@ import { ref, computed, nextTick, onMounted, onBeforeUnmount, watch } from 'vue'
 import { LogOut, Users, UtensilsCrossed, LayoutDashboard, ChevronLeft, Home, Ban, Bed, HandHeart, DollarSign, NotebookPen, Building, UsersRound, Salad, FileX, UserCheck, ShoppingBag, Pill, Shirt, UserCog, Table, Settings, Package, Globe, Briefcase, Search, X, ArrowRight, ChevronDown, Lock, CreditCard, Activity, KeyRound, Heart, UserPlus, UserCircle, MessageSquare, Clock, ClipboardList, BookOpen, Plus, Edit as EditIcon, HelpCircle, Cross, User as UserIcon, Languages, DoorOpen, Trash2, Flag, Mail } from 'lucide-vue-next';
 import { useAuthStore } from '@/stores/authStore';
 import { useReceptionStore } from '@/stores/receptionStore';
+import { useLetterStore } from '@/stores/letterStore';
 import { useRouter, useRoute } from 'vue-router';
 import { Button } from '@repo/ui';
 import {
@@ -588,6 +589,7 @@ const retreatStore = useRetreatStore();
 const communityStore = useCommunityStore();
 const uiStore = useUIStore();
 const receptionStore = useReceptionStore();
+const letterStore = useLetterStore();
 const participantStore = useParticipantStore();
 const menuFavoritesStore = useMenuFavoritesStore();
 const { participants } = storeToRefs(participantStore);
@@ -620,6 +622,8 @@ const ITEM_BADGE: Record<string, { color: string; count: () => number | null }> 
   canceled:     { color: 'bg-red-500',    count: () => participantCounts.value.canceled  || null },
   reception:    { color: 'bg-amber-500',  count: () => receptionStore.pendingCount       || null },
   'special-cases': { color: 'bg-amber-500', count: () => participantCounts.value.specialCases || null },
+  // Cartas de familias: pendientes de revisión (specs/letters-email).
+  letters:      { color: 'bg-purple-600', count: () => letterStore.pendingCount          || null },
 };
 
 function itemBadge(name: string): number | null {
@@ -740,6 +744,17 @@ watch(
         const { getReceptionStats } = await import('@/services/api');
         const stats = await getReceptionStats(newId);
         receptionStore.setPending(stats.pending);
+      } catch {
+        // non-critical
+      }
+
+      // Cartas de familias: badge de pendientes + realtime (solo si el usuario
+      // puede leer cartas — el subscribe valida permiso en el server).
+      try {
+        const { useLetterStore } = await import('@/stores/letterStore');
+        const letters = useLetterStore();
+        await letters.fetchCounts(newId);
+        letters.subscribeRealtime(newId);
       } catch {
         // non-critical
       }

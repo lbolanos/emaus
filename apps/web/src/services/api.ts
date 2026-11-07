@@ -4989,7 +4989,7 @@ export type {
 
 export interface LettersInbox {
   letters: Letter[];
-  counts: { pending: number; approved: number; hidden: number };
+  counts: { pending: number; approved: number; hidden: number; attached: number };
 }
 
 // ---------------------------------------------------------------------------
@@ -5112,6 +5112,14 @@ export const lettersApi = {
   ): Promise<LettersInbox> => {
     const r = await api.get(`/letters/retreats/${retreatId}/letters`, { params: filters });
     return r.data;
+  },
+
+  /** Conteo por estado (badge del sidebar, sin bandeja). */
+  getLetterCounts: async (
+    retreatId: string,
+  ): Promise<LettersInbox["counts"]> => {
+    const r = await api.get(`/letters/retreats/${retreatId}/letters/counts`);
+    return r.data.counts;
   },
 
   /** Detalle de carta con adjuntos presigned. */

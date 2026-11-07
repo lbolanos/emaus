@@ -123,7 +123,7 @@
 								<option value="other">{{ t('paymentClaims.method.other') }}</option>
 							</select>
 						</label>
-						<Button size="sm" :disabled="applying === claim.id" @click="apply(claim)">
+						<Button size="sm" :disabled="applying === claim.id" @click="askConfirm(claim)">
 							<Stamp class="mr-1 h-4 w-4" />
 							{{ t('paymentClaims.apply') }}
 						</Button>
@@ -141,6 +141,36 @@
 				<img v-if="viewerUrl" :src="viewerUrl" alt="" class="max-h-[80vh] w-full object-contain" />
 			</DialogContent>
 		</Dialog>
+
+		<!-- Confirmación con resumen antes de crear el pago (item 13) -->
+		<Dialog :open="!!confirmClaim" @update:open="confirmClaim = $event ? confirmClaim : null">
+			<DialogContent class="max-w-md">
+				<DialogHeader>
+					<DialogTitle>{{ t('paymentClaims.confirm.title') }}</DialogTitle>
+				</DialogHeader>
+				<div v-if="confirmClaim" class="space-y-1 text-sm" data-testid="claim-confirm-summary">
+					<p>
+						<strong>{{ confirmClaim.participantName }}</strong>
+					</p>
+					<p>
+						{{ t('paymentClaims.confirm.amount') }}:
+						<strong>{{ formatMoney(Number(applyForms[confirmClaim.id]?.amount ?? 0)) }}</strong>
+					</p>
+					<p>
+						{{ t('paymentClaims.confirm.method') }}:
+						{{ t(`paymentClaims.method.${applyForms[confirmClaim.id]?.paymentMethod ?? 'transfer'}`) }}
+					</p>
+				</div>
+				<DialogFooter>
+					<Button variant="outline" @click="confirmClaim = null">
+						{{ t('common.cancel') }}
+					</Button>
+					<Button :disabled="applying !== null" @click="confirmApply">
+						{{ t('paymentClaims.confirm.create') }}
+					</Button>
+				</DialogFooter>
+			</DialogContent>
+		</Dialog>
 	</div>
 </template>
 
@@ -151,7 +181,13 @@ import { useI18n } from 'vue-i18n';
 import { useToast } from '@repo/ui';
 import { Badge } from '@repo/ui';
 import { Button } from '@repo/ui';
-import { Dialog, DialogContent } from '@repo/ui';
+import {
+	Dialog,
+	DialogContent,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+} from '@repo/ui';
 import { Copy, Share2, Stamp } from 'lucide-vue-next';
 import {
 	receiptClaimsApi,
@@ -210,8 +246,14 @@ const refresh = async () => {
 		claims.value = await receiptClaimsApi.list(retreatId());
 		for (const claim of claims.value) {
 			if (!applyForms[claim.id]) {
+				// Pre-llenar con el SALDO pendiente (suele ser el monto correcto);
+				// si la familia declaró otro monto, queda a la vista para ajustar.
+				const suggested =
+					claim.participantBalance != null && claim.participantBalance > 0
+						? claim.participantBalance
+						: claim.amountClaimed;
 				applyForms[claim.id] = {
-					amount: claim.amountClaimed != null ? String(claim.amountClaimed) : '',
+					amount: suggested != null ? String(suggested) : '',
 					paymentMethod: 'transfer',
 				};
 			}
@@ -229,17 +271,28 @@ const setStatus = (value: 'pending' | 'attached' | 'dismissed' | '') => {
 	activeStatus.value = activeStatus.value === value ? '' : value;
 };
 
-const apply = async (claim: ReceiptClaim) => {
+// Confirmación con resumen antes de crear el pago (item 13): participante,
+// monto y método en un dialog — crear un pago es dinero.
+const confirmClaim = ref<ReceiptClaim | null>(null);
+
+const askConfirm = (claim: ReceiptClaim) => {
 	const form = applyForms[claim.id];
-	const amount = Number(form.amount);
-	if (!amount || amount <= 0) {
+	if (!Number(form.amount)) {
 		toast({ title: t('paymentClaims.amountRequired'), variant: 'destructive' });
 		return;
 	}
+	confirmClaim.value = claim;
+};
+
+const confirmApply = async () => {
+	if (!confirmClaim.value) return;
+	const claim = confirmClaim.value;
+	const form = applyForms[claim.id];
+	confirmClaim.value = null;
 	applying.value = claim.id;
 	try {
 		const result = await receiptClaimsApi.apply(claim.id, {
-			amount,
+			amount: Number(form.amount),
 			paymentMethod: form.paymentMethod,
 		});
 		toast({

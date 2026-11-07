@@ -6,6 +6,7 @@ import { LetterAttachment } from '../entities/letterAttachment.entity';
 import { RetreatParticipant } from '../entities/retreatParticipant.entity';
 import { s3Service } from './s3Service';
 import { resolveMailbox, fullName } from './letterMailboxService';
+import { emitLetterReceived } from '../realtime';
 import { tableNumberOf } from '../utils/tableNaming';
 import type { InboundLetterPayload, LetterPrintBatchEntry } from '@repo/types';
 
@@ -294,6 +295,13 @@ export async function ingestLetter(payload: InboundLetterPayload): Promise<Inges
 		throw error;
 	}
 
+	// Badge del sidebar + bandeja en vivo (realtime; fire-and-forget).
+	emitLetterReceived({
+		retreatId: rp.retreatId,
+		letterId,
+		participantName: fullName(rp.participant),
+	});
+
 	return { status: 'accepted', letterId, duplicate: false };
 }
 
@@ -335,18 +343,23 @@ export async function listLetters(retreatId: string, filters: ListLettersFilters
 	}
 	qb.orderBy('letter.receivedAt', 'DESC').limit(500);
 
-	const [letters, countsRaw] = await Promise.all([
-		qb.getMany(),
-		AppDataSource.query(
-			`SELECT "status", COUNT(*) AS c FROM "letters" WHERE "retreatId" = ? GROUP BY "status"`,
-			[retreatId],
-		),
-	]);
-	const counts = { pending: 0, approved: 0, hidden: 0 };
-	for (const row of countsRaw as { status: string; c: number }[]) {
+	const [letters, counts] = await Promise.all([qb.getMany(), letterCountsByStatus(retreatId)]);
+	return { letters, counts };
+}
+
+/** Conteo por estado para el badge del sidebar y los chips de la bandeja. */
+export async function letterCountsByStatus(
+	retreatId: string,
+): Promise<{ pending: number; approved: number; hidden: number; attached: number }> {
+	const countsRaw: { status: string; c: number }[] = await AppDataSource.query(
+		`SELECT "status", COUNT(*) AS c FROM "letters" WHERE "retreatId" = ? GROUP BY "status"`,
+		[retreatId],
+	);
+	const counts = { pending: 0, approved: 0, hidden: 0, attached: 0 };
+	for (const row of countsRaw) {
 		if (row.status in counts) counts[row.status as keyof typeof counts] = Number(row.c);
 	}
-	return { letters, counts };
+	return counts;
 }
 
 /** {id, retreatId} mínimo para el chequeo de acceso al recurso específico. */

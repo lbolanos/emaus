@@ -4699,7 +4699,9 @@
     "activateDone": {
       "doneTitle": "Buzones activados",
       "doneDescription": "{activated} buzones nuevos, {alreadyActive} ya existían."
-    }
+    },
+    "receivedToast": "📬 Nueva carta de {name}",
+    "receiptAlt": "Foto adjunta"
   },
   "paymentClaims": {
     "tab": "Comprobantes",
@@ -4735,7 +4737,13 @@
       "description": "Envía a cada familia su link personal: lo abren desde el teléfono, adjuntan la captura de su transferencia y el equipo la registra.",
       "copied": "Link copiado"
     },
-    "shareError": "No se pudieron generar los links"
+    "shareError": "No se pudieron generar los links",
+    "confirm": {
+      "title": "Registrar pago con este comprobante",
+      "amount": "Monto",
+      "method": "Método",
+      "create": "Crear pago"
+    }
   },
   "receiptClaim": {
     "title": "Comprobante de pago",
@@ -4747,15 +4755,15 @@
     "pick": "Elegir foto del comprobante",
     "pickLoading": "Procesando la foto…",
     "previewAlt": "Comprobante",
-    "amountPlaceholder": "Monto (opcional)",
-    "referencePlaceholder": "Referencia / folio (opcional)",
-    "notePlaceholder": "Nota para el equipo (opcional)",
-    "senderPlaceholder": "Tu nombre o correo (opcional)",
     "submit": "Enviar comprobante",
     "submitting": "Enviando…",
     "photoError": "No se pudo leer la foto. Prueba con otra imagen.",
     "sendError": "No se pudo enviar el comprobante. Intenta de nuevo.",
     "receivedTitle": "¡Comprobante recibido!",
-    "receivedBody": "El equipo lo revisará y lo registrará como parte del pago. Gracias."
+    "receivedBody": "El equipo lo revisará y lo registrará como parte del pago. Gracias.",
+    "amountLabel": "Monto (opcional)",
+    "referenceLabel": "Referencia / folio (opcional)",
+    "noteLabel": "Nota para el equipo (opcional)",
+    "senderLabel": "Tu nombre o correo (opcional)"
   }
 }

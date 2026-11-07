@@ -14,6 +14,7 @@ import {
 	getLetterDetail,
 	getLetterRetreatId,
 	getPrintBatch,
+	letterCountsByStatus,
 	listLetters,
 	markPrinted,
 	reviewLetter,
@@ -165,6 +166,17 @@ export const activateMailboxesHandler = async (req: Request, res: Response) => {
 	} catch (error) {
 		console.error('activateMailboxes error:', error);
 		res.status(500).json({ message: 'Error al activar los buzones' });
+	}
+};
+
+/** GET /retreats/:retreatId/letters/counts — conteo por estado (badge). */
+export const letterCountsHandler = async (req: Request, res: Response) => {
+	try {
+		const counts = await letterCountsByStatus(req.params.retreatId);
+		res.json({ counts });
+	} catch (error) {
+		console.error('letterCounts error:', error);
+		res.status(500).json({ message: 'Error al contar las cartas' });
 	}
 };
 

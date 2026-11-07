@@ -4377,7 +4377,9 @@
     "activateDone": {
       "doneTitle": "Mailboxes activated",
       "doneDescription": "{activated} new mailboxes, {alreadyActive} already existed."
-    }
+    },
+    "receivedToast": "📬 New letter from {name}",
+    "receiptAlt": "Attached photo"
   },
   "paymentClaims": {
     "tab": "Receipts",
@@ -4413,7 +4415,13 @@
       "description": "Send each family their personal link: they open it from their phone, attach the transfer screenshot, and the team registers it.",
       "copied": "Link copied"
     },
-    "shareError": "Could not generate the links"
+    "shareError": "Could not generate the links",
+    "confirm": {
+      "title": "Register payment with this receipt",
+      "amount": "Amount",
+      "method": "Method",
+      "create": "Create payment"
+    }
   },
   "receiptClaim": {
     "title": "Payment receipt",
@@ -4425,15 +4433,15 @@
     "pick": "Choose receipt photo",
     "pickLoading": "Processing the photo…",
     "previewAlt": "Receipt",
-    "amountPlaceholder": "Amount (optional)",
-    "referencePlaceholder": "Reference / folio (optional)",
-    "notePlaceholder": "Note for the team (optional)",
-    "senderPlaceholder": "Your name or email (optional)",
     "submit": "Send receipt",
     "submitting": "Sending…",
     "photoError": "We could not read the photo. Try another image.",
     "sendError": "We could not send the receipt. Please try again.",
     "receivedTitle": "Receipt received!",
-    "receivedBody": "The team will review it and register it as part of the payment. Thank you."
+    "receivedBody": "The team will review it and register it as part of the payment. Thank you.",
+    "amountLabel": "Amount (optional)",
+    "referenceLabel": "Reference / folio (optional)",
+    "noteLabel": "Note for the team (optional)",
+    "senderLabel": "Your name or email (optional)"
   }
 }
