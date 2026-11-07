@@ -619,6 +619,22 @@ export const helpIndex: HelpSection[] = [
 			},
 		],
 	},
+	{
+		// Bandeja WhatsApp de solo lectura (specs/whatsapp-inbox).
+		key: 'whatsapp-inbox',
+		title: 'WhatsApp Inbox',
+		titleEs: 'WhatsApp del Retiro',
+		icon: 'mdi-message-circle',
+		routeContext: ['wa-inbox'],
+		topics: [
+			{
+				key: 'whatsapp-inbox-overview',
+				title: 'Overview',
+				titleEs: 'Descripción general',
+				content: 'whatsapp-inbox.md',
+			},
+		],
+	},
 ];
 
 export function getHelpSectionByKey(key: string): HelpSection | undefined {
