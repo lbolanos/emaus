@@ -2,12 +2,12 @@
 import { ref, computed, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
-import { marked } from 'marked';
-import DOMPurify from 'dompurify';
 import { X, BookOpen } from 'lucide-vue-next';
 import { Button } from '@repo/ui';
 import { useHelpStore } from '@/stores/helpStore';
 import { getHelpByRoute } from '@/config/helpIndex';
+import { renderHelpMarkdown } from '@/utils/helpMarkdown';
+import HelpVideoModal from '@/components/help/HelpVideoModal.vue';
 
 const props = defineProps<{
 	open: boolean;
@@ -24,6 +24,7 @@ const helpStore = useHelpStore();
 const searchQuery = ref('');
 const contentHtml = ref<string>('');
 const loading = ref(false);
+const activeVideoId = ref<string | null>(null);
 
 // Get contextual help based on current route
 const contextualSection = computed(() => {
@@ -42,13 +43,22 @@ async function loadContent(sectionKey: string) {
 	loading.value = true;
 	try {
 		const content = await import(`@/docs/${locale.value}/${sectionKey}.md?raw`);
-		contentHtml.value = DOMPurify.sanitize(await marked.parse(content.default));
+		contentHtml.value = renderHelpMarkdown(content.default);
 	} catch (error) {
 		console.error(`Failed to load help content: ${sectionKey}`, error);
 		contentHtml.value = `<p class="text-destructive">${locale.value === 'es' ? 'Error al cargar el contenido' : 'Error loading content'}</p>`;
 	} finally {
 		loading.value = false;
 	}
+}
+
+// Play video tutorial links inline (the link keeps its href for cmd-click)
+function handleContentClick(event: MouseEvent) {
+	const target = event.target as HTMLElement | null;
+	const link = target?.closest('a[data-video-id]');
+	if (!link) return;
+	event.preventDefault();
+	activeVideoId.value = link.getAttribute('data-video-id');
 }
 
 // Load contextual help when panel opens
@@ -136,6 +146,7 @@ function closePanel() {
 						v-else
 						class="prose prose-sm max-w-none dark:prose-invert"
 						v-html="contentHtml"
+						@click="handleContentClick"
 					/>
 				</div>
 
@@ -169,6 +180,9 @@ function closePanel() {
 			/>
 		</Transition>
 	</Teleport>
+
+	<!-- Inline player for video tutorial links in the help content -->
+	<HelpVideoModal :video-id="activeVideoId" @close="activeVideoId = null" />
 </template>
 
 <style scoped>

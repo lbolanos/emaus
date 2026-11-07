@@ -2858,6 +2858,10 @@
       "contextualHelp": "Ayuda para la página actual",
       "viewFullDocs": "Ver Documentación Completa"
     },
+    "video": {
+      "title": "Video tutorial",
+      "openInNewWindow": "Abrir en ventana nueva"
+    },
     "sections": {
       "gettingStarted": "Primeros Pasos",
       "walkers": "Caminantes",

@@ -1637,7 +1637,9 @@ const getRouteWithParams = (item: MenuItem) => {
     'reception',
     'minuto-a-minuto',
     'pre-retreat-tasks',
-    'retreat-preparations'
+    'retreat-preparations',
+    'letters',
+    'server-briefing'
   ];
   if (item.routeName && routesRequiringId.includes(item.routeName)) {
     if (!retreatStore.selectedRetreatId) return null;
