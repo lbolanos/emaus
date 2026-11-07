@@ -12,20 +12,22 @@ Identificadores estables (`T1`…`T11`); si una tarea se reparte o se agrega der
 
 ## M1 — implementación
 
-- [ ] T5 — `apps/web/src/utils/helpMarkdown.ts`: `extractYouTubeId` + `renderHelpMarkdown`.
-- [ ] T6 — `apps/web/src/utils/__tests__/helpMarkdown.test.ts` (CA5, CA6, 4 formas de URL).
-- [ ] T7 — `apps/web/src/components/help/HelpVideoModal.vue` (R2).
-- [ ] T8 — `apps/web/src/components/help/__tests__/HelpVideoModal.test.ts` (CA3, CA4).
-- [ ] T9 — Integración `HelpView.vue` + `HelpPanel.vue` (helper + delegación + modal) (CA1, CA2).
-- [ ] T10 — Integración `helpStore.ts` (helper; caché intacta).
-- [ ] T11 — i18n `help.video.*` en `es.json` y `en.json`.
-- [ ] T12 — Verificación de M1 (4 suites + `pnpm --filter web build`) y commit.
+- [x] T5 — `apps/web/src/utils/helpMarkdown.ts`: `extractYouTubeId` + `renderHelpMarkdown`.
+- [x] T6 — `apps/web/src/utils/__tests__/helpMarkdown.test.ts` (CA5, CA6, 4 formas de URL).
+- [x] T7 — `apps/web/src/components/help/HelpVideoModal.vue` (R2).
+- [x] T8 — `apps/web/src/components/help/__tests__/HelpVideoModal.test.ts` (CA3, CA4).
+- [x] T9 — Integración `HelpView.vue` + `HelpPanel.vue` (helper + delegación + modal) (CA1, CA2).
+- [x] T10 — Integración `helpStore.ts` (helper; caché intacta).
+- [x] T11 — i18n `help.video.*` en `es.json` y `en.json`.
+- [x] T12 — Verificación de M1 (5 suites, 103 tests + `pnpm --filter web build`) y commit
+  `ea81ada3`.
 
 ## M2 — smoke + cierre
 
-- [ ] T13 — Smoke CA1-CA4 en dev del worktree (3004/5176; 3002/5174 y 3003/5175 ocupados por
-  otras sesiones), ambos locales.
-- [ ] T14 — Reconciliación de specs (estado, símbolos reales, descartes) + commit final.
-- [ ] T15-bis — (descubierto en T13) Fix R7: `letters` + `server-briefing` en
+- [x] T13 — Smoke CA1-CA4 + CA7 en dev del worktree (3004/5176; 3002/5174 y 3003/5175 ocupados
+  por otras sesiones). Navegación SPA (login → Walkers → panel → ayuda); corrió en locale `en`.
+  8/8 PASS.
+- [x] T14 — Reconciliación de specs (estado, símbolos reales, descartes) + commit final.
+- [x] T15-bis — (descubierto en T13) Fix R7: `letters` + `server-briefing` en
   `routesRequiringId` del Sidebar — bucle de recarga pre-existente de master en `/app/help`.
-  CA7.
+  CA7. Commit `918b96c2`.

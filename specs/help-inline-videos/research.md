@@ -23,7 +23,7 @@ misma pestaña:
 
 | Archivo | Símbolo | Nota |
 | --- | --- | --- |
-| `apps/web/src/views/HelpView.vue` | `loadContent` (línea ~47-58; sanitize en 51) | Página `/help` y `/help/:section` |
+| `apps/web/src/views/HelpView.vue` | `loadContent` (línea ~47-58; sanitize en 51) | Página `/app/help` y `/app/help/:section` (hijas de `/app`; el nombre de ruta es `help` / `help-section`) |
 | `apps/web/src/components/HelpPanel.vue` | `loadContent` (línea ~41-52; sanitize en 45) | Panel deslizante contextual |
 | `apps/web/src/stores/helpStore.ts` | `loadTopicContent` (línea ~38-54; parse en 47) | Con caché `Map`; hoy **sin sanitizar** (devuelve HTML crudo); solo lo consumen sus tests |
 

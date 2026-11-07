@@ -3,7 +3,9 @@
 Videos de la ayuda in-app: reproducción **inline en modal** y decisión del usuario de abrirlos
 en ventana nueva. Prospectivo — se reconciliará al cerrar (ver "Reconciliación").
 
-Estado: **en construcción** (worktree `help-inline-videos`, branch `worktree-help-inline-videos`).
+Estado: **implementado** — commits `ea81ada3` (M1, feature), `918b96c2` (fix R7) en el branch
+`worktree-help-inline-videos` del worktree `.claude/worktrees/help-inline-videos`.
+Reconciliado contra el código el 2026-11-07.
 
 ## Problema
 
@@ -138,6 +140,20 @@ involucrados. Verificación: unit tests + smoke manual en el dev del worktree.
 
 ## Reconciliación (al cerrar)
 
-Repasar la spec entera contra el código final y corregir en el mismo commit: símbolos reales,
-comportamiento del helper, qué se descartó y por qué. Si algún CA se verificó distinto a como
-se escribió, dejar la corrección aquí y pasar el estado a "implementado" con el commit.
+Repasada la spec entera contra el código final el 2026-11-07. Correcciones y notas:
+
+- **R7 agregada al descubrirse** (bucle de recarga pre-existente de master en `/app/help`);
+  fix en `918b96c2` junto a la corrección de esta spec. Detalle de evidencia en `research.md`.
+- **Ayuda in-app sin sección contextual en `/app/help`**: `getHelpByRoute('help')` no matchea
+  (no hay `routeContext` para esa ruta) — el panel deslizante solo muestra docs contextuales en
+  otras vistas; CA2 se verificó en `/app/walkers` (walkers.md trae video).
+- **Ruta real**: la ayuda vive en `/app/help` y `/app/help/:section` (names `help` /
+  `help-section`), no `/help` — `/help` cae en la ruta pública `/:slug` de registro.
+- **Locale del smoke**: corrió en `en` (locale del perfil); los textos del modal están en es y en
+  (keys validadas en ambos JSON), CA1-CA4 verificados en `en`.
+- **Descartes**: no se convirtió el smoke en spec e2e de Playwright (`tests/e2e/`): la
+  verificación quedó cubierta por los 21 tests unitarios nuevos + smoke manual documentado aquí;
+  el e2e de navegación con login sumaría fragilidad de CI (rate limit de login, carrera de boot
+  de deep links) para cubrir lo que los unit tests ya fijan.
+- **Criterios verificados**: CA1-CA7 en verde el 2026-11-07 (smoke por navegación SPA en el dev
+  del worktree, puertos 3004/5176 — 3002/5174 y 3003/5175 estaban ocupados por otras sesiones).

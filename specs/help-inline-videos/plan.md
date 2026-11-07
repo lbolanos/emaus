@@ -47,8 +47,9 @@ Commit `feat(help): reproducción inline de videos en modal + abrir en ventana n
 
 ## M2 — smoke + reconciliación
 
-- Dev del worktree: `bash .ruler/skills/worktree-testing/scripts/start-worktree-dev.sh`
-  (3002/5174). Login `leonardo.bolanos@gmail.com` / `123456`.
+- Dev del worktree: `start-worktree-dev.sh` (plan original: 3002/5174; reales: **3004/5176**,
+  ambos pares anteriores ocupados por otras sesiones). Login
+  `leonardo.bolanos@gmail.com` / `123456`.
 - CA1: `/help` → clic «Ver video tutorial» → modal reproduce inline.
 - CA2: HelpPanel desde una vista con ayuda contextual; verificar en ancho móvil (devtools).
 - CA3: botón «Abrir en ventana nueva» → tab nueva de YouTube; verificar `noopener` (no hay
