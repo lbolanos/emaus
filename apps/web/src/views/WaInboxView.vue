@@ -304,10 +304,15 @@ async function onRegisterReceipt(message: { id: string }) {
                 class="w-full text-left px-3 py-2 hover:bg-muted/60"
                 @click="onSelectSearchResult(r.chatJid)"
               >
-                <div class="text-xs text-muted-foreground">
-                  {{ formatSearchTime(r.timestamp) }}
+                <div class="flex items-center justify-between gap-2">
+                  <span class="text-sm font-medium truncate">
+                    {{ r.participantFirstName }} {{ r.participantLastName }}
+                  </span>
+                  <span class="text-xs text-muted-foreground whitespace-nowrap">
+                    {{ formatSearchTime(r.timestamp) }}
+                  </span>
                 </div>
-                <div class="text-sm truncate">{{ r.body }}</div>
+                <div class="text-xs text-muted-foreground truncate">{{ r.body }}</div>
               </button>
             </li>
           </ul>

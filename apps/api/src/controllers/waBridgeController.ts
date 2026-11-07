@@ -421,7 +421,19 @@ export class WaBridgeController {
 			return res.json({ results: [] });
 		}
 		const results = await waBridgeService.searchMessages(req.params.retreatId, q.slice(0, 100));
-		return res.json({ results });
+		// Nombre del caminante en cada resultado (la búsqueda también matchea
+		// por nombre — v1.1).
+		const digitsMap = await waBridgeService.getWalkerDigitsMap(req.params.retreatId);
+		return res.json({
+			results: results.map((row) => {
+				const participant = digitsMap.get(row.chatPhone);
+				return {
+					...row,
+					participantFirstName: participant?.firstName ?? '',
+					participantLastName: participant?.lastName ?? '',
+				};
+			}),
+		});
 	};
 
 	receiptDataUrl = async (req: Request, res: Response): Promise<Response> => {

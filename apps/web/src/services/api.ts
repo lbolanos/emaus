@@ -5089,6 +5089,8 @@ export interface WaSearchResult {
   timestamp: string | Date;
   body: string | null;
   messageType: string;
+  participantFirstName: string;
+  participantLastName: string;
 }
 
 /** Búsqueda de texto sobre los mensajes persistidos (v1.1). */

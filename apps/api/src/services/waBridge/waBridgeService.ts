@@ -535,7 +535,9 @@ export class WaBridgeService {
 	 * Búsqueda de texto sobre los cuerpos persistidos (v1.1). IGNORA ACENTOS:
 	 * los caminantes escriben "sabana" o "sábana" indistinto — se normaliza
 	 * NFD sin diacríticos en memoria (los últimos 500 mensajes; LIKE de SQLite
-	 * es byte-wise y no plegaría "sábana" contra "sabana").
+	 * es byte-wise y no plegaría "sábana" contra "sabana"). v1.1: TAMBIÉN
+	 * matchea por NOMBRE del caminante — un hit de nombre devuelve todo el
+	 * chat de esa persona (búsqueda por persona, no solo por palabra).
 	 */
 	async searchMessages(
 		retreatId: string,
@@ -548,15 +550,32 @@ export class WaBridgeService {
 			s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 		const needle = strip(q);
 		if (!needle) return [];
+
+		// v1.1: matchear TAMBIÉN por nombre del caminante — un hit de nombre
+		// devuelve todo el chat de esa persona (búsqueda por persona).
+		const digitsMap = await this.getWalkerDigitsMap(retreatId);
+		const nameMatchedJids: string[] = [];
+		for (const [digits, participant] of digitsMap) {
+			const fullName = strip(`${participant.firstName} ${participant.lastName}`);
+			if (fullName.includes(needle)) nameMatchedJids.push(`${digits}@s.whatsapp.net`);
+		}
+
 		const rows = await AppDataSource.getRepository(WhatsappInboxMessage).find({
 			where: { retreatId },
 			select: ['id', 'chatJid', 'chatPhone', 'timestamp', 'body', 'messageType'],
 			order: { timestamp: 'DESC' },
 			take: 500,
 		});
-		return rows
-			.filter((row) => row.body && strip(row.body).includes(needle))
-			.slice(0, limit);
+		const out: typeof rows = [];
+		for (const row of rows) {
+			const bodyHit = Boolean(row.body) && strip(row.body!).includes(needle);
+			const chatHit = nameMatchedJids.includes(row.chatJid);
+			if (bodyHit || chatHit) {
+				out.push(row);
+				if (out.length >= limit) break;
+			}
+		}
+		return out;
 	}
 
 	/**
