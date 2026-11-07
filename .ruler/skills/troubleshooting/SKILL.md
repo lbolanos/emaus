@@ -50,6 +50,8 @@ Cuando el usuario reporta un problema, primero ubicá el **síntoma** en la tabl
 | "no se pueden subir fotos de más de 5MB", "dice que supera los 2MB", "desde el celular no sube la foto", "la foto sale cortada/cuadrada", "en el recuerdo falta gente de las orillas" | [#37 La foto no sube por tamaño, o sube y sale cortada en cuadrado](#37-la-foto-no-sube-por-tamaño-o-sube-y-sale-cortada-en-cuadrado) |
 | "importé miembros de un retiro y salió Request failed with status code 500", "agregué un miembro y dio error 500", "entraron unos sí y otros no", "no me deja importar a un familiar" | [#38 Alta de miembro de comunidad que choca por teléfono](#38-alta-de-miembro-de-comunidad-que-choca-por-teléfono) |
 | "veo doble scroll vertical", "hay dos barras de scroll", "la página sigue bajando después del final de la lista" | [#39 Doble barra de scroll: un `<select>` oculto de reka-ui fuera de `<main>`](#39-doble-barra-de-scroll-un-select-oculto-de-reka-ui-fuera-de-main) |
+| "la página se recarga sola en bucle", "no puedo abrir /app/help", "la vista parpadea y recarga infinito" | [#40 Bucle infinito de recarga: RouterLink que resuelve ruta con `:id` sin params](#40-bucle-infinito-de-recarga-routerlink-que-resuelve-ruta-con-id-sin-params) |
+| "el test de sanitización revienta con un eval de mi script de prueba", "el href javascript: sobrevive al sanitize solo en vitest" | [#41 Quirks de happy-dom + DOMPurify en tests de sanitización](#41-quirks-de-happy-dom--dompurify-en-tests-de-sanitización) |
 
 ---
 
@@ -1810,3 +1812,49 @@ posicionado. Ese mismo día, en **todas** las páginas de escritorio: el selecto
 `Sidebar.vue` quedaba debajo del pliegue del sidebar y el documento medía 1028 px en una ventana de
 800. Fix: `relative` en el contenedor con `overflow-y-auto` del `<nav>`. La medición de arriba lo
 encuentra igual: el `<select>` con `offsetParent === document.body` estaba en el `<aside>`.
+
+## 40. Bucle infinito de recarga: RouterLink que resuelve ruta con `:id` sin params
+
+**Síntoma**: una ruta se abre y la página se **recarga sola en bucle** (decenas de navegaciones por
+segundo, mismo URL). En sesión con retiro ya seleccionado puede verse estable; en sesión fresca
+(dev nuevo, storageState limpio, usuario que abre un link directo) entra en bucle.
+
+**Causa** (cadena de dos piezas):
+
+1. Un `<RouterLink>` del sidebar resuelve una ruta cuyo `path` lleva `:id` **sin el param**. Los
+   items de menú construyen su `to` en `getRouteWithParams` (`Sidebar.vue`), que solo inyecta
+   `params.id` para la lista fija `routesRequiringId`. Un item de menú nuevo con una ruta
+   `retreats/:id/*` que **no** se agregue a esa lista lanza `Missing required param "id"` en el
+   setup del RouterLink (`useLink` → `router.resolve`).
+2. El `app.config.errorHandler` de `main.ts` recupera errores de *setup function* con
+   `window.location.reload()` guardado por `window.__EMAUS_BOOT_RECOVERED` — flag **por documento**:
+   cada recarga la resetea, el error vuelve a lanzarse y el ciclo es infinito.
+
+**Cómo diagnosticarlo**: contar **cargas reales del documento**, no navegaciones de history:
+`page.on('load')` (Playwright) o eventos `framenavigated` del mainFrame. Contar solo
+`replaceState/pushState` no ve los bucles de recarga pura y da falsos estables. El error de consola
+(`[Vue errorHandler] setup function`) nombra la ruta que falla en el stack de `router.resolve`.
+
+**Fix**: agregar el `routeName` faltante a `routesRequiringId` (patrón existente). Caso:
+2026-11-07, `letters` y `server-briefing` faltaban; commit `918b96c2`. Pre-existente en master
+`2b170c84` — cualquier item de menú nuevo con ruta `retreats/:id/*` reproduce el bug si se olvida.
+
+## 41. Quirks de happy-dom + DOMPurify en tests de sanitización
+
+**Síntoma**: un test que pasa HTML peligroso por `DOMParser`/DOMPurify revienta con un error de
+**eval** (`HTMLScriptElement.[connectToNode]`), o un atributo peligroso (`href="javascript:…"`,
+`onclick`) **sobrevive al sanitize solo en vitest** mientras que el mismo input sanitizado a mano
+(en Node) sale limpio.
+
+**Causa** (dos, ambas del harness happy-dom 14, no de producción):
+
+1. El `DOMParser` de happy-dom **evalúa** los `<script>` inline al parsear (los navegadores no):
+   dispara cuando el script no tiene `type` o trae un MIME de JS. Con `type="application/json"`
+   no evalúa, y DOMPurify igual elimina la etiqueta.
+2. Tras un `<script>` eliminado por DOMPurify, los **atributos peligrosos de los nodos que siguen
+   sobreviven** el sanitize (verificado con matriz piecewise: `anchor-only` sanitiza bien;
+   `script-then-anchor` se lo salta). En navegador real no ocurre.
+
+**Fix**: en payloads de test usar `type="application/json"` para el script, y **no mezclar**
+`<script>` y atributos peligrosos en el mismo HTML — aserciones separadas. Caso: 2026-11-07,
+`helpMarkdown.test.ts` (spec `help-inline-videos`, research.md sección de quirks).

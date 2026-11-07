@@ -143,6 +143,24 @@ Y al terminar, mata solo los tuyos — para con los mismos overrides
 (`API_PORT=3003 WEB_PORT=5175 bash …/stop-worktree-dev.sh`) o por PID, no `lsof -ti :3002 | xargs
 kill` a secas, que se lleva el de la otra sesión.
 
+### Varios devs a la vez: cookie de sesión, rate limit y logs son compartidos
+
+Verificado el 2026-11-07 con dos devs de worktrees simultáneos (3002/5174 y 3004/5176):
+
+- **La cookie `emaus.sid` es de `localhost` sin puerto**: los dos APIs la escriben con el mismo
+  nombre y dominio. El login de un worktree pisa la sesión del otro y una `storageState` de
+  Playwright guardada minutos antes muere sin error — se ve como rebotes a `/login` y 401
+  intermitentes *dentro de tu propio contexto aislado*. No es tu código: es la otra sesión
+  refrescando su cookie. Para smokes, login + verificación en **una sola pasada** y sin depender
+  de estados guardados entre corridas.
+- **El rate limit de `/auth/login` (10 intentos / 15 min) también es compartido** entre worktrees
+  (mismo IP + mismo email): las corridas de Playwright de las dos sesiones se lo comen entre sí.
+  Síntoma: el login que siempre funcionó empieza a timeouts.
+- **Los logs `/tmp/emaus-worktree-{api,web}.log` son globales**: todas las sesiones que corran el
+  script escriben al mismo archivo, entrelazado (verás HMR de otra sesión en tu log). Para saber
+  de quién es cada entrada, mira la ruta del worktree en los errores, o lanza tu dev manual con
+  redirección a un log propio.
+
 ## DB aislada (importante)
 
 **Nunca uses la DB del main en el worktree** — vas a contaminar el trabajo en curso del main (sesiones, datos de prueba, migrations a medias). Siempre copiá **los tres archivos** (sin el `-wal`/`-shm` la copia queda desparejada y el API puede morir con `SQLITE_CORRUPT`):
