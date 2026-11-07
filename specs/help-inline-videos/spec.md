@@ -84,6 +84,21 @@ Reutilizar `common.close` para el ✕.
 - `helpStore.test.ts` queda **sin cambios** (debe seguir en verde).
 - `LandingView.test.ts` / `LandingVideos.test.ts` quedan **sin cambios** y en verde.
 
+### R7 — (descubierto al verificar) desbloqueo de `/app/help`: bucle de recarga pre-existente
+
+Durante el smoke (CA1) se descubrió que en master, `/app/help` en sesión fresca entra en un
+**bucle infinito de recarga**: los items de menú `letters` y `server-briefing` tienen rutas con
+`:id` (`retreats/:id/letters`, `retreats/:id/servidores-minuto`) pero no estaban en la lista
+`routesRequiringId` de `getRouteWithParams` (`Sidebar.vue`), así que `router.resolve({name:'letters'})`
+lanza `Missing required param "id"` en el setup del RouterLink y el `app.config.errorHandler` de
+`main.ts` (recuperación de boot) recarga la página — con la flag `__EMAUS_BOOT_RECOVERED` por
+documento, el ciclo se repite infinito. Verificado contra base `2b170c84` (mismo error y bucle sin
+el código de este feature).
+
+**R7**: agregar `letters` y `server-briefing` a `routesRequiringId`, siguiendo el patrón de la
+lista. Es lo mínimo para que `/app/help` sea usable en sesión fresca y los CA1-CA2 sean
+verificables. En producción esto golpea a quien abre `/app/help` sin un retiro ya seleccionado.
+
 ## Criterios de aceptación
 
 Los CA se ejercitan contra los `.md` reales (ya traen los 27 enlaces); no hay datos de DB
@@ -99,6 +114,7 @@ involucrados. Verificación: unit tests + smoke manual en el dev del worktree.
   `target="_blank" rel="noopener noreferrer"`; relativo intacto; `''` → `''`.
 - **CA6** — El HTML resultante no contiene `<script>` ni `onclick` (sanitizado), incluido el
   camino de `helpStore`.
+- **CA7** — `/app/help` en sesión fresca carga estable (sin bucle de recarga): ver R7.
 
 ## Decisiones tomadas
 

@@ -23,5 +23,9 @@ Identificadores estables (`T1`…`T11`); si una tarea se reparte o se agrega der
 
 ## M2 — smoke + cierre
 
-- [ ] T13 — Smoke CA1-CA4 en dev del worktree (3002/5174), ambos locales.
+- [ ] T13 — Smoke CA1-CA4 en dev del worktree (3004/5176; 3002/5174 y 3003/5175 ocupados por
+  otras sesiones), ambos locales.
 - [ ] T14 — Reconciliación de specs (estado, símbolos reales, descartes) + commit final.
+- [ ] T15-bis — (descubierto en T13) Fix R7: `letters` + `server-briefing` en
+  `routesRequiringId` del Sidebar — bucle de recarga pre-existente de master en `/app/help`.
+  CA7.

@@ -124,3 +124,27 @@ Solo afectan a los tests unitarios, **no** a producción (navegadores reales):
 Consecuencia de diseño: `renderHelpMarkdown` sigue sanitizando con DOMPurify default (el
 comportamiento de producción es correcto); los tests de sanitización van en payloads separados.
 
+## Bucle de recarga pre-existente en `/app/help` (descubierto el 2026-11-07, R7)
+
+- Síntoma: en sesión fresca (sin retiro seleccionado), `/app/help` recarga el documento
+  ~23 veces/segundo en bucle infinito. Error: `Missing required param "id"` desde `useLink`
+  (setup de RouterLink) → `app.config.errorHandler` de `main.ts` → `window.location.reload()`
+  con flag `__EMAUS_BOOT_RECOVERED` por documento → el ciclo se repite.
+- Causa raíz: `getRouteWithParams` (`Sidebar.vue`) solo inyecta `params.id` para la lista fija
+  `routesRequiringId`; los items `letters` (`retreats/:id/letters`) y `server-briefing`
+  (`retreats/:id/servidores-minuto`) faltaban en esa lista → resolve sin `id` → throw.
+- Verificado contra base `2b170c84`: mismo error y bucle SIN el código de este feature (el
+  feature no lo causa; solo lo expuso el smoke en sesión fresca). Fix: R7.
+- Lección de verificación: medir estabilidad contando `framenavigated` + cargas reales del
+  documento (`page.on('load')`); contar solo `replaceState/pushState` no ve los bucles de
+  recarga pura y dio conclusiones de biseo falsas (dos "estables" falsos antes de medir bien).
+
+## Colisión de sesión entre devs de worktrees en localhost
+
+Dos devs en puertos distintos comparten la cookie de `localhost` (las cookies no distinguen
+puerto): los logins de un worktree pisan la sesión del otro y las sesiones guardadas
+(`storageState`) mueren sin error aparente — se ve como rebotes a `/login` y 401 intermitentes.
+Además el rate limit de `/auth/login` (10/15 min) es compartido. Para smokes contra dos
+worktrees a la vez, separar navegador/perfil por worktree o correrlos en serie.
+
+
