@@ -34,8 +34,10 @@ export default {
 
 		let parsed;
 		try {
-			const raw = await message.raw.arrayBuffer();
-			parsed = await PostalMime.parse(raw);
+			// message.raw es un ReadableStream en el runtime de Workers —
+			// .arrayBuffer() no existe ahí; postal-mime lo consume directo.
+			const parser = new PostalMime();
+			parsed = await parser.parse(message.raw);
 		} catch (err) {
 			console.error('postal-mime parse error:', err);
 			message.setReject('No se pudo leer el mensaje. Reenvía tu carta, por favor.');
