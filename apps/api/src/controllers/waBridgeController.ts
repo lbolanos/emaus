@@ -488,4 +488,45 @@ export class WaBridgeController {
 				.json({ message: `No se pudo descargar la imagen: ${(err as Error).message}` });
 		}
 	};
+
+	/**
+	 * Thumbnails de un hilo (v1.2): descarga en LOTE de varias imágenes con un
+	 * solo ciclo de stop/restart del sync por link — pedir una por una paraba y
+	 * levantaba WhatsApp por cada foto (minutos por hilo). Body: {messageIds}.
+	 */
+	threadMedia = async (req: Request, res: Response): Promise<Response> => {
+		const messageIds: unknown = (req.body ?? {}).messageIds;
+		if (!Array.isArray(messageIds) || messageIds.length === 0 || messageIds.length > 30) {
+			return res.status(400).json({
+				message: 'Envía entre 1 y 30 messageIds en el cuerpo de la petición.',
+			});
+		}
+
+		const messages = await AppDataSource.getRepository(WhatsappInboxMessage).find({
+			where: messageIds.map((id) => ({ id: String(id) })),
+			select: ['id', 'linkId', 'chatJid', 'chatPhone', 'waMessageId', 'messageType', 'timestamp'],
+		});
+		const valid = messages.filter(
+			(m) => m.messageType === 'image' && m.retreatId === req.params.retreatId,
+		);
+		const skipped = messageIds.length - valid.length;
+		if (valid.length > 0) {
+			const accessOk = await ensureRetreatAccess(req, res, req.params.retreatId);
+			if (!accessOk) return res;
+			try {
+				const variants = await waBridgeService.getReceiptVariantsBatch(valid);
+				const media: Record<string, { thumb: string; large: string }> = {};
+				valid.forEach((m, i) => {
+					media[m.id] = variants[i];
+				});
+				return res.json({ media, skipped });
+			} catch (err) {
+				const status = err instanceof WacliError ? 502 : 500;
+				return res.status(status).json({
+					message: `No se pudieron descargar las imágenes: ${(err as Error).message}. Reintenta en unos segundos; si persiste, revisa la sesión vinculada en el tablero.`,
+				});
+			}
+		}
+		return res.json({ media: {}, skipped });
+	};
 }

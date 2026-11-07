@@ -169,6 +169,42 @@ class ImageService {
 		return this.processWithoutCrop(buffer, contentType, this.MAX_PHOTO_SIZE);
 	}
 
+	/**
+	 * Variantes thumbnail + grande de una foto recibida por WhatsApp
+	 * (bandeja, FR14 v1.2). El tope NO es el de los assets subidos por el
+	 * usuario (2 MB): una foto de teléfono llega a 10 MB y sharp la reduce
+	 * sin problema — el límite de arriba solo protegía el multipart.
+	 */
+	async processWaReceiptVariants(
+		buffer: Buffer,
+		contentType: string,
+	): Promise<{ thumb: ProcessedImage; large: ProcessedImage }> {
+		const MAX_RECEIPT_BYTES = 10 * 1024 * 1024; // 10 MB — foto de teléfono
+		if (buffer.length > MAX_RECEIPT_BYTES) {
+			throw new FlyerAssetError(
+				`Receipt image exceeds maximum (${(buffer.length / 1048576).toFixed(1)}MB > 10MB)`,
+			);
+		}
+		if (!this.verifyMagicBytes(buffer, contentType)) {
+			throw new FlyerAssetError('File content does not match declared MIME type');
+		}
+		const resize = async (maxSide: number, quality: number): Promise<ProcessedImage> => {
+			const processed = await sharp(buffer)
+				.resize(maxSide, maxSide, { fit: 'inside', withoutEnlargement: true })
+				.webp({ quality })
+				.toBuffer();
+			const meta = await sharp(processed).metadata();
+			return {
+				buffer: processed,
+				contentType: 'image/webp',
+				width: meta.width || 0,
+				height: meta.height || 0,
+			};
+		};
+		const [thumb, large] = await Promise.all([resize(320, 80), resize(1600, this.QUALITY)]);
+		return { thumb, large };
+	}
+
 	/** Fits the image inside `maxSide` × `maxSide` keeping its aspect ratio, never enlarging it. */
 	private async processWithoutCrop(
 		buffer: Buffer,

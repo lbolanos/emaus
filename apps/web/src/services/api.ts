@@ -4972,7 +4972,7 @@ export const deleteParticipantNote = async (id: string): Promise<void> => {
 
 // ── Puente WhatsApp de solo lectura (specs/whatsapp-inbox) ──
 
-import type { WaLinkDto, WaConversationDto, WaInboxMessageDto } from "@repo/types";
+import type { WaLinkDto, WaConversationDto, WaInboxMessageDto, WaThreadMediaDto } from "@repo/types";
 
 export const startWaLink = async (
   retreatId: string,
@@ -5063,6 +5063,15 @@ export interface WaReceiptDownload {
 /** FR14 (v1.1): descarga ON-DEMAND la imagen del mensaje para `receiptPhoto`. */
 export const getWaReceiptDataUrl = async (messageId: string): Promise<WaReceiptDownload> => {
   const r = await api.post(`/wa-bridge/messages/${messageId}/receipt`);
+  return r.data;
+};
+
+/** Thumbnails de un hilo en lote (v1.2): un solo ciclo de descarga en el server. */
+export const getWaThreadMedia = async (
+  retreatId: string,
+  messageIds: string[],
+): Promise<WaThreadMediaDto> => {
+  const r = await api.post(`/wa-bridge/retreat/${retreatId}/media`, { messageIds });
   return r.data;
 };
 

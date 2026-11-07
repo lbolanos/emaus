@@ -33,6 +33,13 @@ router.post(
 	requireRetreatAccess('retreatId'),
 	controller.markSeen,
 );
+// Thumbnails de un hilo en lote (v1.2): lectura de imágenes ya recibidas.
+router.post(
+	'/retreat/:retreatId/media',
+	requirePermission('whatsappInbox:read'),
+	requireRetreatAccess('retreatId'),
+	controller.threadMedia,
+);
 router.post(
 	'/retreat/:retreatId/seen-all',
 	requirePermission('whatsappInbox:read'),

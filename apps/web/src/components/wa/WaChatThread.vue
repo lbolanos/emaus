@@ -6,7 +6,12 @@ import { Button, Dialog, DialogContent, DialogHeader, DialogTitle } from '@repo/
 import { buildWhatsAppChatLink } from '@/utils/phone'
 import { toNationalPhone } from '@repo/types'
 import ParticipantInfoPopover from '@/components/ParticipantInfoPopover.vue'
-import type { Participant, WaConversationDto, WaInboxMessageDto } from '@repo/types'
+import type {
+  Participant,
+  WaConversationDto,
+  WaInboxMessageDto,
+  WaMediaVariantsDto,
+} from '@repo/types'
 
 /**
  * Hilo de un chat (FR3/FR8/D9/D10 + UX móvil v1.1):
@@ -30,6 +35,8 @@ const props = defineProps<{
   /** Ficha del caminante (backlog UX): Participant completo para el popover. */
   popoverParticipant?: Participant | null
   retreatId?: string | null
+  /** Variantes de imagen por messageId (v1.2): thumb en la lista, large en el visor. */
+  mediaMap?: Record<string, WaMediaVariantsDto> | null
 }>()
 
 const emit = defineEmits<{
@@ -214,7 +221,21 @@ function formatFull(ts: string | Date): string {
                 :aria-label="t('waInbox.enlarge')"
                 @click="enlarge(m)"
               >
-                <div class="text-sm whitespace-pre-wrap break-words">{{ m.body ?? t('waInbox.multimedia') }}</div>
+                <!-- Imagen: thumbnail siempre que el lote ya llegó (v1.2);
+                     tap en la burbuja = visor grande (descarga bajo demanda). -->
+                <img
+                  v-if="m.messageType === 'image' && mediaMap?.[m.id]?.thumb"
+                  :src="mediaMap[m.id].thumb"
+                  class="mb-1 w-full max-h-48 object-cover rounded-md"
+                  alt="Foto recibida"
+                  data-testid="wa-thumb"
+                />
+                <div
+                  v-if="m.body || !(m.messageType === 'image' && mediaMap?.[m.id]?.thumb)"
+                  class="text-sm whitespace-pre-wrap break-words"
+                >
+                  {{ m.body ?? t('waInbox.multimedia') }}
+                </div>
                 <div class="text-[10px] text-muted-foreground mt-1 text-right">
                   {{ formatTime(m.timestamp) }}
                 </div>

@@ -65,3 +65,20 @@ export interface WaInboxMessageDto {
 	/** Tipo declarado por WhatsApp (text, image, audio, …) para el placeholder 📎. */
 	messageType: string;
 }
+
+/**
+ * Variantes de una imagen descargada bajo demanda (v1.2): thumb para la lista
+ * del hilo, large para el visor y el comprobante del pago. Ambas viajan como
+ * data-URL webp; el servidor las cachea para no re-descargar por clic.
+ */
+export interface WaMediaVariantsDto {
+	thumb: string;
+	large: string;
+}
+
+/** Respuesta del lote de thumbnails de un hilo: mapa por messageId. */
+export interface WaThreadMediaDto {
+	media: Record<string, WaMediaVariantsDto>;
+	/** Mensajes pedidos que no aplican (no imagen / otro retiro / inexistente). */
+	skipped: number;
+}

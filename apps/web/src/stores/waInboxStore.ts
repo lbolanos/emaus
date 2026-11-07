@@ -2,13 +2,14 @@ import { defineStore } from 'pinia';
 import { computed, ref } from 'vue';
 import { useToast } from '@repo/ui';
 import { getSocket } from '@/services/realtime';
-import type { WaConversationDto, WaInboxMessageDto, WaLinkDto } from '@repo/types';
+import type { WaConversationDto, WaInboxMessageDto, WaLinkDto, WaMediaVariantsDto } from '@repo/types';
 import {
   getWaLinkStatus,
   getWaLinks,
   getWaConversations,
   getWaMessages,
   getWaReceiptDataUrl,
+  getWaThreadMedia,
   getWaUnreadCount,
   searchWaMessages,
   markWaChatSeen,
@@ -41,6 +42,9 @@ export const useWaInboxStore = defineStore('waInbox', () => {
   const loadingConversations = ref(false);
   const loadingThread = ref(false);
   const realtimeConnected = ref(false);
+  /** Variantes de imagen por messageId (v1.2): llenado por lotes al abrir el hilo. */
+  const mediaByMessageId = ref<Record<string, WaMediaVariantsDto>>({});
+  const loadingMedia = ref(false);
 
   let subscribedRetreatId: string | null = null;
   let unsubscribeRealtime: (() => void) | null = null;
@@ -86,7 +90,40 @@ export const useWaInboxStore = defineStore('waInbox', () => {
 
   /** FR14 (v1.1): descargar la imagen de un mensaje para usarla de comprobante. */
   async function downloadReceipt(messageId: string): Promise<WaReceiptDownload> {
+    // Si el lote de thumbnails ya la trajo, no re-descargar (instantáneo).
+    const cached = mediaByMessageId.value[messageId];
+    if (cached?.large) {
+      const c = activeConversation.value;
+      return {
+        receiptPhoto: cached.large,
+        participantId: c?.participantId ?? null,
+        participantFirstName: c?.participantFirstName ?? '',
+        participantLastName: c?.participantLastName ?? '',
+        country: c?.country ?? null,
+      };
+    }
     return getWaReceiptDataUrl(messageId);
+  }
+
+  /**
+   * Thumbnails del hilo abierto (v1.2): un solo lote para todas las imágenes
+   * pendientes — pedir una por una paraba/levantaba el sync por cada foto.
+   */
+  async function fetchThreadMedia(retreatId: string) {
+    const pending = threadMessages.value
+      .filter((m) => m.messageType === 'image' && !mediaByMessageId.value[m.id])
+      .map((m) => m.id)
+      .slice(0, 30);
+    if (pending.length === 0 || loadingMedia.value) return;
+    loadingMedia.value = true;
+    try {
+      const data = await getWaThreadMedia(retreatId, pending);
+      mediaByMessageId.value = { ...mediaByMessageId.value, ...data.media };
+    } catch {
+      // Sin thumbnails la bandeja sigue usable (placeholder 📎).
+    } finally {
+      loadingMedia.value = false;
+    }
   }
 
   /** Badge del sidebar (v1.1): liviano, apto para polling. */
@@ -145,6 +182,8 @@ export const useWaInboxStore = defineStore('waInbox', () => {
   async function openChat(retreatId: string, chatJid: string) {
     activeChatJid.value = chatJid;
     await fetchThread(retreatId, chatJid);
+    // Thumbnails de las imágenes del hilo (v1.2) — no bloquea la apertura.
+    void fetchThreadMedia(retreatId);
     // Marca leído en servidor (timestamp lo decide el API) y refresca badges.
     await markWaChatSeen(retreatId, chatJid).catch(() => {});
     const c = conversations.value.find((x) => x.chatJid === chatJid);
@@ -187,7 +226,9 @@ export const useWaInboxStore = defineStore('waInbox', () => {
       refreshBadge(active).catch(() => {});
       // Hilo abierto: refetch del chat activo (los nuevos entrantes aparecen).
       if (activeChatJid.value) {
-        fetchThread(active, activeChatJid.value).catch(() => {});
+        fetchThread(active, activeChatJid.value)
+          .then(() => fetchThreadMedia(active))
+          .catch(() => {});
       }
       // Aviso in-app (v1.1): el staff no vive mirando la bandeja.
       const { toast } = useToast();
@@ -219,6 +260,7 @@ export const useWaInboxStore = defineStore('waInbox', () => {
     conversations.value = [];
     threadMessages.value = [];
     searchResults.value = [];
+    mediaByMessageId.value = {};
     activeChatJid.value = null;
   }
 
@@ -235,9 +277,12 @@ export const useWaInboxStore = defineStore('waInbox', () => {
     loadingConversations,
     loadingThread,
     realtimeConnected,
+    mediaByMessageId,
+    loadingMedia,
     fetchLinks,
     fetchConversations,
     fetchThread,
+    fetchThreadMedia,
     openChat,
     linkStatus,
     link,

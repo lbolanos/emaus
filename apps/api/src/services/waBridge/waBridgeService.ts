@@ -635,32 +635,101 @@ export class WaBridgeService {
 	 * en el modal y, al guardar, en Payment.receiptUrl (payment-receipts/).
 	 */
 	async downloadReceiptDataUrl(message: WhatsappInboxMessage): Promise<string> {
-		const link = await this.linkRepo.findOneByOrFail({ id: message.linkId });
+		const variants = await this.getReceiptVariants(message);
+		return variants.large;
+	}
+
+	/**
+	 * Variantes thumb+large de la imagen de un mensaje, con caché en memoria
+	 * (v1.2: thumbnails siempre visibles). La descarga paraba y levantaba el
+	 * sync del link por CADA imagen — con varias fotos en un hilo eso era
+	 * minutos. Ahora el lote para/levanta el sync UNA sola vez y la caché
+	 * evita re-descargar lo ya visto (RAM acotada: TTL + tope de entradas).
+	 */
+	async getReceiptVariants(
+		message: WhatsappInboxMessage,
+	): Promise<{ thumb: string; large: string }> {
+		const cached = this.receiptCache.get(message.id);
+		if (cached && Date.now() - cached.at < RECEIPT_CACHE_TTL_MS) {
+			return { thumb: cached.thumb, large: cached.large };
+		}
+		const [variants] = await this.getReceiptVariantsBatch([message]);
+		return variants;
+	}
+
+	/** Descarga las imágenes de varios mensajes parando/levantando el sync una vez por link. */
+	async getReceiptVariantsBatch(
+		messages: WhatsappInboxMessage[],
+	): Promise<Array<{ thumb: string; large: string }>> {
 		const tmpDir = `${config.waBridge.dataDir}/receipts-tmp`;
 		fs.mkdirSync(tmpDir, { recursive: true, mode: 0o700 });
-		const outPath = `${tmpDir}/${message.id}.img`;
 
-		await this.stopSupervisorById(link.id);
-		try {
-			await mediaDownload(link.storePath, message.chatJid, message.waMessageId, outPath);
-			const stat = fs.statSync(outPath);
-			if (stat.size > RECEIPT_MAX_BYTES) {
-				throw new WacliError(`La imagen pesa ${(stat.size / 1048576).toFixed(1)} MB (tope 10 MB)`);
-			}
-			const buffer = fs.readFileSync(outPath);
-			const processed = await imageService.processPhoto(buffer, detectImageContentType(buffer));
-			return `data:${processed.contentType};base64,${processed.buffer.toString('base64')}`;
-		} finally {
-			fs.rmSync(outPath, { force: true });
-			// El sync vuelve a correr tengamos éxito o no: la bandeja no queda muerta.
-			const supervisor = this.createSupervisor(link);
-			supervisor.startSync();
+		// Agrupar por link: el lock del store es por sesión.
+		const byLink = new Map<string, WhatsappInboxMessage[]>();
+		for (const message of messages) {
+			const list = byLink.get(message.linkId) ?? [];
+			list.push(message);
+			byLink.set(message.linkId, list);
 		}
+
+		const out: Array<{ thumb: string; large: string }> = [];
+		for (const [linkId, group] of byLink) {
+			const link = await this.linkRepo.findOneByOrFail({ id: linkId });
+			await this.stopSupervisorById(link.id);
+			try {
+				for (const message of group) {
+					const outPath = `${tmpDir}/${message.id}.img`;
+					try {
+						await mediaDownload(link.storePath, message.chatJid, message.waMessageId, outPath);
+						const stat = fs.statSync(outPath);
+						if (stat.size > RECEIPT_MAX_BYTES) {
+							throw new WacliError(
+								`La imagen pesa ${(stat.size / 1048576).toFixed(1)} MB (tope 10 MB)`,
+							);
+						}
+						const buffer = fs.readFileSync(outPath);
+						const { thumb, large } = await imageService.processWaReceiptVariants(
+							buffer,
+							detectImageContentType(buffer),
+						);
+						const variants = {
+							thumb: `data:${thumb.contentType};base64,${thumb.buffer.toString('base64')}`,
+							large: `data:${large.contentType};base64,${large.buffer.toString('base64')}`,
+						};
+						this.cacheReceiptVariants(message.id, variants);
+						out.push(variants);
+					} finally {
+						fs.rmSync(outPath, { force: true });
+					}
+				}
+			} finally {
+				// El sync vuelve a correr tengamos éxito o no: la bandeja no queda muerta.
+				const supervisor = this.createSupervisor(link);
+				supervisor.startSync();
+			}
+		}
+		return out;
+	}
+
+	private receiptCache = new Map<string, { thumb: string; large: string; at: number }>();
+
+	private cacheReceiptVariants(messageId: string, variants: { thumb: string; large: string }): void {
+		// Evicción FIFO si se pasa del tope: fotos viejas se re-descargan si vuelven a pedirse.
+		while (this.receiptCache.size >= RECEIPT_CACHE_MAX_ENTRIES) {
+			const oldest = this.receiptCache.keys().next().value;
+			if (oldest === undefined) break;
+			this.receiptCache.delete(oldest);
+		}
+		this.receiptCache.set(messageId, { ...variants, at: Date.now() });
 	}
 }
 
 /** Tope de una imagen de comprobante descargada (10 MB — foto de teléfono). */
 const RECEIPT_MAX_BYTES = 10 * 1024 * 1024;
+
+/** Caché de variantes ya descargadas: 30 min y máximo 12 imágenes (~RAM acotada). */
+const RECEIPT_CACHE_TTL_MS = 30 * 60 * 1000;
+const RECEIPT_CACHE_MAX_ENTRIES = 12;
 
 /** Content-type por magic bytes (JPEG/PNG/WebP); fallback image/jpeg. */
 function detectImageContentType(buffer: Buffer): string {

@@ -28,7 +28,7 @@ const { isSuperadmin } = useAuthPermissions()
 const { can } = useAuthPermissions()
 const store = useWaInboxStore()
 const participantStore = useParticipantStore()
-const { links, conversations, realtimeConnected, loadingConversations, inboxEnabled } =
+const { links, conversations, realtimeConnected, loadingConversations, inboxEnabled, mediaByMessageId } =
   storeToRefs(store)
 
 const retreatId = computed(
@@ -396,6 +396,7 @@ async function onRegisterReceipt(message: { id: string }) {
           :retreat-timezone="retreatTimezone"
           :popover-participant="activeParticipant"
           :retreat-id="retreatId"
+          :media-map="mediaByMessageId"
           @register-receipt="onRegisterReceipt"
           @view-photo="onViewPhoto"
           @back="store.activeChatJid = null"
