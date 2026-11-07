@@ -1,6 +1,6 @@
 import { ref, computed } from 'vue';
 import { defineStore } from 'pinia';
-import { marked } from 'marked';
+import { renderHelpMarkdown } from '@/utils/helpMarkdown';
 
 export interface HelpSection {
 	key: string;
@@ -44,7 +44,7 @@ export const useHelpStore = defineStore('help', () => {
 		try {
 			// Dynamic import of markdown file
 			const content = await import(`@/docs/${locale.value}/${topicKey}.md?raw`);
-			const htmlContent = await marked.parse(content.default);
+			const htmlContent = renderHelpMarkdown(content.default);
 			contentCache.set(topicKey, htmlContent);
 			return htmlContent;
 		} catch (error) {

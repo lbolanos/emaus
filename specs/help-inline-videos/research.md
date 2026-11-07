@@ -107,3 +107,20 @@ dinámicas, notes…). En particular `renderMarkdown` de `useMarkdown.ts` lo con
 `AiChatWidget`, `RetreatPreparationsView`, `PublicPreparationsView`, `PriestLetterDialog`,
 `DynamicInstructionsModal`, `ResponsabilitiesView`. Cambiarlo globalmente afectaría renders
 ajenos a la ayuda → el fix va en un helper dedicado a la ayuda.
+
+## Quirks del harness de tests (verificados el 2026-11-07, vitest + happy-dom 14.12.3 + DOMPurify 3.3.0)
+
+Solo afectan a los tests unitarios, **no** a producción (navegadores reales):
+
+1. `DOMParser.parseFromString` de happy-dom **evalúa** los `<script>` inline (sin `type` o con
+   MIME de JS) al parsear. En un payload de test usar `type="application/json"` para que el
+   script llegue al sanitizer sin explotar el harness.
+2. Tras un `<script>` eliminado por DOMPurify, los **atributos peligrosos de los nodos
+   siguientes sobreviven** el sanitize (`href="javascript:…"`, `onclick=…`) — solo en
+   happy-dom; verificado con matriz piecewise (`anchor-only` sanitiza bien; `script-then-anchor`
+   se lo salta). En los tests, no mezclar `<script>` y atributos peligrosos en el mismo payload.
+   Los sanitize mínimos se comportan perfecto, así que DOMPurify en sí está bien.
+
+Consecuencia de diseño: `renderHelpMarkdown` sigue sanitizando con DOMPurify default (el
+comportamiento de producción es correcto); los tests de sanitización van en payloads separados.
+

@@ -2748,6 +2748,10 @@
       "contextualHelp": "Help for the current page",
       "viewFullDocs": "View Full Documentation"
     },
+    "video": {
+      "title": "Video tutorial",
+      "openInNewWindow": "Open in new window"
+    },
     "sections": {
       "gettingStarted": "Getting Started",
       "walkers": "Walkers",

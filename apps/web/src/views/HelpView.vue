@@ -2,10 +2,10 @@
 import { ref, computed, onMounted, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { useI18n } from 'vue-i18n';
-import { marked } from 'marked';
-import DOMPurify from 'dompurify';
 import { helpIndex, getHelpSectionByKey } from '@/config/helpIndex';
 import type { HelpSection } from '@/stores/helpStore';
+import { renderHelpMarkdown } from '@/utils/helpMarkdown';
+import HelpVideoModal from '@/components/help/HelpVideoModal.vue';
 
 const route = useRoute();
 const { locale } = useI18n();
@@ -15,6 +15,7 @@ const searchQuery = ref('');
 const contentHtml = ref<string>('');
 const loading = ref(false);
 const isSidebarOpen = ref(false);
+const activeVideoId = ref<string | null>(null);
 
 // Filter sections based on search
 const filteredSections = computed(() => {
@@ -48,13 +49,22 @@ async function loadContent(sectionKey: string) {
 	loading.value = true;
 	try {
 		const content = await import(`@/docs/${locale.value}/${sectionKey}.md?raw`);
-		contentHtml.value = DOMPurify.sanitize(await marked.parse(content.default));
+		contentHtml.value = renderHelpMarkdown(content.default);
 	} catch (error) {
 		console.error(`Failed to load help content: ${sectionKey}`, error);
 		contentHtml.value = `<p class="text-destructive">Error loading content</p>`;
 	} finally {
 		loading.value = false;
 	}
+}
+
+// Play video tutorial links inline (the link keeps its href for cmd-click)
+function handleContentClick(event: MouseEvent) {
+	const target = event.target as HTMLElement | null;
+	const link = target?.closest('a[data-video-id]');
+	if (!link) return;
+	event.preventDefault();
+	activeVideoId.value = link.getAttribute('data-video-id');
 }
 
 // Watch for section changes
@@ -143,10 +153,12 @@ watch(locale, () => {
 						v-else
 						class="prose prose-sm max-w-none dark:prose-invert"
 						v-html="contentHtml"
+						@click="handleContentClick"
 					/>
 				</main>
 			</div>
 		</div>
+		<HelpVideoModal :video-id="activeVideoId" @close="activeVideoId = null" />
 	</div>
 </template>
 
