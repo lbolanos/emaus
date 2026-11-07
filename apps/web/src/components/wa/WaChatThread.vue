@@ -30,8 +30,6 @@ const props = defineProps<{
   /** Ficha del caminante (backlog UX): Participant completo para el popover. */
   popoverParticipant?: Participant | null
   retreatId?: string | null
-  /** Data-URL de la foto descargada para el mensaje ampliado (FR14). */
-  enlargedPhotoDataUrl?: string | null
 }>()
 
 const emit = defineEmits<{
@@ -41,9 +39,6 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
-
-const props2 = props
-const enlargedPhotoDataUrl = computed(() => props2.enlargedPhotoDataUrl ?? null)
 
 const tz = computed(() => props.retreatTimezone || 'America/Mexico_City')
 
@@ -64,11 +59,13 @@ const ordered = computed(() => props.messages)
 const enlarged = ref<WaInboxMessageDto | null>(null)
 
 function enlarge(message: WaInboxMessageDto): void {
-  enlarged.value = message
-  // Imagen → descargar bajo demanda para la vista ampliada (FR14).
-  if (message.messageType === 'image' && !enlargedPhotoDataUrl.value) {
+  // Imagen → visor grande del padre (descarga bajo demanda, FR14); el diálogo
+  // ampliado es solo para texto.
+  if (message.messageType === 'image') {
     emit('view-photo', message)
+    return
   }
+  enlarged.value = message
 }
 
 function asDate(ts: string | Date): Date {
@@ -262,49 +259,15 @@ function formatFull(ts: string | Date): string {
           <DialogTitle>{{ conversation?.participantFirstName }} {{ conversation?.participantLastName }}</DialogTitle>
         </DialogHeader>
         <p
-          v-if="enlarged && enlarged.messageType !== 'image'"
+          v-if="enlarged"
           class="text-lg leading-relaxed whitespace-pre-wrap break-words min-h-[80px]"
           data-testid="wa-enlarged-body"
         >
           {{ enlarged.body }}
         </p>
-        <!-- Imagen: descarga bajo demanda → foto a tamaño grande (FR14). -->
-        <div v-if="enlarged && enlarged.messageType === 'image'" class="py-2">
-          <img
-            v-if="enlargedPhotoDataUrl"
-            :src="enlargedPhotoDataUrl"
-            class="w-full rounded-lg border"
-            alt="Foto recibida"
-            data-testid="wa-enlarged-photo"
-          />
-          <div v-else class="flex items-center justify-center gap-2 py-6 text-sm text-muted-foreground">
-            <span class="animate-pulse">{{ t('waInbox.photoDownloading') }}</span>
-          </div>
-          <button
-            v-if="canRegisterPayment"
-            type="button"
-            class="mt-2 text-sm text-emerald-700 hover:underline"
-            data-testid="wa-register-from-photo"
-            @click="emit('register-receipt', enlarged); enlarged = null"
-          >
-            {{ t('waInbox.registerPayment') }}
-          </button>
-        </div>
         <p v-if="enlarged" class="text-xs text-muted-foreground">
           {{ formatFull(enlarged.timestamp) }}
         </p>
-        <div
-          v-if="enlarged && canRegisterPayment && enlarged.messageType === 'image'"
-          class="text-sm"
-        >
-          <button
-            type="button"
-            class="text-emerald-700 hover:underline"
-            @click="emit('register-receipt', enlarged); enlarged = null"
-          >
-            {{ t('waInbox.registerPayment') }}
-          </button>
-        </div>
       </DialogContent>
     </Dialog>
   </div>
