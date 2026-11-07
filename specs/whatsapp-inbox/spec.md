@@ -5,6 +5,12 @@
 > **v1.1 (2026-11-06)**: D13 activación por retiro solo-superadmin, D14 terminar
 > servidores del puente, y comprobantes→pagos diseñado (depende del merge de
 > `payment-receipt-photo`). Implementada hasta M7 + video.
+> **v1.2 (2026-11-07, feedback QA de Leo)**: D16 thumbnails de imágenes SIEMPRE
+> visibles en el hilo (lote con un solo ciclo stop/restart del sync + caché
+> server-side 30 min / 12 imgs; tope 10 MB por foto ya no choca con el límite
+> de 2 MB de los assets subidos) y D17 los mensajes ENTRANTES de WhatsApp
+> aparecen en el historial de mensajes del caminante (mismo permiso
+> `whatsappInbox:read`, merge cronológico con lo enviado).
 > Artefactos hermanos: [research.md](research.md) (estado actual y verificaciones),
 > [plan.md](plan.md) (diseño técnico), [tasks.md](tasks.md) (milestones).
 
@@ -44,6 +50,8 @@ equipo autorizado, solo durante la ventana del retiro.
 | D13 | **Activación POR RETIRO, solo superadmin** (v1.1): nueva bandera `retreat.whatsappInboxEnabled`; sin ella nadie vincula, no se respawnea ningún hijo y el poller ignora el retiro | Decisión de Leo (2026-11-06): el puente consume RAM por cuenta vinculada — decidir qué retiro paga ese costo es del superadmin, no un permiso de plantilla |
 | D14 | **El superadmin termina los servidores del puente** (v1.1): desvinculación forzada de cualquier vínculo (ya existía) + "terminar todo" del retiro (stop + logout + wipe + purga + desactivación) | Decisión de Leo (2026-11-06): los stores son llaves de sesión de cuentas personales; un retiro apagado no puede dejar sesiones vivas |
 | D15 | **Comprobantes de pago desde WhatsApp** (v1.1, DISEÑADO — bloqueado): los mensajes con imagen ofrecen "Registrar como pago"; la media se descarga bajo demanda (`wacli media download`, tope) y se entrega como data-URL al modal de pago existente. **DEPENDENCIA**: `specs/payment-receipt-photo` (otra sesión, sin merge) — `Payment.receiptUrl` + `receiptPhoto` no existen aún en esta base | Decisión de Leo (2026-11-06). No descargar media masivamente (D9 sigue); solo bajo demanda, porque el servidor tiene 1 GB |
+| D16 | **Thumbnails de imágenes en el hilo, siempre visibles** (v1.2): al abrir un chat, el frontend pide en UN lote las imágenes pendientes (`POST /wa-bridge/retreat/:id/media`, máx 30 ids); el server para/levanta el sync del link UNA vez por lote (el lock no se pelea por cada foto) y cachea thumb (webp 320) + large (webp 1600) por 30 min (máx 12 imágenes en RAM). Tap en la burbuja = visor grande | Feedback Leo (2026-11-07): «en la lista de mensajes debería poder ver un thumbnail de la imagen» + «se demora mucho» — la causa era stop/restart del sync POR imagen y el tope de 2 MB de `processPhoto` que reventaba fotos de teléfono |
+| D17 | **Mensajes entrantes en el historial del caminante** (v1.2): `GET /participant-communications/participant/:id` mezcla cronológicamente los mensajes recibidos por WhatsApp (por JID del teléfono del caminante, `direction: 'inbound'`, id prefijado `wa-inbox:`) SOLO para usuarios con `whatsappInbox:read` — el mismo permiso que la bandeja. Las entradas no abren el dialog de mensajes enviados | Feedback Leo (2026-11-07): «los mensajes no se ven en el historial de mensajes del caminante» — el historial solo registraba lo que enviamos |
 
 ## Historias de usuario
 
@@ -98,6 +106,15 @@ equipo autorizado, solo durante la ventana del retiro.
 - **FR14 (v1.1, bloqueado)**: Comprobantes: botón "Registrar como pago" en mensajes con
   imagen → descarga bajo demanda → data-URL al modal de pago existente
   (`receiptPhoto`). Espera el merge de `payment-receipt-photo`.
+- **FR15 (v1.2)**: Thumbnails: las imágenes del hilo abierto se traen en un lote
+  (`POST /wa-bridge/retreat/:id/media`) y se muestran dentro de la burbuja
+  (webp 320, `object-cover`); sin thumbnail cargado queda el placeholder 📎. El
+  visor grande y el registro de pago reutilizan la variante large (1600).
+- **FR16 (v1.2)**: Historial del caminante: los mensajes entrantes de WhatsApp
+  aparecen mezclados cronológicamente en
+  `GET /participant-communications/participant/:id` con `direction:'inbound'`;
+  solo para usuarios con `whatsappInbox:read` y si el caminante tiene teléfono
+  con país resoluble. El historial de comunidad NO los incluye.
 
 ## Criterios de aceptación
 

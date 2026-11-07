@@ -3,10 +3,12 @@ import { AppDataSource } from '../data-source';
 import { ParticipantCommunication, MessageType } from '../entities/participantCommunication.entity';
 import { MessageTemplate } from '../entities/messageTemplate.entity';
 import { Participant } from '../entities/participant.entity';
-import { DeepPartial } from 'typeorm';
+import { WhatsappInboxMessage } from '../entities/whatsappInboxMessage.entity';
+import { In, DeepPartial } from 'typeorm';
 import { EmailService, ParticipantEmailData } from '../services/emailService';
 import { authorizationService } from '../middleware/authorization';
-import { messageTemplateTypes } from '@repo/types';
+import { acceptedJidDigitVariants } from '../services/waBridge';
+import { messageTemplateTypes, toNationalPhone } from '@repo/types';
 
 class CreateCommunicationDTO {
 	participantId!: string;
@@ -83,9 +85,70 @@ export class ParticipantCommunicationController {
 				skip: Number(offset),
 			});
 
+			// Mensajes ENTRANTES por WhatsApp del caminante (v1.2 de
+			// specs/whatsapp-inbox): antes el historial solo registraba lo que
+			// enviamos nosotros. Se incluyen solo para quien puede leer la
+			// bandeja (mismo permiso) y solo si el participante tiene teléfono
+			// con país resoluble (el match es por JID, igual que el poller).
+			let inbound: Array<Record<string, unknown>> = [];
+			let inboundTotal = 0;
+			const userId = (req.user as any)?.id as string | undefined;
+			const canReadInbox =
+				userId &&
+				(await authorizationService.hasPermission(userId, 'whatsappInbox:read').catch(() => false));
+			if (canReadInbox) {
+				const walker = await this.participantRepository.findOne({
+					where: { id: participantId },
+					select: ['id', 'cellPhone', 'country'],
+				});
+				const jids =
+					walker?.cellPhone && walker?.country
+						? acceptedJidDigitVariants(
+								toNationalPhone(walker.cellPhone, walker.country),
+								walker.country,
+							).map((digits) => `${digits}@s.whatsapp.net`)
+						: [];
+				if (jids.length > 0) {
+					const [rows, count] = await AppDataSource.getRepository(
+						WhatsappInboxMessage,
+					).findAndCount({
+						where: { retreatId: effectiveRetreatId, chatJid: In(jids), fromMe: false },
+						select: ['id', 'chatJid', 'chatPhone', 'timestamp', 'body', 'messageType'],
+						order: { timestamp: 'DESC' },
+						take: Number(limit),
+						skip: Number(offset),
+					});
+					inboundTotal = count;
+					inbound = rows.map((row) => ({
+						id: `wa-inbox:${row.id}`,
+						participantId,
+						retreatId: effectiveRetreatId,
+						messageType: 'whatsapp',
+						direction: 'inbound',
+						waMessageType: row.messageType,
+						recipientContact: row.chatPhone,
+						messageContent:
+							row.body ||
+							(row.messageType === 'image'
+								? '📷 Imagen recibida (verla en la bandeja de WhatsApp)'
+								: '📎 Multimedia recibida (verla en la bandeja de WhatsApp)'),
+						sentAt: row.timestamp,
+					}));
+				}
+			}
+
+			// Merge cronológico; el slice respeta limit/offset sobre el total combinado.
+			const merged = [...communications, ...inbound] as Array<Record<string, unknown>>;
+			merged.sort((a, b) => {
+				const ta = new Date(a.sentAt as string).getTime() || 0;
+				const tb = new Date(b.sentAt as string).getTime() || 0;
+				return tb - ta;
+			});
+			const page = merged.slice(0, Number(limit));
+
 			res.json({
-				communications,
-				total,
+				communications: page,
+				total: total + inboundTotal,
 				limit: Number(limit),
 				offset: Number(offset),
 			});

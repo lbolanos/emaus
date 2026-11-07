@@ -257,3 +257,21 @@
   el sidebar concede todos los menús a `isSuperadmin` (= tener `user:delete` en el perfil
   combinado). Y las rutas de interceptación van ANTES del login (el store persistido no
   re-evalúa con reload).
+
+## QA v1.2 (feedback de Leo, 2026-11-07)
+
+- [x] **D16/FR15 Thumbnails**: imágenes del hilo visibles siempre (lote
+  `POST /wa-bridge/retreat/:id/media`, máx 30 ids; server cachea thumb 320 +
+  large 1600 por 30 min, máx 12). Fix de raíz del «se demora mucho»: el
+  stop/restart del sync era POR imagen; ahora UNO por lote por link.
+- [x] **Fix colateral**: `imageService.processPhoto` rechazaba fotos > 2 MB
+  (tope de assets subidos) — nueva `processWaReceiptVariants` con tope propio
+  de 10 MB; era la causa de «No se pudo descargar la imagen» en fotos grandes.
+- [x] **D17/FR16 Historial del caminante**: entrantes de WhatsApp mezclados en
+  `GET /participant-communications/participant/:id` (`direction:'inbound'`,
+  id `wa-inbox:…`) solo con `whatsappInbox:read`; badge «Recibido», sin click
+  al dialog de enviados. Espacio fuera de alcance: el historial de comunidad.
+- [x] Limpieza de la chaos de QA: múltiples instancias del API del worktree
+  vivas a la vez + 1 contenedor wacli huérfano — kill por cmdline + arranque
+  limpio con `/tmp/emaus-wa-video/start-qa-api.sh` (una sola sesión, link
+  connected, lastSyncAt avanzando).

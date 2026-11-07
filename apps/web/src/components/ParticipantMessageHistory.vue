@@ -55,9 +55,9 @@
       <svg class="w-12 h-12 mx-auto text-muted-foreground/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/>
       </svg>
-      <p class="text-sm text-muted-foreground mt-2">No hay mensajes enviados</p>
+      <p class="text-sm text-muted-foreground mt-2">No hay mensajes</p>
       <p class="text-xs text-muted-foreground mt-1">
-        Los mensajes enviados aparecerán aquí
+        Los mensajes enviados y los recibidos por WhatsApp aparecerán aquí
       </p>
     </div>
 
@@ -66,8 +66,9 @@
       <div
         v-for="message in communications"
         :key="message.id"
-        class="border rounded-lg p-3 space-y-2 hover:bg-muted/50 transition-colors cursor-pointer"
-        @click="$emit('message-click', message)"
+        class="border rounded-lg p-3 space-y-2 hover:bg-muted/50 transition-colors"
+        :class="{ 'cursor-pointer': !isInbound(message) }"
+        @click="isInbound(message) ? null : $emit('message-click', message)"
       >
         <!-- Message Header -->
         <div class="flex items-center justify-between">
@@ -76,6 +77,10 @@
             <span :class="getMessageTypeColor(message.messageType)" class="text-sm font-medium">
               {{ getMessageTypeLabel(message.messageType) }}
             </span>
+            <!-- Entrantes de la bandeja WhatsApp (v1.2): badge propio -->
+            <Badge v-if="isInbound(message)" variant="outline" class="text-xs">
+              Recibido
+            </Badge>
           </div>
           <div class="flex items-center gap-1">
             <span class="text-xs text-muted-foreground">
@@ -110,10 +115,13 @@
           </Badge>
         </div>
 
-        <!-- Recipient Info -->
-        <div class="text-xs text-muted-foreground">
+        <!-- Recipient Info (salientes) / Remitente (entrantes de WhatsApp) -->
+        <div v-if="!isInbound(message)" class="text-xs text-muted-foreground">
           Enviado a:
           <span v-if="message.recipientName" class="font-medium">{{ message.recipientName }} — </span>{{ message.recipientContact }}
+        </div>
+        <div v-else class="text-xs text-muted-foreground">
+          Recibido de: <span class="font-medium">+{{ message.recipientContact }}</span>
         </div>
 
         <!-- Sender Info -->
@@ -152,6 +160,9 @@ interface ParticipantCommunication {
   participantId: string;
   retreatId: string;
   messageType: 'whatsapp' | 'email';
+  /** 'inbound' = mensaje recibido del caminante por la bandeja (v1.2). */
+  direction?: 'inbound' | 'outbound';
+  waMessageType?: string | null;
   recipientContact: string;
   messageContent: string;
   templateId?: string;
@@ -233,6 +244,10 @@ const AUDIENCE_LABELS: Record<string, string> = {
   general: 'General',
 };
 const audienceLabel = (a?: string | null): string => (a ? AUDIENCE_LABELS[a] || a : '');
+
+// Entrantes de WhatsApp (bandeja v1.2): no abren el dialog de mensajes
+// enviados; su detalle vive en la bandeja.
+const isInbound = (m: ParticipantCommunication): boolean => m.direction === 'inbound';
 
 // Local state
 const localLoading = ref(false);

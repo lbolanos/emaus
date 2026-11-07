@@ -8,6 +8,10 @@ export interface ParticipantCommunication {
 	participantId: string;
 	retreatId: string;
 	messageType: 'whatsapp' | 'email';
+	/** 'inbound' = mensaje de WhatsApp recibido del caminante (bandeja v1.2). */
+	direction?: 'inbound' | 'outbound';
+	/** Tipo crudo de WhatsApp para entrantes (image, audio, …). */
+	waMessageType?: string | null;
 	recipientContact: string;
 	recipientContactKey?: string | null;
 	recipientName?: string | null;
