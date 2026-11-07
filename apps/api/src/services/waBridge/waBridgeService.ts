@@ -276,13 +276,31 @@ export class WaBridgeService {
 				await this.linkRepo.save(link);
 				return;
 			case 'warning':
-			case 'error':
-				link.lastError = (event.message ?? 'unknown wacli error').slice(0, 500);
-				if (link.status === 'connected') {
-					link.status = 'error';
+			case 'error': {
+				const rawMessage = (event.message ?? 'unknown wacli error').slice(0, 300);
+				// Ruido informativo del sync (QA real 2026-11-06/07): mensajes de
+				// grupo cuyo payload wacli no renderiza — se anotan, no ensucian
+				// el tablero ni el modal.
+				if (/stored message .* without content|unhandled payload|history sync suppressed/i.test(rawMessage)) {
+					console.log(`[waBridge][${linkId}] wacli notice: ${rawMessage}`);
+					return;
 				}
+				// Errores conocidos → instrucción accionable para el staff (v1.1:
+				// el tablero informa qué hacer, no solo el error crudo).
+				let guidance = '';
+				if (/store is locked|another wacli/i.test(rawMessage)) {
+					guidance =
+						'La sesión está ocupada por otro proceso del sistema; se reintenta automáticamente. Si sigue así más de 5 minutos, desvincula y vuelve a vincular.';
+				} else if (/logged out|logged_out|no session|not authenticated/i.test(rawMessage)) {
+					guidance =
+						'La sesión se cerró desde el teléfono. Desvincula y vuelve a vincular para reconectar.';
+				} else {
+					guidance = 'Si el problema persiste, desvincula y vuelve a vincular tu WhatsApp.';
+				}
+				link.lastError = `${rawMessage} — ${guidance}`.slice(0, 500);
 				await this.linkRepo.save(link);
 				return;
+			}
 			case 'auth_exit': {
 				// El bootstrap terminó: ¿quedó emparejado? Si sí, pasa a sync.
 				try {
