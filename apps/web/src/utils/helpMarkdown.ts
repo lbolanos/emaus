@@ -4,12 +4,15 @@ import DOMPurify from 'dompurify';
 /**
  * URL patterns for YouTube video links used in the in-app help docs
  * (youtu.be short links and the watch/embed/shorts canonical forms).
+ * Anchored to the href start so redirect wrappers or lookalike hosts
+ * (e.g. https://emaus.cc/out?to=… or https://notyoutu.be/…) are not
+ * tagged as video links.
  */
 const YOUTUBE_URL_PATTERNS: RegExp[] = [
-	/youtu\.be\/([A-Za-z0-9_-]{6,})/i,
-	/youtube\.com\/watch\?(?:[^#]*&)?v=([A-Za-z0-9_-]{6,})/i,
-	/youtube\.com\/embed\/([A-Za-z0-9_-]{6,})/i,
-	/youtube\.com\/shorts\/([A-Za-z0-9_-]{6,})/i,
+	/^https?:\/\/(?:www\.)?youtu\.be\/([A-Za-z0-9_-]{6,})/i,
+	/^https?:\/\/(?:www\.)?youtube\.com\/watch\?(?:[^#]*&)?v=([A-Za-z0-9_-]{6,})/i,
+	/^https?:\/\/(?:www\.)?youtube\.com\/embed\/([A-Za-z0-9_-]{6,})/i,
+	/^https?:\/\/(?:www\.)?youtube\.com\/shorts\/([A-Za-z0-9_-]{6,})/i,
 ];
 
 // Guard against pathological inputs (e.g. data: URLs of megabyte size blow the
@@ -50,6 +53,8 @@ export function renderHelpMarkdown(markdown: string): string {
 		const href = link.getAttribute('href') ?? '';
 		const videoId = extractYouTubeId(href);
 		if (videoId) {
+			// `help-video-link` is a semantic hook (e2e selectors / future styling);
+			// the click delegation matches on data-video-id, not on this class.
 			const existingClass = link.getAttribute('class');
 			link.setAttribute(
 				'class',

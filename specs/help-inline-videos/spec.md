@@ -157,3 +157,16 @@ Repasada la spec entera contra el código final el 2026-11-07. Correcciones y no
   de deep links) para cubrir lo que los unit tests ya fijan.
 - **Criterios verificados**: CA1-CA7 en verde el 2026-11-07 (smoke por navegación SPA en el dev
   del worktree, puertos 3004/5176 — 3002/5174 y 3003/5175 estaban ocupados por otras sesiones).
+- **Cierre (security + code review)**: seguridad sin hallazgos ≥ umbral (el src del iframe y el
+  `window.open` son prefijo-hardcodeados; el HTML a `v-html` proviene solo de los `.md`
+  estáticos). Del code review se adoptaron: regexes de YouTube **ancladas** al inicio del href
+  (redirect wrappers y hosts parecidos ya no se etiquetan; tests nuevos), caché de `helpStore`
+  **por locale** (bug pre-existente que el diff tocaba), foco devuelto al trigger en
+  **unmount mientras abierto**, `body.overflow` previo **restaurado** en vez de reseteado, y
+  trap de foco por `focusin` para que Tab no escape por el iframe cross-origin. Se descartaron
+  con motivo: derivar `routesRequiringId` del meta del router (refactor mayor fuera de alcance;
+  el riesgo de drift queda como punto de extensión — agregar ahí TODO item nuevo de menú con
+  ruta `retreats/:id/*`), composable para la delegación duplicada (10 líneas en dos vistas),
+  eliminar `helpStore.loadTopicContent` (pre-existente, sin consumidores), y el triple parse
+  (docs de ~5KB, irrelevante). La clase `help-video-link` quedó documentada como hook semántico
+  (la delegación matchea por `data-video-id`). Re-smoke 8/8 tras los arreglos.

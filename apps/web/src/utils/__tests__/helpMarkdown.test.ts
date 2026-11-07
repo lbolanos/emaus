@@ -32,6 +32,15 @@ describe('extractYouTubeId', () => {
 		expect(extractYouTubeId('')).toBe(null);
 		expect(extractYouTubeId(`https://youtu.be/x${'a'.repeat(3000)}`)).toBe(null);
 	});
+
+	it('does not tag redirect wrappers or lookalike hosts (anchored patterns)', () => {
+		expect(extractYouTubeId('https://emaus.cc/out?to=https://youtu.be/AHhyWbUv_Is')).toBe(null);
+		expect(extractYouTubeId('https://notyoutu.be/abcdefghijk')).toBe(null);
+		expect(extractYouTubeId('https://evil.com/watch?v=AAAAAAAAAAA')).toBe(null);
+		const html = renderHelpMarkdown('[x](https://fakeyoutube.com/watch?v=12345678901)');
+		expect(html).not.toContain('data-video-id');
+		expect(html).toContain('target="_blank"');
+	});
 });
 
 describe('renderHelpMarkdown', () => {

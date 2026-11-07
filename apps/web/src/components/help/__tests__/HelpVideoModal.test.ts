@@ -83,4 +83,27 @@ describe('HelpVideoModal', () => {
 		await w.setProps({ videoId: null });
 		expect(w.find('iframe').exists()).toBe(false);
 	});
+
+	it('restores the previous body overflow on close instead of resetting it', async () => {
+		document.body.style.overflow = 'auto';
+		const w = mountModal('AHhyWbUv_Is');
+		expect(document.body.style.overflow).toBe('hidden');
+
+		await w.setProps({ videoId: null });
+		expect(document.body.style.overflow).toBe('auto');
+		document.body.style.overflow = '';
+	});
+
+	it('restores focus to the trigger element on unmount while open', async () => {
+		const trigger = document.createElement('button');
+		document.body.appendChild(trigger);
+		trigger.focus();
+		expect(document.activeElement).toBe(trigger);
+
+		const w = mountModal('AHhyWbUv_Is');
+		await w.vm.$nextTick();
+		w.unmount();
+		expect(document.activeElement).toBe(trigger);
+		trigger.remove();
+	});
 });

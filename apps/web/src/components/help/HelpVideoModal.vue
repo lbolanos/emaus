@@ -16,6 +16,7 @@ const { t: $t } = useI18n();
 
 const contentEl = ref<HTMLElement | null>(null);
 let previousActiveElement: HTMLElement | null = null;
+let previousBodyOverflow: string | null = null;
 
 const isOpen = computed(() => props.videoId !== null);
 
@@ -41,6 +42,14 @@ function close() {
 
 const onKeyDown = (e: KeyboardEvent) => {
 	if (e.key === 'Escape' && isOpen.value) close();
+};
+
+// Tab wrapping out of the cross-origin iframe lands focus outside the modal
+// without any keydown we can see; pull it back whenever it escapes.
+const onDocumentFocusIn = (e: FocusEvent) => {
+	if (!isOpen.value || !contentEl.value) return;
+	if (contentEl.value.contains(e.target as Node)) return;
+	contentEl.value.focus();
 };
 
 const FOCUSABLE_SELECTOR =
@@ -69,13 +78,17 @@ watch(
 	async (open) => {
 		if (open) {
 			previousActiveElement = (document.activeElement as HTMLElement) ?? null;
+			previousBodyOverflow = document.body.style.overflow || null;
 			document.addEventListener('keydown', onKeyDown);
+			document.addEventListener('focusin', onDocumentFocusIn);
 			document.body.style.overflow = 'hidden';
 			await nextTick();
 			contentEl.value?.focus();
 		} else {
 			document.removeEventListener('keydown', onKeyDown);
-			document.body.style.overflow = '';
+			document.removeEventListener('focusin', onDocumentFocusIn);
+			document.body.style.overflow = previousBodyOverflow ?? '';
+			previousBodyOverflow = null;
 			if (previousActiveElement && typeof previousActiveElement.focus === 'function') {
 				previousActiveElement.focus();
 			}
@@ -87,7 +100,17 @@ watch(
 
 onBeforeUnmount(() => {
 	document.removeEventListener('keydown', onKeyDown);
-	document.body.style.overflow = '';
+	document.removeEventListener('focusin', onDocumentFocusIn);
+	// Restore the outer overlay's scroll lock instead of assuming it was empty.
+	if (previousBodyOverflow !== null) {
+		document.body.style.overflow = previousBodyOverflow;
+		previousBodyOverflow = null;
+	}
+	// Same focus restore as the close path, for unmount-while-open.
+	if (previousActiveElement && typeof previousActiveElement.focus === 'function') {
+		previousActiveElement.focus();
+	}
+	previousActiveElement = null;
 });
 </script>
 

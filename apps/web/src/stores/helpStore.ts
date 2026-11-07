@@ -25,27 +25,30 @@ export const useHelpStore = defineStore('help', () => {
 	const searchQuery = ref('');
 	const locale = ref('es');
 
-	// Cache for loaded markdown content
+	// Cache for loaded markdown content, keyed by locale + topic so a language
+	// switch never serves the previous locale's HTML.
 	const contentCache = new Map<string, string>();
 
 	// Computed
 	const currentTopicContent = computed(() => {
 		if (!currentTopic.value) return null;
-		return contentCache.get(currentTopic.value);
+		return contentCache.get(`${locale.value}/${currentTopic.value}`);
 	});
 
 	// Actions
 	async function loadTopicContent(topicKey: string): Promise<string | null> {
+		const cacheKey = `${locale.value}/${topicKey}`;
+
 		// Check cache first
-		if (contentCache.has(topicKey)) {
-			return contentCache.get(topicKey)!;
+		if (contentCache.has(cacheKey)) {
+			return contentCache.get(cacheKey)!;
 		}
 
 		try {
 			// Dynamic import of markdown file
 			const content = await import(`@/docs/${locale.value}/${topicKey}.md?raw`);
 			const htmlContent = renderHelpMarkdown(content.default);
-			contentCache.set(topicKey, htmlContent);
+			contentCache.set(cacheKey, htmlContent);
 			return htmlContent;
 		} catch (error) {
 			console.error(`Failed to load help topic: ${topicKey}`, error);
