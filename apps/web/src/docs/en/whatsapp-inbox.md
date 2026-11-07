@@ -3,7 +3,7 @@
 The inbox where the team sees the messages walkers send by WhatsApp to the
 staff's phones (logistics, palanqueros, coordination).
 
-📺 **[Watch the video tutorial](https://youtu.be/PENDIENTE)**
+📺 **[Watch the video tutorial](https://youtu.be/_SLDmmOjTPo)**
 
 ## What it does
 

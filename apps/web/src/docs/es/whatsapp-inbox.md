@@ -3,7 +3,7 @@
 La bandeja donde el equipo ve los mensajes que los caminantes mandan por
 WhatsApp a los teléfonos del personal (logística, palanqueros, coordinación).
 
-📺 **[Ver video tutorial](https://youtu.be/PENDIENTE)**
+📺 **[Ver video tutorial](https://youtu.be/_SLDmmOjTPo)**
 
 ## Qué hace
 
