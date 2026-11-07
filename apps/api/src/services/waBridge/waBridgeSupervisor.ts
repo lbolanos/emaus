@@ -104,6 +104,7 @@ export class WaBridgeSupervisor {
 	private child: ChildProcess | null = null;
 	private mode: WaSupervisorMode | null = null;
 	private stopped = false;
+	private lastStderrLine = '';
 	private backoffMs: number = config.waBridge.restartBackoffSeconds * 1000;
 	/** El spawn usa grupo de procesos propio (excepto Windows) — lo consulta el stop. */
 	private readonly spawnedDetached = process.platform !== 'win32';
@@ -201,14 +202,16 @@ export class WaBridgeSupervisor {
 		this.mode = mode;
 		const buffer = (chunk: Buffer, isStderr: boolean) => {
 			for (const line of chunk.toString('utf8').split('\n')) {
-				const evt = parseWacliEventLine(line);
+				const trimmed = line.trim();
+				if (!trimmed) continue;
+				if (isStderr) this.lastStderrLine = trimmed.slice(0, 200);
+				const evt = parseWacliEventLine(trimmed);
 				if (evt) {
 					if (evt.type !== 'ignored') this.onEvent(evt);
 					continue;
 				}
 				// QA/ops (solo stderr): los NDJSON que el parser aún no reconoce
 				// quedan en el log — así se descubre el nombre real de cada evento.
-				const trimmed = line.trim();
 				if (isStderr && trimmed.startsWith('{') && !KNOWN_NOISE_EVENT.test(trimmed)) {
 					console.log(
 						`[waBridge][${this.linkId}] evento no reconocido: ${trimmed.slice(0, 160)}`,
@@ -240,7 +243,13 @@ export class WaBridgeSupervisor {
 				this.onEvent({ type: 'auth_exit', code, mode });
 				return;
 			}
-			this.onEvent({ type: 'child_exit', code, mode });
+			// La última línea cruda del stderr es la causa de muerte del hijo.
+			this.onEvent({
+				type: 'child_exit',
+				code,
+				mode,
+				message: this.lastStderrLine || undefined,
+			});
 			this.scheduleRestart();
 		});
 	}
