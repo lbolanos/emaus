@@ -2,7 +2,7 @@
 
 The cross between the **Minute by Minute** and each **server's duties**: pick the activity you are at, and the screen builds the moment — who is on stage, where, and what each person should be doing.
 
-📺 **[Watch the video tutorial (1:36)](https://youtu.be/xKgNukP6Lsc)**
+📺 **[Watch the video tutorial (1:56)](https://youtu.be/I0Zmz0G7-OY)**
 
 ## We are at
 

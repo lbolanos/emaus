@@ -2,7 +2,7 @@
 
 El cruce entre el **Minuto a Minuto** y las **funciones de cada servidor**: eliges en qué actividad están, y la pantalla arma el momento — quién está en escena, dónde y qué le toca a cada quien.
 
-📺 **[Ver video tutorial (1:36)](https://youtu.be/xKgNukP6Lsc)**
+📺 **[Ver video tutorial (1:56)](https://youtu.be/I0Zmz0G7-OY)**
 
 ## Estamos en
 
