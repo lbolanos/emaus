@@ -42,7 +42,10 @@
       "payment": {
         "create": "Payment recorded",
         "update": "Payment edited",
-        "delete": "Payment deleted"
+        "delete": "Payment deleted",
+        "receipt_claim_apply": "Family receipt applied to a payment",
+        "receipt_claim_dismiss": "Family receipt dismissed",
+        "receipt_from_letter": "Mailbox letter photo registered as payment"
       },
       "participant_debt": {
         "create": "Debt recorded",

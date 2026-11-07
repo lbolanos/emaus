@@ -42,7 +42,10 @@
       "payment": {
         "create": "Pago registrado",
         "update": "Pago editado",
-        "delete": "Pago eliminado"
+        "delete": "Pago eliminado",
+        "receipt_claim_apply": "Comprobante de familia aplicado a un pago",
+        "receipt_claim_dismiss": "Comprobante de familia descartado",
+        "receipt_from_letter": "Foto de carta del buzón registrada como pago"
       },
       "participant_debt": {
         "create": "Deuda registrada",
