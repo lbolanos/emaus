@@ -174,9 +174,10 @@
       5500. Verificada por frames (intro/sidebar/tablero/lista/hilo/responder/
       consentimiento/QR/conectado/ciclo/outro) y volumen (-18.3 dB)
 - [x] mp4 en `~/Desktop/WhatsApp-del-Retiro-demo.mp4` + `.meta.json` con capítulos
-      (subida a YouTube SOLO con OK de Leo — regla de siempre) — **v1.2 regrabado
-      (1:48, 15 beats)**: scroll del sidebar (feedback de Leo), switch de activación
-      por retiro, y beat nuevo de comprobante → pago con la foto adjunta
+      (subida a YouTube SOLO con OK de Leo — regla de siempre) — **v1.3 grabado
+      (2:08, 16 beats) y SUBIDO unlisted 2026-11-06: https://youtu.be/_SLDmmOjTPo**
+      (playlist "Emaús Retiros — Tutoriales" pos. 31; ayuda in-app enlazada;
+      incluye búsqueda sin acentos, vista ampliada y comprobante → pago)
 - Trampas nuevas anotadas: el `--max-messages` del supervisor matchea el case
   `*"messages"*` de un fake-shell (ordenar los cases con anclas de palabra); el
   testid de `DialogContent` de reka-ui no se props-forward (anclar en un hijo);
