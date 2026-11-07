@@ -546,6 +546,23 @@ export const helpIndex: HelpSection[] = [
 		],
 	},
 	{
+		// Cartas de familias por email (specs/letters-email). Detrás de login:
+		// nada de esto sale en la landing.
+		key: 'letters',
+		title: 'Family Letters',
+		titleEs: 'Cartas de familias',
+		icon: 'mdi-email-multiple-outline',
+		routeContext: ['letters'],
+		topics: [
+			{
+				key: 'letters-overview',
+				title: 'Overview',
+				titleEs: 'Descripción general',
+				content: 'letters.md',
+			},
+		],
+	},
+	{
 		key: 'special-cases',
 		title: 'Special Cases',
 		titleEs: 'Casos especiales',

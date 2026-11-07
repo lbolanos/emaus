@@ -1,4 +1,5 @@
 import { AppDataSource } from "../data-source";
+import { config } from "../config/env";
 import { Participant } from "../entities/participant.entity";
 import { Retreat } from "../entities/retreat.entity";
 import { RetreatParticipant } from "../entities/retreatParticipant.entity";
@@ -61,6 +62,12 @@ export const hydrateParticipantRetreatContext = async (
     relations: ["tableMesa"],
   });
   if (rp) {
+    // Buzón de cartas (specs/letters-email): solo con código generado y activo —
+    // si está deshabilitado el email rebota y el mensaje mentiría a la familia.
+    participant.letterMailbox =
+      rp.mailboxCode && rp.mailboxEnabled
+        ? `carta.${rp.mailboxCode}@${config.letters.mailboxDomain}`
+        : null;
     if (rp.type != null) participant.type = rp.type as any;
     if (rp.isCancelled != null) participant.isCancelled = rp.isCancelled;
     if (rp.tableId !== undefined) participant.tableId = rp.tableId;
@@ -111,6 +118,7 @@ export const hydrateParticipantRetreatContext = async (
     // Caller asked for a specific retreat where this participant is NOT
     // registered. Clear legacy per-retreat columns so we don't leak data
     // from another retreat (or from the global "primary" participants row).
+    participant.letterMailbox = null;
     participant.type = undefined;
     participant.isCancelled = undefined;
     participant.tableId = undefined;

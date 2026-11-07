@@ -31,6 +31,10 @@ export class Participant {
 	type?: 'walker' | 'server' | 'waiting' | 'partial_server';
 	spouseParticipantId?: string | null;
 	spouseName?: string | null;
+	// Buzón de cartas de familias (specs/letters-email): dirección completa
+	// carta.{mailboxCode}@dominio, hidratada desde retreat_participants. Null si
+	// el participante no tiene buzón generado (activación por retiro).
+	letterMailbox?: string | null;
 
 	@Column('varchar')
 	firstName!: string; // Corresponde a 'nombre'

@@ -67,6 +67,9 @@ import { CrmTask } from '../entities/crmTask.entity';
 import { ParticipantNote } from '../entities/participantNote.entity';
 import { GlobalMessageSequence } from '../entities/globalMessageSequence.entity';
 import { GlobalSequenceStep } from '../entities/globalSequenceStep.entity';
+import { Letter } from '../entities/letter.entity';
+import { PaymentReceiptClaim } from '../entities/paymentReceiptClaim.entity';
+import { LetterAttachment } from '../entities/letterAttachment.entity';
 import { ScheduleTemplate } from '../entities/scheduleTemplate.entity';
 import { ScheduleTemplateSet } from '../entities/scheduleTemplateSet.entity';
 import { ResponsabilityAttachment } from '../entities/responsabilityAttachment.entity';
@@ -166,6 +169,9 @@ const entities = [
 	ParticipantNote,
 	GlobalMessageSequence,
 	GlobalSequenceStep,
+	Letter,
+	LetterAttachment,
+	PaymentReceiptClaim,
 ];
 
 // Test database configuration - will be created in setupTestDatabase
@@ -347,6 +353,10 @@ export async function clearTestData() {
 	// Clear tables in dependency order (children before parents)
 	// This respects foreign key constraints
 	const clearOrder = [
+		// Cartas de familias (specs/letters-email): hijas primero — letters
+		// referencia retreat_participants, que se limpia más abajo.
+		'letter_attachments',
+		'letters',
 		'community_attendance',
 		'community_meeting_photo_tag',
 		'community_meeting',

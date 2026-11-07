@@ -1148,6 +1148,8 @@ export * from './availability';
 export * from './phone';
 export * from './text';
 export * from './menu';
+export * from './letter';
+export * from './paymentReceiptClaim';
 
 // Payment Schema
 export const paymentSchema = z.object({

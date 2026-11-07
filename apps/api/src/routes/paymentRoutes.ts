@@ -1,16 +1,85 @@
 import { Router } from 'express';
-import { createPaymentSchema, updatePaymentSchema } from '@repo/types';
+import {
+	createPaymentSchema,
+	updatePaymentSchema,
+	SubmitPaymentReceiptClaimSchema,
+	ListReceiptClaimsQuerySchema,
+	ApplyPaymentReceiptClaimSchema,
+	DismissPaymentReceiptClaimSchema,
+	PaymentFromLetterSchema,
+} from '@repo/types';
 import { PaymentController } from '../controllers/paymentController';
+import {
+	getPublicReceiptLinkContext,
+	submitPublicReceiptClaim,
+	getReceiptLinksHandler,
+	listReceiptClaimsHandler,
+	applyReceiptClaimHandler,
+	dismissReceiptClaimHandler,
+	createPaymentFromLetterHandler,
+} from '../controllers/paymentReceiptClaimController';
 import { isAuthenticated } from '../middleware/authentication';
 import { validateRequest } from '../middleware/validateRequest';
 import { requirePermission, requireRetreatAccess } from '../middleware/authorization';
 import { idempotency } from '../middleware/idempotency';
+import { receiptUploadLimiter } from '../middleware/rateLimiting';
 
 const router = Router();
 const paymentController = new PaymentController();
 
+// -- PÚBLICO: link de capacidad (comprobantes por link, specs/comprobantes-link)
+// ANTES del blanket isAuthenticated de abajo; exento de CSRF en routes/index.ts.
+router.get(
+	'/public/receipt-link/:token',
+	getPublicReceiptLinkContext,
+);
+router.post(
+	'/public/receipt-link/:token',
+	receiptUploadLimiter,
+	validateRequest(SubmitPaymentReceiptClaimSchema),
+	submitPublicReceiptClaim,
+);
+
 // All payment routes require authentication
 router.use(isAuthenticated);
+
+// -- Bandeja de comprobantes enviados por las familias (specs/comprobantes-link) --
+// Las rutas literales van ANTES de '/:id' para no ser tragadas por él.
+// requireRetreatAccess con source='query': el retreatId de estas rutas viene
+// como query string, no como path param.
+router.get(
+	'/receipt-links',
+	requirePermission('payment:create'),
+	requireRetreatAccess('retreatId', 'query'),
+	getReceiptLinksHandler,
+);
+router.get(
+	'/receipt-claims',
+	requirePermission('payment:read'),
+	requireRetreatAccess('retreatId', 'query'),
+	validateRequest(ListReceiptClaimsQuerySchema),
+	listReceiptClaimsHandler,
+);
+router.post(
+	'/receipt-claims/:id/apply',
+	requirePermission('payment:create'),
+	validateRequest(ApplyPaymentReceiptClaimSchema),
+	applyReceiptClaimHandler,
+);
+router.post(
+	'/receipt-claims/:id/dismiss',
+	requirePermission('payment:update'),
+	validateRequest(DismissPaymentReceiptClaimSchema),
+	dismissReceiptClaimHandler,
+);
+// Registra el adjunto foto de una CARTA del buzón como comprobante y lo setea
+// en el pago nuevo (payment.receipt_from_letter).
+router.post(
+	'/from-letter/:letterId',
+	requirePermission('payment:create'),
+	validateRequest(PaymentFromLetterSchema),
+	createPaymentFromLetterHandler,
+);
 
 // Create payment
 router.post(

@@ -65,3 +65,46 @@ export function printMarkdownDocument(opts: PrintableDocumentOptions): boolean {
 	win.document.close();
 	return true;
 }
+
+export interface PrintHtmlDocumentOptions {
+	title: string;
+	subtitle?: string;
+	meta?: string;
+	/** HTML YA construido y escapado por el caller (specs/letters-email D13). */
+	bodyHtml: string;
+	relaxedLeading?: boolean;
+	onPopupBlocked?: () => void;
+}
+
+/**
+ * Hermana de `printMarkdownDocument` para documentos cuyo body ya viene en
+ * HTML (cartas de familias: bloques escapados + <img> de adjuntos presigned).
+ * El autoPrint de buildPrintableHtml espera a que carguen las imágenes antes
+ * de abrir el diálogo — imprescindible con fotos del bucket.
+ */
+export function printHtmlDocument(opts: PrintHtmlDocumentOptions): boolean {
+	const win = window.open('', '_blank', 'width=900,height=1100');
+	if (!win) {
+		opts.onPopupBlocked?.();
+		return false;
+	}
+
+	win.document.write(
+		buildPrintableHtml(
+			{
+				title: opts.title,
+				subtitle: opts.subtitle,
+				meta: opts.meta,
+				bodyHtml: opts.bodyHtml,
+			},
+			{
+				baseHref: `${window.location.origin}/`,
+				relaxedLeading: opts.relaxedLeading ?? true,
+				autoPrint: true,
+				printPath: `/imprimir/${printableSlug(opts.title)}`,
+			},
+		),
+	);
+	win.document.close();
+	return true;
+}

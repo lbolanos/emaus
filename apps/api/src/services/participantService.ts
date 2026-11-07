@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import { usableName } from "@repo/utils";
 import { AppDataSource } from "../data-source";
+import { config } from "../config/env";
 import { Participant } from "../entities/participant.entity";
 import { ParticipantShirtSize } from "../entities/participantShirtSize.entity";
 import { RetreatShirtType } from "../entities/retreatShirtType.entity";
@@ -867,6 +868,8 @@ export const findAllParticipants = async (
         "attendanceConfirmation",
         "spouseParticipantId",
         "notes",
+        "mailboxCode",
+        "mailboxEnabled",
         "createdAt",
       ],
     });
@@ -874,6 +877,12 @@ export const findAllParticipants = async (
     for (const p of participants) {
       const h = historyMap.get(p.id);
       if (h) {
+        // Buzón de cartas (specs/letters-email): solo con código y activo — si
+        // está deshabilitado el email rebota y el mensaje mentiría a la familia.
+        p.letterMailbox =
+          h.mailboxCode && h.mailboxEnabled
+            ? `carta.${h.mailboxCode}@${config.letters.mailboxDomain}`
+            : null;
         if (h.type != null) p.type = h.type as any;
         if (h.isCancelled != null) p.isCancelled = h.isCancelled;
         if (h.tableId !== undefined) p.tableId = h.tableId;

@@ -20,6 +20,14 @@ const envSchema = z.object({
 	S3_RETREAT_MEMORIES_PREFIX: z.string().default('retreat-memories/'),
 	S3_DOCUMENTS_PREFIX: z.string().default('documents/'),
 	S3_PUBLIC_ASSETS_PREFIX: z.string().default('public-assets/'),
+	S3_LETTERS_PREFIX: z.string().default('letters/'),
+
+	// Webhook de cartas (Cloudflare Email Worker → API). Sin este secret la ruta
+	// responde 503: fail-closed (specs/letters-email D5/D12).
+	LETTER_WEBHOOK_SECRET: z.string().optional(),
+	// Dominio del buzón carta.{CODE}@<dominio>. El catch-all de Email Routing de
+	// esa zona debe apuntar al Worker.
+	LETTER_MAILBOX_DOMAIN: z.string().default('emaus.cc'),
 
 	// Legacy S3_BUCKET_PREFIX for backward compatibility
 	S3_BUCKET_PREFIX: z.string().default('avatars/'),
@@ -79,7 +87,12 @@ export const config = {
 			retreatMemories: env.S3_RETREAT_MEMORIES_PREFIX,
 			documents: env.S3_DOCUMENTS_PREFIX,
 			publicAssets: env.S3_PUBLIC_ASSETS_PREFIX,
+			letters: env.S3_LETTERS_PREFIX,
 		},
+	},
+	letters: {
+		webhookSecret: env.LETTER_WEBHOOK_SECRET,
+		mailboxDomain: env.LETTER_MAILBOX_DOMAIN,
 	},
 } as const;
 

@@ -8,6 +8,7 @@ const AngelitosView = () => import('../views/AngelitosView.vue');
 const CanceledView = () => import('../views/CanceledView.vue');
 const HousesView = () => import('../views/HousesView.vue');
 const PalancasView = () => import('../views/PalancasView.vue');
+const LettersView = () => import('../views/LettersView.vue');
 const SpecialCasesView = () => import('../views/SpecialCasesView.vue');
 const PaymentsView = () => import('../views/PaymentsView.vue');
 const DomainAuditView = () => import('../views/DomainAuditView.vue');
@@ -54,6 +55,7 @@ const ScheduleTemplateView = () => import('../views/ScheduleTemplateView.vue');
 const AssignResponsiblesView = () => import('../views/AssignResponsiblesView.vue');
 const PublicSantisimoView = () => import('../views/PublicSantisimoView.vue');
 const PublicSantisimoServerView = () => import('../views/PublicSantisimoServerView.vue');
+const PublicReceiptClaimView = () => import('../views/PublicReceiptClaimView.vue');
 const PublicMinuteByMinuteView = () => import('../views/PublicMinuteByMinuteView.vue');
 const RecepcionView = () => import('../views/RecepcionView.vue');
 const RetreatShirtTypesView = () => import('../views/RetreatShirtTypesView.vue');
@@ -165,6 +167,15 @@ const router = createRouter({
 			path: '/santisimo/servidor/:token',
 			name: 'public-santisimo-server',
 			component: PublicSantisimoServerView,
+			props: true,
+			meta: { requiresAuth: false },
+		},
+		{
+			// Enlace de capacidad para que una familia envíe el comprobante de pago
+			// del participante (specs: comprobantes por link). Público, sin login.
+			path: '/comprobante/:token',
+			name: 'public-receipt-claim',
+			component: PublicReceiptClaimView,
 			props: true,
 			meta: { requiresAuth: false },
 		},
@@ -419,6 +430,15 @@ const router = createRouter({
 					component: SantisimoAdminView,
 					props: true,
 					meta: { requiresRetreat: true },
+				},
+				{
+					// Cartas de familias por email (specs/letters-email). La bandeja
+					// exige letter:read a nivel API; el meta filtra la ruta en el menú.
+					path: 'retreats/:id/letters',
+					name: 'letters',
+					component: LettersView,
+					props: true,
+					meta: { requiresRetreat: true, requiresPermission: 'letter:read' },
 				},
 				{
 					path: 'settings/inventory-items',

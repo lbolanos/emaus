@@ -376,3 +376,85 @@ Ver [`/docs/LIGHTSAIL_MIGRATION_NOTES.md`](../docs/LIGHTSAIL_MIGRATION_NOTES.md)
 El wrapper actual no replica el paso `cat > runtime-config.js << EOF` de
 `deploy-aws.sh`. Por ahora se regenera manualmente tras deploys locales,
 pero el script debería hacerlo siempre.
+
+## 9. Email inbound — cartas de familias (specs/letters-email)
+
+El Email Routing de la zona `emaus.cc` recibe los correos de las familias
+(`carta.{CODE}@emaus.cc`) y los entrega a un Email Worker que los parsea y
+POST-ea al API. **Es independiente del proxy naranja** (la zona está en
+DNS-only desde 2026-09-14 y así se queda): Email Routing usa sus propios
+records MX (`route1/2.mx.cloudflare.net`) y SPF.
+
+```
+familia → carta.CODE@emaus.cc
+  → Cloudflare Email Routing (MX de la zona)
+  → catch-all → worker emaus-email-inbound (infra/workers/email-inbound/)
+      postal-mime parsea; topes ≤10 adjuntos, ≤8 MB c/u, ≤12 MB total
+  → POST /api/letters/webhook  (header X-Emaus-Letter-Secret)
+  → API matchea CODE → (retiro, participante) → letters + adjuntos en S3 letters/
+```
+
+### Contrato Worker → API
+
+`POST {LETTER_WEBHOOK_API_URL}/api/letters/webhook`, header
+`X-Emaus-Letter-Secret`, JSON:
+
+```json
+{
+  "messageId": "<...> | null",
+  "from": "remitente@ejemplo.com", "fromName": "… | null",
+  "to": "carta.CODE@emaus.cc",
+  "subject": "… | null",
+  "text": "texto plano | null",
+  "html": "html original | null",   // el API lo convierte a texto y lo descarta
+  "receivedAt": "ISO-8601",
+  "attachments": [{ "fileName": "…", "mimeType": "…", "contentBase64": "…" }]
+}
+```
+
+Respuestas y comportamiento del Worker (fail-closed sin secret → el API
+responde 503 y el Worker lo trata como 5xx):
+
+| API | Worker |
+| --- | --- |
+| `200 accepted / duplicate` | entrega OK (dedupe por `messageId` lo hace el API) |
+| `404 unknown_mailbox / mailbox_disabled` | `message.setReject` → **bounce** claro al remitente |
+| `413 too_large` | bounce con causa |
+| `401 / 5xx / timeout` | log y drop — NO rebota; Cloudflare reintenta la entrega |
+
+Los correos cuyo local-part no empieza con `carta.` se descartan sin
+procesar (el resto del correo del dominio no toca el API ni rebota).
+
+### Despliegue y configuración (checklist operativo)
+
+1. **Cloudflare dashboard → Email → Email Routing**: Enable en la zona
+   `emaus.cc` (crea los MX + SPF automáticamente).
+2. **Catch-all rule** → Action: *Send to a Worker* → `emaus-email-inbound`.
+3. **Deploy del Worker** (usa wrangler porque necesita `postal-mime`; el
+   failover worker sí vive en `cloudflare.tf` porque es single-file):
+
+   ```bash
+   cd infra/workers/email-inbound
+   npm install
+   npx wrangler secret put LETTER_WEBHOOK_SECRET   # mismo valor que el API
+   npx wrangler secret put LETTER_WEBHOOK_API_URL  # https://emaus.cc
+   npm run deploy
+   ```
+
+4. **API**: `LETTER_WEBHOOK_SECRET` en `/var/www/emaus/apps/api/.env.production`
+   (valor DISTINTO en dev) + `pm2 restart emaus` (regla: prod manda, sed puntual).
+5. **S3**: en la bucket policy del bucket `emaus-media`, agregar `letters/` a la
+   misma Statement de Deny de lectura pública que ya cubre
+   `retreat-memories/`, `community-meetings/` y `community-members/`
+   (gestionada a mano en AWS — no vive en estos terraform; el IAM del rol
+   `emaus-app` ya cubre `bucket/*`).
+
+### Runbook
+
+- **Rotar el secret**: `wrangler secret put LETTER_WEBHOOK_SECRET` con el valor
+  nuevo y luego el sed en `.env.production` + `pm2 restart`. Mientras difieran,
+  el API rechaza con 401 (log y drop; no rebota a las familias).
+- **Desactivar la recepción de cartas** sin tocar código: apagar el catch-all
+  de Email Routing (los emails rebotan con "address not found" de Cloudflare).
+- **Apagar UN buzón**: desde la app (dialog Buzones → toggle) — el email a ese
+  participante rebota con 404.
