@@ -33,9 +33,9 @@ import {
 } from './demo-lib.mjs';
 
 const cfg = loadEnv();
-const RETREAT = '4c8173c9-a068-4efe-a936-e3618523bead'; // San Agustín (demo completo)
-const W = 1280,
-  H = 800;
+const RETREAT = process.env.RETREAT_ID || '4c8173c9-a068-4efe-a936-e3618523bead'; // default: San Agustín (demo completo)
+const W = 1120,
+  H = 780; // 1280x800 no cabe en el área visible de esta pantalla (ventanas abiertas)
 const SYNC_OFFSET_MS = 0;
 const OVERLAY = OVERLAY_INIT.replace('✝ Emaús · Tareas Pre-Retiro', '✝ Emaús · En qué vamos');
 
@@ -44,10 +44,13 @@ const LINES = [
   { id: 'intro', text: 'Cuando el retiro está corriendo, todos preguntan lo mismo: ¿quién va dónde? Esta pantalla lo responde.' },
   { id: 'sidebar', text: 'La encuentras en Logística, junto al Minuto a Minuto: En qué vamos.' },
   { id: 'concepto', text: 'Eliges en qué actividad están, y la pantalla arma el momento: quién está en escena y dónde.' },
+  { id: 'controls', text: 'Y tienes el control desde aquí: inicias, completas o mueves la actividad sin cambiar de pantalla.' },
   { id: 'enescena', text: 'En escena están los responsables de esa actividad, con su ubicación exacta y sus documentos.' },
+  { id: 'picker', text: '¿Falta un responsable? Lo agregas aquí mismo, sin cambiar de pantalla.' },
   { id: 'override', text: '¿Quieres mirar otra actividad? Elígela aquí: el grupo se rearma al instante.' },
   { id: 'auto', text: 'Y con un clic vuelves al automático, que sigue la actividad en curso.' },
   { id: 'others', text: 'Los demás servidores aparecen con su próximo momento, su mesa y sus documentos.' },
+  { id: 'chips', text: 'Filtra por mesa o por documentos para encontrar a cualquiera al instante.' },
   { id: 'detail', text: 'Toca un servidor y abre su briefing: dónde está ahora, y todo su día momento a momento.' },
   { id: 'assignments', text: 'En asignaciones ves sus responsabilidades fijas y sus equipos, con las instrucciones de cada dinámica.' },
   { id: 'documents', text: 'Los documentos de cada momento se abren directo, listos para el celular.' },
@@ -56,8 +59,9 @@ const LINES = [
 ];
 
 const CHAPTER_LABELS = {
-  intro: 'Intro', sidebar: 'Dónde vive', concepto: 'El cruce', enescena: 'En escena',
-  override: 'Elegir actividad', auto: 'Volver a automático', others: 'Los demás servidores',
+  intro: 'Intro', sidebar: 'Dónde vive', concepto: 'El cruce', controls: 'Controles en vivo',
+  enescena: 'En escena', picker: 'Agregar responsable', override: 'Elegir actividad',
+  auto: 'Volver a automático', others: 'Los demás servidores', chips: 'Filtros',
   detail: 'Briefing del servidor', assignments: 'Asignaciones', documents: 'Documentos',
   realtime: 'Tiempo real', outro: 'Cierre',
 };
@@ -92,7 +96,7 @@ async function main() {
     // Forzar el tamaño de ventana: sin esto, si otra ventana (p.ej. Chrome del
     // usuario) acota el espacio visible, el viewport real sale menor que el
     // lienzo del video y la toma sale zoomada con banda gris a la derecha.
-    args: ['--window-size=1280,880', '--window-position=0,0'],
+    args: ['--window-size=1120,860', '--window-position=0,0'],
   });
 
   log('🔐 Login…');
@@ -154,6 +158,7 @@ async function main() {
   };
 
   let completedItemId = null;
+  let nextPendingId = null;
   try {
     // ── intro sobre el dashboard del retiro (para mostrar el sidebar) ──
     await page.goto(`${cfg.baseUrl}/app/retreats/${RETREAT}/dashboard`, { waitUntil: 'networkidle' });
@@ -178,6 +183,17 @@ async function main() {
     await page.evaluate(() => window.scrollTo({ top: 0 }));
     await nar.say(clips.concepto);
 
+    // ── controls (hero con Iniciar / Completar / ±5) ──
+    const completarBtn = page.locator('button:has-text("✓ Completar")').first();
+    if (await completarBtn.count()) {
+      await completarBtn.scrollIntoViewIfNeeded().catch(() => {});
+      const box2 = await completarBtn.boundingBox();
+      if (box2) await nar.cueAt(box2.x + box2.width / 2, box2.y + box2.height / 2);
+      await sleep(page, 400);
+    }
+    await nar.say(clips.controls);
+    await nar.clearCue();
+
     // ── en escena (cards del item activo) ──
     const cards = page.locator('[data-testid="briefing-card"]');
     if (await cards.count()) {
@@ -185,6 +201,16 @@ async function main() {
       await sleep(page, 500);
     }
     await nar.say(clips.enescena);
+
+    // ── picker inline de responsables (add-only) ──
+    const pickerSel = page.locator('select').filter({ hasText: 'Elegir servidor' }).first();
+    if (await pickerSel.count()) {
+      await pickerSel.scrollIntoViewIfNeeded().catch(() => {});
+      const box3 = await pickerSel.boundingBox();
+      if (box3) await nar.cueAt(box3.x + box3.width / 2, box3.y + box3.height / 2);
+    }
+    await nar.say(clips.picker);
+    await nar.clearCue();
 
     // ── override manual: elegir otra actividad ──
     const select = page.locator('#briefing-activity');
@@ -215,6 +241,19 @@ async function main() {
     }
     await nar.say(clips.others);
 
+    // ── chips de filtro (mesa / documentos) ──
+    const chip = page.locator('button.rounded-full:has-text("Mesa")').first();
+    if (await chip.count()) {
+      await chip.scrollIntoViewIfNeeded().catch(() => {});
+      const box4 = await chip.boundingBox();
+      if (box4) await nar.cueAt(box4.x + box4.width / 2, box4.y + box4.height / 2);
+    }
+    await nar.say(clips.chips);
+    await chip.click().catch(() => {});
+    await sleep(page, 1000);
+    await chip.click().catch(() => {}); // volver a Todas
+    await sleep(page, 600);
+
     // ── briefing del servidor ──
     await page.evaluate(() => window.scrollTo({ top: 0 }));
     await sleep(page, 300);
@@ -242,17 +281,26 @@ async function main() {
         headers: { Cookie: `emaus.sid=${cookieVal}` },
       });
       const all = await itemsRes.json();
-      const actives = all
-        .filter((i) => i.status === 'active')
-        .sort((a, b) => (a.day !== b.day ? a.day - b.day : a.startTime.localeCompare(b.startTime)));
+      const orden = all.sort((a, b) => (a.day !== b.day ? a.day - b.day : a.startTime.localeCompare(b.startTime)));
+      const actives = orden.filter((i) => i.status === 'active');
       completedItemId = actives[0]?.id ?? null;
+      if (completedItemId) {
+        const idx = orden.findIndex((i) => i.id === completedItemId);
+        const next = orden.find((i, k) => k > idx && i.status === 'pending');
+        nextPendingId = next?.id ?? null;
+      }
     }
     await nar.cueAt(300, 96);
     await nar.say(clips.realtime);
     if (cookieVal && completedItemId) {
       const ok = await apiCall('POST', `/schedule/items/${completedItemId}/complete`);
       log(ok ? '   · actividad completada en vivo' : '   · no se pudo completar en vivo');
-      await sleep(page, 1800); // WS re-arma "En escena" con la siguiente actividad
+      await sleep(page, 1600);
+      if (nextPendingId) {
+        const ok2 = await apiCall('POST', `/schedule/items/${nextPendingId}/start`);
+        log(ok2 ? '   · siguiente actividad iniciada en vivo' : '   · no se pudo iniciar la siguiente');
+        await sleep(page, 1600);
+      }
     }
 
     // ── outro ──
