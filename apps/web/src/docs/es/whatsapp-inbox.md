@@ -40,13 +40,27 @@ WhatsApp a los teléfonos del personal (logística, palanqueros, coordinación).
 - **Solo no leídos** y **Marcar todo como leído** para poner la bandeja a cero.
 - La ficha del caminante (teléfonos, cama, correo) abre desde el ⓘ junto a su
   nombre en el hilo.
+- **Fotos, documentos y notas de voz**: las fotos se ven en el hilo; un
+  documento se abre con **Abrir documento** y una nota de voz suena con
+  **Escuchar** (si no suena en iPhone, ábrela desde tu WhatsApp).
+- **Registrar como pago**: desde una foto o un PDF (se usa la primera página).
+  El mensaje queda marcado «Pago registrado por …» y, si alguien intenta
+  registrarlo otra vez, la bandeja pregunta antes.
+- **Agregar como carta**: el texto del mensaje (lo puedes editar) y su imagen
+  entran a las cartas del participante que elijas, listas para imprimirse con
+  las demás.
+- **Sin responder / Respondió …**: en la lista se ve si alguien del equipo ya
+  contestó a ese caminante, para no responder dos veces.
+- **Responder con plantilla** abre el mensaje con las plantillas del retiro;
+  queda en el historial del caminante.
 
 ## Privacidad y cuidados
 
 - Vincular tu número es **voluntario**. Nadie está obligado.
 - Durante la ventana del retiro, los mensajes que llegan a tu cuenta pasan por
-  el servidor; **solo se guardan los de caminantes de este retiro** y se borran
-  al desvincular o 15 días después del retiro.
+  el servidor; **solo se guardan los de caminantes de este retiro** (y tus
+  respuestas a esos caminantes, para que el equipo sepa que ya contestaste) y
+  se borran al desvincular o 15 días después del retiro.
 - Tu número personal **nunca se muestra** a otros miembros del equipo.
 - Usamos un cliente no oficial de WhatsApp, solo de lectura: el riesgo de
   suspensión del número es bajo, pero no es cero — por eso se avisa antes de

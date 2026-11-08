@@ -39,13 +39,26 @@ staff's phones (logistics, palanqueros, coordination).
 - **Unread only** and **Mark all as read** to bring the inbox back to zero.
 - The walker's profile (phones, bed, email) opens from the ⓘ next to their
   name in the thread.
+- **Photos, documents and voice notes**: photos show in the thread; a document
+  opens with **Open document** and a voice note plays with **Listen** (if it
+  does not play on iPhone, open it from your WhatsApp).
+- **Register as payment**: from a photo or a PDF (its first page is used). The
+  message is marked "Payment registered by …" and, if someone tries to register
+  it again, the inbox asks first.
+- **Add as letter**: the message text (editable) and its image join the letters
+  of the participant you choose, ready to print with the others.
+- **Awaiting reply / … replied**: the list shows whether someone on the team
+  already answered that walker, so nobody answers twice.
+- **Reply with a template** opens the message with the retreat's templates; it
+  is logged in the walker's history.
 
 ## Privacy and care
 
 - Linking your number is **voluntary**. Nobody is required to.
 - During the retreat window, messages arriving at your account go through the
-  server; **only this retreat's walkers' messages are stored**, deleted when
-  you unlink or 15 days after the retreat.
+  server; **only this retreat's walkers' messages are stored** (plus your
+  replies to those walkers, so the team knows you already answered), deleted
+  when you unlink or 15 days after the retreat.
 - Your personal number is **never shown** to other team members.
 - We use an unofficial, read-only WhatsApp client: the risk of your number
   being suspended is low but not zero — that is why it is disclosed before

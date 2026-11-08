@@ -342,3 +342,34 @@
   devuelve los errores del fallback (`body`/`params` «Required»), que
   esconden la causa real. Es deuda preexistente de `validateRequest`,
   fuera del alcance de esta feature.
+
+## v1.3 — revisión + pedido de Leo (2026-11-08)
+
+Antes del merge (hallazgos de la revisión):
+- [x] Borrado único y explícito (`teardownLink`): mensajes por linkId, read-state
+  del retiro sin vínculos, caché de media y store en disco. La retención no
+  borraba el store y ahora barre mensajes huérfanos. Motivo: el runtime no
+  garantiza `PRAGMA foreign_keys` (27 huérfanos en la DB de dev).
+- [x] Watchdog: `respawnFromDb` incluye vínculos en `error` y corre en cada poll;
+  la reconexión ya no se audita como vínculo nuevo; bandera de apagado.
+- [x] Historial oculto sin descargas; `PaymentManagement` embebido y diferido.
+- [x] Tests de integración del puente (entidades registradas en la DB de test).
+- [x] Menores: paginación del historial con offset, 30 miniaturas MÁS recientes,
+  sin `detail` de wacli al cliente, etiquetas por tipo, toast en vez de alert,
+  etiquetas de auditoría `wa_bridge.*` (test de cobertura que trajo master).
+- [x] Ingesta: paginación asc real, `MediaCaption` (pie de foto), mime/nombre de
+  documento, log de chats `@lid` descartados.
+- [x] Escala: conversaciones y no leídos agregados en SQL; búsqueda sin tope 500.
+
+Producto (D18–D21):
+- [x] Respuestas del equipo y «Sin responder / Respondió X».
+- [x] Documentos y notas de voz; PDF → imagen con pdf.js (`?worker`: chunk .js,
+  no depende del MIME de .mjs en nginx).
+- [x] Agregar como carta (texto de impresión) reutilizando `Letter`.
+- [x] Anti-duplicados de pago (`payment-saved` → enlace al mensaje).
+- [x] Responder con plantilla (MessageDialog) y parejas que comparten teléfono.
+
+Coordinación: la sesión letters-email reutiliza `openPaymentForWithReceipt(…,
+prefill)` + `embedded` + `payment-saved` para comprobantes de cartas; espera que
+esto llegue a master. Pendiente de QA en vivo: Playwright MCP desconectado en
+esta sesión — probar a mano nota de voz en iPhone y PDF real.

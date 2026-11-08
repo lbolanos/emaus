@@ -11,6 +11,11 @@
 > de 2 MB de los assets subidos) y D17 los mensajes ENTRANTES de WhatsApp
 > aparecen en el historial de mensajes del caminante (mismo permiso
 > `whatsappInbox:read`, merge cronológico con lo enviado).
+> **v1.3 (2026-11-08, revisión + pedido de Leo)**: D18 se guardan también las
+> respuestas del equipo (para «respondió X»), D19 documentos y notas de voz bajo
+> demanda (PDF → imagen en el navegador), D20 «agregar como carta» (texto de
+> impresión), D21 guarda contra pagos duplicados. Robustez: borrado explícito
+> sin depender del CASCADE, watchdog de sesiones en `error`, ingesta paginada.
 > Artefactos hermanos: [research.md](research.md) (estado actual y verificaciones),
 > [plan.md](plan.md) (diseño técnico), [tasks.md](tasks.md) (milestones).
 
@@ -52,6 +57,10 @@ equipo autorizado, solo durante la ventana del retiro.
 | D15 | **Comprobantes de pago desde WhatsApp** (v1.1, DISEÑADO — bloqueado): los mensajes con imagen ofrecen "Registrar como pago"; la media se descarga bajo demanda (`wacli media download`, tope) y se entrega como data-URL al modal de pago existente. **DEPENDENCIA**: `specs/payment-receipt-photo` (otra sesión, sin merge) — `Payment.receiptUrl` + `receiptPhoto` no existen aún en esta base | Decisión de Leo (2026-11-06). No descargar media masivamente (D9 sigue); solo bajo demanda, porque el servidor tiene 1 GB |
 | D16 | **Thumbnails de imágenes en el hilo, siempre visibles** (v1.2): al abrir un chat, el frontend pide en UN lote las imágenes pendientes (`POST /wa-bridge/retreat/:id/media`, máx 30 ids); el server descarga con `wacli media download --read-only` — **sin tomar el lock del store** (descubierto en QA: wacli lo documenta en su propio error) — así la descarga corre junto al sync vivo, SIN el ciclo stop/restart que dejaba la bandeja muerta. Caché thumb (webp 320) + large (webp 1600) por 30 min (máx 12 en RAM). Una imagen rota (403 del CDN) se salta sin tumbar el lote; imágenes de vínculos purgados quedan como placeholder 📎 definitivo (su media se borró con el store, D9). Tap en la burbuja = visor grande | Feedback Leo (2026-11-07): «en la lista de mensajes debería poder ver un thumbnail de la imagen» + «se demora mucho» — causas: stop/restart del sync POR imagen, tope de 2 MB de `processPhoto`, y lote no resiliente |
 | D17 | **Mensajes entrantes en el historial del caminante** (v1.2): `GET /participant-communications/participant/:id` mezcla cronológicamente los mensajes recibidos por WhatsApp (por JID del teléfono del caminante, `direction: 'inbound'`, id prefijado `wa-inbox:`) SOLO para usuarios con `whatsappInbox:read` — el mismo permiso que la bandeja. Las entradas no abren el dialog de mensajes enviados | Feedback Leo (2026-11-07): «los mensajes no se ven en el historial de mensajes del caminante» — el historial solo registraba lo que enviamos |
+| D18 | **Respuestas del equipo guardadas** (v1.3): el poller persiste también los mensajes `fromMe` de los chats que pasan la whitelist (nunca de otros chats). La lista muestra «Sin responder» / «Respondió X» y el hilo las alinea a la derecha con su autor (dueño del vínculo). No cuentan como no leídos. El consentimiento lo dice explícitamente | Revisión 2026-11-08: con la bandeja consolidada, varios logísticos contestaban al mismo caminante sin saberlo |
+| D19 | **Documentos y notas de voz bajo demanda** (v1.3): `POST /wa-bridge/messages/:id/raw-media` (tope 10 MB documento, 8 MB audio, sin caché). El navegador reproduce el audio, abre el documento en pestaña nueva y, si es PDF, renderiza la primera página a JPEG con pdf.js (build legacy, carga diferida) para pagos y cartas. El servidor nunca parsea PDF | Pedido de Leo (2026-11-08): «o si se recibe un documento»; pagos y cartas solo aceptan imágenes (confirmado con la sesión letters-email) |
+| D20 | **Agregar como carta** (v1.3): `POST /wa-bridge/messages/:id/letter` crea una `Letter` (specs/letters-email) del participante elegido, `approved` (la eligió el staff), con el texto editable y la imagen como adjunto imprimible; dedupe por `messageId = whatsapp:<id>`. Función hermana de `ingestLetter` en `services/waBridge/waLetterService.ts` (no toca letterService). Requiere `whatsappInbox:read` + `letter:update` | Pedido de Leo: «que un mensaje se pueda agregar como texto de impresión»; el concepto existente es la carta del buzón |
+| D21 | **Guarda contra pagos duplicados** (v1.3): al guardar el pago, `PaymentManagement` emite `payment-saved` y la bandeja lo enlaza (`POST /wa-bridge/messages/:id/payment`, mismo retiro). La burbuja muestra «Pago registrado por X» y registrar otra vez pide confirmación. `PaymentManagement` gana `embedded` (sin cargar todos los pagos) y `prefill`: API compartida con letters-email | Revisión 2026-11-08: dos logísticos podían registrar el mismo comprobante |
 
 ## Historias de usuario
 
@@ -115,6 +124,16 @@ equipo autorizado, solo durante la ventana del retiro.
   `GET /participant-communications/participant/:id` con `direction:'inbound'`;
   solo para usuarios con `whatsappInbox:read` y si el caminante tiene teléfono
   con país resoluble. El historial de comunidad NO los incluye.
+- **FR17 (v1.3)**: Respuestas del equipo (D18): `fromMe` en el hilo con autor;
+  conversación con `awaitingReply`, `lastReplyAt`, `lastReplyByName`.
+- **FR18 (v1.3)**: Documentos y notas de voz (D19) con raw-media; PDF a imagen
+  en el navegador para pagos y cartas.
+- **FR19 (v1.3)**: Agregar como carta (D20) con destinatario elegible
+  (default: el caminante del chat), texto editable e imagen opcional.
+- **FR20 (v1.3)**: Anti-duplicados de pago (D21).
+- **FR21 (v1.3)**: Teléfono compartido (parejas): la conversación nombra a todos
+  los caminantes del número; el pago se prellena con el más reciente y el
+  selector permite cambiarlo.
 
 ## Criterios de aceptación
 
