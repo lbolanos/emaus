@@ -61,7 +61,8 @@ La bandeja tiene dos pestañas: **Mensajes** (la bandeja) y **Configuración**
   lo mandó, lo abres desde tu WhatsApp.
 - **Registrar como pago**: desde una foto o un PDF (se usa la primera página).
   El mensaje queda marcado «Pago registrado por …» y, si alguien intenta
-  registrarlo otra vez, la bandeja pregunta antes.
+  registrarlo otra vez, la bandeja pregunta antes. El comprobante aparece
+  también en **Pagos → Comprobantes → Aplicados**.
 - **Agregar como carta**: el texto del mensaje (lo puedes editar) y su imagen
   entran a las cartas del participante que elijas, listas para imprimirse con
   las demás. Si la familia mandó la carta en un Word o un PDF, se guarda el

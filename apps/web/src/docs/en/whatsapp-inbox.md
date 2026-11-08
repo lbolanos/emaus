@@ -61,7 +61,8 @@ phones and the superadmin controls).
   if you trust the sender, you open it from your WhatsApp.
 - **Register as payment**: from a photo or a PDF (its first page is used). The
   message is marked "Payment registered by …" and, if someone tries to register
-  it again, the inbox asks first.
+  it again, the inbox asks first. The receipt also shows under **Payments →
+  Receipts → Applied**.
 - **Add as letter**: the message text (editable) and its image join the letters
   of the participant you choose, ready to print with the others. If the family
   sent the letter as a Word file or a PDF, the original document is kept with

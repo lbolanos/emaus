@@ -122,7 +122,7 @@ const PAGE_SIZE = 50;
  * a late registration brings its recent history, not only what comes next.
  */
 const BACKFILL_LIMIT = 500;
-/** Rows per INSERT (11 bound columns each, far below SQLite's variable cap). */
+/** Rows per INSERT (19 columns each: ~950 variables, well under SQLite's 32766). */
 const INSERT_CHUNK = 50;
 
 export class WaBridgePoller {

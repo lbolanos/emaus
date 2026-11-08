@@ -14,8 +14,9 @@ import { WhatsappInboxMessage } from '../../entities/whatsappInboxMessage.entity
  * receipt as photo (not a copy). A payment without a photo adds nothing.
  *
  * `senderContact` says "WhatsApp" and, for a walker's chat, the number. An
- * emergency contact's number is a SENSITIVE_HEALTH_FIELD and the tab is
- * readable without participant:health, so it never goes there.
+ * emergency contact's chat only exists for participant:health (D22) and the
+ * tab is readable without it, so neither its number nor its caption (the
+ * note) goes there.
  */
 export async function recordWhatsappReceiptClaim(input: {
 	message: WhatsappInboxMessage;
@@ -41,7 +42,8 @@ export async function recordWhatsappReceiptClaim(input: {
 			status: 'attached',
 			amountClaimed: payment.amount,
 			reference: payment.referenceNumber ?? null,
-			note: input.message.body ? input.message.body.slice(0, 1000) : null,
+			note:
+				!input.fromEmergencyContact && input.message.body ? input.message.body.slice(0, 1000) : null,
 			senderContact: input.fromEmergencyContact
 				? 'WhatsApp (contacto de emergencia)'
 				: `WhatsApp +${input.message.chatPhone}`,

@@ -225,7 +225,7 @@ describe('waBridge controller v1.3 (integration)', () => {
 			expect(await AppDataSource.getRepository(PaymentReceiptClaim).count()).toBe(0);
 		});
 
-		it("an emergency contact's number never reaches «Comprobantes»", async () => {
+		it("an emergency contact's number and caption never reach «Comprobantes»", async () => {
 			const { staff, retreat, walker, link: waLink } = await seed();
 			await AppDataSource.getRepository(Participant).update(
 				{ id: walker.id },
@@ -241,7 +241,7 @@ describe('waBridge controller v1.3 (integration)', () => {
 					waMessageId: 'EC-RECEIPT',
 					timestamp: new Date('2026-11-08T10:00:00Z'),
 					fromMe: false,
-					body: null,
+					body: 'Aquí el depósito de Juan',
 					messageType: 'image',
 				}),
 			);
@@ -259,6 +259,8 @@ describe('waBridge controller v1.3 (integration)', () => {
 				attachedPaymentId: payment.id,
 			});
 			expect(claim.senderContact).toBe('WhatsApp (contacto de emergencia)');
+			// Nor the caption: that chat is health data the tab does not gate.
+			expect(claim.note).toBeNull();
 		});
 	});
 
