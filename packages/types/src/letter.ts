@@ -89,12 +89,23 @@ export const ReviewLetterSchema = z.object({
 });
 export type ReviewLetter = z.infer<typeof ReviewLetterSchema>;
 
+/**
+ * Marcar impresas. Con `batchId`: el papel de la vista previa salió bien y se
+ * marca ese lote. Sin `batchId`: marca a mano (se imprimió en otra
+ * computadora, o se cerró la vista previa sin confirmar) — solo toca las
+ * aprobadas que aún no estaban impresas. Por cartas o por carpeta entera.
+ */
 export const MarkLettersPrintedSchema = z.object({
 	params: z.object({ retreatId: idSchema }),
-	body: z.object({
-		letterIds: z.array(idSchema).min(1).max(2000),
-		batchId: idSchema,
-	}),
+	body: z
+		.object({
+			letterIds: z.array(idSchema).max(2000).optional(),
+			participantIds: z.array(idSchema).max(500).optional(),
+			batchId: idSchema.optional(),
+		})
+		.refine((b) => (b.letterIds?.length ?? 0) + (b.participantIds?.length ?? 0) > 0, {
+			message: 'letterIds o participantIds',
+		}),
 });
 export type MarkLettersPrinted = z.infer<typeof MarkLettersPrintedSchema>;
 
@@ -159,8 +170,6 @@ export interface LetterMailboxRow {
 	participantId: string | null;
 	participantName: string;
 	participantType: string | null;
-	/** Palanquero asignado (palancasCoordinator, p. ej. «Palanquero 1»). */
-	palancasCoordinator: string | null;
 	tableId: string | null;
 	tableName: string | null;
 	cellPhone: string | null;
@@ -192,6 +201,11 @@ export interface LetterFolderRow {
 	/** Aprobadas ya impresas / aprobadas aún sin imprimir. */
 	printed: number;
 	unprinted: number;
+	/**
+	 * Adjuntos que NO salen en el papel (PDF, Office, HEIC) en cartas por revisar
+	 * o aprobadas: el palanquero los abre e imprime aparte.
+	 */
+	documents: number;
 }
 
 export interface LetterPrintBatchEntry {

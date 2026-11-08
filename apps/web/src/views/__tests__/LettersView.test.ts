@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { mount, flushPromises } from '@vue/test-utils';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { mount, flushPromises, enableAutoUnmount } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
 
 // ---------------------------------------------------------------------------
@@ -101,6 +101,10 @@ const inbox = (letters: any[]) => ({
 	},
 });
 
+// Cada vista registra atajos en window: sin desmontarla al terminar, sus
+// escuchas siguen vivas y reaccionan a las teclas de los tests siguientes.
+enableAutoUnmount(afterEach);
+
 describe('LettersView', () => {
 	beforeEach(() => {
 		setActivePinia(createPinia());
@@ -201,7 +205,7 @@ describe('LettersView', () => {
 		const yesBtn = wrapper.findAll('button').find((b) => b.text().includes('letters.print.yesMark'));
 		await yesBtn!.trigger('click');
 		await flushPromises();
-		expect(api.lettersApi.markPrinted).toHaveBeenCalledWith('r1', ['l1'], expect.any(String));
+		expect(api.lettersApi.markPrinted).toHaveBeenCalledWith('r1', { letterIds: ['l1'] }, expect.any(String));
 	});
 
 	it('si la impresión no salió («No, no marcar») el lote NO se marca', async () => {
@@ -351,7 +355,7 @@ describe('LettersView', () => {
 		retreatParticipantId: 'rp1', participantId: 'p1', participantName: 'Juan Pérez',
 		participantType: 'walker', palancasCoordinator: null, tableId: 't1', tableName: 'Mesa 1', idOnRetreat: 1,
 		mailboxEnabled: true, mailboxSharedAt: null,
-		counts: { pending: 0, approved: 0, hidden: 0, attached: 0 }, printed: 0, unprinted: 0,
+		counts: { pending: 0, approved: 0, hidden: 0, attached: 0 }, printed: 0, unprinted: 0, documents: 0,
 		...over,
 	});
 
@@ -683,6 +687,43 @@ describe('LettersView', () => {
 		expect(api.lettersApi.unmarkPrinted).toHaveBeenLastCalledWith('r1', { participantIds: ['p1'] });
 	});
 
+	it('marcar como impresa a mano: desde la carta, la carpeta y la selección, sin lote', async () => {
+		api.lettersApi.markPrinted.mockResolvedValue({ marked: 1 });
+		api.lettersApi.listLetters.mockResolvedValue(
+			inbox([
+				letter({ status: 'approved' }),
+				letter({ id: 'l2', participantId: 'p2', participantName: 'Rosa', status: 'pending' }),
+				letter({ id: 'l3', status: 'approved', printedAt: '2026-11-07T10:00:00Z' }),
+			]),
+		);
+		api.lettersApi.getFolders.mockResolvedValue([
+			folder({ counts: { pending: 0, approved: 2, hidden: 0, attached: 0 }, printed: 1, unprinted: 1 }),
+		]);
+		const wrapper = await mountView();
+		const items = (key: string) => wrapper.findAll('[role="menuitem"]').filter((i) => i.text().includes(key));
+
+		// Solo la aprobada sin imprimir lo ofrece: ni la pendiente ni la ya impresa.
+		expect(items('letters.print.markLetter')).toHaveLength(1);
+		const loadsBefore = api.lettersApi.listLetters.mock.calls.length;
+		await items('letters.print.markLetter')[0].trigger('click');
+		await flushPromises();
+		expect(api.lettersApi.markPrinted).toHaveBeenLastCalledWith('r1', { letterIds: ['l1'] }, undefined);
+		// Recarga para que la carta y su carpeta muestren la marca.
+		expect(api.lettersApi.listLetters.mock.calls.length).toBeGreaterThan(loadsBefore);
+
+		await items('letters.folders.markFolder')[0].trigger('click');
+		await flushPromises();
+		expect(api.lettersApi.markPrinted).toHaveBeenLastCalledWith('r1', { participantIds: ['p1'] }, undefined);
+
+		expect(items('letters.print.markSelection')).toHaveLength(0);
+		const checkboxes = wrapper.findAll('input[type="checkbox"][aria-label]');
+		await checkboxes[0].setValue(true);
+		await checkboxes[1].setValue(true);
+		await items('letters.print.markSelection')[0].trigger('click');
+		await flushPromises();
+		expect(api.lettersApi.markPrinted).toHaveBeenLastCalledWith('r1', { letterIds: ['l1', 'l2'] }, undefined);
+	});
+
 	it('«Solo las no impresas»: toma el alcance del filtro (palanquero) y pide onlyUnprinted', async () => {
 		api.getPalanqueroOptions.mockResolvedValue(palanqueros);
 		api.lettersApi.getFolders.mockResolvedValue(foldersByPalanquero());
@@ -702,5 +743,88 @@ describe('LettersView', () => {
 			participantIds: ['p1', 'p3'],
 			onlyUnprinted: true,
 		});
+	});
+
+	it('los atajos de teclado no actúan en Carpetas (la carta seleccionada no se ve)', async () => {
+		api.lettersApi.reviewLetter.mockResolvedValue({ ...letter(), status: 'approved' });
+		const wrapper = await mountView();
+		window.dispatchEvent(new KeyboardEvent('keydown', { key: 'j' }));
+		await wrapper.find('[data-testid="view-folders"]').trigger('click');
+		await flushPromises();
+		window.dispatchEvent(new KeyboardEvent('keydown', { key: 'a' }));
+		await flushPromises();
+		expect(api.lettersApi.reviewLetter).not.toHaveBeenCalled();
+	});
+
+	const photoAtt = (id: string, url: string) => ({
+		id, letterId: 'l1', fileName: `${id}.jpg`, mimeType: 'image/jpeg', sizeBytes: 1000,
+		isBrowserSafeImage: true, storageUrl: url, sortOrder: 0, createdAt: '2026-11-07T00:00:00Z',
+	});
+	const pdfAtt = {
+		id: 'd1', letterId: 'l1', fileName: 'carta.pdf', mimeType: 'application/pdf', sizeBytes: 50_000,
+		isBrowserSafeImage: false, storageUrl: 'https://bucket/letters/l1/d1/carta.pdf?sig', sortOrder: 2,
+		createdAt: '2026-11-07T00:00:00Z',
+	};
+
+	it('click en la miniatura abre las fotos en grande, y las flechas pasan entre ellas', async () => {
+		api.lettersApi.listLetters.mockResolvedValue(
+			inbox([letter({ attachments: [photoAtt('p1', 'https://b/p1.jpg'), photoAtt('p2', 'https://b/p2.jpg'), pdfAtt] })]),
+		);
+		const wrapper = await mountView();
+		const viewer = () => wrapper.find('[data-testid="photo-viewer"] img');
+		expect(viewer().exists()).toBe(false);
+
+		await wrapper.find('[data-testid="row-thumbnail"]').trigger('click');
+		await flushPromises();
+		expect(viewer().attributes('src')).toBe('https://b/p1.jpg');
+		await wrapper.find('[data-testid="photo-next"]').trigger('click');
+		await flushPromises();
+		expect(viewer().attributes('src')).toBe('https://b/p2.jpg');
+		// El PDF no entra al visor de fotos (solo hay 2 fotos: la siguiente vuelve a la primera).
+		await wrapper.find('[data-testid="photo-next"]').trigger('click');
+		await flushPromises();
+		expect(viewer().attributes('src')).toBe('https://b/p1.jpg');
+	});
+
+	it('detalle: un PDF tiene su ficha y «Abrir» lo abre en una pestaña', async () => {
+		const open = vi.spyOn(window, 'open').mockReturnValue(null);
+		api.lettersApi.listLetters.mockResolvedValue(inbox([letter({ attachments: [pdfAtt] })]));
+		const wrapper = await mountView();
+		expect(wrapper.text()).toContain('letters.documentsBadge');
+		await wrapper.find('.cursor-pointer').trigger('click');
+		await flushPromises();
+		const doc = wrapper.find('[data-testid="detail-document"]');
+		expect(doc.text()).toContain('carta.pdf');
+		await wrapper.find('[data-testid="open-pdf"]').trigger('click');
+		await flushPromises();
+		expect(open).toHaveBeenCalledWith(pdfAtt.storageUrl, '_blank', 'noopener');
+		open.mockRestore();
+	});
+
+	it('vista previa: avisa los documentos que no salen en el papel', async () => {
+		api.lettersApi.getPrintBatch.mockResolvedValue([
+			{
+				retreatParticipantId: 'rp1', participantId: 'p1', participantName: 'Juan Pérez',
+				idOnRetreat: 1, tableName: 'Mesa 1', tableSortKey: 'Mesa 1',
+				letters: [letter({ status: 'approved', attachments: [pdfAtt] })],
+			},
+		]);
+		const wrapper = await mountView();
+		await wrapper.findAll('[role="menuitem"]').find((b) => b.text().includes('letters.print.retreat'))!.trigger('click');
+		await new Promise((r) => setTimeout(r, 250));
+		await flushPromises();
+		const notice = wrapper.find('[data-testid="print-documents"]');
+		expect(notice.exists()).toBe(true);
+		expect(notice.text()).toContain('Juan Pérez — carta.pdf');
+	});
+
+	it('Carpetas: la carpeta muestra cuántos documentos hay que imprimir aparte', async () => {
+		api.lettersApi.getFolders.mockResolvedValue([
+			folder({ counts: { pending: 0, approved: 1, hidden: 0, attached: 0 }, unprinted: 1, documents: 2 }),
+		]);
+		const wrapper = await mountView();
+		await wrapper.find('[data-testid="view-folders"]').trigger('click');
+		await flushPromises();
+		expect(wrapper.find('[data-testid="folder-documents"]').text()).toContain('letters.folders.status.documents');
 	});
 });

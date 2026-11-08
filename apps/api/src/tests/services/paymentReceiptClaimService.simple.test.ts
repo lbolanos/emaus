@@ -235,6 +235,19 @@ describe('paymentReceiptClaimService (integration)', () => {
 		});
 	});
 
+	it('wiring: foto y sellado de una carta exigen letter:read además de payment:create', () => {
+		const { readFileSync } = jest.requireActual('fs') as typeof import('fs');
+		const { join } = jest.requireActual('path') as typeof import('path');
+		const routes = readFileSync(join(__dirname, '..', '..', 'routes', 'paymentRoutes.ts'), 'utf-8');
+		for (const path of ['/from-letter/:letterId/photo', '/from-letter/:letterId/attach']) {
+			const start = routes.indexOf(`'${path}'`);
+			expect(start).toBeGreaterThan(-1);
+			const chain = routes.slice(start, routes.indexOf(');', start));
+			expect(chain).toMatch(/requirePermission\(\s*'payment:create'\s*\)/);
+			expect(chain).toMatch(/requirePermission\(\s*'letter:read'\s*\)/);
+		}
+	});
+
 	describe('anti-IDOR: el permiso de pagos no basta, hace falta acceso al retiro', () => {
 		// Un coordinador de OTRO retiro: usuario real, sin user_retreat en éste.
 		const outsider = async () => (await TestDataFactory.createTestUser()).id;

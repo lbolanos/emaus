@@ -5171,14 +5171,17 @@ export const lettersApi = {
     return r.data.letter;
   },
 
-  /** Marca el lote impreso. */
+  /**
+   * Marca impresas: con `batchId`, el lote de la vista previa; sin él, a mano
+   * (solo las aprobadas que faltaban), por cartas o por carpeta.
+   */
   markPrinted: async (
     retreatId: string,
-    letterIds: string[],
-    batchId: string,
+    target: { letterIds?: string[]; participantIds?: string[] },
+    batchId?: string,
   ): Promise<{ marked: number }> => {
     const r = await api.post(`/letters/retreats/${retreatId}/letters/print-mark`, {
-      letterIds,
+      ...target,
       batchId,
     });
     return r.data;
