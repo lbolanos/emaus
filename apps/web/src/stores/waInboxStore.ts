@@ -2,7 +2,13 @@ import { defineStore } from 'pinia';
 import { computed, ref } from 'vue';
 import { useToast } from '@repo/ui';
 import { getSocket } from '@/services/realtime';
-import type { WaConversationDto, WaInboxMessageDto, WaLinkDto, WaMediaVariantsDto } from '@repo/types';
+import type {
+  WaConversationDto,
+  WaInboxMessageDto,
+  WaLinkDto,
+  WaMediaVariantsDto,
+  WaRawMediaDto,
+} from '@repo/types';
 import {
   getWaLinkStatus,
   getWaLinks,
@@ -10,6 +16,9 @@ import {
   getWaMessages,
   getWaReceiptDataUrl,
   getWaThreadMedia,
+  getWaRawMedia,
+  linkWaMessagePayment,
+  addWaMessageAsLetter,
   getWaUnreadCount,
   searchWaMessages,
   markWaChatSeen,
@@ -120,7 +129,9 @@ export const useWaInboxStore = defineStore('waInbox', () => {
           !mediaUnavailable.value[m.id],
       )
       .map((m) => m.id)
-      .slice(0, 30);
+      // threadMessages is chronological: the batch takes the MOST RECENT 30,
+      // the ones on screen when the thread opens.
+      .slice(-30);
     if (pending.length === 0 || loadingMedia.value) return;
     loadingMedia.value = true;
     try {
@@ -137,6 +148,33 @@ export const useWaInboxStore = defineStore('waInbox', () => {
     } finally {
       loadingMedia.value = false;
     }
+  }
+
+  /** v1.3: voice notes and documents, downloaded once per session. */
+  const rawMediaByMessageId = ref<Record<string, WaRawMediaDto>>({});
+  async function loadRawMedia(messageId: string): Promise<WaRawMediaDto> {
+    const cached = rawMediaByMessageId.value[messageId];
+    if (cached) return cached;
+    const media = await getWaRawMedia(messageId);
+    rawMediaByMessageId.value = { ...rawMediaByMessageId.value, [messageId]: media };
+    return media;
+  }
+
+  /** v1.3: after saving a payment from a message, link it (anti-duplicates). */
+  async function linkPayment(retreatId: string, messageId: string, paymentId: string) {
+    await linkWaMessagePayment(messageId, paymentId);
+    if (activeChatJid.value) await fetchThread(retreatId, activeChatJid.value);
+  }
+
+  /** v1.3: "add as letter". */
+  async function addAsLetter(
+    retreatId: string,
+    messageId: string,
+    payload: Parameters<typeof addWaMessageAsLetter>[1],
+  ) {
+    const result = await addWaMessageAsLetter(messageId, payload);
+    if (activeChatJid.value) await fetchThread(retreatId, activeChatJid.value);
+    return result;
   }
 
   /** Badge del sidebar (v1.1): liviano, apto para polling. */
@@ -275,6 +313,7 @@ export const useWaInboxStore = defineStore('waInbox', () => {
     searchResults.value = [];
     mediaByMessageId.value = {};
     mediaUnavailable.value = {};
+    rawMediaByMessageId.value = {};
     activeChatJid.value = null;
   }
 
@@ -292,7 +331,11 @@ export const useWaInboxStore = defineStore('waInbox', () => {
     loadingThread,
     realtimeConnected,
     mediaByMessageId,
+    rawMediaByMessageId,
     loadingMedia,
+    loadRawMedia,
+    linkPayment,
+    addAsLetter,
     fetchLinks,
     fetchConversations,
     fetchThread,

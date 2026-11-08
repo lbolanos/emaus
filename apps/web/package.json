@@ -66,6 +66,7 @@
     "lucide-vue-next": "^0.363.0",
     "marked": "^17.0.1",
     "modern-screenshot": "^4.6.7",
+    "pdfjs-dist": "4.10.38",
     "pinia": "^2.1.7",
     "qrcode.vue": "^3.4.1",
     "socket.io-client": "^4.8.3",

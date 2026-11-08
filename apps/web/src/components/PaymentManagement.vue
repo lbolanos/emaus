@@ -527,6 +527,17 @@ import { usePaysAtHouseToggle } from '@/composables/usePaysAtHouseToggle';
 
 const { t } = useI18n();
 const { toast } = useToast();
+const props = withDefaults(
+	defineProps<{
+		/** Only the payment modal is used (no list, no fetches on mount). */
+		embedded?: boolean;
+	}>(),
+	{ embedded: false },
+);
+const emit = defineEmits<{
+	(e: 'payment-saved', payment: Payment): void;
+}>();
+
 const paymentStore = usePaymentStore();
 const retreatStore = useRetreatStore();
 const participantStore = useParticipantStore();
@@ -681,10 +692,17 @@ const openPaymentFor = (participantId: string) => {
  * por el API como data-URL. El participante llega prellenado — el staff solo
  * completa monto/fecha/método.
  */
-const openPaymentForWithReceipt = (participantId: string, receiptDataUrl: string) => {
+const openPaymentForWithReceipt = (
+	participantId: string,
+	receiptDataUrl: string,
+	prefill: { amount?: number | null; referenceNumber?: string | null; notes?: string | null } = {},
+) => {
 	editingPayment.value = null;
 	resetPaymentForm();
 	paymentForm.value.participantId = participantId;
+	if (prefill.amount != null && prefill.amount > 0) paymentForm.value.amount = String(prefill.amount);
+	if (prefill.referenceNumber) paymentForm.value.referenceNumber = prefill.referenceNumber;
+	if (prefill.notes) paymentForm.value.notes = prefill.notes;
 	newReceiptDataUrl.value = receiptDataUrl;
 	showPaymentModal.value = true;
 };
@@ -773,7 +791,10 @@ const savePayment = async () => {
 		if (editingPayment.value) {
 			await paymentStore.updatePaymentById(editingPayment.value.id, paymentData);
 		} else {
-			await paymentStore.addPayment(paymentData);
+			const created = await paymentStore.addPayment(paymentData);
+			// Callers that opened the modal from elsewhere (WhatsApp inbox,
+			// letters) link their source item to the payment just created.
+			if (created?.id) emit('payment-saved', created);
 		}
 
 		closePaymentModal();
@@ -891,6 +912,10 @@ const loadSummary = async () => {
 
 // Lifecycle
 onMounted(async () => {
+	// Embedded = only the payment modal is used (WhatsApp inbox, letters): the
+	// host already hydrated participantStore, and loading every payment of the
+	// retreat plus overwriting participantStore.filters would be pure cost.
+	if (props.embedded) return;
 	await retreatStore.fetchRetreats();
 
 	if (retreatStore.selectedRetreatId) {
@@ -908,6 +933,7 @@ onMounted(async () => {
 
 // Watch for sidebar retreat selection changes
 watch(() => retreatStore.selectedRetreatId, async (newId) => {
+	if (props.embedded) return;
 	participantStore.filters.retreatId = newId || '';
 	await participantStore.fetchParticipants();
 	if (newId) {

@@ -10,7 +10,15 @@ vi.mock('vue-i18n', () => ({
     t: (key: string) =>
       ({
         'waInbox.selectChat': 'Elige una conversación',
-        'waInbox.multimedia': '📎 Multimedia (ábreselo en WhatsApp)',
+        'waInbox.multimedia': '📎 Archivo',
+        'waInbox.media.image': '📷 Foto',
+        'waInbox.media.document': '📄 Documento',
+        'waInbox.staffReply': 'Respuesta del equipo',
+        'waInbox.viewPhoto': 'Ver foto',
+        'waInbox.openDocument': 'Abrir documento',
+        'waInbox.registerPayment': 'Registrar como pago',
+        'waInbox.addLetter': 'Agregar como carta',
+        'waInbox.paymentRegisteredBy': 'Pago registrado por {name}',
         'waInbox.reply': 'Responder desde mi WhatsApp',
         'waInbox.threadEmpty': 'Sin mensajes en este chat todavía.',
       })[key] ?? key,
@@ -72,7 +80,7 @@ describe('WaChatThread', () => {
     expect(wrapper.text()).toContain('<img src=x');
   });
 
-  it('multimedia: placeholder en lugar de contenido (D9)', () => {
+  it('media without thumbnail shows its type label (v1.3)', () => {
     const wrapper = mount(WaChatThread, {
       props: {
         conversation,
@@ -87,8 +95,85 @@ describe('WaChatThread', () => {
       },
     });
 
-    expect(wrapper.text()).toContain('📎 Multimedia');
+    expect(wrapper.text()).toContain('📷 Foto');
     expect(wrapper.find('img').exists()).toBe(false);
+  });
+
+  const stubs = {
+    Button: { template: '<button><slot /></button>' },
+    ExternalLink: { template: '<svg />' },
+  };
+
+  it('staff replies are right-aligned with the sender name and no actions (v1.3)', () => {
+    const wrapper = mount(WaChatThread, {
+      props: {
+        conversation,
+        loading: false,
+        canRegisterPayment: true,
+        canAddLetter: true,
+        messages: [message({ id: 'r1', fromMe: true, senderName: 'Leo', body: 'Te espero' })],
+      },
+      global: { stubs },
+    });
+
+    const row = wrapper.find('[data-testid="wa-message-r1"]');
+    expect(row.classes()).toContain('justify-end');
+    expect(wrapper.find('[data-testid="wa-staff-reply"]').text()).toBe('Leo');
+    expect(wrapper.find('[data-testid^="wa-action-"]').exists()).toBe(false);
+  });
+
+  it('actions by type: PDF can be paid and lettered, other documents only open (v1.3)', () => {
+    const wrapper = mount(WaChatThread, {
+      props: {
+        conversation,
+        loading: false,
+        canRegisterPayment: true,
+        canAddLetter: true,
+        messages: [
+          message({ id: 'pdf', messageType: 'document', body: null, mediaMime: 'application/pdf', mediaFileName: 'pago.pdf' }),
+          message({ id: 'doc', messageType: 'document', body: null, mediaMime: 'application/msword', mediaFileName: 'carta.doc' }),
+          message({ id: 'txt', messageType: 'text', body: 'Te queremos mucho' }),
+        ],
+      },
+      global: { stubs },
+    });
+
+    const kinds = (id: string) =>
+      wrapper
+        .findAll(`[data-testid^="wa-action-"]`)
+        .map((b) => b.attributes('data-testid'))
+        .filter((t) => t?.endsWith(`-${id}`))
+        .map((t) => t?.replace(`-${id}`, '').replace('wa-action-', ''));
+    expect(kinds('pdf')).toEqual(['open', 'payment', 'letter']);
+    expect(kinds('doc')).toEqual(['open']);
+    expect(kinds('txt')).toEqual(['letter']);
+  });
+
+  it('shows who registered the payment and hides "add as letter" once lettered (v1.3)', () => {
+    const wrapper = mount(WaChatThread, {
+      props: {
+        conversation,
+        loading: false,
+        canRegisterPayment: true,
+        canAddLetter: true,
+        messages: [
+          message({
+            id: 'img',
+            messageType: 'image',
+            body: null,
+            paymentId: 'pay-1',
+            paymentRegisteredByName: 'Leo',
+            letterId: 'letter-1',
+            letterAddedByName: 'Ana',
+          }),
+        ],
+      },
+      global: { stubs },
+    });
+
+    expect(wrapper.find('[data-testid="wa-payment-registered-img"]').text()).toContain('Pago registrado por');
+    expect(wrapper.find('[data-testid="wa-action-letter-img"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="wa-action-payment-img"]').exists()).toBe(true);
   });
 
   it('sin conversación activa muestra el estado vacío', () => {

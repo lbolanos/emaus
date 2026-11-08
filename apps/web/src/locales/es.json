@@ -233,6 +233,16 @@
         "review": "Revisión de carta (aprobar/ocultar)",
         "print_mark": "Lote de cartas marcado como impreso",
         "mailbox_toggle": "Buzón de cartas activado/desactivado"
+      },
+      "wa_bridge": {
+        "link_start": "Inicio de vinculación de WhatsApp",
+        "linked": "WhatsApp vinculado",
+        "unlinked": "WhatsApp desvinculado",
+        "purged": "Sesión de WhatsApp purgada por retención",
+        "sync_error": "Error de sincronización de WhatsApp",
+        "window_denied": "Vinculación de WhatsApp fuera de la ventana del retiro",
+        "retreat_enabled": "Bandeja de WhatsApp activada en el retiro",
+        "retreat_disabled": "Bandeja de WhatsApp desactivada en el retiro"
       }
     },
     "resources": {
@@ -270,7 +280,8 @@
       "participant_note": "Nota del participante",
       "retreat_preparation": "Preparación",
       "retreat_preparation_document": "Documento de preparación",
-      "letter": "Cartas de familias"
+      "letter": "Cartas de familias",
+      "whatsapp_bridge_link": "Vínculo de WhatsApp"
     },
     "ranges": {
       "1w": "1 semana",
@@ -4669,7 +4680,7 @@
     "today": "Hoy",
     "yesterday": "Ayer",
     "reply": "Responder desde mi WhatsApp",
-    "multimedia": "📎 Multimedia (ábreselo en WhatsApp)",
+    "multimedia": "📎 Archivo",
     "viewPhoto": "Ver foto",
     "receiptViewer": "Comprobante recibido",
     "registerPayment": "Registrar como pago",
@@ -4692,7 +4703,7 @@
       "bullet2": "Al emparejar, tu teléfono envía el historial reciente al servidor (con tope); se borra al desvincular o 15 días después del retiro.",
       "bullet3": "Usamos un cliente no oficial de WhatsApp, solo de lectura: tu número personal podría ser suspendido. El riesgo es bajo, pero no es cero.",
       "bullet4": "Vincular es voluntario: nadie está obligado. Si no quieres vincular tu número, puedes usar la bandeja como lector.",
-      "bullet5": "Lo que llegue a tu número lo verá el equipo del retiro en esta bandeja. Tu número nunca se muestra a los demás miembros.",
+      "bullet5": "Lo que llegue a tu número de parte de caminantes, y tus respuestas a esos caminantes, lo verá el equipo del retiro en esta bandeja (así saben si alguien ya contestó). Tu número nunca se muestra a los demás miembros.",
       "accept": "Entiendo y quiero vincular mi número",
       "continue": "Continuar",
       "scan": "Escanea este código con tu teléfono: WhatsApp → Ajustes → Dispositivos vinculados → Vincular un dispositivo.",
@@ -4700,7 +4711,46 @@
       "connecting": "Esperando el escaneo…",
       "connected": "¡Tu WhatsApp quedó vinculado! Cierra esta ventana."
     },
-    "photoDownloading": "Descargando la foto…"
+    "photoDownloading": "Descargando la foto…",
+    "media": {
+      "image": "📷 Foto",
+      "audio": "🎤 Nota de voz",
+      "video": "🎥 Video",
+      "document": "📄 Documento",
+      "sticker": "Sticker",
+      "other": "📎 Archivo"
+    },
+    "you": "Tú",
+    "staffReply": "Respuesta del equipo",
+    "awaitingReply": "Sin responder",
+    "answeredBy": "Respondió {name}",
+    "and": "y",
+    "replyTemplate": "Responder con plantilla",
+    "playAudio": "Escuchar",
+    "audioIosHint": "Si no suena en iPhone, ábrelo desde tu WhatsApp.",
+    "openDocument": "Abrir documento",
+    "addLetter": "Agregar como carta",
+    "paymentRegisteredBy": "Pago registrado por {name}",
+    "paymentRegisteredConfirm": "Este comprobante ya se registró como pago ({name}). ¿Registrar otro pago con la misma imagen?",
+    "letterAddedBy": "Carta agregada por {name}",
+    "mediaFailed": "No se pudo descargar el archivo.",
+    "pdfRenderFailed": "No se pudo convertir el PDF a imagen. Ábrelo y registra el pago a mano.",
+    "notPdf": "Este documento no es PDF: ábrelo para revisarlo.",
+    "linkPaymentFailed": "El pago se guardó, pero no se pudo marcar el mensaje. Recarga la bandeja.",
+    "letter": {
+      "title": "Agregar como carta",
+      "description": "El mensaje entra a las cartas del participante para revisarse e imprimirse con las demás.",
+      "recipient": "Para quién es la carta",
+      "body": "Texto a imprimir",
+      "attachment": "Imagen que se imprime con la carta",
+      "noAttachment": "Sin imagen",
+      "preparing": "Preparando la imagen…",
+      "save": "Agregar carta",
+      "saved": "Carta agregada a las cartas de {name}",
+      "duplicate": "Este mensaje ya era una carta: no se duplicó.",
+      "failed": "No se pudo agregar la carta.",
+      "emptyBody": "Escribe el texto de la carta."
+    }
   },
   "letters": {
     "title": "Cartas de familias",

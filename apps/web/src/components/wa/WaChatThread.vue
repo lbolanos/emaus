@@ -11,7 +11,9 @@ import type {
   WaConversationDto,
   WaInboxMessageDto,
   WaMediaVariantsDto,
+  WaRawMediaDto,
 } from '@repo/types'
+import { isPdfDocument, waMediaLabelKey } from '@/utils/waMedia'
 
 /**
  * Hilo de un chat (FR3/FR8/D9/D10 + UX móvil v1.1):
@@ -37,17 +39,72 @@ const props = defineProps<{
   retreatId?: string | null
   /** Variantes de imagen por messageId (v1.2): thumb en la lista, large en el visor. */
   mediaMap?: Record<string, WaMediaVariantsDto> | null
+  /** v1.3: downloaded voice notes / documents by messageId. */
+  rawMediaMap?: Record<string, WaRawMediaDto> | null
+  /** v1.3: the user can review letters (letter:update) — enables "add as letter". */
+  canAddLetter?: boolean
 }>()
 
 const emit = defineEmits<{
   (e: 'register-receipt', message: WaInboxMessageDto): void
   (e: 'view-photo', message: WaInboxMessageDto): void
   (e: 'back'): void
+  (e: 'add-letter', message: WaInboxMessageDto): void
+  (e: 'open-document', message: WaInboxMessageDto): void
+  (e: 'play-audio', message: WaInboxMessageDto): void
+  (e: 'reply-template'): void
 }>()
 
 const { t } = useI18n()
 
 const tz = computed(() => props.retreatTimezone || 'America/Mexico_City')
+
+/** "Ana y Beto" when a couple shares the phone (v1.3). */
+const headerName = computed(() => {
+  const c = props.conversation
+  if (!c) return ''
+  const names = [
+    `${c.participantFirstName} ${c.participantLastName}`.trim(),
+    ...(c.sharedWith ?? []).map((p) => `${p.firstName} ${p.lastName}`.trim()),
+  ]
+  return names.join(` ${t('waInbox.and')} `)
+})
+
+/** Media without caption shows its type label (documents show the file name instead). */
+function showTypeLabel(m: WaInboxMessageDto): boolean {
+  if (m.messageType === 'document') return false
+  if (m.messageType === 'image' && props.mediaMap?.[m.id]?.thumb) return false
+  return m.messageType !== 'text' && m.messageType !== 'audio'
+}
+
+type ActionKind = 'view' | 'open' | 'payment' | 'letter'
+
+/**
+ * Actions offered under an incoming message (v1.3). Payments only take images
+ * (a PDF's first page is rendered to one); letters take text, images and PDFs.
+ */
+function actionsFor(m: WaInboxMessageDto): Array<{ kind: ActionKind; label: string }> {
+  if (m.fromMe) return []
+  const actions: Array<{ kind: ActionKind; label: string }> = []
+  const pdf = m.messageType === 'document' && isPdfDocument(m.mediaMime, m.mediaFileName)
+  if (m.messageType === 'image') actions.push({ kind: 'view', label: t('waInbox.viewPhoto') })
+  if (m.messageType === 'document') actions.push({ kind: 'open', label: t('waInbox.openDocument') })
+  if (props.canRegisterPayment && (m.messageType === 'image' || pdf)) {
+    actions.push({ kind: 'payment', label: t('waInbox.registerPayment') })
+  }
+  const letterable = m.messageType === 'image' || pdf || (m.messageType === 'text' && Boolean(m.body))
+  if (props.canAddLetter && letterable && !m.letterId) {
+    actions.push({ kind: 'letter', label: t('waInbox.addLetter') })
+  }
+  return actions
+}
+
+function runAction(kind: ActionKind, m: WaInboxMessageDto): void {
+  if (kind === 'view') emit('view-photo', m)
+  else if (kind === 'open') emit('open-document', m)
+  else if (kind === 'payment') emit('register-receipt', m)
+  else emit('add-letter', m)
+}
 
 // chatPhone trae los dígitos del JID (con lada); el deep link espera el
 // nacional y le agrega la lada del país con el helper compartido.
@@ -70,6 +127,15 @@ function enlarge(message: WaInboxMessageDto): void {
   // ampliado es solo para texto.
   if (message.messageType === 'image') {
     emit('view-photo', message)
+    return
+  }
+  // v1.3: a document opens, a voice note plays — the text dialog would be empty.
+  if (message.messageType === 'document') {
+    emit('open-document', message)
+    return
+  }
+  if (message.messageType === 'audio') {
+    emit('play-audio', message)
     return
   }
   enlarged.value = message
@@ -175,9 +241,7 @@ function formatFull(ts: string | Date): string {
           >
             <ArrowLeft class="w-4 h-4" />
           </Button>
-          <div class="text-sm font-medium truncate">
-            {{ conversation.participantFirstName }} {{ conversation.participantLastName }}
-          </div>
+          <div class="text-sm font-medium truncate">{{ headerName }}</div>
           <!-- Ficha del caminante sin salir de la bandeja (backlog UX). -->
           <ParticipantInfoPopover
             v-if="popoverParticipant"
@@ -186,16 +250,28 @@ function formatFull(ts: string | Date): string {
             :retreat-id="retreatId ?? undefined"
           />
         </div>
-        <Button
-          v-if="replyLink"
-          variant="outline"
-          size="sm"
-          data-testid="wa-reply-button"
-          @click="openReply"
-        >
-          <ExternalLink class="w-4 h-4 mr-1" />
-          {{ t('waInbox.reply') }}
-        </Button>
+        <div class="flex flex-wrap items-center justify-end gap-2">
+          <!-- v1.3: templated reply through the existing MessageDialog (logs history). -->
+          <Button
+            v-if="conversation.participantId"
+            variant="outline"
+            size="sm"
+            data-testid="wa-reply-template"
+            @click="emit('reply-template')"
+          >
+            {{ t('waInbox.replyTemplate') }}
+          </Button>
+          <Button
+            v-if="replyLink"
+            variant="outline"
+            size="sm"
+            data-testid="wa-reply-button"
+            @click="openReply"
+          >
+            <ExternalLink class="w-4 h-4 mr-1" />
+            {{ t('waInbox.reply') }}
+          </Button>
+        </div>
       </div>
       <div class="flex-1 overflow-y-auto p-3 space-y-2 max-h-[65vh]">
         <div
@@ -212,17 +288,26 @@ function formatFull(ts: string | Date): string {
             v-for="m in group.messages"
             :key="m.id"
             class="flex"
+            :class="m.fromMe ? 'justify-end' : ''"
             :data-testid="`wa-message-${m.id}`"
           >
             <div class="max-w-[85%]">
+              <!-- v1.3: staff replies sent from a linked phone, right-aligned. -->
+              <div
+                v-if="m.fromMe"
+                class="text-[10px] text-emerald-800 text-right mb-0.5"
+                data-testid="wa-staff-reply"
+              >
+                {{ m.senderName || t('waInbox.staffReply') }}
+              </div>
               <button
                 type="button"
-                class="block text-left rounded-lg bg-muted hover:bg-muted/70 transition-colors px-3 py-2 w-full cursor-pointer"
+                class="block text-left rounded-lg transition-colors px-3 py-2 w-full cursor-pointer"
+                :class="m.fromMe ? 'bg-emerald-50 hover:bg-emerald-100 border border-emerald-100' : 'bg-muted hover:bg-muted/70'"
                 :aria-label="t('waInbox.enlarge')"
                 @click="enlarge(m)"
               >
-                <!-- Imagen: thumbnail siempre que el lote ya llegó (v1.2);
-                     tap en la burbuja = visor grande (descarga bajo demanda). -->
+                <!-- Image: thumbnail once the batch arrived (v1.2); tap = large viewer. -->
                 <img
                   v-if="m.messageType === 'image' && mediaMap?.[m.id]?.thumb"
                   :src="mediaMap[m.id].thumb"
@@ -230,38 +315,73 @@ function formatFull(ts: string | Date): string {
                   alt="Foto recibida"
                   data-testid="wa-thumb"
                 />
+                <!-- Document: icon + file name (v1.3). -->
                 <div
-                  v-if="m.body || !(m.messageType === 'image' && mediaMap?.[m.id]?.thumb)"
+                  v-if="m.messageType === 'document'"
+                  class="text-sm font-medium break-all"
+                  data-testid="wa-document"
+                >
+                  {{ t('waInbox.media.document') }}{{ m.mediaFileName ? ` · ${m.mediaFileName}` : '' }}
+                </div>
+                <div
+                  v-if="m.body || showTypeLabel(m)"
                   class="text-sm whitespace-pre-wrap break-words"
                 >
-                  {{ m.body ?? t('waInbox.multimedia') }}
+                  {{ m.body ?? t(waMediaLabelKey(m.messageType)) }}
                 </div>
                 <div class="text-[10px] text-muted-foreground mt-1 text-right">
                   {{ formatTime(m.timestamp) }}
                 </div>
               </button>
-              <!-- FR14 (v1.1) + feedback Leo 2026-11-07: ver la foto ANTES de
-                   decidir si es comprobante real, y registrarla como pago. -->
-              <div
-                v-if="canRegisterPayment && m.messageType === 'image'"
-                class="mt-1 flex items-center gap-3"
-              >
+              <!-- Voice note (v1.3): downloaded on demand, played inline. -->
+              <div v-if="m.messageType === 'audio'" class="mt-1">
+                <audio
+                  v-if="rawMediaMap?.[m.id]"
+                  :src="rawMediaMap[m.id].dataUrl"
+                  controls
+                  preload="auto"
+                  class="w-60 max-w-full"
+                  data-testid="wa-audio"
+                />
                 <button
-                  type="button"
-                  class="text-xs text-muted-foreground hover:text-foreground hover:underline"
-                  :data-testid="`wa-view-photo-${m.id}`"
-                  @click="emit('view-photo', m)"
-                >
-                  {{ t('waInbox.viewPhoto') }}
-                </button>
-                <span class="text-muted-foreground">·</span>
-                <button
+                  v-else
                   type="button"
                   class="text-xs text-emerald-700 hover:underline"
-                  :data-testid="`wa-register-payment-${m.id}`"
-                  @click="emit('register-receipt', m)"
+                  :data-testid="`wa-play-audio-${m.id}`"
+                  @click="emit('play-audio', m)"
                 >
-                  {{ t('waInbox.registerPayment') }}
+                  ▶ {{ t('waInbox.playAudio') }}
+                </button>
+              </div>
+              <!-- v1.3: what the team already did with this message. -->
+              <div
+                v-if="m.paymentRegisteredByName"
+                class="mt-1 text-[11px] text-emerald-800"
+                :data-testid="`wa-payment-registered-${m.id}`"
+              >
+                💵 {{ t('waInbox.paymentRegisteredBy', { name: m.paymentRegisteredByName }) }}
+              </div>
+              <div
+                v-if="m.letterAddedByName"
+                class="mt-1 text-[11px] text-purple-800"
+                :data-testid="`wa-letter-added-${m.id}`"
+              >
+                ✉️ {{ t('waInbox.letterAddedBy', { name: m.letterAddedByName }) }}
+              </div>
+              <div
+                v-if="actionsFor(m).length"
+                class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1"
+              >
+                <button
+                  v-for="action in actionsFor(m)"
+                  :key="action.kind"
+                  type="button"
+                  class="text-xs hover:underline"
+                  :class="action.kind === 'payment' ? 'text-emerald-700' : 'text-muted-foreground hover:text-foreground'"
+                  :data-testid="`wa-action-${action.kind}-${m.id}`"
+                  @click="runAction(action.kind, m)"
+                >
+                  {{ action.label }}
                 </button>
               </div>
             </div>

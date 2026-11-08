@@ -1,9 +1,19 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { storeToRefs } from 'pinia'
 import { MessageCircle, RefreshCw } from 'lucide-vue-next'
-import { Button, Switch, Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@repo/ui'
+import {
+  Button,
+  Switch,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  useToast,
+} from '@repo/ui'
+import type { WaInboxMessageDto } from '@repo/types'
 import { useRetreatStore } from '@/stores/retreatStore'
 import { useAuthStore } from '@/stores/authStore'
 import { useAuthPermissions } from '@/composables/useAuthPermissions'
@@ -14,6 +24,10 @@ import WaLinkPanel from '@/components/wa/WaLinkPanel.vue'
 import WaLinkModal from '@/components/wa/WaLinkModal.vue'
 import WaConversationList from '@/components/wa/WaConversationList.vue'
 import WaChatThread from '@/components/wa/WaChatThread.vue'
+import WaLetterDialog from '@/components/wa/WaLetterDialog.vue'
+import MessageDialog from '@/components/MessageDialog.vue'
+import { dataUrlToObjectUrl, isPdfDocument } from '@/utils/waMedia'
+import { renderPdfFirstPage } from '@/utils/pdfToImage'
 
 /**
  * Bandeja WhatsApp de solo lectura del retiro (specs/whatsapp-inbox).
@@ -28,8 +42,15 @@ const { isSuperadmin } = useAuthPermissions()
 const { can } = useAuthPermissions()
 const store = useWaInboxStore()
 const participantStore = useParticipantStore()
-const { links, conversations, realtimeConnected, loadingConversations, inboxEnabled, mediaByMessageId } =
-  storeToRefs(store)
+const {
+  links,
+  conversations,
+  realtimeConnected,
+  loadingConversations,
+  inboxEnabled,
+  mediaByMessageId,
+  rawMediaByMessageId,
+} = storeToRefs(store)
 
 const retreatId = computed(
   () => retreatStore.selectedRetreatId || retreatStore.mostRecentRetreat?.id || null,
@@ -180,14 +201,40 @@ async function onTerminateAll() {
   await store.terminateAll(id).catch(() => {})
 }
 
-// FR14 (v1.1) + ver la foto antes de decidir (feedback Leo 2026-11-07):
-// la descarga bajo demanda alimenta AMBOS flujos — el visor (para validar que
-// sea un comprobante real) y el registro directo como pago.
+// FR14 (v1.1) + look at the photo before deciding (QA feedback 2026-11-07):
+// the on-demand download feeds the large viewer (is it a real receipt?) and
+// the payment registration. v1.3: PDFs are rendered to an image first, and
+// the created payment is linked to the message (duplicate-payment guard).
+const { toast } = useToast()
 const paymentRef = ref<InstanceType<typeof PaymentManagement> | null>(null)
+/** The payment modal mounts on first use (embedded: no list fetches). */
+const paymentMounted = ref(false)
+/** Message the open payment modal came from — linked on payment-saved. */
+const pendingPaymentMessageId = ref<string | null>(null)
 const downloadingReceipt = ref(false)
-/** La foto descargada bajo demanda para el mensaje ampliado (FR14). */
-const enlargedPhotoDataUrl = ref<string | null>(null)
-const photoViewer = ref<{ dataUrl: string; participantId: string | null; participantName: string } | null>(null)
+const photoViewer = ref<{
+  dataUrl: string
+  participantId: string | null
+  participantName: string
+  message: WaInboxMessageDto
+} | null>(null)
+
+function apiErrorMessage(err: unknown, fallback: string): string {
+  return (
+    (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
+    (err as Error)?.message ||
+    fallback
+  )
+}
+
+function notifyError(description: string): void {
+  toast({ title: t('waInbox.title'), description, variant: 'destructive' })
+}
+
+const activeConversationName = computed(() => {
+  const c = store.activeConversation
+  return c ? `${c.participantFirstName} ${c.participantLastName}`.trim() : ''
+})
 
 async function downloadReceiptFor(message: { id: string }): Promise<string | null> {
   if (downloadingReceipt.value) return null
@@ -195,55 +242,203 @@ async function downloadReceiptFor(message: { id: string }): Promise<string | nul
   try {
     const receipt = await store.downloadReceipt(message.id)
     if (!receipt.participantId) {
-      alert(t('waInbox.receiptNoParticipant'))
+      notifyError(t('waInbox.receiptNoParticipant'))
       return null
     }
     return receipt.receiptPhoto
   } catch (err) {
-    const apiMessage =
-      (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
-      (err as Error).message
-    alert(apiMessage || t('waInbox.receiptFailed'))
+    notifyError(apiErrorMessage(err, t('waInbox.receiptFailed')))
     return null
   } finally {
     downloadingReceipt.value = false
   }
 }
 
-async function onViewPhoto(message: { id: string }) {
+/** First page of a PDF document message as a JPEG data-URL (null on failure). */
+async function pdfFirstPageFor(message: WaInboxMessageDto): Promise<string | null> {
+  if (!isPdfDocument(message.mediaMime, message.mediaFileName)) {
+    notifyError(t('waInbox.notPdf'))
+    return null
+  }
+  try {
+    const raw = await store.loadRawMedia(message.id)
+    return await renderPdfFirstPage(raw.dataUrl)
+  } catch (err) {
+    notifyError(apiErrorMessage(err, t('waInbox.pdfRenderFailed')))
+    return null
+  }
+}
+
+async function onViewPhoto(message: WaInboxMessageDto) {
   const dataUrl = await downloadReceiptFor(message)
   if (!dataUrl) return
   photoViewer.value = {
     dataUrl,
     participantId: store.activeConversation?.participantId ?? null,
-    participantName: store.activeConversation
-      ? `${store.activeConversation.participantFirstName} ${store.activeConversation.participantLastName}`.trim()
-      : '',
+    participantName: activeConversationName.value,
+    message,
   }
+}
+
+/** Duplicate-payment guard: confirm before paying a receipt twice. */
+function confirmNotDuplicate(message: WaInboxMessageDto): boolean {
+  if (!message.paymentId) return true
+  return window.confirm(
+    t('waInbox.paymentRegisteredConfirm', { name: message.paymentRegisteredByName || '' }),
+  )
+}
+
+async function openPaymentModal(message: WaInboxMessageDto, participantId: string, dataUrl: string) {
+  paymentMounted.value = true
+  await nextTick()
+  pendingPaymentMessageId.value = message.id
+  paymentRef.value?.openPaymentForWithReceipt(participantId, dataUrl)
 }
 
 async function onRegisterFromPhoto() {
-  if (!photoViewer.value) return
-  const id = photoViewer.value.participantId
-  if (!id) {
-    alert(t('waInbox.receiptNoParticipant'))
+  const viewer = photoViewer.value
+  if (!viewer) return
+  if (!viewer.participantId) {
+    notifyError(t('waInbox.receiptNoParticipant'))
     return
   }
-  const dataUrl = photoViewer.value.dataUrl
+  if (!confirmNotDuplicate(viewer.message)) return
   photoViewer.value = null
-  paymentRef.value?.openPaymentForWithReceipt(id, dataUrl)
+  await openPaymentModal(viewer.message, viewer.participantId, viewer.dataUrl)
 }
 
-async function onRegisterReceipt(message: { id: string }) {
-  const dataUrl = await downloadReceiptFor(message)
-  if (!dataUrl) return
-  const c = store.activeConversation
-  const participantId = c?.participantId
+async function onRegisterReceipt(message: WaInboxMessageDto) {
+  const participantId = store.activeConversation?.participantId
   if (!participantId) {
-    alert(t('waInbox.receiptNoParticipant'))
+    notifyError(t('waInbox.receiptNoParticipant'))
     return
   }
-  paymentRef.value?.openPaymentForWithReceipt(participantId, dataUrl)
+  if (!confirmNotDuplicate(message)) return
+  const dataUrl =
+    message.messageType === 'document'
+      ? await pdfFirstPageFor(message)
+      : await downloadReceiptFor(message)
+  if (!dataUrl) return
+  await openPaymentModal(message, participantId, dataUrl)
+}
+
+async function onPaymentSaved(payment: { id: string }) {
+  const messageId = pendingPaymentMessageId.value
+  const id = retreatId.value
+  pendingPaymentMessageId.value = null
+  if (!messageId || !id) return
+  await store.linkPayment(id, messageId, payment.id).catch(() => {
+    notifyError(t('waInbox.linkPaymentFailed'))
+  })
+}
+
+// ── v1.3: documents and voice notes ──
+async function onOpenDocument(message: WaInboxMessageDto) {
+  // Open the tab inside the click (popup blockers) and point it at the file
+  // once downloaded.
+  const tab = window.open('', '_blank')
+  try {
+    const raw = await store.loadRawMedia(message.id)
+    const url = dataUrlToObjectUrl(raw.dataUrl)
+    if (tab) tab.location.href = url
+    else window.open(url, '_blank')
+    setTimeout(() => URL.revokeObjectURL(url), 60_000)
+  } catch (err) {
+    tab?.close()
+    notifyError(apiErrorMessage(err, t('waInbox.mediaFailed')))
+  }
+}
+
+async function onPlayAudio(message: WaInboxMessageDto) {
+  try {
+    await store.loadRawMedia(message.id)
+  } catch (err) {
+    notifyError(apiErrorMessage(err, t('waInbox.mediaFailed')))
+  }
+}
+
+// ── v1.3: "add as letter" ──
+const canAddLetter = computed(() => can.update('letter'))
+const letterOpen = ref(false)
+const letterMessage = ref<WaInboxMessageDto | null>(null)
+const letterAttachment = ref<string | null>(null)
+const letterPreparing = ref(false)
+const letterSaving = ref(false)
+const letterParticipants = computed(() =>
+  (participants.value || [])
+    .filter((p) => !p.isCancelled)
+    .map((p) => ({ id: p.id, name: `${p.firstName} ${p.lastName}`.trim() }))
+    .sort((a, b) => a.name.localeCompare(b.name, 'es')),
+)
+
+async function onAddLetter(message: WaInboxMessageDto) {
+  letterMessage.value = message
+  letterAttachment.value = null
+  letterOpen.value = true
+  if (message.messageType !== 'image' && message.messageType !== 'document') return
+  letterPreparing.value = true
+  try {
+    letterAttachment.value =
+      message.messageType === 'image'
+        ? (await store.downloadReceipt(message.id)).receiptPhoto
+        : await pdfFirstPageFor(message)
+  } catch (err) {
+    notifyError(apiErrorMessage(err, t('waInbox.mediaFailed')))
+  } finally {
+    letterPreparing.value = false
+  }
+}
+
+/** File name for the printed image: the document's name, else by image type. */
+function letterAttachmentName(message: WaInboxMessageDto, dataUrl: string): string {
+  const base = message.mediaFileName?.replace(/\.[^.]+$/, '') || `whatsapp-${message.id.slice(0, 8)}`
+  const ext = dataUrl.startsWith('data:image/webp') ? 'webp' : dataUrl.startsWith('data:image/png') ? 'png' : 'jpg'
+  return `${base}.${ext}`
+}
+
+async function onSubmitLetter(payload: {
+  participantId: string
+  bodyText: string
+  includeAttachment: boolean
+}) {
+  const id = retreatId.value
+  const message = letterMessage.value
+  if (!id || !message) return
+  letterSaving.value = true
+  try {
+    const result = await store.addAsLetter(id, message.id, {
+      participantId: payload.participantId,
+      bodyText: payload.bodyText,
+      attachment:
+        payload.includeAttachment && letterAttachment.value
+          ? {
+              fileName: letterAttachmentName(message, letterAttachment.value),
+              dataUrl: letterAttachment.value,
+            }
+          : null,
+    })
+    const name = letterParticipants.value.find((p) => p.id === payload.participantId)?.name ?? ''
+    toast({
+      title: t('waInbox.letter.title'),
+      description: result.duplicate ? t('waInbox.letter.duplicate') : t('waInbox.letter.saved', { name }),
+    })
+    letterOpen.value = false
+  } catch (err) {
+    notifyError(apiErrorMessage(err, t('waInbox.letter.failed')))
+  } finally {
+    letterSaving.value = false
+  }
+}
+
+// ── v1.3: templated reply through MessageDialog (mounted without v-if:
+// its forceTemplateType watcher needs it mounted before `open` flips). ──
+const messageDialogOpen = ref(false)
+function onReplyTemplate() {
+  if (!activeParticipant.value) {
+    notifyError(t('waInbox.receiptNoParticipant'))
+    return
+  }
+  messageDialogOpen.value = true
 }
 </script>
 
@@ -397,8 +592,14 @@ async function onRegisterReceipt(message: { id: string }) {
           :popover-participant="activeParticipant"
           :retreat-id="retreatId"
           :media-map="mediaByMessageId"
+          :raw-media-map="rawMediaByMessageId"
+          :can-add-letter="canAddLetter"
           @register-receipt="onRegisterReceipt"
           @view-photo="onViewPhoto"
+          @open-document="onOpenDocument"
+          @play-audio="onPlayAudio"
+          @add-letter="onAddLetter"
+          @reply-template="onReplyTemplate"
           @back="store.activeChatJid = null"
         />
       </div>
@@ -409,8 +610,31 @@ async function onRegisterReceipt(message: { id: string }) {
     <!-- FR14: modal de pago reutilizado, montado oculto (el Dialog que abre
          teletransporta a body). openPaymentForWithReceipt lo abre prellenado. -->
     <div class="hidden">
-      <PaymentManagement ref="paymentRef" />
+      <PaymentManagement
+        v-if="paymentMounted"
+        ref="paymentRef"
+        embedded
+        @payment-saved="onPaymentSaved"
+      />
     </div>
+
+    <!-- v1.3: "add as letter" and templated reply. -->
+    <WaLetterDialog
+      v-model:open="letterOpen"
+      :participants="letterParticipants"
+      :default-participant-id="store.activeConversation?.participantId ?? null"
+      :initial-text="letterMessage?.body ?? ''"
+      :attachment-data-url="letterAttachment"
+      :preparing-attachment="letterPreparing"
+      :saving="letterSaving"
+      @submit="onSubmitLetter"
+    />
+    <MessageDialog
+      v-model:open="messageDialogOpen"
+      context="retreat"
+      :retreat-id="retreatId ?? undefined"
+      :participant="activeParticipant"
+    />
 
     <!-- Visor de comprobante (feedback Leo 2026-11-07): ver la foto a tamaño
          grande ANTES de decidir si es un comprobante real. -->

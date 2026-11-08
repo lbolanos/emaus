@@ -233,6 +233,16 @@
         "review": "Letter review (approve/hide)",
         "print_mark": "Letter batch marked as printed",
         "mailbox_toggle": "Letter mailbox enabled/disabled"
+      },
+      "wa_bridge": {
+        "link_start": "WhatsApp linking started",
+        "linked": "WhatsApp linked",
+        "unlinked": "WhatsApp unlinked",
+        "purged": "WhatsApp session purged by retention",
+        "sync_error": "WhatsApp sync error",
+        "window_denied": "WhatsApp linking outside the retreat window",
+        "retreat_enabled": "WhatsApp inbox enabled for the retreat",
+        "retreat_disabled": "WhatsApp inbox disabled for the retreat"
       }
     },
     "resources": {
@@ -270,7 +280,8 @@
       "participant_note": "Participant note",
       "retreat_preparation": "Preparation",
       "retreat_preparation_document": "Preparation document",
-      "letter": "Family letters"
+      "letter": "Family letters",
+      "whatsapp_bridge_link": "WhatsApp link"
     },
     "ranges": {
       "1w": "1 week",
@@ -4347,7 +4358,7 @@
     "today": "Today",
     "yesterday": "Yesterday",
     "reply": "Reply from my WhatsApp",
-    "multimedia": "📎 Media (open it in WhatsApp)",
+    "multimedia": "📎 File",
     "viewPhoto": "View photo",
     "receiptViewer": "Receipt received",
     "registerPayment": "Register as payment",
@@ -4370,7 +4381,7 @@
       "bullet2": "When pairing, your phone sends recent history to the server (capped); it is deleted when you unlink or 15 days after the retreat.",
       "bullet3": "We use an unofficial, read-only WhatsApp client: your personal number could be suspended. The risk is low, but not zero.",
       "bullet4": "Linking is voluntary: nobody is required to. If you prefer not to link your number, you can still use the inbox as a reader.",
-      "bullet5": "Whatever arrives at your number will be visible to the retreat team in this inbox. Your number is never shown to other members.",
+      "bullet5": "What walkers send to your number, and your replies to those walkers, will be visible to the retreat team in this inbox (so they know someone already answered). Your number is never shown to other members.",
       "accept": "I understand and want to link my number",
       "continue": "Continue",
       "scan": "Scan this code with your phone: WhatsApp → Settings → Linked devices → Link a device.",
@@ -4378,7 +4389,46 @@
       "connecting": "Waiting for the scan…",
       "connected": "Your WhatsApp is linked! Close this window."
     },
-    "photoDownloading": "Downloading the photo…"
+    "photoDownloading": "Downloading the photo…",
+    "media": {
+      "image": "📷 Photo",
+      "audio": "🎤 Voice note",
+      "video": "🎥 Video",
+      "document": "📄 Document",
+      "sticker": "Sticker",
+      "other": "📎 File"
+    },
+    "you": "You",
+    "staffReply": "Team reply",
+    "awaitingReply": "Awaiting reply",
+    "answeredBy": "{name} replied",
+    "and": "and",
+    "replyTemplate": "Reply with a template",
+    "playAudio": "Listen",
+    "audioIosHint": "If it does not play on iPhone, open it from your WhatsApp.",
+    "openDocument": "Open document",
+    "addLetter": "Add as letter",
+    "paymentRegisteredBy": "Payment registered by {name}",
+    "paymentRegisteredConfirm": "This receipt was already registered as a payment ({name}). Register another payment with the same image?",
+    "letterAddedBy": "Letter added by {name}",
+    "mediaFailed": "Could not download the file.",
+    "pdfRenderFailed": "Could not convert the PDF to an image. Open it and register the payment by hand.",
+    "notPdf": "This document is not a PDF: open it to review it.",
+    "linkPaymentFailed": "The payment was saved, but the message could not be marked. Reload the inbox.",
+    "letter": {
+      "title": "Add as letter",
+      "description": "The message joins the participant's letters to be reviewed and printed with the others.",
+      "recipient": "Who the letter is for",
+      "body": "Text to print",
+      "attachment": "Image printed with the letter",
+      "noAttachment": "No image",
+      "preparing": "Preparing the image…",
+      "save": "Add letter",
+      "saved": "Letter added to {name}'s letters",
+      "duplicate": "This message was already a letter: nothing duplicated.",
+      "failed": "Could not add the letter.",
+      "emptyBody": "Write the letter text."
+    }
   },
   "letters": {
     "title": "Family letters",

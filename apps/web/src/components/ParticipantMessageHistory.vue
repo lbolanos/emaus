@@ -109,7 +109,13 @@
 
         <!-- Message Content Preview -->
         <div class="text-sm text-muted-foreground">
-          {{ formatMessageContent(message.messageContent, 80) }}
+          {{
+            message.messageContent
+              ? formatMessageContent(message.messageContent, 80)
+              : isInbound(message)
+                ? t(waMediaLabelKey(message.waMessageType))
+                : ''
+          }}
         </div>
 
         <!-- Template Info + Audiencia -->
@@ -162,6 +168,8 @@ import { Badge } from '@repo/ui';
 import { useParticipantCommunicationStore } from '@/stores/participantCommunicationStore';
 import { buildWhatsAppChatLink } from '@/utils/phone';
 import { getWaThreadMedia } from '@/services/api';
+import { useI18n } from 'vue-i18n';
+import { waMediaLabelKey } from '@/utils/waMedia';
 
 interface ParticipantCommunication {
   id: string;
@@ -223,6 +231,7 @@ const props = withDefaults(defineProps<Props>(), {
 
 const emit = defineEmits<Emits>();
 
+const { t } = useI18n();
 const communicationStore = useParticipantCommunicationStore();
 
 const {
@@ -289,9 +298,17 @@ async function fetchInboundThumbs() {
     loadingThumbs = false;
   }
 }
-watch(communications, () => {
-  void fetchInboundThumbs();
-});
+// Only the visible history downloads photos: MessageDialog also mounts a
+// hidden instance just to count messages, and that one must not trigger media
+// downloads on the server every time the dialog opens.
+watch(
+  [communications, () => props.visible],
+  () => {
+    if (props.visible) void fetchInboundThumbs();
+  },
+  // immediate: the shared store may already hold the list when this mounts.
+  { immediate: true },
+);
 
 // Local state
 const localLoading = ref(false);

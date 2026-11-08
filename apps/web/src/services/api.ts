@@ -4977,7 +4977,7 @@ export const deleteParticipantNote = async (id: string): Promise<void> => {
 
 // ── Puente WhatsApp de solo lectura (specs/whatsapp-inbox) ──
 
-import type { WaLinkDto, WaConversationDto, WaInboxMessageDto, WaThreadMediaDto } from "@repo/types";
+import type { WaLinkDto, WaConversationDto, WaInboxMessageDto, WaThreadMediaDto, WaRawMediaDto } from "@repo/types";
 
 export const startWaLink = async (
   retreatId: string,
@@ -5068,6 +5068,34 @@ export interface WaReceiptDownload {
 /** FR14 (v1.1): descarga ON-DEMAND la imagen del mensaje para `receiptPhoto`. */
 export const getWaReceiptDataUrl = async (messageId: string): Promise<WaReceiptDownload> => {
   const r = await api.post(`/wa-bridge/messages/${messageId}/receipt`);
+  return r.data;
+};
+
+/** v1.3: voice note or document of a message, on demand. */
+export const getWaRawMedia = async (messageId: string): Promise<WaRawMediaDto> => {
+  const r = await api.post(`/wa-bridge/messages/${messageId}/raw-media`);
+  return r.data;
+};
+
+/** v1.3: link the payment just created from a message (duplicate-payment guard). */
+export const linkWaMessagePayment = async (
+  messageId: string,
+  paymentId: string,
+): Promise<{ ok: boolean; paymentId: string }> => {
+  const r = await api.post(`/wa-bridge/messages/${messageId}/payment`, { paymentId });
+  return r.data;
+};
+
+/** v1.3: "add as letter" — the message becomes a printable letter. */
+export const addWaMessageAsLetter = async (
+  messageId: string,
+  payload: {
+    participantId: string;
+    bodyText: string;
+    attachment?: { fileName: string; dataUrl: string } | null;
+  },
+): Promise<{ letterId: string; duplicate: boolean }> => {
+  const r = await api.post(`/wa-bridge/messages/${messageId}/letter`, payload);
   return r.data;
 };
 

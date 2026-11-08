@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
 import type { WaConversationDto } from '@repo/types'
+import { waMediaLabelKey } from '@/utils/waMedia'
 
 /**
  * Lista de chats de caminantes (bandeja consolidada, FR3). Selecciona el chat
@@ -20,6 +21,20 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
+
+/** "Ana y Beto" when a couple shares the phone (v1.3). */
+function displayName(c: WaConversationDto): string {
+  const primary = `${c.participantFirstName || t('waInbox.participants')} ${c.participantLastName}`.trim()
+  const others = (c.sharedWith ?? []).map((p) => `${p.firstName} ${p.lastName}`.trim())
+  return others.length ? [primary, ...others].join(` ${t('waInbox.and')} `) : primary
+}
+
+/** Last message preview: caption/text, else a per-type label; staff replies prefixed. */
+function preview(c: WaConversationDto): string {
+  const text = c.lastMessagePreview || t(waMediaLabelKey(c.lastMessageType))
+  if (!c.lastMessageFromMe) return text
+  return `${c.lastReplyByName || t('waInbox.you')}: ${text}`
+}
 
 function formatTime(ts: string | Date, tz?: string | null): string {
   const date = typeof ts === 'string' ? new Date(ts) : ts
@@ -58,10 +73,7 @@ function formatTime(ts: string | Date, tz?: string | null): string {
           @click="emit('select', c.chatJid)"
         >
           <div class="flex items-center justify-between gap-2">
-            <span class="font-medium text-sm truncate">
-              {{ c.participantFirstName || t('waInbox.participants') }}
-              {{ c.participantLastName }}
-            </span>
+            <span class="font-medium text-sm truncate">{{ displayName(c) }}</span>
             <span
               v-if="c.unreadCount > 0"
               class="shrink-0 min-w-[1.25rem] px-1.5 h-5 rounded-full bg-emerald-600 text-white text-xs flex items-center justify-center"
@@ -71,11 +83,26 @@ function formatTime(ts: string | Date, tz?: string | null): string {
             </span>
           </div>
           <div class="flex items-center justify-between gap-2 mt-0.5">
-            <span class="text-xs text-muted-foreground truncate">
-              {{ c.lastMessagePreview || t('waInbox.multimedia') }}
-            </span>
+            <span class="text-xs text-muted-foreground truncate">{{ preview(c) }}</span>
             <span class="text-xs text-muted-foreground whitespace-nowrap">
               {{ formatTime(c.lastMessageAt, retreatTimezone) }}
+            </span>
+          </div>
+          <!-- v1.3: who is handling it — avoids two staff answering the same walker. -->
+          <div class="mt-1 text-[11px]">
+            <span
+              v-if="c.awaitingReply"
+              class="text-amber-700"
+              data-testid="wa-awaiting-reply"
+            >
+              {{ t('waInbox.awaitingReply') }}
+            </span>
+            <span
+              v-else-if="c.lastReplyByName"
+              class="text-emerald-700"
+              data-testid="wa-answered-by"
+            >
+              ✓ {{ t('waInbox.answeredBy', { name: c.lastReplyByName }) }}
             </span>
           </div>
         </button>
