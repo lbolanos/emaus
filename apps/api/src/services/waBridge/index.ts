@@ -26,6 +26,7 @@ export {
 	senderDisplayName,
 	classifyRawMedia,
 	WaMediaRejectedError,
+	mediaFailureMessage,
 } from './waBridgeService';
 export type {
 	WaLinkWindow,

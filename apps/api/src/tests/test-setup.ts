@@ -368,6 +368,8 @@ export async function clearTestData() {
 		// referencia retreat_participants, que se limpia más abajo.
 		'letter_attachments',
 		'letters',
+		// Receipt claims point at retreat, participant, payment and user.
+		'payment_receipt_claims',
 		'community_attendance',
 		'community_meeting_photo_tag',
 		'community_meeting',

@@ -18,6 +18,7 @@ import { LetterAttachment } from '@/entities/letterAttachment.entity';
 import { authorizationService } from '@/middleware/authorization';
 import { WaBridgeController } from '@/controllers/waBridgeController';
 import { classifyRawMedia, WaMediaRejectedError } from '@/services/waBridge/waBridgeService';
+import { WacliError } from '@/services/waBridge/wacliClient';
 import { config } from '@/config';
 
 const mockMediaDownload = jest.fn();
@@ -230,6 +231,47 @@ describe('raw media endpoint and letters with documents (integration)', () => {
 			mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
 			isBrowserSafeImage: false,
 		});
+	});
+
+	it('retries a failed download once (a file that just arrived), then serves it', async () => {
+		const { staff, msg } = await seed(DOCX, { mediaFileName: 'Carta.docx' });
+		const write = mockMediaDownload.getMockImplementation()!;
+		mockMediaDownload
+			.mockRejectedValueOnce(new WacliError('wacli error: sql: no rows in result set'))
+			.mockImplementation(write);
+		jest.spyOn(console, 'error').mockImplementation(() => undefined);
+		const r = res();
+		await controller.rawMedia({ params: { messageId: msg.id }, user: { id: staff.id } } as any, r);
+		expect(mockMediaDownload).toHaveBeenCalledTimes(2);
+		expect(r.status).not.toHaveBeenCalled();
+		expect(r.json.mock.calls[0][0]).toMatchObject({ previewKind: 'download' });
+	});
+
+	it('does not retry a file WhatsApp no longer has, and says so', async () => {
+		const { staff, walker, msg } = await seed(DOCX, { mediaFileName: 'Carta.docx' });
+		mockMediaDownload.mockRejectedValue(new WacliError('wacli error: download failed with status code 403'));
+		jest.spyOn(console, 'error').mockImplementation(() => undefined);
+
+		const r = res();
+		await controller.rawMedia({ params: { messageId: msg.id }, user: { id: staff.id } } as any, r);
+		expect(mockMediaDownload).toHaveBeenCalledTimes(1);
+		expect(r.status).toHaveBeenCalledWith(502);
+		expect(r.json.mock.calls[0][0].message).toContain('WhatsApp ya no tiene este archivo');
+		expect(r.json.mock.calls[0][0].message).not.toContain('wacli');
+
+		// The letter explains how to save it without the file.
+		const letter = res();
+		await controller.addAsLetter(
+			{
+				params: { messageId: msg.id },
+				body: { participantId: walker.id, bodyText: 'x', includeDocument: true },
+				user: { id: staff.id },
+			} as any,
+			letter,
+		);
+		expect(letter.status).toHaveBeenCalledWith(502);
+		expect(letter.json.mock.calls[0][0].message).toContain('desmarca «Adjuntar el documento original»');
+		expect(await AppDataSource.getRepository(Letter).count()).toBe(0);
 	});
 
 	it('"add as letter" refuses a document with macros and creates nothing', async () => {

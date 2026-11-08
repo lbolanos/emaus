@@ -16,7 +16,9 @@ import { authorizationService } from '@/middleware/authorization';
 import { WhatsappBridgeLink } from '@/entities/whatsappBridgeLink.entity';
 import { WhatsappInboxMessage } from '@/entities/whatsappInboxMessage.entity';
 import { Payment } from '@/entities/payment.entity';
+import { Participant } from '@/entities/participant.entity';
 import { ParticipantCommunication } from '@/entities/participantCommunication.entity';
+import { PaymentReceiptClaim } from '@/entities/paymentReceiptClaim.entity';
 import { waBridgeService } from '@/services/waBridge/waBridgeService';
 import { WacliError } from '@/services/waBridge/wacliClient';
 
@@ -163,6 +165,100 @@ describe('waBridge controller v1.3 (integration)', () => {
 			const updated = await AppDataSource.getRepository(WhatsappInboxMessage).findOneByOrFail({ id: msg.id });
 			expect(updated.paymentId).toBe(own.id);
 			expect(updated.paymentRegisteredById).toBe(staff.id);
+		});
+	});
+
+	describe('linkPayment → «Comprobantes» (v1.5, D27)', () => {
+		const link = async (staffId: string, messageId: string, paymentId: string) => {
+			const r = res();
+			await controller.linkPayment(
+				{ params: { messageId }, body: { paymentId }, user: { id: staffId } } as any,
+				r,
+			);
+			return r;
+		};
+
+		it('a payment with its receipt is listed as applied, once, with the WhatsApp number', async () => {
+			const { staff, retreat, walker, message } = await seed();
+			const msg = await message({ messageType: 'image', body: 'Ya quedó el depósito' });
+			const payment = await AppDataSource.getRepository(Payment).save({
+				participantId: walker.id,
+				retreatId: retreat.id,
+				amount: 4500,
+				paymentDate: new Date('2026-11-08'),
+				paymentMethod: 'transfer',
+				referenceNumber: 'REF-77',
+				receiptUrl: 'data:image/webp;base64,UklGR',
+			} as any);
+
+			await link(staff.id, msg.id, payment.id);
+			await link(staff.id, msg.id, payment.id); // retried request
+
+			const claims = await AppDataSource.getRepository(PaymentReceiptClaim).find();
+			expect(claims).toHaveLength(1);
+			expect(claims[0]).toMatchObject({
+				retreatId: retreat.id,
+				participantId: walker.id,
+				status: 'attached',
+				reference: 'REF-77',
+				note: 'Ya quedó el depósito',
+				senderContact: `WhatsApp +521${PHONE}`,
+				photoUrl: 'data:image/webp;base64,UklGR',
+				attachedPaymentId: payment.id,
+				attachedById: staff.id,
+			});
+			expect(Number(claims[0].amountClaimed)).toBe(4500);
+		});
+
+		it('a payment without a photo adds nothing to «Comprobantes»', async () => {
+			const { staff, retreat, walker, message } = await seed();
+			const msg = await message({ messageType: 'image' });
+			const payment = await AppDataSource.getRepository(Payment).save({
+				participantId: walker.id,
+				retreatId: retreat.id,
+				amount: 100,
+				paymentDate: new Date('2026-11-08'),
+				paymentMethod: 'cash',
+			} as any);
+			const r = await link(staff.id, msg.id, payment.id);
+			expect(r.json).toHaveBeenCalledWith(expect.objectContaining({ ok: true }));
+			expect(await AppDataSource.getRepository(PaymentReceiptClaim).count()).toBe(0);
+		});
+
+		it("an emergency contact's number never reaches «Comprobantes»", async () => {
+			const { staff, retreat, walker, link: waLink } = await seed();
+			await AppDataSource.getRepository(Participant).update(
+				{ id: walker.id },
+				{ emergencyContact1CellPhone: '5522223333' },
+			);
+			const repo = AppDataSource.getRepository(WhatsappInboxMessage);
+			const msg = await repo.save(
+				repo.create({
+					linkId: waLink.id,
+					retreatId: retreat.id,
+					chatJid: '5215522223333@s.whatsapp.net',
+					chatPhone: '5215522223333',
+					waMessageId: 'EC-RECEIPT',
+					timestamp: new Date('2026-11-08T10:00:00Z'),
+					fromMe: false,
+					body: null,
+					messageType: 'image',
+				}),
+			);
+			jest.spyOn(authorizationService, 'hasPermission').mockResolvedValue(true);
+			const payment = await AppDataSource.getRepository(Payment).save({
+				participantId: walker.id,
+				retreatId: retreat.id,
+				amount: 200,
+				paymentDate: new Date('2026-11-08'),
+				paymentMethod: 'transfer',
+				receiptUrl: 'data:image/webp;base64,UklGR',
+			} as any);
+			await link(staff.id, msg.id, payment.id);
+			const claim = await AppDataSource.getRepository(PaymentReceiptClaim).findOneByOrFail({
+				attachedPaymentId: payment.id,
+			});
+			expect(claim.senderContact).toBe('WhatsApp (contacto de emergencia)');
 		});
 	});
 

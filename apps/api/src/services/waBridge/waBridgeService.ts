@@ -1009,7 +1009,15 @@ export class WaBridgeService {
 		const outPath = `${this.mediaTmpDir()}/${message.id}.bin`;
 		let buffer: Buffer;
 		try {
-			await mediaDownload(link.storePath, message.chatJid, message.waMessageId, outPath);
+			try {
+				await mediaDownload(link.storePath, message.chatJid, message.waMessageId, outPath);
+			} catch (err) {
+				// One retry: a download right after the message arrives, or while
+				// the sync reconnects, sometimes fails once and then works.
+				if (!(err instanceof WacliError) || isMediaGone(err)) throw err;
+				await new Promise((resolve) => setTimeout(resolve, MEDIA_RETRY_DELAY_MS));
+				await mediaDownload(link.storePath, message.chatJid, message.waMessageId, outPath);
+			}
 			const stat = fs.statSync(outPath);
 			if (stat.size > cap) {
 				throw new WaMediaRejectedError(
@@ -1072,6 +1080,24 @@ const SEARCH_CHUNK = 1000;
 /** Cap for a downloaded receipt image (10 MB — a phone photo). */
 const RECEIPT_MAX_BYTES = 10 * 1024 * 1024;
 /** Caps for on-demand voice notes and documents. */
+const MEDIA_RETRY_DELAY_MS = 1500;
+
+/**
+ * WhatsApp no longer serves the file (403/404/410 from its CDN): media of old
+ * or forwarded messages expires. Retrying does not help.
+ */
+export function isMediaGone(err: unknown): boolean {
+	const text = `${(err as Error)?.message ?? ''} ${(err as WacliError)?.stderrTail ?? ''}`;
+	return /status code (403|404|410)/.test(text);
+}
+
+/** What the staff reads when a WhatsApp file cannot be downloaded (v1.5). */
+export function mediaFailureMessage(err: unknown): string {
+	return isMediaGone(err)
+		? 'WhatsApp ya no tiene este archivo disponible (pasa con archivos viejos o reenviados). Pídelo de nuevo o ábrelo desde tu WhatsApp.'
+		: 'No se pudo descargar el archivo de WhatsApp (a veces es momentáneo). Reintenta en unos segundos; si sigue fallando, ábrelo desde tu WhatsApp.';
+}
+
 const AUDIO_MAX_BYTES = 8 * 1024 * 1024;
 const DOCUMENT_MAX_BYTES = 10 * 1024 * 1024;
 const VIDEO_MAX_BYTES = 16 * 1024 * 1024;

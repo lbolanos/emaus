@@ -14,6 +14,7 @@ import {
 	senderDisplayName,
 	senderKindOf,
 	WaMediaRejectedError,
+	mediaFailureMessage,
 	type WaSenderMatch,
 } from '../services/waBridge';
 import { WacliError } from '../services/waBridge';
@@ -21,6 +22,7 @@ import { Payment } from '../entities/payment.entity';
 import { RetreatParticipant } from '../entities/retreatParticipant.entity';
 import { emitInboxChanged } from '../realtime';
 import { createLetterFromWhatsapp, WaLetterError } from '../services/waBridge/waLetterService';
+import { recordWhatsappReceiptClaim } from '../services/waBridge/waReceiptClaimService';
 
 /** Passport mounts the User entity on req.user, but Express types it generically. */
 function currentUser(req: Request): User {
@@ -88,6 +90,13 @@ function toLinkDto(
 /** Emergency-contact chats carry SENSITIVE_HEALTH_FIELDS data (v1.4, D22). */
 function canSeeEmergencyContacts(userId: string): Promise<boolean> {
 	return authorizationService.hasPermission(userId, 'participant:health');
+}
+
+/** The wacli reason goes to the log only: it holds store paths and pids. */
+function logMediaFailure(where: string, messageId: string, err: unknown): void {
+	console.error(`[waBridge][${where}] ${messageId}: ${(err as Error).message}`);
+	const tail = (err as WacliError).stderrTail;
+	if (tail) console.error(`[waBridge][${where}] stderr:`, tail.slice(-300));
 }
 
 /** JID digits of a 1:1 chat ("5215511406977@s.whatsapp.net" → "5215511406977"). */
@@ -619,11 +628,9 @@ export class WaBridgeController {
 					.status(err.reason === 'too_large' ? 413 : 415)
 					.json({ message: err.message, reason: err.reason });
 			}
-			console.error('[waBridge][raw-media] download failed:', (err as Error).message);
+			logMediaFailure('raw-media', message.id, err);
 			const status = err instanceof WacliError ? 502 : 500;
-			return res.status(status).json({
-				message: `No se pudo descargar el archivo: ${(err as Error).message}. Reintenta en unos segundos; si persiste, ábrelo desde tu WhatsApp.`,
-			});
+			return res.status(status).json({ message: mediaFailureMessage(err) });
 		}
 	};
 
@@ -631,6 +638,7 @@ export class WaBridgeController {
 	 * POST /messages/:messageId/payment (v1.3, duplicate-payment guard): links
 	 * the payment just created from this message. The bubble then shows
 	 * "registered by X", and the next staff member sees it before paying twice.
+	 * v1.5: the receipt is also listed in the payments «Comprobantes» tab.
 	 */
 	linkPayment = async (req: Request, res: Response): Promise<Response> => {
 		const paymentId = String((req.body ?? {}).paymentId ?? '');
@@ -641,7 +649,8 @@ export class WaBridgeController {
 		const message = await repo.findOneBy({ id: req.params.messageId });
 		if (!message) return res.status(404).json({ message: 'Mensaje no encontrado' });
 		if (!(await ensureRetreatAccess(req, res, message.retreatId))) return res;
-		if (!(await this.visibleChat(req, res, message.retreatId, message.chatPhone))) return res;
+		const match = await this.visibleChat(req, res, message.retreatId, message.chatPhone);
+		if (!match) return res;
 		const payment = await AppDataSource.getRepository(Payment).findOne({
 			where: { id: paymentId },
 			select: ['id', 'retreatId'],
@@ -654,6 +663,18 @@ export class WaBridgeController {
 			{ id: message.id },
 			{ paymentId, paymentRegisteredById: currentUser(req).id, paymentRegisteredAt: now },
 		);
+		// v1.5 (D27): the receipt also shows in «Comprobantes» as applied. A
+		// failure there must not undo the link the guard depends on.
+		try {
+			await recordWhatsappReceiptClaim({
+				message,
+				paymentId,
+				actorUserId: currentUser(req).id,
+				fromEmergencyContact: senderKindOf(match) === 'emergency_contact',
+			});
+		} catch (err) {
+			console.error(`[waBridge][payment] receipt claim for ${paymentId} failed:`, (err as Error).message);
+		}
 		emitInboxChanged({ retreatId: message.retreatId, newCount: 0 });
 		return res.json({ ok: true, paymentId, paymentRegisteredAt: now });
 	};
@@ -729,7 +750,10 @@ export class WaBridgeController {
 				return res.status(err.reason === 'too_large' ? 413 : 415).json({ message: err.message });
 			}
 			if (err instanceof WacliError) {
-				return res.status(502).json({ message: `No se pudo descargar el documento: ${err.message}` });
+				logMediaFailure('letter', message.id, err);
+				return res.status(502).json({
+					message: `${mediaFailureMessage(err)} Para guardar la carta sin el archivo, desmarca «Adjuntar el documento original».`,
+				});
 			}
 			console.error('[waBridge][letter] create failed:', (err as Error).message);
 			return res.status(500).json({ message: 'No se pudo crear la carta. Reintenta.' });

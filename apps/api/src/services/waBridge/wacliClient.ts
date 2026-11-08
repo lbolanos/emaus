@@ -124,12 +124,33 @@ interface WacliEnvelope {
 }
 
 /** Extracts `data` from the JSON envelope; throws WacliError on an error envelope. */
+/**
+ * On failure wacli prints its `{success:false,error}` envelope on STDERR with
+ * an empty stdout (verified on v0.21.0 with media downloads): read the last
+ * JSON line there, or the real reason ("download failed with status code
+ * 403") is lost behind "exited with code 1".
+ */
+function stderrEnvelope(stderr: string): WacliEnvelope | null {
+	const lines = stderr.trim().split('\n').reverse();
+	for (const line of lines) {
+		const trimmed = line.trim();
+		if (!trimmed.startsWith('{')) continue;
+		try {
+			return JSON.parse(trimmed) as WacliEnvelope;
+		} catch {
+			// Not an envelope line; keep looking.
+		}
+	}
+	return null;
+}
+
 function parseEnvelope(stdout: string, stderr: string, code: number | null): unknown {
 	let envelope: WacliEnvelope | null = null;
 	try {
 		envelope = JSON.parse(stdout) as WacliEnvelope;
 	} catch {
-		// No parseable JSON: falls through to the exit-code check below.
+		// No parseable JSON on stdout: a failure may carry it on stderr.
+		envelope = code !== 0 ? stderrEnvelope(stderr) : null;
 	}
 	if (envelope && envelope.error) {
 		const detail = typeof envelope.error === 'string' ? envelope.error : JSON.stringify(envelope.error);

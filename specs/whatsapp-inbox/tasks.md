@@ -439,6 +439,12 @@ Pendiente — QA en vivo (Playwright MCP desconectado en esta sesión):
   (no imprimible) y texto inicial «Carta en el documento adjunto: …».
 - [x] Tests: API 10 (`waBridgeRawMedia.test.ts`), web 16 (visor, utilidades,
   hilo, diálogo, vista). Suites: puente 94, cartas 103, web 4125.
+- [x] QA de Leo: «Agregar como carta» con un .docx falló con «wacli exited
+  with code 1» (la descarga a mano funcionó después). Arreglo: leer el error
+  de stderr, un reintento, log con detalle y mensaje claro (FR28).
+- [x] QA de Leo: el comprobante de WhatsApp no aparecía en «Comprobantes» →
+  D27, comprobante «Aplicado» al enlazar el pago. `payment_receipt_claims`
+  entra a `clearOrder` de los tests (quedaban filas entre tests).
 - [ ] QA en vivo: mandar desde un teléfono un PDF de varias páginas, un .docx,
   un .pptx, un video y un .docm o .html (debe rechazarse); probar «Descargar y
   abrir» en la Mac y en el iPhone; agregar un .docx como carta y abrirlo
