@@ -484,6 +484,28 @@ const unmarkFolder = async (participantId: string) => {
 	}
 };
 
+// -- Marcar a mano (se imprimió en otra compu, o se cerró la vista previa sin confirmar) --
+const markByHand = async (target: { letterIds?: string[]; participantIds?: string[] }) => {
+	try {
+		const { marked } = await letterStore.markPrinted(retreatId.value, target);
+		toast({
+			title:
+				marked > 0
+					? t('letters.print.markedByHandTitle', { count: marked })
+					: t('letters.print.nothingToMark'),
+		});
+		load();
+		loadFolders();
+	} catch {
+		toast({ title: t('letters.print.markError'), variant: 'destructive' });
+	}
+};
+
+const markLetter = (letter: Letter) => markByHand({ letterIds: [letter.id] });
+const markFolder = (participantId: string) => markByHand({ participantIds: [participantId] });
+const markSelection = () =>
+	markByHand({ letterIds: letterStore.letters.filter((l) => selectedIds.value.has(l.id)).map((l) => l.id) });
+
 /** Imprime el folder del participante filtrado (sus aprobadas). */
 const printFiltered = () => {
 	if (participantFilter.value) {
@@ -869,7 +891,7 @@ const markBatchPrinted = () => {
 	const letterIds = printPreviewMeta.value?.letterIds ?? [];
 	if (letterIds.length) {
 		letterStore
-			.markPrinted(retreatId.value, letterIds, newPrintBatchId())
+			.markPrinted(retreatId.value, { letterIds }, newPrintBatchId())
 			.then(() => {
 				load();
 				loadFolders();
@@ -979,6 +1001,10 @@ const toggleExpanded = (id: string) => {
 							<Printer class="mr-2 h-4 w-4" />
 							{{ t('letters.print.selection', { count: selectedCount }) }}
 						</DropdownMenuItem>
+						<DropdownMenuItem v-if="selectedCount > 0" @click="markSelection">
+							<Stamp class="mr-2 h-4 w-4" />
+							{{ t('letters.print.markSelection', { count: selectedCount }) }}
+						</DropdownMenuItem>
 						<DropdownMenuSeparator />
 						<DropdownMenuItem @select="deferOpen(() => openMailboxes())">
 							<Mailbox class="mr-2 h-4 w-4" />
@@ -1054,6 +1080,7 @@ const toggleExpanded = (id: string) => {
 			@view-letters="viewParticipantLetters"
 			@share="shareOne"
 			@unmark="unmarkFolder"
+			@mark="markFolder"
 		/>
 
 		<template v-if="viewMode === 'inbox'">
@@ -1110,6 +1137,13 @@ const toggleExpanded = (id: string) => {
 					<DropdownMenuItem @select="deferOpen(() => printFiltered())">
 						<Printer class="mr-2 h-4 w-4" />
 						{{ t('letters.folders.printAll') }}
+					</DropdownMenuItem>
+					<DropdownMenuItem
+						v-if="filteredFolder.unprinted > 0"
+						@click="markFolder(participantFilter)"
+					>
+						<Stamp class="mr-2 h-4 w-4" />
+						{{ t('letters.folders.markFolder') }}
 					</DropdownMenuItem>
 					<DropdownMenuItem
 						v-if="filteredFolder.printed > 0"
@@ -1381,10 +1415,19 @@ const toggleExpanded = (id: string) => {
 									<Copy class="mr-2 h-4 w-4" />
 									{{ t('letters.copyAddress') }}
 								</DropdownMenuItem>
-								<DropdownMenuSeparator v-if="letter.participantId || letter.printedAt" />
+								<DropdownMenuSeparator
+									v-if="letter.participantId || letter.printedAt || letter.status === 'approved'"
+								/>
 								<DropdownMenuItem v-if="letter.participantId" @select="printOneParticipant(letter)">
 									<Printer class="mr-2 h-4 w-4" />
 									{{ t('letters.print.participant') }}
+								</DropdownMenuItem>
+								<DropdownMenuItem
+									v-if="letter.status === 'approved' && !letter.printedAt"
+									@click="markLetter(letter)"
+								>
+									<Stamp class="mr-2 h-4 w-4" />
+									{{ t('letters.print.markLetter') }}
 								</DropdownMenuItem>
 								<DropdownMenuItem v-if="letter.printedAt" @click="unmarkLetter(letter)">
 									<Stamp class="mr-2 h-4 w-4" />

@@ -287,16 +287,26 @@ export const getFoldersHandler = async (req: Request, res: Response) => {
 	}
 };
 
-/** POST /retreats/:retreatId/letters/print-mark — marca el lote impreso. */
+/** POST /retreats/:retreatId/letters/print-mark — marca el lote impreso, o a mano. */
 export const markPrintedHandler = async (req: Request, res: Response) => {
 	try {
-		const { letterIds, batchId } = req.body as { letterIds: string[]; batchId: string };
-		const marked = await markPrinted(req.params.retreatId, letterIds, batchId);
+		const { letterIds, participantIds, batchId } = req.body as {
+			letterIds?: string[];
+			participantIds?: string[];
+			batchId?: string;
+		};
+		const marked = await markPrinted(req.params.retreatId, { letterIds, participantIds }, batchId);
 		void domainAuditService.log({
 			action: DomainAuditAction.LETTER_PRINT_MARK,
 			resourceType: 'letter',
 			retreatId: req.params.retreatId,
-			metadata: { batchId, count: marked },
+			metadata: {
+				batchId: batchId ?? undefined,
+				manual: !batchId || undefined,
+				count: marked,
+				letterIds: !batchId && letterIds?.length ? letterIds : undefined,
+				participantIds: participantIds?.length ? participantIds : undefined,
+			},
 		});
 		res.json({ marked });
 	} catch (error) {

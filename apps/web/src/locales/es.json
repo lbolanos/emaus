@@ -4747,6 +4747,10 @@
       "unprintedTitle": "No impresas — {scope}",
       "wholeRetreat": "todo el retiro",
       "unmarkLetter": "Quitar marca de impresa",
+      "markLetter": "Marcar como impresa",
+      "markSelection": "Marcar seleccionadas como impresas ({count})",
+      "markedByHandTitle": "{count} carta(s) marcada(s) como impresa(s)",
+      "nothingToMark": "No había cartas aprobadas sin imprimir que marcar",
       "unmarkedTitle": "Marca de impresa quitada a {count} carta(s)",
       "unmarkError": "No se pudo quitar la marca de impresa",
       "sessionExpired": "Tu sesión se cerró: vuelve a iniciar sesión.",
@@ -4795,6 +4799,7 @@
         "documents": "{count} documento(s)"
       },
       "unmarkFolder": "Marcar la carpeta como no impresa",
+      "markFolder": "Marcar la carpeta como impresa",
       "openLetters": "Ver las cartas de {name}"
     },
     "backToFolders": "Volver a Carpetas",

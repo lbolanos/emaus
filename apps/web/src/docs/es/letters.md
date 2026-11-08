@@ -61,6 +61,11 @@ mesa y cuántas cartas trae.
 Si una hoja se perdió o salió mal: **⋮ → Quitar marca de impresa** (en la carta) o **Marcar la
 carpeta como no impresa** (en Carpetas), y vuelve a imprimir lo que falta.
 
+Si ya las imprimiste por otro lado (otra computadora, o cerraste la vista previa sin confirmar):
+**⋮ → Marcar como impresa** (en la carta), **Marcar la carpeta como impresa** (en Carpetas) o,
+con varias cartas seleccionadas, **⋮ de arriba → Marcar seleccionadas como impresas**. Solo se
+marcan las aprobadas que faltaban.
+
 ## Cosas que conviene saber
 
 - **Buzones**: en el dialog de buzones puedes apagar la dirección de un participante (abusos o

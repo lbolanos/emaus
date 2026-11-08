@@ -57,6 +57,11 @@ in the preview so each folder gets a sheet with the name, table and letter count
 If a sheet got lost or printed wrong: **⋮ → Remove printed mark** (on the letter) or **Mark
 folder as not printed** (in Folders), then print what is missing again.
 
+If you already printed them some other way (another computer, or you closed the preview without
+confirming): **⋮ → Mark as printed** (on the letter), **Mark folder as printed** (in Folders) or,
+with several letters selected, **top ⋮ → Mark selected as printed**. Only the approved letters
+that were missing get marked.
+
 ## Good to know
 
 - **Mailboxes**: in the mailbox dialog you can turn off a participant's address (abuse or an

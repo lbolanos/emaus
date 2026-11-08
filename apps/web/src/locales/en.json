@@ -4425,6 +4425,10 @@
       "unprintedTitle": "Unprinted — {scope}",
       "wholeRetreat": "whole retreat",
       "unmarkLetter": "Remove printed mark",
+      "markLetter": "Mark as printed",
+      "markSelection": "Mark selected as printed ({count})",
+      "markedByHandTitle": "{count} letter(s) marked as printed",
+      "nothingToMark": "There were no approved, unprinted letters to mark",
       "unmarkedTitle": "Printed mark removed from {count} letter(s)",
       "unmarkError": "Could not remove the printed mark",
       "sessionExpired": "Your session ended: please sign in again.",
@@ -4473,6 +4477,7 @@
         "documents": "{count} document(s)"
       },
       "unmarkFolder": "Mark folder as not printed",
+      "markFolder": "Mark folder as printed",
       "openLetters": "View letters of {name}"
     },
     "backToFolders": "Back to Folders",

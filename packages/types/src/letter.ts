@@ -89,12 +89,23 @@ export const ReviewLetterSchema = z.object({
 });
 export type ReviewLetter = z.infer<typeof ReviewLetterSchema>;
 
+/**
+ * Marcar impresas. Con `batchId`: el papel de la vista previa salió bien y se
+ * marca ese lote. Sin `batchId`: marca a mano (se imprimió en otra
+ * computadora, o se cerró la vista previa sin confirmar) — solo toca las
+ * aprobadas que aún no estaban impresas. Por cartas o por carpeta entera.
+ */
 export const MarkLettersPrintedSchema = z.object({
 	params: z.object({ retreatId: idSchema }),
-	body: z.object({
-		letterIds: z.array(idSchema).min(1).max(2000),
-		batchId: idSchema,
-	}),
+	body: z
+		.object({
+			letterIds: z.array(idSchema).max(2000).optional(),
+			participantIds: z.array(idSchema).max(500).optional(),
+			batchId: idSchema.optional(),
+		})
+		.refine((b) => (b.letterIds?.length ?? 0) + (b.participantIds?.length ?? 0) > 0, {
+			message: 'letterIds o participantIds',
+		}),
 });
 export type MarkLettersPrinted = z.infer<typeof MarkLettersPrintedSchema>;
 

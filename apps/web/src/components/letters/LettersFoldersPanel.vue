@@ -43,6 +43,7 @@ const emit = defineEmits<{
 	'view-letters': [participantId: string];
 	share: [retreatParticipantId: string];
 	unmark: [participantId: string];
+	mark: [participantId: string];
 }>();
 
 const { t } = useI18n();
@@ -274,6 +275,13 @@ const fmtDate = (value: string) =>
 						>
 							<Printer class="mr-2 h-4 w-4" />
 							{{ t('letters.folders.printAll') }}
+						</DropdownMenuItem>
+						<DropdownMenuItem
+							v-if="f.unprinted > 0 && f.participantId"
+							@click="emit('mark', f.participantId)"
+						>
+							<Stamp class="mr-2 h-4 w-4" />
+							{{ t('letters.folders.markFolder') }}
 						</DropdownMenuItem>
 						<DropdownMenuItem
 							v-if="f.printed > 0 && f.participantId"

@@ -205,7 +205,7 @@ describe('LettersView', () => {
 		const yesBtn = wrapper.findAll('button').find((b) => b.text().includes('letters.print.yesMark'));
 		await yesBtn!.trigger('click');
 		await flushPromises();
-		expect(api.lettersApi.markPrinted).toHaveBeenCalledWith('r1', ['l1'], expect.any(String));
+		expect(api.lettersApi.markPrinted).toHaveBeenCalledWith('r1', { letterIds: ['l1'] }, expect.any(String));
 	});
 
 	it('si la impresión no salió («No, no marcar») el lote NO se marca', async () => {
@@ -685,6 +685,43 @@ describe('LettersView', () => {
 		await fromFolder!.trigger('click');
 		await flushPromises();
 		expect(api.lettersApi.unmarkPrinted).toHaveBeenLastCalledWith('r1', { participantIds: ['p1'] });
+	});
+
+	it('marcar como impresa a mano: desde la carta, la carpeta y la selección, sin lote', async () => {
+		api.lettersApi.markPrinted.mockResolvedValue({ marked: 1 });
+		api.lettersApi.listLetters.mockResolvedValue(
+			inbox([
+				letter({ status: 'approved' }),
+				letter({ id: 'l2', participantId: 'p2', participantName: 'Rosa', status: 'pending' }),
+				letter({ id: 'l3', status: 'approved', printedAt: '2026-11-07T10:00:00Z' }),
+			]),
+		);
+		api.lettersApi.getFolders.mockResolvedValue([
+			folder({ counts: { pending: 0, approved: 2, hidden: 0, attached: 0 }, printed: 1, unprinted: 1 }),
+		]);
+		const wrapper = await mountView();
+		const items = (key: string) => wrapper.findAll('[role="menuitem"]').filter((i) => i.text().includes(key));
+
+		// Solo la aprobada sin imprimir lo ofrece: ni la pendiente ni la ya impresa.
+		expect(items('letters.print.markLetter')).toHaveLength(1);
+		const loadsBefore = api.lettersApi.listLetters.mock.calls.length;
+		await items('letters.print.markLetter')[0].trigger('click');
+		await flushPromises();
+		expect(api.lettersApi.markPrinted).toHaveBeenLastCalledWith('r1', { letterIds: ['l1'] }, undefined);
+		// Recarga para que la carta y su carpeta muestren la marca.
+		expect(api.lettersApi.listLetters.mock.calls.length).toBeGreaterThan(loadsBefore);
+
+		await items('letters.folders.markFolder')[0].trigger('click');
+		await flushPromises();
+		expect(api.lettersApi.markPrinted).toHaveBeenLastCalledWith('r1', { participantIds: ['p1'] }, undefined);
+
+		expect(items('letters.print.markSelection')).toHaveLength(0);
+		const checkboxes = wrapper.findAll('input[type="checkbox"][aria-label]');
+		await checkboxes[0].setValue(true);
+		await checkboxes[1].setValue(true);
+		await items('letters.print.markSelection')[0].trigger('click');
+		await flushPromises();
+		expect(api.lettersApi.markPrinted).toHaveBeenLastCalledWith('r1', { letterIds: ['l1', 'l2'] }, undefined);
 	});
 
 	it('«Solo las no impresas»: toma el alcance del filtro (palanquero) y pide onlyUnprinted', async () => {

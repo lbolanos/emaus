@@ -540,17 +540,42 @@ export async function reviewLetter(letterId: string, status: 'approved' | 'hidde
 	return letter;
 }
 
+/**
+ * Marca impresas solo cartas aprobadas del retiro (anti-IDOR por recurso).
+ * Con `batchId` es la confirmación de un lote: sella las cartas de ese papel,
+ * aunque ya estuvieran impresas (se reimprimió). Sin `batchId` es la marca a
+ * mano: solo las que faltaban, para no pisar la fecha de las ya impresas; el
+ * lote queda en null porque no salieron de una vista previa.
+ */
 export async function markPrinted(
 	retreatId: string,
-	letterIds: string[],
-	batchId: string,
+	target: { letterIds?: string[]; participantIds?: string[] },
+	batchId?: string,
 ): Promise<number> {
-	if (letterIds.length === 0) return 0;
+	const letterIds = target.letterIds ?? [];
+	const participantIds = target.participantIds ?? [];
+	if (letterIds.length === 0 && participantIds.length === 0) return 0;
+
+	const qb = AppDataSource.getRepository(Letter)
+		.createQueryBuilder('letter')
+		.innerJoin('letter.retreatParticipant', 'rp')
+		.select('letter.id', 'id')
+		.where('letter.retreatId = :retreatId', { retreatId })
+		.andWhere('letter.status = :status', { status: 'approved' });
+	if (!batchId) qb.andWhere('letter.printedAt IS NULL');
+	const either: string[] = [];
+	if (letterIds.length) either.push('letter.id IN (:...letterIds)');
+	if (participantIds.length) either.push('rp.participantId IN (:...participantIds)');
+	qb.andWhere(`(${either.join(' OR ')})`, { letterIds, participantIds });
+	const rows: { id: string }[] = await qb.getRawMany();
+	const ids = rows.map((r) => r.id);
+	if (ids.length === 0) return 0;
+
 	const result = await AppDataSource.getRepository(Letter)
 		.createQueryBuilder()
 		.update(Letter)
-		.set({ printedAt: new Date(), printedBatchId: batchId })
-		.where('retreatId = :retreatId AND id IN (:...letterIds)', { retreatId, letterIds })
+		.set({ printedAt: new Date(), printedBatchId: batchId ?? null })
+		.where('retreatId = :retreatId AND id IN (:...ids)', { retreatId, ids })
 		.execute();
 	return result.affected ?? 0;
 }

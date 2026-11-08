@@ -225,7 +225,7 @@ Lo que cambió respecto al diseño:
 | Tema | v1.1 | v1.2 (en código) |
 | --- | --- | --- |
 | Papel | Sección por participante con encabezado (nombre, mesa, Nº), tarjeta por carta con remitente, fecha y asunto; título y membrete | **Solo el cuerpo y las fotos de la familia, una carta por hoja**. Sin cromo del navegador: `@page { margin: 0 }` + espaciadores `thead`/`tfoot` por hoja (un margen > 0, incluso 9 mm, deja fecha/título/URL/n de N — verificado con Chrome headless). Carátula opcional por participante |
-| Marcado de impresas | Optimista al abrir el diálogo del navegador | Se pregunta «¿salió bien?» tras `print()` y solo entonces se marca; **quitar la marca** por carta o por carpeta (`POST …/letters/print-unmark`, auditado `letter.print_unmark`) |
+| Marcado de impresas | Optimista al abrir el diálogo del navegador | Se pregunta «¿salió bien?» tras `print()` y solo entonces se marca; **quitar la marca** por carta o por carpeta (`POST …/letters/print-unmark`, auditado `letter.print_unmark`); **marcar a mano** por carta, carpeta o selección (`print-mark` sin `batchId`: solo aprobadas sin imprimir, `printedBatchId` null, audit `manual: true`) |
 | Alcances de impresión | Mesa / retiro | + caminante, palanquero, selección, **solo las no impresas** (`onlyUnprinted`) y «lo que falta» por carpeta |
 | Organización | Bandeja carta por carta | + vista **Carpetas** (`GET …/letters/folders`): estado del folder por participante (completa / faltan / por revisar / sin cartas + si ya se mandó la dirección) |
 | Filtros | Estado, mesa, texto | + caminante (en el servidor, con búsqueda) y **palanquero asignado** (`palancasCoordinator`, `__none__` = sin asignar), compartido entre Bandeja y Carpetas; vista/palanquero/caminante en la URL; etiquetas con ✕ |

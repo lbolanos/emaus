@@ -288,6 +288,91 @@ describe('letterController (integration)', () => {
 		});
 	});
 
+	describe('marcar como impresa a mano', () => {
+		const approve = (id: string) =>
+			reviewLetterHandler(fakeReq({ params: { id }, body: { status: 'approved' } }), mockRes());
+		const mark = async (body: Record<string, unknown>, retreatId = retreat.id) => {
+			const res = mockRes();
+			await markPrintedHandler(fakeReq({ params: { retreatId }, body }), res);
+			return res;
+		};
+		const participantOf = async (id: string) => {
+			const { retreatParticipantId } = await getDS().getRepository(Letter).findOneByOrFail({ id });
+			return (
+				await getDS().query(`SELECT "participantId" FROM "retreat_participants" WHERE "id" = ?`, [
+					retreatParticipantId,
+				])
+			)[0].participantId as string;
+		};
+
+		it('por carta, sin lote: sella printedAt con printedBatchId null y lo audita como manual', async () => {
+			await approve(letterId);
+			const res = await mark({ letterIds: [letterId] });
+			expect(res.statusCode).toBe(200);
+			expect(res.body.marked).toBe(1);
+			const letter = await getDS().getRepository(Letter).findOneByOrFail({ id: letterId });
+			expect(letter.printedAt).toBeTruthy();
+			expect(letter.printedBatchId).toBeNull();
+			expect(domainAuditService.log).toHaveBeenCalledWith(
+				expect.objectContaining({
+					action: 'letter.print_mark',
+					metadata: expect.objectContaining({ manual: true, count: 1 }),
+				}),
+			);
+		});
+
+		it('por carpeta: solo las aprobadas que faltaban; no toca pendientes ni la fecha de las ya impresas', async () => {
+			const { retreatParticipantId: rpId } = await getDS()
+				.getRepository(Letter)
+				.findOneByOrFail({ id: letterId });
+			const save = (bodyText: string, status: string, printedAt: Date | null = null) =>
+				getDS().getRepository(Letter).save({
+					retreatId: retreat.id, retreatParticipantId: rpId, fromEmail: 'tia@ejemplo.com',
+					bodyText, status, receivedAt: new Date(), printedAt,
+				} as Partial<Letter>);
+			await approve(letterId); // aprobada sin imprimir → se marca
+			const oldDate = new Date('2026-11-01T10:00:00.000Z');
+			const alreadyPrinted = await save('Ya impresa', 'approved', oldDate);
+			const pending = await save('Pendiente', 'pending');
+			const hidden = await save('Oculta', 'hidden');
+
+			const res = await mark({ participantIds: [await participantOf(letterId)] });
+			expect(res.body.marked).toBe(1);
+
+			const repo = getDS().getRepository(Letter);
+			expect((await repo.findOneByOrFail({ id: letterId })).printedAt).toBeTruthy();
+			expect((await repo.findOneByOrFail({ id: alreadyPrinted.id })).printedAt).toEqual(oldDate);
+			expect((await repo.findOneByOrFail({ id: pending.id })).printedAt).toBeFalsy();
+			expect((await repo.findOneByOrFail({ id: hidden.id })).printedAt).toBeFalsy();
+		});
+
+		it('ni a mano ni por lote se marca una carta que no está aprobada', async () => {
+			const manual = await mark({ letterIds: [letterId] });
+			const batch = await mark({ letterIds: [letterId], batchId: uuidv4() });
+			expect(manual.body.marked).toBe(0);
+			expect(batch.body.marked).toBe(0);
+			expect((await getDS().getRepository(Letter).findOneByOrFail({ id: letterId })).printedAt).toBeFalsy();
+		});
+
+		it('acotado al retiro: una carta de otro retiro no se marca (anti-IDOR)', async () => {
+			await approve(letterId);
+			const otherRetreat = await TestDataFactory.createTestRetreat();
+			const byLetter = await mark({ letterIds: [letterId] }, otherRetreat.id);
+			const byFolder = await mark({ participantIds: [await participantOf(letterId)] }, otherRetreat.id);
+			expect(byLetter.body.marked).toBe(0);
+			expect(byFolder.body.marked).toBe(0);
+			expect((await getDS().getRepository(Letter).findOneByOrFail({ id: letterId })).printedAt).toBeFalsy();
+		});
+
+		it('schema: exige letterIds o participantIds; el lote es opcional', async () => {
+			const { MarkLettersPrintedSchema } = await import('@repo/types');
+			const params = { retreatId: retreat.id };
+			expect(MarkLettersPrintedSchema.safeParse({ params, body: {} }).success).toBe(false);
+			expect(MarkLettersPrintedSchema.safeParse({ params, body: { batchId: uuidv4() } }).success).toBe(false);
+			expect(MarkLettersPrintedSchema.safeParse({ params, body: { letterIds: [letterId] } }).success).toBe(true);
+		});
+	});
+
 	describe('filtro por palanquero asignado', () => {
 		const setPalanquero = async (value: string | null) => {
 			const rpId = (await getDS().getRepository(Letter).findOneByOrFail({ id: letterId }))
