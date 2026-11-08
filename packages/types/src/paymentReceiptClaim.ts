@@ -82,6 +82,22 @@ export const PaymentFromLetterSchema = z.object({
 });
 export type PaymentFromLetter = z.infer<typeof PaymentFromLetterSchema>;
 
+/**
+ * Foto de una carta lista para el formulario de pago estándar (data-URL desde
+ * el servidor: bajarla del bucket con fetch desde el navegador depende del
+ * CORS de S3 y falla en silencio).
+ */
+export const LetterReceiptPhotoSchema = z.object({
+	params: z.object({ letterId: idSchema }),
+});
+
+/** Sella la carta `attached` con el pago que creó el formulario estándar. */
+export const AttachLetterToPaymentSchema = z.object({
+	params: z.object({ letterId: idSchema }),
+	body: z.object({ paymentId: idSchema }),
+});
+export type AttachLetterToPayment = z.infer<typeof AttachLetterToPaymentSchema>;
+
 export const ReceiptLinksQuerySchema = z.object({
 	params: z.object({ retreatId: idSchema }),
 });

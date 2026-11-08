@@ -32,6 +32,7 @@ import type {
   FlyerTemplate,
   Letter,
   LetterAttachment,
+  LetterFolderRow,
   LetterMailboxRow,
   LetterPrintBatchEntry,
   LetterStatus,
@@ -5151,6 +5152,7 @@ export const searchWaMessages = async (
 export type {
   Letter,
   LetterAttachment,
+  LetterFolderRow,
   LetterMailboxRow,
   LetterPrintBatchEntry,
   LetterStatus,
@@ -5187,12 +5189,33 @@ export const receiptClaimsApi = {
     return r.data;
   },
 
-  /** Links de comprobante por participante (con nombre) para difusión. */
+  /** Links de comprobante por participante (con nombre y marca de difusión). */
   getLinks: async (
     retreatId: string,
-  ): Promise<{ participantId: string; participantName: string; link: string }[]> => {
+  ): Promise<{
+    participantId: string;
+    retreatParticipantId: string;
+    participantName: string;
+    link: string;
+    cellPhone: string | null;
+    sharedAt: string | null;
+  }[]> => {
     const r = await api.get(`/payments/receipt-links`, { params: { retreatId } });
     return r.data.links;
+  },
+
+  /** Marca de difusión (mejora 9): el link ya se mandó a la familia. */
+  markLinkShared: async (
+    retreatId: string,
+    retreatParticipantId: string,
+  ): Promise<{ sharedAt: string }> => {
+    // data undefined: axios no manda body (el parser JSON rechaza un body `null` literal).
+    const r = await api.post(
+      `/payments/receipt-links/${retreatParticipantId}/shared`,
+      undefined,
+      { params: { retreatId } },
+    );
+    return r.data;
   },
 
   /** Bandeja de comprobantes (opcionalmente filtrada por estado). */
@@ -5268,6 +5291,17 @@ export const lettersApi = {
     return r.data;
   },
 
+  /** Marca de difusión (mejora 9): la dirección ya se mandó a la familia. */
+  markMailboxShared: async (
+    retreatId: string,
+    retreatParticipantId: string,
+  ): Promise<{ mailboxSharedAt: string }> => {
+    const r = await api.post(
+      `/letters/retreats/${retreatId}/letters/mailbox/${retreatParticipantId}/shared`,
+    );
+    return r.data;
+  },
+
   /** Bandeja de cartas con filtros. */
   listLetters: async (
     retreatId: string,
@@ -5277,6 +5311,7 @@ export const lettersApi = {
       tableId?: string;
       status?: LetterStatus | "";
       q?: string;
+      palanquero?: string;
     } = {},
   ): Promise<LettersInbox> => {
     const r = await api.get(`/letters/retreats/${retreatId}/letters`, { params: filters });
@@ -5318,19 +5353,35 @@ export const lettersApi = {
     return r.data;
   },
 
+  /** Quita la marca de impresa: cartas sueltas o la carpeta entera de participantes. */
+  unmarkPrinted: async (
+    retreatId: string,
+    target: { letterIds?: string[]; participantIds?: string[] },
+  ): Promise<{ unmarked: number }> => {
+    const r = await api.post(`/letters/retreats/${retreatId}/letters/print-unmark`, target);
+    return r.data;
+  },
+
   /** Datos ordenados para el documento imprimible (solo approved). */
   getPrintBatch: async (
     retreatId: string,
     scope: "participant" | "table" | "retreat",
-    opts: { participantIds?: string[]; tableId?: string } = {},
+    opts: { participantIds?: string[]; tableId?: string; onlyUnprinted?: boolean } = {},
   ): Promise<LetterPrintBatchEntry[]> => {
     const r = await api.get(`/letters/retreats/${retreatId}/letters/print-batch`, {
       params: {
         scope,
         participantIds: opts.participantIds?.join(",") || undefined,
         tableId: opts.tableId || undefined,
+        onlyUnprinted: opts.onlyUnprinted ? "true" : undefined,
       },
     });
     return r.data.entries;
+  },
+
+  /** Estado del folder por participante (vista Carpetas). */
+  getFolders: async (retreatId: string): Promise<LetterFolderRow[]> => {
+    const r = await api.get(`/letters/retreats/${retreatId}/letters/folders`);
+    return r.data.folders;
   },
 };

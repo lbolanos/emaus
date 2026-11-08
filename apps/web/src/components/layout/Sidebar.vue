@@ -510,6 +510,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { useReceptionStore } from '@/stores/receptionStore';
 import { useWaInboxStore } from '@/stores/waInboxStore';
 import { useLetterStore } from '@/stores/letterStore';
+import { useReceiptClaimsStore } from '@/stores/receiptClaimsStore';
 import { useRouter, useRoute } from 'vue-router';
 import { Button } from '@repo/ui';
 import {
@@ -630,7 +631,13 @@ const ITEM_BADGE: Record<string, { color: string; count: () => number | null }> 
   'wa-inbox': { color: 'bg-emerald-500', count: () => waInboxStore.totalUnread || null },
   // Cartas de familias: pendientes de revisión (specs/letters-email).
   letters:      { color: 'bg-purple-600', count: () => letterStore.pendingCount          || null },
+  // Comprobantes de pago enviados por las familias, pendientes de aplicar.
+  payments:     { color: 'bg-emerald-600', count: () => receiptClaimsStore.pendingCount  || null },
 };
+
+// Comprobantes pendientes (badge de «Pagos»): store compartido con la bandeja
+// de comprobantes, que lo baja al aplicar/descartar. Sin payment:read → null.
+const receiptClaimsStore = useReceiptClaimsStore();
 
 function itemBadge(name: string): number | null {
   return ITEM_BADGE[name]?.count() ?? null;
@@ -775,6 +782,9 @@ watch(
       } catch {
         // non-critical
       }
+
+      // Comprobantes de pago pendientes de aplicar (badge de «Pagos»).
+      void receiptClaimsStore.refreshPending(newId);
     }
   },
   { immediate: true },

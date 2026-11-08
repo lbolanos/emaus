@@ -43,6 +43,7 @@
         "create": "Payment recorded",
         "update": "Payment edited",
         "delete": "Payment deleted",
+        "receipt_link_mark_shared": "Receipt link marked as sent to the family",
         "receipt_claim_apply": "Family receipt applied to a payment",
         "receipt_claim_dismiss": "Family receipt dismissed",
         "receipt_from_letter": "Mailbox letter photo registered as payment"
@@ -232,7 +233,9 @@
         "inbox_view": "Letters inbox viewed",
         "review": "Letter review (approve/hide)",
         "print_mark": "Letter batch marked as printed",
-        "mailbox_toggle": "Letter mailbox enabled/disabled"
+        "mailbox_toggle": "Letter mailbox enabled/disabled",
+        "mailbox_mark_shared": "Mailbox address marked as sent to the family",
+        "print_unmark": "Printed mark removed from letters"
       },
       "wa_bridge": {
         "link_start": "WhatsApp linking started",
@@ -876,7 +879,6 @@
     "testimonials": "Testimonials",
     "myRetreats": "My Retreats",
     "minuteByMinute": "Minute by Minute",
-    "serverBriefing": "Server Briefing",
     "shirtTypes": "Shirt Types",
     "mySchedule": "My Schedule",
     "scheduleTemplate": "Minute by Minute Template",
@@ -884,6 +886,7 @@
     "retreatPreparations": "Preparations",
     "preRetreatTaskTemplate": "Pre-Retreat Task Template",
     "specialCases": "Special cases",
+    "serverBriefing": "Server Briefing",
     "myBriefing": "Now & Next"
   },
   "communityTemplates": {
@@ -2760,10 +2763,6 @@
       "contextualHelp": "Help for the current page",
       "viewFullDocs": "View Full Documentation"
     },
-    "video": {
-      "title": "Video tutorial",
-      "openInNewWindow": "Open in new window"
-    },
     "sections": {
       "gettingStarted": "Getting Started",
       "walkers": "Walkers",
@@ -2773,6 +2772,10 @@
       "payments": "Payments",
       "reports": "Reports",
       "settings": "Settings"
+    },
+    "video": {
+      "title": "Video tutorial",
+      "openInNewWindow": "Open in new window"
     }
   },
   "community": {
@@ -4449,7 +4452,15 @@
       "attached": "Attached to payment"
     },
     "filter": {
-      "allTables": "All tables"
+      "allTables": "All tables",
+      "allParticipants": "All participants",
+      "searchParticipant": "Filter participant…",
+      "noMatches": "No matches",
+      "clearParticipant": "Clear participant filter",
+      "letterCount": "{count} letters",
+      "allPalanqueros": "All palanqueros",
+      "noPalanquero": "No palanquero assigned",
+      "palanquero": "Filter by palanquero"
     },
     "review": {
       "approve": "Approve",
@@ -4458,6 +4469,8 @@
       "hiddenTitle": "Letter hidden"
     },
     "reviewError": "Could not update the letter",
+    "diffusionState": "{active} of {total} mailboxes active",
+    "shortcutsHint": "Shortcuts: j/k navigate · Enter opens · a approve · o hide",
     "mailboxToggleError": "Could not update the mailbox",
     "activateError": "Could not activate the mailboxes",
     "mailboxDialog": {
@@ -4485,7 +4498,14 @@
       "noPhone": "This participant has no phone number on file",
       "empty": "Activate the mailboxes first.",
       "defaultDeadline": "before the retreat starts",
-      "messageTemplate": "Hello! For the {retreat} retreat, {participant}'s family can send their letter (support message with photos if they like) to {address} before the retreat ({deadline}). The team prints it and delivers it during the weekend. It is a surprise — please do not mention it!"
+      "messageTemplate": "Hello! For the {retreat} retreat, {participant}'s family can send their letter (support message with photos if they like) to {address} before the retreat ({deadline}). The team prints it and delivers it during the weekend. It is a surprise — please do not mention it!",
+      "sentSummary": "{sent} of {total} sent",
+      "filterAll": "All",
+      "filterPending": "Not sent",
+      "sentOn": "Sent on {date}",
+      "notSent": "Not sent",
+      "resend": "Resend",
+      "emptyPending": "All addresses have been sent."
     },
     "print": {
       "table": "Print table",
@@ -4496,14 +4516,89 @@
       "emptyTitle": "Nothing to print",
       "emptyDescription": "No approved letters in that scope. Approve letters first.",
       "pickTable": "Pick a table in the filter to print by table",
-      "error": "Could not build the printout"
+      "previewTitle": "Print preview",
+      "printNow": "Print now",
+      "close": "Close",
+      "error": "Could not build the printout",
+      "selection": "Print selected ({count})",
+      "selectionTitle": "Letters — selection ({count})",
+      "menu": "Print",
+      "filtered": "Print filtered (1 participant)",
+      "participant": "Print all letters of this participant",
+      "rateLimited": "Too many requests: wait a few seconds and retry",
+      "errorStatus": "Server responded {status}",
+      "emptyUnprintedDescription": "Every approved letter in this scope is already printed.",
+      "pendingNotIncluded": "{count} letter(s) still under review are not on the paper: approve them first if they belong in the folder. ",
+      "alreadyPrintedSkipped": "{count} already printed letter(s) are skipped.",
+      "withCover": "Include a cover page per participant",
+      "didItPrint": "Did the {count} letters print correctly?",
+      "notPrinted": "No, do not mark",
+      "yesMark": "Yes, mark {count} as printed",
+      "markError": "Could not mark the letters as printed",
+      "palanquero": "Palanquero's folders ({count})",
+      "unprinted": "Only unprinted ({count}) — {scope}",
+      "unprintedTitle": "Unprinted — {scope}",
+      "wholeRetreat": "whole retreat",
+      "unmarkLetter": "Remove printed mark",
+      "unmarkedTitle": "Printed mark removed from {count} letter(s)",
+      "unmarkError": "Could not remove the printed mark",
+      "sessionExpired": "Your session ended: please sign in again."
     },
     "activateDone": {
       "doneTitle": "Mailboxes activated",
       "doneDescription": "{activated} new mailboxes, {alreadyActive} already existed."
     },
     "receivedToast": "📬 New letter from {name}",
-    "receiptAlt": "Attached photo"
+    "receiptAlt": "Attached photo",
+    "newLetters": "{count} new letter arrived | {count} new letters arrived",
+    "newLettersRefresh": "Refresh inbox",
+    "selectLetter": "Select letter for {name}",
+    "rowActions": "Actions",
+    "headerActions": "Mailbox actions",
+    "views": {
+      "inbox": "Inbox",
+      "folders": "Folders"
+    },
+    "folders": {
+      "filter": {
+        "all": "All",
+        "unprinted": "To print",
+        "review": "To review",
+        "complete": "Complete",
+        "empty": "No letters"
+      },
+      "searchPlaceholder": "Search participant or table…",
+      "printAllMissing": "Print everything missing ({count})",
+      "printAllTitle": "Missing — {count} folders",
+      "printMissing": "Print missing ({count})",
+      "printAll": "Print the whole folder again",
+      "viewLetters": "View their letters",
+      "sendAddress": "Send the address to the family",
+      "resendAddress": "Resend the address to the family",
+      "empty": "No folders match this filter.",
+      "summary": "{total} letters · {printed} printed",
+      "emptyShared": "Address sent on {date} — no letters yet",
+      "emptyNotShared": "No letters and the address has not been sent",
+      "status": {
+        "complete": "✓ Complete",
+        "unprinted": "{count} missing",
+        "review": "{count} to review"
+      },
+      "unmarkFolder": "Mark folder as not printed",
+      "openLetters": "View letters of {name}"
+    },
+    "backToFolders": "Back to Folders",
+    "participantSummary": "{total} letters · {printed} printed · {pending} to review",
+    "emptyFiltered": "No letters match these filters.",
+    "chips": {
+      "status": "Status: {value}",
+      "table": "Table: {value}",
+      "palanquero": "Palanquero: {value}",
+      "participant": "Participant: {value}",
+      "search": "Search: “{value}”",
+      "remove": "Remove filter {label}",
+      "clearAll": "Clear filters"
+    }
   },
   "paymentClaims": {
     "tab": "Receipts",
@@ -4537,7 +4632,18 @@
       "open": "Share links",
       "title": "Receipt links per participant",
       "description": "Send each family their personal link: they open it from their phone, attach the transfer screenshot, and the team registers it.",
-      "copied": "Link copied"
+      "copied": "Link copied",
+      "sentSummary": "{sent} of {total} sent",
+      "filterAll": "All",
+      "filterPending": "Not sent",
+      "sentOn": "Sent on {date}",
+      "notSent": "Not sent",
+      "resend": "Resend",
+      "whatsapp": "WhatsApp",
+      "markSent": "Mark as sent (if you pasted the link in another chat)",
+      "markError": "Could not mark as sent",
+      "emptyPending": "Every family has received their link.",
+      "messageTemplate": "Hello! For the retreat, the family of {participant} can upload their payment receipt here: {link}. The team will register it upon receipt."
     },
     "shareError": "Could not generate the links",
     "confirm": {
@@ -4545,7 +4651,9 @@
       "amount": "Amount",
       "method": "Method",
       "create": "Create payment"
-    }
+    },
+    "folio": "Reference {folio}",
+    "searchPlaceholder": "Search participant or reference…"
   },
   "receiptClaim": {
     "title": "Payment receipt",
@@ -4566,6 +4674,8 @@
     "amountLabel": "Amount (optional)",
     "referenceLabel": "Reference / folio (optional)",
     "noteLabel": "Note for the team (optional)",
-    "senderLabel": "Your name or email (optional)"
+    "senderLabel": "Your name or email (optional)",
+    "tooLarge": "The photo is too large ({size} MB). Choose a smaller one or take it again.",
+    "receiptFolio": "Reference {folio} · Received on {date}"
   }
 }

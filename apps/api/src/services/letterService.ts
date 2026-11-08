@@ -5,10 +5,11 @@ import { Letter, LetterStatus } from '../entities/letter.entity';
 import { LetterAttachment } from '../entities/letterAttachment.entity';
 import { RetreatParticipant } from '../entities/retreatParticipant.entity';
 import { s3Service } from './s3Service';
-import { resolveMailbox, fullName } from './letterMailboxService';
+import { resolveMailbox, fullName, MAILBOX_ELIGIBLE_TYPES } from './letterMailboxService';
 import { emitLetterReceived } from '../realtime';
 import { tableNumberOf } from '../utils/tableNaming';
-import type { InboundLetterPayload, LetterPrintBatchEntry } from '@repo/types';
+import { LETTER_PALANQUERO_NONE } from '@repo/types';
+import type { InboundLetterPayload, LetterFolderRow, LetterPrintBatchEntry } from '@repo/types';
 
 // Topes del ingest (D11). El Worker aplica los mismos ANTES de postear; el API
 // nunca confía en el cliente.
@@ -311,6 +312,7 @@ export interface ListLettersFilters {
 	tableId?: string;
 	status?: LetterStatus | '';
 	q?: string;
+	palanquero?: string;
 }
 
 export async function listLetters(retreatId: string, filters: ListLettersFilters) {
@@ -330,6 +332,11 @@ export async function listLetters(retreatId: string, filters: ListLettersFilters
 	}
 	if (filters.tableId) {
 		qb.andWhere('rp.tableId = :tableId', { tableId: filters.tableId });
+	}
+	if (filters.palanquero === LETTER_PALANQUERO_NONE) {
+		qb.andWhere(`(rp.palancasCoordinator IS NULL OR rp.palancasCoordinator = '')`);
+	} else if (filters.palanquero) {
+		qb.andWhere('rp.palancasCoordinator = :palanquero', { palanquero: filters.palanquero });
 	}
 	if (filters.status) {
 		qb.andWhere('letter.status = :status', { status: filters.status });
@@ -360,6 +367,85 @@ export async function letterCountsByStatus(
 		if (row.status in counts) counts[row.status as keyof typeof counts] = Number(row.c);
 	}
 	return counts;
+}
+
+/**
+ * Estado del folder por participante (vista Carpetas): los elegibles para buzón
+ * del retiro más cualquiera que ya tenga cartas (p. ej. cancelado después de
+ * recibirlas), con sus cartas por estado y cuántas aprobadas siguen sin papel.
+ */
+export async function getLetterFolders(retreatId: string): Promise<LetterFolderRow[]> {
+	const countRows: { rpId: string; status: string; printed: number; c: number }[] =
+		await AppDataSource.query(
+			`SELECT "retreatParticipantId" AS rpId, "status",
+			        CASE WHEN "printedAt" IS NULL THEN 0 ELSE 1 END AS printed,
+			        COUNT(*) AS c
+			 FROM "letters" WHERE "retreatId" = ?
+			 GROUP BY "retreatParticipantId", "status", printed`,
+			[retreatId],
+		);
+	const withLetters = new Set(countRows.map((r) => r.rpId));
+
+	const qb = AppDataSource.getRepository(RetreatParticipant)
+		.createQueryBuilder('rp')
+		.leftJoinAndSelect('rp.participant', 'participant')
+		.leftJoinAndSelect('rp.tableMesa', 'table')
+		.where('rp.retreatId = :retreatId', { retreatId });
+	const eligible = `(rp.isCancelled = false AND rp.type IN (:...types) AND participant.dataDeletedAt IS NULL)`;
+	if (withLetters.size > 0) {
+		qb.andWhere(`(${eligible} OR rp.id IN (:...withLetters))`, {
+			types: MAILBOX_ELIGIBLE_TYPES,
+			withLetters: [...withLetters],
+		});
+	} else {
+		qb.andWhere(eligible, { types: MAILBOX_ELIGIBLE_TYPES });
+	}
+	const rps = await qb.getMany();
+
+	const byRp = new Map<string, Pick<LetterFolderRow, 'counts' | 'printed' | 'unprinted'>>();
+	for (const row of countRows) {
+		const entry = byRp.get(row.rpId) ?? {
+			counts: { pending: 0, approved: 0, hidden: 0, attached: 0 },
+			printed: 0,
+			unprinted: 0,
+		};
+		const n = Number(row.c);
+		if (row.status in entry.counts) entry.counts[row.status as keyof LetterFolderRow['counts']] += n;
+		if (row.status === 'approved') {
+			if (Number(row.printed) === 1) entry.printed += n;
+			else entry.unprinted += n;
+		}
+		byRp.set(row.rpId, entry);
+	}
+
+	return rps
+		.map((rp): LetterFolderRow => {
+			const stats = byRp.get(rp.id) ?? {
+				counts: { pending: 0, approved: 0, hidden: 0, attached: 0 },
+				printed: 0,
+				unprinted: 0,
+			};
+			return {
+				retreatParticipantId: rp.id,
+				participantId: rp.participantId ?? null,
+				participantName: fullName(rp.participant),
+				participantType: rp.type ?? null,
+				palancasCoordinator: rp.palancasCoordinator || null,
+				tableId: rp.tableId ?? null,
+				tableName: rp.tableMesa?.name ?? null,
+				idOnRetreat: rp.idOnRetreat ?? null,
+				mailboxEnabled: rp.mailboxEnabled,
+				mailboxSharedAt: rp.mailboxSharedAt ? rp.mailboxSharedAt.toISOString() : null,
+				...stats,
+			};
+		})
+		.sort((a, b) => {
+			const tableDiff =
+				(tableNumberOf(a.tableName ?? '') ?? Number.MAX_SAFE_INTEGER) -
+				(tableNumberOf(b.tableName ?? '') ?? Number.MAX_SAFE_INTEGER);
+			if (tableDiff !== 0) return tableDiff;
+			return a.participantName.localeCompare(b.participantName, 'es');
+		});
 }
 
 /** {id, retreatId} mínimo para el chequeo de acceso al recurso específico. */
@@ -399,6 +485,41 @@ export async function markPrinted(
 	return result.affected ?? 0;
 }
 
+/**
+ * Quita la marca de impresa. Siempre acotado al retiro: ids de cartas o de
+ * participantes de otro retiro no matchean (anti-IDOR por recurso).
+ */
+export async function unmarkPrinted(
+	retreatId: string,
+	target: { letterIds?: string[]; participantIds?: string[] },
+): Promise<number> {
+	const letterIds = target.letterIds ?? [];
+	const participantIds = target.participantIds ?? [];
+	if (letterIds.length === 0 && participantIds.length === 0) return 0;
+
+	const qb = AppDataSource.getRepository(Letter)
+		.createQueryBuilder('letter')
+		.innerJoin('letter.retreatParticipant', 'rp')
+		.select('letter.id', 'id')
+		.where('letter.retreatId = :retreatId', { retreatId })
+		.andWhere('letter.printedAt IS NOT NULL');
+	const either: string[] = [];
+	if (letterIds.length) either.push('letter.id IN (:...letterIds)');
+	if (participantIds.length) either.push('rp.participantId IN (:...participantIds)');
+	qb.andWhere(`(${either.join(' OR ')})`, { letterIds, participantIds });
+	const rows: { id: string }[] = await qb.getRawMany();
+	const ids = rows.map((r) => r.id);
+	if (ids.length === 0) return 0;
+
+	const result = await AppDataSource.getRepository(Letter)
+		.createQueryBuilder()
+		.update(Letter)
+		.set({ printedAt: null, printedBatchId: null })
+		.where('retreatId = :retreatId AND id IN (:...ids)', { retreatId, ids })
+		.execute();
+	return result.affected ?? 0;
+}
+
 /** Detalle de una carta con adjuntos presigned (la URL cruda nunca sale del API). */
 export async function getLetterDetail(letterId: string) {
 	const letter = await AppDataSource.getRepository(Letter).findOne({
@@ -433,6 +554,7 @@ export async function getPrintBatch(
 	scope: 'participant' | 'table' | 'retreat',
 	participantIds: string[],
 	tableId?: string,
+	onlyUnprinted = false,
 ): Promise<LetterPrintBatchEntry[]> {
 	const qb = AppDataSource.getRepository(Letter)
 		.createQueryBuilder('letter')
@@ -443,6 +565,10 @@ export async function getPrintBatch(
 		.where('letter.retreatId = :retreatId', { retreatId })
 		.andWhere('letter.status = :status', { status: 'approved' });
 
+	// Lo que falta del folder: no reimprimir lo que ya está en la carpeta.
+	if (onlyUnprinted) {
+		qb.andWhere('letter.printedAt IS NULL');
+	}
 	if (scope === 'table' && tableId) {
 		qb.andWhere('rp.tableId = :tableId', { tableId });
 	}

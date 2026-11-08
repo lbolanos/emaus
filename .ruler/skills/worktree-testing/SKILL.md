@@ -147,12 +147,13 @@ kill` a secas, que se lleva el de la otra sesión.
 
 Verificado el 2026-11-07 con dos devs de worktrees simultáneos (3002/5174 y 3004/5176):
 
-- **La cookie `emaus.sid` es de `localhost` sin puerto**: los dos APIs la escriben con el mismo
-  nombre y dominio. El login de un worktree pisa la sesión del otro y una `storageState` de
-  Playwright guardada minutos antes muere sin error — se ve como rebotes a `/login` y 401
-  intermitentes *dentro de tu propio contexto aislado*. No es tu código: es la otra sesión
-  refrescando su cookie. Para smokes, login + verificación en **una sola pasada** y sin depender
-  de estados guardados entre corridas.
+- **La cookie de sesión es de `localhost` sin puerto**: con el mismo nombre, el main y los
+  worktrees se pisan la sesión (y con `rolling: true` cada respuesta del main la reescribe) —
+  rebotes a `/login` y 401 al alternar pestañas. Desde 2026-11-07 el nombre sale de
+  `SESSION_COOKIE_NAME` (default `emaus.sid`) y `start-worktree-dev.sh` arranca el API con
+  `emaus-wt<API_PORT>.sid`: cada worktree tiene la suya. Si levantas el API **a mano**, pásale
+  `SESSION_COOKIE_NAME` tú, o vuelve el choque. Para smokes, igual: login + verificación en
+  **una sola pasada**, sin depender de estados guardados entre corridas.
 - **El rate limit de `/auth/login` (10 intentos / 15 min) también es compartido** entre worktrees
   (mismo IP + mismo email): las corridas de Playwright de las dos sesiones se lo comen entre sí.
   Síntoma: el login que siempre funcionó empieza a timeouts.

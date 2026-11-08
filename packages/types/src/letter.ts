@@ -56,6 +56,12 @@ export const UpdateLetterMailboxSchema = z.object({
 });
 export type UpdateLetterMailbox = z.infer<typeof UpdateLetterMailboxSchema>;
 
+/** Marca de difusión: la dirección del buzón ya se mandó a la familia. */
+export const MarkLetterMailboxSharedSchema = z.object({
+	params: z.object({ retreatId: idSchema, retreatParticipantId: idSchema }),
+});
+export type MarkLetterMailboxShared = z.infer<typeof MarkLetterMailboxSharedSchema>;
+
 // Query params llegan como strings; tolerar '' para filtros vacíos del frontend.
 const optionalIdQuery = z.string().uuid().or(z.literal('')).optional();
 
@@ -67,9 +73,15 @@ export const ListLettersQuerySchema = z.object({
 		tableId: optionalIdQuery,
 		status: z.enum(LETTER_STATUSES).or(z.literal('')).optional(),
 		q: z.string().max(200).optional(),
+		// Palanquero asignado al caminante (retreat_participants.palancasCoordinator,
+		// p. ej. «Palanquero 1»); LETTER_PALANQUERO_NONE = sin asignar.
+		palanquero: z.string().max(60).optional(),
 	}),
 });
 export type ListLettersQuery = z.infer<typeof ListLettersQuerySchema>;
+
+/** Valor del filtro de palanquero para «caminantes sin palanquero asignado». */
+export const LETTER_PALANQUERO_NONE = '__none__';
 
 export const ReviewLetterSchema = z.object({
 	params: z.object({ id: idSchema }),
@@ -86,12 +98,32 @@ export const MarkLettersPrintedSchema = z.object({
 });
 export type MarkLettersPrinted = z.infer<typeof MarkLettersPrintedSchema>;
 
+/**
+ * Quitar la marca de impresa (se imprimió mal, se perdió la hoja, se va a
+ * rehacer la carpeta): por cartas sueltas o por la carpeta entera de uno o
+ * más participantes. Al menos uno de los dos.
+ */
+export const UnmarkLettersPrintedSchema = z.object({
+	params: z.object({ retreatId: idSchema }),
+	body: z
+		.object({
+			letterIds: z.array(idSchema).max(2000).optional(),
+			participantIds: z.array(idSchema).max(500).optional(),
+		})
+		.refine((b) => (b.letterIds?.length ?? 0) + (b.participantIds?.length ?? 0) > 0, {
+			message: 'letterIds o participantIds',
+		}),
+});
+export type UnmarkLettersPrinted = z.infer<typeof UnmarkLettersPrintedSchema>;
+
 export const PrintBatchQuerySchema = z.object({
 	params: z.object({ retreatId: idSchema }),
 	query: z.object({
 		scope: z.enum(['participant', 'table', 'retreat']),
 		participantIds: z.string().optional(), // csv de participantIds para scope=participant
 		tableId: optionalIdQuery,
+		// 'true' = solo las aprobadas que aún no se imprimieron (lo que falta del folder).
+		onlyUnprinted: z.enum(['true', 'false']).optional(),
 	}),
 });
 export type PrintBatchQuery = z.infer<typeof PrintBatchQuerySchema>;
@@ -127,13 +159,39 @@ export interface LetterMailboxRow {
 	participantId: string | null;
 	participantName: string;
 	participantType: string | null;
+	/** Palanquero asignado (palancasCoordinator, p. ej. «Palanquero 1»). */
+	palancasCoordinator: string | null;
 	tableId: string | null;
 	tableName: string | null;
 	cellPhone: string | null;
 	mailboxCode: string | null;
 	mailboxAddress: string | null;
 	mailboxEnabled: boolean;
+	/** Cuándo se mandó a la familia (marca de difusión, mejora 9). */
+	mailboxSharedAt: string | null;
 	letterCounts: { pending: number; approved: number; hidden: number };
+}
+
+/**
+ * Estado del folder de un participante (vista Carpetas): cuántas cartas
+ * tiene por estado y cuántas de las aprobadas ya salieron en papel.
+ */
+export interface LetterFolderRow {
+	retreatParticipantId: string;
+	participantId: string | null;
+	participantName: string;
+	participantType: string | null;
+	/** Palanquero asignado (palancasCoordinator, p. ej. «Palanquero 1»). */
+	palancasCoordinator: string | null;
+	tableId: string | null;
+	tableName: string | null;
+	idOnRetreat: number | null;
+	mailboxEnabled: boolean;
+	mailboxSharedAt: string | null;
+	counts: { pending: number; approved: number; hidden: number; attached: number };
+	/** Aprobadas ya impresas / aprobadas aún sin imprimir. */
+	printed: number;
+	unprinted: number;
 }
 
 export interface LetterPrintBatchEntry {

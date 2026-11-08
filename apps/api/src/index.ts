@@ -166,7 +166,7 @@ async function main() {
 			domain: config.env === 'production' ? config.session.cookieDomain : undefined,
 			path: '/',
 		},
-		name: 'emaus.sid', // Custom session name
+		name: config.session.cookieName, // 'emaus.sid' salvo SESSION_COOKIE_NAME (worktrees)
 		proxy: config.env === 'production', // Trust proxy in production
 	});
 	app.use(sessionMiddleware);

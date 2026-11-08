@@ -36,7 +36,7 @@ export function enforceAbsoluteSessionExpiry(
 		req.logout((logoutErr) => {
 			if (logoutErr) return next(logoutErr);
 			req.session.destroy(() => {
-				res.clearCookie('emaus.sid');
+				res.clearCookie(config.session.cookieName);
 				res.status(401).json({ message: 'Sesión expirada. Inicia sesión de nuevo.' });
 			});
 		});

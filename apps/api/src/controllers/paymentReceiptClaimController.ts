@@ -1,8 +1,11 @@
 import { Request, Response } from 'express';
+import { domainAuditService } from '../services/domainAuditService';
+import { DomainAuditAction } from '@repo/types';
 import {
 	submitReceiptClaim,
 	getReceiptLinkContext,
 	getReceiptLinks,
+	markReceiptLinkShared,
 	listReceiptClaims,
 	presignClaimPhotos,
 	applyReceiptClaim,
@@ -60,6 +63,37 @@ export async function getReceiptLinksHandler(req: Request, res: Response) {
 	}
 }
 
+/**
+ * POST /receipt-links/:retreatParticipantId/shared — marca de difusión
+ * (mejora 9): el link de comprobante ya se mandó a la familia. El retreatId
+ * va por query (mismo patrón que GET /receipt-links) y el service matchea
+ * {id, retreatId}: un rp de otro retiro responde 404.
+ */
+export async function markReceiptLinkSharedHandler(req: Request, res: Response) {
+	try {
+		const sharedAt = await markReceiptLinkShared(
+			req.query.retreatId as string,
+			req.params.retreatParticipantId,
+		);
+		void domainAuditService.log({
+			action: DomainAuditAction.PAYMENT_RECEIPT_LINK_MARK_SHARED,
+			resourceType: 'payment',
+			retreatId: req.query.retreatId as string,
+			metadata: { retreatParticipantId: req.params.retreatParticipantId },
+		});
+		res.json({
+			retreatParticipantId: req.params.retreatParticipantId,
+			sharedAt,
+		});
+	} catch (error) {
+		if (error instanceof PaymentClaimError) {
+			return res.status(error.httpStatus).json({ message: 'Enlace no válido' });
+		}
+		console.error('markReceiptLinkShared error:', error);
+		res.status(500).json({ message: 'Error al marcar la difusión' });
+	}
+}
+
 /** GET /receipt-claims — bandeja de comprobantes. */
 export async function listReceiptClaimsHandler(req: Request, res: Response) {
 	try {
@@ -107,6 +141,37 @@ export async function dismissReceiptClaimHandler(req: Request, res: Response) {
 }
 
 /** POST /payments/from-letter/:letterId — registra el adjunto foto de una carta. */
+/** GET /payments/from-letter/:letterId/photo — foto de la carta para el formulario. */
+export async function getLetterReceiptPhotoHandler(req: Request, res: Response) {
+	try {
+		const userId = (req as any).user?.id;
+		const { getLetterReceiptPhoto } = await import('../services/paymentReceiptClaimService');
+		res.json(await getLetterReceiptPhoto(req.params.letterId, userId));
+	} catch (error) {
+		if (error instanceof PaymentClaimError) {
+			return res.status(error.httpStatus).json({ error: error.code, message: error.message });
+		}
+		console.error('getLetterReceiptPhoto error:', error);
+		res.status(500).json({ message: 'Error al leer la foto de la carta' });
+	}
+}
+
+/** POST /payments/from-letter/:letterId/attach — sella la carta con el pago creado. */
+export async function attachLetterToPaymentHandler(req: Request, res: Response) {
+	try {
+		const userId = (req as any).user?.id;
+		const { attachLetterToPayment } = await import('../services/paymentReceiptClaimService');
+		await attachLetterToPayment(req.params.letterId, req.body.paymentId, userId);
+		res.json({ status: 'attached' });
+	} catch (error) {
+		if (error instanceof PaymentClaimError) {
+			return res.status(error.httpStatus).json({ error: error.code, message: error.message });
+		}
+		console.error('attachLetterToPayment error:', error);
+		res.status(500).json({ message: 'Error al asociar la carta al pago' });
+	}
+}
+
 export async function createPaymentFromLetterHandler(req: Request, res: Response) {
 	try {
 		const userId = (req as any).user?.id;
