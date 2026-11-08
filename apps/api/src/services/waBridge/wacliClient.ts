@@ -235,6 +235,9 @@ export async function mediaDownload(
 			'--json',
 			'media',
 			'download',
+			// read-only NO toma el lock del store (v1.2): la descarga corre
+			// mientras el sync vive — sin el ciclo stop/restart por imagen.
+			'--read-only',
 			'--chat',
 			chatJid,
 			'--id',

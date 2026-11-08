@@ -44,6 +44,8 @@ export const useWaInboxStore = defineStore('waInbox', () => {
   const realtimeConnected = ref(false);
   /** Variantes de imagen por messageId (v1.2): llenado por lotes al abrir el hilo. */
   const mediaByMessageId = ref<Record<string, WaMediaVariantsDto>>({});
+  /** Imágenes que el server no pudo devolver (vínculo purgado — media borrada, D9). */
+  const mediaUnavailable = ref<Record<string, true>>({});
   const loadingMedia = ref(false);
 
   let subscribedRetreatId: string | null = null;
@@ -111,7 +113,12 @@ export const useWaInboxStore = defineStore('waInbox', () => {
    */
   async function fetchThreadMedia(retreatId: string) {
     const pending = threadMessages.value
-      .filter((m) => m.messageType === 'image' && !mediaByMessageId.value[m.id])
+      .filter(
+        (m) =>
+          m.messageType === 'image' &&
+          !mediaByMessageId.value[m.id] &&
+          !mediaUnavailable.value[m.id],
+      )
       .map((m) => m.id)
       .slice(0, 30);
     if (pending.length === 0 || loadingMedia.value) return;
@@ -119,6 +126,12 @@ export const useWaInboxStore = defineStore('waInbox', () => {
     try {
       const data = await getWaThreadMedia(retreatId, pending);
       mediaByMessageId.value = { ...mediaByMessageId.value, ...data.media };
+      // Las no devueltas quedan marcadas: placeholder 📎 definitivo (su
+      // vínculo fue purgado — la media ya no existe en ningún store).
+      const returned = new Set(Object.keys(data.media));
+      for (const id of pending) {
+        if (!returned.has(id)) mediaUnavailable.value = { ...mediaUnavailable.value, [id]: true };
+      }
     } catch {
       // Sin thumbnails la bandeja sigue usable (placeholder 📎).
     } finally {
@@ -261,6 +274,7 @@ export const useWaInboxStore = defineStore('waInbox', () => {
     threadMessages.value = [];
     searchResults.value = [];
     mediaByMessageId.value = {};
+    mediaUnavailable.value = {};
     activeChatJid.value = null;
   }
 

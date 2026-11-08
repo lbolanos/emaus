@@ -504,29 +504,47 @@ export class WaBridgeController {
 
 		const messages = await AppDataSource.getRepository(WhatsappInboxMessage).find({
 			where: messageIds.map((id) => ({ id: String(id) })),
-			select: ['id', 'linkId', 'chatJid', 'chatPhone', 'waMessageId', 'messageType', 'timestamp'],
+			select: [
+				'id',
+				'linkId',
+				'chatJid',
+				'chatPhone',
+				'waMessageId',
+				'messageType',
+				'timestamp',
+				'retreatId',
+			],
 		});
 		const valid = messages.filter(
 			(m) => m.messageType === 'image' && m.retreatId === req.params.retreatId,
 		);
-		const skipped = messageIds.length - valid.length;
 		if (valid.length > 0) {
 			const accessOk = await ensureRetreatAccess(req, res, req.params.retreatId);
 			if (!accessOk) return res;
 			try {
 				const variants = await waBridgeService.getReceiptVariantsBatch(valid);
 				const media: Record<string, { thumb: string; large: string }> = {};
-				valid.forEach((m, i) => {
-					media[m.id] = variants[i];
+				for (const m of valid) {
+					const v = variants.get(m.id);
+					if (v) media[m.id] = v;
+				}
+				return res.json({
+					media,
+					skipped: messageIds.length - Object.keys(media).length,
 				});
-				return res.json({ media, skipped });
 			} catch (err) {
 				const status = err instanceof WacliError ? 502 : 500;
+				// El detalle crudo de wacli (stderrTail) va al log y al mensaje:
+				// sin él, un fallo de descarga es indistinguible en el server.
+				console.error('[waBridge][media] fallo de descarga:', (err as Error).message);
+				const tail = (err as WacliError).stderrTail;
+				if (tail) console.error('[waBridge][media] stderr:', tail.slice(-300));
 				return res.status(status).json({
 					message: `No se pudieron descargar las imágenes: ${(err as Error).message}. Reintenta en unos segundos; si persiste, revisa la sesión vinculada en el tablero.`,
+					detail: tail ? tail.slice(-300) : undefined,
 				});
 			}
 		}
-		return res.json({ media: {}, skipped });
+		return res.json({ media: {}, skipped: messageIds.length });
 	};
 }

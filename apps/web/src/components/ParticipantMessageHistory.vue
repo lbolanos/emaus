@@ -66,9 +66,8 @@
       <div
         v-for="message in communications"
         :key="message.id"
-        class="border rounded-lg p-3 space-y-2 hover:bg-muted/50 transition-colors"
-        :class="{ 'cursor-pointer': !isInbound(message) }"
-        @click="isInbound(message) ? null : $emit('message-click', message)"
+        class="border rounded-lg p-3 space-y-2 hover:bg-muted/50 transition-colors cursor-pointer"
+        @click="$emit('message-click', message)"
       >
         <!-- Message Header -->
         <div class="flex items-center justify-between">
@@ -222,8 +221,7 @@ const {
   loading,
   error,
   total,
-  limit,
-  offset
+  limit
 } = storeToRefs(communicationStore);
 
 const {
@@ -245,8 +243,8 @@ const AUDIENCE_LABELS: Record<string, string> = {
 };
 const audienceLabel = (a?: string | null): string => (a ? AUDIENCE_LABELS[a] || a : '');
 
-// Entrantes de WhatsApp (bandeja v1.2): no abren el dialog de mensajes
-// enviados; su detalle vive en la bandeja.
+// Entrantes de WhatsApp (bandeja v1.2): badge propio. El click abre el
+// diálogo de detalle igual que los enviados (QA v1.2: «ver más grande»).
 const isInbound = (m: ParticipantCommunication): boolean => m.direction === 'inbound';
 
 // Local state
@@ -266,12 +264,15 @@ const loadHistory = async (loadMore = false) => {
   emit('loading-changed', true);
 
   try {
+    // Acumulativo: limit crece, offset SIEMPRE 0 (QA v1.2 — con offset
+    // creciente el segundo «Cargar más» devolvía páginas vacías y la lista
+    // desaparecía; el corte lo hace el API sobre el merge cronológico).
     await fetchParticipantCommunications(
       props.participantId,
       {
         retreatId: props.retreatId,
         limit: loadMore ? limit.value + 20 : 20,
-        offset: loadMore ? offset.value + limit.value : 0
+        offset: 0
       }
     );
   } catch (error) {

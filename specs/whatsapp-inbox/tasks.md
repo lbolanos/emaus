@@ -275,3 +275,27 @@
   vivas a la vez + 1 contenedor wacli huérfano — kill por cmdline + arranque
   limpio con `/tmp/emaus-wa-video/start-qa-api.sh` (una sola sesión, link
   connected, lastSyncAt avanzando).
+
+## QA v1.2 ronda 2 (feedback de Leo, 2026-11-07 tarde)
+
+- [x] **Thumbnails visibles** (verificado en navegador: 4 thumbs renderizados,
+  visor grande instantáneo desde caché). Tres causas raíz del «no se ve»:
+  1. `threadMedia` no seleccionaba `retreatId` → el filtro descartaba TODO
+     (respondía `media:{}` con 200).
+  2. `wacli media download` tomaba el lock → «store is locked». wacli mismo
+     documenta el fix en su error: `--read-only --output` no toma lock →
+     **la descarga corre junto al sync vivo**, se eliminó el stop/restart
+     completo del lote (menos churn, menos huérfanos, también para prod).
+  3. El lote moría entero por UNA imagen (403 del CDN de WhatsApp / link
+     purgado) — ahora se salta por imagen con log `[waBridge][media]` y
+     queda como placeholder; el store web marca `mediaUnavailable` para no
+     re-pedirlas.
+- [x] **Click en mensaje del historial muestra el detalle** (también
+  entrantes): badge «Recibido», «Recibido:»/«Remitente:» en vez de
+  «Enviado:»/«Destinatario:». El click sin reacción en entrantes era la
+  simplificación de la ronda 1 — Leo esperaba «ver más grande».
+- [x] **«Cargar más» ya no vacía la lista**: paginación acumulativa
+  (offset siempre 0, limit crece; el API corta la página sobre el merge
+  cronológico, con inbound take = limit+offset). Antes: skip por fuente
+  descartaba filas y al 2.º click la lista quedaba vacía. Verificado:
+  41 entradas estables y el botón desaparece al completar.

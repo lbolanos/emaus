@@ -653,18 +653,32 @@ export class WaBridgeService {
 		if (cached && Date.now() - cached.at < RECEIPT_CACHE_TTL_MS) {
 			return { thumb: cached.thumb, large: cached.large };
 		}
-		const [variants] = await this.getReceiptVariantsBatch([message]);
+		const map = await this.getReceiptVariantsBatch([message]);
+		const variants = map.get(message.id);
+		if (!variants) {
+			throw new WacliError(
+				'La imagen ya no está disponible: la sesión que la recibió fue desvinculada o purgada.',
+			);
+		}
 		return variants;
 	}
 
-	/** Descarga las imágenes de varios mensajes parando/levantando el sync una vez por link. */
+	/**
+	 * Descarga las imágenes de varios mensajes (v1.2). `media download
+	 * --read-only` NO toma el lock del store: corre junto al sync vivo, sin el
+	 * ciclo stop/restart que hacía la bandeja quedar muerta por segundos.
+	 * Devuelve mapa por messageId: los mensajes cuyo link ya no existe
+	 * (desvinculado/purgado — su media se borró con el store, D9) se SALTAN
+	 * sin matar el lote; el caller los cuenta como no disponibles.
+	 */
 	async getReceiptVariantsBatch(
 		messages: WhatsappInboxMessage[],
-	): Promise<Array<{ thumb: string; large: string }>> {
+	): Promise<Map<string, { thumb: string; large: string }>> {
 		const tmpDir = `${config.waBridge.dataDir}/receipts-tmp`;
 		fs.mkdirSync(tmpDir, { recursive: true, mode: 0o700 });
 
-		// Agrupar por link: el lock del store es por sesión.
+		// Agrupar por link: cada sesión tiene su store (y un link muerto no
+		// tiene store donde descargar).
 		const byLink = new Map<string, WhatsappInboxMessage[]>();
 		for (const message of messages) {
 			const list = byLink.get(message.linkId) ?? [];
@@ -672,40 +686,41 @@ export class WaBridgeService {
 			byLink.set(message.linkId, list);
 		}
 
-		const out: Array<{ thumb: string; large: string }> = [];
+		const out = new Map<string, { thumb: string; large: string }>();
 		for (const [linkId, group] of byLink) {
-			const link = await this.linkRepo.findOneByOrFail({ id: linkId });
-			await this.stopSupervisorById(link.id);
-			try {
-				for (const message of group) {
-					const outPath = `${tmpDir}/${message.id}.img`;
-					try {
-						await mediaDownload(link.storePath, message.chatJid, message.waMessageId, outPath);
-						const stat = fs.statSync(outPath);
-						if (stat.size > RECEIPT_MAX_BYTES) {
-							throw new WacliError(
-								`La imagen pesa ${(stat.size / 1048576).toFixed(1)} MB (tope 10 MB)`,
-							);
-						}
-						const buffer = fs.readFileSync(outPath);
-						const { thumb, large } = await imageService.processWaReceiptVariants(
-							buffer,
-							detectImageContentType(buffer),
+			const link = await this.linkRepo.findOneBy({ id: linkId });
+			if (!link) continue;
+			for (const message of group) {
+				const outPath = `${tmpDir}/${message.id}.img`;
+				try {
+					await mediaDownload(link.storePath, message.chatJid, message.waMessageId, outPath);
+					const stat = fs.statSync(outPath);
+					if (stat.size > RECEIPT_MAX_BYTES) {
+						throw new WacliError(
+							`La imagen pesa ${(stat.size / 1048576).toFixed(1)} MB (tope 10 MB)`,
 						);
-						const variants = {
-							thumb: `data:${thumb.contentType};base64,${thumb.buffer.toString('base64')}`,
-							large: `data:${large.contentType};base64,${large.buffer.toString('base64')}`,
-						};
-						this.cacheReceiptVariants(message.id, variants);
-						out.push(variants);
-					} finally {
-						fs.rmSync(outPath, { force: true });
 					}
+					const buffer = fs.readFileSync(outPath);
+					const { thumb, large } = await imageService.processWaReceiptVariants(
+						buffer,
+						detectImageContentType(buffer),
+					);
+					const variants = {
+						thumb: `data:${thumb.contentType};base64,${thumb.buffer.toString('base64')}`,
+						large: `data:${large.contentType};base64,${large.buffer.toString('base64')}`,
+					};
+					this.cacheReceiptVariants(message.id, variants);
+					out.set(message.id, variants);
+				} catch (err) {
+					// Una imagen rota (403 del CDN de WhatsApp, sobre-tope, …) no
+					// tumba el lote: se salta y queda como placeholder 📎.
+					console.error(
+						`[waBridge][media] ${message.waMessageId}: ${(err as Error).message}`,
+						err instanceof WacliError ? err.stderrTail?.slice(-200) ?? '' : '',
+					);
+				} finally {
+					fs.rmSync(outPath, { force: true });
 				}
-			} finally {
-				// El sync vuelve a correr tengamos éxito o no: la bandeja no queda muerta.
-				const supervisor = this.createSupervisor(link);
-				supervisor.startSync();
 			}
 		}
 		return out;

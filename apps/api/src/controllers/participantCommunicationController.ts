@@ -109,14 +109,17 @@ export class ParticipantCommunicationController {
 							).map((digits) => `${digits}@s.whatsapp.net`)
 						: [];
 				if (jids.length > 0) {
+					// take = limit+offset y skip 0: la página se corta sobre el merge
+					// (paginar cada fuente por separado con skip descartaba entradas
+					// y «Cargar más» vaciaba la lista — QA v1.2).
 					const [rows, count] = await AppDataSource.getRepository(
 						WhatsappInboxMessage,
 					).findAndCount({
 						where: { retreatId: effectiveRetreatId, chatJid: In(jids), fromMe: false },
 						select: ['id', 'chatJid', 'chatPhone', 'timestamp', 'body', 'messageType'],
 						order: { timestamp: 'DESC' },
-						take: Number(limit),
-						skip: Number(offset),
+						take: Number(limit) + Number(offset),
+						skip: 0,
 					});
 					inboundTotal = count;
 					inbound = rows.map((row) => ({
@@ -137,14 +140,15 @@ export class ParticipantCommunicationController {
 				}
 			}
 
-			// Merge cronológico; el slice respeta limit/offset sobre el total combinado.
+			// Merge cronológico; el corte de página es sobre el merge combinado
+			// (nunca skip por fuente: el QA v1.2 lo vació al segundo click).
 			const merged = [...communications, ...inbound] as Array<Record<string, unknown>>;
 			merged.sort((a, b) => {
 				const ta = new Date(a.sentAt as string).getTime() || 0;
 				const tb = new Date(b.sentAt as string).getTime() || 0;
 				return tb - ta;
 			});
-			const page = merged.slice(0, Number(limit));
+			const page = merged.slice(Number(offset), Number(offset) + Number(limit));
 
 			res.json({
 				communications: page,
