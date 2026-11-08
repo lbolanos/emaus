@@ -283,6 +283,22 @@ export const helpIndex: HelpSection[] = [
 		],
 	},
 	{
+		key: 'server-briefing',
+		title: 'Server Briefing',
+		titleEs: 'En qué vamos',
+		icon: 'mdi-crosshairs-gps',
+		// getHelpByRoute usa includes(): 'server-briefing' es el nombre de la ruta.
+		routeContext: ['server-briefing'],
+		topics: [
+			{
+				key: 'server-briefing-overview',
+				title: 'Overview',
+				titleEs: 'Descripción general',
+				content: 'server-briefing.md',
+			},
+		],
+	},
+	{
 		key: 'pre-retreat-tasks',
 		title: 'Pre-Retreat Tasks',
 		titleEs: 'Tareas Pre-Retiro',

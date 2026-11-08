@@ -33,6 +33,10 @@ export default defineConfig(({ mode }) => {
 	}
 
 	return {
+		// CacheDir configurable: correr DOS vite dev del mismo worktree en paralelo
+		// (p.ej. un temporal para verificar algo sin tocar el 5173 del main) pelea
+		// por node_modules/.vite y mete a los clientes en un bucle de reloads.
+		cacheDir: process.env.VITE_CACHE_DIR || 'node_modules/.vite',
 		define: {
 			__APP_VERSION__: JSON.stringify(gitHash),
 		},
@@ -194,6 +198,10 @@ export default defineConfig(({ mode }) => {
 					target: env.VITE_API_PROXY_TARGET || 'http://localhost:3084',
 					changeOrigin: true,
 					secure: false,
+					// El realtime (Socket.IO) sube por esta misma ruta: sin ws:true el
+					// upgrade de WebSocket no se proxia y toda la app queda "sin
+					// conexión realtime" en dev (el badge del Minuto a Minuto miente).
+					ws: true,
 					configure: (proxy) => {
 						proxy.on('proxyReq', (proxyReq, req) => {
 							const host = req.headers.host;

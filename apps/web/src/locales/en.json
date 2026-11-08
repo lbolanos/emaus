@@ -43,7 +43,10 @@
         "create": "Payment recorded",
         "update": "Payment edited",
         "delete": "Payment deleted",
-        "receipt_link_mark_shared": "Receipt link marked as sent to the family"
+        "receipt_link_mark_shared": "Receipt link marked as sent to the family",
+        "receipt_claim_apply": "Family receipt applied to a payment",
+        "receipt_claim_dismiss": "Family receipt dismissed",
+        "receipt_from_letter": "Mailbox letter photo registered as payment"
       },
       "participant_debt": {
         "create": "Debt recorded",
@@ -869,7 +872,9 @@
     "preRetreatTasks": "Pre-Retreat Tasks",
     "retreatPreparations": "Preparations",
     "preRetreatTaskTemplate": "Pre-Retreat Task Template",
-    "specialCases": "Special cases"
+    "specialCases": "Special cases",
+    "serverBriefing": "Server Briefing",
+    "myBriefing": "Now & Next"
   },
   "communityTemplates": {
     "title": "Community Message Templates",
@@ -2754,6 +2759,10 @@
       "payments": "Payments",
       "reports": "Reports",
       "settings": "Settings"
+    },
+    "video": {
+      "title": "Video tutorial",
+      "openInNewWindow": "Open in new window"
     }
   },
   "community": {

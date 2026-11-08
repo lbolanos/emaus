@@ -981,6 +981,14 @@ const menuSections: MenuSection[] = [
         label: 'sidebar.minuteByMinute'
       },
       {
+        name: 'server-briefing',
+        routeName: 'server-briefing',
+        icon: Clock,
+        permission: 'schedule',
+        requiresRetreat: true,
+        label: 'sidebar.serverBriefing'
+      },
+      {
         name: 'pre-retreat-tasks',
         routeName: 'pre-retreat-tasks',
         icon: ClipboardList,
@@ -1003,6 +1011,14 @@ const menuSections: MenuSection[] = [
         permission: 'schedule',
         requiresRetreat: true,
         label: 'sidebar.mySchedule'
+      },
+      {
+        name: 'my-briefing',
+        routeName: 'my-briefing',
+        icon: Clock,
+        permission: 'schedule',
+        requiresRetreat: true,
+        label: 'sidebar.myBriefing'
       },
       {
         name: 'inventory',
@@ -1631,7 +1647,9 @@ const getRouteWithParams = (item: MenuItem) => {
     'reception',
     'minuto-a-minuto',
     'pre-retreat-tasks',
-    'retreat-preparations'
+    'retreat-preparations',
+    'letters',
+    'server-briefing'
   ];
   if (item.routeName && routesRequiringId.includes(item.routeName)) {
     if (!retreatStore.selectedRetreatId) return null;

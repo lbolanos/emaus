@@ -454,6 +454,13 @@ const router = createRouter({
 					meta: { requiresRetreat: true },
 				},
 				{
+					path: 'retreats/:id/servidores-minuto',
+					name: 'server-briefing',
+					component: () => import('../views/ServerBriefingView.vue'),
+					props: true,
+					meta: { requiresRetreat: true },
+				},
+				{
 					path: 'retreats/:id/tareas-pre-retiro',
 					name: 'pre-retreat-tasks',
 					component: PreRetreatTasksView,
@@ -478,6 +485,12 @@ const router = createRouter({
 					path: 'my-schedule',
 					name: 'my-schedule',
 					component: MyScheduleView,
+					meta: { requiresRetreat: true },
+				},
+				{
+					path: 'my-briefing',
+					name: 'my-briefing',
+					component: () => import('../views/MyBriefingView.vue'),
 					meta: { requiresRetreat: true },
 				},
 				{

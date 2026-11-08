@@ -17,6 +17,7 @@ Convención: ~1–3 min, en español, narrado, conduciendo la app real.
 - [x] **Dar acceso y roles** (ubicación en menú, solicitudes, permisos por rol, Asignación Rápida) — https://youtu.be/-5nbC10cPQg
 - [x] **Tareas Pre-Retiro** (checklist qué hacer y cuándo) — https://youtu.be/pPguV-Gg7Bs
 - [x] **Minuto a Minuto** (agenda en vivo del retiro) — https://youtu.be/YYwjzHcumpA
+- [x] **En qué vamos** (cruce minuto a minuto × funciones: en escena, briefing por servidor, documentos, realtime) — https://youtu.be/I0Zmz0G7-OY
 - [x] **Crear y configurar un retiro** (casa/máximos, templates, publicar, finanzas, recuerdos) — https://youtu.be/XG3v2C7u9qo
 - [x] **Casas y camas** (crear/editar casa, nombres de piso, agregar piso/habitación/cama, operaciones masivas, mapa) — https://youtu.be/h9KR02vu6mE
 - [x] **Caminantes** (lista, buscar/filtrar, editar ficha, columnas = campos editables, mensajes individual y masivo) — https://youtu.be/Lgxy9dJm9_o

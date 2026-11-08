@@ -43,7 +43,10 @@
         "create": "Pago registrado",
         "update": "Pago editado",
         "delete": "Pago eliminado",
-        "receipt_link_mark_shared": "Link de comprobante marcado como enviado a la familia"
+        "receipt_link_mark_shared": "Link de comprobante marcado como enviado a la familia",
+        "receipt_claim_apply": "Comprobante de familia aplicado a un pago",
+        "receipt_claim_dismiss": "Comprobante de familia descartado",
+        "receipt_from_letter": "Foto de carta del buzón registrada como pago"
       },
       "participant_debt": {
         "create": "Deuda registrada",
@@ -872,7 +875,9 @@
     "preRetreatTasks": "Tareas Pre-Retiro",
     "retreatPreparations": "Preparaciones",
     "preRetreatTaskTemplate": "Template Tareas Pre-Retiro",
-    "specialCases": "Casos especiales"
+    "specialCases": "Casos especiales",
+    "serverBriefing": "En qué vamos",
+    "myBriefing": "Ahora me toca"
   },
   "changePassword": {
     "title": "Cambiar Contraseña",
@@ -2865,6 +2870,10 @@
       "reports": "Reportes",
       "settings": "Configuración",
       "communities": "Comunidades"
+    },
+    "video": {
+      "title": "Video tutorial",
+      "openInNewWindow": "Abrir en ventana nueva"
     }
   },
   "community": {
