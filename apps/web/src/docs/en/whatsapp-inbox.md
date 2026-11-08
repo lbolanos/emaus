@@ -50,14 +50,22 @@ phones and the superadmin controls).
 - **Unread only** and **Mark all as read** to bring the inbox back to zero.
 - The walker's profile (phones, bed, email) opens from the ⓘ next to their
   name in the thread.
-- **Photos, documents and voice notes**: photos show in the thread; a document
-  opens with **Open document** and a voice note plays with **Listen** (if it
-  does not play on iPhone, open it from your WhatsApp).
+- **Photos, documents, videos and voice notes**: photos show in the thread and
+  a voice note plays with **Listen** (if it does not play on iPhone, open it
+  from your WhatsApp). Tapping a document or a video opens it big inside the
+  inbox when the browser can show it (PDF page by page, image, text, video).
+  Word, PowerPoint, Excel and the like come down with **Download and open** and
+  open with your device's application; on a phone, with its preview.
+- For safety, the inbox **does not open** documents with macros (.docm,
+  .xlsm…) or files such as .html, .svg, .zip or programs: it tells you why and,
+  if you trust the sender, you open it from your WhatsApp.
 - **Register as payment**: from a photo or a PDF (its first page is used). The
   message is marked "Payment registered by …" and, if someone tries to register
   it again, the inbox asks first.
 - **Add as letter**: the message text (editable) and its image join the letters
-  of the participant you choose, ready to print with the others.
+  of the participant you choose, ready to print with the others. If the family
+  sent the letter as a Word file or a PDF, the original document is kept with
+  the letter (in the participant's folder, to open or print separately).
 - **Awaiting reply / … replied**: the list shows whether someone on the team
   already answered that walker, so nobody answers twice.
 - **Reply with a template** opens the message with the retreat's templates; it

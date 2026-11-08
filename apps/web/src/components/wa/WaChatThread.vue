@@ -14,7 +14,7 @@ import type {
   WaMediaVariantsDto,
   WaRawMediaDto,
 } from '@repo/types'
-import { isPdfDocument, waMediaLabelKey } from '@/utils/waMedia'
+import { WA_DOCUMENT_ICON, isPdfDocument, waDocumentKind, waMediaLabelKey } from '@/utils/waMedia'
 
 /**
  * A chat thread (FR3/FR8/D9/D10 + mobile UX v1.1, v1.3):
@@ -108,7 +108,7 @@ type ActionKind = 'view' | 'open' | 'payment' | 'letter'
 
 /**
  * Actions offered under an incoming message (v1.3). Payments only take images
- * (a PDF's first page is rendered to one); letters take text, images and PDFs.
+ * (a PDF's first page is rendered to one); letters take text, images and (v1.5) any document.
  */
 function actionsFor(m: WaInboxMessageDto): Array<{ kind: ActionKind; label: string }> {
   if (m.fromMe) return []
@@ -116,10 +116,14 @@ function actionsFor(m: WaInboxMessageDto): Array<{ kind: ActionKind; label: stri
   const pdf = m.messageType === 'document' && isPdfDocument(m.mediaMime, m.mediaFileName)
   if (m.messageType === 'image') actions.push({ kind: 'view', label: t('waInbox.viewPhoto') })
   if (m.messageType === 'document') actions.push({ kind: 'open', label: t('waInbox.openDocument') })
+  // v1.5: videos play in the file viewer.
+  if (m.messageType === 'video') actions.push({ kind: 'open', label: t('waInbox.playVideo') })
   if (props.canRegisterPayment && (m.messageType === 'image' || pdf)) {
     actions.push({ kind: 'payment', label: t('waInbox.registerPayment') })
   }
-  const letterable = m.messageType === 'image' || pdf || (m.messageType === 'text' && Boolean(m.body))
+  // v1.5: any document (a Word letter keeps the original file; a PDF also prints its first page).
+  const letterable =
+    m.messageType === 'image' || m.messageType === 'document' || (m.messageType === 'text' && Boolean(m.body))
   if (props.canAddLetter && letterable && !m.letterId) {
     actions.push({ kind: 'letter', label: t('waInbox.addLetter') })
   }
@@ -157,7 +161,8 @@ function enlarge(message: WaInboxMessageDto): void {
     return
   }
   // v1.3: a document opens, a voice note plays — the text dialog would be empty.
-  if (message.messageType === 'document') {
+  // Documents and (v1.5) videos open the file viewer.
+  if (message.messageType === 'document' || message.messageType === 'video') {
     emit('open-document', message)
     return
   }
@@ -383,7 +388,11 @@ function formatFull(ts: string | Date): string {
                   class="text-sm font-medium break-all"
                   data-testid="wa-document"
                 >
-                  {{ t('waInbox.media.document') }}{{ m.mediaFileName ? ` · ${m.mediaFileName}` : '' }}
+                  {{ WA_DOCUMENT_ICON[waDocumentKind(m.mediaMime, m.mediaFileName)] }}
+                  {{ m.mediaFileName || t('waInbox.viewer.unnamedDocument') }}
+                  <span class="block text-[11px] font-normal text-muted-foreground">
+                    {{ t(`waInbox.viewer.kind.${waDocumentKind(m.mediaMime, m.mediaFileName)}`) }}
+                  </span>
                 </div>
                 <div
                   v-if="m.body || showTypeLabel(m)"

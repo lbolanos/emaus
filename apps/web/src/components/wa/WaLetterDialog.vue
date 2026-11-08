@@ -16,6 +16,8 @@ import {
  * letter is for (defaults to the chat's walker), edits the text that will be
  * printed and keeps or drops the image (a PDF arrives already rendered to an
  * image by the parent). Mounted once by the inbox view, opened via v-model.
+ * v1.5: for a document (Word, PDF…) it can also keep the original file with
+ * the letter — the server downloads and verifies it; it is not printed.
  */
 const props = defineProps<{
   open: boolean
@@ -26,17 +28,23 @@ const props = defineProps<{
   attachmentDataUrl: string | null
   preparingAttachment: boolean
   saving: boolean
+  /** v1.5: name of the original document the letter may keep (null = not a document). */
+  documentName?: string | null
 }>()
 
 const emit = defineEmits<{
   (e: 'update:open', value: boolean): void
-  (e: 'submit', payload: { participantId: string; bodyText: string; includeAttachment: boolean }): void
+  (
+    e: 'submit',
+    payload: { participantId: string; bodyText: string; includeAttachment: boolean; includeDocument: boolean },
+  ): void
 }>()
 
 const { t } = useI18n()
 const participantId = ref('')
 const bodyText = ref('')
 const includeAttachment = ref(true)
+const includeDocument = ref(true)
 const error = ref<string | null>(null)
 
 watch(
@@ -46,6 +54,7 @@ watch(
     participantId.value = props.defaultParticipantId ?? ''
     bodyText.value = props.initialText
     includeAttachment.value = true
+    includeDocument.value = true
     error.value = null
   },
 )
@@ -60,6 +69,7 @@ function submit(): void {
     participantId: participantId.value,
     bodyText: bodyText.value,
     includeAttachment: includeAttachment.value && Boolean(props.attachmentDataUrl),
+    includeDocument: includeDocument.value && Boolean(props.documentName),
   })
 }
 </script>
@@ -105,7 +115,22 @@ function submit(): void {
               alt=""
             />
           </label>
-          <div v-else class="mt-1 text-muted-foreground">{{ t('waInbox.letter.noAttachment') }}</div>
+          <div v-else-if="!documentName" class="mt-1 text-muted-foreground">
+            {{ t('waInbox.letter.noAttachment') }}
+          </div>
+          <!-- v1.5: the original file (Word, PDF…), kept in the folder; not printed. -->
+          <label v-if="documentName" class="mt-2 flex items-start gap-2">
+            <input
+              v-model="includeDocument"
+              type="checkbox"
+              class="mt-0.5"
+              data-testid="wa-letter-include-document"
+            />
+            <span>
+              {{ t('waInbox.letter.includeDocument', { name: documentName }) }}
+              <span class="block text-xs text-muted-foreground">{{ t('waInbox.letter.includeDocumentHint') }}</span>
+            </span>
+          </label>
         </div>
         <p v-if="error" class="text-sm text-red-600">{{ error }}</p>
         <DialogFooter class="flex-wrap gap-2">

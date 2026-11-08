@@ -12,6 +12,7 @@ const h = vi.hoisted(() => ({
   route: null as null | { query: Record<string, string> },
   replace: vi.fn(),
   links: [] as Array<{ id: string }>,
+  loadRawMedia: vi.fn(),
 }));
 
 vi.mock('vue-router', async () => {
@@ -47,6 +48,7 @@ vi.mock('@/stores/waInboxStore', async () => {
       fetchConversations: vi.fn().mockResolvedValue(undefined),
       refreshBadge: vi.fn().mockResolvedValue(undefined),
       openChat: vi.fn().mockResolvedValue(undefined),
+      loadRawMedia: h.loadRawMedia,
       reset: vi.fn(),
     })),
   };
@@ -93,7 +95,10 @@ vi.mock('@/components/wa/WaLinkModal.vue', () => stub('WaLinkModal', ['open']));
 vi.mock('@/components/wa/WaLetterDialog.vue', () => stub('WaLetterDialog', ['open']));
 vi.mock('@/components/wa/WaConversationList.vue', () => stub('WaConversationList', ['conversations']));
 vi.mock('@/components/wa/WaChatThread.vue', () =>
-  stub('WaChatThread', ['expanded', 'phoneCountry'], ['toggle-expand', 'phones-saved']),
+  stub('WaChatThread', ['expanded', 'phoneCountry'], ['toggle-expand', 'phones-saved', 'open-document']),
+);
+vi.mock('@/components/wa/WaFileViewer.vue', () =>
+  stub('WaFileViewer', ['open', 'loading', 'error', 'media', 'fallbackName'], ['update:open']),
 );
 
 import WaInboxView from '../WaInboxView.vue';
@@ -111,6 +116,7 @@ describe('WaInboxView layout (v1.4)', () => {
     h.route!.query = {};
     h.replace.mockClear();
     h.links.splice(0, h.links.length, { id: 'l1' });
+    h.loadRawMedia.mockReset();
   });
 
   it('switches to Settings through the URL and back', async () => {
@@ -148,6 +154,37 @@ describe('WaInboxView layout (v1.4)', () => {
     expect(wrapper.find('[data-testid="wa-split-handle"]').exists()).toBe(false);
     expect(localStorage.getItem('emaus.waInbox.threadExpanded')).toBe('1');
     expect(wrapper.findComponent({ name: 'WaChatThread' }).props('expanded')).toBe(true);
+  });
+
+  it('a document opens the file viewer with the downloaded file (v1.5)', async () => {
+    const media = { dataUrl: 'data:x', mime: 'application/pdf', fileName: 'carta.pdf', sizeBytes: 9, previewKind: 'pdf' };
+    h.loadRawMedia.mockResolvedValue(media);
+    const wrapper = await mountView();
+    const message = { id: 'm1', messageType: 'document', mediaFileName: 'carta.pdf' };
+    wrapper.findComponent({ name: 'WaChatThread' }).vm.$emit('open-document', message);
+    await flushPromises();
+    const viewer = wrapper.findComponent({ name: 'WaFileViewer' });
+    expect(h.loadRawMedia).toHaveBeenCalledWith('m1');
+    expect(viewer.props()).toMatchObject({ open: true, loading: false, error: null, media, fallbackName: 'carta.pdf' });
+
+    viewer.vm.$emit('update:open', false);
+    await flushPromises();
+    expect(wrapper.findComponent({ name: 'WaFileViewer' }).props()).toMatchObject({ open: false, media: null });
+  });
+
+  it('a refused file shows the server message in the viewer (v1.5)', async () => {
+    h.loadRawMedia.mockRejectedValue({ response: { data: { message: 'Este documento trae macros' } } });
+    const wrapper = await mountView();
+    wrapper
+      .findComponent({ name: 'WaChatThread' })
+      .vm.$emit('open-document', { id: 'm2', messageType: 'document', mediaFileName: 'carta.docm' });
+    await flushPromises();
+    expect(wrapper.findComponent({ name: 'WaFileViewer' }).props()).toMatchObject({
+      open: true,
+      loading: false,
+      error: 'Este documento trae macros',
+      media: null,
+    });
   });
 
   it('the divider sets the list width and resizes with the keyboard', async () => {

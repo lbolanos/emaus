@@ -43,7 +43,7 @@ describe('WaLetterDialog (v1.3)', () => {
     const wrapper = await openDialog();
     await wrapper.find('form').trigger('submit');
     expect(wrapper.emitted('submit')?.[0]).toEqual([
-      { participantId: 'p1', bodyText: 'Te queremos', includeAttachment: true },
+      { participantId: 'p1', bodyText: 'Te queremos', includeAttachment: true, includeDocument: false },
     ]);
   });
 
@@ -59,5 +59,16 @@ describe('WaLetterDialog (v1.3)', () => {
     await wrapper.find('[data-testid="wa-letter-include-attachment"]').setValue(false);
     await wrapper.find('form').trigger('submit');
     expect(wrapper.emitted('submit')?.[0][0]).toMatchObject({ includeAttachment: false });
+  });
+
+  it('v1.5: keeps the original document by default, and lets the staff drop it', async () => {
+    const wrapper = await openDialog({ attachmentDataUrl: null, documentName: 'Carta para Juan.docx' });
+    expect(wrapper.text()).not.toContain('waInbox.letter.noAttachment');
+    await wrapper.find('form').trigger('submit');
+    expect(wrapper.emitted('submit')?.[0][0]).toMatchObject({ includeAttachment: false, includeDocument: true });
+
+    await wrapper.find('[data-testid="wa-letter-include-document"]').setValue(false);
+    await wrapper.find('form').trigger('submit');
+    expect(wrapper.emitted('submit')?.[1][0]).toMatchObject({ includeDocument: false });
   });
 });

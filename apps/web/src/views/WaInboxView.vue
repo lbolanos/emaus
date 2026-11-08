@@ -18,7 +18,7 @@ import {
   TabsTrigger,
   useToast,
 } from '@repo/ui'
-import type { WaInboxMessageDto } from '@repo/types'
+import type { WaInboxMessageDto, WaRawMediaDto } from '@repo/types'
 import type { WaSearchResult } from '@/services/api'
 import { useResizableSplit } from '@/composables/useResizableSplit'
 import { useRetreatStore } from '@/stores/retreatStore'
@@ -32,8 +32,9 @@ import WaLinkModal from '@/components/wa/WaLinkModal.vue'
 import WaConversationList from '@/components/wa/WaConversationList.vue'
 import WaChatThread from '@/components/wa/WaChatThread.vue'
 import WaLetterDialog from '@/components/wa/WaLetterDialog.vue'
+import WaFileViewer from '@/components/wa/WaFileViewer.vue'
 import MessageDialog from '@/components/MessageDialog.vue'
-import { dataUrlToObjectUrl, isPdfDocument } from '@/utils/waMedia'
+import { isPdfDocument } from '@/utils/waMedia'
 import { renderPdfFirstPage } from '@/utils/pdfToImage'
 
 /**
@@ -409,21 +410,49 @@ async function onPaymentSaved(payment: { id: string }) {
   })
 }
 
-// ── v1.3: documents and voice notes ──
+// ── v1.3: documents and voice notes; v1.5 (D26): in-app file viewer ──
+// A document or video opens big in the app when the browser can show it
+// (PDF, image, text, video); Word/PowerPoint/Excel… are offered as a
+// download so the system opens them. It never navigates to a blob: an HTML
+// file there would run with the app's origin.
+const fileViewer = ref<{
+  open: boolean
+  loading: boolean
+  error: string | null
+  media: WaRawMediaDto | null
+  fallbackName: string
+}>({ open: false, loading: false, error: null, media: null, fallbackName: '' })
+let fileViewerToken = 0
+
 async function onOpenDocument(message: WaInboxMessageDto) {
-  // Open the tab inside the click (popup blockers) and point it at the file
-  // once downloaded.
-  const tab = window.open('', '_blank')
-  try {
-    const raw = await store.loadRawMedia(message.id)
-    const url = dataUrlToObjectUrl(raw.dataUrl)
-    if (tab) tab.location.href = url
-    else window.open(url, '_blank')
-    setTimeout(() => URL.revokeObjectURL(url), 60_000)
-  } catch (err) {
-    tab?.close()
-    notifyError(apiErrorMessage(err, t('waInbox.mediaFailed')))
+  const token = ++fileViewerToken
+  fileViewer.value = {
+    open: true,
+    loading: true,
+    error: null,
+    media: null,
+    fallbackName:
+      message.mediaFileName ||
+      t(message.messageType === 'video' ? 'waInbox.viewer.unnamedVideo' : 'waInbox.viewer.unnamedDocument'),
   }
+  try {
+    const media = await store.loadRawMedia(message.id)
+    if (token === fileViewerToken) fileViewer.value = { ...fileViewer.value, loading: false, media }
+  } catch (err) {
+    if (token === fileViewerToken) {
+      fileViewer.value = {
+        ...fileViewer.value,
+        loading: false,
+        error: apiErrorMessage(err, t('waInbox.mediaFailed')),
+      }
+    }
+  }
+}
+
+function onFileViewerOpen(open: boolean) {
+  if (open) return
+  fileViewerToken++
+  fileViewer.value = { open: false, loading: false, error: null, media: null, fallbackName: '' }
 }
 
 async function onPlayAudio(message: WaInboxMessageDto) {
@@ -438,6 +467,19 @@ async function onPlayAudio(message: WaInboxMessageDto) {
 const canAddLetter = computed(() => can.update('letter'))
 const letterOpen = ref(false)
 const letterMessage = ref<WaInboxMessageDto | null>(null)
+/** v1.5: the original document the letter may keep (Word, PDF…). */
+const letterDocumentName = computed(() => {
+  const message = letterMessage.value
+  if (message?.messageType !== 'document') return null
+  return message.mediaFileName || t('waInbox.viewer.unnamedDocument')
+})
+/** Letter text: the caption, or a line pointing at the attached document. */
+const letterInitialText = computed(() => {
+  const message = letterMessage.value
+  if (!message) return ''
+  if (message.body) return message.body
+  return letterDocumentName.value ? t('waInbox.letter.documentBody', { name: letterDocumentName.value }) : ''
+})
 const letterAttachment = ref<string | null>(null)
 const letterPreparing = ref(false)
 const letterSaving = ref(false)
@@ -452,7 +494,12 @@ async function onAddLetter(message: WaInboxMessageDto) {
   letterMessage.value = message
   letterAttachment.value = null
   letterOpen.value = true
-  if (message.messageType !== 'image' && message.messageType !== 'document') return
+  // Printable image: the photo, or a PDF's first page. Other documents (Word,
+  // PowerPoint…) have no printable preview — the letter keeps the file itself.
+  const printable =
+    message.messageType === 'image' ||
+    (message.messageType === 'document' && isPdfDocument(message.mediaMime, message.mediaFileName))
+  if (!printable) return
   letterPreparing.value = true
   try {
     letterAttachment.value =
@@ -477,6 +524,7 @@ async function onSubmitLetter(payload: {
   participantId: string
   bodyText: string
   includeAttachment: boolean
+  includeDocument: boolean
 }) {
   const id = retreatId.value
   const message = letterMessage.value
@@ -493,6 +541,7 @@ async function onSubmitLetter(payload: {
               dataUrl: letterAttachment.value,
             }
           : null,
+      includeDocument: payload.includeDocument,
     })
     const name = letterParticipants.value.find((p) => p.id === payload.participantId)?.name ?? ''
     toast({
@@ -792,11 +841,20 @@ function onReplyTemplate() {
       v-model:open="letterOpen"
       :participants="letterParticipants"
       :default-participant-id="store.activeWalkerId"
-      :initial-text="letterMessage?.body ?? ''"
+      :initial-text="letterInitialText"
       :attachment-data-url="letterAttachment"
       :preparing-attachment="letterPreparing"
       :saving="letterSaving"
+      :document-name="letterDocumentName"
       @submit="onSubmitLetter"
+    />
+    <WaFileViewer
+      :open="fileViewer.open"
+      :loading="fileViewer.loading"
+      :error="fileViewer.error"
+      :media="fileViewer.media"
+      :fallback-name="fileViewer.fallbackName"
+      @update:open="onFileViewerOpen"
     />
     <MessageDialog
       v-model:open="messageDialogOpen"

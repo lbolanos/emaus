@@ -124,7 +124,7 @@ describe('WaChatThread', () => {
     expect(wrapper.find('[data-testid^="wa-action-"]').exists()).toBe(false);
   });
 
-  it('actions by type: PDF can be paid and lettered, other documents only open (v1.3)', () => {
+  it('actions by type: PDF can be paid and lettered, other documents open and become letters (v1.5)', () => {
     const wrapper = mount(WaChatThread, {
       props: {
         conversation,
@@ -147,7 +147,7 @@ describe('WaChatThread', () => {
         .filter((t) => t?.endsWith(`-${id}`))
         .map((t) => t?.replace(`-${id}`, '').replace('wa-action-', ''));
     expect(kinds('pdf')).toEqual(['open', 'payment', 'letter']);
-    expect(kinds('doc')).toEqual(['open']);
+    expect(kinds('doc')).toEqual(['open', 'letter']);
     expect(kinds('txt')).toEqual(['letter']);
   });
 

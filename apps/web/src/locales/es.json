@@ -4665,6 +4665,28 @@
     },
     "realtimeOff": "Sin conexión en vivo",
     "refresh": "Actualizar",
+    "playVideo": "Ver video",
+    "viewer": {
+      "loading": "Descargando el archivo…",
+      "unnamedDocument": "Documento",
+      "unnamedVideo": "Video",
+      "kind": {
+        "pdf": "PDF",
+        "word": "Documento de Word",
+        "slides": "Presentación (PowerPoint)",
+        "sheet": "Hoja de cálculo (Excel)",
+        "text": "Texto",
+        "image": "Imagen",
+        "file": "Archivo"
+      },
+      "page": "Página {n}",
+      "renderingPages": "Preparando páginas… {done} de {total}",
+      "pdfTruncated": "Se muestran las primeras {shown} de {total} páginas. Descárgalo para verlo completo.",
+      "pdfFailed": "No se pudo mostrar este PDF aquí. Descárgalo para abrirlo.",
+      "downloadHint": "Este archivo no se puede mostrar en el navegador. Descárgalo y se abre con la aplicación de tu equipo (Word, PowerPoint, Excel, Pages, Keynote…); en el celular, con la vista previa.",
+      "download": "Descargar",
+      "downloadOpen": "Descargar y abrir"
+    },
     "tabs": {
       "messages": "Mensajes",
       "config": "Configuración"
@@ -4774,7 +4796,10 @@
       "saved": "Carta agregada a las cartas de {name}",
       "duplicate": "Este mensaje ya era una carta: no se duplicó.",
       "failed": "No se pudo agregar la carta.",
-      "emptyBody": "Escribe el texto de la carta."
+      "emptyBody": "Escribe el texto de la carta.",
+      "includeDocument": "Adjuntar el documento original ({name})",
+      "includeDocumentHint": "Queda en la carpeta del participante para abrirlo o imprimirlo aparte; no sale en el papel de la carta.",
+      "documentBody": "Carta en el documento adjunto: {name}"
     }
   },
   "letters": {

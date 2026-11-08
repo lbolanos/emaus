@@ -4343,6 +4343,28 @@
     },
     "realtimeOff": "No live connection",
     "refresh": "Refresh",
+    "playVideo": "Watch video",
+    "viewer": {
+      "loading": "Downloading the file…",
+      "unnamedDocument": "Document",
+      "unnamedVideo": "Video",
+      "kind": {
+        "pdf": "PDF",
+        "word": "Word document",
+        "slides": "Presentation (PowerPoint)",
+        "sheet": "Spreadsheet (Excel)",
+        "text": "Text",
+        "image": "Image",
+        "file": "File"
+      },
+      "page": "Page {n}",
+      "renderingPages": "Preparing pages… {done} of {total}",
+      "pdfTruncated": "Showing the first {shown} of {total} pages. Download it to see it all.",
+      "pdfFailed": "This PDF could not be shown here. Download it to open it.",
+      "downloadHint": "The browser cannot show this file. Download it and your device opens it with its application (Word, PowerPoint, Excel, Pages, Keynote…); on a phone, with its preview.",
+      "download": "Download",
+      "downloadOpen": "Download and open"
+    },
     "tabs": {
       "messages": "Messages",
       "config": "Settings"
@@ -4452,7 +4474,10 @@
       "saved": "Letter added to {name}'s letters",
       "duplicate": "This message was already a letter: nothing duplicated.",
       "failed": "Could not add the letter.",
-      "emptyBody": "Write the letter text."
+      "emptyBody": "Write the letter text.",
+      "includeDocument": "Attach the original document ({name})",
+      "includeDocumentHint": "It stays in the participant's folder to open or print separately; it is not part of the printed letter.",
+      "documentBody": "Letter in the attached document: {name}"
     }
   },
   "letters": {

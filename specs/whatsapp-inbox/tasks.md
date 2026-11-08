@@ -423,3 +423,23 @@ Pendiente — QA en vivo (Playwright MCP desconectado en esta sesión):
   badge baja.
 - [ ] Arrastrar la división, flechas, doble clic, «Ampliar»; revisar el alto de
   los paneles (`100dvh - 14rem`) en la laptop de Leo y en el celular.
+
+## v1.5 — archivos: ver en grande o abrir con su aplicación (2026-11-08)
+
+- [x] Merge de master (letters-email `76997b91`: documentos adjuntos) y
+  `classifyAttachment` exportado de `letterService` (solo el `export`).
+- [x] `classifyRawMedia`: tipo por bytes, macros/HTML/SVG/ejecutables → 415,
+  tope → 413, video mp4/mov (16 MB), voz siempre `audio/*`; `previewKind`.
+- [x] Visor `WaFileViewer`: PDF por páginas (pdf.js, 20), imagen, texto
+  (interpolado), video; lo demás, enlace de descarga con su nombre. Sin iframe
+  ni navegación a blobs; `safeBlobType` como segunda barrera.
+- [x] Corrección de seguridad: «Abrir documento» ya no abre un blob en otra
+  pestaña con el tipo declarado por el remitente.
+- [x] «Agregar como carta» para cualquier documento, con el original adjunto
+  (no imprimible) y texto inicial «Carta en el documento adjunto: …».
+- [x] Tests: API 10 (`waBridgeRawMedia.test.ts`), web 16 (visor, utilidades,
+  hilo, diálogo, vista). Suites: puente 94, cartas 103, web 4125.
+- [ ] QA en vivo: mandar desde un teléfono un PDF de varias páginas, un .docx,
+  un .pptx, un video y un .docm o .html (debe rechazarse); probar «Descargar y
+  abrir» en la Mac y en el iPhone; agregar un .docx como carta y abrirlo
+  desde la carpeta del participante.

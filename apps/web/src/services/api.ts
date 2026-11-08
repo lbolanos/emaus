@@ -5094,6 +5094,8 @@ export const addWaMessageAsLetter = async (
     participantId: string;
     bodyText: string;
     attachment?: { fileName: string; dataUrl: string } | null;
+    /** v1.5: keep the original document; the server downloads and verifies it. */
+    includeDocument?: boolean;
   },
 ): Promise<{ letterId: string; duplicate: boolean }> => {
   const r = await api.post(`/wa-bridge/messages/${messageId}/letter`, payload);

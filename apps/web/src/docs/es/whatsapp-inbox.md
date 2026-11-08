@@ -49,15 +49,24 @@ La bandeja tiene dos pestañas: **Mensajes** (la bandeja) y **Configuración**
 - **Solo no leídos** y **Marcar todo como leído** para poner la bandeja a cero.
 - La ficha del caminante (teléfonos, cama, correo) abre desde el ⓘ junto a su
   nombre en el hilo.
-- **Fotos, documentos y notas de voz**: las fotos se ven en el hilo; un
-  documento se abre con **Abrir documento** y una nota de voz suena con
-  **Escuchar** (si no suena en iPhone, ábrela desde tu WhatsApp).
+- **Fotos, documentos, videos y notas de voz**: las fotos se ven en el hilo y
+  una nota de voz suena con **Escuchar** (si no suena en iPhone, ábrela desde
+  tu WhatsApp). Al tocar un documento o un video se abre en grande dentro de la
+  bandeja si el navegador puede mostrarlo (PDF página por página, imagen,
+  texto, video). Word, PowerPoint, Excel y similares se bajan con **Descargar
+  y abrir** y se abren con la aplicación de tu equipo; en el celular, con la
+  vista previa.
+- Por seguridad, la bandeja **no abre** documentos con macros (.docm, .xlsm…)
+  ni archivos como .html, .svg, .zip o programas: avisa y, si confías en quien
+  lo mandó, lo abres desde tu WhatsApp.
 - **Registrar como pago**: desde una foto o un PDF (se usa la primera página).
   El mensaje queda marcado «Pago registrado por …» y, si alguien intenta
   registrarlo otra vez, la bandeja pregunta antes.
 - **Agregar como carta**: el texto del mensaje (lo puedes editar) y su imagen
   entran a las cartas del participante que elijas, listas para imprimirse con
-  las demás.
+  las demás. Si la familia mandó la carta en un Word o un PDF, se guarda el
+  documento original con la carta (queda en la carpeta del participante para
+  abrirlo o imprimirlo aparte).
 - **Sin responder / Respondió …**: en la lista se ve si alguien del equipo ya
   contestó a ese caminante, para no responder dos veces.
 - **Responder con plantilla** abre el mensaje con las plantillas del retiro;
