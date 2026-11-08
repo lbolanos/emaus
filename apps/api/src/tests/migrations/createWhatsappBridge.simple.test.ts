@@ -1,5 +1,5 @@
 /**
- * Test of CreateWhatsappBridge20261107120000 (specs/whatsapp-inbox, M1).
+ * Test of CreateWhatsappBridge20261107130000 (specs/whatsapp-inbox, M1).
  *
  * :memory: DataSource with the minimal permission tables (pattern of
  * addParticipantIdentityUpdatePermission). The migration itself creates the
@@ -7,7 +7,7 @@
  * indexes, FKs, the status CHECK, permission seeds and the round trip.
  */
 import { DataSource } from 'typeorm';
-import { CreateWhatsappBridge20261107120000 } from '@/migrations/sqlite/20261107120000_CreateWhatsappBridge';
+import { CreateWhatsappBridge20261107130000 } from '@/migrations/sqlite/20261107130000_CreateWhatsappBridge';
 
 const WA_TABLES = [
 	'whatsapp_bridge_link',
@@ -17,9 +17,9 @@ const WA_TABLES = [
 
 const WA_ROLES = ['admin', 'communications', 'logistics', 'superadmin'];
 
-describe('CreateWhatsappBridge20261107120000', () => {
+describe('CreateWhatsappBridge20261107130000', () => {
 	let ds: DataSource;
-	let migration: CreateWhatsappBridge20261107120000;
+	let migration: CreateWhatsappBridge20261107130000;
 
 	async function waTables(): Promise<string[]> {
 		const rows = await ds.query(
@@ -120,7 +120,7 @@ describe('CreateWhatsappBridge20261107120000', () => {
 		);
 		await ds.query(`INSERT INTO "users" ("id") VALUES ('u1')`);
 
-		migration = new CreateWhatsappBridge20261107120000();
+		migration = new CreateWhatsappBridge20261107130000();
 	});
 
 	afterEach(async () => {

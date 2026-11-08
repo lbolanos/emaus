@@ -20,9 +20,9 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  * Permissions: whatsappInbox:read and whatsappInbox:manage for superadmin,
  * admin, logistics and communications (regular_server and treasurer get none).
  */
-export class CreateWhatsappBridge20261107120000 implements MigrationInterface {
-	name = 'CreateWhatsappBridge20261107120000';
-	timestamp = '20261107120000';
+export class CreateWhatsappBridge20261107130000 implements MigrationInterface {
+	name = 'CreateWhatsappBridge20261107130000';
+	timestamp = '20261107130000';
 
 	// DDL + data seeds in one migration; the in-house runner honours the flag
 	// since 2026-09-08 (consistent with the other permission migrations).

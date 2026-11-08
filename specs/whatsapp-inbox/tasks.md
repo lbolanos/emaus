@@ -28,7 +28,7 @@
       `WA_BRIDGE_*`
 - [x] [P] `packages/types/src/waBridge.ts` (DTOs) + export en el index del paquete
 - [x] [P] 3 entidades TypeORM + registro en `apps/api/src/database/config.ts`
-- [x] Migración `20261107120000_CreateWhatsappBridge.ts` (3 tablas + índices + seeds de
+- [x] Migración `20261107130000_CreateWhatsappBridge.ts` (3 tablas + índices + seeds de
       permisos a superadmin/admin/logistics/communications; `down()` reversible)
 - [x] Test de migración: `up()` en DB `:memory:` → tablas, 2 permisos, 4 grants por permiso;
       `down()` limpia todo; re-`up()` idempotente — 8/8 verde (2026-11-05), más CHECK de
@@ -373,3 +373,8 @@ Coordinación: la sesión letters-email reutiliza `openPaymentForWithReceipt(…
 prefill)` + `embedded` + `payment-saved` para comprobantes de cartas; espera que
 esto llegue a master. Pendiente de QA en vivo: Playwright MCP desconectado en
 esta sesión — probar a mano nota de voz en iPhone y PDF real.
+- [x] (2026-11-08) Timestamp de la migración del puente movido a
+  `20261107130000`: colisionaba con `20261107120000_AddShareMarksToRetreatParticipants`
+  (letters-email, ya en prod). El runner detecta ejecutadas por NOMBRE, así que
+  ambas corrían, pero `revert` ordena por timestamp y un empate lo vuelve
+  ambiguo. En dev el nombre nuevo se re-ejecuta: es idempotente (IF NOT EXISTS).
