@@ -4,8 +4,8 @@ import { createPinia, setActivePinia } from 'pinia';
 import WaLinkModal from '../WaLinkModal.vue';
 import { useWaInboxStore } from '@/stores/waInboxStore';
 
-// El mock global de vue-i18n devuelve la key cruda; aquí van las cadenas reales
-// de es.json que este test aserta (los 5 puntos del aviso D7).
+// The global vue-i18n mock returns the raw key; here go the real es.json
+// strings this test asserts (the 5 points of the D7 notice).
 vi.mock('vue-i18n', () => ({
   useI18n: () => ({
     t: (key: string) =>
@@ -26,8 +26,8 @@ vi.mock('vue-i18n', () => ({
 }));
 
 /**
- * El modal no puede mostrar el QR sin el consentimiento explícito (D7): sin
- * checkbox marcado no hay llamada al API de vinculación.
+ * The modal cannot show the QR without explicit consent (D7): without the
+ * checkbox ticked there is no call to the link API.
  */
 vi.mock('@/services/api', () => ({
   startWaLink: vi.fn().mockResolvedValue({
@@ -57,8 +57,8 @@ const mountModal = () =>
     props: { open: true, retreatId: 'r1' },
     global: {
       stubs: {
-        // Stubs mínimos del wrapper de @repo/ui (el mock global del setup no
-        // cubre el montaje con slots condicionales que este modal usa).
+        // Minimal stubs of the @repo/ui wrapper (the global setup mock does not
+        // cover mounting with the conditional slots this modal uses).
         Dialog: { template: '<div><slot /></div>', props: ['open'] },
         DialogContent: { template: '<div><slot /></div>' },
         DialogHeader: { template: '<div><slot /></div>' },
@@ -78,7 +78,7 @@ describe('WaLinkModal — consentimiento', () => {
     startMock.mockClear();
   });
 
-  it('muestra los 5 puntos del aviso (transito, historial, baneo, voluntario, visibilidad)', () => {
+  it('shows the 5 notice points (transit, history, ban risk, voluntary, visibility)', () => {
     const wrapper = mountModal();
     const text = wrapper.text();
     expect(text).toContain('servidor del sistema');
@@ -88,7 +88,7 @@ describe('WaLinkModal — consentimiento', () => {
     expect(text).toContain('nunca se muestra');
   });
 
-  it('sin el checkbox marcado, Continuar está deshabilitado y NO llama al API', async () => {
+  it('with the checkbox unticked, Continue is disabled and the API is NOT called', async () => {
     const wrapper = mountModal();
     const buttons = wrapper.findAll('button');
     const continueBtn = buttons.find((b) => b.text().includes('Continuar'));
@@ -98,7 +98,7 @@ describe('WaLinkModal — consentimiento', () => {
     expect(startMock).not.toHaveBeenCalled();
   });
 
-  it('con el checkbox marcado, Continuar llama a startWaLink con consentAccepted=true', async () => {
+  it('with the checkbox ticked, Continue calls startWaLink with consentAccepted=true', async () => {
     const wrapper = mountModal();
     await wrapper.find('[data-testid="wa-consent-checkbox"] input').setValue(true);
     await wrapper.find('[data-testid="wa-consent-continue"]').trigger('click');

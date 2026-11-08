@@ -33,15 +33,15 @@ import {
 } from '@/services/api';
 
 /**
- * Estado de la bandeja WhatsApp de solo lectura (specs/whatsapp-inbox).
- * El realtime replica el patrón de messageSequenceStore: join con ack,
- * re-join al reconectar y refetch en `inbox:changed`.
+ * State of the read-only WhatsApp inbox (specs/whatsapp-inbox).
+ * Realtime follows the messageSequenceStore pattern: join with ack, re-join
+ * on reconnect and refetch on `inbox:changed`.
  */
 export const useWaInboxStore = defineStore('waInbox', () => {
   const links = ref<WaLinkDto[]>([]);
-  /** Activación del retiro (D13) — viene en la respuesta de links. */
+  /** Retreat activation (D13) — comes with the links response. */
   const inboxEnabled = ref(false);
-  /** Badge del sidebar (v1.1): no leídos totales para el usuario actual. */
+  /** Sidebar badge (v1.1): total unread for the current user. */
   const totalUnread = ref(0);
   const searchResults = ref<WaSearchResult[]>([]);
   const conversations = ref<WaConversationDto[]>([]);
@@ -51,9 +51,9 @@ export const useWaInboxStore = defineStore('waInbox', () => {
   const loadingConversations = ref(false);
   const loadingThread = ref(false);
   const realtimeConnected = ref(false);
-  /** Variantes de imagen por messageId (v1.2): llenado por lotes al abrir el hilo. */
+  /** Image variants by messageId (v1.2): filled in batches when a thread opens. */
   const mediaByMessageId = ref<Record<string, WaMediaVariantsDto>>({});
-  /** Imágenes que el server no pudo devolver (vínculo purgado — media borrada, D9). */
+  /** Images the server could not return (purged link — media gone, D9). */
   const mediaUnavailable = ref<Record<string, true>>({});
   const loadingMedia = ref(false);
 
@@ -75,12 +75,12 @@ export const useWaInboxStore = defineStore('waInbox', () => {
     }
   }
 
-  /** Activación por retiro — SOLO superadmin (D13). */
+  /** Per-retreat activation — superadmin ONLY (D13). */
   async function setEnabled(retreatId: string, enabled: boolean) {
     await setWaBridgeEnabled(retreatId, enabled);
     inboxEnabled.value = enabled;
     if (!enabled) {
-      // Al apagar se terminan las sesiones: limpiar el tablero local.
+      // Turning it off terminates the sessions: clear the local board.
       links.value = [];
       conversations.value = [];
       threadMessages.value = [];
@@ -88,7 +88,7 @@ export const useWaInboxStore = defineStore('waInbox', () => {
     }
   }
 
-  /** Terminar todos los servidores del puente — SOLO superadmin (D14). */
+  /** Terminate every bridge session — superadmin ONLY (D14). */
   async function terminateAll(retreatId: string) {
     const r = await terminateWaBridgeAll(retreatId, true);
     links.value = [];
@@ -99,9 +99,9 @@ export const useWaInboxStore = defineStore('waInbox', () => {
     return r.terminated;
   }
 
-  /** FR14 (v1.1): descargar la imagen de un mensaje para usarla de comprobante. */
+  /** FR14 (v1.1): download a message's image to use it as a receipt. */
   async function downloadReceipt(messageId: string): Promise<WaReceiptDownload> {
-    // Si el lote de thumbnails ya la trajo, no re-descargar (instantáneo).
+    // Already brought by the thumbnail batch: no re-download (instant).
     const cached = mediaByMessageId.value[messageId];
     if (cached?.large) {
       const c = activeConversation.value;
@@ -117,8 +117,8 @@ export const useWaInboxStore = defineStore('waInbox', () => {
   }
 
   /**
-   * Thumbnails del hilo abierto (v1.2): un solo lote para todas las imágenes
-   * pendientes — pedir una por una paraba/levantaba el sync por cada foto.
+   * Thumbnails of the open thread (v1.2): one batch for every pending image
+   * (cached server side) instead of a request per photo.
    */
   async function fetchThreadMedia(retreatId: string) {
     const pending = threadMessages.value
@@ -137,14 +137,14 @@ export const useWaInboxStore = defineStore('waInbox', () => {
     try {
       const data = await getWaThreadMedia(retreatId, pending);
       mediaByMessageId.value = { ...mediaByMessageId.value, ...data.media };
-      // Las no devueltas quedan marcadas: placeholder 📎 definitivo (su
-      // vínculo fue purgado — la media ya no existe en ningún store).
+      // Images not returned are marked: their type label stays for good (the
+      // link was purged — the media no longer exists in any store).
       const returned = new Set(Object.keys(data.media));
       for (const id of pending) {
         if (!returned.has(id)) mediaUnavailable.value = { ...mediaUnavailable.value, [id]: true };
       }
     } catch {
-      // Sin thumbnails la bandeja sigue usable (placeholder 📎).
+      // Without thumbnails the inbox stays usable (type labels).
     } finally {
       loadingMedia.value = false;
     }
@@ -177,24 +177,24 @@ export const useWaInboxStore = defineStore('waInbox', () => {
     return result;
   }
 
-  /** Badge del sidebar (v1.1): liviano, apto para polling. */
+  /** Sidebar badge (v1.1): lightweight, fit for polling. */
   async function refreshBadge(retreatId: string) {
     try {
       const data = await getWaUnreadCount(retreatId);
       totalUnread.value = data.total ?? 0;
     } catch {
-      // Sin permiso o sin retiro: el badge se queda como esté.
+      // No permission or no retreat: the badge stays as it is.
     }
   }
 
-  /** Búsqueda de texto (v1.1). */
+  /** Text search (v1.1). */
   async function searchMessages(retreatId: string, q: string) {
     const data = await searchWaMessages(retreatId, q);
     searchResults.value = data.results ?? [];
     return searchResults.value;
   }
 
-  /** Marca todos los chats como leídos para el usuario (v1.1). */
+  /** Marks every chat as read for the user (v1.1). */
   async function markAllSeen(retreatId: string) {
     const r = await markWaAllSeen(retreatId);
     conversations.value.forEach((c) => {
@@ -219,7 +219,7 @@ export const useWaInboxStore = defineStore('waInbox', () => {
     try {
       const data = await getWaMessages(retreatId, chatJid, before);
       if (before) {
-        // Paginación hacia atrás: prepend manteniendo orden cronológico.
+        // Backwards pagination: prepend keeping chronological order.
         threadMessages.value = [...(data.messages ?? []).reverse(), ...threadMessages.value];
       } else {
         threadMessages.value = [...(data.messages ?? [])].reverse();
@@ -233,9 +233,9 @@ export const useWaInboxStore = defineStore('waInbox', () => {
   async function openChat(retreatId: string, chatJid: string) {
     activeChatJid.value = chatJid;
     await fetchThread(retreatId, chatJid);
-    // Thumbnails de las imágenes del hilo (v1.2) — no bloquea la apertura.
+    // Thumbnails of the thread's images (v1.2) — does not block opening it.
     void fetchThreadMedia(retreatId);
-    // Marca leído en servidor (timestamp lo decide el API) y refresca badges.
+    // Mark read on the server (the API decides the timestamp) and refresh badges.
     await markWaChatSeen(retreatId, chatJid).catch(() => {});
     const c = conversations.value.find((x) => x.chatJid === chatJid);
     if (c) c.unreadCount = 0;
@@ -275,13 +275,13 @@ export const useWaInboxStore = defineStore('waInbox', () => {
       if (!active || e.retreatId !== active) return;
       fetchConversations(active).catch(() => {});
       refreshBadge(active).catch(() => {});
-      // Hilo abierto: refetch del chat activo (los nuevos entrantes aparecen).
+      // Open thread: refetch the active chat (new messages show up).
       if (activeChatJid.value) {
         fetchThread(active, activeChatJid.value)
           .then(() => fetchThreadMedia(active))
           .catch(() => {});
       }
-      // Aviso in-app (v1.1): el staff no vive mirando la bandeja.
+      // In-app notice (v1.1): the staff does not live staring at the inbox.
       const { toast } = useToast();
       if (e.senderName) {
         toast({

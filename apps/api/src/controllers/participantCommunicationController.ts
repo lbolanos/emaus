@@ -88,11 +88,11 @@ export class ParticipantCommunicationController {
 				skip: 0,
 			});
 
-			// Mensajes ENTRANTES por WhatsApp del caminante (v1.2 de
-			// specs/whatsapp-inbox): antes el historial solo registraba lo que
-			// enviamos nosotros. Se incluyen solo para quien puede leer la
-			// bandeja (mismo permiso) y solo si el participante tiene teléfono
-			// con país resoluble (el match es por JID, igual que el poller).
+			// INCOMING WhatsApp messages of the walker (specs/whatsapp-inbox v1.2):
+			// the history used to log only what we sent. Included only for users
+			// who can read the inbox (same permission) and only when the
+			// participant has a phone with a resolvable country (JID match, like
+			// the poller).
 			let inbound: Array<Record<string, unknown>> = [];
 			let inboundTotal = 0;
 			const userId = (req.user as any)?.id as string | undefined;
@@ -112,9 +112,9 @@ export class ParticipantCommunicationController {
 							).map((digits) => `${digits}@s.whatsapp.net`)
 						: [];
 				if (jids.length > 0) {
-					// take = limit+offset y skip 0: la página se corta sobre el merge
-					// (paginar cada fuente por separado con skip descartaba entradas
-					// y «Cargar más» vaciaba la lista — QA v1.2).
+					// take = limit+offset and skip 0: the page is cut on the merge
+					// (skipping per source dropped rows and "Load more" emptied the
+					// list — QA v1.2).
 					const [rows, count] = await AppDataSource.getRepository(
 						WhatsappInboxMessage,
 					).findAndCount({
@@ -141,8 +141,8 @@ export class ParticipantCommunicationController {
 				}
 			}
 
-			// Merge cronológico; el corte de página es sobre el merge combinado
-			// (nunca skip por fuente: el QA v1.2 lo vació al segundo click).
+			// Chronological merge; the page is cut on the combined list (never a
+			// per-source skip: QA v1.2 emptied it on the second click).
 			const merged = [...communications, ...inbound] as Array<Record<string, unknown>>;
 			merged.sort((a, b) => {
 				const ta = new Date(a.sentAt as string).getTime() || 0;

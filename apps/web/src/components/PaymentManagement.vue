@@ -327,8 +327,8 @@
 								</button>
 							</div>
 							<div v-else-if="newReceiptDataUrl" class="flex items-center gap-2">
-								<!-- Aspecto original (object-contain): un recibo vertical
-				     recortado en cuadrado es ilegible (QA v1.2 ronda 2). -->
+								<!-- Original aspect (object-contain): a portrait receipt
+				     cropped to a square is unreadable (QA v1.2 round 2). -->
 								<img
 									:src="newReceiptDataUrl"
 									class="h-20 w-auto max-w-[160px] rounded border border-gray-200 object-contain cursor-pointer"
@@ -372,10 +372,10 @@
 							</div>
 						</div>
 					</div>
-					<!-- flex-wrap + min-w-0: los 4 botones superan el ancho del panel
-					     (max-w-md); sin wrap el min-content del item agranda la columna
-					     del grid del diálogo y TODO el formulario se desborda
-					     (QA v1.2 ronda 3). -->
+					<!-- flex-wrap + min-w-0: the 4 buttons exceed the panel width
+					     (max-w-md); without wrap the item's min-content widens the
+					     dialog grid column and the WHOLE form overflows
+					     (QA v1.2 round 3). -->
 					<div class="mt-6 flex flex-col-reverse sm:flex-row sm:justify-between flex-wrap gap-2">
 						<div v-if="!editingPayment" class="flex flex-col-reverse sm:flex-row flex-wrap gap-2">
 							<Button
@@ -687,10 +687,10 @@ const openPaymentFor = (participantId: string) => {
 };
 
 /**
- * Abre el modal de registro con el comprobante YA adjunto (specs/whatsapp-inbox
- * v1.1, FR14): la imagen viene de la bandeja WhatsApp, descargada y procesada
- * por el API como data-URL. El participante llega prellenado — el staff solo
- * completa monto/fecha/método.
+ * Opens the create modal with the receipt ALREADY attached (specs/whatsapp-inbox
+ * v1.1, FR14; prefill v1.3): the image comes from the WhatsApp inbox (or a
+ * letter), as a data-URL. The participant arrives preselected — the staff
+ * only fills amount/date/method.
  */
 const openPaymentForWithReceipt = (
 	participantId: string,

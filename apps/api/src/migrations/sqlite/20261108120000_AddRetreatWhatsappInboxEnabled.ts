@@ -1,15 +1,16 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
 /**
- * Activación de la bandeja WhatsApp POR RETIRO (specs/whatsapp-inbox v1.1, D13).
+ * PER-RETREAT activation of the WhatsApp inbox (specs/whatsapp-inbox v1.1,
+ * D13).
  *
- * El puente consume RAM del servidor (~40 MB por cuenta vinculada): el
- * superadmin decide en qué retiro se enciende, con un switch propio. Sin
- * activación, nadie puede vincular y no se respawnea ningún hijo.
+ * The bridge costs server RAM (~40 MB per linked account): the superadmin
+ * decides which retreat turns it on, with its own switch. Without activation
+ * nobody can link and no child is respawned.
  *
- * Plantilla simple: ALTER TABLE ADD COLUMN con guarda de idempotencia (el
- * auto-run de dev puede re-ejecutarla si un arranque la aplicó a medias).
- * `retreat` tiene FKs entrantes pero ADD COLUMN no las toca — sin recreate.
+ * Simple template: guarded ALTER TABLE ADD COLUMN (dev auto-run may re-run it
+ * if a boot applied it halfway). `retreat` has incoming FKs but ADD COLUMN
+ * does not touch them — no recreate.
  */
 export class AddRetreatWhatsappInboxEnabled20261108120000
 	implements MigrationInterface

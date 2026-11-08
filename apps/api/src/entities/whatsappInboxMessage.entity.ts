@@ -10,14 +10,15 @@ import {
 import { WhatsappBridgeLink } from './whatsappBridgeLink.entity';
 
 /**
- * Mensaje ENTRANTE de un caminante que pasó la whitelist (specs/whatsapp-inbox
- * D4): chat 1:1 cuyo teléfono coincide con un participante walker del retiro.
- * Nada que no pase el filtro se persiste jamás.
+ * A message of a whitelisted chat (specs/whatsapp-inbox D4): a 1:1 chat whose
+ * phone matches a walker of the retreat. Incoming messages, plus (v1.3) the
+ * staff's own replies in those chats (`fromMe`). Nothing outside the
+ * whitelist is ever stored.
  *
- * `retreatId` va desnormalizado a propósito (sin FK física): la bandeja y la
- * purga consultan por retiro; el borrado en cascada real lo hace el DELETE del
- * link padre. La multimedia no se descarga — `messageType` informa el tipo y
- * `body` trae texto o caption.
+ * `retreatId` is denormalized on purpose (no physical FK): inbox and purge
+ * query by retreat. Deletion is explicit by linkId (teardownLink) — the FK
+ * CASCADE is not relied upon. Media is not stored: `messageType`/`mediaMime`
+ * describe it and `body` holds the text or caption.
  */
 @Entity('whatsapp_inbox_message')
 @Index('IDX_wa_inbox_message_thread', ['retreatId', 'chatJid', 'timestamp'])
@@ -33,19 +34,19 @@ export class WhatsappInboxMessage {
 	@Column({ type: 'varchar' })
 	retreatId!: string;
 
-	/** JID del chat 1:1, p. ej. 5215512345678@s.whatsapp.net. */
+	/** 1:1 chat JID, e.g. 5215512345678@s.whatsapp.net. */
 	@Column({ type: 'varchar' })
 	chatJid!: string;
 
-	/** Número nacional normalizado del chat (toNationalPhone). */
+	/** JID digits of the chat (with calling code), used to match the walker. */
 	@Column({ type: 'varchar' })
 	chatPhone!: string;
 
-	/** Id de mensaje de WhatsApp; dedupe contra re-lecturas del store. */
+	/** WhatsApp message id; dedupes re-reads of the store. */
 	@Column({ type: 'varchar' })
 	waMessageId!: string;
 
-	/** Hora del mensaje en UTC; el cliente renderiza en zona del retiro. */
+	/** Message time in UTC; the client renders it in the retreat's zone. */
 	@Column({ type: 'datetime' })
 	timestamp!: Date;
 

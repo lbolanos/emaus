@@ -1240,9 +1240,9 @@ describe('Sidebar Component', () => {
 			});
 			const communications = getSections(grantedWrapper).find((s: any) => s.category === 'communications');
 			const names = communications.items.map((i: any) => i.name);
-			// La bandeja WhatsApp (wa-inbox) también vive en communications
-			// (v1.2): el orden relativo special-cases > palancas se mantiene,
-			// pero ya NO es adyacente necesariamente.
+			// The WhatsApp inbox (wa-inbox) also lives in communications (v1.2):
+			// special-cases still comes after palancas, but no longer
+			// necessarily right after it.
 			expect(names).toContain('wa-inbox');
 			expect(names.indexOf('special-cases')).toBeGreaterThan(names.indexOf('palancas'));
 

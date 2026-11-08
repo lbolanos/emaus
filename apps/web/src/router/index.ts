@@ -299,7 +299,7 @@ const router = createRouter({
 					meta: { requiresRetreat: true, requiresPermission: 'participant:health' },
 				},
 				{
-					// Bandeja WhatsApp de solo lectura (specs/whatsapp-inbox).
+					// Read-only WhatsApp inbox (specs/whatsapp-inbox).
 					path: 'wa-inbox',
 					name: 'wa-inbox',
 					component: WaInboxView,

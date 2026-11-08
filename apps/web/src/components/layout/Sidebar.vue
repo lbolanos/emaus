@@ -624,9 +624,9 @@ const ITEM_BADGE: Record<string, { color: string; count: () => number | null }> 
   canceled:     { color: 'bg-red-500',    count: () => participantCounts.value.canceled  || null },
   reception:    { color: 'bg-amber-500',  count: () => receptionStore.pendingCount       || null },
   'special-cases': { color: 'bg-amber-500', count: () => participantCounts.value.specialCases || null },
-  // Bandeja WhatsApp (specs/whatsapp-inbox v1.1): no leídos del usuario. El
-  // store refresca al cambiar de retiro y con el socket de la vista; el poll
-  // de abajo cubre cuando la vista está cerrada.
+  // WhatsApp inbox (specs/whatsapp-inbox v1.1): the user's unread. The store
+  // refreshes on retreat change and through the view's socket; the poll below
+  // covers the closed view.
   'wa-inbox': { color: 'bg-emerald-500', count: () => waInboxStore.totalUnread || null },
   // Cartas de familias: pendientes de revisión (specs/letters-email).
   letters:      { color: 'bg-purple-600', count: () => letterStore.pendingCount          || null },
@@ -639,9 +639,9 @@ function itemBadgeColor(name: string): string {
   return ITEM_BADGE[name]?.color ?? 'bg-gray-500';
 }
 
-// Badge de la bandeja WhatsApp (v1.1): refresco al cambiar de retiro y cada
-// 60 s — la vista abierta además refresca al instante por socket. El API
-// responde 403 sin el permiso y el store lo traga (el badge queda como esté).
+// WhatsApp inbox badge (v1.1): refresh on retreat change and every 60 s — the
+// open view also refreshes instantly over the socket. The API answers 403
+// without the permission and the store swallows it (the badge stays as is).
 const refreshWaBadge = () => {
   const id = retreatStore.selectedRetreatId;
   if (id) void waInboxStore.refreshBadge(id);
@@ -1090,7 +1090,7 @@ const menuSections: MenuSection[] = [
         label: 'sidebar.palancas'
       },
       {
-        // Bandeja WhatsApp de solo lectura (specs/whatsapp-inbox)
+        // Read-only WhatsApp inbox (specs/whatsapp-inbox)
         name: 'wa-inbox',
         routeName: 'wa-inbox',
         icon: MessageCircle,

@@ -1,9 +1,9 @@
 /**
- * Tests del filtro de ingesta del puente WhatsApp (specs/whatsapp-inbox D4).
+ * Tests of the WhatsApp bridge ingestion filter (specs/whatsapp-inbox D4).
  *
- * Whitelist: solo chats 1:1 cuyo JID matchea dígitos aceptados del retiro.
- * Grupos (@g.us), JIDs @lid y desconocidos NUNCA pasan. Los fixtures son
- * teléfonos inventados con formato realista MX.
+ * Whitelist: only 1:1 chats whose JID matches the retreat's accepted digits.
+ * Groups (@g.us), @lid JIDs and unknown chats NEVER pass. Fixtures are made-up
+ * phones in a realistic MX format.
  */
 import {
 	filterWhitelistedChats,
@@ -13,16 +13,16 @@ import {
 import { acceptedJidDigitVariants } from '@/services/waBridge/waBridgeService';
 
 const ACCEPTED = new Set([
-	...acceptedJidDigitVariants('5512345678', 'MX'), // 52… y 521…
+	...acceptedJidDigitVariants('5512345678', 'MX'), // 52… and 521…
 	...acceptedJidDigitVariants('5551234567', 'US'), // 1…
 ]);
 
 describe('jidToDigits', () => {
-	it('extrae dígitos de JIDs 1:1', () => {
+	it('extracts digits from 1:1 JIDs', () => {
 		expect(jidToDigits('5215512345678@s.whatsapp.net')).toBe('5215512345678');
 	});
 
-	it('rechaza grupos, @lid y formas raras', () => {
+	it('rejects groups, @lid and odd shapes', () => {
 		expect(jidToDigits('12029998877@g.us')).toBeNull();
 		expect(jidToDigits('abc@lid')).toBeNull();
 		expect(jidToDigits('con-arnes@s.whatsapp.net')).toBeNull();
@@ -32,22 +32,22 @@ describe('jidToDigits', () => {
 });
 
 describe('filterWhitelistedChats', () => {
-	it('conserva el chat de un caminante (variante 521 de MX)', () => {
+	it("keeps a walker's chat (MX 521 variant)", () => {
 		const chats = [{ jid: '5215512345678@s.whatsapp.net', name: 'Caminante A' }];
 		expect(filterWhitelistedChats(chats, ACCEPTED)).toEqual(chats);
 	});
 
-	it('conserva la variante 52 sin prefijo 1 (fijo MX)', () => {
+	it('keeps the 52 variant without the extra 1 (MX landline)', () => {
 		const chats = [{ jid: '525512345678@s.whatsapp.net' }];
 		expect(filterWhitelistedChats(chats, ACCEPTED)).toEqual(chats);
 	});
 
-	it('conserva un caminante internacional (US)', () => {
+	it('keeps an international walker (US)', () => {
 		const chats = [{ jid: '15551234567@s.whatsapp.net' }];
 		expect(filterWhitelistedChats(chats, ACCEPTED)).toEqual(chats);
 	});
 
-	it('rechaza grupos y JIDs no humanos', () => {
+	it('rejects groups and non-human JIDs', () => {
 		const chats = [
 			{ jid: '99999@g.us' },
 			{ jid: 'abc@lid' },
@@ -56,13 +56,13 @@ describe('filterWhitelistedChats', () => {
 		expect(filterWhitelistedChats(chats, ACCEPTED)).toEqual([]);
 	});
 
-	it('rechaza un número que NO es caminante del retiro', () => {
+	it('rejects a number that is NOT a walker of the retreat', () => {
 		const chats = [{ jid: '5215599998888@s.whatsapp.net' }];
 		expect(filterWhitelistedChats(chats, ACCEPTED)).toEqual([]);
 	});
 
-	it('acepta por dígitos exactos, no por sufijo suelto', () => {
-		// Un número distinto que TERMINA igual no matchea (el índice es exacto).
+	it('accepts exact digits, not a loose suffix', () => {
+		// A different number that ENDS the same does not match (the index is exact).
 		const chats = [{ jid: '521815512345678@s.whatsapp.net' }];
 		expect(filterWhitelistedChats(chats, ACCEPTED)).toEqual([]);
 	});
@@ -72,7 +72,7 @@ describe('normalizeWacliMessage', () => {
 	const chatJid = '5215512345678@s.whatsapp.net';
 	const chatPhone = '5215512345678';
 
-	it('normaliza la forma REAL PascalCase del store v0.21.0 (verificado en QA)', () => {
+	it('normalizes the REAL PascalCase shape of the v0.21.0 store (verified in QA)', () => {
 		const row = normalizeWacliMessage(
 			{
 				ChatJID: chatJid,
@@ -103,7 +103,7 @@ describe('normalizeWacliMessage', () => {
 		});
 	});
 
-	it('normaliza también la forma camelCase (por si wacli cambia)', () => {
+	it('also normalizes the camelCase shape (in case wacli changes)', () => {
 		const row = normalizeWacliMessage(
 			{ id: 'MSG-1', timestamp: '2026-11-05T15:30:00Z', fromMe: false, body: 'A qué hora llego?' },
 			chatJid,
@@ -122,7 +122,7 @@ describe('normalizeWacliMessage', () => {
 		});
 	});
 
-	it('rechaza mensajes sin id o sin timestamp parseable', () => {
+	it('rejects messages without an id or a parseable timestamp', () => {
 		expect(normalizeWacliMessage({ id: '', timestamp: '2026-11-05T15:30:00Z' }, chatJid, chatPhone)).toBeNull();
 		expect(normalizeWacliMessage({ id: 'MSG-2', timestamp: 'no-es-fecha' }, chatJid, chatPhone)).toBeNull();
 		expect(normalizeWacliMessage({ id: 'MSG-3' }, chatJid, chatPhone)).toBeNull();
@@ -187,7 +187,7 @@ describe('normalizeWacliMessage', () => {
 		});
 	});
 
-	it('multimedia: cuerpo null, tipo conservado (D9: nunca se descarga media)', () => {
+	it('media: null body, type kept (media is downloaded on demand, never stored)', () => {
 		const row = normalizeWacliMessage(
 			{ id: 'MSG-5', timestamp: 1730820600000, body: null, messageType: 'image' },
 			chatJid,

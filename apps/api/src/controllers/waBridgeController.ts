@@ -14,19 +14,20 @@ import { RetreatParticipant } from '../entities/retreatParticipant.entity';
 import { emitInboxChanged } from '../realtime';
 import { createLetterFromWhatsapp, WaLetterError } from '../services/waBridge/waLetterService';
 
-/** El passport monta la entidad User en req.user, pero Express la tipa genérica. */
+/** Passport mounts the User entity on req.user, but Express types it generically. */
 function currentUser(req: Request): User {
 	return req.user as unknown as User;
 }
 
 /**
- * Endpoints del puente WhatsApp de solo lectura (specs/whatsapp-inbox §2).
+ * Endpoints of the read-only WhatsApp bridge (specs/whatsapp-inbox §2).
  *
- * Reglas de autorización:
- *  - Todas las rutas: isAuthenticated (en el router) + permiso específico
- *    (whatsappInbox:read|manage) + acceso al retiro (requireRetreatAccess).
- *  - QR y linkedPhone: SOLO el dueño del vínculo (o superadmin) — S5/S12.
- *  - Ningún endpoint devuelve el linkedPhone de un tercer staff.
+ * Authorization rules:
+ *  - Every route: isAuthenticated (in the router) + a specific permission
+ *    (whatsappInbox:read|manage) + retreat access (requireRetreatAccess, or
+ *    ensureRetreatAccess inside for routes keyed by message/link id).
+ *  - QR and linkedPhone: ONLY the link owner (or superadmin) — S5/S12.
+ *  - No endpoint returns another staff member's linkedPhone.
  */
 
 const ONE_TO_ONE_JID = /^\d+@s\.whatsapp\.net$/;
@@ -75,7 +76,7 @@ export class WaBridgeController {
 		return link.userId === userId || authorizationService.hasRole(userId, 'superadmin');
 	}
 
-	/** POST /retreat/:retreatId/link — inicia la vinculación (requiere consentimiento). */
+	/** POST /retreat/:retreatId/link — starts linking (requires consent). */
 	startLink = async (req: Request, res: Response): Promise<Response> => {
 		const user = currentUser(req);
 		if (req.body?.consentAccepted !== true) {
@@ -94,17 +95,17 @@ export class WaBridgeController {
 				message: REFUSAL_MESSAGE[result.reason],
 			});
 		}
-		// El que vincula es el dueño: el DTO lleva su teléfono.
+		// Whoever links is the owner: the DTO carries their phone.
 		return res.status(201).json({ link: toLinkDto(result.link, true) });
 	}
 
-	/** GET /retreat/:retreatId/links — tablero de vínculos del retiro. */
+	/** GET /retreat/:retreatId/links — the retreat's link board. */
 	listLinks = async (req: Request, res: Response): Promise<Response> => {
 		const userId = currentUser(req).id;
 		const superadmin = await authorizationService.hasRole(userId, 'superadmin');
 		const links = await waBridgeService.listLinksForRetreat(req.params.retreatId);
-		// Estado de activación del retiro (D13): el switch del superadmin se
-		// pinta con este dato.
+		// Retreat activation state (D13): the superadmin switch is drawn from
+		// this value.
 		const retreat = await AppDataSource.getRepository(Retreat).findOneBy({
 			id: req.params.retreatId,
 		});
@@ -116,7 +117,7 @@ export class WaBridgeController {
 		});
 	}
 
-	/** GET /link/:linkId/status — estado + QR (solo dueño o superadmin). */
+	/** GET /link/:linkId/status — status + QR (owner or superadmin only). */
 	linkStatus = async (req: Request, res: Response): Promise<Response> => {
 		const userId = currentUser(req).id;
 		const link = await waBridgeService.getLinkById(req.params.linkId);
@@ -136,7 +137,7 @@ export class WaBridgeController {
 		});
 	}
 
-	/** DELETE /link/:linkId — desvinculación total (dueño o superadmin). */
+	/** DELETE /link/:linkId — full unlink (owner or superadmin). */
 	unlink = async (req: Request, res: Response): Promise<Response> => {
 		const link = await waBridgeService.getLinkById(req.params.linkId);
 		if (!link) {
@@ -237,7 +238,7 @@ export class WaBridgeController {
 		});
 	};
 
-	/** POST /retreat/:retreatId/seen — marca leído hasta el último mensaje (D11). */
+	/** POST /retreat/:retreatId/seen — marks read up to the last message (D11). */
 	markSeen = async (req: Request, res: Response): Promise<Response> => {
 		const retreatId = req.params.retreatId;
 		const userId = currentUser(req).id;
@@ -246,7 +247,7 @@ export class WaBridgeController {
 			return res.status(400).json({ message: 'chatJid debe ser un JID 1:1 válido' });
 		}
 
-		// El timestamp lo decide el servidor (el cliente no manda horas).
+		// The server decides the timestamp (the client sends no times).
 		const newest = await AppDataSource.getRepository(WhatsappInboxMessage).findOne({
 			where: { retreatId, chatJid },
 			order: { timestamp: 'DESC' },
@@ -273,9 +274,9 @@ export class WaBridgeController {
 	}
 
 	/**
-	 * PATCH /retreat/:retreatId/enabled — activación por retiro (D13, v1.1).
-	 * SOLO superadmin: el puente consume RAM por cada cuenta vinculada; decidir
-	 * en qué retiro se enciende no es un permiso de plantilla.
+	 * PATCH /retreat/:retreatId/enabled — per-retreat activation (D13, v1.1).
+	 * Superadmin ONLY: the bridge costs RAM per linked account; deciding which
+	 * retreat turns it on is not a role-template permission.
 	 */
 	setEnabled = async (req: Request, res: Response): Promise<Response> => {
 		const user = currentUser(req);
@@ -293,9 +294,9 @@ export class WaBridgeController {
 	};
 
 	/**
-	 * POST /retreat/:retreatId/terminate-all — termina TODOS los servidores del
-	 * puente del retiro (D14, superadmin): stop + logout + wipe + purga de
-	 * vínculos; opcionalmente desactiva el retiro (default true).
+	 * POST /retreat/:retreatId/terminate-all — terminates EVERY bridge session
+	 * of the retreat (D14, superadmin): stop + logout + wipe + purge of the
+	 * links; optionally disables the retreat (default true).
 	 */
 	terminateAll = async (req: Request, res: Response): Promise<Response> => {
 		const user = currentUser(req);
@@ -310,18 +311,8 @@ export class WaBridgeController {
 	};
 
 	/**
-	 * POST /messages/:messageId/receipt — comprobante de pago desde WhatsApp
-	 * (FR14/D15, v1.1): descarga ON-DEMAND la imagen del mensaje (tope 10 MB,
-	 * procesada a WebP por el imageService) y la devuelve como data-URL junto
-	 * al participante matcheado, lista para `receiptPhoto` del modal de pagos.
-	 *
-	 * Doble puerta: whatsappInbox:read (ruta) + payment:create (aquí) — la
-	 * imagen sale de la bandeja con destino de comprobante. No se persiste
-	 * nada en esta llamada: la persistencia es la del propio pago.
-	 */
-	/**
-	 * GET /retreat/:retreatId/unread — total de no leídos DEL usuario (badge del
-	 * sidebar, v1.1). Endpoint liviano: cuenta con los read-states del caller.
+	 * GET /retreat/:retreatId/unread — the user's total unread (sidebar badge,
+	 * v1.1). Lightweight: counts against the caller's read states.
 	 */
 	unreadCount = async (req: Request, res: Response): Promise<Response> => {
 		const total = await waBridgeService.countUnreadForUser(
@@ -332,9 +323,9 @@ export class WaBridgeController {
 	};
 
 	/**
-	 * POST /retreat/:retreatId/seen-all — marca TODOS los chats como leídos
-	 * para el usuario (v1.1): upsert de read-state al último mensaje de cada
-	 * chat. Es estado de UI por usuario, no audita.
+	 * POST /retreat/:retreatId/seen-all — marks EVERY chat as read for the
+	 * user (v1.1): read-state upsert at each chat's last message. Per-user UI
+	 * state, not audited.
 	 */
 	seenAll = async (req: Request, res: Response): Promise<Response> => {
 		const retreatId = req.params.retreatId;
@@ -373,8 +364,8 @@ export class WaBridgeController {
 	};
 
 	/**
-	 * GET /retreat/:retreatId/search?q= — búsqueda de texto sobre los cuerpos
-	 * persistidos (v1.1). Límite 30, más recientes primero.
+	 * GET /retreat/:retreatId/search?q= — text search over stored bodies
+	 * (v1.1). Limit 30, newest first.
 	 */
 	search = async (req: Request, res: Response): Promise<Response> => {
 		const q = String(req.query.q ?? '').trim();
@@ -382,8 +373,8 @@ export class WaBridgeController {
 			return res.json({ results: [] });
 		}
 		const results = await waBridgeService.searchMessages(req.params.retreatId, q.slice(0, 100));
-		// Nombre del caminante en cada resultado (la búsqueda también matchea
-		// por nombre — v1.1).
+		// The walker's name on each result (search also matches by name —
+		// v1.1).
 		const digitsMap = await waBridgeService.getWalkerDigitsMap(req.params.retreatId);
 		return res.json({
 			results: results.map((row) => {
@@ -397,6 +388,13 @@ export class WaBridgeController {
 		});
 	};
 
+	/**
+	 * POST /messages/:messageId/receipt — payment receipt from WhatsApp
+	 * (FR14/D15, v1.1): the message's large image as a data-URL plus the
+	 * matched walker, ready for the payment modal's `receiptPhoto`. Double
+	 * gate: whatsappInbox:read (route) + payment:create (here). Nothing is
+	 * stored by this call — the payment itself persists the receipt.
+	 */
 	receiptDataUrl = async (req: Request, res: Response): Promise<Response> => {
 		const user = currentUser(req);
 		const canCreatePayment = await authorizationService.hasPermission(
@@ -420,8 +418,8 @@ export class WaBridgeController {
 			return res.status(400).json({ message: 'Este mensaje no tiene imagen adjunta.' });
 		}
 
-		// Mensajes huérfanos: su link fue desvinculado/purgado — la imagen ya no
-		// existe en ningún store (era temporal, D9).
+		// Orphan messages: their link was unlinked/purged — the image no longer
+		// exists in any store (it was temporary, D9).
 		const link = await waBridgeService.getLinkById(message.linkId);
 		if (!link) {
 			return res.status(410).json({
@@ -451,9 +449,9 @@ export class WaBridgeController {
 	};
 
 	/**
-	 * Thumbnails de un hilo (v1.2): descarga en LOTE de varias imágenes con un
-	 * solo ciclo de stop/restart del sync por link — pedir una por una paraba y
-	 * levantaba WhatsApp por cada foto (minutos por hilo). Body: {messageIds}.
+	 * POST /retreat/:retreatId/media — thumbnails of a thread (v1.2): one batch
+	 * for many images (cached server side) instead of one request per photo.
+	 * Body: {messageIds} (max 30).
 	 */
 	threadMedia = async (req: Request, res: Response): Promise<Response> => {
 		const messageIds: unknown = (req.body ?? {}).messageIds;
@@ -495,9 +493,9 @@ export class WaBridgeController {
 				});
 			} catch (err) {
 				const status = err instanceof WacliError ? 502 : 500;
-				// El detalle crudo de wacli (stderrTail) va al log y al mensaje:
-				// sin él, un fallo de descarga es indistinguible en el server.
-				console.error('[waBridge][media] fallo de descarga:', (err as Error).message);
+				// The raw wacli detail (stderrTail) goes to the log only: it holds
+				// internal paths and pids, so it never reaches the client.
+				console.error('[waBridge][media] download failed:', (err as Error).message);
 				const tail = (err as WacliError).stderrTail;
 				if (tail) console.error('[waBridge][media] stderr:', tail.slice(-300));
 				return res.status(status).json({

@@ -2,15 +2,15 @@ import { spawn } from 'child_process';
 import { config } from '../../config';
 
 /**
- * Ejecutor del binario wacli para el puente de lectura (specs/whatsapp-inbox).
+ * Runner of the wacli binary for the read-only bridge (specs/whatsapp-inbox).
  *
- * Disciplina heredada del wrapper auditado de whatsapp-mcp:
- *  - argv-array SIEMPRE, jamás shell (los stores y JIDs van como argumentos).
- *  - Lecturas one-shot con `--read-only --json`: el envelope JSON trae `data`
- *    en stdout y el error en un envelope propio o en stderr.
- *  - Timeout duro con SIGKILL: un store bloqueado no puede colgar al API.
- *  - `send` NO EXISTE en este módulo — read-only estructural (spec D1). El
- *    único comando escritor permitido es `auth logout` (desvinculación).
+ * Discipline inherited from the audited whatsapp-mcp wrapper:
+ *  - ALWAYS an argv array, never a shell (stores and JIDs go as arguments).
+ *  - One-shot reads with `--read-only --json`: the JSON envelope carries
+ *    `data` on stdout and the error in its own envelope or on stderr.
+ *  - Hard timeout with SIGKILL: a locked store cannot hang the API.
+ *  - `send` DOES NOT EXIST in this module — structurally read-only (spec D1).
+ *    The only writing command allowed is `auth logout` (unlink).
  */
 
 export class WacliError extends Error {
@@ -23,7 +23,7 @@ export class WacliError extends Error {
 	}
 }
 
-/** Chat del store (forma defensiva: wacli puede añadir campos). */
+/** Store chat (defensive shape: wacli may add fields). */
 export interface WacliChat {
 	jid: string;
 	name?: string | null;
@@ -32,7 +32,7 @@ export interface WacliChat {
 	[key: string]: unknown;
 }
 
-/** Mensaje del store (forma defensiva). */
+/** Store message (defensive shape). */
 export interface WacliMessage {
 	id: string;
 	chatJid?: string | null;
@@ -44,7 +44,7 @@ export interface WacliMessage {
 	[key: string]: unknown;
 }
 
-/** Resultado de `auth status`. */
+/** Result of `auth status`. */
 export interface WacliAuthStatus {
 	authenticated: boolean;
 	phone?: string | null;
@@ -53,8 +53,8 @@ export interface WacliAuthStatus {
 }
 
 /**
- * Env del hijo: solo lo esencial. El store del usuario no debe poder leer
- * archivos del proceso API por herencia de descriptores — PATH y HOME basta.
+ * Child env: essentials only. The user's store must not be able to read the
+ * API process' files through inherited descriptors — PATH and HOME suffice.
  */
 function childEnv(): NodeJS.ProcessEnv {
 	return {
@@ -116,20 +116,20 @@ function runWacli(
 	});
 }
 
-/** Envelope JSON de wacli: `data` en éxito, `error` en fallo. */
+/** wacli JSON envelope: `data` on success, `error` on failure. */
 interface WacliEnvelope {
 	data?: unknown;
 	error?: unknown;
 	ok?: unknown;
 }
 
-/** Extrae `data` del envelope JSON; lanza WacliError si el envelope trae error. */
+/** Extracts `data` from the JSON envelope; throws WacliError on an error envelope. */
 function parseEnvelope(stdout: string, stderr: string, code: number | null): unknown {
 	let envelope: WacliEnvelope | null = null;
 	try {
 		envelope = JSON.parse(stdout) as WacliEnvelope;
 	} catch {
-		// Sin JSON parseable: cae al chequeo de exit code abajo.
+		// No parseable JSON: falls through to the exit-code check below.
 	}
 	if (envelope && envelope.error) {
 		const detail = typeof envelope.error === 'string' ? envelope.error : JSON.stringify(envelope.error);
@@ -144,11 +144,11 @@ function parseEnvelope(stdout: string, stderr: string, code: number | null): unk
 			(stderr || stdout).slice(-500) || undefined,
 		);
 	}
-	// exit 0 sin envelope: wacli respondió vacío (p. ej. lista sin filas).
+	// exit 0 without an envelope: wacli answered empty (e.g. a list with no rows).
 	return envelope ?? null;
 }
 
-/** Lectura one-shot read-only: [bin, --store DIR, --read-only, --json, ...args]. */
+/** Read-only one-shot: [bin, --store DIR, --read-only, --json, ...args]. */
 export async function wacliRead<T = unknown>(
 	storeDir: string,
 	args: string[],
@@ -161,7 +161,7 @@ export async function wacliRead<T = unknown>(
 	return parseEnvelope(stdout, stderr, code) as T;
 }
 
-/** `auth logout`: único comando escritor permitido (requiere supervisor parado). */
+/** `auth logout`: the only writing command allowed (needs the supervisor stopped). */
 export async function wacliLogout(storeDir: string): Promise<void> {
 	const { stdout, stderr, code } = await runWacli(['--store', storeDir, '--json', 'auth', 'logout'], {
 		timeoutSeconds: Math.max(config.waBridge.commandTimeoutSeconds, 30),
@@ -215,11 +215,11 @@ export async function authStatus(storeDir: string): Promise<WacliAuthStatus> {
 }
 
 /**
- * Descarga la media de un mensaje a `outputPath` (FR14, v1.1: comprobantes).
+ * Downloads a message's media to `outputPath` (FR14 receipts, v1.3 documents
+ * and voice notes).
  *
- * NO lleva `--read-only`: escribe el archivo (y toca el store). El hijo sync
- * sostiene el lock del store — el servicio debe detener al supervisor antes
- * de llamar y re-arrancarlo después (ver waBridgeService.downloadReceiptDataUrl).
+ * `--read-only` with `--output` takes no store lock: it runs next to the live
+ * sync (v1.2), with no stop/restart of the supervisor.
  */
 export async function mediaDownload(
 	storeDir: string,
@@ -235,8 +235,8 @@ export async function mediaDownload(
 			'--json',
 			'media',
 			'download',
-			// read-only NO toma el lock del store (v1.2): la descarga corre
-			// mientras el sync vive — sin el ciclo stop/restart por imagen.
+			// read-only takes NO store lock (v1.2): the download runs while the
+			// sync is alive — no stop/restart cycle per image.
 			'--read-only',
 			'--chat',
 			chatJid,

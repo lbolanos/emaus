@@ -12,12 +12,12 @@ import { User } from './user.entity';
 import { Retreat } from './retreat.entity';
 
 /**
- * Vínculo de solo lectura entre la cuenta de WhatsApp de un miembro del staff y
- * un retiro (specs/whatsapp-inbox). Una fila por escaneo de QR: el store local
- * de wacli vive en `storePath`, fuera del repo y del web root.
+ * Read-only link between a staff member's WhatsApp account and a retreat
+ * (specs/whatsapp-inbox). One row per QR scan: wacli's local store lives in
+ * `storePath`, outside the repo and the web root.
  *
- * `linkedPhone` nunca sale del API hacia usuarios que no sean el dueño — el
- * controller la recorta del payload de terceros.
+ * `linkedPhone` never leaves the API towards anyone but the owner — the
+ * controller strips it from third-party payloads.
  */
 @Entity('whatsapp_bridge_link')
 @Index('IDX_wa_bridge_link_retreat_status', ['retreatId', 'status'])
@@ -33,7 +33,7 @@ export class WhatsappBridgeLink {
 	@Column({ type: 'varchar' })
 	userId!: string;
 
-	/** Ciclo de vida del vínculo: pending→qr→connected; error|logged_out|expired. */
+	/** Link lifecycle: pending→qr→connected; error|logged_out|expired. */
 	@Column({
 		type: 'varchar',
 		default: 'pending',
@@ -41,15 +41,15 @@ export class WhatsappBridgeLink {
 	})
 	status!: string;
 
-	/** JID de la cuenta del staff (display); lo fija el evento `connected`. */
+	/** JID of the staff account (display); set by the `connected` event. */
 	@Column({ type: 'varchar', nullable: true })
 	linkedJid?: string | null;
 
-	/** Teléfono nacional del staff (display); solo visible para su dueño. */
+	/** Staff member's national phone (display); visible to its owner only. */
 	@Column({ type: 'varchar', nullable: true })
 	linkedPhone?: string | null;
 
-	/** Directorio del store wacli, p. ej. /var/lib/emaus-wa-bridge/<id> (0700). */
+	/** wacli store directory, e.g. /var/lib/emaus-wa-bridge/<id> (0700). */
 	@Column({ type: 'varchar' })
 	storePath!: string;
 

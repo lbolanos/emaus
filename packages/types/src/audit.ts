@@ -233,17 +233,17 @@ export const DomainAuditAction = {
 	RETREAT_PREPARATION_DOCUMENT_CREATE: 'retreat_preparation_document.create',
 	RETREAT_PREPARATION_DOCUMENT_UPDATE: 'retreat_preparation_document.update',
 	RETREAT_PREPARATION_DOCUMENT_DELETE: 'retreat_preparation_document.delete',
-	// Puente WhatsApp de solo lectura del retiro (specs/whatsapp-inbox). Cada
-	// transición del vínculo deja evento; los errores de sync van rate-limited
-	// desde el servicio. metadata lleva estado/contadores — NUNCA el contenido
-	// de los mensajes ni el número vinculado de un staff ajeno.
+	// The retreat's read-only WhatsApp bridge (specs/whatsapp-inbox). Every
+	// link transition leaves an event; sync errors are rate-limited by the
+	// service. metadata carries state/counters — NEVER message content or
+	// another staff member's linked number.
 	WA_BRIDGE_LINK_START: 'wa_bridge.link_start',
 	WA_BRIDGE_LINKED: 'wa_bridge.linked',
 	WA_BRIDGE_UNLINKED: 'wa_bridge.unlinked',
 	WA_BRIDGE_PURGED: 'wa_bridge.purged',
 	WA_BRIDGE_SYNC_ERROR: 'wa_bridge.sync_error',
 	WA_BRIDGE_WINDOW_DENIED: 'wa_bridge.window_denied',
-	// Activación por retiro (v1.1 D13): solo el superadmin la mueve.
+	// Per-retreat activation (v1.1 D13): only the superadmin changes it.
 	WA_BRIDGE_RETREAT_ENABLED: 'wa_bridge.retreat_enabled',
 	WA_BRIDGE_RETREAT_DISABLED: 'wa_bridge.retreat_disabled',
 	// Cartas de familias (specs/letters-email). El inbox_view registra lectura

@@ -1,10 +1,10 @@
 /**
- * Test de CreateWhatsappBridge20261107120000 (specs/whatsapp-inbox, M1).
+ * Test of CreateWhatsappBridge20261107120000 (specs/whatsapp-inbox, M1).
  *
- * DataSource :memory: con las tablas mínimas de permisos (molde de
- * addParticipantIdentityUpdatePermission). Las tres tablas del puente las
- * crea la propia migración, así que el test valida el DDL real: columnas,
- * índices únicos, FKs, CHECK de status, seeds de permisos y round-trip.
+ * :memory: DataSource with the minimal permission tables (pattern of
+ * addParticipantIdentityUpdatePermission). The migration itself creates the
+ * three bridge tables, so the test validates the real DDL: columns, unique
+ * indexes, FKs, the status CHECK, permission seeds and the round trip.
  */
 import { DataSource } from 'typeorm';
 import { CreateWhatsappBridge20261107120000 } from '@/migrations/sqlite/20261107120000_CreateWhatsappBridge';
@@ -68,8 +68,8 @@ describe('CreateWhatsappBridge20261107120000', () => {
 			synchronize: false,
 		});
 		await ds.initialize();
-		// Tablas mínimas de permisos, igual al schema real (molde del test de
-		// participant:identity:update).
+		// Minimal permission tables, same as the real schema (pattern of the
+		// participant:identity:update test).
 		await ds.query(`
 			CREATE TABLE "permissions" (
 				"id" INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -111,8 +111,8 @@ describe('CreateWhatsappBridge20261107120000', () => {
 		await ds.query(
 			`INSERT INTO "role_permissions" ("roleId", "permissionId") VALUES (4, 1)`,
 		);
-		// Stubs de las tablas padre: TypeORM activa PRAGMA foreign_keys=ON en
-		// sqlite, así que los inserts de link necesitan retreat y users reales.
+		// Parent table stubs: TypeORM turns PRAGMA foreign_keys=ON in sqlite, so
+		// link inserts need real retreat and users rows.
 		await ds.query(`CREATE TABLE "retreat" ("id" VARCHAR PRIMARY KEY)`);
 		await ds.query(`CREATE TABLE "users" ("id" VARCHAR PRIMARY KEY)`);
 		await ds.query(
@@ -127,7 +127,7 @@ describe('CreateWhatsappBridge20261107120000', () => {
 		await ds.destroy();
 	});
 
-	it('up() crea las 3 tablas con sus columnas', async () => {
+	it('up() creates the 3 tables with their columns', async () => {
 		await migration.up(ds.createQueryRunner());
 
 		expect(await waTables()).toEqual(WA_TABLES);
@@ -175,7 +175,7 @@ describe('CreateWhatsappBridge20261107120000', () => {
 		}
 	});
 
-	it('los índices únicos del contrato están (uno por staff/retiro, dedupe, read-state)', async () => {
+	it('the contract unique indexes exist (one per staff/retreat, dedupe, read state)', async () => {
 		await migration.up(ds.createQueryRunner());
 
 		const linkIdx = await uniqueIndexes('whatsapp_bridge_link');
@@ -190,7 +190,7 @@ describe('CreateWhatsappBridge20261107120000', () => {
 		]);
 	});
 
-	it('las FKs apuntan a las tablas correctas con CASCADE', async () => {
+	it('the FKs point to the right tables with CASCADE', async () => {
 		await migration.up(ds.createQueryRunner());
 
 		expect(await foreignKeys('whatsapp_bridge_link')).toEqual(
@@ -202,7 +202,7 @@ describe('CreateWhatsappBridge20261107120000', () => {
 		expect(await foreignKeys('whatsapp_inbox_read_state')).toEqual(['users']);
 	});
 
-	it('el CHECK de status rechaza estados desconocidos y las FKs se enforcean', async () => {
+	it('the status CHECK rejects unknown states and FKs are enforced', async () => {
 		await migration.up(ds.createQueryRunner());
 
 		await expect(
@@ -212,7 +212,7 @@ describe('CreateWhatsappBridge20261107120000', () => {
 				 VALUES ('l1', 'r1', 'u1', 'bogus', '/tmp/x')`,
 			),
 		).rejects.toThrow();
-		// FK: un retreatId inexistente no inserta (TypeORM prende foreign_keys=ON).
+		// FK: a missing retreatId does not insert (TypeORM turns foreign_keys=ON).
 		await expect(
 			ds.query(
 				`INSERT INTO "whatsapp_bridge_link"
@@ -229,7 +229,7 @@ describe('CreateWhatsappBridge20261107120000', () => {
 		).resolves.toBeDefined();
 	});
 
-	it('crea whatsappInbox:read y whatsappInbox:manage para exactamente 4 roles', async () => {
+	it('creates whatsappInbox:read and whatsappInbox:manage for exactly 4 roles', async () => {
 		await migration.up(ds.createQueryRunner());
 
 		await expect(rolesWithPermission('read')).resolves.toEqual(WA_ROLES);
@@ -243,7 +243,7 @@ describe('CreateWhatsappBridge20261107120000', () => {
 		]);
 	});
 
-	it('es idempotente: up() dos veces no duplica nada', async () => {
+	it('is idempotent: up() twice duplicates nothing', async () => {
 		await migration.up(ds.createQueryRunner());
 		await migration.up(ds.createQueryRunner());
 
@@ -255,7 +255,7 @@ describe('CreateWhatsappBridge20261107120000', () => {
 		expect(await waTables()).toEqual(WA_TABLES);
 	});
 
-	it('down() borra tablas y permisos propios sin tocar los ajenos', async () => {
+	it('down() drops its own tables and permissions without touching others', async () => {
 		await migration.up(ds.createQueryRunner());
 		await migration.down(ds.createQueryRunner());
 
@@ -264,7 +264,7 @@ describe('CreateWhatsappBridge20261107120000', () => {
 			`SELECT COUNT(*) AS c FROM "permissions" WHERE "resource" = 'whatsappInbox'`,
 		);
 		expect(permCount[0].c).toBe(0);
-		// participant:health de admin sobrevive.
+		// admin's participant:health survives.
 		const health = await ds.query(`
 			SELECT COUNT(*) AS c FROM "role_permissions" rp
 			JOIN "permissions" p ON p."id" = rp."permissionId"
@@ -273,7 +273,7 @@ describe('CreateWhatsappBridge20261107120000', () => {
 		expect(health[0].c).toBe(1);
 	});
 
-	it('tolera roles ausentes sin reventar (bases sembradas a medias)', async () => {
+	it('tolerates missing roles without blowing up (half-seeded databases)', async () => {
 		await ds.query(`DELETE FROM "roles" WHERE "name" IN ('logistics', 'communications')`);
 
 		await expect(migration.up(ds.createQueryRunner())).resolves.toBeUndefined();

@@ -1,12 +1,11 @@
 /**
- * Contrato HTTP del controller del puente WhatsApp (specs/whatsapp-inbox, M3).
+ * HTTP contract of the WhatsApp bridge controller (specs/whatsapp-inbox, M3).
  *
- * Los guards de permiso/retiro viven en la ruta (requirePermission +
- * requireRetreatAccess, moldes ya probados) — aquí se prueban las reglas del
- * controller: consentimiento server-side, mapeo de rechazos a códigos HTTP,
- * QR y linkedPhone solo al dueño (S5/S12) y validaciones de entrada.
- * Las ramas que tocan DB (conversations/messages/seen) se ejercitan en el QA
- * manual de M5.
+ * Permission/retreat guards live in the route (requirePermission +
+ * requireRetreatAccess, already-tested patterns) — this tests the controller's
+ * rules: server-side consent, refusal → HTTP code mapping, QR and linkedPhone
+ * for the owner only (S5/S12) and input validation. The DB branches of v1.2/
+ * v1.3 are covered by waBridgeControllerV13.test.ts (test DB).
  */
 import { WaBridgeController } from '../../controllers/waBridgeController';
 import { waBridgeService } from '../../services/waBridge';
@@ -57,13 +56,13 @@ describe('waBridgeController', () => {
 	});
 
 	describe('startLink', () => {
-		it('400 sin consentAccepted=true — el consentimiento se exige server-side (D7)', async () => {
+		it('400 without consentAccepted=true — consent is required server side (D7)', async () => {
 			const r = res();
 			await controller.startLink(req({ body: {} }), r);
 			expect(r.status).toHaveBeenCalledWith(400);
 		});
 
-		it('503 con el kill switch apagado, sin tocar el servicio', async () => {
+		it('503 with the kill switch off, without touching the service', async () => {
 			config.waBridge.enabled = false;
 			const spy = jest.spyOn(waBridgeService, 'startLink');
 			const r = res();
@@ -75,7 +74,7 @@ describe('waBridgeController', () => {
 			expect(spy).not.toHaveBeenCalled();
 		});
 
-		it('mapea cap_reached a 409 con mensaje claro (D12)', async () => {
+		it('maps cap_reached to 409 with a clear message (D12)', async () => {
 			jest
 				.spyOn(waBridgeService, 'startLink')
 				.mockResolvedValue({ ok: false, reason: 'cap_reached' });
@@ -103,7 +102,7 @@ describe('waBridgeController', () => {
 			expect(r.status).toHaveBeenCalledWith(422);
 		});
 
-		it('201 con el link (con teléfono: el que vincula es el dueño)', async () => {
+		it('201 with the link (phone included: whoever links is the owner)', async () => {
 			jest.spyOn(waBridgeService, 'startLink').mockResolvedValue({ ok: true, link: link() });
 			const r = res();
 
@@ -117,15 +116,15 @@ describe('waBridgeController', () => {
 	});
 
 	describe('listLinks', () => {
-		// listLinks consulta retreat.whatsappInboxEnabled (D13): mockear el repo
-		// del DataSource (el test no inicializa metadata).
+		// listLinks reads retreat.whatsappInboxEnabled (D13): mock the DataSource
+		// repo (the test does not initialize metadata).
 		const mockRetreatRepo = () => {
 			jest
 				.spyOn(AppDataSource, 'getRepository')
 				.mockReturnValue({ findOneBy: jest.fn().mockResolvedValue({ whatsappInboxEnabled: true }) } as any);
 		};
 
-		it('strippea linkedPhone ajeno, conserva el propio (S12)', async () => {
+		it('strips other staff linkedPhone, keeps the own one (S12)', async () => {
 			mockRetreatRepo();
 			jest.spyOn(authorizationService, 'hasRole').mockResolvedValue(false);
 			jest.spyOn(waBridgeService, 'listLinksForRetreat').mockResolvedValue([
@@ -143,7 +142,7 @@ describe('waBridgeController', () => {
 			expect(body.enabled).toBe(true);
 		});
 
-		it('superadmin ve todos los teléfonos', async () => {
+		it('superadmin sees every phone', async () => {
 			mockRetreatRepo();
 			jest.spyOn(authorizationService, 'hasRole').mockResolvedValue(true);
 			jest.spyOn(waBridgeService, 'listLinksForRetreat').mockResolvedValue([
@@ -159,7 +158,7 @@ describe('waBridgeController', () => {
 	});
 
 	describe('linkStatus', () => {
-		it('404 para vínculo inexistente', async () => {
+		it('404 for a missing link', async () => {
 			jest.spyOn(waBridgeService, 'getLinkById').mockResolvedValue(null);
 			const r = res();
 
@@ -168,7 +167,7 @@ describe('waBridgeController', () => {
 			expect(r.status).toHaveBeenCalledWith(404);
 		});
 
-		it('403 al no-dueño sin superadmin, sin exponer ni QR ni teléfono (S5)', async () => {
+		it('403 for a non-owner without superadmin, exposing neither QR nor phone (S5)', async () => {
 			jest.spyOn(waBridgeService, 'getLinkById').mockResolvedValue(link({ userId: 'user-2' }));
 			jest.spyOn(authorizationService, 'hasRole').mockResolvedValue(false);
 			const qrSpy = jest.spyOn(waBridgeService, 'getQr');
@@ -180,7 +179,7 @@ describe('waBridgeController', () => {
 			expect(qrSpy).not.toHaveBeenCalled();
 		});
 
-		it('el dueño recibe status, qr y teléfono', async () => {
+		it('the owner gets status, qr and phone', async () => {
 			jest.spyOn(waBridgeService, 'getLinkById').mockResolvedValue(link());
 			jest.spyOn(waBridgeService, 'getQr').mockReturnValue('waid://QR');
 			const r = res();
@@ -194,7 +193,7 @@ describe('waBridgeController', () => {
 	});
 
 	describe('unlink', () => {
-		it('403 al no-dueño sin superadmin', async () => {
+		it('403 for a non-owner without superadmin', async () => {
 			jest.spyOn(waBridgeService, 'getLinkById').mockResolvedValue(link({ userId: 'user-2' }));
 			jest.spyOn(authorizationService, 'hasRole').mockResolvedValue(false);
 			const spy = jest.spyOn(waBridgeService, 'unlink');
@@ -206,7 +205,7 @@ describe('waBridgeController', () => {
 			expect(spy).not.toHaveBeenCalled();
 		});
 
-		it('desvincula y responde ok para el dueño (FR6)', async () => {
+		it('unlinks and answers ok for the owner (FR6)', async () => {
 			const theLink = link();
 			jest.spyOn(waBridgeService, 'getLinkById').mockResolvedValue(theLink);
 			jest.spyOn(waBridgeService, 'unlink').mockResolvedValue(undefined);
@@ -219,14 +218,14 @@ describe('waBridgeController', () => {
 		});
 	});
 
-	describe('markSeen / messages — validaciones sin DB', () => {
-		it('400 con chatJid que no es 1:1 (grupos fuera)', async () => {
+	describe('markSeen / messages — validation without DB', () => {
+		it('400 with a chatJid that is not 1:1 (groups excluded)', async () => {
 			const r = res();
 			await controller.markSeen(req({ body: { chatJid: '999@g.us' } }), r);
 			expect(r.status).toHaveBeenCalledWith(400);
 		});
 
-		it('400 con before no-fecha en messages', async () => {
+		it('400 with a non-date before in messages', async () => {
 			const r = res();
 			await controller.messages(
 				req({ query: { chatJid: '5215512345678@s.whatsapp.net', before: 'no-es-fecha' } }),
@@ -236,8 +235,8 @@ describe('waBridgeController', () => {
 		});
 	});
 
-	describe('setEnabled / terminateAll — solo superadmin (D13/D14, v1.1)', () => {
-		it('403 al no-superadmin en setEnabled, sin tocar nada', async () => {
+	describe('setEnabled / terminateAll — superadmin only (D13/D14, v1.1)', () => {
+		it('403 for a non-superadmin in setEnabled, touching nothing', async () => {
 			jest.spyOn(authorizationService, 'hasRole').mockResolvedValue(false);
 			const spy = jest.spyOn(waBridgeService, 'setEnabled');
 			const r = res();
@@ -248,7 +247,7 @@ describe('waBridgeController', () => {
 			expect(spy).not.toHaveBeenCalled();
 		});
 
-		it('400 con enabled no-boolean, aunque sea superadmin', async () => {
+		it('400 with a non-boolean enabled, even for a superadmin', async () => {
 			jest.spyOn(authorizationService, 'hasRole').mockResolvedValue(true);
 			const r = res();
 
@@ -257,7 +256,7 @@ describe('waBridgeController', () => {
 			expect(r.status).toHaveBeenCalledWith(400);
 		});
 
-		it('superadmin activa y el servicio recibe el usuario actor', async () => {
+		it('superadmin enables it and the service gets the acting user', async () => {
 			jest.spyOn(authorizationService, 'hasRole').mockResolvedValue(true);
 			const spy = jest
 				.spyOn(waBridgeService, 'setEnabled')
@@ -270,7 +269,7 @@ describe('waBridgeController', () => {
 			expect(r.json).toHaveBeenCalledWith({ ok: true, enabled: true });
 		});
 
-		it('403 al no-superadmin en terminate-all', async () => {
+		it('403 for a non-superadmin in terminate-all', async () => {
 			jest.spyOn(authorizationService, 'hasRole').mockResolvedValue(false);
 			const spy = jest.spyOn(waBridgeService, 'terminateAll');
 			const r = res();

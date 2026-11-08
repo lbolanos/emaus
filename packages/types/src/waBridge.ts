@@ -1,10 +1,10 @@
 /**
- * DTOs del puente de lectura de WhatsApp (specs/whatsapp-inbox).
+ * DTOs of the read-only WhatsApp bridge (specs/whatsapp-inbox).
  *
- * Contratos compartidos API → web. El contenido sensible vive acotado por
- * diseño: `WaLinkDto` nunca expone `linkedPhone` a terceros (solo al dueño lo
- * llena el controller), y los mensajes solo traen texto — la multimedia no se
- * descarga (D9 de la spec) y viaja como tipo.
+ * Shared API → web contracts. Sensitive content is bounded by design:
+ * `WaLinkDto` never exposes `linkedPhone` to third parties (the controller
+ * fills it for the owner only), and messages carry text only — media is
+ * downloaded on demand and travels as a type (D9).
  */
 
 export const WA_LINK_STATUSES = [
@@ -18,14 +18,14 @@ export const WA_LINK_STATUSES = [
 
 export type WaLinkStatus = (typeof WA_LINK_STATUSES)[number];
 
-/** Vínculo de una cuenta de staff con el retiro (dueño incluido). */
+/** A staff account's link to the retreat (owner included). */
 export interface WaLinkDto {
 	id: string;
 	retreatId: string;
 	userId: string;
 	ownerName: string;
 	status: WaLinkStatus;
-	/** Solo presente cuando el llamador es el dueño (o superadmin). */
+	/** Present only when the caller is the owner (or superadmin). */
 	linkedPhone?: string | null;
 	connectedAt?: string | Date | null;
 	lastSyncAt?: string | Date | null;
@@ -33,7 +33,7 @@ export interface WaLinkDto {
 	createdAt: string | Date;
 }
 
-/** Motivos tipados de rechazo de vinculación (UI muestra mensaje por caso). */
+/** Typed link refusal reasons (the UI shows a message per case). */
 export type WaLinkRefusalReason =
 	| 'disabled'
 	| 'not_enabled'
@@ -41,11 +41,11 @@ export type WaLinkRefusalReason =
 	| 'cap_reached'
 	| 'already_linked';
 
-/** Conversación consolidada: un chat 1:1 con un caminante del retiro. */
+/** Consolidated conversation: a 1:1 chat with a walker of the retreat. */
 export interface WaConversationDto {
 	chatJid: string;
 	chatPhone: string;
-	/** Participante del retiro cuyo teléfono matcheó (para ficha y deep link). */
+	/** Retreat participant whose phone matched (profile and reply deep link). */
 	participantId: string | null;
 	participantFirstName: string;
 	participantLastName: string;
@@ -68,13 +68,13 @@ export interface WaConversationDto {
 	sharedWith?: Array<{ id: string; firstName: string; lastName: string }>;
 }
 
-/** Mensaje persistido (solo entrantes de caminantes, texto/caption). */
+/** Stored message (walker messages and, since v1.3, staff replies). */
 export interface WaInboxMessageDto {
 	id: string;
 	chatJid: string;
 	timestamp: string | Date;
 	body: string | null;
-	/** Tipo declarado por WhatsApp (text, image, audio, …) para el placeholder 📎. */
+	/** WhatsApp's declared type (text, image, audio, document…) for its label. */
 	messageType: string;
 	/** v1.3: staff reply sent from a linked phone (and who sent it). */
 	fromMe?: boolean;
@@ -101,18 +101,18 @@ export interface WaRawMediaDto {
 }
 
 /**
- * Variantes de una imagen descargada bajo demanda (v1.2): thumb para la lista
- * del hilo, large para el visor y el comprobante del pago. Ambas viajan como
- * data-URL webp; el servidor las cachea para no re-descargar por clic.
+ * Variants of an image downloaded on demand (v1.2): thumb for the thread,
+ * large for the viewer and the payment receipt. Both travel as webp
+ * data-URLs; the server caches them so a click does not re-download.
  */
 export interface WaMediaVariantsDto {
 	thumb: string;
 	large: string;
 }
 
-/** Respuesta del lote de thumbnails de un hilo: mapa por messageId. */
+/** Response of a thread's thumbnail batch: map by messageId. */
 export interface WaThreadMediaDto {
 	media: Record<string, WaMediaVariantsDto>;
-	/** Mensajes pedidos que no aplican (no imagen / otro retiro / inexistente). */
+	/** Requested messages that do not apply or could not be downloaded. */
 	skipped: number;
 }

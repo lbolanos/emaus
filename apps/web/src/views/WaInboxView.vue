@@ -30,9 +30,9 @@ import { dataUrlToObjectUrl, isPdfDocument } from '@/utils/waMedia'
 import { renderPdfFirstPage } from '@/utils/pdfToImage'
 
 /**
- * Bandeja WhatsApp de solo lectura del retiro (specs/whatsapp-inbox).
- * Consolidada: los mensajes de caminantes que llegan a CUALQUIER teléfono
- * vinculado se ven por todo el staff con whatsappInbox:read (D3).
+ * The retreat's read-only WhatsApp inbox (specs/whatsapp-inbox).
+ * Consolidated: walker messages arriving at ANY linked phone are visible to
+ * every staff member with whatsappInbox:read (D3).
  */
 
 const { t } = useI18n()
@@ -55,17 +55,17 @@ const {
 const retreatId = computed(
   () => retreatStore.selectedRetreatId || retreatStore.mostRecentRetreat?.id || null,
 )
-// Zona del retiro para horas/separadores (regla 5 de timezone-handling).
+// Retreat zone for times/separators (rule 5 of timezone-handling).
 const retreatTimezone = computed(
   () => retreatStore.selectedRetreat?.timezone || 'America/Mexico_City',
 )
-// Mold de MessageSequencesView: el id del usuario actual decide si el tablero
-// muestra el teléfono de cada vínculo.
+// Same pattern as MessageSequencesView: the current user's id decides whether
+// the board shows each link's phone.
 const myUserId = computed(() => (authStore.user as any)?.id || null)
-// FR14: "Registrar como pago" solo para quien puede crear pagos.
+// FR14: "Register as payment" only for users who can create payments.
 const canRegisterPayment = computed(() => can.create('payment'))
-// Ficha del caminante (backlog UX): el popover necesita el Participant completo
-// — sale del participantStore hidratado con la lista del retiro (con pagos).
+// Walker profile (UX backlog): the popover needs the full Participant — it
+// comes from participantStore hydrated with the retreat list (with payments).
 const { participants } = storeToRefs(participantStore)
 const onlyUnread = ref(false)
 const filteredConversations = computed(() =>
@@ -95,8 +95,8 @@ async function load() {
   if (!id) return
   store.subscribeRealtime(id)
   await Promise.all([store.fetchLinks(id), store.fetchConversations(id), store.refreshBadge(id)])
-  // Ficha del caminante (FR ficha): hidratar el participantStore con la lista
-  // del retiro (trae pagos) — regla del frontend para MessageDialog/popover.
+  // Walker profile: hydrate participantStore with the retreat list (it brings
+  // payments) — the frontend rule for MessageDialog/popover.
   participantStore.filters = {}
   participantStore.filters.retreatId = id
   await participantStore.fetchParticipants().catch(() => {})
@@ -127,7 +127,7 @@ function formatSearchTime(ts: string | Date): string {
   })
 }
 
-// ── Búsqueda de mensajes (v1.1): debounce 300 ms, mínimo 2 caracteres ──
+// ── Message search (v1.1): 300 ms debounce, 2 characters minimum ──
 const searchQuery = ref('')
 const searching = ref(false)
 let searchTimer: ReturnType<typeof setTimeout> | null = null
@@ -163,7 +163,7 @@ function onSelect(chatJid: string) {
   const id = retreatId.value
   if (!id) return
   void store.openChat(id, chatJid)
-  // Móvil: el hilo abre en vista exclusiva arriba del viewport.
+  // Mobile: the thread opens alone, at the top of the viewport.
   if (window.innerWidth < 1024) window.scrollTo({ top: 0 })
 }
 
@@ -177,12 +177,12 @@ async function onToggleEnabled(value: boolean | string | number) {
   const id = retreatId.value
   if (!id) return
   await store.setEnabled(id, value === true).catch(() => {
-    // El estado real llega en el siguiente refetch del tablero.
+    // The real state arrives with the board's next refetch.
     void store.fetchLinks(id)
   })
 }
 
-// Terminación en dos pasos: el primer click arma, el segundo ejecuta (D14).
+// Two-step termination: the first click arms, the second runs (D14).
 const terminateArmed = ref(false)
 let terminateArmTimer: ReturnType<typeof setTimeout> | null = null
 async function onTerminateAll() {
@@ -472,8 +472,8 @@ function onReplyTemplate() {
       </div>
     </div>
 
-    <!-- Móvil: las conversaciones van PRIMERO (order-1); el tablero y los
-         controles de superadmin pasan al final. En escritorio, orden normal. -->
+    <!-- Mobile: conversations come FIRST (order-1); the board and the
+         superadmin controls go last. Desktop keeps the normal order. -->
     <div class="order-2 lg:order-1 flex flex-col gap-4">
       <WaLinkPanel
         :links="links"
@@ -482,8 +482,8 @@ function onReplyTemplate() {
         @unlink="onUnlink"
       />
 
-      <!-- Activación por retiro (D13) y terminación de servidores (D14):
-           SOLO superadmin. El puente consume RAM por cuenta vinculada. -->
+      <!-- Per-retreat activation (D13) and session termination (D14):
+           superadmin ONLY. The bridge costs RAM per linked account. -->
       <div
         v-if="isSuperadmin"
         class="rounded-lg border p-3 flex flex-col sm:flex-row sm:items-center gap-3"
@@ -511,11 +511,11 @@ function onReplyTemplate() {
       </div>
     </div>
 
-    <!-- Móvil: lista y hilo son EXCLUYENTES — tocar un chat abre solo el hilo
-         (con Volver); sin chat activo se ve solo la lista. Escritorio: ambos. -->
+    <!-- Mobile: list and thread are EXCLUSIVE — tapping a chat shows only the
+         thread (with Back); without an active chat only the list. Desktop: both. -->
     <div class="order-1 lg:order-2 grid grid-cols-1 lg:grid-cols-[340px_1fr] gap-4">
       <div :class="store.activeChatJid ? 'hidden lg:block' : 'block'">
-        <!-- Búsqueda + filtros (v1.1): reemplaza la lista mientras hay texto. -->
+        <!-- Search + filters (v1.1): replaces the list while there is text. -->
         <input
           v-model="searchQuery"
           type="search"
@@ -607,8 +607,8 @@ function onReplyTemplate() {
 
     <WaLinkModal v-model:open="linkModalOpen" :retreat-id="retreatId" @linked="refresh" />
 
-    <!-- FR14: modal de pago reutilizado, montado oculto (el Dialog que abre
-         teletransporta a body). openPaymentForWithReceipt lo abre prellenado. -->
+    <!-- FR14: reused payment modal, mounted hidden and on first use (its
+         Dialog teleports to body); openPaymentForWithReceipt opens it prefilled. -->
     <div class="hidden">
       <PaymentManagement
         v-if="paymentMounted"
@@ -636,8 +636,8 @@ function onReplyTemplate() {
       :participant="activeParticipant"
     />
 
-    <!-- Visor de comprobante (feedback Leo 2026-11-07): ver la foto a tamaño
-         grande ANTES de decidir si es un comprobante real. -->
+    <!-- Receipt viewer (QA feedback 2026-11-07): see the photo large BEFORE
+         deciding whether it is a real receipt. -->
     <Dialog :open="!!photoViewer" @update:open="photoViewer = null">
       <DialogContent class="sm:max-w-lg" data-testid="wa-photo-viewer">
         <DialogHeader>

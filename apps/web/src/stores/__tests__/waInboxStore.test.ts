@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { setActivePinia, createPinia } from 'pinia';
 
-// Mock del singleton de realtime (molde messageSequenceStore.realtime.test.ts).
+// Realtime singleton mock (pattern of messageSequenceStore.realtime.test.ts).
 const socketHandlers: Record<string, ((...args: any[]) => void) | undefined> = {};
 const emitMock = vi.fn();
 const offMock = vi.fn((event: string) => {
@@ -52,14 +52,14 @@ describe('waInboxStore.subscribeRealtime', () => {
     fakeSocket.connected = true;
   });
 
-  it('emite inbox:subscribe con el retreatId', () => {
+  it('emits inbox:subscribe with the retreatId', () => {
     const store = useWaInboxStore();
     store.subscribeRealtime('retreat-1');
 
     expect(emitMock).toHaveBeenCalledWith('inbox:subscribe', 'retreat-1', expect.any(Function));
   });
 
-  it('marca realtimeConnected=true cuando el servidor acepta', () => {
+  it('sets realtimeConnected=true when the server accepts', () => {
     const store = useWaInboxStore();
     store.subscribeRealtime('retreat-1');
     const ack = emitMock.mock.calls[0][2] as (ok: boolean) => void;
@@ -68,7 +68,7 @@ describe('waInboxStore.subscribeRealtime', () => {
     expect(store.realtimeConnected).toBe(true);
   });
 
-  it('re-join al reconectar y refetch de conversaciones en inbox:changed', async () => {
+  it('re-joins on reconnect and refetches conversations on inbox:changed', async () => {
     conversationsMock.mockResolvedValue({ conversations: [] });
     messagesMock.mockResolvedValue({ messages: [] });
     const store = useWaInboxStore();
@@ -85,7 +85,7 @@ describe('waInboxStore.subscribeRealtime', () => {
     });
   });
 
-  it('ignora eventos de otro retiro', () => {
+  it('ignores events of another retreat', () => {
     const store = useWaInboxStore();
     store.subscribeRealtime('retreat-1');
     conversationsMock.mockClear();
@@ -96,7 +96,7 @@ describe('waInboxStore.subscribeRealtime', () => {
     expect(conversationsMock).not.toHaveBeenCalled();
   });
 
-  it('unsubscribe emite inbox:unsubscribe y desengancha handlers', () => {
+  it('unsubscribe emits inbox:unsubscribe and detaches handlers', () => {
     const store = useWaInboxStore();
     store.subscribeRealtime('retreat-1');
     emitMock.mockClear();
@@ -117,7 +117,7 @@ describe('waInboxStore.openChat', () => {
     seenMock.mockClear();
   });
 
-  it('carga el hilo, marca seen en el servidor y limpia el badge local', async () => {
+  it('loads the thread, marks it seen on the server and clears the local badge', async () => {
     messagesMock.mockResolvedValue({
       messages: [
         { id: 'm2', chatJid: 'chat-a', timestamp: '2026-11-05T15:02:00Z', body: 'segundo', messageType: 'text' },
@@ -142,7 +142,7 @@ describe('waInboxStore.openChat', () => {
 
     await store.openChat('retreat-1', 'chat-a');
 
-    // El hilo queda en orden cronológico (el API manda DESC, el store invierte).
+    // The thread stays chronological (the API sends DESC, the store reverses it).
     expect(store.threadMessages.map((m) => m.id)).toEqual(['m1', 'm2']);
     expect(store.activeChatJid).toBe('chat-a');
     expect(seenMock).toHaveBeenCalledWith('retreat-1', 'chat-a');

@@ -3,14 +3,14 @@ import * as fs from 'fs';
 import { config } from '../../config';
 
 /**
- * Supervisor del proceso wacli persistente de un vínculo (specs/whatsapp-inbox).
+ * Supervisor of a link's long-running wacli process (specs/whatsapp-inbox).
  *
- * Port en Node del supervisor Python del wrapper auditado: un hijo por store
- * (`auth` mientras no emparejado, `sync --follow` después), eventos NDJSON por
- * stderr, restart con backoff exponencial, tope de backoff y parada limpia
- * (SIGTERM → SIGKILL). El lock del store impide dos hijos escribiendo; un
- * SIGKILL del API puede dejar huérfanos con el lock tomado, y por eso existe
- * el guard de /proc antes de cada spawn (solo Linux).
+ * Node port of the audited wrapper's Python supervisor: one child per store
+ * (`auth` until paired, `sync --follow` afterwards), NDJSON events on stderr,
+ * restart with exponential backoff, a backoff cap and a clean stop
+ * (SIGTERM → SIGKILL). The store lock prevents two writing children; a SIGKILL
+ * of the API can leave orphans holding the lock, hence the /proc guard before
+ * every spawn (Linux only).
  */
 
 export type WaSupervisorMode = 'auth' | 'sync';
@@ -27,10 +27,10 @@ export type WaSupervisorEventType =
 
 export interface WaSupervisorEvent {
 	type: WaSupervisorEventType;
-	/** Código QR rotado (~20 s), solo en 'qr'. */
+	/** Rotated QR code (~20 s), only on 'qr'. */
 	qr?: string;
 	message?: string;
-	/** Código de salida del hijo, solo en '*_exit'. */
+	/** Child exit code, only on '*_exit'. */
 	code?: number | null;
 	mode?: WaSupervisorMode;
 }
@@ -38,11 +38,11 @@ export interface WaSupervisorEvent {
 const MAX_BACKOFF_MS = 60_000;
 const KILL_GRACE_MS = 5_000;
 
-/** Eventos informativos de wacli que NO se loguean ni elevan (ruido de sync). */
+/** Informational wacli events that are neither logged nor raised (sync noise). */
 const KNOWN_NOISE_EVENT =
 	/"event":"(progress|idle_exit|offline_sync_completed|auth_starting|history_sync_suppressed|warning)"/;
 
-/** Señal al GRUPO del hijo (shell + nietos); fallback al hijo directo. */
+/** Signal to the child's GROUP (shell + grandchildren); falls back to the child. */
 function killProcessGroup(child: ChildProcess, signal: NodeJS.Signals, detached: boolean): void {
 	if (process.platform !== 'win32' && detached && child.pid) {
 		process.kill(-child.pid, signal);
@@ -51,7 +51,7 @@ function killProcessGroup(child: ChildProcess, signal: NodeJS.Signals, detached:
 	child.kill(signal);
 }
 
-/** Events NDJSON de wacli → eventos del supervisor (formas defensivas). */
+/** wacli NDJSON events → supervisor events (defensive shapes). */
 export function parseWacliEventLine(line: string): WaSupervisorEvent | null {
 	const trimmed = line.trim();
 	if (!trimmed.startsWith('{')) return null;
@@ -71,12 +71,12 @@ export function parseWacliEventLine(line: string): WaSupervisorEvent | null {
 		const v = nested?.[key];
 		return typeof v === 'string' && v.length > 0 ? v : undefined;
 	};
-	// El binario real anida message/code dentro de data (v0.21.0 verificado:
+	// The real binary nests message/code inside data (v0.21.0 verified:
 	// {"event":"error","data":{"message":…}}, {"event":"qr_code","data":{"code":…}}).
 	const message = str('message') ?? fromNested('message') ?? str('error');
 
 	switch (rawType) {
-		// Informativos del sync/import: no se elevan (QA 2026-11-07).
+		// Sync/import informational events: not raised (QA 2026-11-07).
 		case 'progress':
 		case 'idle_exit':
 		case 'offline_sync_completed':
@@ -106,7 +106,7 @@ export class WaBridgeSupervisor {
 	private stopped = false;
 	private lastStderrLine = '';
 	private backoffMs: number = config.waBridge.restartBackoffSeconds * 1000;
-	/** El spawn usa grupo de procesos propio (excepto Windows) — lo consulta el stop. */
+	/** The spawn uses its own process group (except Windows) — stop() checks it. */
 	private readonly spawnedDetached = process.platform !== 'win32';
 	private restartTimer: NodeJS.Timeout | null = null;
 	private killTimer: NodeJS.Timeout | null = null;
@@ -120,7 +120,7 @@ export class WaBridgeSupervisor {
 		WaBridgeSupervisor.instances.add(this);
 	}
 
-	/** Emparejamiento: emite QR por eventos y sale solo tras el bootstrap. */
+	/** Pairing: emits the QR through events and exits on its own after the bootstrap. */
 	startAuth(): void {
 		this.stopped = false;
 		this.spawnMode('auth', [
@@ -132,7 +132,7 @@ export class WaBridgeSupervisor {
 		]);
 	}
 
-	/** Sync persistente; presencia quiet (sin "visto" ante el caminante). */
+	/** Long-running sync; quiet presence (no "seen" shown to the walker). */
 	startSync(): void {
 		this.stopped = false;
 		this.spawnMode('sync', [
@@ -150,9 +150,9 @@ export class WaBridgeSupervisor {
 	}
 
 	/**
-	 * Un SIGKILL del API deja hijos wacli vivos que sostienen el lock del store;
-	 * el respawn moriría en loop por lock contention. Barrido defensivo antes de
-	 * cada spawn (solo Linux; en macOS dev no hay /proc).
+	 * A SIGKILL of the API leaves wacli children alive holding the store lock;
+	 * the respawn would then die in a lock-contention loop. Defensive sweep
+	 * before every spawn (Linux only; macOS dev has no /proc).
 	 */
 	private killOrphans(): void {
 		if (process.platform !== 'linux') return;
@@ -165,11 +165,11 @@ export class WaBridgeSupervisor {
 						process.kill(Number(pid), 'SIGKILL');
 					}
 				} catch {
-					// El proceso murió entre readdir y read: no pasa nada.
+					// The process died between readdir and read: nothing to do.
 				}
 			}
 		} catch {
-			// /proc no disponible: no bloquea el spawn.
+			// /proc unavailable: it does not block the spawn.
 		}
 	}
 
@@ -177,8 +177,8 @@ export class WaBridgeSupervisor {
 		if (this.stopped) return;
 		this.killOrphans();
 
-		// El auth NO lleva --json: conflicta con --qr-format (ambos escriben a
-		// stdout — verificado contra el binario real v0.21.0 en el QA).
+		// auth does NOT take --json: it conflicts with --qr-format (both write to
+		// stdout — verified against the real v0.21.0 binary in QA).
 		const globalFlags = mode === 'sync' ? ['--json'] : [];
 		let child: ChildProcess;
 		try {
@@ -188,8 +188,8 @@ export class WaBridgeSupervisor {
 				{
 					env: { PATH: process.env.PATH, HOME: process.env.HOME },
 					stdio: ['ignore', 'pipe', 'pipe'],
-					// Grupo de procesos propio: el stop mata al shell Y a sus hijos
-					// (el `sleep` nieto hereda los pipes y 'close' no dispararía).
+					// Own process group: stop kills the shell AND its children (the
+					// `sleep` grandchild inherits the pipes and 'close' would not fire).
 					detached: process.platform !== 'win32',
 				},
 			);
@@ -210,11 +210,11 @@ export class WaBridgeSupervisor {
 					if (evt.type !== 'ignored') this.onEvent(evt);
 					continue;
 				}
-				// QA/ops (solo stderr): los NDJSON que el parser aún no reconoce
-				// quedan en el log — así se descubre el nombre real de cada evento.
+				// QA/ops (stderr only): NDJSON lines the parser does not know yet
+				// go to the log — that is how each event's real name is found.
 				if (isStderr && trimmed.startsWith('{') && !KNOWN_NOISE_EVENT.test(trimmed)) {
 					console.log(
-						`[waBridge][${this.linkId}] evento no reconocido: ${trimmed.slice(0, 160)}`,
+						`[waBridge][${this.linkId}] unrecognized event: ${trimmed.slice(0, 160)}`,
 					);
 				}
 			}
@@ -224,26 +224,16 @@ export class WaBridgeSupervisor {
 		child.on('error', (err) => {
 			this.onEvent({ type: 'error', message: `wacli ${mode} spawn error: ${err.message}` });
 		});
-		// QA/ops: los eventos NDJSON que el parser aún no reconoce quedan en el
-		// log — es como se descubre el nombre real de cada evento del binario.
-		child.stderr?.on('data', (chunk: Buffer) => {
-			for (const line of chunk.toString('utf8').split('\n')) {
-				const trimmed = line.trim();
-				if (trimmed.startsWith('{') && !parseWacliEventLine(trimmed)) {
-					console.log(`[waBridge][${this.linkId}] evento NDJSON no reconocido: ${trimmed.slice(0, 160)}`);
-				}
-			}
-		});
 		child.on('close', (code) => {
 			this.child = null;
 			if (this.stopped) return;
 			if (mode === 'auth') {
-				// El bootstrap sale solo (exit 0) tras importar el historial; el
-				// servicio consulta auth status y decide si pasa a sync.
+				// The bootstrap exits by itself (exit 0) after importing history;
+				// the service checks auth status and decides whether to go to sync.
 				this.onEvent({ type: 'auth_exit', code, mode });
 				return;
 			}
-			// La última línea cruda del stderr es la causa de muerte del hijo.
+			// The last raw stderr line is the child's cause of death.
 			this.onEvent({
 				type: 'child_exit',
 				code,
@@ -265,17 +255,17 @@ export class WaBridgeSupervisor {
 		this.restartTimer.unref();
 	}
 
-	/** El backoff se resetea al conectar (evento 'connected' del servicio). */
+	/** Backoff resets on connect (the service's 'connected' event). */
 	resetBackoff(): void {
 		this.backoffMs = config.waBridge.restartBackoffSeconds * 1000;
 	}
 
 	/**
-	 * Parada limpia: señal al GRUPO de procesos (shell + nietos) y resolución
-	 * por `exit` — NO por `close`: el nieto (`sleep` de un wrapper shell)
-	 * hereda los pipes de stdio y `close` puede tardar lo que dure el nieto.
-	 * Colgado aquí = el API entero se cuelga en el endpoint que llame a stop
-	 * (incidencia del QA 2026-11-06: POST /receipt congelado 25 s+).
+	 * Clean stop: signal the process GROUP (shell + grandchildren) and resolve
+	 * on `exit` — NOT on `close`: the grandchild (a shell wrapper's `sleep`)
+	 * inherits the stdio pipes and `close` can wait as long as it lives. A hang
+	 * here hangs the whole API on the endpoint that calls stop (QA 2026-11-06:
+	 * POST /receipt frozen 25 s+).
 	 */
 	async stop(): Promise<void> {
 		this.stopped = true;
@@ -297,12 +287,12 @@ export class WaBridgeSupervisor {
 				try {
 					killProcessGroup(child, 'SIGKILL', this.spawnedDetached);
 				} catch {
-					// Ya murió.
+					// Already dead.
 				}
 			}, KILL_GRACE_MS);
 			child.once('exit', () => {
-				// Destruir los pipes por si un nieto los sostiene: sin esto el
-				// 'close' interno de Node no limpia y los fd quedan abiertos.
+				// Destroy the pipes in case a grandchild holds them: otherwise Node's
+				// internal 'close' does not clean up and the fds stay open.
 				child.stdout?.destroy();
 				child.stderr?.destroy();
 				finish();

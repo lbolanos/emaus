@@ -207,10 +207,10 @@ export class Retreat {
 	santisimoEnabled!: boolean;
 
 	/**
-	 * Bandeja WhatsApp de solo lectura activada para ESTE retiro
-	 * (specs/whatsapp-inbox v1.1, D13). Solo el superadmin la enciende: el
-	 * puente consume RAM (~40 MB por cuenta vinculada). Sin esta bandera nadie
-	 * puede vincular y no se respawnea ningún hijo.
+	 * Read-only WhatsApp inbox enabled for THIS retreat (specs/whatsapp-inbox
+	 * v1.1, D13). Only the superadmin turns it on: the bridge costs RAM (~40 MB
+	 * per linked account). Without this flag nobody can link and no child is
+	 * respawned.
 	 */
 	@Column({ type: 'boolean', default: false })
 	whatsappInboxEnabled!: boolean;

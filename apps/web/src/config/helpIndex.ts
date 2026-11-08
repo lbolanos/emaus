@@ -653,7 +653,7 @@ export const helpIndex: HelpSection[] = [
 		],
 	},
 	{
-		// Bandeja WhatsApp de solo lectura (specs/whatsapp-inbox).
+		// Read-only WhatsApp inbox (specs/whatsapp-inbox).
 		key: 'whatsapp-inbox',
 		title: 'WhatsApp Inbox',
 		titleEs: 'WhatsApp del Retiro',

@@ -1,6 +1,6 @@
 /**
- * Test de AddRetreatWhatsappInboxEnabled20261108120000 (specs/whatsapp-inbox
- * v1.1, D13): ADD COLUMN guardado sobre `retreat` — plantilla simple.
+ * Test of AddRetreatWhatsappInboxEnabled20261108120000 (specs/whatsapp-inbox
+ * v1.1, D13): guarded ADD COLUMN on `retreat` — simple template.
  */
 import { DataSource } from 'typeorm';
 import { AddRetreatWhatsappInboxEnabled20261108120000 } from '@/migrations/sqlite/20261108120000_AddRetreatWhatsappInboxEnabled';
@@ -28,7 +28,7 @@ describe('AddRetreatWhatsappInboxEnabled20261108120000', () => {
 		await ds.destroy();
 	});
 
-	it('up() agrega la columna con default 0 sin tocar filas', async () => {
+	it('up() adds the column with default 0 without touching rows', async () => {
 		await migration.up(ds.createQueryRunner());
 
 		expect(await hasColumn()).toBe(true);
@@ -36,12 +36,12 @@ describe('AddRetreatWhatsappInboxEnabled20261108120000', () => {
 		expect(row[0].v).toBe(0);
 	});
 
-	it('es idempotente: re-ejecutar no revienta (guarda de PRAGMA)', async () => {
+	it('is idempotent: re-running does not blow up (PRAGMA guard)', async () => {
 		await migration.up(ds.createQueryRunner());
 		await expect(migration.up(ds.createQueryRunner())).resolves.toBeUndefined();
 	});
 
-	it('down() quita la columna (DROP COLUMN nativo)', async () => {
+	it('down() removes the column (native DROP COLUMN)', async () => {
 		await migration.up(ds.createQueryRunner());
 		await migration.down(ds.createQueryRunner());
 

@@ -76,7 +76,7 @@
             <span :class="getMessageTypeColor(message.messageType)" class="text-sm font-medium">
               {{ getMessageTypeLabel(message.messageType) }}
             </span>
-            <!-- Entrantes de la bandeja WhatsApp (v1.2): badge propio -->
+            <!-- WhatsApp inbox messages (v1.2): their own badge -->
             <Badge v-if="isInbound(message)" variant="outline" class="text-xs">
               Recibido
             </Badge>
@@ -128,7 +128,7 @@
           </Badge>
         </div>
 
-        <!-- Recipient Info (salientes) / Remitente (entrantes de WhatsApp) -->
+        <!-- Recipient (sent) / Sender (WhatsApp received) -->
         <div v-if="!isInbound(message)" class="text-xs text-muted-foreground">
           Enviado a:
           <span v-if="message.recipientName" class="font-medium">{{ message.recipientName }} — </span>{{ message.recipientContact }}
@@ -176,7 +176,7 @@ interface ParticipantCommunication {
   participantId: string;
   retreatId: string;
   messageType: 'whatsapp' | 'email';
-  /** 'inbound' = mensaje recibido del caminante por la bandeja (v1.2). */
+  /** 'inbound' = message received from the walker through the inbox (v1.2). */
   direction?: 'inbound' | 'outbound';
   waMessageType?: string | null;
   recipientContact: string;
@@ -261,14 +261,14 @@ const AUDIENCE_LABELS: Record<string, string> = {
 };
 const audienceLabel = (a?: string | null): string => (a ? AUDIENCE_LABELS[a] || a : '');
 
-// Entrantes de WhatsApp (bandeja v1.2): badge propio. El click abre el
-// diálogo de detalle igual que los enviados (QA v1.2: «ver más grande»).
+// Incoming WhatsApp messages (inbox v1.2): their own badge. Clicking opens the
+// detail dialog like sent messages do (QA v1.2: "see it larger").
 const isInbound = (m: ParticipantCommunication): boolean => m.direction === 'inbound';
 
-// Thumbnails de las imágenes entrantes (v1.2, feedback QA: «no se ve la
-// imagen en historial»): lote único por carga con el endpoint de media de la
-// bandeja; ids `wa-inbox:<messageId>` → se quita el prefijo. Los fallos
-// (vínculo purgado) quedan sin thumb y el texto placeholder cubre.
+// Thumbnails of incoming images (v1.2, QA feedback: "the image does not show
+// in the history"): one batch per load through the inbox media endpoint; ids
+// `wa-inbox:<messageId>` lose their prefix. Failures (purged link) get no
+// thumb and the type label covers them.
 const mediaThumbs = ref<Record<string, string>>({});
 let loadingThumbs = false;
 async function fetchInboundThumbs() {
@@ -293,7 +293,7 @@ async function fetchInboundThumbs() {
       if (v) mediaThumbs.value = { ...mediaThumbs.value, [m.id]: v.thumb };
     }
   } catch {
-    // Sin permiso de bandeja o sin media: queda el placeholder de texto.
+    // No inbox permission or no media: the text label stays.
   } finally {
     loadingThumbs = false;
   }
@@ -327,9 +327,9 @@ const loadHistory = async (loadMore = false) => {
   emit('loading-changed', true);
 
   try {
-    // Acumulativo: limit crece, offset SIEMPRE 0 (QA v1.2 — con offset
-    // creciente el segundo «Cargar más» devolvía páginas vacías y la lista
-    // desaparecía; el corte lo hace el API sobre el merge cronológico).
+    // Cumulative: limit grows, offset ALWAYS 0 (QA v1.2 — with a growing
+    // offset the second "Load more" returned empty pages and the list
+    // vanished; the API cuts the page on the chronological merge).
     await fetchParticipantCommunications(
       props.participantId,
       {

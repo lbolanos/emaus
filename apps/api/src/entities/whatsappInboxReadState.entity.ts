@@ -10,9 +10,9 @@ import {
 import { User } from './user.entity';
 
 /**
- * Marca de "leído hasta aquí" POR USUARIO de la app (specs/whatsapp-inbox D11):
- * que un staff lea un chat no lo marca como leído para los demás, y el puente
- * nunca marca visto en WhatsApp (presence quiet).
+ * "Read up to here" mark PER app user (specs/whatsapp-inbox D11): one staff
+ * member reading a chat does not mark it read for the others, and the bridge
+ * never sends "seen" on WhatsApp (quiet presence).
  */
 @Entity('whatsapp_inbox_read_state')
 @Index('UQ_wa_inbox_read_state_user_chat', ['userId', 'retreatId', 'chatJid'], {
@@ -31,7 +31,7 @@ export class WhatsappInboxReadState {
 	@Column({ type: 'varchar' })
 	chatJid!: string;
 
-	/** Todo mensaje de timestamp mayor cuenta como no leído para este usuario. */
+	/** Every incoming message with a newer timestamp counts as unread for this user. */
 	@Column({ type: 'datetime' })
 	lastSeenMessageTimestamp!: Date;
 

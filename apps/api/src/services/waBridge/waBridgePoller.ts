@@ -10,31 +10,32 @@ import { listChats, listMessages, type WacliChat, type WacliMessage } from './wa
 import { waBridgeService } from './waBridgeService';
 
 /**
- * Ingesta por polling (specs/whatsapp-inbox D8): cada ciclo, para cada link
- * conectado, lee los chats del store one-shot, aplica la whitelist de
- * caminantes y persiste solo los mensajes entrantes que pasan. Nada que no
- * pase el filtro se consulta a fondo ni se persiste jamás.
+ * Polling ingestion (specs/whatsapp-inbox D8): every cycle, for each connected
+ * link, reads the store's chats one-shot, applies the walker whitelist and
+ * stores the messages of chats that pass it (incoming, and since v1.3 the
+ * staff's own replies). Nothing outside the whitelist is read in depth or
+ * stored, ever.
  *
- * El lock del store puede rechazar lecturas mientras `sync` o un bootstrap
- * importan historial: se tolera y reintenta el ciclo siguiente, sin crashear.
- * El audit de error va rate-limited (1 por link cada 10 min) para no inundar
- * la tabla con lock contention esperado.
+ * The store lock may reject reads while `sync` or a bootstrap imports
+ * history: tolerated and retried next cycle, never crashing. The error audit
+ * is rate-limited (1 per link every 10 min) so expected lock contention does
+ * not flood the table.
  */
 
 const ONE_TO_ONE_JID = /^\d+@s\.whatsapp\.net$/;
 const AUDIT_ERROR_COOLDOWN_MS = 10 * 60 * 1000;
 const LOOKBACK_MINUTES = 5;
 
-/** Dígitos de un JID 1:1 (null para grupos @g.us, @lid o formas raras). */
+/** Digits of a 1:1 JID (null for @g.us groups, @lid or odd shapes). */
 export function jidToDigits(jid: string | undefined | null): string | null {
 	if (!jid || !ONE_TO_ONE_JID.test(jid)) return null;
 	return jid.split('@')[0] || null;
 }
 
 /**
- * Whitelist (función pura, testeable): conserva solo los chats 1:1 cuyos
- * dígitos JID están en el índice aceptado del retiro (con variantes por país,
- * p. ej. `52…` y `521…` para MX). Grupos, lists y desconocidos quedan fuera.
+ * Whitelist (pure, testable): keeps only 1:1 chats whose JID digits are in the
+ * retreat's accepted index (with per-country variants, e.g. `52…` and `521…`
+ * for MX). Groups, lists and unknown chats stay out.
  */
 export function filterWhitelistedChats(
 	chats: WacliChat[],
@@ -47,12 +48,12 @@ export function filterWhitelistedChats(
 }
 
 /**
- * Normaliza un mensaje crudo de wacli a fila persistible; null si le falta id
- * o timestamp, o si es saliente (doble chequeo de --from-them).
+ * Normalizes a raw wacli message into a storable row; null when it lacks an id
+ * or a timestamp. `fromMe` is kept (v1.3: staff replies power "answered by").
  *
- * El store real v0.21.0 usa PascalCase (MsgID/ChatJID/Timestamp/FromMe/Text/
- * MediaType — verificado contra el binario en el QA real 2026-11-06); el
- * normalizador acepta también camelCase por si wacli cambia de forma.
+ * The real v0.21.0 store uses PascalCase (MsgID/ChatJID/Timestamp/FromMe/Text/
+ * MediaType — verified against the binary in the real QA 2026-11-06); the
+ * normalizer also accepts camelCase in case wacli changes shape.
  */
 export function normalizeWacliMessage(
 	raw: WacliMessage,
@@ -148,7 +149,7 @@ export class WaBridgePoller {
 			const links = await AppDataSource.getRepository(WhatsappBridgeLink).find({
 				where: { status: 'connected' },
 			});
-			// Solo retiros con la bandeja activada por el superadmin (D13).
+			// Only retreats whose inbox the superadmin enabled (D13).
 			let enabledRetreatIds: Set<string> | null = null;
 			if (links.length > 0) {
 				const retreatIds = Array.from(new Set(links.map((l) => l.retreatId)));
@@ -257,7 +258,7 @@ export class WaBridgePoller {
 		);
 	}
 
-	/** Ventana de re-lectura: desde la última sync, con lookback por relojes. */
+	/** Re-read window: since the last sync, with a clock-skew lookback. */
 	private lookbackIso(lastSyncAt: Date | null | undefined): string | null {
 		if (!lastSyncAt) return null;
 		const date = new Date(lastSyncAt);

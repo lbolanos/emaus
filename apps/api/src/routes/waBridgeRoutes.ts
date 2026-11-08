@@ -8,7 +8,7 @@ const controller = new WaBridgeController();
 
 router.use(isAuthenticated);
 
-// Lectura (bandeja consolidada y tablero): permiso read + acceso al retiro.
+// Reads (consolidated inbox and board): read permission + retreat access.
 router.get(
 	'/retreat/:retreatId/links',
 	requirePermission('whatsappInbox:read'),
@@ -33,7 +33,7 @@ router.post(
 	requireRetreatAccess('retreatId'),
 	controller.markSeen,
 );
-// Thumbnails de un hilo en lote (v1.2): lectura de imágenes ya recibidas.
+// Thread thumbnails in one batch (v1.2): reading images already received.
 router.post(
 	'/retreat/:retreatId/media',
 	requirePermission('whatsappInbox:read'),
@@ -46,8 +46,8 @@ router.post(
 	requireRetreatAccess('retreatId'),
 	controller.seenAll,
 );
-// Comprobante de pago desde WhatsApp (FR14, v1.1): doble permiso — leer la
-// bandeja y crear el pago (el destino de la imagen).
+// Payment receipt from WhatsApp (FR14, v1.1): double permission — read the
+// inbox and create the payment (the image's destination).
 router.post(
 	'/messages/:messageId/receipt',
 	requirePermission('whatsappInbox:read'),
@@ -74,7 +74,7 @@ router.post(
 	requirePermission('letter:update'),
 	controller.addAsLetter,
 );
-// Badge del sidebar y búsqueda (v1.1): lectura pura.
+// Sidebar badge and search (v1.1): pure reads.
 router.get(
 	'/retreat/:retreatId/unread',
 	requirePermission('whatsappInbox:read'),
@@ -88,16 +88,16 @@ router.get(
 	controller.search,
 );
 
-// Gestión del vínculo propio: permiso manage; el dueño (o superadmin) lo
-// valida dentro del controller para /link/:linkId.
+// Managing one's own link: manage permission; the owner (or superadmin) is
+// checked inside the controller for /link/:linkId.
 router.post(
 	'/retreat/:retreatId/link',
 	requirePermission('whatsappInbox:manage'),
 	requireRetreatAccess('retreatId'),
 	controller.startLink,
 );
-// Activación por retiro y terminación de servidores: SOLO superadmin
-// (validación de rol dentro del controller; D13/D14 de specs/whatsapp-inbox v1.1).
+// Per-retreat activation and session termination: superadmin ONLY (role check
+// inside the controller; D13/D14 of specs/whatsapp-inbox v1.1).
 router.patch(
 	'/retreat/:retreatId/enabled',
 	requirePermission('whatsappInbox:manage'),

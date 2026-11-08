@@ -1,31 +1,31 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
 /**
- * Puente WhatsApp de solo lectura del retiro (specs/whatsapp-inbox, M1).
+ * The retreat's read-only WhatsApp bridge (specs/whatsapp-inbox, M1).
  *
- * Tres tablas nuevas + seeds de permisos. Plantilla simple idempotente:
- * solo CREATE TABLE/INDEX IF NOT EXISTS e inserts guardados — sin recreate,
- * sin DROP de tablas preexistentes, sin PRAGMA foreign_keys.
+ * Three new tables + permission seeds. Simple idempotent template: only
+ * CREATE TABLE/INDEX IF NOT EXISTS and guarded inserts — no recreate, no DROP
+ * of existing tables, no PRAGMA foreign_keys.
  *
- * Tablas:
- *  - whatsapp_bridge_link: un vínculo por staff y retiro (UNIQUE userId+retreatId).
- *    FKs → retreat / users con CASCADE (el borrado del retiro o del usuario
- *    limpia sus vínculos; el DELETE del link borra sus mensajes y read-state).
- *  - whatsapp_inbox_message: solo mensajes de caminantes que pasaron la
- *    whitelist de ingesta (D4). retreatId desnormalizado SIN FK física a
- *    propósito: las queries de bandeja y purga van por retiro y el cascade
- *    real lo hace el link padre.
- *  - whatsapp_inbox_read_state: no-leídos por usuario (D11).
+ * Tables:
+ *  - whatsapp_bridge_link: one link per staff member and retreat (UNIQUE
+ *    userId+retreatId). FKs → retreat / users with CASCADE. Since v1.3 the
+ *    app deletes a link's messages explicitly (teardownLink): the runtime
+ *    does not guarantee PRAGMA foreign_keys, so the CASCADE is not relied on.
+ *  - whatsapp_inbox_message: only messages of chats that passed the ingestion
+ *    whitelist (D4). retreatId denormalized WITHOUT a physical FK on purpose:
+ *    inbox and purge queries go by retreat.
+ *  - whatsapp_inbox_read_state: per-user unread (D11).
  *
- * Permisos: whatsappInbox:read y whatsappInbox:manage para superadmin, admin,
- * logistics y communications (regular_server y treasurer sin nada).
+ * Permissions: whatsappInbox:read and whatsappInbox:manage for superadmin,
+ * admin, logistics and communications (regular_server and treasurer get none).
  */
 export class CreateWhatsappBridge20261107120000 implements MigrationInterface {
 	name = 'CreateWhatsappBridge20261107120000';
 	timestamp = '20261107120000';
 
-	// DDL + data seeds en una sola migración; el runner propio respeta el flag
-	// desde 2026-09-08 (consistencia con las demás migraciones de permisos).
+	// DDL + data seeds in one migration; the in-house runner honours the flag
+	// since 2026-09-08 (consistent with the other permission migrations).
 	transaction = false as const;
 
 	private async ensurePermission(
@@ -189,7 +189,7 @@ export class CreateWhatsappBridge20261107120000 implements MigrationInterface {
 		await queryRunner.query(
 			`DELETE FROM "permissions" WHERE "resource" = 'whatsappInbox'`,
 		);
-		// Hijos primero: message y read_state cuelgan de link (CASCADE) o de users.
+		// Children first: message and read_state hang from link (CASCADE) or users.
 		await queryRunner.query(`DROP TABLE IF EXISTS "whatsapp_inbox_read_state"`);
 		await queryRunner.query(`DROP TABLE IF EXISTS "whatsapp_inbox_message"`);
 		await queryRunner.query(`DROP TABLE IF EXISTS "whatsapp_bridge_link"`);

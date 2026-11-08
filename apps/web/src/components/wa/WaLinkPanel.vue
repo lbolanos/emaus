@@ -5,14 +5,14 @@ import { Button } from '@repo/ui'
 import type { WaLinkDto } from '@repo/types'
 
 /**
- * Tablero de vínculos del retiro (specs/whatsapp-inbox FR2). El teléfono de
- * cada vínculo SOLO llega del API cuando el llamador es el dueño (o superadmin):
- * aquí simplemente se muestra el campo si está presente — el strip es server-side.
+ * The retreat's link board (specs/whatsapp-inbox FR2). Each link's phone ONLY
+ * comes from the API when the caller is its owner (or superadmin): this just
+ * shows the field when present — the stripping happens server side.
  */
 defineProps<{
   links: WaLinkDto[]
   currentUserId: string | null
-  /** El superadmin puede desvincular cualquier vínculo (D14). */
+  /** The superadmin can unlink any link (D14). */
   isSuperadmin?: boolean
 }>()
 

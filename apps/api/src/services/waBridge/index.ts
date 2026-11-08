@@ -5,13 +5,14 @@ import { waBridgeRetentionService } from './waBridgeRetentionService';
 import { WaBridgeSupervisor } from './waBridgeSupervisor';
 
 /**
- * Punto de arranque del puente WhatsApp de solo lectura (specs/whatsapp-inbox).
- * Registrado en apps/api/src/index.ts junto a los demás startScheduledTasks().
+ * Entry point of the read-only WhatsApp bridge (specs/whatsapp-inbox).
+ * Wired in apps/api/src/index.ts next to the other startScheduledTasks().
  *
- * - Supervisor respawn: solo si el kill switch está activo y el binario existe
- *   (si falta, queda inerte con un warning único).
- * - Poller de ingesta: intervalo propio (no node-cron) con lock anti-solape.
- * - Retención: SIEMPRE, aunque el bridge esté apagado (FR7).
+ * - Supervisor respawn: only with the kill switch on and the binary present
+ *   (if it is missing, stays inert with a single warning).
+ * - Ingestion poller: own interval (not node-cron) with an anti-overlap lock;
+ *   each cycle also respawns missing supervisors (watchdog).
+ * - Retention: ALWAYS, even with the bridge turned off (FR7).
  */
 
 export { waBridgeService, computeLinkWindow, acceptedJidDigitVariants, isLinkPurgeDue } from './waBridgeService';
@@ -24,8 +25,8 @@ export { WacliError } from './wacliClient';
 const poller = new WaBridgePoller();
 
 export function startScheduledTasks(): void {
-	// La retención corre siempre (privacy-safe): cron propio, no depende del
-	// kill switch ni de que el binario exista.
+	// Retention always runs (privacy-safe): its own cron, independent of the
+	// kill switch and of the binary being present.
 	waBridgeRetentionService.startScheduledTasks();
 
 	poller.start();

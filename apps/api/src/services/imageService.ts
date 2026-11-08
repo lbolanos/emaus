@@ -170,16 +170,15 @@ class ImageService {
 	}
 
 	/**
-	 * Variantes thumbnail + grande de una foto recibida por WhatsApp
-	 * (bandeja, FR14 v1.2). El tope NO es el de los assets subidos por el
-	 * usuario (2 MB): una foto de teléfono llega a 10 MB y sharp la reduce
-	 * sin problema — el límite de arriba solo protegía el multipart.
+	 * Thumbnail + large variants of a photo received by WhatsApp (inbox, FR14
+	 * v1.2). The cap is NOT the user-upload one (2 MB): a phone photo reaches
+	 * 10 MB and sharp reduces it fine — the 2 MB limit only guarded multipart.
 	 */
 	async processWaReceiptVariants(
 		buffer: Buffer,
 		contentType: string,
 	): Promise<{ thumb: ProcessedImage; large: ProcessedImage }> {
-		const MAX_RECEIPT_BYTES = 10 * 1024 * 1024; // 10 MB — foto de teléfono
+		const MAX_RECEIPT_BYTES = 10 * 1024 * 1024; // 10 MB — a phone photo
 		if (buffer.length > MAX_RECEIPT_BYTES) {
 			throw new FlyerAssetError(
 				`Receipt image exceeds maximum (${(buffer.length / 1048576).toFixed(1)}MB > 10MB)`,

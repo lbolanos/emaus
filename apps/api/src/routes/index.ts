@@ -120,7 +120,7 @@ router.use('/telemetry', telemetryRoutes);
 router.use('/tags', tagRoutes);
 router.use('/saved-segments', savedSegmentRoutes);
 router.use('/message-sequences', messageSequenceRoutes);
-// Puente WhatsApp de solo lectura (specs/whatsapp-inbox)
+// Read-only WhatsApp bridge (specs/whatsapp-inbox)
 router.use('/wa-bridge', waBridgeRoutes);
 router.use('/global-message-sequences', globalMessageSequenceRoutes);
 router.use('/crm', crmRoutes);

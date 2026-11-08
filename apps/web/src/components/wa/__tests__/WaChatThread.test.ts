@@ -3,8 +3,8 @@ import { mount } from '@vue/test-utils';
 import WaChatThread from '../WaChatThread.vue';
 import type { WaConversationDto, WaInboxMessageDto } from '@repo/types';
 
-// El mock global de vue-i18n devuelve la key cruda; para este test de texto
-// visible usamos las cadenas reales de es.json.
+// The global vue-i18n mock returns the raw key; this visible-text test uses
+// the real es.json strings.
 vi.mock('vue-i18n', () => ({
   useI18n: () => ({
     t: (key: string) =>
@@ -26,9 +26,9 @@ vi.mock('vue-i18n', () => ({
 }));
 
 /**
- * El contenido de los mensajes es TEXTO DE TERCEROS: payloads maliciosos se
- * renderizan inertes (interpolación, jamás v-html — S8 de specs/whatsapp-inbox).
- * La multimedia no se descarga: placeholder con el tipo (D9).
+ * Message content is THIRD-PARTY TEXT: malicious payloads render inert
+ * (interpolation, never v-html — S8 of specs/whatsapp-inbox). Media without
+ * a thumbnail shows its type label.
  */
 const conversation: WaConversationDto = {
   chatJid: '5215512345678@s.whatsapp.net',
@@ -53,7 +53,7 @@ const message = (overrides: Partial<WaInboxMessageDto>): WaInboxMessageDto => ({
 });
 
 describe('WaChatThread', () => {
-  it('muestra el cuerpo del mensaje como texto sin interpretar HTML', () => {
+  it('renders the message body as text without interpreting HTML', () => {
     const wrapper = mount(WaChatThread, {
       props: {
         conversation,
@@ -76,7 +76,7 @@ describe('WaChatThread', () => {
     expect((window as any).__xss).toBeUndefined();
     expect(wrapper.find('img').exists()).toBe(false);
     expect(wrapper.find('script').exists()).toBe(false);
-    // El payload se ve como texto escapado.
+    // The payload shows as escaped text.
     expect(wrapper.text()).toContain('<img src=x');
   });
 
@@ -176,7 +176,7 @@ describe('WaChatThread', () => {
     expect(wrapper.find('[data-testid="wa-action-payment-img"]').exists()).toBe(true);
   });
 
-  it('sin conversación activa muestra el estado vacío', () => {
+  it('shows the empty state without an active conversation', () => {
     const wrapper = mount(WaChatThread, {
       props: { conversation: null, loading: false, messages: [] },
     });
@@ -185,7 +185,7 @@ describe('WaChatThread', () => {
     expect(wrapper.find('[data-testid="wa-reply-button"]').exists()).toBe(false);
   });
 
-  it('conversación con país MX arma el deep link con lada desde el JID', () => {
+  it('an MX conversation builds the deep link with the calling code from the JID', () => {
     const wrapper = mount(WaChatThread, {
       props: {
         conversation,
@@ -201,7 +201,7 @@ describe('WaChatThread', () => {
     });
 
     expect(wrapper.find('[data-testid="wa-reply-button"]').exists()).toBe(true);
-    // El link real se calcula en el script; este test fija que el botón existe
-    // con un teléfono MX válido (52 + 10 dígitos en el JID).
+    // The real link is computed in the script; this test pins that the button
+    // exists with a valid MX phone (52 + 10 digits in the JID).
   });
 });

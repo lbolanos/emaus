@@ -1,9 +1,9 @@
 /**
- * Tests de la ventana temporal del puente (specs/whatsapp-inbox D5).
+ * Tests of the bridge's time window (specs/whatsapp-inbox D5).
  *
- * Toda la lógica es pura contra fechas civiles 'YYYY-MM-DD': el test fija
- * "hoy" explícitamente y cubre el borde nocturno CDMX vs UTC vía
- * civilTodayInTimezone contra una hora fija del reloj (mock de Date).
+ * All the logic is pure over civil dates 'YYYY-MM-DD': the test pins "today"
+ * explicitly and covers the CDMX vs UTC night edge through
+ * civilTodayInTimezone against a fixed clock time (Date mock).
  */
 import {
 	acceptedJidDigitVariants,
@@ -14,7 +14,7 @@ import {
 } from '@/services/waBridge/waBridgeService';
 
 describe('shiftCivilDate', () => {
-	it('suma y resta días cruzando frontera de mes', () => {
+	it('adds and subtracts days across a month boundary', () => {
 		expect(shiftCivilDate('2026-11-01', -1)).toBe('2026-10-31');
 		expect(shiftCivilDate('2026-10-31', 1)).toBe('2026-11-01');
 		expect(shiftCivilDate('2026-02-28', 1)).toBe('2026-03-01'); // no bisiesto
@@ -25,23 +25,23 @@ describe('shiftCivilDate', () => {
 describe('computeLinkWindow', () => {
 	const retreat = { startDate: '2026-11-20', endDate: '2026-11-22', timezone: 'America/Mexico_City' };
 
-	it('fuera de ventana: más de 7 días antes del inicio', () => {
+	it('outside the window: more than 7 days before the start', () => {
 		const w = computeLinkWindow(retreat, '2026-11-12');
 		expect(w.canLink).toBe(false);
 		expect(w.linkOpenOn).toBe('2026-11-13');
 	});
 
-	it('en ventana: desde startDate − 7 hasta endDate', () => {
+	it('inside the window: from startDate − 7 to endDate', () => {
 		expect(computeLinkWindow(retreat, '2026-11-13').canLink).toBe(true);
 		expect(computeLinkWindow(retreat, '2026-11-20').canLink).toBe(true);
 		expect(computeLinkWindow(retreat, '2026-11-22').canLink).toBe(true);
 	});
 
-	it('fuera de ventana: después de endDate', () => {
+	it('outside the window: after endDate', () => {
 		expect(computeLinkWindow(retreat, '2026-11-23').canLink).toBe(false);
 	});
 
-	it('sync sigue permitido en la gracia post-retiro, hasta endDate + retención', () => {
+	it('sync stays allowed in the post-retreat grace, up to endDate + retention', () => {
 		const w = computeLinkWindow(retreat, '2026-11-30');
 		expect(w.canLink).toBe(false);
 		expect(w.syncAllowed).toBe(true);
@@ -51,25 +51,25 @@ describe('computeLinkWindow', () => {
 });
 
 describe('isLinkPurgeDue', () => {
-	it('purga estrictamente DESPUÉS de endDate + retención', () => {
-		expect(isLinkPurgeDue('2026-11-22', '2026-12-07')).toBe(false); // justo el límite
+	it('purges strictly AFTER endDate + retention', () => {
+		expect(isLinkPurgeDue('2026-11-22', '2026-12-07')).toBe(false); // exactly the limit
 		expect(isLinkPurgeDue('2026-11-22', '2026-12-08')).toBe(true);
 	});
 });
 
 describe('acceptedJidDigitVariants', () => {
-	it('MX: con y sin el prefijo 1 intermedio (521 móvil / 52 fijo)', () => {
+	it('MX: with and without the extra 1 (521 mobile / 52 landline)', () => {
 		expect(acceptedJidDigitVariants('5512345678', 'MX')).toEqual([
 			'525512345678',
 			'5215512345678',
 		]);
 	});
 
-	it('US: solo lada + nacional (sin prefijo 1 intermedio)', () => {
+	it('US: calling code + national only (no extra 1)', () => {
 		expect(acceptedJidDigitVariants('5551234567', 'US')).toEqual(['15551234567']);
 	});
 
-	it('país desconocido: solo el nacional pelado', () => {
+	it('unknown country: the bare national number only', () => {
 		expect(acceptedJidDigitVariants('5512345678', 'ZZ')).toEqual(['5512345678']);
 	});
 });
@@ -79,22 +79,22 @@ describe('civilTodayInTimezone', () => {
 		jest.useRealTimers();
 	});
 
-	it('CDMX vs UTC: la noche de CDMX es "mañana" en UTC — la civil manda', () => {
-		// 2026-11-20 01:30 CDMX == 2026-11-20 07:30 UTC (mismo día civil)…
+	it('CDMX vs UTC: the CDMX night is "tomorrow" in UTC — the civil date rules', () => {
+		// 2026-11-20 01:30 CDMX == 2026-11-20 07:30 UTC (same civil day)…
 		jest.useFakeTimers();
 		jest.setSystemTime(new Date('2026-11-20T07:30:00Z'));
 		expect(civilTodayInTimezone('America/Mexico_City')).toBe('2026-11-20');
 		expect(civilTodayInTimezone('Etc/UTC')).toBe('2026-11-20');
 
-		// …pero 2026-11-20 23:30 CDMX == 2026-11-21 05:30 UTC: día distinto.
+		// …but 2026-11-20 23:30 CDMX == 2026-11-21 05:30 UTC: a different day.
 		jest.setSystemTime(new Date('2026-11-21T05:30:00Z'));
 		expect(civilTodayInTimezone('America/Mexico_City')).toBe('2026-11-20');
 		expect(civilTodayInTimezone('Etc/UTC')).toBe('2026-11-21');
 	});
 
-	it('timezone inválida: el servicio la resuelve con resolveSafeTimeZone antes de llamar', () => {
-		// civilTodayInTimezone no valida; el contrato es recibir tz ya segura
-		// (resolveSafeTimeZone). Documentado aquí para no perder el hilo.
+	it('invalid timezone: the service resolves it with resolveSafeTimeZone before calling', () => {
+		// civilTodayInTimezone does not validate; the contract is to receive an
+		// already-safe tz (resolveSafeTimeZone). Documented here to keep track.
 		jest.useFakeTimers();
 		jest.setSystemTime(new Date('2026-11-20T12:00:00Z'));
 		expect(civilTodayInTimezone('Europe/Madrid')).toBe('2026-11-20');

@@ -15,11 +15,11 @@ import QrcodeVue from 'qrcode.vue'
 import { useWaInboxStore } from '@/stores/waInboxStore'
 
 /**
- * Flujo de vinculación (FR1 / D7): consentimiento → QR → conectado.
- * El modal se monta SIEMPRE (sin v-if) y abre por `open`; la etapa inicial es
- * el consentimiento y el API lo exige server-side también (400 sin flag).
- * El QR rota ~20 s: se refresca con polling de status cada 3 s mientras está
- * en etapa QR.
+ * Linking flow (FR1 / D7): consent → QR → connected.
+ * The modal is ALWAYS mounted (no v-if) and opens via `open`; the first stage
+ * is consent, which the API also requires server-side (400 without the flag).
+ * The QR rotates every ~20 s: status is polled every 3 s while on the QR
+ * stage.
  */
 const props = defineProps<{
   open: boolean
@@ -79,7 +79,7 @@ async function beginLink() {
     const created = await store.link(props.retreatId, true)
     linkId.value = created.id
     stage.value = 'qr'
-    // El QR llega por eventos del supervisor: se lee por polling de status.
+    // The QR arrives through supervisor events: it is read by polling status.
     pollTimer = setInterval(async () => {
       if (!linkId.value || !props.open) return
       try {
@@ -92,7 +92,7 @@ async function beginLink() {
         }
         if (status.lastError) lastError.value = status.lastError
       } catch {
-        // Reintento en el siguiente tick.
+        // Retried on the next tick.
       }
     }, 3000)
   } catch (err) {
@@ -148,7 +148,7 @@ function close() {
           </div>
           <Loader2 v-else class="w-8 h-8 animate-spin text-muted-foreground" />
         </div>
-        <!-- El QR rota ~20 s: barra de progreso que se reinicia con cada código. -->
+        <!-- The QR rotates every ~20 s: a progress bar that restarts with each code. -->
         <div v-if="qr" class="h-1 w-40 mx-auto rounded bg-muted overflow-hidden">
           <div class="wa-qr-renew h-full bg-emerald-500" :key="qr" />
         </div>
@@ -184,8 +184,8 @@ function close() {
 </template>
 
 <style scoped>
-/* Barra de renovación del QR: 20 s lineales; la clave :key="qr" la reinicia
-   cuando llega el código rotado del servidor. */
+/* QR renewal bar: 20 s linear; the :key="qr" restarts it when the server's
+   rotated code arrives. */
 .wa-qr-renew {
   animation: wa-qr-renew 20s linear forwards;
 }

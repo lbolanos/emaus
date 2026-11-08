@@ -1424,7 +1424,7 @@ const handleMessageClick = (message: ParticipantCommunication | CommunityCommuni
 	viewingMessage.value = message;
 };
 
-// Entrantes de WhatsApp (bandeja v1.2): el detalle cambia de etiquetas.
+// Incoming WhatsApp messages (inbox v1.2): the detail uses its own labels.
 const isInboundMessage = computed(
 	() => (viewingMessage.value as ParticipantCommunication | null)?.direction === 'inbound',
 );

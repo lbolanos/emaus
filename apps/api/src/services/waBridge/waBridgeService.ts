@@ -28,23 +28,23 @@ import {
 import { authStatus, wacliLogout } from './wacliClient';
 
 /**
- * Orquestación del puente WhatsApp de solo lectura (specs/whatsapp-inbox):
- * ventanas de vinculación por fecha civil del retiro, tope de sesiones,
- * ciclo de vida de supervisores, unlink con borrado total y el índice de
- * teléfonos de caminantes que consume el poller.
+ * Orchestration of the read-only WhatsApp bridge (specs/whatsapp-inbox):
+ * link windows by the retreat's civil date, session cap, supervisor
+ * lifecycle, unlink with full deletion, and the walker phone index the
+ * poller consumes.
  *
- * Read-only estructural: nada de este servicio envía mensajes (D1). El único
- * comando escritor es `auth logout` en unlink/retención.
+ * Structurally read-only: nothing in this service sends messages (D1). The
+ * only writing command is `auth logout` on unlink/retention.
  */
 
 const CIVIL_TODAY_CACHE_TTL_MS = 60_000;
 
-/** Fecha civil "YYYY-MM-DD" de hoy vista desde `tz` (en-CA da ISO directo). */
+/** Today's civil date "YYYY-MM-DD" as seen from `tz` (en-CA yields ISO). */
 export function civilTodayInTimezone(tz: string): string {
 	return new Intl.DateTimeFormat('en-CA', { timeZone: tz }).format(new Date());
 }
 
-/** Suma (o resta) días a una fecha civil `YYYY-MM-DD` con aritmética UTC. */
+/** Adds (or subtracts) days to a civil date `YYYY-MM-DD` with UTC arithmetic. */
 export function shiftCivilDate(civil: string, days: number): string {
 	const [y, m, d] = civil.split('-').map((part) => parseInt(part, 10));
 	const date = new Date(Date.UTC(y, m - 1, d));
@@ -53,17 +53,17 @@ export function shiftCivilDate(civil: string, days: number): string {
 }
 
 export interface WaLinkWindow {
-	/** Primer día civil en que se permite vincular (startDate − linkWindowDays). */
+	/** First civil day linking is allowed (startDate − linkWindowDays). */
 	linkOpenOn: string;
-	/** Último día civil en que se permite vincular (endDate). */
+	/** Last civil day linking is allowed (endDate). */
 	linkCloseOn: string;
-	/** Último día civil con sync vivo (endDate + retentionDays); luego purga. */
+	/** Last civil day with a live sync (endDate + retentionDays); then purge. */
 	syncCloseOn: string;
 	canLink: boolean;
 	syncAllowed: boolean;
 }
 
-/** Ventana del puente para un retiro, contra la fecha civil dada (puro, testeable). */
+/** Bridge window of a retreat against the given civil date (pure, testable). */
 export function computeLinkWindow(
 	retreat: Pick<Retreat, 'startDate' | 'endDate' | 'timezone'>,
 	todayCivil: string,
@@ -79,12 +79,12 @@ export function computeLinkWindow(
 		linkCloseOn: endDate,
 		syncCloseOn,
 		canLink: todayCivil >= linkOpenOn && todayCivil <= endDate,
-		// Gracia post-retiro: los mensajes siguen entrando hasta la purga.
+		// Post-retreat grace: messages keep arriving until the purge.
 		syncAllowed: todayCivil <= syncCloseOn,
 	};
 }
 
-/** ¿Ya corresponde purgar este link? (puro, testeable) */
+/** Is this link due for purge? (pure, testable) */
 export function isLinkPurgeDue(
 	retreatEndDate: string,
 	todayCivil: string,
@@ -94,9 +94,9 @@ export function isLinkPurgeDue(
 }
 
 /**
- * Dígitos JID que aceptaríamos de un caminante con ese número nacional y país.
- * (puro, testeable). MX es caso especial: los JID de móviles mexicanos llevan
- * el prefijo 1 intermedio (`521XXXXXXXXXX`), el fijo no (`52XXXXXXXXXX`).
+ * JID digits we would accept from a walker with that national number and
+ * country (pure, testable). MX is special: Mexican mobile JIDs carry the
+ * extra 1 (`521XXXXXXXXXX`), landlines do not (`52XXXXXXXXXX`).
  */
 export function acceptedJidDigitVariants(national: string, country: string): string[] {
 	const code = PHONE_CALLING_CODE_BY_COUNTRY[country];
@@ -105,7 +105,7 @@ export function acceptedJidDigitVariants(national: string, country: string): str
 	return code === '52' ? [base, `${code}1${national}`] : [base];
 }
 
-// La unión de motivos vive en @repo/types (waBridge.ts) — una sola fuente.
+// The refusal-reason union lives in @repo/types (waBridge.ts) — single source.
 export type { WaLinkRefusalReason };
 
 export type WaLinkStartResult =
@@ -143,13 +143,13 @@ export class WaBridgeService {
 		};
 	}
 
-	/** Chequeos de vinculación sin efectos (motivo tipado para la UI). */
+	/** Side-effect-free link checks (typed reason for the UI). */
 	async canLink(retreatId: string, userId: string): Promise<WaLinkRefusalReason | null> {
 		if (!config.waBridge.enabled) return 'disabled';
 		const found = await this.getWindowForRetreat(retreatId);
 		if (!found) return 'outside_window';
-		// Activación por retiro (D13): solo el superadmin la enciende; consume
-		// RAM por cada cuenta vinculada.
+		// Per-retreat activation (D13): only the superadmin turns it on; every
+		// linked account costs RAM.
 		if (!found.retreat.whatsappInboxEnabled) return 'not_enabled';
 		if (!found.window.canLink) return 'outside_window';
 
@@ -160,10 +160,10 @@ export class WaBridgeService {
 				{ status: 'pending' },
 			],
 		});
-		// Solo un vínculo REALMENTE conectado bloquea la re-vinculación: los
-		// pendientes/qr/error son intentos muertos que startLink reinicia
-		// (incidencia del QA real 2026-11-06: un auth que murió sin emparejar
-		// dejaba la fila y bloqueaba el reintento con already_linked).
+		// Only a REALLY connected link blocks re-linking: pending/qr/error rows
+		// are dead attempts that startLink restarts (real QA 2026-11-06: an auth
+		// that died before pairing left the row behind and blocked the retry
+		// with already_linked).
 		const existing = await this.linkRepo.findOneBy({ retreatId, userId });
 		const alreadyLinked = existing && existing.status === 'connected';
 		if (alreadyLinked) return 'already_linked';
@@ -171,15 +171,15 @@ export class WaBridgeService {
 		return null;
 	}
 
-	/** Crea (o reusa) el vínculo y arranca el flujo de QR. */
+	/** Creates (or reuses) the link and starts the QR flow. */
 	async startLink(retreatId: string, user: User): Promise<WaLinkStartResult> {
 		const reason = await this.canLink(retreatId, user.id);
 		if (reason) return { ok: false, reason };
 
 		let link = await this.linkRepo.findOneBy({ retreatId, userId: user.id });
 		if (!link) {
-			// El storePath necesita el id ANTES del save: uuid asignado a mano
-			// (el mkdir 0700 va inmediatamente después).
+			// storePath needs the id BEFORE the save: uuid assigned by hand (the
+			// 0700 mkdir comes right after).
 			link = this.linkRepo.create({
 				id: randomUUID(),
 				retreatId,
@@ -195,10 +195,10 @@ export class WaBridgeService {
 		link.connectedAt = null;
 		link.lastSyncAt = null;
 
-		// El store se crea ANTES de guardar la fila: si el dataDir no es
-		// escribible, el fallo no deja fila pending huérfana que después
-		// bloquee con already_linked (incidencia del QA 2026-11-06). Store
-		// limpio: un re-vinculado no hereda sesión ni historial previo.
+		// The store is created BEFORE saving the row: if dataDir is not
+		// writable, the failure leaves no orphan pending row that would later
+		// block with already_linked (QA 2026-11-06). Clean store: a re-linked
+		// account inherits no previous session or history.
 		fs.rmSync(link.storePath, { recursive: true, force: true });
 		fs.mkdirSync(link.storePath, { recursive: true, mode: 0o700 });
 
@@ -247,14 +247,14 @@ export class WaBridgeService {
 				try {
 					const status = await authStatus(link.storePath);
 					link.linkedJid = status.linkedJid ?? null;
-					// Display-only: dígitos pelados, sin normalización por país (el
-					// dueño es quien los ve; nunca salen hacia terceros).
+					// Display-only: bare digits, no per-country normalization (only
+					// the owner sees them; they never go to third parties).
 					link.linkedPhone = status.phone
 						? String(status.phone).replace(/\D/g, '') || null
 						: null;
 				} catch {
-					// auth status puede chocar con el lock durante el bootstrap: no
-					// bloquea la transición.
+					// auth status may hit the lock during the bootstrap: it does not
+					// block the transition.
 				}
 				// A reconnect after 'error' is not a new link: only the first
 				// successful pairing (no connectedAt yet) is audited as LINKED.
@@ -283,15 +283,15 @@ export class WaBridgeService {
 			case 'warning':
 			case 'error': {
 				const rawMessage = (event.message ?? 'unknown wacli error').slice(0, 300);
-				// Ruido informativo del sync (QA real 2026-11-06/07): mensajes de
-				// grupo cuyo payload wacli no renderiza — se anotan, no ensucian
-				// el tablero ni el modal.
+				// Informational sync noise (real QA 2026-11-06/07): group messages
+				// whose payload wacli does not render — logged, kept off the board
+				// and the modal.
 				if (/stored message .* without content|unhandled payload|history sync suppressed/i.test(rawMessage)) {
 					console.log(`[waBridge][${linkId}] wacli notice: ${rawMessage}`);
 					return;
 				}
-				// Errores conocidos → instrucción accionable para el staff (v1.1:
-				// el tablero informa qué hacer, no solo el error crudo).
+				// Known errors → actionable instruction for the staff (v1.1: the
+				// board says what to do, not just the raw error).
 				let guidance = '';
 				if (/store is locked|another wacli/i.test(rawMessage)) {
 					guidance =
@@ -307,15 +307,15 @@ export class WaBridgeService {
 				return;
 			}
 			case 'auth_exit': {
-				// El bootstrap terminó: ¿quedó emparejado? Si sí, pasa a sync.
+				// Bootstrap finished: is it paired? If so, move on to sync.
 				try {
 					const status = await authStatus(link.storePath);
 					if (status.authenticated) {
 						supervisor?.startSync();
 						await this.handleSupervisorEvent(linkId, { type: 'connected' });
 					} else if (link.status !== 'qr') {
-						// El QR expiró o el usuario cerró: el supervisor no re-arranca
-						// auth por sí solo; el usuario reintenta desde la UI.
+						// The QR expired or the user closed it: the supervisor does not
+						// restart auth on its own; the user retries from the UI.
 						link.lastError = 'Pairing did not finish; scan the QR again';
 						await this.linkRepo.save(link);
 					}
@@ -326,8 +326,8 @@ export class WaBridgeService {
 				return;
 			}
 			case 'child_exit':
-				// sync murió: el supervisor agenda restart con backoff; el estado
-				// queda 'error' hasta que vuelva a conectar.
+				// sync died: the supervisor schedules a restart with backoff; the
+				// status stays 'error' until it reconnects.
 				if (link.status === 'connected') {
 					link.status = 'error';
 					link.lastError = 'sync process exited; retrying with backoff';
@@ -341,7 +341,7 @@ export class WaBridgeService {
 		return this.qrCache.get(linkId) ?? null;
 	}
 
-	/** Desvinculación total: logout + rm del store + DELETE (cascade limpia todo). */
+	/** Full unlink: logout + rm of the store + explicit deletes (teardownLink). */
 	async unlink(user: User, link: WhatsappBridgeLink): Promise<void> {
 		await this.teardownLink(link, { actorUserId: user.id, system: false });
 	}
@@ -398,10 +398,10 @@ export class WaBridgeService {
 	}
 
 	/**
-	 * Activación por retiro (D13): solo superadmin (lo valida el controller).
-	 * Al apagar se TERMINAN todos los vínculos del retiro (D14): los stores son
-	 * llaves de sesión de cuentas personales — un retiro apagado no puede
-	 * dejar sesiones vivas.
+	 * Per-retreat activation (D13): superadmin only (checked by the controller).
+	 * Turning it off TERMINATES every link of the retreat (D14): stores are
+	 * session keys of personal accounts — a disabled retreat cannot keep live
+	 * sessions.
 	 */
 	async setEnabled(retreatId: string, enabled: boolean, actor: User): Promise<void> {
 		if (!enabled) {
@@ -425,7 +425,7 @@ export class WaBridgeService {
 		emitInboxChanged({ retreatId, newCount: 0 });
 	}
 
-	/** Termina TODOS los servidores del puente de un retiro (D14, superadmin). */
+	/** Terminates EVERY bridge session of a retreat (D14, superadmin). */
 	async terminateAll(
 		retreatId: string,
 		actor: User,
@@ -454,11 +454,12 @@ export class WaBridgeService {
 	}
 
 	/**
-	 * Dígitos JID aceptados para el retiro (D4): para cada caminante, su número
-	 * nacional + variantes de lada según su país. Se recalcula en cada ciclo:
-	 * barato (cientos de filas) y captura inscripciones tardías. El filtro
-	 * canónico del repo: `retreat_participants.type='walker' AND isCancelled=0`
-	 * — el type/isCancelled viven en RetreatParticipant, NO en Participant.
+	 * JID digits accepted for the retreat (D4): for each walker, their national
+	 * number plus calling-code variants for their country. Recomputed every
+	 * cycle: cheap (hundreds of rows) and it picks up late registrations. The
+	 * repo's canonical filter: `retreat_participants.type='walker' AND
+	 * isCancelled=0` — type/isCancelled live in RetreatParticipant, NOT in
+	 * Participant.
 	 */
 	async getWalkerJidDigitIndex(retreatId: string): Promise<Set<string>> {
 		const registrations = await AppDataSource.getRepository(RetreatParticipant).find({
@@ -486,7 +487,7 @@ export class WaBridgeService {
 		return index;
 	}
 
-	/** Para y desregistra el supervisor del link; espera la parada limpia. */
+	/** Stops and unregisters the link's supervisor; waits for a clean stop. */
 	async stopSupervisorById(linkId: string): Promise<void> {
 		const supervisor = this.supervisors.get(linkId);
 		this.supervisors.delete(linkId);
@@ -541,7 +542,7 @@ export class WaBridgeService {
 			if (!fs.existsSync(link.storePath)) continue;
 			const retreat = await AppDataSource.getRepository(Retreat).findOneBy({ id: link.retreatId });
 			if (!retreat) continue;
-			// Sin activación del superadmin, ningún hijo se levanta (D13).
+			// Without the superadmin's activation no child is started (D13).
 			if (!retreat.whatsappInboxEnabled) continue;
 			const tz = resolveSafeTimeZone(retreat.timezone);
 			const window = computeLinkWindow(retreat, this.todayCivil(tz));
@@ -563,8 +564,8 @@ export class WaBridgeService {
 	}
 
 	/**
-	 * No leídos totales del retiro PARA ESTE usuario (badge del sidebar, v1.1):
-	 * mensaje cuyo timestamp es mayor que el read-state de su chat.
+	 * Total unread of the retreat FOR THIS user (sidebar badge, v1.1): incoming
+	 * messages newer than the read state of their chat.
 	 */
 	async countUnreadForUser(retreatId: string, userId: string): Promise<number> {
 		// Incoming only (v1.3 stores the staff's own replies too) and resolved in
@@ -709,12 +710,12 @@ export class WaBridgeService {
 	}
 
 	/**
-	 * Búsqueda de texto sobre los cuerpos persistidos (v1.1). IGNORA ACENTOS:
-	 * los caminantes escriben "sabana" o "sábana" indistinto — se normaliza
-	 * NFD sin diacríticos en memoria (los últimos 500 mensajes; LIKE de SQLite
-	 * es byte-wise y no plegaría "sábana" contra "sabana"). v1.1: TAMBIÉN
-	 * matchea por NOMBRE del caminante — un hit de nombre devuelve todo el
-	 * chat de esa persona (búsqueda por persona, no solo por palabra).
+	 * Text search over stored bodies (v1.1). ACCENT-INSENSITIVE: walkers write
+	 * "sabana" or "sábana" interchangeably — NFD folding happens in memory
+	 * (SQLite LIKE is byte-wise and would not fold "sábana" to "sabana"), over
+	 * the whole retreat in chunks. It ALSO matches the walker's NAME — a name
+	 * hit returns that person's whole chat (search by person, not only by
+	 * word).
 	 */
 	async searchMessages(
 		retreatId: string,
@@ -728,8 +729,8 @@ export class WaBridgeService {
 		const needle = strip(q);
 		if (!needle) return [];
 
-		// v1.1: matchear TAMBIÉN por nombre del caminante — un hit de nombre
-		// devuelve todo el chat de esa persona (búsqueda por persona).
+		// v1.1: ALSO match the walker's name — a name hit returns that person's
+		// whole chat (search by person).
 		const digitsMap = await this.getWalkerDigitsMap(retreatId);
 		const nameMatchedJids: string[] = [];
 		for (const [digits, participant] of digitsMap) {
@@ -812,13 +813,12 @@ export class WaBridgeService {
 	}
 
 	/**
-	 * Descarga ON-DEMAND la imagen de un mensaje y la devuelve como data-URL
-	 * lista para `receiptPhoto` del modal de pagos (FR14/D15, v1.1).
+	 * ON-DEMAND download of a message's image as a data-URL ready for the
+	 * payment modal's `receiptPhoto` (FR14/D15, v1.1).
 	 *
-	 * La descarga escribe en el store y el hijo sync sostiene el lock: se
-	 * detiene al supervisor, se descarga, y se re-arranca el sync antes de
-	 * devolver (o al fallar). La imagen NUNCA se persiste en esta tabla: vive
-	 * en el modal y, al guardar, en Payment.receiptUrl (payment-receipts/).
+	 * `media download --read-only` takes no store lock, so it runs next to the
+	 * live sync. The image is NEVER persisted in the inbox tables: it lives in
+	 * the modal and, once saved, in Payment.receiptUrl (payment-receipts/).
 	 */
 	async downloadReceiptDataUrl(message: WhatsappInboxMessage): Promise<string> {
 		const variants = await this.getReceiptVariants(message);
@@ -991,7 +991,7 @@ const DOCUMENT_MAX_BYTES = 10 * 1024 * 1024;
 const RECEIPT_CACHE_TTL_MS = 30 * 60 * 1000;
 const RECEIPT_CACHE_MAX_ENTRIES = 40;
 
-/** Content-type por magic bytes (JPEG/PNG/WebP); fallback image/jpeg. */
+/** Content-type by magic bytes (JPEG/PNG/WebP); falls back to image/jpeg. */
 function detectImageContentType(buffer: Buffer): string {
 	if (buffer.length > 3 && buffer[0] === 0xff && buffer[1] === 0xd8) return 'image/jpeg';
 	if (

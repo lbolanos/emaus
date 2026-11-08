@@ -4975,7 +4975,7 @@ export const deleteParticipantNote = async (id: string): Promise<void> => {
   await api.delete(`/crm/notes/${id}`);
 };
 
-// ── Puente WhatsApp de solo lectura (specs/whatsapp-inbox) ──
+// ── Read-only WhatsApp bridge (specs/whatsapp-inbox) ──
 
 import type { WaLinkDto, WaConversationDto, WaInboxMessageDto, WaThreadMediaDto, WaRawMediaDto } from "@repo/types";
 
@@ -4994,7 +4994,7 @@ export const getWaLinks = async (
   return r.data;
 };
 
-/** Activación por retiro — SOLO superadmin (D13, specs/whatsapp-inbox v1.1). */
+/** Per-retreat activation — superadmin ONLY (D13, specs/whatsapp-inbox v1.1). */
 export const setWaBridgeEnabled = async (
   retreatId: string,
   enabled: boolean,
@@ -5003,7 +5003,7 @@ export const setWaBridgeEnabled = async (
   return r.data;
 };
 
-/** Terminar todos los servidores del puente del retiro — SOLO superadmin (D14). */
+/** Terminate every bridge session of the retreat — superadmin ONLY (D14). */
 export const terminateWaBridgeAll = async (
   retreatId: string,
   disable = true,
@@ -5065,7 +5065,7 @@ export interface WaReceiptDownload {
   country: string | null;
 }
 
-/** FR14 (v1.1): descarga ON-DEMAND la imagen del mensaje para `receiptPhoto`. */
+/** FR14 (v1.1): ON-DEMAND download of the message image for `receiptPhoto`. */
 export const getWaReceiptDataUrl = async (messageId: string): Promise<WaReceiptDownload> => {
   const r = await api.post(`/wa-bridge/messages/${messageId}/receipt`);
   return r.data;
@@ -5099,7 +5099,7 @@ export const addWaMessageAsLetter = async (
   return r.data;
 };
 
-/** Thumbnails de un hilo en lote (v1.2): un solo ciclo de descarga en el server. */
+/** Thread thumbnails in one batch (v1.2), cached server side. */
 export const getWaThreadMedia = async (
   retreatId: string,
   messageIds: string[],
@@ -5108,7 +5108,7 @@ export const getWaThreadMedia = async (
   return r.data;
 };
 
-/** Badge del sidebar (v1.1): no leídos totales del retiro para el usuario. */
+/** Sidebar badge (v1.1): the retreat's total unread for the user. */
 export const getWaUnreadCount = async (
   retreatId: string,
 ): Promise<{ total: number }> => {
@@ -5116,7 +5116,7 @@ export const getWaUnreadCount = async (
   return r.data;
 };
 
-/** Marca TODOS los chats como leídos para el usuario (v1.1). */
+/** Marks EVERY chat as read for the user (v1.1). */
 export const markWaAllSeen = async (
   retreatId: string,
 ): Promise<{ ok: boolean; marked: number }> => {
@@ -5135,7 +5135,7 @@ export interface WaSearchResult {
   participantLastName: string;
 }
 
-/** Búsqueda de texto sobre los mensajes persistidos (v1.1). */
+/** Text search over the stored messages (v1.1). */
 export const searchWaMessages = async (
   retreatId: string,
   q: string,

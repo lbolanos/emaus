@@ -4,15 +4,15 @@ import type { WaConversationDto } from '@repo/types'
 import { waMediaLabelKey } from '@/utils/waMedia'
 
 /**
- * Lista de chats de caminantes (bandeja consolidada, FR3). Selecciona el chat
- * activo; los badges de no leídos son por usuario (D11, read_state server-side).
+ * Walker chat list (consolidated inbox, FR3). Selects the active chat; unread
+ * badges are per user (D11, server-side read state).
  */
 defineProps<{
   conversations: WaConversationDto[]
   activeChatJid: string | null
   loading: boolean
   emptyText: string
-  /** Zona del retiro para las horas (timezone-handling). */
+  /** Retreat zone for the times (timezone-handling). */
   retreatTimezone?: string | null
 }>()
 

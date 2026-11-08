@@ -16,28 +16,29 @@ import type {
 import { isPdfDocument, waMediaLabelKey } from '@/utils/waMedia'
 
 /**
- * Hilo de un chat (FR3/FR8/D9/D10 + UX móvil v1.1):
- *  - Mensajes SOLO con interpolación `{{ }}` — jamás v-html: el contenido es
- *    texto de terceros (S8 de specs/whatsapp-inbox).
- *  - Multimedia no se descarga (D9): placeholder con el tipo + registrar pago.
- *  - "Responder" abre el chat desde el teléfono propio del staff (D10).
- *  - Móvil: botón Volver (el padre oculta la lista cuando hay chat activo) y
- *    tap en la burbuja → vista ampliada legible ("ver más grande").
- *  - Horas en la ZONA DEL RETIRO (regla 5 de timezone-handling), separadores
- *    Hoy / Ayer / fecha.
+ * A chat thread (FR3/FR8/D9/D10 + mobile UX v1.1, v1.3):
+ *  - Messages ONLY through `{{ }}` interpolation — never v-html: the content
+ *    is third-party text (S8 of specs/whatsapp-inbox).
+ *  - Media is downloaded on demand: image thumbnails, voice notes, documents.
+ *  - "Reply" opens the chat from the staff member's own phone (D10); staff
+ *    replies are shown right-aligned with their author (v1.3).
+ *  - Mobile: Back button (the parent hides the list while a chat is active)
+ *    and tapping a bubble opens a larger, readable view.
+ *  - Times in the RETREAT'S ZONE (rule 5 of timezone-handling), with Today /
+ *    Yesterday / date separators.
  */
 const props = defineProps<{
   messages: WaInboxMessageDto[]
   conversation: WaConversationDto | null
   loading: boolean
-  /** El usuario puede crear pagos: habilita "Registrar como pago" (FR14). */
+  /** The user can create payments: enables "Register as payment" (FR14). */
   canRegisterPayment?: boolean
-  /** Zona del retiro para horas y separadores de día. */
+  /** Retreat zone for times and day separators. */
   retreatTimezone?: string | null
-  /** Ficha del caminante (backlog UX): Participant completo para el popover. */
+  /** Walker profile (UX backlog): full Participant for the popover. */
   popoverParticipant?: Participant | null
   retreatId?: string | null
-  /** Variantes de imagen por messageId (v1.2): thumb en la lista, large en el visor. */
+  /** Image variants by messageId (v1.2): thumb in the thread, large in the viewer. */
   mediaMap?: Record<string, WaMediaVariantsDto> | null
   /** v1.3: downloaded voice notes / documents by messageId. */
   rawMediaMap?: Record<string, WaRawMediaDto> | null
@@ -106,8 +107,8 @@ function runAction(kind: ActionKind, m: WaInboxMessageDto): void {
   else emit('add-letter', m)
 }
 
-// chatPhone trae los dígitos del JID (con lada); el deep link espera el
-// nacional y le agrega la lada del país con el helper compartido.
+// chatPhone holds the JID digits (with calling code); the deep link expects
+// the national number and adds the country's code with the shared helper.
 const replyLink = computed(() => {
   const chatPhone = props.conversation?.chatPhone
   const country = props.conversation?.country ?? 'MX'
@@ -118,13 +119,13 @@ const replyLink = computed(() => {
 
 const ordered = computed(() => props.messages)
 
-// Vista ampliada ("ver más grande"): tap en la burbuja → texto grande + fecha
-// completa. En textos largos de caminantes, text-sm no se lee cómodo.
+// Larger view: tapping a bubble shows big text + the full date. Long walker
+// messages are hard to read at text-sm.
 const enlarged = ref<WaInboxMessageDto | null>(null)
 
 function enlarge(message: WaInboxMessageDto): void {
-  // Imagen → visor grande del padre (descarga bajo demanda, FR14); el diálogo
-  // ampliado es solo para texto.
+  // Image → the parent's large viewer (on-demand download, FR14); the larger
+  // view dialog is for text only.
   if (message.messageType === 'image') {
     emit('view-photo', message)
     return
@@ -145,7 +146,7 @@ function asDate(ts: string | Date): Date {
   return typeof ts === 'string' ? new Date(ts) : ts
 }
 
-/** Fecha civil YYYY-MM-DD del timestamp, en la zona del retiro. */
+/** Civil date YYYY-MM-DD of the timestamp, in the retreat's zone. */
 function civilDay(ts: string | Date): string {
   return new Intl.DateTimeFormat('en-CA', { timeZone: tz.value }).format(asDate(ts))
 }
@@ -192,7 +193,7 @@ const dayGroups = computed<DayGroup[]>(() => {
 
 function openReply(): void {
   if (!replyLink.value) return;
-  // 1 gesto = 1 window.open (patrón de WhatsAppSendQueue).
+  // 1 gesture = 1 window.open (WhatsAppSendQueue pattern).
   window.open(replyLink.value, '_blank');
 }
 
@@ -230,7 +231,7 @@ function formatFull(ts: string | Date): string {
     <template v-else>
       <div class="px-3 py-2 border-b flex items-center justify-between gap-2">
         <div class="flex items-center gap-1 min-w-0">
-          <!-- Móvil: volver a la lista (el padre oculta el hilo al volver). -->
+          <!-- Mobile: back to the list (the parent hides the thread). -->
           <Button
             variant="ghost"
             size="sm"
@@ -242,7 +243,7 @@ function formatFull(ts: string | Date): string {
             <ArrowLeft class="w-4 h-4" />
           </Button>
           <div class="text-sm font-medium truncate">{{ headerName }}</div>
-          <!-- Ficha del caminante sin salir de la bandeja (backlog UX). -->
+          <!-- Walker profile without leaving the inbox (UX backlog). -->
           <ParticipantInfoPopover
             v-if="popoverParticipant"
             variant="icon"
@@ -393,7 +394,7 @@ function formatFull(ts: string | Date): string {
       </div>
     </template>
 
-    <!-- Vista ampliada ("ver más grande"): texto grande, fecha completa. -->
+    <!-- Larger view: big text and the full date. -->
     <Dialog :open="!!enlarged" @update:open="enlarged = null">
       <DialogContent class="sm:max-w-lg" data-testid="wa-message-enlarged">
         <DialogHeader>
