@@ -33,6 +33,8 @@ vi.mock('vue-i18n', () => ({
 const conversation: WaConversationDto = {
   chatJid: '5215512345678@s.whatsapp.net',
   chatPhone: '5215512345678',
+  senderKind: 'walker',
+  forWalkers: [{ participantId: 'p1', firstName: 'Ana', lastName: 'López' }],
   participantId: 'p1',
   participantFirstName: 'Ana',
   participantLastName: 'López',

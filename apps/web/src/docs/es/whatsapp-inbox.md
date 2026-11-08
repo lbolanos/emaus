@@ -1,7 +1,8 @@
 # WhatsApp del Retiro
 
-La bandeja donde el equipo ve los mensajes que los caminantes mandan por
-WhatsApp a los teléfonos del personal (logística, palanqueros, coordinación).
+La bandeja donde el equipo ve los mensajes que los caminantes —y sus
+contactos de emergencia— mandan por WhatsApp a los teléfonos del personal
+(logística, palanqueros, coordinación).
 
 📺 **[Ver video tutorial](https://youtu.be/_SLDmmOjTPo)**
 
@@ -15,18 +16,26 @@ WhatsApp a los teléfonos del personal (logística, palanqueros, coordinación).
 - **Sin "visto azul"**: leer un mensaje en la app no avisa al caminante.
 - **Solo durante el retiro**: se activa retiro por retiro y, terminado, todo se
   borra automáticamente (sesiones cerradas, historial purgado a los 15 días).
+- **También los contactos de emergencia**: la mamá, el esposo o quien el
+  caminante haya puesto como contacto suelen mandar las cartas y a veces los
+  pagos. Sus mensajes aparecen marcados con 👪 como «contacto de emergencia de
+  …». Solo los ve quien tiene permiso de ver datos de salud.
 
 ## Cómo se usa
 
+La bandeja tiene dos pestañas: **Mensajes** (la bandeja) y **Configuración**
+(teléfonos vinculados y controles del superadmin).
+
 1. **El superadmin activa la bandeja** para el retiro con el interruptor
-   **Bandeja activada para este retiro** (consume memoria del servidor por cada
-   teléfono conectado, por eso la enciende solo él).
-2. **Cada logístico vincula su WhatsApp**: botón **Vincular mi WhatsApp** →
-   lee el aviso (qué se sincroniza y los riesgos) → escanea el código QR con
-   tu teléfono, igual que un WhatsApp Web más.
-3. **El equipo lee la bandeja**: las conversaciones de los caminantes aparecen
-   con su nombre, lo que no has leído y la hora. Toca un mensaje para verlo más
-   grande.
+   **Bandeja activada para este retiro**, en **Configuración** (consume memoria
+   del servidor por cada teléfono conectado, por eso la enciende solo él).
+2. **Cada logístico vincula su WhatsApp**: en **Configuración**, botón
+   **Vincular mi WhatsApp** → lee el aviso (qué se sincroniza y los riesgos) →
+   escanea el código QR con tu teléfono, igual que un WhatsApp Web más.
+3. **El equipo lee la bandeja**: en **Mensajes**, cada caminante es una fila
+   con su nombre, lo que no has leído y la hora. Si también escribieron sus
+   contactos de emergencia, la fila se despliega (▸) y muestra cada chat por
+   separado. Toca un mensaje para verlo más grande.
 4. **Responder**: botón **Responder desde mi WhatsApp** — abre el chat con ese
    caminante desde tu número, como siempre.
 5. **Comprobantes**: si el caminante manda la foto de su depósito, el botón
@@ -52,15 +61,26 @@ WhatsApp a los teléfonos del personal (logística, palanqueros, coordinación).
 - **Sin responder / Respondió …**: en la lista se ve si alguien del equipo ya
   contestó a ese caminante, para no responder dos veces.
 - **Responder con plantilla** abre el mensaje con las plantillas del retiro;
-  queda en el historial del caminante.
+  queda en el historial del caminante. En el chat de un contacto de emergencia
+  no aparece: respóndele desde tu WhatsApp.
+- **Agregar el WhatsApp de un contacto**: el lápiz ✏ junto al nombre en el hilo
+  edita el celular del caminante y los de sus dos contactos de emergencia. Si
+  la mamá escribe desde un número que no estaba registrado, agrégalo ahí: en
+  menos de un minuto aparece su chat, con lo que ya había escrito.
+- **Ver más grande**: arrastra la línea entre la lista y la conversación para
+  darle más espacio a una u otra (doble clic la regresa a su lugar), o usa
+  **Ampliar conversación** (⤢) para ocultar la lista. La bandeja recuerda cómo
+  la dejaste.
 
 ## Privacidad y cuidados
 
 - Vincular tu número es **voluntario**. Nadie está obligado.
 - Durante la ventana del retiro, los mensajes que llegan a tu cuenta pasan por
-  el servidor; **solo se guardan los de caminantes de este retiro** (y tus
-  respuestas a esos caminantes, para que el equipo sepa que ya contestaste) y
-  se borran al desvincular o 15 días después del retiro.
+  el servidor; **solo se guardan los de caminantes de este retiro y los de sus
+  contactos de emergencia** (y tus respuestas, para que el equipo sepa que ya
+  contestaste) y se borran al desvincular o 15 días después del retiro.
+- Si un contacto de emergencia es alguien de tu familia, tu chat con esa
+  persona también entra a la bandeja mientras estés vinculado.
 - Tu número personal **nunca se muestra** a otros miembros del equipo.
 - Usamos un cliente no oficial de WhatsApp, solo de lectura: el riesgo de
   suspensión del número es bajo, pero no es cero — por eso se avisa antes de

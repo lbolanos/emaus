@@ -16,6 +16,13 @@
 > demanda (PDF → imagen en el navegador), D20 «agregar como carta» (texto de
 > impresión), D21 guarda contra pagos duplicados. Robustez: borrado explícito
 > sin depender del CASCADE, watchdog de sesiones en `error`, ingesta paginada.
+> **v1.4 (2026-11-08, pedido de Leo)**: D22 se capturan también los chats de los
+> **contactos de emergencia** de los caminantes (son quienes mandan cartas y a
+> veces pagos), solo visibles con `participant:health`; D23 la lista se agrupa
+> **por caminante**; D24 pestañas Mensajes / Configuración, división arrastrable
+> y «Ampliar conversación»; D25 agregar el WhatsApp de un contacto desde el hilo,
+> con backfill del historial del chat nuevo. Corrige además que el poller nunca
+> emitía `inbox:changed` (ver FR26).
 > Artefactos hermanos: [research.md](research.md) (estado actual y verificaciones),
 > [plan.md](plan.md) (diseño técnico), [tasks.md](tasks.md) (milestones).
 
@@ -61,6 +68,10 @@ equipo autorizado, solo durante la ventana del retiro.
 | D19 | **Documentos y notas de voz bajo demanda** (v1.3): `POST /wa-bridge/messages/:id/raw-media` (tope 10 MB documento, 8 MB audio, sin caché). El navegador reproduce el audio, abre el documento en pestaña nueva y, si es PDF, renderiza la primera página a JPEG con pdf.js (build legacy, carga diferida) para pagos y cartas. El servidor nunca parsea PDF | Pedido de Leo (2026-11-08): «o si se recibe un documento»; pagos y cartas solo aceptan imágenes (confirmado con la sesión letters-email) |
 | D20 | **Agregar como carta** (v1.3): `POST /wa-bridge/messages/:id/letter` crea una `Letter` (specs/letters-email) del participante elegido, `approved` (la eligió el staff), con el texto editable y la imagen como adjunto imprimible; dedupe por `messageId = whatsapp:<id>`. Función hermana de `ingestLetter` en `services/waBridge/waLetterService.ts` (no toca letterService). Requiere `whatsappInbox:read` + `letter:update` | Pedido de Leo: «que un mensaje se pueda agregar como texto de impresión»; el concepto existente es la carta del buzón |
 | D21 | **Guarda contra pagos duplicados** (v1.3): al guardar el pago, `PaymentManagement` emite `payment-saved` y la bandeja lo enlaza (`POST /wa-bridge/messages/:id/payment`, mismo retiro). La burbuja muestra «Pago registrado por X» y registrar otra vez pide confirmación. `PaymentManagement` gana `embedded` (sin cargar todos los pagos) y `prefill`: API compartida con letters-email | Revisión 2026-11-08: dos logísticos podían registrar el mismo comprobante |
+| D22 | **Contactos de emergencia** (v1.4): la whitelist (D4) suma los teléfonos `emergencyContact{1,2}{Cell,Home,Work}Phone` de cada caminante no cancelado, normalizados con el país **del caminante** (el contacto no tiene país propio; mismo criterio que la audiencia «familia» de secuencias). Un solo índice (`getSenderIndex`) resuelve número → caminantes y/o «contacto de emergencia de X»; si el número es de un caminante, gana caminante (pareja que se puso de contacto); un contacto de varios caminantes (hermanos) lista a todos. La identidad se resuelve al leer: sin columna nueva. Esos chats **solo existen** para quien tiene `participant:health` (nombre, parentesco y teléfono del contacto son `SENSITIVE_HEALTH_FIELDS`): sin ese permiso, lista, badge y búsqueda los omiten y todo endpoint del mensaje responde 403. Un chat que ya no resuelve a nadie (caminante cancelado, teléfono editado) se oculta para todos (404) | Pedido de Leo (2026-11-08): «los contactos de emergencia son los que envían las cartas y a veces los pagos» |
+| D23 | **Agrupado por caminante** (v1.4): en el cliente, cada caminante es una entrada con su chat y los de sus contactos; una pareja con teléfono compartido es una sola entrada («Ana y Beto») y los contactos de ambos se suman; un contacto de dos hermanos aparece bajo los dos (mismo chat). Grupos abiertos si tienen no leídos o el chat activo; un grupo de un solo chat lo abre directo. El grupo desde el que se abrió decide el caminante del pago, la carta y el perfil (`activeWalkerId`) | Elección de Leo entre «agrupado por caminante» y una lista plana con etiqueta |
+| D24 | **Pestañas y división ajustable** (v1.4): Mensajes / Configuración (tablero, «Vincular mi WhatsApp», controles del superadmin), con la pestaña en la URL (`?tab=config`). En escritorio, la división lista \| hilo se arrastra (260–560 px, flechas ±20, Home/End, doble clic restablece, `role="separator"`), el botón «Ampliar conversación» oculta la lista, ambos se recuerdan en `localStorage`, y los paneles llenan el alto disponible con scroll interno. Sin dependencia nueva: reka-ui trae Splitter, pero `apps/web` no depende de reka-ui directo y envolverlo en `@repo/ui` obliga a reconstruir su dist en cada worktree | Pedido de Leo: «un tab de configuración y otro de la bandeja; una forma de ampliar la conversación o de mover la división» |
+| D25 | **Agregar el WhatsApp de un contacto desde el hilo** (v1.4): la cabecera del hilo trae el editor rápido de teléfonos existente (`ParticipantQuickPhoneEditor`, `PATCH /participants/:id/phones`, `participant:update`, validación por país) para el caminante activo: celular propio y celulares de contacto 1 y 2. Cuando un chat entra por primera vez a la whitelist de un vínculo (sin mensajes guardados), el poller trae sus **últimos 500 mensajes** (`messages list` sin `--asc`: wacli ordena del más reciente) en vez de solo lo nuevo, así aparece también lo que esa persona ya había escrito. Vale igual para inscripciones tardías. El backfill no dispara aviso | Pedido de Leo durante v1.4: «agregar un número WhatsApp a contacto de caminante fácilmente» |
 
 ## Historias de usuario
 
@@ -134,6 +145,29 @@ equipo autorizado, solo durante la ventana del retiro.
 - **FR21 (v1.3)**: Teléfono compartido (parejas): la conversación nombra a todos
   los caminantes del número; el pago se prellena con el más reciente y el
   selector permite cambiarlo.
+- **FR22 (v1.4)**: Contactos de emergencia (D22). `WaConversationDto` gana
+  `senderKind`, `contact {name, relation, slot}` y `forWalkers`; la búsqueda
+  devuelve `senderKind`, `contactName`, `contactRelation`, `participantId` y
+  encuentra al contacto por su nombre, su parentesco o el nombre del caminante.
+  «Agregar como carta» firma como «Mamá — María (contacto de Juan Pérez)».
+  «Responder con plantilla» no se ofrece en el chat de un contacto (el diálogo
+  apunta al teléfono del caminante); «Responder desde mi WhatsApp» sí.
+- **FR23 (v1.4)**: Historial del participante: con `participant:health`, mezcla
+  también los mensajes de sus contactos de emergencia, rotulados
+  («Recibido de: Mamá — María (contacto de emergencia)»); sin ese permiso no
+  aparecen.
+- **FR24 (v1.4)**: Aviso en vivo: `inbox:changed` lleva `contactCount` (solo un
+  número; la sala la comparten usuarios sin `participant:health`). El aviso con
+  nombre y vista previa es solo para mensajes de caminantes; el de contactos
+  («N mensajes nuevos de contactos de emergencia») lo muestra el cliente solo a
+  quien tiene el permiso.
+- **FR25 (v1.4)**: Lista agrupada (D23), pestañas y división (D24), editor de
+  teléfonos y backfill (D25).
+- **FR26 (v1.4, corrección)**: el poller contaba los insertados con
+  `InsertResult.raw.changes`, que con better-sqlite3 no existe (`raw` es el
+  `lastInsertRowid`): siempre daba 0 y `inbox:changed` nunca se emitía después
+  de una ingesta. Ahora detecta los mensajes nuevos antes de insertar
+  (consulta por `waMessageId`) e inserta en lotes de 50.
 
 ## Criterios de aceptación
 
@@ -182,6 +216,8 @@ equipo autorizado, solo durante la ventana del retiro.
 
 | Riesgo | Consecuencia práctica | Mitigación en esta spec |
 | --- | --- | --- |
+| (v1.4) Un contacto de emergencia es familiar del propio staff vinculado | Su chat personal con ese familiar entra a la bandeja | El aviso de consentimiento lo dice (bullets 1 y 5) y esos chats solo los ve quien tiene `participant:health`. Futuro, fuera de alcance: «excluir este chat» por el dueño del vínculo |
+| (v1.4) El contacto vive en otro país que el caminante | Su número no matchea (se normaliza con el país del caminante) | Limitación documentada; mismo criterio que la audiencia «familia» de secuencias |
 | Baneo de Meta al número personal del staff | Un voluntario pierde su WhatsApp personal | Divulgado en el consentimiento (D7); solo lectura, presence quiet, uso estacional |
 | Privacidad del staff: sus chats personales transitan y quedan en disco durante la ventana | Datos personales de un voluntario en el servidor | Consentimiento (D7), historial de emparejamiento acotado por flags, stores 0700 fuera del web root, purga automática (FR7) |
 | RAM del servidor (914 MB) | Degradación de prod en picos del retiro | Tope duro de sesiones (D12), start con 2, monitoreo 48 h antes de subir |

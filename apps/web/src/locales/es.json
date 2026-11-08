@@ -4654,7 +4654,7 @@
   },
   "waInbox": {
     "title": "WhatsApp del Retiro",
-    "subtitle": "Mensajes que los caminantes envían a los teléfonos del equipo. Solo lectura.",
+    "subtitle": "Mensajes que los caminantes y sus contactos de emergencia envían a los teléfonos del equipo. Solo lectura.",
     "realtimeOn": "En vivo",
     "notEnabled": "El superadmin no ha activado la bandeja de WhatsApp para este retiro.",
     "superadmin": {
@@ -4665,6 +4665,28 @@
     },
     "realtimeOff": "Sin conexión en vivo",
     "refresh": "Actualizar",
+    "tabs": {
+      "messages": "Mensajes",
+      "config": "Configuración"
+    },
+    "goToConfig": "Ir a Configuración",
+    "configHint": "Vincula tu WhatsApp y revisa qué teléfonos del equipo alimentan la bandeja.",
+    "resizeList": "Ajustar el ancho de la lista (arrastra o usa las flechas; doble clic restablece)",
+    "expandThread": "Ampliar conversación",
+    "collapseThread": "Mostrar la lista",
+    "emergencyContact": "contacto de emergencia",
+    "walkerChat": "caminante",
+    "contactSlot": "Contacto {slot}",
+    "contactOf": "{contact} (contacto de {walker})",
+    "contactOfWalker": "Contacto de emergencia de {walker}",
+    "contactSender": "{contact} (contacto de emergencia)",
+    "groupChats": "{count} chats",
+    "toastNewWalker": "{count} mensaje(s) nuevo(s) de caminantes",
+    "toastNewContact": "{count} mensaje(s) nuevo(s) de contactos de emergencia",
+    "phonesSaved": {
+      "title": "Teléfonos guardados",
+      "description": "Si agregaste el WhatsApp de un contacto, sus mensajes (también los anteriores) aparecen en la bandeja en menos de un minuto."
+    },
     "loading": "Cargando…",
     "empty": "Aún no hay mensajes de caminantes. Aparecerán aquí cuando lleguen a un teléfono vinculado.",
     "noLinks": "Ningún teléfono vinculado todavía. Vincula el tuyo para empezar a alimentar la bandeja.",
@@ -4702,11 +4724,11 @@
     "consent": {
       "title": "Vincular mi WhatsApp",
       "intro": "Antes de escanear el código, ten claro qué implica vincular tu cuenta:",
-      "bullet1": "Durante la ventana del retiro, los mensajes que lleguen a tu WhatsApp pasan por el servidor del sistema. Solo se guardan los de caminantes de este retiro; el resto no se conserva.",
+      "bullet1": "Durante la ventana del retiro, los mensajes que lleguen a tu WhatsApp pasan por el servidor del sistema. Solo se guardan los de caminantes de este retiro y los de sus contactos de emergencia; el resto no se conserva. Si un contacto de emergencia es alguien de tu familia, sus mensajes contigo también entran.",
       "bullet2": "Al emparejar, tu teléfono envía el historial reciente al servidor (con tope); se borra al desvincular o 15 días después del retiro.",
       "bullet3": "Usamos un cliente no oficial de WhatsApp, solo de lectura: tu número personal podría ser suspendido. El riesgo es bajo, pero no es cero.",
       "bullet4": "Vincular es voluntario: nadie está obligado. Si no quieres vincular tu número, puedes usar la bandeja como lector.",
-      "bullet5": "Lo que llegue a tu número de parte de caminantes, y tus respuestas a esos caminantes, lo verá el equipo del retiro en esta bandeja (así saben si alguien ya contestó). Tu número nunca se muestra a los demás miembros.",
+      "bullet5": "Lo que llegue a tu número de parte de caminantes o de sus contactos de emergencia, y tus respuestas, lo verá el equipo del retiro en esta bandeja (así saben si alguien ya contestó); los chats de contactos de emergencia, solo quien puede ver datos de salud. Tu número nunca se muestra a los demás miembros.",
       "accept": "Entiendo y quiero vincular mi número",
       "continue": "Continuar",
       "scan": "Escanea este código con tu teléfono: WhatsApp → Ajustes → Dispositivos vinculados → Vincular un dispositivo.",

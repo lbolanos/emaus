@@ -5132,8 +5132,14 @@ export interface WaSearchResult {
   timestamp: string | Date;
   body: string | null;
   messageType: string;
+  /** v1.4: the walker of the chat (the one who listed the contact). */
+  participantId?: string | null;
   participantFirstName: string;
   participantLastName: string;
+  /** v1.4: written by the walker or by one of their emergency contacts. */
+  senderKind?: 'walker' | 'emergency_contact';
+  contactName?: string | null;
+  contactRelation?: string | null;
 }
 
 /** Text search over the stored messages (v1.1). */

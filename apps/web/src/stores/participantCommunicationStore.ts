@@ -12,6 +12,10 @@ export interface ParticipantCommunication {
 	direction?: 'inbound' | 'outbound';
 	/** Raw WhatsApp type for incoming messages (image, audio, …). */
 	waMessageType?: string | null;
+	/** v1.4: incoming from the walker or from one of their emergency contacts. */
+	senderKind?: 'walker' | 'emergency_contact';
+	contactName?: string | null;
+	contactRelation?: string | null;
 	recipientContact: string;
 	recipientContactKey?: string | null;
 	recipientName?: string | null;

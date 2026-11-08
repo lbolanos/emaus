@@ -397,7 +397,7 @@
           <span class="font-medium text-muted-foreground">{{ isInboundMessage ? 'Recibido:' : 'Enviado:' }}</span>
           <span>{{ formatFullDate(viewingMessage.sentAt) }}</span>
           <span class="font-medium text-muted-foreground">{{ isInboundMessage ? 'Remitente:' : 'Destinatario:' }}</span>
-          <span>{{ isInboundMessage ? `+${viewingMessage.recipientContact}` : viewingMessage.recipientContact }}</span>
+          <span>{{ isInboundMessage ? inboundSenderLabel : viewingMessage.recipientContact }}</span>
           <template v-if="viewingMessage.sender?.email">
             <span class="font-medium text-muted-foreground">Enviado por:</span>
             <span>{{ viewingMessage.sender.email }}</span>
@@ -1428,6 +1428,18 @@ const handleMessageClick = (message: ParticipantCommunication | CommunityCommuni
 const isInboundMessage = computed(
 	() => (viewingMessage.value as ParticipantCommunication | null)?.direction === 'inbound',
 );
+
+/** v1.4: "Mamá — María (contacto de emergencia) · +52…" when a contact wrote it. */
+const inboundSenderLabel = computed(() => {
+	const message = viewingMessage.value as ParticipantCommunication | null;
+	if (!message) return '';
+	const phone = `+${message.recipientContact}`;
+	if (message.senderKind !== 'emergency_contact') return phone;
+	const contact =
+		[message.contactRelation, message.contactName].filter(Boolean).join(' — ') ||
+		'Contacto de emergencia';
+	return `${contact} (contacto de emergencia) · ${phone}`;
+});
 
 const formatFullDate = (iso: string) => {
 	const d = new Date(iso);

@@ -6,17 +6,19 @@ import { useWaInboxStore } from '@/stores/waInboxStore';
 
 // The global vue-i18n mock returns the raw key; here go the real es.json
 // strings this test asserts (the 5 points of the D7 notice).
-vi.mock('vue-i18n', () => ({
+// Partial mock: the store this modal uses imports @/i18n (createI18n).
+vi.mock('vue-i18n', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('vue-i18n')>()),
   useI18n: () => ({
     t: (key: string) =>
       ({
         'waInbox.consent.title': 'Vincular mi WhatsApp',
         'waInbox.consent.intro': 'Antes de escanear el código, ten claro qué implica vincular tu cuenta:',
-        'waInbox.consent.bullet1': 'Durante la ventana del retiro, los mensajes que lleguen a tu WhatsApp pasan por el servidor del sistema. Solo se guardan los de caminantes de este retiro; el resto no se conserva.',
+        'waInbox.consent.bullet1': 'Durante la ventana del retiro, los mensajes que lleguen a tu WhatsApp pasan por el servidor del sistema. Solo se guardan los de caminantes de este retiro y los de sus contactos de emergencia; el resto no se conserva. Si un contacto de emergencia es alguien de tu familia, sus mensajes contigo también entran.',
         'waInbox.consent.bullet2': 'Al emparejar, tu teléfono envía el historial reciente al servidor (con tope); se borra al desvincular o 15 días después del retiro.',
         'waInbox.consent.bullet3': 'Usamos un cliente no oficial de WhatsApp, solo de lectura: tu número personal podría ser suspendido. El riesgo es bajo, pero no es cero.',
         'waInbox.consent.bullet4': 'Vincular es voluntario: nadie está obligado. Si no quieres vincular tu número, puedes usar la bandeja como lector.',
-        'waInbox.consent.bullet5': 'Lo que llegue a tu número lo verá el equipo del retiro en esta bandeja. Tu número nunca se muestra a los demás miembros.',
+        'waInbox.consent.bullet5': 'Lo que llegue a tu número de parte de caminantes o de sus contactos de emergencia, y tus respuestas, lo verá el equipo del retiro en esta bandeja (así saben si alguien ya contestó); los chats de contactos de emergencia, solo quien puede ver datos de salud. Tu número nunca se muestra a los demás miembros.',
         'waInbox.consent.accept': 'Entiendo y quiero vincular mi número',
         'waInbox.consent.continue': 'Continuar',
         'waInbox.cancel': 'Cancelar',
@@ -86,6 +88,8 @@ describe('WaLinkModal — consentimiento', () => {
     expect(text).toContain('suspendido');
     expect(text).toContain('voluntario');
     expect(text).toContain('nunca se muestra');
+    // v1.4: emergency contacts are part of what gets stored and shown.
+    expect(text).toContain('contactos de emergencia');
   });
 
   it('with the checkbox unticked, Continue is disabled and the API is NOT called', async () => {

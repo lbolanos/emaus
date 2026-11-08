@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useRoute, useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { MessageCircle, RefreshCw } from 'lucide-vue-next'
 import {
@@ -11,9 +12,15 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
   useToast,
 } from '@repo/ui'
 import type { WaInboxMessageDto } from '@repo/types'
+import type { WaSearchResult } from '@/services/api'
+import { useResizableSplit } from '@/composables/useResizableSplit'
 import { useRetreatStore } from '@/stores/retreatStore'
 import { useAuthStore } from '@/stores/authStore'
 import { useAuthPermissions } from '@/composables/useAuthPermissions'
@@ -32,7 +39,9 @@ import { renderPdfFirstPage } from '@/utils/pdfToImage'
 /**
  * The retreat's read-only WhatsApp inbox (specs/whatsapp-inbox).
  * Consolidated: walker messages arriving at ANY linked phone are visible to
- * every staff member with whatsappInbox:read (D3).
+ * every staff member with whatsappInbox:read (D3). Since v1.4 also the
+ * walkers' emergency contacts (D22, participant:health), grouped by walker
+ * (D23), in two tabs — Messages / Settings — with a resizable split (D24).
  */
 
 const { t } = useI18n()
@@ -77,11 +86,71 @@ const emptyListText = computed(() => {
   }
   return links.value.length === 0 ? t('waInbox.noLinks') : t('waInbox.empty')
 })
+// v1.4: the walker the chat is about — for a contact, the walker of the group
+// it was opened from (prefills payment and letter, profile, quick phones).
 const activeParticipant = computed(() => {
-  const pid = store.activeConversation?.participantId
+  const pid = store.activeWalkerId
   if (!pid) return null
   return (participantStore.participants || []).find((p) => p.id === pid) ?? null
 })
+
+// ── v1.4 (D24): tabs in the URL so a reload or a link keeps the tab ──
+const route = useRoute()
+const router = useRouter()
+type InboxTab = 'messages' | 'config'
+const activeTab = computed<InboxTab>(() => (route.query.tab === 'config' ? 'config' : 'messages'))
+function setTab(value: string | number): void {
+  const tab: InboxTab = value === 'config' ? 'config' : 'messages'
+  if (tab === activeTab.value) return
+  const query = { ...route.query }
+  if (tab === 'config') query.tab = 'config'
+  else delete query.tab
+  void router.replace({ query })
+}
+
+// ── v1.4 (D24): draggable split and "expand conversation" (desktop) ──
+const split = useResizableSplit({
+  storageKey: 'emaus.waInbox.listWidth',
+  defaultSize: 340,
+  min: 260,
+  max: 560,
+})
+const EXPANDED_KEY = 'emaus.waInbox.threadExpanded'
+function readExpanded(): boolean {
+  try {
+    return localStorage.getItem(EXPANDED_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+const threadExpanded = ref(readExpanded())
+function toggleThreadExpanded(): void {
+  threadExpanded.value = !threadExpanded.value
+  try {
+    localStorage.setItem(EXPANDED_KEY, threadExpanded.value ? '1' : '0')
+  } catch {
+    // Not remembered; the toggle still works for this visit.
+  }
+}
+
+// Retreat house's country: validates the quick phone editor per country
+// (same source as ParticipantList; GET /retreats brings the `house` relation).
+const retreatCountry = computed<string | null>(
+  () => (retreatStore.selectedRetreat as any)?.house?.country ?? null,
+)
+
+/** v1.4: a contact's number was just added — its chat arrives on the next ingestion cycle. */
+function onPhonesSaved(): void {
+  toast({ title: t('waInbox.phonesSaved.title'), description: t('waInbox.phonesSaved.description') })
+}
+
+/** Who wrote a search result: the walker, or "Mamá — María · contacto de Juan". */
+function searchSender(r: WaSearchResult): string {
+  const walker = `${r.participantFirstName} ${r.participantLastName}`.trim()
+  if (r.senderKind !== 'emergency_contact') return walker
+  const contact = [r.contactRelation, r.contactName].filter(Boolean).join(' — ') || t('waInbox.emergencyContact')
+  return t('waInbox.contactOf', { contact, walker })
+}
 async function onMarkAllSeen() {
   const id = retreatId.value
   if (!id) return
@@ -154,15 +223,15 @@ watch(searchQuery, (q) => {
   }, 300)
 })
 
-function onSelectSearchResult(chatJid: string) {
+function onSelectSearchResult(result: WaSearchResult) {
   searchQuery.value = ''
-  onSelect(chatJid)
+  onSelect(result.chatJid, result.participantId ?? null)
 }
 
-function onSelect(chatJid: string) {
+function onSelect(chatJid: string, walkerId: string | null = null) {
   const id = retreatId.value
   if (!id) return
-  void store.openChat(id, chatJid)
+  void store.openChat(id, chatJid, walkerId)
   // Mobile: the thread opens alone, at the top of the viewport.
   if (window.innerWidth < 1024) window.scrollTo({ top: 0 })
 }
@@ -233,7 +302,15 @@ function notifyError(description: string): void {
 
 const activeConversationName = computed(() => {
   const c = store.activeConversation
-  return c ? `${c.participantFirstName} ${c.participantLastName}`.trim() : ''
+  if (!c) return ''
+  const walker = activeParticipant.value
+    ? `${activeParticipant.value.firstName} ${activeParticipant.value.lastName}`.trim()
+    : `${c.participantFirstName} ${c.participantLastName}`.trim()
+  if (c.senderKind !== 'emergency_contact') return walker
+  const contact =
+    [c.contact?.relation, c.contact?.name].filter(Boolean).join(' — ') ||
+    t('waInbox.contactSlot', { slot: c.contact?.slot ?? 1 })
+  return t('waInbox.contactOf', { contact, walker })
 })
 
 async function downloadReceiptFor(message: { id: string }): Promise<string | null> {
@@ -274,7 +351,7 @@ async function onViewPhoto(message: WaInboxMessageDto) {
   if (!dataUrl) return
   photoViewer.value = {
     dataUrl,
-    participantId: store.activeConversation?.participantId ?? null,
+    participantId: store.activeWalkerId,
     participantName: activeConversationName.value,
     message,
   }
@@ -308,7 +385,7 @@ async function onRegisterFromPhoto() {
 }
 
 async function onRegisterReceipt(message: WaInboxMessageDto) {
-  const participantId = store.activeConversation?.participantId
+  const participantId = store.activeWalkerId
   if (!participantId) {
     notifyError(t('waInbox.receiptNoParticipant'))
     return
@@ -466,144 +543,236 @@ function onReplyTemplate() {
           <RefreshCw class="w-4 h-4 mr-1" />
           {{ t('waInbox.refresh') }}
         </Button>
-        <Button size="sm" @click="linkModalOpen = true">
-          {{ t('waInbox.linkButton') }}
-        </Button>
       </div>
     </div>
 
-    <!-- Mobile: conversations come FIRST (order-1); the board and the
-         superadmin controls go last. Desktop keeps the normal order. -->
-    <div class="order-2 lg:order-1 flex flex-col gap-4">
-      <WaLinkPanel
-        :links="links"
-        :current-user-id="myUserId"
-        :is-superadmin="isSuperadmin"
-        @unlink="onUnlink"
-      />
+    <!-- v1.4 (D24): Messages / Settings tabs; the tab lives in the URL (?tab=config). -->
+    <Tabs :model-value="activeTab" @update:model-value="setTab">
+      <TabsList>
+        <TabsTrigger value="messages" data-testid="wa-tab-messages">
+          {{ t('waInbox.tabs.messages') }}
+          <span
+            v-if="store.totalUnread > 0"
+            class="ml-1.5 min-w-[1.25rem] px-1.5 h-5 rounded-full bg-emerald-600 text-white text-xs inline-flex items-center justify-center"
+          >
+            {{ store.totalUnread > 99 ? '99+' : store.totalUnread }}
+          </span>
+        </TabsTrigger>
+        <TabsTrigger value="config" data-testid="wa-tab-config">
+          {{ t('waInbox.tabs.config') }}
+        </TabsTrigger>
+      </TabsList>
 
-      <!-- Per-retreat activation (D13) and session termination (D14):
-           superadmin ONLY. The bridge costs RAM per linked account. -->
-      <div
-        v-if="isSuperadmin"
-        class="rounded-lg border p-3 flex flex-col sm:flex-row sm:items-center gap-3"
-        data-testid="wa-superadmin-controls"
-      >
-        <label class="flex items-center gap-2 text-sm">
-          <Switch
-            :model-value="inboxEnabled"
-            data-testid="wa-enabled-switch"
-            @update:model-value="onToggleEnabled"
-          />
-          <span>{{ t('waInbox.superadmin.activate') }}</span>
-        </label>
-        <span class="text-xs text-muted-foreground">{{ t('waInbox.superadmin.activateHint') }}</span>
-        <Button
-          v-if="links.length > 0"
-          variant="destructive"
-          size="sm"
-          class="sm:ml-auto"
-          data-testid="wa-terminate-all"
-          @click="onTerminateAll"
+      <TabsContent value="messages" class="mt-3">
+        <!-- Nothing linked yet: the inbox has nothing to show — point to Settings. -->
+        <div
+          v-if="links.length === 0 && conversations.length === 0 && !loadingConversations"
+          class="rounded-lg border p-6 flex flex-col items-center gap-3 text-center"
+          data-testid="wa-empty-config"
         >
-          {{ terminateArmed ? t('waInbox.superadmin.terminateConfirm') : t('waInbox.superadmin.terminate') }}
-        </Button>
-      </div>
-    </div>
-
-    <!-- Mobile: list and thread are EXCLUSIVE — tapping a chat shows only the
-         thread (with Back); without an active chat only the list. Desktop: both. -->
-    <div class="order-1 lg:order-2 grid grid-cols-1 lg:grid-cols-[340px_1fr] gap-4">
-      <div :class="store.activeChatJid ? 'hidden lg:block' : 'block'">
-        <!-- Search + filters (v1.1): replaces the list while there is text. -->
-        <input
-          v-model="searchQuery"
-          type="search"
-          :placeholder="t('waInbox.searchPlaceholder')"
-          class="w-full mb-2 px-3 py-2 text-sm rounded-lg border bg-background"
-          data-testid="wa-search-input"
-        />
-        <div v-if="searchQuery.trim().length >= 2" class="rounded-lg border overflow-hidden">
-          <div v-if="searching" class="p-3 text-sm text-muted-foreground animate-pulse">
-            {{ t('waInbox.loading') }}
-          </div>
-          <div
-            v-else-if="store.searchResults.length === 0"
-            class="p-3 text-sm text-muted-foreground"
-          >
-            {{ t('waInbox.searchEmpty') }}
-          </div>
-          <ul v-else class="divide-y max-h-[60vh] overflow-y-auto">
-            <li v-for="r in store.searchResults" :key="r.id">
-              <button
-                type="button"
-                class="w-full text-left px-3 py-2 hover:bg-muted/60"
-                @click="onSelectSearchResult(r.chatJid)"
-              >
-                <div class="flex items-center justify-between gap-2">
-                  <span class="text-sm font-medium truncate">
-                    {{ r.participantFirstName }} {{ r.participantLastName }}
-                  </span>
-                  <span class="text-xs text-muted-foreground whitespace-nowrap">
-                    {{ formatSearchTime(r.timestamp) }}
-                  </span>
-                </div>
-                <div class="text-xs text-muted-foreground truncate">{{ r.body }}</div>
-              </button>
-            </li>
-          </ul>
+          <p class="text-sm text-muted-foreground">{{ t('waInbox.noLinks') }}</p>
+          <Button size="sm" data-testid="wa-go-config" @click="setTab('config')">
+            {{ t('waInbox.goToConfig') }}
+          </Button>
         </div>
-        <template v-else>
+
+        <!-- Mobile: list and thread are EXCLUSIVE — tapping a chat shows only
+             the thread (with Back). Desktop: list | handle | thread, the list
+             width is draggable and "expand" hides the list (D24). Both panes
+             fill the available height and scroll inside. -->
+        <div
+          v-else
+          class="grid grid-cols-1 gap-4 lg:gap-0 h-[calc(100dvh-14rem)] min-h-[420px]"
+          :class="[
+            threadExpanded ? '' : 'lg:grid-cols-[var(--wa-list-w)_12px_minmax(0,1fr)]',
+            split.dragging.value ? 'select-none cursor-col-resize' : '',
+          ]"
+          :style="{ '--wa-list-w': `${split.size.value}px` }"
+          data-testid="wa-split"
+        >
           <div
-            v-if="conversations.length > 0"
-            class="flex items-center justify-between gap-2 mb-2"
+            class="flex-col min-h-0"
+            :class="[store.activeChatJid ? 'hidden' : 'flex', threadExpanded ? 'lg:hidden' : 'lg:flex']"
+            data-testid="wa-list-pane"
           >
-            <label class="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <input v-model="onlyUnread" type="checkbox" class="accent-emerald-600" data-testid="wa-only-unread" />
-              <span>{{ t('waInbox.onlyUnread') }}</span>
-            </label>
-            <button
-              v-if="store.totalUnread > 0"
-              type="button"
-              class="text-xs text-muted-foreground hover:text-foreground hover:underline"
-              data-testid="wa-mark-all-seen"
-              @click="onMarkAllSeen"
+            <!-- Search + filters (v1.1): replaces the list while there is text. -->
+            <input
+              v-model="searchQuery"
+              type="search"
+              :placeholder="t('waInbox.searchPlaceholder')"
+              class="w-full mb-2 px-3 py-2 text-sm rounded-lg border bg-background"
+              data-testid="wa-search-input"
+            />
+            <div
+              v-if="searchQuery.trim().length >= 2"
+              class="rounded-lg border overflow-hidden flex-1 min-h-0 flex flex-col"
             >
-              {{ t('waInbox.markAllSeen') }}
-            </button>
+              <div v-if="searching" class="p-3 text-sm text-muted-foreground animate-pulse">
+                {{ t('waInbox.loading') }}
+              </div>
+              <div
+                v-else-if="store.searchResults.length === 0"
+                class="p-3 text-sm text-muted-foreground"
+              >
+                {{ t('waInbox.searchEmpty') }}
+              </div>
+              <ul v-else class="divide-y flex-1 min-h-0 overflow-y-auto">
+                <li v-for="r in store.searchResults" :key="r.id">
+                  <button
+                    type="button"
+                    class="w-full text-left px-3 py-2 hover:bg-muted/60"
+                    @click="onSelectSearchResult(r)"
+                  >
+                    <div class="flex items-center justify-between gap-2">
+                      <span class="text-sm font-medium truncate" data-testid="wa-search-sender">
+                        <template v-if="r.senderKind === 'emergency_contact'">👪 </template>{{ searchSender(r) }}
+                      </span>
+                      <span class="text-xs text-muted-foreground whitespace-nowrap">
+                        {{ formatSearchTime(r.timestamp) }}
+                      </span>
+                    </div>
+                    <div class="text-xs text-muted-foreground truncate">{{ r.body }}</div>
+                  </button>
+                </li>
+              </ul>
+            </div>
+            <template v-else>
+              <div
+                v-if="conversations.length > 0"
+                class="flex items-center justify-between gap-2 mb-2"
+              >
+                <label class="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <input v-model="onlyUnread" type="checkbox" class="accent-emerald-600" data-testid="wa-only-unread" />
+                  <span>{{ t('waInbox.onlyUnread') }}</span>
+                </label>
+                <button
+                  v-if="store.totalUnread > 0"
+                  type="button"
+                  class="text-xs text-muted-foreground hover:text-foreground hover:underline"
+                  data-testid="wa-mark-all-seen"
+                  @click="onMarkAllSeen"
+                >
+                  {{ t('waInbox.markAllSeen') }}
+                </button>
+              </div>
+              <div class="flex-1 min-h-0">
+                <WaConversationList
+                  :conversations="filteredConversations"
+                  :active-chat-jid="store.activeChatJid"
+                  :active-walker-id="store.activeWalkerId"
+                  :loading="loadingConversations"
+                  :empty-text="emptyListText"
+                  :retreat-timezone="retreatTimezone"
+                  @select="onSelect"
+                />
+              </div>
+            </template>
           </div>
-          <WaConversationList
-            :conversations="filteredConversations"
-            :active-chat-jid="store.activeChatJid"
-            :loading="loadingConversations"
-            :empty-text="emptyListText"
-            :retreat-timezone="retreatTimezone"
-            @select="onSelect"
-          />
-        </template>
-      </div>
-      <div :class="store.activeChatJid ? 'block' : 'hidden lg:block'">
-        <WaChatThread
-          :messages="store.threadMessages"
-          :conversation="store.activeConversation"
-          :loading="store.loadingThread"
-          :can-register-payment="canRegisterPayment"
-          :retreat-timezone="retreatTimezone"
-          :popover-participant="activeParticipant"
-          :retreat-id="retreatId"
-          :media-map="mediaByMessageId"
-          :raw-media-map="rawMediaByMessageId"
-          :can-add-letter="canAddLetter"
-          @register-receipt="onRegisterReceipt"
-          @view-photo="onViewPhoto"
-          @open-document="onOpenDocument"
-          @play-audio="onPlayAudio"
-          @add-letter="onAddLetter"
-          @reply-template="onReplyTemplate"
-          @back="store.activeChatJid = null"
+
+          <!-- Draggable divider (desktop): drag, arrows ±20 px, Home/End,
+               double-click restores the default width. -->
+          <div
+            v-if="!threadExpanded"
+            class="hidden lg:flex justify-center cursor-col-resize group touch-none outline-none"
+            role="separator"
+            aria-orientation="vertical"
+            :aria-valuenow="split.size.value"
+            aria-valuemin="260"
+            aria-valuemax="560"
+            :aria-label="t('waInbox.resizeList')"
+            :title="t('waInbox.resizeList')"
+            tabindex="0"
+            data-testid="wa-split-handle"
+            @pointerdown="split.onPointerDown"
+            @pointermove="split.onPointerMove"
+            @pointerup="split.onPointerUp"
+            @pointercancel="split.onPointerUp"
+            @keydown="split.onKeydown"
+            @dblclick="split.reset"
+          >
+            <span
+              class="w-1 my-2 rounded-full bg-border transition-colors group-hover:bg-emerald-400 group-focus-visible:bg-emerald-500"
+              :class="split.dragging.value ? 'bg-emerald-500' : ''"
+            />
+          </div>
+
+          <div
+            class="flex-col min-h-0"
+            :class="store.activeChatJid ? 'flex' : 'hidden lg:flex'"
+            data-testid="wa-thread-pane"
+          >
+            <WaChatThread
+              class="flex-1 min-h-0"
+              :messages="store.threadMessages"
+              :conversation="store.activeConversation"
+              :loading="store.loadingThread"
+              :can-register-payment="canRegisterPayment"
+              :retreat-timezone="retreatTimezone"
+              :popover-participant="activeParticipant"
+              :retreat-id="retreatId"
+              :media-map="mediaByMessageId"
+              :raw-media-map="rawMediaByMessageId"
+              :can-add-letter="canAddLetter"
+              :expanded="threadExpanded"
+              :phone-country="retreatCountry"
+              @register-receipt="onRegisterReceipt"
+              @view-photo="onViewPhoto"
+              @open-document="onOpenDocument"
+              @play-audio="onPlayAudio"
+              @add-letter="onAddLetter"
+              @reply-template="onReplyTemplate"
+              @toggle-expand="toggleThreadExpanded"
+              @phones-saved="onPhonesSaved"
+              @back="store.activeChatJid = null"
+            />
+          </div>
+        </div>
+      </TabsContent>
+
+      <!-- Settings: link board, "link my WhatsApp" and the superadmin controls. -->
+      <TabsContent value="config" class="mt-3 flex flex-col gap-4">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+          <p class="text-sm text-muted-foreground">{{ t('waInbox.configHint') }}</p>
+          <Button size="sm" data-testid="wa-link-button" @click="linkModalOpen = true">
+            {{ t('waInbox.linkButton') }}
+          </Button>
+        </div>
+        <WaLinkPanel
+          :links="links"
+          :current-user-id="myUserId"
+          :is-superadmin="isSuperadmin"
+          @unlink="onUnlink"
         />
-      </div>
-    </div>
+
+        <!-- Per-retreat activation (D13) and session termination (D14):
+             superadmin ONLY. The bridge costs RAM per linked account. -->
+        <div
+          v-if="isSuperadmin"
+          class="rounded-lg border p-3 flex flex-col sm:flex-row sm:items-center gap-3"
+          data-testid="wa-superadmin-controls"
+        >
+          <label class="flex items-center gap-2 text-sm">
+            <Switch
+              :model-value="inboxEnabled"
+              data-testid="wa-enabled-switch"
+              @update:model-value="onToggleEnabled"
+            />
+            <span>{{ t('waInbox.superadmin.activate') }}</span>
+          </label>
+          <span class="text-xs text-muted-foreground">{{ t('waInbox.superadmin.activateHint') }}</span>
+          <Button
+            v-if="links.length > 0"
+            variant="destructive"
+            size="sm"
+            class="sm:ml-auto"
+            data-testid="wa-terminate-all"
+            @click="onTerminateAll"
+          >
+            {{ terminateArmed ? t('waInbox.superadmin.terminateConfirm') : t('waInbox.superadmin.terminate') }}
+          </Button>
+        </div>
+      </TabsContent>
+    </Tabs>
 
     <WaLinkModal v-model:open="linkModalOpen" :retreat-id="retreatId" @linked="refresh" />
 
@@ -622,7 +791,7 @@ function onReplyTemplate() {
     <WaLetterDialog
       v-model:open="letterOpen"
       :participants="letterParticipants"
-      :default-participant-id="store.activeConversation?.participantId ?? null"
+      :default-participant-id="store.activeWalkerId"
       :initial-text="letterMessage?.body ?? ''"
       :attachment-data-url="letterAttachment"
       :preparing-attachment="letterPreparing"

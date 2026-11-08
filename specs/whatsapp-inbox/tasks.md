@@ -378,3 +378,48 @@ esta sesión — probar a mano nota de voz en iPhone y PDF real.
   (letters-email, ya en prod). El runner detecta ejecutadas por NOMBRE, así que
   ambas corrían, pero `revert` ordena por timestamp y un empate lo vuelve
   ambiguo. En dev el nombre nuevo se re-ejecuta: es idempotente (IF NOT EXISTS).
+
+## v1.4 — contactos de emergencia, agrupado, pestañas y división (2026-11-08)
+
+Backend (D22, D25, FR22–FR24, FR26):
+- [x] `getSenderIndex` como única resolución número → persona: caminantes y
+  contactos 1/2 (celular, casa, trabajo) con el país del caminante; gana
+  caminante; contacto compartido lista a todos.
+- [x] Visibilidad con `participant:health`: lista, badge (no leídos agrupados
+  por chat en SQL, suma solo los visibles), búsqueda; 403 en `messages`,
+  `threadMedia` (omite, no 403: el lote mezcla chats), `rawMedia`, `receipt`,
+  `linkPayment` y `addAsLetter`; 404 si el chat ya no resuelve a nadie.
+- [x] DTO: `senderKind`, `contact`, `forWalkers`; búsqueda con remitente.
+- [x] Poller: whitelist del índice, backfill de 500 (más recientes) para chats
+  sin mensajes del vínculo, aviso sin nombre del contacto (`contactCount`).
+- [x] Corrección: `inbox:changed` nunca se emitía (`raw.changes` no existe con
+  better-sqlite3). Nuevos detectados antes de insertar + inserción en lotes.
+- [x] Historial del participante: contactos rotulados, solo con el permiso.
+- [x] Tests: `waBridgeEmergencyContacts.test.ts` (13: índice, visibilidad,
+  controlador, historial, poller con wacli mockeado). Suites del puente: 84.
+
+Web (D23–D25):
+- [x] Lista agrupada por caminante (pareja = un grupo; hermanos comparten
+  contacto), `activeWalkerId` para pago, carta y perfil.
+- [x] Pestañas Mensajes / Configuración (`?tab=config`) y estado vacío «Ir a
+  Configuración».
+- [x] División arrastrable (`useResizableSplit`), «Ampliar conversación»,
+  paneles a alto completo.
+- [x] Cabecera del hilo: rótulo del contacto, editor rápido de teléfonos,
+  sin «Responder con plantilla» en chats de contacto.
+- [x] Aviso de contactos solo con `participant:health`; textos del aviso por
+  i18n; consentimiento (bullets 1 y 5) y ayuda actualizados.
+- [x] Tests: lista agrupada (6), hilo de contacto (4), split (5), store (3),
+  layout de la vista (4), historial (1). Web completo: 4099 verdes.
+
+Pendiente — QA en vivo (Playwright MCP desconectado en esta sesión):
+- [ ] Cargar como contacto de emergencia de QA Caminante un segundo teléfono
+  real desde el editor del hilo; escribir y mandar una foto desde ese teléfono:
+  aparece bajo el grupo «QA Caminante» como contacto (con backfill de lo que ya
+  había escrito).
+- [ ] Registrar pago y agregar como carta desde ese chat: se prellenan con QA
+  Caminante.
+- [ ] Quitar `participant:health` a un rol de prueba: el chat desaparece y el
+  badge baja.
+- [ ] Arrastrar la división, flechas, doble clic, «Ampliar»; revisar el alto de
+  los paneles (`100dvh - 14rem`) en la laptop de Leo y en el celular.

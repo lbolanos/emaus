@@ -134,7 +134,14 @@
           <span v-if="message.recipientName" class="font-medium">{{ message.recipientName }} — </span>{{ message.recipientContact }}
         </div>
         <div v-else class="text-xs text-muted-foreground">
-          Recibido de: <span class="font-medium">+{{ message.recipientContact }}</span>
+          Recibido de:
+          <!-- v1.4: written by an emergency contact (only with participant:health). -->
+          <span
+            v-if="message.senderKind === 'emergency_contact'"
+            class="font-medium text-sky-800"
+            data-testid="history-contact-sender"
+          >👪 {{ contactSenderLabel(message) }} — </span>
+          <span class="font-medium">+{{ message.recipientContact }}</span>
         </div>
 
         <!-- Sender Info -->
@@ -179,6 +186,10 @@ interface ParticipantCommunication {
   /** 'inbound' = message received from the walker through the inbox (v1.2). */
   direction?: 'inbound' | 'outbound';
   waMessageType?: string | null;
+  /** v1.4: inbound from the walker or from one of their emergency contacts. */
+  senderKind?: 'walker' | 'emergency_contact';
+  contactName?: string | null;
+  contactRelation?: string | null;
   recipientContact: string;
   messageContent: string;
   templateId?: string;
@@ -264,6 +275,12 @@ const audienceLabel = (a?: string | null): string => (a ? AUDIENCE_LABELS[a] || 
 // Incoming WhatsApp messages (inbox v1.2): their own badge. Clicking opens the
 // detail dialog like sent messages do (QA v1.2: "see it larger").
 const isInbound = (m: ParticipantCommunication): boolean => m.direction === 'inbound';
+
+/** "Mamá — María (contacto de emergencia)" for a contact's inbound message (v1.4). */
+const contactSenderLabel = (m: ParticipantCommunication): string =>
+  t('waInbox.contactSender', {
+    contact: [m.contactRelation, m.contactName].filter(Boolean).join(' — ') || t('waInbox.emergencyContact'),
+  });
 
 // Thumbnails of incoming images (v1.2, QA feedback: "the image does not show
 // in the history"): one batch per load through the inbox media endpoint; ids

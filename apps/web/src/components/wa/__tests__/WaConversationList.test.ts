@@ -19,6 +19,8 @@ vi.mock('vue-i18n', () => ({
 const base: WaConversationDto = {
   chatJid: '5215511406977@s.whatsapp.net',
   chatPhone: '5215511406977',
+  senderKind: 'walker',
+  forWalkers: [{ participantId: 'p1', firstName: 'Ana', lastName: 'López' }],
   participantId: 'p1',
   participantFirstName: 'Ana',
   participantLastName: 'López',
@@ -58,6 +60,10 @@ describe('WaConversationList (v1.3)', () => {
   it('names both walkers when a couple shares the phone', () => {
     const wrapper = mountList({
       ...base,
+      forWalkers: [
+        { participantId: 'p1', firstName: 'Ana', lastName: 'López' },
+        { participantId: 'p2', firstName: 'Beto', lastName: 'Ruiz' },
+      ],
       sharedWith: [{ id: 'p2', firstName: 'Beto', lastName: 'Ruiz' }],
     });
     expect(wrapper.text()).toContain('Ana López y Beto Ruiz');

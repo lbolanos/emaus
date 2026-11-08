@@ -4332,7 +4332,7 @@
   },
   "waInbox": {
     "title": "Retreat WhatsApp",
-    "subtitle": "Messages walkers send to the team's phones. Read-only.",
+    "subtitle": "Messages walkers and their emergency contacts send to the team's phones. Read-only.",
     "realtimeOn": "Live",
     "notEnabled": "The superadmin has not enabled the WhatsApp inbox for this retreat.",
     "superadmin": {
@@ -4343,6 +4343,28 @@
     },
     "realtimeOff": "No live connection",
     "refresh": "Refresh",
+    "tabs": {
+      "messages": "Messages",
+      "config": "Settings"
+    },
+    "goToConfig": "Go to Settings",
+    "configHint": "Link your WhatsApp and check which team phones feed the inbox.",
+    "resizeList": "Resize the list (drag or use the arrow keys; double-click resets)",
+    "expandThread": "Expand conversation",
+    "collapseThread": "Show the list",
+    "emergencyContact": "emergency contact",
+    "walkerChat": "walker",
+    "contactSlot": "Contact {slot}",
+    "contactOf": "{contact} (contact of {walker})",
+    "contactOfWalker": "Emergency contact of {walker}",
+    "contactSender": "{contact} (emergency contact)",
+    "groupChats": "{count} chats",
+    "toastNewWalker": "{count} new message(s) from walkers",
+    "toastNewContact": "{count} new message(s) from emergency contacts",
+    "phonesSaved": {
+      "title": "Phones saved",
+      "description": "If you added a contact's WhatsApp, their messages (earlier ones too) show up in the inbox within a minute."
+    },
     "loading": "Loading…",
     "empty": "No walker messages yet. They will appear here when they reach a linked phone.",
     "noLinks": "No linked phone yet. Link yours to start feeding the inbox.",
@@ -4380,11 +4402,11 @@
     "consent": {
       "title": "Link my WhatsApp",
       "intro": "Before scanning the code, be clear about what linking your account means:",
-      "bullet1": "During the retreat window, messages arriving at your WhatsApp go through the system's server. Only this retreat's walkers' messages are stored; the rest are not kept.",
+      "bullet1": "During the retreat window, messages arriving at your WhatsApp go through the system's server. Only messages from this retreat's walkers and their emergency contacts are stored; the rest are not kept. If an emergency contact is someone in your family, their chat with you comes in too.",
       "bullet2": "When pairing, your phone sends recent history to the server (capped); it is deleted when you unlink or 15 days after the retreat.",
       "bullet3": "We use an unofficial, read-only WhatsApp client: your personal number could be suspended. The risk is low, but not zero.",
       "bullet4": "Linking is voluntary: nobody is required to. If you prefer not to link your number, you can still use the inbox as a reader.",
-      "bullet5": "What walkers send to your number, and your replies to those walkers, will be visible to the retreat team in this inbox (so they know someone already answered). Your number is never shown to other members.",
+      "bullet5": "What walkers or their emergency contacts send to your number, and your replies, will be visible to the retreat team in this inbox (so they know someone already answered); emergency-contact chats only to those who can see health data. Your number is never shown to other members.",
       "accept": "I understand and want to link my number",
       "continue": "Continue",
       "scan": "Scan this code with your phone: WhatsApp → Settings → Linked devices → Link a device.",

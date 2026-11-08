@@ -1,7 +1,9 @@
 import { defineStore } from 'pinia';
 import { computed, ref } from 'vue';
 import { useToast } from '@repo/ui';
+import i18n from '@/i18n';
 import { getSocket } from '@/services/realtime';
+import { useAuthPermissions } from '@/composables/useAuthPermissions';
 import type {
   WaConversationDto,
   WaInboxMessageDto,
@@ -64,6 +66,21 @@ export const useWaInboxStore = defineStore('waInbox', () => {
     () => conversations.value.find((c) => c.chatJid === activeChatJid.value) ?? null,
   );
 
+  /** Group the active chat was opened from (v1.4): a contact may belong to two walkers. */
+  const openedFromWalkerId = ref<string | null>(null);
+  /**
+   * Walker the active chat is about (v1.4): prefills payment, letter and the
+   * profile. The group it was opened from when that walker is one of the
+   * chat's, else the chat's first walker.
+   */
+  const activeWalkerId = computed<string | null>(() => {
+    const c = activeConversation.value;
+    if (!c) return null;
+    const chosen = openedFromWalkerId.value;
+    if (chosen && (c.forWalkers ?? []).some((w) => w.participantId === chosen)) return chosen;
+    return c.participantId ?? null;
+  });
+
   async function fetchLinks(retreatId: string) {
     loadingLinks.value = true;
     try {
@@ -107,7 +124,7 @@ export const useWaInboxStore = defineStore('waInbox', () => {
       const c = activeConversation.value;
       return {
         receiptPhoto: cached.large,
-        participantId: c?.participantId ?? null,
+        participantId: activeWalkerId.value,
         participantFirstName: c?.participantFirstName ?? '',
         participantLastName: c?.participantLastName ?? '',
         country: c?.country ?? null,
@@ -230,8 +247,9 @@ export const useWaInboxStore = defineStore('waInbox', () => {
     }
   }
 
-  async function openChat(retreatId: string, chatJid: string) {
+  async function openChat(retreatId: string, chatJid: string, walkerId: string | null = null) {
     activeChatJid.value = chatJid;
+    openedFromWalkerId.value = walkerId;
     await fetchThread(retreatId, chatJid);
     // Thumbnails of the thread's images (v1.2) — does not block opening it.
     void fetchThreadMedia(retreatId);
@@ -270,7 +288,13 @@ export const useWaInboxStore = defineStore('waInbox', () => {
     if (socket.connected) join();
     socket.on('connect', join);
 
-    const listener = (e: { retreatId: string; newCount?: number; senderName?: string | null; preview?: string | null }) => {
+    const listener = (e: {
+      retreatId: string;
+      newCount?: number;
+      senderName?: string | null;
+      preview?: string | null;
+      contactCount?: number;
+    }) => {
       const active = subscribedRetreatId;
       if (!active || e.retreatId !== active) return;
       fetchConversations(active).catch(() => {});
@@ -283,13 +307,19 @@ export const useWaInboxStore = defineStore('waInbox', () => {
       }
       // In-app notice (v1.1): the staff does not live staring at the inbox.
       const { toast } = useToast();
+      const t = i18n.global.t;
       if (e.senderName) {
         toast({
           title: `${e.senderName}`,
           description: e.preview || undefined,
         });
       } else if ((e.newCount ?? 0) > 0) {
-        toast({ title: `${e.newCount} mensaje(s) nuevo(s) de caminantes` });
+        toast({ title: t('waInbox.toastNewWalker', { count: e.newCount }) });
+      }
+      // v1.4: emergency contacts arrive as a bare count (the room is shared
+      // with users who cannot see them); only those who can get the notice.
+      if ((e.contactCount ?? 0) > 0 && useAuthPermissions().hasPermission('participant:health')) {
+        toast({ title: t('waInbox.toastNewContact', { count: e.contactCount }) });
       }
     };
 
@@ -315,6 +345,7 @@ export const useWaInboxStore = defineStore('waInbox', () => {
     mediaUnavailable.value = {};
     rawMediaByMessageId.value = {};
     activeChatJid.value = null;
+    openedFromWalkerId.value = null;
   }
 
   return {
@@ -325,6 +356,7 @@ export const useWaInboxStore = defineStore('waInbox', () => {
     conversations,
     activeChatJid,
     activeConversation,
+    activeWalkerId,
     threadMessages,
     loadingLinks,
     loadingConversations,
