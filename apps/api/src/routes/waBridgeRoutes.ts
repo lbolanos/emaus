@@ -54,6 +54,26 @@ router.post(
 	requirePermission('payment:create'),
 	controller.receiptDataUrl,
 );
+// v1.3: voice notes and documents on demand (read), retreat checked inside.
+router.post(
+	'/messages/:messageId/raw-media',
+	requirePermission('whatsappInbox:read'),
+	controller.rawMedia,
+);
+// v1.3: link the payment created from a message (duplicate-payment guard).
+router.post(
+	'/messages/:messageId/payment',
+	requirePermission('whatsappInbox:read'),
+	requirePermission('payment:create'),
+	controller.linkPayment,
+);
+// v1.3: "add as letter" — needs letter review rights (letter:update).
+router.post(
+	'/messages/:messageId/letter',
+	requirePermission('whatsappInbox:read'),
+	requirePermission('letter:update'),
+	controller.addAsLetter,
+);
 // Badge del sidebar y búsqueda (v1.1): lectura pura.
 router.get(
 	'/retreat/:retreatId/unread',

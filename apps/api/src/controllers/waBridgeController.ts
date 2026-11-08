@@ -9,6 +9,9 @@ import { WhatsappInboxReadState } from '../entities/whatsappInboxReadState.entit
 import { authorizationService, ensureRetreatAccess } from '../middleware/authorization';
 import { waBridgeService, acceptedJidDigitVariants } from '../services/waBridge';
 import { WacliError } from '../services/waBridge';
+import { Payment } from '../entities/payment.entity';
+import { emitInboxChanged } from '../realtime';
+import { createLetterFromWhatsapp, WaLetterError } from '../services/waBridge/waLetterService';
 
 /** El passport monta la entidad User en req.user, pero Express la tipa genérica. */
 function currentUser(req: Request): User {
@@ -26,6 +29,7 @@ function currentUser(req: Request): User {
  */
 
 const ONE_TO_ONE_JID = /^\d+@s\.whatsapp\.net$/;
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const REFUSAL_HTTP: Record<string, number> = {
 	already_linked: 409,
@@ -145,77 +149,19 @@ export class WaBridgeController {
 	}
 
 	/**
-	 * GET /retreat/:retreatId/conversations — bandeja consolidada (FR3): un
-	 * renglón por chat de caminante con último mensaje, conteos y el
-	 * participante matcheado (para ficha y deep link de respuesta).
+	 * GET /retreat/:retreatId/conversations — consolidated list for the caller:
+	 * aggregated in SQL by waBridgeService.listConversations (unread for this
+	 * user, last message, "answered by" and shared-phone walkers).
 	 */
 	conversations = async (req: Request, res: Response): Promise<Response> => {
-		const retreatId = req.params.retreatId;
-		const userId = currentUser(req).id;
-		const messages = await AppDataSource.getRepository(WhatsappInboxMessage).find({
-			where: { retreatId },
-			order: { timestamp: 'DESC' },
-		});
-
-		// Resolución phone→participante: UNA sola fuente de verdad
-		// (getWalkerDigitsMap, determinista ante teléfonos duplicados) — el
-		// bloque inline anterior repetía la lógica con otro orden y la bandeja
-		// podía apuntar al participante equivocado.
-		const digitsToParticipant = await waBridgeService.getWalkerDigitsMap(retreatId);
-
-		const readStates = await AppDataSource.getRepository(WhatsappInboxReadState).find({
-			where: { retreatId, userId },
-		});
-		const lastSeenByChat = new Map(
-			readStates.map((state) => [state.chatJid, state.lastSeenMessageTimestamp]),
+		const conversations = await waBridgeService.listConversations(
+			req.params.retreatId,
+			currentUser(req).id,
 		);
-
-		const byChat = new Map<
-			string,
-			{
-				chatJid: string;
-				chatPhone: string;
-				lastMessageAt: Date;
-				lastMessagePreview: string | null;
-				messageCount: number;
-				unreadCount: number;
-			}
-		>();
-		for (const message of messages) {
-			let entry = byChat.get(message.chatJid);
-			if (entry === undefined) {
-				const fresh = {
-					chatJid: message.chatJid,
-					chatPhone: message.chatPhone,
-					lastMessageAt: message.timestamp,
-					lastMessagePreview: message.body ?? null,
-					messageCount: 0,
-					unreadCount: 0,
-				};
-				byChat.set(message.chatJid, fresh);
-				entry = fresh;
-			}
-			entry.messageCount += 1;
-			const seen = lastSeenByChat.get(message.chatJid);
-			if (!seen || message.timestamp > seen) entry.unreadCount += 1;
-		}
-
-		const conversations = Array.from(byChat.values())
-			.map((entry) => {
-				const participant = digitsToParticipant.get(entry.chatPhone);
-				return {
-					...entry,
-					participantId: participant?.id ?? null,
-					participantFirstName: participant?.firstName ?? '',
-					participantLastName: participant?.lastName ?? '',
-					country: participant?.country ?? null,
-				};
-			})
-			.sort((a, b) => b.lastMessageAt.getTime() - a.lastMessageAt.getTime());
 		return res.json({ conversations });
-	}
+	};
 
-	/** GET /retreat/:retreatId/messages?chatJid&before&limit — hilo paginado. */
+	/** GET /retreat/:retreatId/messages?chatJid&before&limit — paginated thread. */
 	messages = async (req: Request, res: Response): Promise<Response> => {
 		const retreatId = req.params.retreatId;
 		const chatJid = String(req.query.chatJid ?? '');
@@ -225,8 +171,8 @@ export class WaBridgeController {
 		const limitRaw = parseInt(String(req.query.limit ?? '50'), 10);
 		const limit = Number.isFinite(limitRaw) ? Math.min(Math.max(limitRaw, 1), 200) : 50;
 
-		// Validar TODO antes de construir el query builder (que exige metadata
-		// del DataSource): los 400 salen sin tocar DB.
+		// Validate everything before building the query builder (it needs the
+		// DataSource metadata): the 400s go out without touching the DB.
 		let before: Date | null = null;
 		const beforeRaw = req.query.before;
 		if (beforeRaw) {
@@ -244,8 +190,27 @@ export class WaBridgeController {
 		if (before) {
 			qb.andWhere('m.timestamp < :before', { before });
 		}
-
 		const rows = await qb.getMany();
+
+		// Names for "sent by" (staff replies) and for "payment/letter by".
+		const ownerNameByLink = await waBridgeService.linkOwnerNames(
+			rows.filter((row) => row.fromMe).map((row) => row.linkId),
+		);
+		const actorIds = Array.from(
+			new Set(
+				rows
+					.flatMap((row) => [row.paymentRegisteredById, row.letterAddedById])
+					.filter((id): id is string => Boolean(id)),
+			),
+		);
+		const actors = actorIds.length
+			? await AppDataSource.getRepository(User).find({
+					where: actorIds.map((id) => ({ id })),
+					select: ['id', 'displayName'],
+				})
+			: [];
+		const actorName = new Map(actors.map((user) => [user.id, user.displayName]));
+
 		return res.json({
 			messages: rows.map((row) => ({
 				id: row.id,
@@ -253,9 +218,23 @@ export class WaBridgeController {
 				timestamp: row.timestamp,
 				body: row.body,
 				messageType: row.messageType,
+				fromMe: Boolean(row.fromMe),
+				senderName: row.fromMe ? (ownerNameByLink.get(row.linkId) ?? null) : null,
+				mediaMime: row.mediaMime ?? null,
+				mediaFileName: row.mediaFileName ?? null,
+				paymentId: row.paymentId ?? null,
+				paymentRegisteredByName: row.paymentRegisteredById
+					? (actorName.get(row.paymentRegisteredById) ?? null)
+					: null,
+				paymentRegisteredAt: row.paymentRegisteredAt ?? null,
+				letterId: row.letterId ?? null,
+				letterAddedByName: row.letterAddedById
+					? (actorName.get(row.letterAddedById) ?? null)
+					: null,
+				letterAddedAt: row.letterAddedAt ?? null,
 			})),
 		});
-	}
+	};
 
 	/** POST /retreat/:retreatId/seen — marca leído hasta el último mensaje (D11). */
 	markSeen = async (req: Request, res: Response): Promise<Response> => {
@@ -522,10 +501,119 @@ export class WaBridgeController {
 				if (tail) console.error('[waBridge][media] stderr:', tail.slice(-300));
 				return res.status(status).json({
 					message: `No se pudieron descargar las imágenes: ${(err as Error).message}. Reintenta en unos segundos; si persiste, revisa la sesión vinculada en el tablero.`,
-					detail: tail ? tail.slice(-300) : undefined,
 				});
 			}
 		}
 		return res.json({ media: {}, skipped: messageIds.length });
+	};
+
+	/**
+	 * POST /messages/:messageId/raw-media (v1.3): a voice note or document,
+	 * downloaded on demand and returned as a data-URL — the browser plays the
+	 * audio, opens the document, or renders a PDF page to an image.
+	 */
+	rawMedia = async (req: Request, res: Response): Promise<Response> => {
+		const message = await AppDataSource.getRepository(WhatsappInboxMessage).findOneBy({
+			id: req.params.messageId,
+		});
+		if (!message) return res.status(404).json({ message: 'Mensaje no encontrado' });
+		if (!(await ensureRetreatAccess(req, res, message.retreatId))) return res;
+		if (message.messageType !== 'audio' && message.messageType !== 'document') {
+			return res.status(400).json({ message: 'Este mensaje no trae audio ni documento.' });
+		}
+		try {
+			const media = await waBridgeService.downloadRawMedia(message);
+			return res.json({
+				dataUrl: `data:${media.mime};base64,${media.buffer.toString('base64')}`,
+				mime: media.mime,
+				fileName: media.fileName,
+				sizeBytes: media.buffer.length,
+			});
+		} catch (err) {
+			console.error('[waBridge][raw-media] download failed:', (err as Error).message);
+			const status = err instanceof WacliError ? 502 : 500;
+			return res.status(status).json({
+				message: `No se pudo descargar el archivo: ${(err as Error).message}. Reintenta en unos segundos; si persiste, ábrelo desde tu WhatsApp.`,
+			});
+		}
+	};
+
+	/**
+	 * POST /messages/:messageId/payment (v1.3, duplicate-payment guard): links
+	 * the payment just created from this message. The bubble then shows
+	 * "registered by X", and the next staff member sees it before paying twice.
+	 */
+	linkPayment = async (req: Request, res: Response): Promise<Response> => {
+		const paymentId = String((req.body ?? {}).paymentId ?? '');
+		if (!UUID_RE.test(paymentId)) {
+			return res.status(400).json({ message: 'paymentId inválido.' });
+		}
+		const repo = AppDataSource.getRepository(WhatsappInboxMessage);
+		const message = await repo.findOneBy({ id: req.params.messageId });
+		if (!message) return res.status(404).json({ message: 'Mensaje no encontrado' });
+		if (!(await ensureRetreatAccess(req, res, message.retreatId))) return res;
+		const payment = await AppDataSource.getRepository(Payment).findOne({
+			where: { id: paymentId },
+			select: ['id', 'retreatId'],
+		});
+		if (!payment || payment.retreatId !== message.retreatId) {
+			return res.status(400).json({ message: 'El pago no pertenece a este retiro.' });
+		}
+		const now = new Date();
+		await repo.update(
+			{ id: message.id },
+			{ paymentId, paymentRegisteredById: currentUser(req).id, paymentRegisteredAt: now },
+		);
+		emitInboxChanged({ retreatId: message.retreatId, newCount: 0 });
+		return res.json({ ok: true, paymentId, paymentRegisteredAt: now });
+	};
+
+	/**
+	 * POST /messages/:messageId/letter (v1.3, D20): "add as letter" — the
+	 * message (text edited by the staff, optional image or rendered PDF page)
+	 * becomes a printable Letter of the chosen retreat participant.
+	 */
+	addAsLetter = async (req: Request, res: Response): Promise<Response> => {
+		const body = (req.body ?? {}) as Record<string, unknown>;
+		const retreatParticipantId = String(body.retreatParticipantId ?? '');
+		const bodyText = typeof body.bodyText === 'string' ? body.bodyText : '';
+		const attachmentRaw = body.attachment as { fileName?: unknown; dataUrl?: unknown } | null;
+		if (!UUID_RE.test(retreatParticipantId)) {
+			return res.status(400).json({ message: 'Elige el participante destinatario de la carta.' });
+		}
+		const message = await AppDataSource.getRepository(WhatsappInboxMessage).findOneBy({
+			id: req.params.messageId,
+		});
+		if (!message) return res.status(404).json({ message: 'Mensaje no encontrado' });
+		if (!(await ensureRetreatAccess(req, res, message.retreatId))) return res;
+
+		const index = await waBridgeService.getWalkerDigitsIndex(message.retreatId);
+		const senders = index.get(message.chatPhone) ?? [];
+		const senderName = senders.length
+			? senders.map((walker) => `${walker.firstName} ${walker.lastName}`.trim()).join(' y ')
+			: `+${message.chatPhone}`;
+		try {
+			const result = await createLetterFromWhatsapp({
+				message,
+				retreatParticipantId,
+				bodyText,
+				senderName,
+				attachment:
+					attachmentRaw &&
+					typeof attachmentRaw.dataUrl === 'string' &&
+					typeof attachmentRaw.fileName === 'string'
+						? { fileName: attachmentRaw.fileName, dataUrl: attachmentRaw.dataUrl }
+						: null,
+				actorUserId: currentUser(req).id,
+			});
+			emitInboxChanged({ retreatId: message.retreatId, newCount: 0 });
+			return res.status(result.duplicate ? 200 : 201).json(result);
+		} catch (err) {
+			if (err instanceof WaLetterError) {
+				return res.status(err.httpStatus).json({ message: err.message });
+			}
+			console.error('[waBridge][letter] create failed:', (err as Error).message);
+			return res.status(500).json({ message: 'No se pudo crear la carta. Reintenta.' });
+		}
 	};
 }

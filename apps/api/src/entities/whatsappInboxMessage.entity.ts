@@ -58,6 +58,34 @@ export class WhatsappInboxMessage {
 	@Column({ type: 'varchar', default: 'text' })
 	messageType!: string;
 
+	/** wacli MimeType for media (documents, voice notes, images). */
+	@Column({ type: 'varchar', length: 100, nullable: true })
+	mediaMime?: string | null;
+
+	/** wacli Filename for documents (shown in the bubble). */
+	@Column({ type: 'varchar', length: 255, nullable: true })
+	mediaFileName?: string | null;
+
+	/** Payment created from this message (duplicate-payment guard, v1.3). */
+	@Column({ type: 'varchar', length: 36, nullable: true })
+	paymentId?: string | null;
+
+	@Column({ type: 'varchar', length: 36, nullable: true })
+	paymentRegisteredById?: string | null;
+
+	@Column({ type: 'datetime', nullable: true })
+	paymentRegisteredAt?: Date | null;
+
+	/** Letter created from this message ("add as letter", v1.3). */
+	@Column({ type: 'varchar', length: 36, nullable: true })
+	letterId?: string | null;
+
+	@Column({ type: 'varchar', length: 36, nullable: true })
+	letterAddedById?: string | null;
+
+	@Column({ type: 'datetime', nullable: true })
+	letterAddedAt?: Date | null;
+
 	@CreateDateColumn()
 	createdAt!: Date;
 

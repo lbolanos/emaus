@@ -46,14 +46,26 @@ export interface WaConversationDto {
 	chatJid: string;
 	chatPhone: string;
 	/** Participante del retiro cuyo teléfono matcheó (para ficha y deep link). */
-	participantId: string;
+	participantId: string | null;
 	participantFirstName: string;
 	participantLastName: string;
 	country: string | null;
 	lastMessageAt: string | Date;
 	lastMessagePreview: string | null;
+	/** Type of the last message (text, image, audio, document…) for its label. */
+	lastMessageType?: string;
+	/** The last message was a staff reply (shown as "You:"/"X:" in the list). */
+	lastMessageFromMe?: boolean;
 	messageCount: number;
+	/** Unread incoming messages for the calling user. */
 	unreadCount: number;
+	/** Last staff reply in this chat and who sent it (v1.3, "answered by"). */
+	lastReplyAt?: string | Date | null;
+	lastReplyByName?: string | null;
+	/** The walker wrote after the last staff reply (or nobody replied yet). */
+	awaitingReply?: boolean;
+	/** Other walkers sharing this phone (e.g. a couple on one phone). */
+	sharedWith?: Array<{ id: string; firstName: string; lastName: string }>;
 }
 
 /** Mensaje persistido (solo entrantes de caminantes, texto/caption). */
@@ -64,6 +76,28 @@ export interface WaInboxMessageDto {
 	body: string | null;
 	/** Tipo declarado por WhatsApp (text, image, audio, …) para el placeholder 📎. */
 	messageType: string;
+	/** v1.3: staff reply sent from a linked phone (and who sent it). */
+	fromMe?: boolean;
+	senderName?: string | null;
+	/** v1.3: media metadata from wacli (documents, voice notes). */
+	mediaMime?: string | null;
+	mediaFileName?: string | null;
+	/** v1.3: payment created from this message (duplicate-payment guard). */
+	paymentId?: string | null;
+	paymentRegisteredByName?: string | null;
+	paymentRegisteredAt?: string | Date | null;
+	/** v1.3: letter created from this message ("add as letter"). */
+	letterId?: string | null;
+	letterAddedByName?: string | null;
+	letterAddedAt?: string | Date | null;
+}
+
+/** On-demand voice note or document (v1.3). */
+export interface WaRawMediaDto {
+	dataUrl: string;
+	mime: string;
+	fileName: string | null;
+	sizeBytes: number;
 }
 
 /**

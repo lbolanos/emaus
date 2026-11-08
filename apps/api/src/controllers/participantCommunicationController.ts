@@ -75,14 +75,17 @@ export class ParticipantCommunicationController {
 				where.retreatId = retreatId;
 			}
 
+			// Both sources read the first offset+limit rows and the page is cut on
+			// the merged, sorted list below: skipping per source would drop rows
+			// whenever offset > 0.
 			const [communications, total] = await this.communicationRepository.findAndCount({
 				where,
 				relations: ['participant', 'retreat', 'template', 'sender'],
 				order: {
 					sentAt: 'DESC',
 				},
-				take: Number(limit),
-				skip: Number(offset),
+				take: Number(limit) + Number(offset),
+				skip: 0,
 			});
 
 			// Mensajes ENTRANTES por WhatsApp del caminante (v1.2 de
@@ -130,11 +133,9 @@ export class ParticipantCommunicationController {
 						direction: 'inbound',
 						waMessageType: row.messageType,
 						recipientContact: row.chatPhone,
-						messageContent:
-							row.body ||
-							(row.messageType === 'image'
-								? '📷 Imagen recibida (verla en la bandeja de WhatsApp)'
-								: '📎 Multimedia recibida (verla en la bandeja de WhatsApp)'),
+						// Media without a caption: the client labels it by
+						// waMessageType (i18n) and shows the thumbnail for images.
+						messageContent: row.body ?? '',
 						sentAt: row.timestamp,
 					}));
 				}

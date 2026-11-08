@@ -98,6 +98,8 @@ describe('normalizeWacliMessage', () => {
 			fromMe: false,
 			body: 'A que hora es la charla del viernes',
 			messageType: 'text',
+			mediaMime: null,
+			mediaFileName: null,
 		});
 	});
 
@@ -115,6 +117,8 @@ describe('normalizeWacliMessage', () => {
 			fromMe: false,
 			body: 'A qué hora llego?',
 			messageType: 'text',
+			mediaMime: null,
+			mediaFileName: null,
 		});
 	});
 
@@ -124,10 +128,63 @@ describe('normalizeWacliMessage', () => {
 		expect(normalizeWacliMessage({ id: 'MSG-3' }, chatJid, chatPhone)).toBeNull();
 	});
 
-	it('rechaza salientes (FromMe=true) aunque --from-them ya los filtrara', () => {
-		expect(
-			normalizeWacliMessage({ id: 'MSG-4', timestamp: '2026-11-05T15:30:00Z', FromMe: true }, chatJid, chatPhone),
-		).toBeNull();
+	it('keeps staff replies (FromMe) as fromMe=true — v1.3 "answered by"', () => {
+		const row = normalizeWacliMessage(
+			{ id: 'MSG-4', timestamp: '2026-11-05T15:30:00Z', FromMe: true, Text: 'Te espero' },
+			chatJid,
+			chatPhone,
+		);
+		expect(row?.fromMe).toBe(true);
+		expect(row?.body).toBe('Te espero');
+	});
+
+	it('reads FromMe given as a string', () => {
+		const row = normalizeWacliMessage(
+			{ id: 'MSG-5', timestamp: '2026-11-05T15:30:00Z', FromMe: 'True' },
+			chatJid,
+			chatPhone,
+		);
+		expect(row?.fromMe).toBe(true);
+	});
+
+	it('uses MediaCaption as body when Text is empty (photo with caption)', () => {
+		const row = normalizeWacliMessage(
+			{
+				MsgID: 'IMG-1',
+				Timestamp: '2026-11-07T20:28:53Z',
+				FromMe: false,
+				Text: '',
+				MediaType: 'image',
+				MediaCaption: 'Aquí está mi pago',
+				MimeType: 'image/jpeg',
+			},
+			chatJid,
+			chatPhone,
+		);
+		expect(row?.body).toBe('Aquí está mi pago');
+		expect(row?.messageType).toBe('image');
+		expect(row?.mediaMime).toBe('image/jpeg');
+	});
+
+	it('keeps document mime and file name', () => {
+		const row = normalizeWacliMessage(
+			{
+				MsgID: 'DOC-1',
+				Timestamp: '2026-11-07T20:28:53Z',
+				FromMe: false,
+				MediaType: 'document',
+				MimeType: 'application/pdf',
+				Filename: 'comprobante-bbva.pdf',
+			},
+			chatJid,
+			chatPhone,
+		);
+		expect(row).toMatchObject({
+			messageType: 'document',
+			mediaMime: 'application/pdf',
+			mediaFileName: 'comprobante-bbva.pdf',
+			body: null,
+		});
 	});
 
 	it('multimedia: cuerpo null, tipo conservado (D9: nunca se descarga media)', () => {

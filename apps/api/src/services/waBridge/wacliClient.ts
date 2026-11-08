@@ -188,13 +188,13 @@ export async function listMessages(
 	chatJid: string,
 	opts: { limit?: number; afterIso?: string | null } = {},
 ): Promise<WacliMessage[]> {
+	// Both directions (v1.3): the staff's own replies to walkers are stored so
+	// the inbox can show "answered by X". Whitelisting by chat stays upstream.
 	const args = [
 		'messages',
 		'list',
 		'--chat',
 		chatJid,
-		// Solo entrantes: el filtro fromMe se aplica en origen, no en insert.
-		'--from-them',
 		'--asc',
 		'--limit',
 		String(opts.limit ?? 50),

@@ -1,20 +1,17 @@
 import cron, { type ScheduledTask } from 'node-cron';
 import { AppDataSource } from '../../data-source';
 import { WhatsappBridgeLink } from '../../entities/whatsappBridgeLink.entity';
-import { WhatsappInboxMessage } from '../../entities/whatsappInboxMessage.entity';
 import { Retreat } from '../../entities/retreat.entity';
-import { domainAuditService } from '../domainAuditService';
 import { DomainAuditAction } from '@repo/types';
 import { civilTodayInTimezone, isLinkPurgeDue, waBridgeService } from './waBridgeService';
 import { resolveSafeTimeZone } from '../../utils/date.transformer';
-import { wacliLogout } from './wacliClient';
 
 /**
  * Retención del puente WhatsApp (specs/whatsapp-inbox FR7 / D5): para cada
  * link cuyo retiro ya cumplió `endDate + WA_BRIDGE_RETENTION_DAYS`, cierra la
- * sesión (logout), borra el store en disco y hace DELETE del link — el
- * CASCADE arrastra mensajes y read-state. Un link huérfano (retiro borrado)
- * se purga también.
+ * sesión (logout), borra el store en disco, los mensajes y el link vía
+ * `waBridgeService.teardownLink` (borrado explícito: el runtime no garantiza
+ * PRAGMA foreign_keys). Un link huérfano (retiro borrado) se purga también.
  *
  * Corre INDEPENDIENTE del kill switch (WA_BRIDGE_ENABLED=false): la purga es
  * la dirección privacy-safe y nunca debe dejar de ejecutarse. Misma forma que
@@ -48,6 +45,14 @@ export class WaBridgeRetentionService {
 		if (this.isRunning) return { purged: 0 };
 		this.isRunning = true;
 		try {
+			// Messages whose link is already gone: left behind by deletes that
+			// relied on the FK CASCADE while PRAGMA foreign_keys was off. They no
+			// longer belong to any consented session — purge them first.
+			await AppDataSource.query(
+				`DELETE FROM whatsapp_inbox_message
+				  WHERE linkId NOT IN (SELECT id FROM whatsapp_bridge_link)`,
+			);
+
 			const linkRepo = AppDataSource.getRepository(WhatsappBridgeLink);
 			const links = await linkRepo.find();
 			if (links.length === 0) return { purged: 0 };
@@ -74,25 +79,13 @@ export class WaBridgeRetentionService {
 				const due = orphan || isLinkPurgeDue(endDate, today);
 				if (!due) continue;
 
-				const messageCount = await AppDataSource.getRepository(WhatsappInboxMessage).count({
-					where: { linkId: link.id },
-				});
-
-				await waBridgeService.stopSupervisorById(link.id);
-				try {
-					await wacliLogout(link.storePath);
-				} catch {
-					// Best-effort: con el store ya ido o la sesión muerta, el rm y el
-					// DELETE garantizan el borrado local de todos modos.
-				}
-				await linkRepo.remove(link);
-
-				void domainAuditService.log({
+				// Same teardown as unlink: it also rm's the store on disk (session
+				// keys + message DB) and deletes the messages explicitly — this path
+				// used to skip both.
+				await waBridgeService.teardownLink(link, {
+					system: true,
 					action: DomainAuditAction.WA_BRIDGE_PURGED,
-					resourceType: 'whatsapp_bridge_link',
-					resourceId: link.id,
-					retreatId: link.retreatId,
-					metadata: { system: true, messageCount, orphan },
+					metadata: { orphan },
 				});
 				purged += 1;
 			}

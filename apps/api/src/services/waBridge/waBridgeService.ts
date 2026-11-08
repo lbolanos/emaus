@@ -13,6 +13,7 @@ import { domainAuditService } from '../domainAuditService';
 import {
 	toNationalPhone,
 	DomainAuditAction,
+	type DomainAuditActionType,
 	PHONE_CALLING_CODE_BY_COUNTRY,
 	type WaLinkRefusalReason,
 } from '@repo/types';
@@ -116,6 +117,8 @@ export class WaBridgeService {
 	private qrCache = new Map<string, string>();
 	private civitTodayCache = new Map<string, { civil: string; at: number }>();
 	private warnedBinaryMissing = false;
+	/** Set by shutdown(): an in-flight poll must not respawn supervisors. */
+	private shuttingDown = false;
 
 	private get linkRepo() {
 		return AppDataSource.getRepository(WhatsappBridgeLink);
@@ -253,7 +256,9 @@ export class WaBridgeService {
 					// auth status puede chocar con el lock durante el bootstrap: no
 					// bloquea la transición.
 				}
-				const firstLink = link.status !== 'connected';
+				// A reconnect after 'error' is not a new link: only the first
+				// successful pairing (no connectedAt yet) is audited as LINKED.
+				const firstLink = !link.connectedAt;
 				link.status = 'connected';
 				if (!link.connectedAt) link.connectedAt = new Date();
 				link.lastError = null;
@@ -342,33 +347,54 @@ export class WaBridgeService {
 	}
 
 	/**
-	 * Teardown común de un vínculo (unlink del dueño, terminación del
-	 * superadmin y retención): stop del supervisor, logout best-effort, rm del
-	 * store y DELETE (el CASCADE borra mensajes y read-state).
+	 * Single teardown path for a link (owner unlink, superadmin termination and
+	 * retention): stop the supervisor, best-effort logout, rm the store, then
+	 * delete the link's messages EXPLICITLY before the link row. The runtime
+	 * does not guarantee `PRAGMA foreign_keys` (see retreatService), so the
+	 * entity's onDelete CASCADE cannot be trusted to purge walker messages.
 	 */
-	private async teardownLink(
+	async teardownLink(
 		link: WhatsappBridgeLink,
-		opts: { actorUserId?: string | null; system: boolean },
-	): Promise<void> {
+		opts: {
+			actorUserId?: string | null;
+			system: boolean;
+			action?: DomainAuditActionType;
+			metadata?: Record<string, unknown>;
+		},
+	): Promise<{ messageCount: number }> {
 		await this.stopSupervisorById(link.id);
 		try {
 			await wacliLogout(link.storePath);
 		} catch {
-			// Logout best-effort: si wacli falla (store ya ido, sesión muerta),
-			// el rm y el DELETE garantizan el borrado local de todos modos.
+			// Best-effort: with the store gone or the session dead, the rm and the
+			// deletes below still remove everything local.
 		}
 		fs.rmSync(link.storePath, { recursive: true, force: true });
 		this.qrCache.delete(link.id);
+		this.forgetLinkMedia(link.id);
+
+		const messageRepo = AppDataSource.getRepository(WhatsappInboxMessage);
+		const messageCount = await messageRepo.count({ where: { linkId: link.id } });
+		await messageRepo.delete({ linkId: link.id });
 		await this.linkRepo.remove(link);
+		// Read-state rows carry walker chat JIDs: drop them once the retreat has
+		// no link left (nothing else can show those chats anymore).
+		const remaining = await this.linkRepo.count({ where: { retreatId: link.retreatId } });
+		if (remaining === 0) {
+			await AppDataSource.getRepository(WhatsappInboxReadState).delete({
+				retreatId: link.retreatId,
+			});
+		}
 
 		void domainAuditService.log({
-			action: DomainAuditAction.WA_BRIDGE_UNLINKED,
+			action: opts.action ?? DomainAuditAction.WA_BRIDGE_UNLINKED,
 			resourceType: 'whatsapp_bridge_link',
 			resourceId: link.id,
 			retreatId: link.retreatId,
 			actorUserId: opts.actorUserId ?? null,
-			metadata: { system: opts.system },
+			metadata: { system: opts.system, messageCount, ...(opts.metadata ?? {}) },
 		});
+		return { messageCount };
 	}
 
 	/**
@@ -488,9 +514,14 @@ export class WaBridgeService {
 		return links.map((link) => ({ ...link, ownerName: nameById.get(link.userId) ?? null }));
 	}
 
-	/** Respawn al boot: links 'connected' dentro de la gracia post-retiro. */
+	/**
+	 * Boot respawn AND per-poll watchdog: every paired link ('connected' or
+	 * 'error' — an 'error' link is paired but its sync child died) gets a
+	 * supervisor when it has none. Without 'error' here, a deploy during a
+	 * reconnect backoff left that session dead until someone re-linked.
+	 */
 	async respawnFromDb(): Promise<{ respawned: number }> {
-		if (!config.waBridge.enabled) return { respawned: 0 };
+		if (!config.waBridge.enabled || this.shuttingDown) return { respawned: 0 };
 		if (!fs.existsSync(config.waBridge.wacliBin)) {
 			if (!this.warnedBinaryMissing) {
 				console.warn(
@@ -500,9 +531,14 @@ export class WaBridgeService {
 			}
 			return { respawned: 0 };
 		}
-		const links = await this.linkRepo.find({ where: { status: 'connected' } });
+		const links = await this.linkRepo.find({
+			where: [{ status: 'connected' }, { status: 'error' }],
+		});
 		let respawned = 0;
 		for (const link of links) {
+			if (this.supervisors.has(link.id)) continue;
+			// No store on disk = nothing to resume (wiped by hand or a failed rm).
+			if (!fs.existsSync(link.storePath)) continue;
 			const retreat = await AppDataSource.getRepository(Retreat).findOneBy({ id: link.retreatId });
 			if (!retreat) continue;
 			// Sin activación del superadmin, ningún hijo se levanta (D13).
@@ -518,6 +554,7 @@ export class WaBridgeService {
 	}
 
 	shutdown(): void {
+		this.shuttingDown = true;
 		for (const [, supervisor] of this.supervisors) {
 			void supervisor.stop();
 		}
@@ -530,23 +567,145 @@ export class WaBridgeService {
 	 * mensaje cuyo timestamp es mayor que el read-state de su chat.
 	 */
 	async countUnreadForUser(retreatId: string, userId: string): Promise<number> {
-		const messages = await AppDataSource.getRepository(WhatsappInboxMessage).find({
-			where: { retreatId },
-			select: ['chatJid', 'timestamp'],
-		});
-		if (messages.length === 0) return 0;
-		const states = await AppDataSource.getRepository(WhatsappInboxReadState).find({
-			where: { retreatId, userId },
-		});
-		const lastSeen = new Map(
-			states.map((state) => [state.chatJid, state.lastSeenMessageTimestamp]),
+		// Incoming only (v1.3 stores the staff's own replies too) and resolved in
+		// SQL: the badge polls every 60 s from every open sidebar.
+		const rows: Array<{ unread: number }> = await AppDataSource.query(
+			`SELECT COUNT(*) AS unread
+			   FROM whatsapp_inbox_message m
+			   LEFT JOIN whatsapp_inbox_read_state rs
+			     ON rs.retreatId = m.retreatId AND rs.chatJid = m.chatJid AND rs.userId = ?
+			  WHERE m.retreatId = ? AND m.fromMe = 0
+			    AND (rs.lastSeenMessageTimestamp IS NULL
+			         OR julianday(m.timestamp) > julianday(rs.lastSeenMessageTimestamp))`,
+			[userId, retreatId],
 		);
-		let unread = 0;
-		for (const message of messages) {
-			const seen = lastSeen.get(message.chatJid);
-			if (!seen || message.timestamp > seen) unread += 1;
-		}
-		return unread;
+		return Number(rows[0]?.unread ?? 0);
+	}
+
+	/**
+	 * Consolidated conversation list for one user (v1.3): aggregated in SQL —
+	 * the previous version loaded every message of the retreat into memory on
+	 * each refetch, and every open inbox refetches on every new message.
+	 *
+	 * Per chat: counts, unread for this user (incoming only), the last message
+	 * (preview + type + direction) and the last staff reply with its author, so
+	 * the list can say "answered by X" vs "awaiting reply".
+	 */
+	async listConversations(
+		retreatId: string,
+		userId: string,
+	): Promise<WaConversationRow[]> {
+		const aggregates: Array<{
+			chatJid: string;
+			chatPhone: string;
+			messageCount: number;
+			unreadCount: number;
+			lastMessageAt: string;
+			lastIncomingAt: string | null;
+			lastReplyAt: string | null;
+		}> = await AppDataSource.query(
+			`SELECT m.chatJid AS chatJid,
+			        MIN(m.chatPhone) AS chatPhone,
+			        COUNT(*) AS messageCount,
+			        SUM(CASE WHEN m.fromMe = 0
+			                  AND (rs.lastSeenMessageTimestamp IS NULL
+			                       OR julianday(m.timestamp) > julianday(rs.lastSeenMessageTimestamp))
+			                 THEN 1 ELSE 0 END) AS unreadCount,
+			        MAX(m.timestamp) AS lastMessageAt,
+			        MAX(CASE WHEN m.fromMe = 0 THEN m.timestamp END) AS lastIncomingAt,
+			        MAX(CASE WHEN m.fromMe = 1 THEN m.timestamp END) AS lastReplyAt
+			   FROM whatsapp_inbox_message m
+			   LEFT JOIN whatsapp_inbox_read_state rs
+			     ON rs.retreatId = m.retreatId AND rs.chatJid = m.chatJid AND rs.userId = ?
+			  WHERE m.retreatId = ?
+			  GROUP BY m.chatJid`,
+			[userId, retreatId],
+		);
+		if (aggregates.length === 0) return [];
+
+		// Last message per chat (preview) and last staff reply per chat (author).
+		const lastRows: Array<{
+			chatJid: string;
+			body: string | null;
+			messageType: string;
+			fromMe: number;
+		}> = await AppDataSource.query(
+			`SELECT m.chatJid, m.body, m.messageType, m.fromMe
+			   FROM whatsapp_inbox_message m
+			   JOIN (SELECT chatJid, MAX(timestamp) AS ts FROM whatsapp_inbox_message
+			          WHERE retreatId = ? GROUP BY chatJid) last
+			     ON last.chatJid = m.chatJid AND last.ts = m.timestamp
+			  WHERE m.retreatId = ?`,
+			[retreatId, retreatId],
+		);
+		const replyRows: Array<{ chatJid: string; linkId: string }> = await AppDataSource.query(
+			`SELECT m.chatJid, m.linkId
+			   FROM whatsapp_inbox_message m
+			   JOIN (SELECT chatJid, MAX(timestamp) AS ts FROM whatsapp_inbox_message
+			          WHERE retreatId = ? AND fromMe = 1 GROUP BY chatJid) last
+			     ON last.chatJid = m.chatJid AND last.ts = m.timestamp
+			  WHERE m.retreatId = ? AND m.fromMe = 1`,
+			[retreatId, retreatId],
+		);
+		const lastByChat = new Map(lastRows.map((row) => [row.chatJid, row]));
+		const replyLinkByChat = new Map(replyRows.map((row) => [row.chatJid, row.linkId]));
+		const ownerNameByLink = await this.linkOwnerNames(Array.from(replyLinkByChat.values()));
+		const index = await this.getWalkerDigitsIndex(retreatId);
+
+		return aggregates
+			.map((row) => {
+				const walkers = index.get(row.chatPhone) ?? [];
+				const primary = walkers[0];
+				const last = lastByChat.get(row.chatJid);
+				const lastIncomingAt = sqliteUtcToDate(row.lastIncomingAt);
+				const lastReplyAt = sqliteUtcToDate(row.lastReplyAt);
+				const replyLinkId = replyLinkByChat.get(row.chatJid);
+				return {
+					chatJid: row.chatJid,
+					chatPhone: row.chatPhone,
+					messageCount: Number(row.messageCount),
+					unreadCount: Number(row.unreadCount),
+					lastMessageAt: sqliteUtcToDate(row.lastMessageAt) ?? new Date(0),
+					lastMessagePreview: last?.body ?? null,
+					lastMessageType: last?.messageType ?? 'text',
+					lastMessageFromMe: Boolean(last?.fromMe),
+					lastReplyAt,
+					lastReplyByName: replyLinkId ? (ownerNameByLink.get(replyLinkId) ?? null) : null,
+					awaitingReply:
+						lastIncomingAt !== null && (lastReplyAt === null || lastReplyAt < lastIncomingAt),
+					participantId: primary?.id ?? null,
+					participantFirstName: primary?.firstName ?? '',
+					participantLastName: primary?.lastName ?? '',
+					country: primary?.country ?? null,
+					sharedWith: walkers.slice(1).map((walker) => ({
+						id: walker.id,
+						firstName: walker.firstName,
+						lastName: walker.lastName,
+					})),
+				};
+			})
+			.sort((a, b) => b.lastMessageAt.getTime() - a.lastMessageAt.getTime());
+	}
+
+	/** linkId → display name of the staff owner (for "answered by"). */
+	async linkOwnerNames(linkIds: string[]): Promise<Map<string, string>> {
+		const unique = Array.from(new Set(linkIds));
+		if (unique.length === 0) return new Map();
+		const links = await this.linkRepo.find({
+			where: unique.map((id) => ({ id })),
+			select: ['id', 'userId'],
+		});
+		const userIds = Array.from(new Set(links.map((link) => link.userId)));
+		const users = userIds.length
+			? await AppDataSource.getRepository(User).find({
+					where: userIds.map((id) => ({ id })),
+					select: ['id', 'displayName'],
+				})
+			: [];
+		const nameByUser = new Map(users.map((user) => [user.id, user.displayName]));
+		return new Map(
+			links.map((link) => [link.id, nameByUser.get(link.userId) ?? 'Equipo']),
+		);
 	}
 
 	/**
@@ -578,33 +737,40 @@ export class WaBridgeService {
 			if (fullName.includes(needle)) nameMatchedJids.push(`${digits}@s.whatsapp.net`);
 		}
 
-		const rows = await AppDataSource.getRepository(WhatsappInboxMessage).find({
-			where: { retreatId },
-			select: ['id', 'chatJid', 'chatPhone', 'timestamp', 'body', 'messageType'],
-			order: { timestamp: 'DESC' },
-			take: 500,
-		});
-		const out: typeof rows = [];
-		for (const row of rows) {
-			const bodyHit = Boolean(row.body) && strip(row.body!).includes(needle);
-			const chatHit = nameMatchedJids.includes(row.chatJid);
-			if (bodyHit || chatHit) {
-				out.push(row);
-				if (out.length >= limit) break;
+		// Chunked scan of the WHOLE retreat (newest first) until `limit` hits:
+		// the old 500-row window silently missed older messages. Accent folding
+		// happens in memory because SQLite LIKE is byte-wise.
+		const repo = AppDataSource.getRepository(WhatsappInboxMessage);
+		const out: Array<
+			Pick<WhatsappInboxMessage, 'id' | 'chatJid' | 'chatPhone' | 'timestamp' | 'body' | 'messageType'>
+		> = [];
+		for (let skip = 0; out.length < limit; skip += SEARCH_CHUNK) {
+			const rows = await repo.find({
+				where: { retreatId },
+				select: ['id', 'chatJid', 'chatPhone', 'timestamp', 'body', 'messageType'],
+				order: { timestamp: 'DESC' },
+				skip,
+				take: SEARCH_CHUNK,
+			});
+			for (const row of rows) {
+				const bodyHit = Boolean(row.body) && strip(row.body!).includes(needle);
+				const chatHit = nameMatchedJids.includes(row.chatJid);
+				if (bodyHit || chatHit) {
+					out.push(row);
+					if (out.length >= limit) break;
+				}
 			}
+			if (rows.length < SEARCH_CHUNK) break;
 		}
 		return out;
 	}
 
 	/**
-	 * Mapa dígitos-JID → participante caminante del retiro (FR14): lo consume
-	 * la bandeja para mostrar el nombre y prellenar el pago. Mismo cálculo del
-	 * índice del poller, expuesto para el controller.
+	 * JID digits → walkers of the retreat sharing that phone (most recent
+	 * registration first). Usually one; couples on one phone give two — the
+	 * inbox names both and lets the staff pick the payer (v1.3).
 	 */
-	async getWalkerDigitsMap(retreatId: string): Promise<Map<string, Participant>> {
-		// createdAt DESC: si dos inscripciones comparten teléfono, el Map se
-		// queda con la MÁS RECIENTE (determinista) — sin esto, el ganador es
-		// el orden del SELECT (QA v1.2: el seed viejo pisaba al re-registrado).
+	async getWalkerDigitsIndex(retreatId: string): Promise<Map<string, Participant[]>> {
 		const registrations = await AppDataSource.getRepository(RetreatParticipant).find({
 			where: { retreatId, type: 'walker', isCancelled: false },
 			order: { createdAt: 'DESC' },
@@ -613,8 +779,8 @@ export class WaBridgeService {
 		const participantIds = registrations
 			.map((reg) => reg.participantId)
 			.filter((id): id is string => Boolean(id));
-		const map = new Map<string, Participant>();
-		if (participantIds.length === 0) return map;
+		const index = new Map<string, Participant[]>();
+		if (participantIds.length === 0) return index;
 		const walkers = await AppDataSource.getRepository(Participant).find({
 			where: participantIds.map((id) => ({ id })),
 		});
@@ -625,9 +791,23 @@ export class WaBridgeService {
 			const national = toNationalPhone(walker.cellPhone, walker.country);
 			if (!national) continue;
 			for (const digits of acceptedJidDigitVariants(national, walker.country)) {
-				if (!map.has(digits)) map.set(digits, walker);
+				const list = index.get(digits) ?? [];
+				if (!list.some((p) => p.id === walker.id)) list.push(walker);
+				index.set(digits, list);
 			}
 		}
+		return index;
+	}
+
+	/**
+	 * JID digits → the primary walker for that phone (most recent registration
+	 * wins, deterministically). Every phone→participant resolution in the
+	 * bridge goes through this — never an inline copy of the logic.
+	 */
+	async getWalkerDigitsMap(retreatId: string): Promise<Map<string, Participant>> {
+		const index = await this.getWalkerDigitsIndex(retreatId);
+		const map = new Map<string, Participant>();
+		for (const [digits, walkers] of index) map.set(digits, walkers[0]);
 		return map;
 	}
 
@@ -645,20 +825,10 @@ export class WaBridgeService {
 		return variants.large;
 	}
 
-	/**
-	 * Variantes thumb+large de la imagen de un mensaje, con caché en memoria
-	 * (v1.2: thumbnails siempre visibles). La descarga paraba y levantaba el
-	 * sync del link por CADA imagen — con varias fotos en un hilo eso era
-	 * minutos. Ahora el lote para/levanta el sync UNA sola vez y la caché
-	 * evita re-descargar lo ya visto (RAM acotada: TTL + tope de entradas).
-	 */
+	/** Thumb + large variants of one image message (cache first). */
 	async getReceiptVariants(
 		message: WhatsappInboxMessage,
 	): Promise<{ thumb: string; large: string }> {
-		const cached = this.receiptCache.get(message.id);
-		if (cached && Date.now() - cached.at < RECEIPT_CACHE_TTL_MS) {
-			return { thumb: cached.thumb, large: cached.large };
-		}
 		const map = await this.getReceiptVariantsBatch([message]);
 		const variants = map.get(message.id);
 		if (!variants) {
@@ -670,30 +840,29 @@ export class WaBridgeService {
 	}
 
 	/**
-	 * Descarga las imágenes de varios mensajes (v1.2). `media download
-	 * --read-only` NO toma el lock del store: corre junto al sync vivo, sin el
-	 * ciclo stop/restart que hacía la bandeja quedar muerta por segundos.
-	 * Devuelve mapa por messageId: los mensajes cuyo link ya no existe
-	 * (desvinculado/purgado — su media se borró con el store, D9) se SALTAN
-	 * sin matar el lote; el caller los cuenta como no disponibles.
+	 * Image variants for several messages (v1.2). `media download --read-only`
+	 * takes no store lock, so it runs next to the live sync. Returns a map by
+	 * messageId; a message whose link is gone (unlinked/purged — its media went
+	 * with the store, D9) or whose download fails (403 from WhatsApp's CDN,
+	 * over the size cap) is skipped without failing the batch.
 	 */
 	async getReceiptVariantsBatch(
 		messages: WhatsappInboxMessage[],
 	): Promise<Map<string, { thumb: string; large: string }>> {
-		const tmpDir = `${config.waBridge.dataDir}/receipts-tmp`;
-		fs.mkdirSync(tmpDir, { recursive: true, mode: 0o700 });
-
-		// Agrupar por link: cada sesión tiene su store (y un link muerto no
-		// tiene store donde descargar).
-		const byLink = new Map<string, WhatsappInboxMessage[]>();
-		for (const message of messages) {
-			const list = byLink.get(message.linkId) ?? [];
-			list.push(message);
-			byLink.set(message.linkId, list);
-		}
-
 		const out = new Map<string, { thumb: string; large: string }>();
-		for (const [linkId, group] of byLink) {
+		const pending: WhatsappInboxMessage[] = [];
+		for (const message of messages) {
+			const cached = this.receiptCache.get(message.id);
+			if (cached && Date.now() - cached.at < RECEIPT_CACHE_TTL_MS) {
+				out.set(message.id, { thumb: cached.thumb, large: cached.large });
+			} else {
+				pending.push(message);
+			}
+		}
+		if (pending.length === 0) return out;
+
+		const tmpDir = this.mediaTmpDir();
+		for (const [linkId, group] of groupByLink(pending)) {
 			const link = await this.linkRepo.findOneBy({ id: linkId });
 			if (!link) continue;
 			for (const message of group) {
@@ -715,14 +884,12 @@ export class WaBridgeService {
 						thumb: `data:${thumb.contentType};base64,${thumb.buffer.toString('base64')}`,
 						large: `data:${large.contentType};base64,${large.buffer.toString('base64')}`,
 					};
-					this.cacheReceiptVariants(message.id, variants);
+					this.cacheReceiptVariants(message, variants);
 					out.set(message.id, variants);
 				} catch (err) {
-					// Una imagen rota (403 del CDN de WhatsApp, sobre-tope, …) no
-					// tumba el lote: se salta y queda como placeholder 📎.
 					console.error(
 						`[waBridge][media] ${message.waMessageId}: ${(err as Error).message}`,
-						err instanceof WacliError ? err.stderrTail?.slice(-200) ?? '' : '',
+						err instanceof WacliError ? (err.stderrTail?.slice(-200) ?? '') : '',
 					);
 				} finally {
 					fs.rmSync(outPath, { force: true });
@@ -732,25 +899,97 @@ export class WaBridgeService {
 		return out;
 	}
 
-	private receiptCache = new Map<string, { thumb: string; large: string; at: number }>();
+	/**
+	 * Raw bytes of a voice note or document (v1.3), on demand and uncached:
+	 * these are played or opened once, and documents can be large. The caller
+	 * decides what to do with them (play, open, render a PDF page client-side).
+	 */
+	async downloadRawMedia(
+		message: WhatsappInboxMessage,
+	): Promise<{ buffer: Buffer; mime: string; fileName: string | null }> {
+		const link = await this.linkRepo.findOneBy({ id: message.linkId });
+		if (!link) {
+			throw new WacliError(
+				'El archivo ya no está disponible: la sesión que lo recibió fue desvinculada o purgada.',
+			);
+		}
+		const cap = message.messageType === 'audio' ? AUDIO_MAX_BYTES : DOCUMENT_MAX_BYTES;
+		const outPath = `${this.mediaTmpDir()}/${message.id}.bin`;
+		try {
+			await mediaDownload(link.storePath, message.chatJid, message.waMessageId, outPath);
+			const stat = fs.statSync(outPath);
+			if (stat.size > cap) {
+				throw new WacliError(
+					`El archivo pesa ${(stat.size / 1048576).toFixed(1)} MB (tope ${cap / 1048576} MB)`,
+				);
+			}
+			return {
+				buffer: fs.readFileSync(outPath),
+				mime: message.mediaMime || 'application/octet-stream',
+				fileName: message.mediaFileName ?? null,
+			};
+		} finally {
+			fs.rmSync(outPath, { force: true });
+		}
+	}
 
-	private cacheReceiptVariants(messageId: string, variants: { thumb: string; large: string }): void {
-		// Evicción FIFO si se pasa del tope: fotos viejas se re-descargan si vuelven a pedirse.
+	/** Drops every cached variant that came from this link (unlink/purge). */
+	forgetLinkMedia(linkId: string): void {
+		for (const [messageId, entry] of this.receiptCache) {
+			if (entry.linkId === linkId) this.receiptCache.delete(messageId);
+		}
+	}
+
+	private mediaTmpDir(): string {
+		const tmpDir = `${config.waBridge.dataDir}/receipts-tmp`;
+		fs.mkdirSync(tmpDir, { recursive: true, mode: 0o700 });
+		return tmpDir;
+	}
+
+	private receiptCache = new Map<
+		string,
+		{ thumb: string; large: string; linkId: string; at: number }
+	>();
+
+	private cacheReceiptVariants(
+		message: WhatsappInboxMessage,
+		variants: { thumb: string; large: string },
+	): void {
+		// FIFO eviction past the cap: evicted photos are re-downloaded on demand.
 		while (this.receiptCache.size >= RECEIPT_CACHE_MAX_ENTRIES) {
 			const oldest = this.receiptCache.keys().next().value;
 			if (oldest === undefined) break;
 			this.receiptCache.delete(oldest);
 		}
-		this.receiptCache.set(messageId, { ...variants, at: Date.now() });
+		this.receiptCache.set(message.id, { ...variants, linkId: message.linkId, at: Date.now() });
 	}
 }
 
-/** Tope de una imagen de comprobante descargada (10 MB — foto de teléfono). */
-const RECEIPT_MAX_BYTES = 10 * 1024 * 1024;
+function groupByLink(messages: WhatsappInboxMessage[]): Map<string, WhatsappInboxMessage[]> {
+	const byLink = new Map<string, WhatsappInboxMessage[]>();
+	for (const message of messages) {
+		const list = byLink.get(message.linkId) ?? [];
+		list.push(message);
+		byLink.set(message.linkId, list);
+	}
+	return byLink;
+}
 
-/** Caché de variantes ya descargadas: 30 min y máximo 12 imágenes (~RAM acotada). */
+/** Rows per page of the inbox text search scan. */
+const SEARCH_CHUNK = 1000;
+
+/** Cap for a downloaded receipt image (10 MB — a phone photo). */
+const RECEIPT_MAX_BYTES = 10 * 1024 * 1024;
+/** Caps for on-demand voice notes and documents. */
+const AUDIO_MAX_BYTES = 8 * 1024 * 1024;
+const DOCUMENT_MAX_BYTES = 10 * 1024 * 1024;
+
+/**
+ * Cache of downloaded image variants: 30 min, 40 entries (~8 MB worst case).
+ * 40 > the 30-image thread batch, so reopening a thread does not thrash.
+ */
 const RECEIPT_CACHE_TTL_MS = 30 * 60 * 1000;
-const RECEIPT_CACHE_MAX_ENTRIES = 12;
+const RECEIPT_CACHE_MAX_ENTRIES = 40;
 
 /** Content-type por magic bytes (JPEG/PNG/WebP); fallback image/jpeg. */
 function detectImageContentType(buffer: Buffer): string {
@@ -772,6 +1011,38 @@ function detectImageContentType(buffer: Buffer): string {
 	)
 		return 'image/webp';
 	return 'image/jpeg';
+}
+
+/** Conversation row returned by listConversations (mirrors WaConversationDto). */
+export interface WaConversationRow {
+	chatJid: string;
+	chatPhone: string;
+	messageCount: number;
+	unreadCount: number;
+	lastMessageAt: Date;
+	lastMessagePreview: string | null;
+	lastMessageType: string;
+	lastMessageFromMe: boolean;
+	lastReplyAt: Date | null;
+	lastReplyByName: string | null;
+	awaitingReply: boolean;
+	participantId: string | null;
+	participantFirstName: string;
+	participantLastName: string;
+	country: string | null;
+	sharedWith: Array<{ id: string; firstName: string; lastName: string }>;
+}
+
+/**
+ * TypeORM stores SQLite datetimes as UTC 'YYYY-MM-DD HH:MM:SS.SSS' (no zone);
+ * raw queries return that string, so parse it explicitly as UTC.
+ */
+export function sqliteUtcToDate(value: string | Date | null | undefined): Date | null {
+	if (value === null || value === undefined || value === '') return null;
+	if (value instanceof Date) return value;
+	const iso = value.includes('T') ? value : value.replace(' ', 'T');
+	const date = new Date(/[zZ]|[+-]\d\d:?\d\d$/.test(iso) ? iso : `${iso}Z`);
+	return Number.isNaN(date.getTime()) ? null : date;
 }
 
 export const waBridgeService = new WaBridgeService();
