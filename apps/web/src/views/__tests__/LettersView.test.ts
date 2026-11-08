@@ -20,6 +20,27 @@ const api = vi.hoisted(() => ({
 		getPrintBatch: vi.fn(),
 		getFolders: vi.fn(),
 	},
+	letterPaymentsApi: {
+		getReceiptPhoto: vi.fn(),
+		attach: vi.fn(),
+	},
+}));
+
+// Stub con expose: el ref del padre llama openPaymentForWithReceipt del form
+// de pago embebido; el test captura la llamada y emite payment-saved.
+const paymentOpen = vi.hoisted(() => vi.fn());
+vi.mock('@/components/PaymentManagement.vue', () => ({
+	default: {
+		name: 'PaymentManagement',
+		props: ['embedded'],
+		emits: ['payment-saved'],
+		template: '<div class="payment-management-stub" />',
+		setup() {
+			return {
+				openPaymentForWithReceipt: (...args: unknown[]) => paymentOpen(...args),
+			};
+		},
+	},
 }));
 
 // Ruta controlable: los filtros viajan en la URL (vista/palanquero/caminante).
@@ -687,6 +708,52 @@ describe('LettersView', () => {
 		expect(api.lettersApi.unmarkPrinted).toHaveBeenLastCalledWith('r1', { participantIds: ['p1'] });
 	});
 
+	it('registrar comprobante de pago: solo cartas con foto, y el form abre con la foto', async () => {
+		const withPhoto = { fileName: 'transferencia.jpg', isBrowserSafeImage: true, mimeType: 'image/jpeg', storageUrl: 'data:image/jpeg;base64,AA' };
+		api.lettersApi.listLetters.mockResolvedValue(
+			inbox([
+				letter({ status: 'approved', attachments: [withPhoto] }),
+				letter({ id: 'l2', status: 'pending', attachments: [withPhoto] }),
+				letter({ id: 'l3', status: 'pending', attachments: [] }),
+				letter({ id: 'l4', status: 'approved', attachments: [withPhoto], participantId: null }),
+				letter({ id: 'l5', status: 'attached', attachments: [withPhoto] }),
+			]),
+		);
+		api.letterPaymentsApi.getReceiptPhoto.mockResolvedValue({
+			dataUrl: 'data:image/jpeg;base64,AA', fileName: 'transferencia.jpg', participantId: 'p1',
+		});
+		const wrapper = await mountView();
+
+		// Con foto y caminante (pending o approved) sí; sin foto, sin caminante o attached, no.
+		const items = wrapper.findAll('[role="menuitem"]').filter((i) => i.text().includes('letters.receipt.register'));
+		expect(items).toHaveLength(2);
+
+		await items[0].trigger('click');
+		await flushPromises();
+		expect(api.letterPaymentsApi.getReceiptPhoto).toHaveBeenCalledWith('l1', undefined);
+		expect(paymentOpen).toHaveBeenCalledWith('p1', 'data:image/jpeg;base64,AA');
+
+		// El pago creado por el formulario se enlaza a la carta y recarga la bandeja.
+		const loadsBefore = api.lettersApi.listLetters.mock.calls.length;
+		wrapper.findComponent({ name: 'PaymentManagement' }).vm.$emit('payment-saved', { id: 'pay1' });
+		await flushPromises();
+		expect(api.letterPaymentsApi.attach).toHaveBeenCalledWith('l1', 'pay1');
+		expect(api.lettersApi.listLetters.mock.calls.length).toBeGreaterThan(loadsBefore);
+	});
+
+	it('registrar comprobante: si la foto no se puede leer, no abre el formulario', async () => {
+		api.lettersApi.listLetters.mockResolvedValue(
+			inbox([letter({ status: 'approved', attachments: [{ fileName: 'f.jpg', isBrowserSafeImage: true, mimeType: 'image/jpeg', storageUrl: 'data:image/jpeg;base64,AA' }] })]),
+		);
+		api.letterPaymentsApi.getReceiptPhoto.mockRejectedValue(new Error('no_photo'));
+		const wrapper = await mountView();
+		const item = wrapper.findAll('[role="menuitem"]').find((i) => i.text().includes('letters.receipt.register'));
+		await item!.trigger('click');
+		await flushPromises();
+		expect(paymentOpen).not.toHaveBeenCalled();
+		expect(wrapper.findComponent({ name: 'PaymentManagement' }).exists()).toBe(false);
+	});
+
 	it('marcar como impresa a mano: desde la carta, la carpeta y la selección, sin lote', async () => {
 		api.lettersApi.markPrinted.mockResolvedValue({ marked: 1 });
 		api.lettersApi.listLetters.mockResolvedValue(
@@ -784,6 +851,39 @@ describe('LettersView', () => {
 		await wrapper.find('[data-testid="photo-next"]').trigger('click');
 		await flushPromises();
 		expect(viewer().attributes('src')).toBe('https://b/p1.jpg');
+	});
+
+	it('visor: «Registrar esta foto como comprobante» abre el form con la foto que se está viendo', async () => {
+		const atts = [photoAtt('p1', 'https://b/p1.jpg'), photoAtt('p2', 'https://b/p2.jpg')];
+		api.lettersApi.listLetters.mockResolvedValue(
+			inbox([letter({ status: 'approved', attachments: [...atts, pdfAtt] })]),
+		);
+		api.letterPaymentsApi.getReceiptPhoto.mockResolvedValue({
+			dataUrl: 'data:image/jpeg;base64,BB', fileName: 'p2.jpg', participantId: 'p1',
+		});
+		const wrapper = await mountView();
+		await wrapper.find('[data-testid="row-thumbnail"]').trigger('click');
+		await flushPromises();
+
+		// Sin estado elegible (pending) el visor no lo ofrece: la carta es approved → sí.
+		const register = wrapper.find('[data-testid="viewer-register-receipt"]');
+		expect(register.exists()).toBe(true);
+		await register.trigger('click');
+		await flushPromises();
+		// La foto que se veía era p1 (índice 0): va ESA al formulario.
+		expect(api.letterPaymentsApi.getReceiptPhoto).toHaveBeenCalledWith('l1', 'p1');
+		expect(paymentOpen).toHaveBeenCalledWith('p1', 'data:image/jpeg;base64,BB');
+	});
+
+	it('visor: una carta pendiente sin elegibilidad no ofrece «Registrar esta foto»', async () => {
+		// pending + foto SÍ es elegible; hidden + foto NO (canRegisterReceipt la excluye).
+		api.lettersApi.listLetters.mockResolvedValue(
+			inbox([letter({ status: 'hidden', attachments: [photoAtt('p1', 'https://b/p1.jpg')] })]),
+		);
+		const wrapper = await mountView();
+		await wrapper.find('[data-testid="row-thumbnail"]').trigger('click');
+		await flushPromises();
+		expect(wrapper.find('[data-testid="viewer-register-receipt"]').exists()).toBe(false);
 	});
 
 	it('detalle: un PDF tiene su ficha y «Abrir» lo abre en una pestaña', async () => {

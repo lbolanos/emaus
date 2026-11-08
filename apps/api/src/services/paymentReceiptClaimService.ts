@@ -444,12 +444,17 @@ async function loadLetterForReceipt(letterId: string, userId: string): Promise<L
 export async function getLetterReceiptPhoto(
 	letterId: string,
 	userId: string,
+	attachmentId?: string,
 ): Promise<{ dataUrl: string; fileName: string; participantId: string }> {
 	const letter = await loadLetterForReceipt(letterId, userId);
 	const participantId = letter.retreatParticipant?.participantId;
 	if (!participantId) throw new PaymentClaimError('unknown_claim', 404);
-	const photo = (letter.attachments ?? []).find((a) => a.isBrowserSafeImage);
-	if (!photo) throw new PaymentClaimError('no_photo', 400, 'La carta no tiene foto adjunta');
+	// Con varias fotos, la vista previa manda la que el palanquero está viendo
+	// (attachmentId); si no viene, la primera imprimible (la carta de una foto).
+	const photos = (letter.attachments ?? []).filter((a) => a.isBrowserSafeImage);
+	if (photos.length === 0) throw new PaymentClaimError('no_photo', 400, 'La carta no tiene foto adjunta');
+	const photo = attachmentId ? photos.find((a) => a.id === attachmentId) : photos[0];
+	if (!photo) throw new PaymentClaimError('no_photo', 404, 'Esa foto no está en la carta');
 
 	if (config.avatar.storage === 's3' && photo.storageKey) {
 		const processed = await processLetterPhoto(photo.storageKey, photo.mimeType);
@@ -483,12 +488,48 @@ export async function attachLetterToPayment(
 		throw new PaymentClaimError('invalid_participant', 404, 'El pago no corresponde a esta carta');
 	}
 	await AppDataSource.getRepository(Letter).update(letter.id, { status: 'attached' });
+	await recordLetterReceiptClaim(letter, payment, userId);
 	void domainAuditService.log({
 		action: DomainAuditAction.PAYMENT_RECEIPT_FROM_LETTER,
 		resourceType: 'payment',
 		retreatId: letter.retreatId,
 		metadata: { letterId, paymentId, via: 'payment-form' },
 	});
+}
+
+/**
+ * El pago nacido de una carta también aparece en la pestaña «Comprobantes»
+ * bajo «Aplicados», igual que los de WhatsApp (patrón de
+ * waBridge/waReceiptClaimService): claim nacido attached, con el monto y la
+ * referencia del pago, el texto de la carta como nota y la foto del propio
+ * pago (no una copia). Re-vincular el mismo pago no duplica la fila.
+ */
+async function recordLetterReceiptClaim(
+	letter: Letter,
+	payment: Payment,
+	userId: string,
+): Promise<PaymentReceiptClaim | null> {
+	if (!payment.receiptUrl) return null;
+	const claimRepo = AppDataSource.getRepository(PaymentReceiptClaim);
+	const existing = await claimRepo.findOne({ where: { attachedPaymentId: payment.id } });
+	if (existing) return existing;
+	const sender = letter.fromName ? `Carta de ${letter.fromName}` : `Carta de ${letter.fromEmail}`;
+	return claimRepo.save(
+		claimRepo.create({
+			retreatId: payment.retreatId,
+			participantId: payment.participantId,
+			status: 'attached',
+			amountClaimed: payment.amount,
+			reference: payment.referenceNumber ?? null,
+			note: letter.bodyText ? letter.bodyText.slice(0, 1000) : null,
+			senderContact: sender,
+			photoUrl: payment.receiptUrl,
+			photoS3Key: payment.receiptS3Key ?? null,
+			attachedPaymentId: payment.id,
+			attachedAt: new Date(),
+			attachedById: userId,
+		}),
+	);
 }
 
 /**

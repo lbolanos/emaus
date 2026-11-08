@@ -146,7 +146,9 @@ export async function getLetterReceiptPhotoHandler(req: Request, res: Response) 
 	try {
 		const userId = (req as any).user?.id;
 		const { getLetterReceiptPhoto } = await import('../services/paymentReceiptClaimService');
-		res.json(await getLetterReceiptPhoto(req.params.letterId, userId));
+		res.json(
+			await getLetterReceiptPhoto(req.params.letterId, userId, req.query.attachmentId as string | undefined),
+		);
 	} catch (error) {
 		if (error instanceof PaymentClaimError) {
 			return res.status(error.httpStatus).json({ error: error.code, message: error.message });

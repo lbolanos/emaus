@@ -214,12 +214,71 @@ describe('paymentReceiptClaimService (integration)', () => {
 			await expect(getLetterReceiptPhoto(hidden.id, other)).rejects.toMatchObject({ httpStatus: 403 });
 		});
 
-		it('attach: sella la carta attached con un pago del mismo caminante', async () => {
-			const letter = await letterWithPhoto({ status: 'approved' });
-			const paymentId = await paymentFor();
+		it('photo: con varias fotos toma la primera o la que pide attachmentId; ajena → 404', async () => {
+			const letter = await letterWithPhoto();
+			const attachmentRepo = await import('@/entities/letterAttachment.entity').then(
+				(m) => m.LetterAttachment,
+			);
+			const second = await getDS().getRepository(attachmentRepo).save({
+				letterId: letter.id, fileName: 'otra-foto.jpg', mimeType: 'image/jpeg', sizeBytes: 900,
+				isBrowserSafeImage: true, storageKey: '', storageUrl: PHOTO, sortOrder: 1,
+			});
+			// Sin attachmentId: la primera (transferencia.jpg).
+			expect((await getLetterReceiptPhoto(letter.id, userId)).fileName).toBe('transferencia.jpg');
+			// Con attachmentId: la que está viendo el palanquero.
+			expect((await getLetterReceiptPhoto(letter.id, userId, second.id)).fileName).toBe('otra-foto.jpg');
+			// Un attachmentId de otra carta no existe aquí → 404.
+			await expect(getLetterReceiptPhoto(letter.id, userId, '00000000-0000-4000-8000-000000000000')).rejects.toMatchObject({
+				httpStatus: 404,
+			});
+		});
+
+		it('attach: sella la carta y crea el claim de «Comprobantes» para un pago del formulario', async () => {
+			const letter = await letterWithPhoto({ status: 'approved', fromName: 'Lupe' });
+			// Pago nacido del formulario (sin claim previo): la foto queda en el pago.
+			const { Payment } = await import('@/entities/payment.entity');
+			const { paymentId } = await getDS()
+				.getRepository(Payment)
+				.save({
+					participantId: participant.id, retreatId: retreat.id, amount: 500,
+					paymentDate: new Date(), paymentMethod: 'transfer', receiptUrl: PHOTO,
+				})
+				.then((p) => ({ paymentId: p.id }));
 			await attachLetterToPayment(letter.id, paymentId, userId);
 			const sealed = await getDS().getRepository(Letter).findOneByOrFail({ id: letter.id });
 			expect(sealed.status).toBe('attached');
+
+			const { PaymentReceiptClaim } = await import('@/entities/paymentReceiptClaim.entity');
+			const claim = await getDS()
+				.getRepository(PaymentReceiptClaim)
+				.findOneByOrFail({ attachedPaymentId: paymentId });
+			expect(claim.status).toBe('attached');
+			expect(claim.senderContact).toBe('Carta de Lupe');
+			expect(claim.note).toBe('Va el comprobante');
+			expect(claim.amountClaimed).toBe(500);
+			expect(claim.attachedById).toBe(userId);
+			expect(claim.photoUrl).toBe(PHOTO);
+		});
+
+		it('attach: un pago nacido de un comprobante de familia ya está en «Comprobantes» — no crea otra fila', async () => {
+			const letter = await letterWithPhoto({ status: 'approved' });
+			const paymentId = await paymentFor(); // viene de applyReceiptClaim: el claim original lleva el pago
+			await attachLetterToPayment(letter.id, paymentId, userId);
+			const { PaymentReceiptClaim } = await import('@/entities/paymentReceiptClaim.entity');
+			expect(
+				await getDS()
+					.getRepository(PaymentReceiptClaim)
+					.count({ where: { attachedPaymentId: paymentId } }),
+			).toBe(1);
+		});
+
+		it('attach: reintentar sobre una carta ya attached falla 409', async () => {
+			const letter = await letterWithPhoto({ status: 'approved' });
+			const paymentId = await paymentFor();
+			await attachLetterToPayment(letter.id, paymentId, userId);
+			await expect(attachLetterToPayment(letter.id, paymentId, userId)).rejects.toMatchObject({
+				httpStatus: 409,
+			});
 		});
 
 		it('attach: un pago de OTRO caminante no sella la carta (404)', async () => {

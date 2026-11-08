@@ -1,6 +1,6 @@
 # Family letters
 
-📺 **[Watch the video tutorial](https://youtu.be/b5ADc_QGmCE)**
+📺 **[Watch the video tutorial](https://youtu.be/L7gsglbSZVY)**
 
 Letters are the surprise of the retreat: participants' families (walkers **and** servers) write
 a support message that gets printed and delivered during the weekend. **Do not mention them to
@@ -30,6 +30,10 @@ Everything starts in the **⋮** at the top right: **Print**, **Mailboxes**, **S
    whole retreat, the table, a palanquero's folders, the filtered participant or the letters
    you tick. You get a preview first; afterwards it asks whether it printed fine, and **only
    then** marks them as *Printed*.
+6. **If a letter brings a payment receipt** — its row ⋮ → **Register as payment receipt**:
+   opens the standard payment form already linked to the participant, with the photo loaded.
+   When you save, the letter gets linked to the payment (leaves review) and the payment shows
+   up under **Payments → Receipts** as *Applied*.
 
 ## Folders: each participant's folder
 

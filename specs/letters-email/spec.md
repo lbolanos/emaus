@@ -237,10 +237,25 @@ Lo que cambió respecto al diseño:
 acceso al retiro en prod hasta b856dfcb. Ahora lo exigen, con tests y prueba de mutación.
 `GET /payments/from-letter/:letterId/photo` y `…/attach` exigen además `letter:read`.
 
-**Pendiente (fuera de v1.2)**: el botón «comprobante → formulario de pago estándar» en la
-bandeja. El lado servidor está (`GET /payments/from-letter/:letterId/photo`, `POST …/attach`);
-la interfaz espera el `PaymentManagement` embebible (`embedded` / `openPaymentForWithReceipt` /
-`payment-saved`) de la rama `worktree-whatsapp-inbox`, que todavía no está en master.
+**Botón «comprobante → formulario de pago estándar» (v1.3, 2026-11-08)**: implementado en
+`worktree-letters-payment` cuando `PaymentManagement` embebible llegó a master local
+(`1c259691`). El ⋮ de la fila ofrece **Registrar como comprobante de pago** a las cartas con
+foto, con caminante asignado y estado `pending`/`approved`; abre el formulario estándar
+prellenado con el caminante y la foto (`GET /payments/from-letter/:letterId/photo`); al
+guardar, `payment-saved` dispara `POST …/attach`, que sella la carta `attached` y registra el
+claim de «Comprobantes» como *Aplicado* (patrón `waReceiptClaimService`: si el pago ya nació
+de un comprobante de familia, el claim original ya lo muestra y no se duplica). Si el attach
+falla el pago queda igual (se revisa en Pagos); sin fotos no hay acción.
+
+**Varias fotos en el correo (v1.3)**: con más de una foto, el ⋮ usa la primera imprimible,
+pero el flujo pensado es elegir: el clic en una foto del detalle la abre en el visor, que
+ofrece **Registrar esta foto como comprobante** para la que se está viendo
+(`GET …/photo?attachmentId=`; una foto de otra carta → 404). Verificado E2E en el dev del
+worktree (13/13: carta con 2 fotos por webhook, visor con la foto 2, attach y claim en
+«Comprobantes»).
+
+**Pendiente (fuera de v1.2)**: ~~el botón «comprobante → formulario de pago estándar»~~ hecho,
+ver arriba (v1.3); queda publicar la rama.
 
 **Adjuntos (2026-11-07, tras la v1.2)**: hasta aquí los PDF se guardaban sin forma de abrirlos y
 Word/PowerPoint/Excel se descartaban (con la carta adentro, si la familia la mandó así). Ahora

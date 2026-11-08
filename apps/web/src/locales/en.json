@@ -4488,6 +4488,13 @@
     "searchPlaceholder": "Search by sender, text or subject…",
     "empty": "No letters with these filters. Activate the mailboxes and share the addresses to start receiving them.",
     "copyAddress": "Copy address",
+    "receipt": {
+      "register": "Register as payment receipt",
+      "registerThis": "Register this photo as receipt",
+      "photoError": "Could not read the letter's photo",
+      "attached": "Receipt registered — the letter is now linked to the payment",
+      "attachError": "The payment was created but could not be linked to the letter; check it in Payments"
+    },
     "printed": "Printed",
     "hasNonPrintable": "Non-printable photo",
     "reviewedAt": "Reviewed: {date}",

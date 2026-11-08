@@ -4810,6 +4810,13 @@
     "searchPlaceholder": "Buscar por remitente, texto o asunto…",
     "empty": "No hay cartas con estos filtros. Activa los buzones y difunde las direcciones para empezar a recibirlas.",
     "copyAddress": "Copiar dirección",
+    "receipt": {
+      "register": "Registrar como comprobante de pago",
+      "registerThis": "Registrar esta foto como comprobante",
+      "photoError": "No se pudo leer la foto de la carta",
+      "attached": "Comprobante registrado — la carta quedó enlazada al pago",
+      "attachError": "El pago se creó pero no se pudo enlazar a la carta; revísalo en Pagos"
+    },
     "printed": "Impresa",
     "hasNonPrintable": "Foto no imprimible",
     "reviewedAt": "Revisada: {date}",

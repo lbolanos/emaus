@@ -5175,6 +5175,27 @@ export interface LettersInbox {
 // Comprobantes de pago enviados por las familias (link de capacidad)
 // ---------------------------------------------------------------------------
 
+/** Pago desde una CARTA del buzón: la foto va al formulario de pago y el pago se enlaza a la carta. */
+export const letterPaymentsApi = {
+  /** Foto del comprobante de una carta (data-URL) para prellenar el formulario de pago.
+   *  Con varias fotos, `attachmentId` elige la que se está viendo. */
+  getReceiptPhoto: async (
+    letterId: string,
+    attachmentId?: string,
+  ): Promise<{ dataUrl: string; fileName: string; participantId: string }> => {
+    const r = await api.get(`/payments/from-letter/${letterId}/photo`, {
+      params: { attachmentId },
+    });
+    return r.data;
+  },
+
+  /** Enlaza el pago ya creado con la carta: la sella `attached` y crea el claim de «Comprobantes». */
+  attach: async (letterId: string, paymentId: string): Promise<{ status: "attached" }> => {
+    const r = await api.post(`/payments/from-letter/${letterId}/attach`, { paymentId });
+    return r.data;
+  },
+};
+
 export const receiptClaimsApi = {
   /** Contexto PÚBLICO del link (nombre del caminante + retiro) para el formulario. */
   getContext: async (token: string): Promise<{ participantName: string; retreatParish: string }> => {
