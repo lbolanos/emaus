@@ -186,19 +186,15 @@ export async function listChats(storeDir: string, limit = 100): Promise<WacliCha
 export async function listMessages(
 	storeDir: string,
 	chatJid: string,
-	opts: { limit?: number; afterIso?: string | null } = {},
+	opts: { limit?: number; afterIso?: string | null; newestFirst?: boolean } = {},
 ): Promise<WacliMessage[]> {
 	// Both directions (v1.3): the staff's own replies to walkers are stored so
 	// the inbox can show "answered by X". Whitelisting by chat stays upstream.
-	const args = [
-		'messages',
-		'list',
-		'--chat',
-		chatJid,
-		'--asc',
-		'--limit',
-		String(opts.limit ?? 50),
-	];
+	// Oldest first by default (incremental paging); `newestFirst` drops
+	// `--asc` — wacli's default order is newest first (verified on v0.21.0).
+	const args = ['messages', 'list', '--chat', chatJid];
+	if (!opts.newestFirst) args.push('--asc');
+	args.push('--limit', String(opts.limit ?? 50));
 	if (opts.afterIso) {
 		args.push('--after', opts.afterIso);
 	}

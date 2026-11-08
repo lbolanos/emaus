@@ -322,6 +322,12 @@ export type InboxChangedPayload = {
 	/** Para el toast in-app: remitente y vista previa del último mensaje. */
 	senderName?: string | null;
 	preview?: string | null;
+	/**
+	 * v1.4: new messages from emergency contacts. Count only: the room is
+	 * shared by users without participant:health, so the contact is never
+	 * named here (the client shows the toast only to those who can see it).
+	 */
+	contactCount?: number;
 };
 
 /**

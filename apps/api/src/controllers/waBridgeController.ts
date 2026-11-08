@@ -7,7 +7,14 @@ import { WhatsappBridgeLink } from '../entities/whatsappBridgeLink.entity';
 import { WhatsappInboxMessage } from '../entities/whatsappInboxMessage.entity';
 import { WhatsappInboxReadState } from '../entities/whatsappInboxReadState.entity';
 import { authorizationService, ensureRetreatAccess } from '../middleware/authorization';
-import { waBridgeService, acceptedJidDigitVariants } from '../services/waBridge';
+import {
+	waBridgeService,
+	acceptedJidDigitVariants,
+	primaryParticipantOf,
+	senderDisplayName,
+	senderKindOf,
+	type WaSenderMatch,
+} from '../services/waBridge';
 import { WacliError } from '../services/waBridge';
 import { Payment } from '../entities/payment.entity';
 import { RetreatParticipant } from '../entities/retreatParticipant.entity';
@@ -28,6 +35,10 @@ function currentUser(req: Request): User {
  *    ensureRetreatAccess inside for routes keyed by message/link id).
  *  - QR and linkedPhone: ONLY the link owner (or superadmin) — S5/S12.
  *  - No endpoint returns another staff member's linkedPhone.
+ *  - Emergency-contact chats (v1.4, D22) also need participant:health: who
+ *    the contact is belongs to SENSITIVE_HEALTH_FIELDS. Without it those
+ *    chats do not exist for the caller (list, badge, search) and every
+ *    message endpoint answers 403.
  */
 
 const ONE_TO_ONE_JID = /^\d+@s\.whatsapp\.net$/;
@@ -71,9 +82,46 @@ function toLinkDto(
 	};
 }
 
+/** Emergency-contact chats carry SENSITIVE_HEALTH_FIELDS data (v1.4, D22). */
+function canSeeEmergencyContacts(userId: string): Promise<boolean> {
+	return authorizationService.hasPermission(userId, 'participant:health');
+}
+
+/** JID digits of a 1:1 chat ("5215511406977@s.whatsapp.net" → "5215511406977"). */
+function chatPhoneOf(chatJid: string): string {
+	return chatJid.split('@')[0];
+}
+
 export class WaBridgeController {
 	private async isOwnerOrSuperadmin(userId: string, link: WhatsappBridgeLink): Promise<boolean> {
 		return link.userId === userId || authorizationService.hasRole(userId, 'superadmin');
+	}
+
+	/**
+	 * Who a chat belongs to, if the caller may see it (v1.4, D22). Sends the
+	 * refusal itself and returns null: 403 for an emergency-contact chat
+	 * without participant:health, 404 for a chat that no longer resolves to
+	 * anyone (cancelled walker, edited phone).
+	 */
+	private async visibleChat(
+		req: Request,
+		res: Response,
+		retreatId: string,
+		chatPhone: string,
+	): Promise<WaSenderMatch | null> {
+		const index = await waBridgeService.getSenderIndex(retreatId);
+		const match = index.get(chatPhone);
+		if (!match) {
+			res.status(404).json({ message: 'Esta conversación ya no corresponde a ningún caminante del retiro.' });
+			return null;
+		}
+		if (!waBridgeService.isChatVisible(match, await canSeeEmergencyContacts(currentUser(req).id))) {
+			res.status(403).json({
+				message: 'Los mensajes de contactos de emergencia requieren el permiso de ver datos de salud.',
+			});
+			return null;
+		}
+		return match;
 	}
 
 	/** POST /retreat/:retreatId/link — starts linking (requires consent). */
@@ -153,12 +201,15 @@ export class WaBridgeController {
 	/**
 	 * GET /retreat/:retreatId/conversations — consolidated list for the caller:
 	 * aggregated in SQL by waBridgeService.listConversations (unread for this
-	 * user, last message, "answered by" and shared-phone walkers).
+	 * user, last message, "answered by" and shared-phone walkers). v1.4: also
+	 * emergency-contact chats, only with participant:health.
 	 */
 	conversations = async (req: Request, res: Response): Promise<Response> => {
+		const userId = currentUser(req).id;
 		const conversations = await waBridgeService.listConversations(
 			req.params.retreatId,
-			currentUser(req).id,
+			userId,
+			await canSeeEmergencyContacts(userId),
 		);
 		return res.json({ conversations });
 	};
@@ -183,6 +234,8 @@ export class WaBridgeController {
 				return res.status(400).json({ message: 'before debe ser una fecha ISO válida' });
 			}
 		}
+
+		if (!(await this.visibleChat(req, res, retreatId, chatPhoneOf(chatJid)))) return res;
 
 		const qb = AppDataSource.getRepository(WhatsappInboxMessage)
 			.createQueryBuilder('m')
@@ -315,9 +368,11 @@ export class WaBridgeController {
 	 * v1.1). Lightweight: counts against the caller's read states.
 	 */
 	unreadCount = async (req: Request, res: Response): Promise<Response> => {
+		const userId = currentUser(req).id;
 		const total = await waBridgeService.countUnreadForUser(
 			req.params.retreatId,
-			currentUser(req).id,
+			userId,
+			await canSeeEmergencyContacts(userId),
 		);
 		return res.json({ total });
 	};
@@ -372,15 +427,25 @@ export class WaBridgeController {
 		if (q.length < 2) {
 			return res.json({ results: [] });
 		}
-		const results = await waBridgeService.searchMessages(req.params.retreatId, q.slice(0, 100));
-		// The walker's name on each result (search also matches by name —
-		// v1.1).
-		const digitsMap = await waBridgeService.getWalkerDigitsMap(req.params.retreatId);
+		const index = await waBridgeService.getSenderIndex(req.params.retreatId);
+		const results = await waBridgeService.searchMessages(req.params.retreatId, q.slice(0, 100), {
+			canSeeEmergencyContacts: await canSeeEmergencyContacts(currentUser(req).id),
+			index,
+		});
+		// Who wrote each result (search also matches by name — v1.1; contacts
+		// since v1.4). Every result is visible: the service skipped the rest.
 		return res.json({
 			results: results.map((row) => {
-				const participant = digitsMap.get(row.chatPhone);
+				const match = index.get(row.chatPhone);
+				const participant = primaryParticipantOf(match);
+				const contact =
+					match && senderKindOf(match) === 'emergency_contact' ? match.emergencyFor[0] : undefined;
 				return {
 					...row,
+					senderKind: match ? senderKindOf(match) : 'walker',
+					contactName: contact?.contactName ?? null,
+					contactRelation: contact?.relation ?? null,
+					participantId: participant?.id ?? null,
 					participantFirstName: participant?.firstName ?? '',
 					participantLastName: participant?.lastName ?? '',
 				};
@@ -428,8 +493,12 @@ export class WaBridgeController {
 			});
 		}
 
-		const digitsMap = await waBridgeService.getWalkerDigitsMap(message.retreatId);
-		const participant = digitsMap.get(message.chatPhone);
+		const match = await this.visibleChat(req, res, message.retreatId, message.chatPhone);
+		if (!match) return res;
+		// The walker the payment is for: the walker of the chat or, for an
+		// emergency contact, the walker who listed them (the web may override
+		// it with the group the chat was opened from).
+		const participant = primaryParticipantOf(match);
 
 		try {
 			const receiptPhoto = await waBridgeService.downloadReceiptDataUrl(message);
@@ -474,12 +543,20 @@ export class WaBridgeController {
 				'retreatId',
 			],
 		});
-		const valid = messages.filter(
+		const inRetreat = messages.filter(
 			(m) => m.messageType === 'image' && m.retreatId === req.params.retreatId,
 		);
-		if (valid.length > 0) {
+		let valid: WhatsappInboxMessage[] = [];
+		if (inRetreat.length > 0) {
 			const accessOk = await ensureRetreatAccess(req, res, req.params.retreatId);
 			if (!accessOk) return res;
+			// v1.4: images of chats the caller cannot see are skipped, not 403 —
+			// a batch may mix chats (history of a walker and their contacts).
+			const index = await waBridgeService.getSenderIndex(req.params.retreatId);
+			const canSee = await canSeeEmergencyContacts(currentUser(req).id);
+			valid = inRetreat.filter((m) => waBridgeService.isChatVisible(index.get(m.chatPhone), canSee));
+		}
+		if (valid.length > 0) {
 			try {
 				const variants = await waBridgeService.getReceiptVariantsBatch(valid);
 				const media: Record<string, { thumb: string; large: string }> = {};
@@ -520,6 +597,7 @@ export class WaBridgeController {
 		if (message.messageType !== 'audio' && message.messageType !== 'document') {
 			return res.status(400).json({ message: 'Este mensaje no trae audio ni documento.' });
 		}
+		if (!(await this.visibleChat(req, res, message.retreatId, message.chatPhone))) return res;
 		try {
 			const media = await waBridgeService.downloadRawMedia(message);
 			return res.json({
@@ -551,6 +629,7 @@ export class WaBridgeController {
 		const message = await repo.findOneBy({ id: req.params.messageId });
 		if (!message) return res.status(404).json({ message: 'Mensaje no encontrado' });
 		if (!(await ensureRetreatAccess(req, res, message.retreatId))) return res;
+		if (!(await this.visibleChat(req, res, message.retreatId, message.chatPhone))) return res;
 		const payment = await AppDataSource.getRepository(Payment).findOne({
 			where: { id: paymentId },
 			select: ['id', 'retreatId'],
@@ -585,6 +664,8 @@ export class WaBridgeController {
 		});
 		if (!message) return res.status(404).json({ message: 'Mensaje no encontrado' });
 		if (!(await ensureRetreatAccess(req, res, message.retreatId))) return res;
+		const match = await this.visibleChat(req, res, message.retreatId, message.chatPhone);
+		if (!match) return res;
 		// Letters belong to the retreat registration, resolved server-side.
 		const registration = await AppDataSource.getRepository(RetreatParticipant).findOne({
 			where: { participantId, retreatId: message.retreatId },
@@ -595,11 +676,8 @@ export class WaBridgeController {
 		}
 		const retreatParticipantId = registration.id;
 
-		const index = await waBridgeService.getWalkerDigitsIndex(message.retreatId);
-		const senders = index.get(message.chatPhone) ?? [];
-		const senderName = senders.length
-			? senders.map((walker) => `${walker.firstName} ${walker.lastName}`.trim()).join(' y ')
-			: `+${message.chatPhone}`;
+		// "Mamá — María (contacto de Juan Pérez)" for an emergency contact.
+		const senderName = senderDisplayName(match, `+${message.chatPhone}`);
 		try {
 			const result = await createLetterFromWhatsapp({
 				message,

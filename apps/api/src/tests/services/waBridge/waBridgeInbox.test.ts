@@ -165,7 +165,7 @@ describe('waBridge inbox (integration)', () => {
 				lastSeenMessageTimestamp: new Date('2026-11-07T10:00:00Z'),
 			} as any);
 
-			const [conversation] = await waBridgeService.listConversations(retreat.id, reader.id);
+			const [conversation] = await waBridgeService.listConversations(retreat.id, reader.id, false);
 			expect(conversation).toMatchObject({
 				chatJid: JID,
 				messageCount: 3,
@@ -178,9 +178,9 @@ describe('waBridge inbox (integration)', () => {
 				participantFirstName: 'Caminante',
 			});
 			expect(conversation.lastMessageAt.toISOString()).toBe('2026-11-07T10:10:00.000Z');
-			expect(await waBridgeService.countUnreadForUser(retreat.id, reader.id)).toBe(1);
+			expect(await waBridgeService.countUnreadForUser(retreat.id, reader.id, false)).toBe(1);
 			// A user with no read state: both incoming are unread, never the reply.
-			expect(await waBridgeService.countUnreadForUser(retreat.id, staff.id)).toBe(2);
+			expect(await waBridgeService.countUnreadForUser(retreat.id, staff.id, false)).toBe(2);
 		});
 
 		it('is not awaiting a reply once the staff answered last', async () => {
@@ -191,7 +191,7 @@ describe('waBridge inbox (integration)', () => {
 			await seedMessage(link, { timestamp: new Date('2026-11-07T10:00:00Z') });
 			await seedMessage(link, { timestamp: new Date('2026-11-07T10:05:00Z'), fromMe: true });
 
-			const [conversation] = await waBridgeService.listConversations(retreat.id, staff.id);
+			const [conversation] = await waBridgeService.listConversations(retreat.id, staff.id, false);
 			expect(conversation.awaitingReply).toBe(false);
 			expect(conversation.lastMessageFromMe).toBe(true);
 		});

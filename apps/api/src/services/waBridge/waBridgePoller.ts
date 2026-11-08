@@ -1,3 +1,4 @@
+import { In } from 'typeorm';
 import { AppDataSource } from '../../data-source';
 import { config } from '../../config';
 import { Retreat } from '../../entities/retreat.entity';
@@ -7,14 +8,14 @@ import { domainAuditService } from '../domainAuditService';
 import { DomainAuditAction } from '@repo/types';
 import { emitInboxChanged } from '../../realtime';
 import { listChats, listMessages, type WacliChat, type WacliMessage } from './wacliClient';
-import { waBridgeService } from './waBridgeService';
+import { senderDisplayName, senderKindOf, waBridgeService } from './waBridgeService';
 
 /**
  * Polling ingestion (specs/whatsapp-inbox D8): every cycle, for each connected
- * link, reads the store's chats one-shot, applies the walker whitelist and
- * stores the messages of chats that pass it (incoming, and since v1.3 the
- * staff's own replies). Nothing outside the whitelist is read in depth or
- * stored, ever.
+ * link, reads the store's chats one-shot, applies the whitelist (walkers and,
+ * since v1.4, their emergency contacts) and stores the messages of chats that
+ * pass it (incoming, and since v1.3 the staff's own replies). Nothing outside
+ * the whitelist is read in depth or stored, ever.
  *
  * The store lock may reject reads while `sync` or a bootstrap imports
  * history: tolerated and retried next cycle, never crashing. The error audit
@@ -115,6 +116,14 @@ export function normalizeWacliMessage(
 /** Max pages read per chat per cycle (50 messages each). */
 const MAX_PAGES_PER_CHAT = 10;
 const PAGE_SIZE = 50;
+/**
+ * Messages read, newest first, from a chat that enters a link's whitelist
+ * with nothing stored yet (v1.4): a number just added as emergency contact or
+ * a late registration brings its recent history, not only what comes next.
+ */
+const BACKFILL_LIMIT = 500;
+/** Rows per INSERT (11 bound columns each, far below SQLite's variable cap). */
+const INSERT_CHUNK = 50;
 
 export class WaBridgePoller {
 	private timer: NodeJS.Timeout | null = null;
@@ -172,24 +181,93 @@ export class WaBridgePoller {
 	}
 
 	private async pollLink(link: WhatsappBridgeLink): Promise<void> {
-		const digitsMap = await waBridgeService.getWalkerDigitsMap(link.retreatId);
+		const senderIndex = await waBridgeService.getSenderIndex(link.retreatId);
 		const chats = await listChats(link.storePath, 100);
 		this.noteDiscardedLidChats(link, chats);
-		const whitelisted = filterWhitelistedChats(chats, new Set(digitsMap.keys()));
+		const whitelisted = filterWhitelistedChats(chats, new Set(senderIndex.keys()));
 		if (whitelisted.length === 0) {
 			await this.touchSync(link);
 			return;
 		}
 
+		// Chats this link already stored; any other whitelisted chat is new to
+		// it (first sync, new emergency contact, late registration): backfill.
+		const storedRows: Array<{ chatJid: string }> = await AppDataSource.query(
+			'SELECT DISTINCT chatJid FROM whatsapp_inbox_message WHERE linkId = ?',
+			[link.id],
+		);
+		const storedChats = new Set(storedRows.map((row) => row.chatJid));
+
 		const afterIso = this.lookbackIso(link.lastSyncAt);
 		const messageRepo = AppDataSource.getRepository(WhatsappInboxMessage);
-		let insertedIncoming = 0;
 		let insertedTotal = 0;
+		let walkerIncoming = 0;
+		let contactIncoming = 0;
 		let lastSenderName: string | null = null;
 		let lastPreview: string | null = null;
+
 		for (const chat of whitelisted) {
 			const chatPhone = jidToDigits(chat.jid) ?? '';
-			const participant = digitsMap.get(chatPhone);
+			const match = senderIndex.get(chatPhone);
+			const fromContact = match ? senderKindOf(match) === 'emergency_contact' : false;
+			const backfill = !storedChats.has(chat.jid);
+
+			const store = async (messages: WacliMessage[]): Promise<void> => {
+				const normalized = messages
+					.map((raw) => normalizeWacliMessage(raw, chat.jid, chatPhone))
+					.filter((row): row is NonNullable<typeof row> => row !== null);
+				if (normalized.length === 0) return;
+				// New rows are found up front: on better-sqlite3 an InsertResult's
+				// `raw` is the lastInsertRowid, not a change count, so the old
+				// `raw.changes` was always 0 and `inbox:changed` never fired.
+				// UNIQUE(linkId, waMessageId) + orIgnore still dedupe a race.
+				const known = await messageRepo.find({
+					where: { linkId: link.id, waMessageId: In(normalized.map((row) => row.waMessageId)) },
+					select: ['waMessageId'],
+				});
+				const seen = new Set(known.map((row) => row.waMessageId));
+				const fresh = normalized.filter((row) => {
+					if (seen.has(row.waMessageId)) return false;
+					seen.add(row.waMessageId);
+					return true;
+				});
+				for (let i = 0; i < fresh.length; i += INSERT_CHUNK) {
+					await messageRepo
+						.createQueryBuilder()
+						.insert()
+						.into(WhatsappInboxMessage)
+						.values(
+							fresh
+								.slice(i, i + INSERT_CHUNK)
+								.map((row) => ({ ...row, linkId: link.id, retreatId: link.retreatId })),
+						)
+						.orIgnore()
+						.execute();
+				}
+				insertedTotal += fresh.length;
+				for (const row of fresh) {
+					// History brought by a backfill is not "new": no toast for it.
+					if (row.fromMe || backfill) continue;
+					if (fromContact) {
+						contactIncoming += 1;
+					} else {
+						walkerIncoming += 1;
+						lastSenderName = senderDisplayName(match, '') || null;
+						lastPreview = row.body ?? null;
+					}
+				}
+			};
+
+			if (backfill) {
+				await store(
+					await listMessages(link.storePath, chat.jid, {
+						limit: BACKFILL_LIMIT,
+						newestFirst: true,
+					}),
+				);
+				continue;
+			}
+
 			// Page forward (asc) from the window start: a single `--limit 50`
 			// returned the 50 OLDEST messages and dropped the rest of a burst.
 			let pageAfter = afterIso;
@@ -198,30 +276,7 @@ export class WaBridgePoller {
 					limit: PAGE_SIZE,
 					afterIso: pageAfter,
 				});
-				for (const raw of messages) {
-					const normalized = normalizeWacliMessage(raw, chat.jid, chatPhone);
-					if (!normalized) continue;
-					// UNIQUE(linkId, waMessageId) dedupes; orIgnore turns a re-poll
-					// into a no-op and `changes` counts the real inserts.
-					const result = await messageRepo
-						.createQueryBuilder()
-						.insert()
-						.into(WhatsappInboxMessage)
-						.values({ ...normalized, linkId: link.id, retreatId: link.retreatId })
-						.orIgnore()
-						.execute();
-					const changes = Number(result.raw?.changes ?? 0) || 0;
-					if (changes > 0) {
-						insertedTotal += changes;
-						if (!normalized.fromMe) {
-							insertedIncoming += changes;
-							lastSenderName = participant
-								? `${participant.firstName} ${participant.lastName}`.trim()
-								: null;
-							lastPreview = normalized.body ?? null;
-						}
-					}
-				}
+				await store(messages);
 				if (messages.length < PAGE_SIZE) break;
 				const lastTs = (messages[messages.length - 1] as Record<string, unknown>).Timestamp;
 				if (typeof lastTs !== 'string' || lastTs === pageAfter) break;
@@ -230,13 +285,16 @@ export class WaBridgePoller {
 		}
 		await this.touchSync(link);
 		if (insertedTotal > 0) {
-			// The toast (senderName/preview) is only for walker messages; a staff
-			// reply still refreshes the list ("answered by") with newCount 0.
+			// The named toast (senderName/preview) is only for walker messages:
+			// the room includes users without participant:health, so contacts
+			// travel as a bare count. A staff reply or a backfill still refreshes
+			// the list with newCount 0.
 			emitInboxChanged({
 				retreatId: link.retreatId,
-				newCount: insertedIncoming,
-				senderName: insertedIncoming > 0 ? lastSenderName : null,
-				preview: insertedIncoming > 0 ? lastPreview : null,
+				newCount: walkerIncoming,
+				senderName: walkerIncoming > 0 ? lastSenderName : null,
+				preview: walkerIncoming > 0 ? lastPreview : null,
+				contactCount: contactIncoming,
 			});
 		}
 	}

@@ -41,11 +41,45 @@ export type WaLinkRefusalReason =
 	| 'cap_reached'
 	| 'already_linked';
 
-/** Consolidated conversation: a 1:1 chat with a walker of the retreat. */
+/** Who wrote a chat (v1.4, D22): the walker or one of their emergency contacts. */
+export type WaSenderKind = 'walker' | 'emergency_contact';
+
+/** Emergency contact a chat belongs to (v1.4); its data needs participant:health. */
+export interface WaEmergencyContactDto {
+	name: string;
+	relation: string;
+	/** Contact slot in the walker's record (emergencyContact1 / emergencyContact2). */
+	slot: 1 | 2;
+}
+
+/** A walker a conversation is grouped under (v1.4, D23). */
+export interface WaConversationWalkerDto {
+	participantId: string;
+	firstName: string;
+	lastName: string;
+}
+
+/**
+ * Consolidated conversation: a 1:1 chat with a walker of the retreat or,
+ * since v1.4, with one of their emergency contacts.
+ */
 export interface WaConversationDto {
 	chatJid: string;
 	chatPhone: string;
-	/** Retreat participant whose phone matched (profile and reply deep link). */
+	/** v1.4: the walker themselves or an emergency contact of `forWalkers`. */
+	senderKind: WaSenderKind;
+	/** v1.4: present for emergency-contact chats (first walker that listed it). */
+	contact?: WaEmergencyContactDto | null;
+	/**
+	 * v1.4: walkers this chat is grouped under — the walker (and whoever shares
+	 * the phone) for a walker chat; every walker that listed the number for an
+	 * emergency-contact chat (siblings share a contact).
+	 */
+	forWalkers: WaConversationWalkerDto[];
+	/**
+	 * First walker of the chat (profile, reply deep link, payment and letter
+	 * prefill); for an emergency-contact chat, the walker whose contact it is.
+	 */
 	participantId: string | null;
 	participantFirstName: string;
 	participantLastName: string;

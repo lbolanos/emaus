@@ -15,8 +15,23 @@ import { WaBridgeSupervisor } from './waBridgeSupervisor';
  * - Retention: ALWAYS, even with the bridge turned off (FR7).
  */
 
-export { waBridgeService, computeLinkWindow, acceptedJidDigitVariants, isLinkPurgeDue } from './waBridgeService';
-export type { WaLinkWindow, WaLinkRefusalReason, WaLinkStartResult } from './waBridgeService';
+export {
+	waBridgeService,
+	computeLinkWindow,
+	acceptedJidDigitVariants,
+	isLinkPurgeDue,
+	senderKindOf,
+	contactWalkers,
+	primaryParticipantOf,
+	senderDisplayName,
+} from './waBridgeService';
+export type {
+	WaLinkWindow,
+	WaLinkRefusalReason,
+	WaLinkStartResult,
+	WaSenderMatch,
+	WaSenderKind,
+} from './waBridgeService';
 export { filterWhitelistedChats, normalizeWacliMessage, jidToDigits } from './waBridgePoller';
 export { parseWacliEventLine, WaBridgeSupervisor } from './waBridgeSupervisor';
 export { waBridgeRetentionService } from './waBridgeRetentionService';

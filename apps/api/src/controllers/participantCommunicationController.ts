@@ -92,7 +92,8 @@ export class ParticipantCommunicationController {
 			// the history used to log only what we sent. Included only for users
 			// who can read the inbox (same permission) and only when the
 			// participant has a phone with a resolvable country (JID match, like
-			// the poller).
+			// the poller). v1.4: also their emergency contacts' messages, only
+			// with participant:health (contacts are SENSITIVE_HEALTH_FIELDS).
 			let inbound: Array<Record<string, unknown>> = [];
 			let inboundTotal = 0;
 			const userId = (req.user as any)?.id as string | undefined;
@@ -100,17 +101,70 @@ export class ParticipantCommunicationController {
 				userId &&
 				(await authorizationService.hasPermission(userId, 'whatsappInbox:read').catch(() => false));
 			if (canReadInbox) {
+				const canSeeContacts = await authorizationService
+					.hasPermission(userId, 'participant:health')
+					.catch(() => false);
 				const walker = await this.participantRepository.findOne({
 					where: { id: participantId },
-					select: ['id', 'cellPhone', 'country'],
+					select: [
+						'id',
+						'cellPhone',
+						'country',
+						'emergencyContact1Name',
+						'emergencyContact1Relation',
+						'emergencyContact1CellPhone',
+						'emergencyContact1HomePhone',
+						'emergencyContact1WorkPhone',
+						'emergencyContact2Name',
+						'emergencyContact2Relation',
+						'emergencyContact2CellPhone',
+						'emergencyContact2HomePhone',
+						'emergencyContact2WorkPhone',
+					],
 				});
-				const jids =
-					walker?.cellPhone && walker?.country
-						? acceptedJidDigitVariants(
-								toNationalPhone(walker.cellPhone, walker.country),
-								walker.country,
-							).map((digits) => `${digits}@s.whatsapp.net`)
-						: [];
+				const country = walker?.country ?? '';
+				const digitsOf = (phone: string | null | undefined): string[] => {
+					if (!phone || !country) return [];
+					const national = toNationalPhone(phone, country);
+					return national ? acceptedJidDigitVariants(national, country) : [];
+				};
+				// JID digits → emergency contact (the walker's own number wins).
+				const ownDigits = new Set(digitsOf(walker?.cellPhone));
+				const contactByDigits = new Map<string, { name: string; relation: string }>();
+				if (walker && canSeeContacts) {
+					const slots = [
+						{
+							name: walker.emergencyContact1Name,
+							relation: walker.emergencyContact1Relation,
+							phones: [
+								walker.emergencyContact1CellPhone,
+								walker.emergencyContact1HomePhone,
+								walker.emergencyContact1WorkPhone,
+							],
+						},
+						{
+							name: walker.emergencyContact2Name,
+							relation: walker.emergencyContact2Relation,
+							phones: [
+								walker.emergencyContact2CellPhone,
+								walker.emergencyContact2HomePhone,
+								walker.emergencyContact2WorkPhone,
+							],
+						},
+					];
+					for (const slot of slots) {
+						for (const digits of slot.phones.flatMap((phone) => digitsOf(phone))) {
+							if (ownDigits.has(digits) || contactByDigits.has(digits)) continue;
+							contactByDigits.set(digits, {
+								name: slot.name ?? '',
+								relation: slot.relation ?? '',
+							});
+						}
+					}
+				}
+				const jids = [...ownDigits, ...contactByDigits.keys()].map(
+					(digits) => `${digits}@s.whatsapp.net`,
+				);
 				if (jids.length > 0) {
 					// take = limit+offset and skip 0: the page is cut on the merge
 					// (skipping per source dropped rows and "Load more" emptied the
@@ -125,19 +179,26 @@ export class ParticipantCommunicationController {
 						skip: 0,
 					});
 					inboundTotal = count;
-					inbound = rows.map((row) => ({
-						id: `wa-inbox:${row.id}`,
-						participantId,
-						retreatId: effectiveRetreatId,
-						messageType: 'whatsapp',
-						direction: 'inbound',
-						waMessageType: row.messageType,
-						recipientContact: row.chatPhone,
-						// Media without a caption: the client labels it by
-						// waMessageType (i18n) and shows the thumbnail for images.
-						messageContent: row.body ?? '',
-						sentAt: row.timestamp,
-					}));
+					inbound = rows.map((row) => {
+						const contact = contactByDigits.get(row.chatPhone);
+						return {
+							id: `wa-inbox:${row.id}`,
+							participantId,
+							retreatId: effectiveRetreatId,
+							messageType: 'whatsapp',
+							direction: 'inbound',
+							waMessageType: row.messageType,
+							recipientContact: row.chatPhone,
+							// v1.4: who wrote it — the walker or one of their contacts.
+							senderKind: contact ? 'emergency_contact' : 'walker',
+							contactName: contact?.name ?? null,
+							contactRelation: contact?.relation ?? null,
+							// Media without a caption: the client labels it by
+							// waMessageType (i18n) and shows the thumbnail for images.
+							messageContent: row.body ?? '',
+							sentAt: row.timestamp,
+						};
+					});
 				}
 			}
 

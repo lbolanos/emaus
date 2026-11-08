@@ -453,40 +453,6 @@ export class WaBridgeService {
 		return { terminated: links.length };
 	}
 
-	/**
-	 * JID digits accepted for the retreat (D4): for each walker, their national
-	 * number plus calling-code variants for their country. Recomputed every
-	 * cycle: cheap (hundreds of rows) and it picks up late registrations. The
-	 * repo's canonical filter: `retreat_participants.type='walker' AND
-	 * isCancelled=0` — type/isCancelled live in RetreatParticipant, NOT in
-	 * Participant.
-	 */
-	async getWalkerJidDigitIndex(retreatId: string): Promise<Set<string>> {
-		const registrations = await AppDataSource.getRepository(RetreatParticipant).find({
-			where: { retreatId, type: 'walker', isCancelled: false },
-			select: ['participantId'],
-		});
-		const participantIds = registrations
-			.map((reg) => reg.participantId)
-			.filter((id): id is string => Boolean(id));
-		if (participantIds.length === 0) return new Set();
-
-		const walkers = await AppDataSource.getRepository(Participant).find({
-			where: participantIds.map((id) => ({ id })),
-			select: ['id', 'cellPhone', 'country'],
-		});
-		const index = new Set<string>();
-		for (const walker of walkers) {
-			if (!walker.cellPhone || !walker.country) continue;
-			const national = toNationalPhone(walker.cellPhone, walker.country);
-			if (!national) continue;
-			for (const variant of acceptedJidDigitVariants(national, walker.country)) {
-				index.add(variant);
-			}
-		}
-		return index;
-	}
-
 	/** Stops and unregisters the link's supervisor; waits for a clean stop. */
 	async stopSupervisorById(linkId: string): Promise<void> {
 		const supervisor = this.supervisors.get(linkId);
@@ -565,22 +531,37 @@ export class WaBridgeService {
 
 	/**
 	 * Total unread of the retreat FOR THIS user (sidebar badge, v1.1): incoming
-	 * messages newer than the read state of their chat.
+	 * messages newer than the read state of their chat. Only chats the user can
+	 * see count (v1.4): emergency-contact chats need participant:health.
 	 */
-	async countUnreadForUser(retreatId: string, userId: string): Promise<number> {
+	async countUnreadForUser(
+		retreatId: string,
+		userId: string,
+		canSeeEmergencyContacts: boolean,
+	): Promise<number> {
 		// Incoming only (v1.3 stores the staff's own replies too) and resolved in
-		// SQL: the badge polls every 60 s from every open sidebar.
-		const rows: Array<{ unread: number }> = await AppDataSource.query(
-			`SELECT COUNT(*) AS unread
+		// SQL: the badge polls every 60 s from every open sidebar. Grouped by
+		// phone so visibility is decided per chat, not per message.
+		const rows: Array<{ chatPhone: string; unread: number }> = await AppDataSource.query(
+			`SELECT m.chatPhone AS chatPhone, COUNT(*) AS unread
 			   FROM whatsapp_inbox_message m
 			   LEFT JOIN whatsapp_inbox_read_state rs
 			     ON rs.retreatId = m.retreatId AND rs.chatJid = m.chatJid AND rs.userId = ?
 			  WHERE m.retreatId = ? AND m.fromMe = 0
 			    AND (rs.lastSeenMessageTimestamp IS NULL
-			         OR julianday(m.timestamp) > julianday(rs.lastSeenMessageTimestamp))`,
+			         OR julianday(m.timestamp) > julianday(rs.lastSeenMessageTimestamp))
+			  GROUP BY m.chatPhone`,
 			[userId, retreatId],
 		);
-		return Number(rows[0]?.unread ?? 0);
+		if (rows.length === 0) return 0;
+		const index = await this.getSenderIndex(retreatId);
+		return rows.reduce(
+			(total, row) =>
+				this.isChatVisible(index.get(row.chatPhone), canSeeEmergencyContacts)
+					? total + Number(row.unread)
+					: total,
+			0,
+		);
 	}
 
 	/**
@@ -591,10 +572,16 @@ export class WaBridgeService {
 	 * Per chat: counts, unread for this user (incoming only), the last message
 	 * (preview + type + direction) and the last staff reply with its author, so
 	 * the list can say "answered by X" vs "awaiting reply".
+	 *
+	 * v1.4: each chat says who wrote it (the walker or an emergency contact)
+	 * and which walkers it is grouped under. Emergency-contact chats are left
+	 * out without participant:health; chats that no longer resolve to anyone
+	 * (cancelled walker, edited phone) are left out for everybody.
 	 */
 	async listConversations(
 		retreatId: string,
 		userId: string,
+		canSeeEmergencyContacts: boolean,
 	): Promise<WaConversationRow[]> {
 		const aggregates: Array<{
 			chatJid: string;
@@ -623,6 +610,11 @@ export class WaBridgeService {
 			[userId, retreatId],
 		);
 		if (aggregates.length === 0) return [];
+		const index = await this.getSenderIndex(retreatId);
+		const visible = aggregates.filter((row) =>
+			this.isChatVisible(index.get(row.chatPhone), canSeeEmergencyContacts),
+		);
+		if (visible.length === 0) return [];
 
 		// Last message per chat (preview) and last staff reply per chat (author).
 		const lastRows: Array<{
@@ -651,12 +643,15 @@ export class WaBridgeService {
 		const lastByChat = new Map(lastRows.map((row) => [row.chatJid, row]));
 		const replyLinkByChat = new Map(replyRows.map((row) => [row.chatJid, row.linkId]));
 		const ownerNameByLink = await this.linkOwnerNames(Array.from(replyLinkByChat.values()));
-		const index = await this.getWalkerDigitsIndex(retreatId);
 
-		return aggregates
+		return visible
 			.map((row) => {
-				const walkers = index.get(row.chatPhone) ?? [];
+				// Visible ⇒ resolved (isChatVisible rejects unknown chats).
+				const match = index.get(row.chatPhone)!;
+				const senderKind = senderKindOf(match);
+				const walkers = senderKind === 'walker' ? match.walkers : contactWalkers(match);
 				const primary = walkers[0];
+				const contact = senderKind === 'emergency_contact' ? match.emergencyFor[0] : undefined;
 				const last = lastByChat.get(row.chatJid);
 				const lastIncomingAt = sqliteUtcToDate(row.lastIncomingAt);
 				const lastReplyAt = sqliteUtcToDate(row.lastReplyAt);
@@ -674,15 +669,28 @@ export class WaBridgeService {
 					lastReplyByName: replyLinkId ? (ownerNameByLink.get(replyLinkId) ?? null) : null,
 					awaitingReply:
 						lastIncomingAt !== null && (lastReplyAt === null || lastReplyAt < lastIncomingAt),
+					senderKind,
+					contact: contact
+						? { name: contact.contactName, relation: contact.relation, slot: contact.slot }
+						: null,
+					forWalkers: walkers.map((walker) => ({
+						participantId: walker.id,
+						firstName: walker.firstName,
+						lastName: walker.lastName,
+					})),
 					participantId: primary?.id ?? null,
 					participantFirstName: primary?.firstName ?? '',
 					participantLastName: primary?.lastName ?? '',
 					country: primary?.country ?? null,
-					sharedWith: walkers.slice(1).map((walker) => ({
-						id: walker.id,
-						firstName: walker.firstName,
-						lastName: walker.lastName,
-					})),
+					// Phone shared by several walkers (a couple); contacts use forWalkers.
+					sharedWith:
+						senderKind === 'walker'
+							? walkers.slice(1).map((walker) => ({
+									id: walker.id,
+									firstName: walker.firstName,
+									lastName: walker.lastName,
+								}))
+							: [],
 				};
 			})
 			.sort((a, b) => b.lastMessageAt.getTime() - a.lastMessageAt.getTime());
@@ -716,27 +724,45 @@ export class WaBridgeService {
 	 * the whole retreat in chunks. It ALSO matches the walker's NAME — a name
 	 * hit returns that person's whole chat (search by person, not only by
 	 * word).
+	 *
+	 * v1.4: an emergency-contact chat matches by the contact's name and
+	 * relation and by the walker's name ("Juan" also finds Juan's mother).
+	 * Chats the caller cannot see are skipped (participant:health, D22).
 	 */
 	async searchMessages(
 		retreatId: string,
 		q: string,
-		limit = 30,
+		options: {
+			canSeeEmergencyContacts: boolean;
+			index?: Map<string, WaSenderMatch>;
+			limit?: number;
+		},
 	): Promise<
 		Array<Pick<WhatsappInboxMessage, 'id' | 'chatJid' | 'chatPhone' | 'timestamp' | 'body' | 'messageType'>>
 	> {
+		const limit = options.limit ?? 30;
 		const strip = (s: string) =>
 			s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 		const needle = strip(q);
 		if (!needle) return [];
 
-		// v1.1: ALSO match the walker's name — a name hit returns that person's
-		// whole chat (search by person).
-		const digitsMap = await this.getWalkerDigitsMap(retreatId);
-		const nameMatchedJids: string[] = [];
-		for (const [digits, participant] of digitsMap) {
-			const fullName = strip(`${participant.firstName} ${participant.lastName}`);
-			if (fullName.includes(needle)) nameMatchedJids.push(`${digits}@s.whatsapp.net`);
+		const index = options.index ?? (await this.getSenderIndex(retreatId));
+		const visiblePhones = new Set<string>();
+		const nameMatchedPhones = new Set<string>();
+		for (const [digits, match] of index) {
+			if (!this.isChatVisible(match, options.canSeeEmergencyContacts)) continue;
+			visiblePhones.add(digits);
+			const names =
+				senderKindOf(match) === 'walker'
+					? match.walkers.map((walker) => `${walker.firstName} ${walker.lastName}`)
+					: match.emergencyFor.flatMap((entry) => [
+							entry.contactName,
+							entry.relation,
+							`${entry.participant.firstName} ${entry.participant.lastName}`,
+						]);
+			if (names.some((name) => strip(name).includes(needle))) nameMatchedPhones.add(digits);
 		}
+		if (visiblePhones.size === 0) return [];
 
 		// Chunked scan of the WHOLE retreat (newest first) until `limit` hits:
 		// the old 500-row window silently missed older messages. Accent folding
@@ -754,8 +780,9 @@ export class WaBridgeService {
 				take: SEARCH_CHUNK,
 			});
 			for (const row of rows) {
+				if (!visiblePhones.has(row.chatPhone)) continue;
 				const bodyHit = Boolean(row.body) && strip(row.body!).includes(needle);
-				const chatHit = nameMatchedJids.includes(row.chatJid);
+				const chatHit = nameMatchedPhones.has(row.chatPhone);
 				if (bodyHit || chatHit) {
 					out.push(row);
 					if (out.length >= limit) break;
@@ -767,11 +794,19 @@ export class WaBridgeService {
 	}
 
 	/**
-	 * JID digits → walkers of the retreat sharing that phone (most recent
-	 * registration first). Usually one; couples on one phone give two — the
-	 * inbox names both and lets the staff pick the payer (v1.3).
+	 * JID digits → who the chat belongs to (v1.4, D22): the walkers of the
+	 * retreat with that phone and/or the walkers who listed it as an emergency
+	 * contact (cell, home or work phone of slot 1 or 2). The single source of
+	 * phone → person resolution in the bridge — whitelist, names, permission
+	 * gating and prefills all read it.
+	 *
+	 * A walker match wins (a couple listing each other as contact is a walker
+	 * chat). A contact of several walkers (siblings) lists them all. Contacts
+	 * have no country of their own: the walker's country is used (same rule as
+	 * messageSequenceService.resolveRecipient for the "family" audience).
+	 * Recomputed every poll: cheap, and it picks up late registrations.
 	 */
-	async getWalkerDigitsIndex(retreatId: string): Promise<Map<string, Participant[]>> {
+	async getSenderIndex(retreatId: string): Promise<Map<string, WaSenderMatch>> {
 		const registrations = await AppDataSource.getRepository(RetreatParticipant).find({
 			where: { retreatId, type: 'walker', isCancelled: false },
 			order: { createdAt: 'DESC' },
@@ -780,36 +815,94 @@ export class WaBridgeService {
 		const participantIds = registrations
 			.map((reg) => reg.participantId)
 			.filter((id): id is string => Boolean(id));
-		const index = new Map<string, Participant[]>();
+		const index = new Map<string, WaSenderMatch>();
 		if (participantIds.length === 0) return index;
 		const walkers = await AppDataSource.getRepository(Participant).find({
 			where: participantIds.map((id) => ({ id })),
 		});
 		const walkerById = new Map(walkers.map((walker) => [walker.id, walker]));
+		const entry = (digits: string): WaSenderMatch => {
+			let match = index.get(digits);
+			if (!match) {
+				match = { walkers: [], emergencyFor: [] };
+				index.set(digits, match);
+			}
+			return match;
+		};
+		const digitsOf = (phone: string | null | undefined, country: string): string[] => {
+			if (!phone) return [];
+			const national = toNationalPhone(phone, country);
+			return national ? acceptedJidDigitVariants(national, country) : [];
+		};
+
 		for (const reg of registrations) {
 			const walker = reg.participantId ? walkerById.get(reg.participantId) : undefined;
-			if (!walker?.cellPhone || !walker.country) continue;
-			const national = toNationalPhone(walker.cellPhone, walker.country);
-			if (!national) continue;
-			for (const digits of acceptedJidDigitVariants(national, walker.country)) {
-				const list = index.get(digits) ?? [];
-				if (!list.some((p) => p.id === walker.id)) list.push(walker);
-				index.set(digits, list);
+			if (!walker?.country) continue;
+			for (const digits of digitsOf(walker.cellPhone, walker.country)) {
+				const match = entry(digits);
+				if (!match.walkers.some((p) => p.id === walker.id)) match.walkers.push(walker);
+			}
+			for (const slot of [1, 2] as const) {
+				const contactName = (slot === 1 ? walker.emergencyContact1Name : walker.emergencyContact2Name) ?? '';
+				const relation =
+					(slot === 1 ? walker.emergencyContact1Relation : walker.emergencyContact2Relation) ?? '';
+				const phones =
+					slot === 1
+						? [
+								walker.emergencyContact1CellPhone,
+								walker.emergencyContact1HomePhone,
+								walker.emergencyContact1WorkPhone,
+							]
+						: [
+								walker.emergencyContact2CellPhone,
+								walker.emergencyContact2HomePhone,
+								walker.emergencyContact2WorkPhone,
+							];
+				const seen = new Set<string>();
+				for (const phone of phones) {
+					for (const digits of digitsOf(phone, walker.country)) {
+						if (seen.has(digits)) continue;
+						seen.add(digits);
+						const match = entry(digits);
+						if (!match.emergencyFor.some((e) => e.participant.id === walker.id && e.slot === slot)) {
+							match.emergencyFor.push({ participant: walker, slot, contactName, relation });
+						}
+					}
+				}
 			}
 		}
 		return index;
 	}
 
 	/**
-	 * JID digits → the primary walker for that phone (most recent registration
-	 * wins, deterministically). Every phone→participant resolution in the
-	 * bridge goes through this — never an inline copy of the logic.
+	 * JID digits → walkers sharing that phone (most recent registration first).
+	 * Walker chats only; derived from getSenderIndex.
 	 */
+	async getWalkerDigitsIndex(retreatId: string): Promise<Map<string, Participant[]>> {
+		const index = await this.getSenderIndex(retreatId);
+		const out = new Map<string, Participant[]>();
+		for (const [digits, match] of index) {
+			if (match.walkers.length) out.set(digits, match.walkers);
+		}
+		return out;
+	}
+
+	/** JID digits → the primary walker of a walker chat (derived from getSenderIndex). */
 	async getWalkerDigitsMap(retreatId: string): Promise<Map<string, Participant>> {
 		const index = await this.getWalkerDigitsIndex(retreatId);
 		const map = new Map<string, Participant>();
 		for (const [digits, walkers] of index) map.set(digits, walkers[0]);
 		return map;
+	}
+
+	/**
+	 * Visibility of a chat for a user (v1.4, D22): an emergency-contact chat
+	 * carries SENSITIVE_HEALTH_FIELDS data (who the contact is), so it exists
+	 * only for users with participant:health. Unknown chats are not visible.
+	 */
+	isChatVisible(match: WaSenderMatch | undefined, canSeeEmergencyContacts: boolean): boolean {
+		if (!match) return false;
+		return senderKindOf(match) === 'walker' || canSeeEmergencyContacts;
 	}
 
 	/**
@@ -1013,6 +1106,51 @@ function detectImageContentType(buffer: Buffer): string {
 	return 'image/jpeg';
 }
 
+/** Who a chat belongs to (v1.4): walkers with that phone and/or walkers who listed it as contact. */
+export interface WaSenderMatch {
+	walkers: Participant[];
+	emergencyFor: Array<{ participant: Participant; slot: 1 | 2; contactName: string; relation: string }>;
+}
+
+export type WaSenderKind = 'walker' | 'emergency_contact';
+
+/** A walker match wins over an emergency-contact match. */
+export function senderKindOf(match: WaSenderMatch): WaSenderKind {
+	return match.walkers.length ? 'walker' : 'emergency_contact';
+}
+
+/** Walkers that listed this number as an emergency contact, without repeats. */
+export function contactWalkers(match: WaSenderMatch): Participant[] {
+	const seen = new Set<string>();
+	const out: Participant[] = [];
+	for (const entry of match.emergencyFor) {
+		if (seen.has(entry.participant.id)) continue;
+		seen.add(entry.participant.id);
+		out.push(entry.participant);
+	}
+	return out;
+}
+
+/** The participant a chat is primarily about (prefills payments and letters). */
+export function primaryParticipantOf(match: WaSenderMatch | undefined): Participant | undefined {
+	return match?.walkers[0] ?? match?.emergencyFor[0]?.participant;
+}
+
+/** "Mamá — María (contacto de Juan Pérez)" style label for toasts and letters. */
+export function senderDisplayName(match: WaSenderMatch | undefined, fallback: string): string {
+	if (!match) return fallback;
+	if (match.walkers.length) {
+		return match.walkers.map((w) => `${w.firstName} ${w.lastName}`.trim()).join(' y ');
+	}
+	const first = match.emergencyFor[0];
+	if (!first) return fallback;
+	const who = [first.relation, first.contactName].filter(Boolean).join(' — ') || fallback;
+	const of = match.emergencyFor
+		.map((e) => `${e.participant.firstName} ${e.participant.lastName}`.trim())
+		.join(' y ');
+	return `${who} (contacto de ${of})`;
+}
+
 /** Conversation row returned by listConversations (mirrors WaConversationDto). */
 export interface WaConversationRow {
 	chatJid: string;
@@ -1026,6 +1164,9 @@ export interface WaConversationRow {
 	lastReplyAt: Date | null;
 	lastReplyByName: string | null;
 	awaitingReply: boolean;
+	senderKind: WaSenderKind;
+	contact: { name: string; relation: string; slot: 1 | 2 } | null;
+	forWalkers: Array<{ participantId: string; firstName: string; lastName: string }>;
 	participantId: string | null;
 	participantFirstName: string;
 	participantLastName: string;
