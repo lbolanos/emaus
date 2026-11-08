@@ -30,6 +30,11 @@ import type {
   Retreat,
   Participant,
   FlyerTemplate,
+  Letter,
+  LetterAttachment,
+  LetterMailboxRow,
+  LetterPrintBatchEntry,
+  LetterStatus,
 } from "@repo/types";
 import type { AssignmentDocumentsData } from "@repo/utils";
 import { setupCsrfInterceptor } from "@/utils/csrf";
@@ -5109,4 +5114,195 @@ export const searchWaMessages = async (
 ): Promise<{ results: WaSearchResult[] }> => {
   const r = await api.get(`/wa-bridge/retreat/${retreatId}/search`, { params: { q } });
   return r.data;
+};
+
+// ---------------------------------------------------------------------------
+// Cartas de familias por email (specs/letters-email)
+// ---------------------------------------------------------------------------
+
+export type {
+  Letter,
+  LetterAttachment,
+  LetterMailboxRow,
+  LetterPrintBatchEntry,
+  LetterStatus,
+};
+
+export interface LettersInbox {
+  letters: Letter[];
+  counts: { pending: number; approved: number; hidden: number; attached: number };
+}
+
+// ---------------------------------------------------------------------------
+// Comprobantes de pago enviados por las familias (link de capacidad)
+// ---------------------------------------------------------------------------
+
+export const receiptClaimsApi = {
+  /** Contexto PÚBLICO del link (nombre del caminante + retiro) para el formulario. */
+  getContext: async (token: string): Promise<{ participantName: string; retreatParish: string }> => {
+    const r = await api.get(`/payments/public/receipt-link/${token}`);
+    return r.data;
+  },
+
+  /** Envío PÚBLICO del comprobante (foto data-URL ≤2MB + datos opcionales). */
+  submit: async (
+    token: string,
+    body: {
+      photo: string;
+      amountClaimed?: number;
+      reference?: string;
+      note?: string;
+      senderContact?: string;
+    },
+  ): Promise<{ status: "received"; claimId: string }> => {
+    const r = await api.post(`/payments/public/receipt-link/${token}`, body);
+    return r.data;
+  },
+
+  /** Links de comprobante por participante (con nombre) para difusión. */
+  getLinks: async (
+    retreatId: string,
+  ): Promise<{ participantId: string; participantName: string; link: string }[]> => {
+    const r = await api.get(`/payments/receipt-links`, { params: { retreatId } });
+    return r.data.links;
+  },
+
+  /** Bandeja de comprobantes (opcionalmente filtrada por estado). */
+  list: async (
+    retreatId: string,
+    status?: "pending" | "attached" | "dismissed",
+  ): Promise<ReceiptClaim[]> => {
+    const r = await api.get(`/payments/receipt-claims`, { params: { retreatId, status } });
+    return r.data.claims;
+  },
+
+  /** Aplica el claim: crea el pago con la foto seteada. */
+  apply: async (
+    claimId: string,
+    body: { amount: number; paymentMethod?: string; paymentDate?: string; reference?: string; notes?: string },
+  ): Promise<{ status: string; paymentId: string }> => {
+    const r = await api.post(`/payments/receipt-claims/${claimId}/apply`, body);
+    return r.data;
+  },
+
+  /** Aparta el claim sin crear pago. */
+  dismiss: async (claimId: string): Promise<void> => {
+    await api.post(`/payments/receipt-claims/${claimId}/dismiss`);
+  },
+};
+
+export interface ReceiptClaim {
+  id: string;
+  retreatId: string;
+  participantId: string;
+  participantName: string;
+  participantBalance: number | null;
+  status: "pending" | "attached" | "dismissed";
+  amountClaimed: number | null;
+  reference: string | null;
+  note: string | null;
+  senderContact: string | null;
+  photoUrl: string;
+  attachedPaymentId: string | null;
+  attachedAt: string | null;
+  createdAt: string;
+}
+
+export const lettersApi = {
+  /** Activa los buzones del retiro (idempotente). */
+  activateMailboxes: async (
+    retreatId: string,
+  ): Promise<{ activated: number; alreadyActive: number }> => {
+    const r = await api.post(`/letters/retreats/${retreatId}/letters/mailbox/activate`);
+    return r.data;
+  },
+
+  /** Buzones por participante con contadores de cartas. */
+  getMailboxes: async (retreatId: string): Promise<LetterMailboxRow[]> => {
+    const r = await api.get(`/letters/retreats/${retreatId}/letters/mailbox`);
+    return r.data.mailboxes;
+  },
+
+  /** Toggle de un buzón individual. */
+  toggleMailbox: async (
+    retreatId: string,
+    retreatParticipantId: string,
+    mailboxEnabled: boolean,
+  ): Promise<{
+    mailboxCode: string | null;
+    mailboxAddress: string | null;
+    mailboxEnabled: boolean;
+  }> => {
+    const r = await api.patch(
+      `/letters/retreats/${retreatId}/letters/mailbox/${retreatParticipantId}`,
+      { mailboxEnabled },
+    );
+    return r.data;
+  },
+
+  /** Bandeja de cartas con filtros. */
+  listLetters: async (
+    retreatId: string,
+    filters: {
+      participantId?: string;
+      retreatParticipantId?: string;
+      tableId?: string;
+      status?: LetterStatus | "";
+      q?: string;
+    } = {},
+  ): Promise<LettersInbox> => {
+    const r = await api.get(`/letters/retreats/${retreatId}/letters`, { params: filters });
+    return r.data;
+  },
+
+  /** Conteo por estado (badge del sidebar, sin bandeja). */
+  getLetterCounts: async (
+    retreatId: string,
+  ): Promise<LettersInbox["counts"]> => {
+    const r = await api.get(`/letters/retreats/${retreatId}/letters/counts`);
+    return r.data.counts;
+  },
+
+  /** Detalle de carta con adjuntos presigned. */
+  getLetter: async (
+    id: string,
+  ): Promise<{ letter: Letter; participant: { name: string } | null; tableName: string | null }> => {
+    const r = await api.get(`/letters/${id}`);
+    return r.data;
+  },
+
+  /** Revisión: approve / hide. */
+  reviewLetter: async (id: string, status: "approved" | "hidden"): Promise<Letter> => {
+    const r = await api.patch(`/letters/${id}/review`, { status });
+    return r.data.letter;
+  },
+
+  /** Marca el lote impreso. */
+  markPrinted: async (
+    retreatId: string,
+    letterIds: string[],
+    batchId: string,
+  ): Promise<{ marked: number }> => {
+    const r = await api.post(`/letters/retreats/${retreatId}/letters/print-mark`, {
+      letterIds,
+      batchId,
+    });
+    return r.data;
+  },
+
+  /** Datos ordenados para el documento imprimible (solo approved). */
+  getPrintBatch: async (
+    retreatId: string,
+    scope: "participant" | "table" | "retreat",
+    opts: { participantIds?: string[]; tableId?: string } = {},
+  ): Promise<LetterPrintBatchEntry[]> => {
+    const r = await api.get(`/letters/retreats/${retreatId}/letters/print-batch`, {
+      params: {
+        scope,
+        participantIds: opts.participantIds?.join(",") || undefined,
+        tableId: opts.tableId || undefined,
+      },
+    });
+    return r.data.entries;
+  },
 };

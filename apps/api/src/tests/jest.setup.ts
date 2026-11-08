@@ -249,6 +249,9 @@ process.env.CSRF_SECRET = 'test-csrf-secret-key';
 // CI no tiene apps/api/.env (config.ts lo carga por dotenv y local sí existe):
 // sin esto deriveKey del santisimo invite token hace fail-fast (PR #7, shard 2).
 process.env.INVITE_TOKEN_SECRET = 'test-invite-secret-key';
+// Webhook de cartas: fail-closed sin secret — los tests del contrato lo fijan
+// aquí para que config lo parseé al cargar (specs/letters-email).
+process.env.LETTER_WEBHOOK_SECRET = 'test-letter-webhook-secret';
 
 // Mock console methods in tests to reduce noise
 const originalConsole = global.console;

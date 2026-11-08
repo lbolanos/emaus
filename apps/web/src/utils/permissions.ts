@@ -30,6 +30,9 @@ export const RESOURCES = {
 	// 'read' = ver bandeja consolidada y tablero; 'manage' = vincular/desvincular
 	// la cuenta propia. Copia del catálogo de @repo/types — mantener en sync.
 	whatsappInbox: ['read', 'manage'] as const,
+	// Cartas de familias (specs/letters-email): sin create/delete — las crea el
+	// webhook y v1 no borra (solo status hidden).
+	letter: ['read', 'update', 'print', 'manage'] as const,
 } as const;
 
 export type ResourceType = keyof typeof RESOURCES;

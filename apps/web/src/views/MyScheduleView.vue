@@ -7,8 +7,8 @@
         cada actividad asignada.
       </p>
       <div class="text-xs mt-1">
-        <span v-if="store.connected" class="text-green-600">● conectado (WS)</span>
-        <span v-else class="text-gray-400">● sin conexión realtime</span>
+        <span v-if="store.connected" class="text-green-600">● En vivo</span>
+        <span v-else class="text-gray-400">● Sin conexión</span>
       </div>
     </div>
 

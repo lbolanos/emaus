@@ -4,6 +4,21 @@
 
 Esta sección explica cómo rastrear y gestionar los pagos para los participantes del retiro.
 
+## Comprobantes enviados por las familias
+
+En la pestaña **Comprobantes** verás los comprobantes que las familias envían desde su enlace
+personal (que les llega en los mensajes o se copia desde **Difundir links**). Cada comprobante
+trae el participante, el monto que declara la familia, su saldo pendiente y la foto de la
+transferencia.
+
+- **Aplicar al pago**: registra el pago con esa foto adjunta (confirma el monto y el método).
+- **Descartar**: aparta el comprobante si no procede.
+- Ambas acciones quedan en la auditoría.
+
+Además, los correos que llegan al buzón de cartas con una foto pueden registrarse como
+comprobante desde la bandeja de cartas con **Registrar como comprobante de pago** (quedan con
+el estado *Adjunta a pago*).
+
 ## Descripción General
 
 El sistema de seguimiento de pagos le ayuda a gestionar:

@@ -114,6 +114,9 @@ export const PARTICIPANT_REFERENCES: ParticipantReference[] = [
 	{ table: 'participant_notes', column: 'participantId', policy: { kind: 'repoint' } },
 	{ table: 'participant_debts', column: 'participantId', policy: { kind: 'repoint' } },
 	{ table: 'participant_tags', column: 'participantId', policy: { kind: 'repoint' } },
+	// Comprobante de pago enviado por la familia (link de capacidad): al fusionar
+	// duplicados, el claim sigue a la ficha que sobrevive.
+	{ table: 'payment_receipt_claims', column: 'participantId', policy: { kind: 'repoint' } },
 	{ table: 'payments', column: 'participantId', policy: { kind: 'repoint' } },
 	{
 		table: 'retreat_pre_retreat_task',

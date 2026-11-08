@@ -2142,12 +2142,20 @@ describe('MessageSequenceService', () => {
 		 * probar qué sobrevive al archivar el paso 1.
 		 */
 		async function seedArchive() {
+			// Fechas RELATIVAS a hoy (+10 días): con fechas fijas el calendario las
+			// alcanza — al llegar 2026-11-06 el paso a −5 días cayó en el pasado y
+			// el anti-backfill del enrollment lo saltaba (4 → 2 filas).
+			const startMs = Date.now() + 10 * 86400000;
+			const startDate = new Date(startMs);
+			startDate.setUTCHours(12, 0, 0, 0);
+			const endDate = new Date(startMs + 3 * 86400000);
+			endDate.setUTCHours(12, 0, 0, 0);
 			const retreat = await TestDataFactory.createTestRetreat({
 				timezone: 'America/Mexico_City',
 				// Mediodía UTC: el día calendario sobrevive el shift del
 				// DateTimeTransformer al persistir (misma razón que el 12:00Z de M3).
-				startDate: new Date('2026-11-10T12:00:00.000Z'),
-				endDate: new Date('2026-11-13T12:00:00.000Z'),
+				startDate,
+				endDate,
 			} as any);
 			await createTemplate(retreat.id, 'WALKER_WELCOME', 'Hola');
 			await createTemplate(retreat.id, 'PAYMENT_REMINDER', 'Pago');
@@ -2236,12 +2244,18 @@ describe('MessageSequenceService', () => {
 
 	describe('M5-B3: cambio de trigger/audiencia re-materializa', () => {
 		async function seedRetrigger() {
+			// Fechas RELATIVAS (misma bomba de fecha que seedArchive).
+			const startMs = Date.now() + 10 * 86400000;
+			const startDate = new Date(startMs);
+			startDate.setUTCHours(12, 0, 0, 0);
+			const endDate = new Date(startMs + 3 * 86400000);
+			endDate.setUTCHours(12, 0, 0, 0);
 			const retreat = await TestDataFactory.createTestRetreat({
 				timezone: 'America/Mexico_City',
 				// Mediodía UTC: el día calendario sobrevive el shift del
 				// DateTimeTransformer al persistir (misma razón que el 12:00Z de M3).
-				startDate: new Date('2026-11-10T12:00:00.000Z'),
-				endDate: new Date('2026-11-13T12:00:00.000Z'),
+				startDate,
+				endDate,
 			} as any);
 			await createTemplate(retreat.id, 'WALKER_WELCOME', 'Hola');
 			await TestDataFactory.createTestParticipant(retreat.id, {
@@ -2252,15 +2266,17 @@ describe('MessageSequenceService', () => {
 				steps: [{ stepOrder: 0, offsetDays: 5, sendHour: 9, templateType: 'WALKER_WELCOME', channel: 'whatsapp' } as any],
 			});
 			expect(await svc.enrollSequence(seq)).toBe(1);
-			// 10-nov − 5 días, 9:00 CDMX = 15:00 UTC.
+			// start − 5 días, 9:00 CDMX = 15:00 UTC.
 			const repo = AppDataSource.getRepository(ScheduledMessage);
 			const row = await repo.findOneByOrFail({ sequenceId: seq.id });
-			expect(row.scheduledFor.toISOString()).toBe('2026-11-05T15:00:00.000Z');
-			return { retreat, seq, repo };
+			const expectedFirst = new Date(startMs - 5 * 86400000);
+			expectedFirst.setUTCHours(15, 0, 0, 0);
+			expect(row.scheduledFor.toISOString()).toBe(expectedFirst.toISOString());
+			return { retreat, seq, repo, startMs };
 		}
 
 		it('cambiar el trigger borra las pending y las recrea con fechas nuevas', async () => {
-			const { seq, repo } = await seedRetrigger();
+			const { seq, repo, startMs } = await seedRetrigger();
 
 			const res = await svc.updateSequence(seq.id, { trigger: 'days_after_retreat' });
 			expect(res?.cancelledPendingCount).toBe(1);
@@ -2268,11 +2284,13 @@ describe('MessageSequenceService', () => {
 
 			// Una sola fila (la vieja se BORRÓ, no canceló: la UQ (stepId,
 			// participantId) habría bloqueado el re-enrolamiento) con la fecha
-			// del trigger nuevo: 13-nov + 5 días, 9:00 CDMX.
+			// del trigger nuevo: endDate + 5 días, 9:00 CDMX.
 			const rows = await repo.find({ where: { sequenceId: seq.id } });
 			expect(rows).toHaveLength(1);
 			expect(rows[0].status).toBe('pending');
-			expect(rows[0].scheduledFor.toISOString()).toBe('2026-11-18T15:00:00.000Z');
+			const expectedAfter = new Date(startMs + 8 * 86400000);
+			expectedAfter.setUTCHours(15, 0, 0, 0);
+			expect(rows[0].scheduledFor.toISOString()).toBe(expectedAfter.toISOString());
 		});
 
 		it('cambiar de solo nombre no toca las filas materializadas', async () => {

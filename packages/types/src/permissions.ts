@@ -17,6 +17,9 @@ export const RESOURCES = {
 	// 'read' ve la bandeja consolidada y el tablero de vínculos; 'manage'
 	// vincula o desvincula la cuenta propia (y superadmin, la ajena).
 	whatsappInbox: ['read', 'manage'] as const,
+	// Cartas de familias por email (specs/letters-email): sin create/delete —
+	// las crea el webhook y v1 no borra (solo status hidden).
+	letter: ['read', 'update', 'print', 'manage'] as const,
 } as const;
 
 export type Resource = keyof typeof RESOURCES;

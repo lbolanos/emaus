@@ -387,6 +387,13 @@ export interface ParticipantData {
 	family_friend_color?: string;
 	pickupLocation?: string;
 	arrivesOnOwn?: boolean;
+	/**
+	 * Buzón de cartas de familias del participante (specs/letters-email):
+	 * dirección completa carta.{CODE}@dominio, hidratada desde
+	 * retreat_participants. Vacío si aún no se activaron los buzones del retiro
+	 * o el buzón está deshabilitado.
+	 */
+	letterMailbox?: string | null;
 	paymentDate?: string;
 	paymentAmount?: number;
 	/** Saldo pendiente (computado por el backend): 0 = paz y salvo. */
@@ -422,6 +429,12 @@ export interface ParticipantData {
 	 * `buildSantisimoInviteUrl` (motor de secuencias, base FRONTEND_URL).
 	 */
 	santisimoGuardiaLink?: string;
+	/**
+	 * Link de capacidad para que la familia envíe el comprobante de pago del
+	 * participante (comprobantes por link). Lo hidrata el backend (AES server-side)
+	 * — vacío hasta que el caller lo inyecta.
+	 */
+	paymentReceiptLink?: string;
 }
 
 /**
@@ -819,6 +832,7 @@ const getMockParticipant = (): ParticipantData => {
 		inviterEmail: 'pedro.martinez@email.com',
 		family_friend_color: 'Azul',
 		pickupLocation: 'Iglesia San Judas Tadeo',
+		letterMailbox: 'carta.AB23CD45@emaus.cc',
 		arrivesOnOwn: false,
 		paymentDate: '2024-01-15',
 		paymentAmount: 1500,
@@ -843,6 +857,7 @@ const getMockParticipant = (): ParticipantData => {
 		tableMesa: { name: '01' },
 		retreatBed: { roomNumber: '101', bedNumber: '1' },
 		santisimoGuardiaLink: 'https://emaus.cc/santisimo/servidor/ejemplo-de-token',
+		paymentReceiptLink: 'https://emaus.cc/comprobante/ejemplo-de-token',
 	};
 };
 
@@ -997,6 +1012,7 @@ const buildParticipantReplacements = (
 		'participant.inviterEmail': participantData.inviterEmail || '',
 		'participant.family_friend_color': participantData.family_friend_color || '',
 		'participant.pickupLocation': participantData.pickupLocation || '',
+		'participant.letterMailbox': participantData.letterMailbox || '',
 		'participant.arrivesOnOwn': participantData.arrivesOnOwn ? 'Sí' : 'No',
 		'participant.paymentDate': participantData.paymentDate || '',
 		'participant.paymentAmount': participantData.paymentAmount?.toString() || '',
@@ -1029,6 +1045,7 @@ const buildParticipantReplacements = (
 		// URL completa pre-construida por el caller (ver comentario en
 		// ParticipantData): aquí solo se pasa.
 		'participant.santisimoGuardiaLink': participantData.santisimoGuardiaLink || '',
+		'participant.paymentReceiptLink': participantData.paymentReceiptLink || '',
 	};
 };
 

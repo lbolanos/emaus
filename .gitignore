@@ -46,6 +46,11 @@ dist/
 # JS/TS declaration files (except environment types)
 **/*.js
 
+# Excepción: el Worker de inbound-email de cartas ES código fuente versionado
+# (parsea email no confiable y porta el secret del webhook — debe pasar por PR),
+# no un artefacto de build. Negación fuera del bloque de arriba a propósito.
+!infra/workers/email-inbound/worker.js
+
 # Generated config files
 *.config.js
 *.config.d.ts

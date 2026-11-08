@@ -50,6 +50,8 @@ import preRetreatTaskTemplateRoutes from './preRetreatTaskTemplateRoutes';
 import retreatPreRetreatTaskRoutes from './retreatPreRetreatTaskRoutes';
 import retreatPreparationRoutes from './retreatPreparationRoutes';
 import shirtTypeRoutes from './shirtTypeRoutes';
+import letterRoutes from './letterRoutes';
+import letterWebhookRoutes from './letterWebhookRoutes';
 import { applyCsrfProtectionExcept } from '../middleware/routeCsrf';
 
 const router = Router();
@@ -81,6 +83,12 @@ applyCsrfProtectionExcept(router, [
 	// Con barra final: la comparación es startsWith, y sin ella una ruta
 	// futura tipo /telemetry/publicaciones quedaría exenta sin que nadie lo pida.
 	'/telemetry/public/',
+	// Webhook del Worker de Cloudflare (cartas de familias): el remitente es un
+	// MTA, no un browser con sesión — la auth es el header secret.
+	'/letters/webhook',
+	// Upload público de comprobantes por link de capacidad (sin sesión: el token
+	// ES la capability; limiter propio + IAM/prefijo privado).
+	'/payments/public/receipt-link',
 ]);
 
 // Resto de las rutas (con protección CSRF)
@@ -133,6 +141,13 @@ router.use('/schedule', retreatScheduleRoutes);
 router.use('/pre-retreat-task-templates', preRetreatTaskTemplateRoutes);
 router.use('/pre-retreat-tasks', retreatPreRetreatTaskRoutes);
 router.use('/retreat-preparations', retreatPreparationRoutes);
+// Cartas de familias. VAN ANTES de shirtTypeRoutes: ese router tiene un
+// `router.use(isAuthenticated)` SIN path y montado sin prefijo — todo lo que
+// vaya después exige sesión, y el webhook de cartas es público (secret en
+// header). El webhook va prefix-less con su path completo; letterRoutes se
+// monta con prefijo /letters (sus paths internos NO llevan el segmento).
+router.use(letterWebhookRoutes);
+router.use('/letters', letterRoutes);
 router.use(shirtTypeRoutes);
 
 export default router;

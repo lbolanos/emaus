@@ -652,7 +652,7 @@ export const requireCriticalPermission = (permission: string): any => {
 
 export const requireRetreatAccess = (
 	retreatIdParam: string = 'retreatId',
-	source: 'params' | 'body' = 'params',
+	source: 'params' | 'body' | 'query' = 'params',
 ): any => {
 	return async (req: any, res: Response, next: NextFunction) => {
 		try {
@@ -661,7 +661,11 @@ export const requireRetreatAccess = (
 			}
 
 			const retreatId =
-				source === 'body' ? req.body?.[retreatIdParam] : req.params[retreatIdParam];
+				source === 'body'
+					? req.body?.[retreatIdParam]
+					: source === 'query'
+						? req.query?.[retreatIdParam]
+						: req.params[retreatIdParam];
 			if (!retreatId) {
 				return res.status(400).json({ message: 'Retreat ID is required' });
 			}

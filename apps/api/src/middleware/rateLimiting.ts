@@ -259,6 +259,39 @@ export const publicAlbumLimiter = rateLimit({
 });
 
 /**
+ * Limiter del upload PÚBLICO de comprobantes (link de capacidad por
+ * participante): el token ES la capability, pero el endpoint acepta uploads —
+ * 10/h por IP frena un abuso sin estorbar a una familia real (un envío por
+ * transferencia, con margen para reintentos).
+ */
+export const receiptUploadLimiter = rateLimit({
+	windowMs: 60 * 60 * 1000,
+	max: 10,
+	keyGenerator: (req: Request) => `receipt-upload:${req.ip || 'unknown'}`,
+	message: { message: 'Demasiados envíos desde esta conexión. Intenta más tarde.' },
+	skip: (req: Request) => {
+		return process.env.NODE_ENV === 'development' && process.env.SKIP_RATE_LIMIT === 'true';
+	},
+});
+
+/**
+ * Limiter del webhook de cartas (Cloudflare Email Worker → API). Por IP: los
+ * workers de Cloudflare comparten IPs de egreso, así que el techo es generoso
+ * (el volumen real de cartas por minuto es bajísimo) y el secret hace el
+ * trabajo de autenticación. 60/min frena un secret filtrado sin cortar el
+ * tráfico legítimo de una ráfaga de reintentos de Cloudflare.
+ */
+export const letterWebhookLimiter = rateLimit({
+	windowMs: 60 * 1000,
+	max: 60,
+	keyGenerator: (req: Request) => `letter-webhook:${req.ip || 'unknown'}`,
+	message: { message: 'Demasiadas solicitudes. Espera un momento.' },
+	skip: (req: Request) => {
+		return process.env.NODE_ENV === 'development' && process.env.SKIP_RATE_LIMIT === 'true';
+	},
+});
+
+/**
  * Limiter para el alta manual de miembro (POST /communities/:id/members/create).
  * El endpoint responde 409 con NOMBRES de personas globales cuando el
  * teléfono/email matchea — sin esto, un admin puede scriptear probetas de

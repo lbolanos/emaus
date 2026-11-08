@@ -1149,6 +1149,8 @@ export * from './phone';
 export * from './text';
 export * from './menu';
 export * from './waBridge';
+export * from './letter';
+export * from './paymentReceiptClaim';
 
 // Payment Schema
 export const paymentSchema = z.object({

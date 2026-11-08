@@ -29,6 +29,7 @@ import {
 	findEmptyVariables,
 } from '@repo/utils';
 import { buildSantisimoInviteUrl } from '../utils/santisimoInviteToken';
+import { buildPaymentReceiptLinkUrl } from '../utils/paymentReceiptLinkToken';
 import { getMessageTemplateAudience, RESPONSABILITY_TYPE_LABELS, type ResponsabilityType } from '@repo/types';
 import type { SequencePastStep, SequenceRunResult } from '@repo/types';
 import { savedSegmentService } from './savedSegmentService';
@@ -983,6 +984,20 @@ export class MessageSequenceService {
 						),
 					}
 				: participantWithShirtOrder;
+		// Link de capacidad para que la familia envíe el comprobante de pago
+		// (comprobantes por link): mismo patrón lazy — el navegador no puede
+		// cifrar el token AES del enlace.
+		const participantWithReceiptLink =
+			message.includes('{participant.paymentReceiptLink}') && participantWithGuardiaLink
+				? {
+						...participantWithGuardiaLink,
+						paymentReceiptLink: buildPaymentReceiptLinkUrl(
+							process.env.FRONTEND_URL || 'http://localhost:5173',
+							retreatId,
+							participant.id,
+						),
+					}
+				: participantWithGuardiaLink;
 		// `{community.*}`: la comunidad REAL del retiro cuando la plantilla la usa
 		// (lazy, igual que {table.*}). NUNCA pasar `null`: replaceAllVariables
 		// sólo sustituye {community.*} si el argumento es !== undefined, y el
@@ -998,7 +1013,7 @@ export class MessageSequenceService {
 					: undefined;
 		return replaceAllVariables(
 			message,
-			participantWithGuardiaLink as any,
+			participantWithReceiptLink as any,
 			retreatWithLinks as any,
 			contactKey,
 			communityData,
@@ -1117,7 +1132,13 @@ export class MessageSequenceService {
 		retreatId: string,
 		templateMessage: string,
 	): Promise<Participant> {
-		if (!templateMessage.includes('{participant.paymentRemaining}')) return participant;
+		// letterMailbox vive en retreat_participants (contexto per-retiro): sin el
+		// guard el placeholder quedaría literal en los correos de las secuencias.
+		if (
+			!templateMessage.includes('{participant.paymentRemaining}') &&
+			!templateMessage.includes('{participant.letterMailbox}')
+		)
+			return participant;
 		const hydrated = await AppDataSource.getRepository(Participant).findOne({
 			where: { id: participant.id },
 			// `sizePrices` incluida: totalShirtCharge da prioridad al sobreprecio

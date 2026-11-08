@@ -95,6 +95,36 @@ export function initRealtime(httpServer: HttpServer, sessionMiddleware: RequestH
 			}
 		});
 
+		// Cartas de familias: badge del sidebar + bandeja en vivo (permiso
+		// letter:read — contenido sensible, mismo criterio que la ruta).
+		socket.on('letters:subscribe', async (retreatId: unknown, ack?: (ok: boolean) => void) => {
+			const user = reqUser();
+			if (!user?.id || typeof retreatId !== 'string' || !retreatId) {
+				ack?.(false);
+				return;
+			}
+			try {
+				const ok = await authorizationService.hasRetreatAccess(user.id, retreatId);
+				const canRead = ok
+					? await authorizationService.hasPermission(user.id, 'letter:read')
+					: false;
+				if (!canRead) {
+					ack?.(false);
+					return;
+				}
+				await socket.join(lettersRoom(retreatId));
+				ack?.(true);
+			} catch {
+				ack?.(false);
+			}
+		});
+
+		socket.on('letters:unsubscribe', (retreatId: unknown) => {
+			if (typeof retreatId === 'string' && retreatId) {
+				void socket.leave(lettersRoom(retreatId));
+			}
+		});
+
 		socket.on('inbox:subscribe', async (retreatId: unknown, ack?: (ok: boolean) => void) => {
 			const user = reqUser();
 			if (!user?.id || typeof retreatId !== 'string' || !retreatId) {
@@ -257,6 +287,26 @@ export type SequenceQueueChangedPayload = {
  */
 export function emitSequenceQueueChanged(payload: SequenceQueueChangedPayload): void {
 	io?.to(sequencesRoom(payload.retreatId)).emit('sequences:queue-changed', payload);
+}
+
+// --- Cartas de familias (bandeja de revisión + badge del sidebar) ---
+
+export function lettersRoom(retreatId: string): string {
+	return `retreat:${retreatId}:letters`;
+}
+
+export type LetterReceivedPayload = {
+	retreatId: string;
+	letterId: string;
+	participantName: string;
+};
+
+/**
+ * Carta nueva aceptada en el buzón del retiro (webhook del Email Worker).
+ * La bandeja de cartas refetch y el badge del sidebar incrementa.
+ */
+export function emitLetterReceived(payload: LetterReceivedPayload): void {
+	io?.to(lettersRoom(payload.retreatId)).emit('letters:received', payload);
 }
 
 // --- WhatsApp inbox (bandeja de lectura del puente, specs/whatsapp-inbox) ---

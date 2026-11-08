@@ -133,6 +133,12 @@ async function main() {
 			referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
 		}),
 	);
+	// 24mb SOLO para el webhook de cartas (Cloudflare Email Worker → API): el tope
+	// del contrato es 12 MB binarios de adjuntos, que en base64 son 16.78 MB de
+	// JSON al que se suma el texto del email — 16mb rechazaría payloads DENTRO del
+	// contrato. Va ANTES del global — body-parser marca req._body y el parser de
+	// abajo no re-parsea el request. La auth es el header secret, no la sesión.
+	app.use('/api/letters/webhook', express.json({ limit: '24mb' }));
 	// 5mb: las fotos de recuerdos viajan como data-URI base64 (una imagen de ~2MB
 	// binario ≈ 2.7MB en base64). El tamaño real de imagen se acota aguas abajo
 	// (createRetreatMemoryPhotoSchema y imageService, 2MB binario). Un body que

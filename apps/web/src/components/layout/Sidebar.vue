@@ -505,10 +505,11 @@
 <script setup lang="ts">
 import { storeToRefs } from 'pinia';
 import { ref, computed, nextTick, onMounted, onBeforeUnmount, onUnmounted, watch } from 'vue';
-import { LogOut, Users, UtensilsCrossed, LayoutDashboard, ChevronLeft, Home, Ban, Bed, HandHeart, DollarSign, NotebookPen, Building, UsersRound, Salad, FileX, UserCheck, ShoppingBag, Pill, Shirt, UserCog, Table, Settings, Package, Globe, Briefcase, Search, X, ArrowRight, ChevronDown, Lock, CreditCard, Activity, KeyRound, Heart, UserPlus, UserCircle, MessageSquare, MessageCircle, Clock, ClipboardList, BookOpen, Plus, Edit as EditIcon, HelpCircle, Cross, User as UserIcon, Languages, DoorOpen, Trash2, Flag } from 'lucide-vue-next';
+import { LogOut, Users, UtensilsCrossed, LayoutDashboard, ChevronLeft, Home, Ban, Bed, HandHeart, DollarSign, NotebookPen, Building, UsersRound, Salad, FileX, UserCheck, ShoppingBag, Pill, Shirt, UserCog, Table, Settings, Package, Globe, Briefcase, Search, X, ArrowRight, ChevronDown, Lock, CreditCard, Activity, KeyRound, Heart, UserPlus, UserCircle, MessageSquare, MessageCircle, Clock, ClipboardList, BookOpen, Plus, Edit as EditIcon, HelpCircle, Cross, User as UserIcon, Languages, DoorOpen, Trash2, Flag, Mail } from 'lucide-vue-next';
 import { useAuthStore } from '@/stores/authStore';
 import { useReceptionStore } from '@/stores/receptionStore';
 import { useWaInboxStore } from '@/stores/waInboxStore';
+import { useLetterStore } from '@/stores/letterStore';
 import { useRouter, useRoute } from 'vue-router';
 import { Button } from '@repo/ui';
 import {
@@ -555,7 +556,7 @@ import CommunityContextSection from '@/components/layout/CommunityContextSection
 import ConnectivityChip from '@/components/offline/ConnectivityChip.vue';
 import { pendingOps } from '@/offline/outbox';
 
-type PermissionType = 'retreat' | 'participant' | 'table' | 'house' | 'user' | 'retreatInventory' | 'inventoryItem' | 'payment' | 'responsability' | 'messageTemplate' | 'santisimo' | 'schedule' | 'scheduleTemplate' | 'preRetreatTask' | 'preRetreatTaskTemplate' | 'retreatPreparation' | 'whatsappInbox' | 'superadmin';
+type PermissionType = 'retreat' | 'participant' | 'table' | 'house' | 'user' | 'retreatInventory' | 'inventoryItem' | 'payment' | 'responsability' | 'messageTemplate' | 'santisimo' | 'schedule' | 'scheduleTemplate' | 'preRetreatTask' | 'preRetreatTaskTemplate' | 'retreatPreparation' | 'whatsappInbox' | 'letter' | 'superadmin';
 
 export interface MenuItem {
   name: string;
@@ -589,6 +590,7 @@ const retreatStore = useRetreatStore();
 const communityStore = useCommunityStore();
 const uiStore = useUIStore();
 const receptionStore = useReceptionStore();
+const letterStore = useLetterStore();
 const participantStore = useParticipantStore();
 const waInboxStore = useWaInboxStore();
 const menuFavoritesStore = useMenuFavoritesStore();
@@ -626,6 +628,8 @@ const ITEM_BADGE: Record<string, { color: string; count: () => number | null }> 
   // store refresca al cambiar de retiro y con el socket de la vista; el poll
   // de abajo cubre cuando la vista está cerrada.
   'wa-inbox': { color: 'bg-emerald-500', count: () => waInboxStore.totalUnread || null },
+  // Cartas de familias: pendientes de revisión (specs/letters-email).
+  letters:      { color: 'bg-purple-600', count: () => letterStore.pendingCount          || null },
 };
 
 function itemBadge(name: string): number | null {
@@ -757,6 +761,17 @@ watch(
         const { getReceptionStats } = await import('@/services/api');
         const stats = await getReceptionStats(newId);
         receptionStore.setPending(stats.pending);
+      } catch {
+        // non-critical
+      }
+
+      // Cartas de familias: badge de pendientes + realtime (solo si el usuario
+      // puede leer cartas — el subscribe valida permiso en el server).
+      try {
+        const { useLetterStore } = await import('@/stores/letterStore');
+        const letters = useLetterStore();
+        await letters.fetchCounts(newId);
+        letters.subscribeRealtime(newId);
       } catch {
         // non-critical
       }
@@ -973,6 +988,14 @@ const menuSections: MenuSection[] = [
         label: 'sidebar.minuteByMinute'
       },
       {
+        name: 'server-briefing',
+        routeName: 'server-briefing',
+        icon: Clock,
+        permission: 'schedule',
+        requiresRetreat: true,
+        label: 'sidebar.serverBriefing'
+      },
+      {
         name: 'pre-retreat-tasks',
         routeName: 'pre-retreat-tasks',
         icon: ClipboardList,
@@ -995,6 +1018,14 @@ const menuSections: MenuSection[] = [
         permission: 'schedule',
         requiresRetreat: true,
         label: 'sidebar.mySchedule'
+      },
+      {
+        name: 'my-briefing',
+        routeName: 'my-briefing',
+        icon: Clock,
+        permission: 'schedule',
+        requiresRetreat: true,
+        label: 'sidebar.myBriefing'
       },
       {
         name: 'inventory',
@@ -1076,6 +1107,18 @@ const menuSections: MenuSection[] = [
         permissionOperation: 'health',
         requiresRetreat: true,
         label: 'sidebar.specialCases'
+      },
+      {
+        // Cartas de familias por email (specs/letters-email): permiso propio,
+        // el contenido es sensible (no basta participant:read). Va después de
+        // special-cases: ese test fija palancas→special-cases contiguos.
+        name: 'letters',
+        routeName: 'letters',
+        icon: Mail,
+        permission: 'letter',
+        permissionOperation: 'read',
+        requiresRetreat: true,
+        label: 'sidebar.letters'
       }
     ],
     position: 'top'
@@ -1621,7 +1664,9 @@ const getRouteWithParams = (item: MenuItem) => {
     'reception',
     'minuto-a-minuto',
     'pre-retreat-tasks',
-    'retreat-preparations'
+    'retreat-preparations',
+    'letters',
+    'server-briefing'
   ];
   if (item.routeName && routesRequiringId.includes(item.routeName)) {
     if (!retreatStore.selectedRetreatId) return null;

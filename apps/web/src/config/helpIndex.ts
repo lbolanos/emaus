@@ -283,6 +283,22 @@ export const helpIndex: HelpSection[] = [
 		],
 	},
 	{
+		key: 'server-briefing',
+		title: 'Server Briefing',
+		titleEs: 'En qué vamos',
+		icon: 'mdi-crosshairs-gps',
+		// getHelpByRoute usa includes(): 'server-briefing' es el nombre de la ruta.
+		routeContext: ['server-briefing'],
+		topics: [
+			{
+				key: 'server-briefing-overview',
+				title: 'Overview',
+				titleEs: 'Descripción general',
+				content: 'server-briefing.md',
+			},
+		],
+	},
+	{
 		key: 'pre-retreat-tasks',
 		title: 'Pre-Retreat Tasks',
 		titleEs: 'Tareas Pre-Retiro',
@@ -526,6 +542,23 @@ export const helpIndex: HelpSection[] = [
 				title: 'Overview',
 				titleEs: 'Descripción general',
 				content: 'palancas.md',
+			},
+		],
+	},
+	{
+		// Cartas de familias por email (specs/letters-email). Detrás de login:
+		// nada de esto sale en la landing.
+		key: 'letters',
+		title: 'Family Letters',
+		titleEs: 'Cartas de familias',
+		icon: 'mdi-email-multiple-outline',
+		routeContext: ['letters'],
+		topics: [
+			{
+				key: 'letters-overview',
+				title: 'Overview',
+				titleEs: 'Descripción general',
+				content: 'letters.md',
 			},
 		],
 	},

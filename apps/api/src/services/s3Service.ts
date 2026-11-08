@@ -30,6 +30,7 @@ const PRIVATE_PREFIXES = [
 	'retreat-memories/',
 	'community-meetings/',
 	'community-members/',
+	'letters/',
 	'payment-receipts/',
 ];
 
@@ -44,6 +45,7 @@ export const S3_PREFIXES = {
 	RETREAT_MEMORIES: 'retreat-memories/',
 	DOCUMENTS: 'documents/',
 	PUBLIC_ASSETS: 'public-assets/',
+	LETTERS: 'letters/',
 } as const;
 
 class S3Service {
@@ -54,6 +56,7 @@ class S3Service {
 		retreatMemories: string;
 		documents: string;
 		publicAssets: string;
+		letters: string;
 	};
 	private initialized: boolean = false;
 	// Per-process signature cache; see getSignedReadUrl.
@@ -373,6 +376,87 @@ class S3Service {
 			Key: key,
 		});
 
+		await this.ensureClient().send(command);
+	}
+
+	/**
+	 * Adjunto de una carta de familia. Prefijo PRIVADO (`letters/`): el objeto solo
+	 * se lee con getSignedReadUrl y la bucket policy niega el GET público (runbook
+	 * en specs/letters-email — mismo Deny manual que retreat-memories/).
+	 * Key: `letters/{letterId}/{attachmentId}/{fileName}` — el nombre se sanitiza
+	 * porque viene del remitente del email (sin separadores de ruta ni controles).
+	 */
+	async uploadLetterAttachment(
+		letterId: string,
+		attachmentId: string,
+		fileName: string,
+		buffer: Buffer,
+		contentType: string,
+	): Promise<UploadResult> {
+		// El nombre viene del remitente del email: sin separadores de ruta ni
+		// caracteres de control (no-control-regex: filtrar por charCode, no regex).
+		const safeName = Array.from(fileName)
+			.map((ch) => (ch === '/' || ch === '\\' ? '_' : ch))
+			.filter((ch) => {
+				const code = ch.charCodeAt(0);
+				return code >= 0x20 && code !== 0x7f;
+			})
+			.join('')
+			.trim();
+		const key = `${this.prefixes.letters}${letterId}/${attachmentId}/${safeName || 'attachment'}`;
+
+		const command = new PutObjectCommand({
+			Bucket: this.bucketName,
+			Key: key,
+			Body: buffer,
+			ContentType: contentType,
+			ContentDisposition: `attachment; filename="${safeName.replace(/"/g, '')}"`,
+			CacheControl: 'private, max-age=3600',
+		});
+
+		await this.ensureClient().send(command);
+
+		return {
+			url: this.getPublicUrl(key),
+			key,
+		};
+	}
+
+	/**
+	 * Foto del comprobante que envía una familia vía el link de capacidad
+	 * (specs: comprobantes por link). Prefijo PRIVADO dentro de
+	 * `payment-receipts/` (mismo Deny público que el resto de prefijos privados;
+	 * la IAM del rol ya cubre `bucket/*`). Key fija por claim: re-envío reemplaza.
+	 */
+	async uploadPaymentReceiptClaim(
+		claimId: string,
+		buffer: Buffer,
+		contentType: string,
+	): Promise<UploadResult> {
+		const key = `payment-receipts/claims/${claimId}.webp`;
+
+		const command = new PutObjectCommand({
+			Bucket: this.bucketName,
+			Key: key,
+			Body: buffer,
+			ContentType: contentType,
+			CacheControl: 'private, no-cache',
+		});
+
+		await this.ensureClient().send(command);
+
+		return {
+			url: this.getPublicUrl(key),
+			key,
+		};
+	}
+
+	async deletePaymentReceiptClaim(claimId: string): Promise<void> {
+		const key = `payment-receipts/claims/${claimId}.webp`;
+		const command = new DeleteObjectCommand({
+			Bucket: this.bucketName,
+			Key: key,
+		});
 		await this.ensureClient().send(command);
 	}
 

@@ -50,6 +50,12 @@ export const DomainAuditAction = {
 	PAYMENT_CREATE: 'payment.create',
 	PAYMENT_UPDATE: 'payment.update',
 	PAYMENT_DELETE: 'payment.delete',
+	// Comprobantes enviados por las familias (specs: comprobantes por link):
+	// aplicar convierte el claim en pago con la foto seteada; dismiss lo aparta;
+	// from-letter registra el adjunto foto de una carta del buzón.
+	PAYMENT_RECEIPT_CLAIM_APPLY: 'payment.receipt_claim_apply',
+	PAYMENT_RECEIPT_CLAIM_DISMISS: 'payment.receipt_claim_dismiss',
+	PAYMENT_RECEIPT_FROM_LETTER: 'payment.receipt_from_letter',
 	// Deudas de participantes
 	PARTICIPANT_DEBT_CREATE: 'participant_debt.create',
 	PARTICIPANT_DEBT_UPDATE: 'participant_debt.update',
@@ -240,6 +246,13 @@ export const DomainAuditAction = {
 	// Activación por retiro (v1.1 D13): solo el superadmin la mueve.
 	WA_BRIDGE_RETREAT_ENABLED: 'wa_bridge.retreat_enabled',
 	WA_BRIDGE_RETREAT_DISABLED: 'wa_bridge.retreat_disabled',
+	// Cartas de familias (specs/letters-email). El inbox_view registra lectura
+	// porque el contenido es sensible (mismo criterio que participant.health_view).
+	// En metadata van solo contadores/ids — el texto de la carta jamás.
+	LETTER_INBOX_VIEW: 'letter.inbox_view',
+	LETTER_REVIEW: 'letter.review',
+	LETTER_PRINT_MARK: 'letter.print_mark',
+	LETTER_MAILBOX_TOGGLE: 'letter.mailbox_toggle',
 } as const;
 
 export type DomainAuditActionType = (typeof DomainAuditAction)[keyof typeof DomainAuditAction];
@@ -280,6 +293,7 @@ export const DOMAIN_RESOURCE_TYPES = [
 	'retreat_preparation',
 	'retreat_preparation_document',
 	'whatsapp_bridge_link',
+	'letter',
 ] as const;
 
 export type DomainResourceType = (typeof DOMAIN_RESOURCE_TYPES)[number];
