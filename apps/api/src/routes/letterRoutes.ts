@@ -5,21 +5,26 @@ import { validateRequest } from '../middleware/validateRequest';
 import {
 	ActivateLetterMailboxesSchema,
 	ListLettersQuerySchema,
+	MarkLetterMailboxSharedSchema,
 	MarkLettersPrintedSchema,
 	PrintBatchQuerySchema,
+	UnmarkLettersPrintedSchema,
 	ReviewLetterSchema,
 	UpdateLetterMailboxSchema,
 } from '@repo/types';
 import {
 	activateMailboxesHandler,
+	getFoldersHandler,
 	getLetterHandler,
 	getMailboxesHandler,
 	getPrintBatchHandler,
 	letterCountsHandler,
 	listLettersHandler,
+	markMailboxSharedHandler,
 	markPrintedHandler,
 	reviewLetterHandler,
 	toggleMailboxHandler,
+	unmarkPrintedHandler,
 } from '../controllers/letterController';
 
 /**
@@ -56,8 +61,24 @@ router.patch(
 	validateRequest(UpdateLetterMailboxSchema),
 	toggleMailboxHandler,
 );
+router.post(
+	'/retreats/:retreatId/letters/mailbox/:retreatParticipantId/shared',
+	isAuthenticated,
+	requirePermission('letter:manage'),
+	requireRetreatAccess('retreatId'),
+	validateRequest(MarkLetterMailboxSharedSchema),
+	markMailboxSharedHandler,
+);
 
 // -- Bandeja y revisión --
+// Carpetas: estado del folder por participante (cuántas cartas, cuántas impresas).
+router.get(
+	'/retreats/:retreatId/letters/folders',
+	isAuthenticated,
+	requirePermission('letter:read'),
+	requireRetreatAccess('retreatId'),
+	getFoldersHandler,
+);
 router.get(
 	'/retreats/:retreatId/letters',
 	isAuthenticated,
@@ -73,6 +94,14 @@ router.post(
 	requireRetreatAccess('retreatId'),
 	validateRequest(MarkLettersPrintedSchema),
 	markPrintedHandler,
+);
+router.post(
+	'/retreats/:retreatId/letters/print-unmark',
+	isAuthenticated,
+	requirePermission('letter:print'),
+	requireRetreatAccess('retreatId'),
+	validateRequest(UnmarkLettersPrintedSchema),
+	unmarkPrintedHandler,
 );
 router.get(
 	'/retreats/:retreatId/letters/print-batch',

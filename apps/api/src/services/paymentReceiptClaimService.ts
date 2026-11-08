@@ -8,6 +8,7 @@ import {
 import { Payment } from '../entities/payment.entity';
 import { Participant } from '../entities/participant.entity';
 import { Retreat } from '../entities/retreat.entity';
+import { RetreatParticipant } from '../entities/retreatParticipant.entity';
 import { Letter } from '../entities/letter.entity';
 import { domainAuditService } from './domainAuditService';
 import { s3Service } from './s3Service';
@@ -234,14 +235,24 @@ export async function presignClaimPhotos(claims: { photoUrl: string }[]): Promis
 	}
 }
 
-/** Links de comprobante por participante (con nombre, para difusión por WhatsApp). */
+/** Links de comprobante por participante (con nombre y marca de difusión, para WhatsApp). */
 export async function getReceiptLinks(
 	retreatId: string,
-): Promise<{ participantId: string; participantName: string; link: string }[]> {
+): Promise<{
+	participantId: string;
+	retreatParticipantId: string;
+	participantName: string;
+	link: string;
+	cellPhone: string | null;
+	sharedAt: string | null;
+}[]> {
 	const rows = await AppDataSource.query(
-		`SELECT rp."participantId" AS participantId,
+		`SELECT rp."id" AS retreatParticipantId,
+		        rp."participantId" AS participantId,
 		        p."firstName" AS firstName, p."lastName" AS lastName, p."nickname" AS nickname,
-		        p."dataDeletedAt" AS dataDeletedAt
+		        p."cellPhone" AS cellPhone,
+		        p."dataDeletedAt" AS dataDeletedAt,
+		        rp."receiptLinkSharedAt" AS receiptLinkSharedAt
 		 FROM "retreat_participants" rp
 		 JOIN "participants" p ON p."id" = rp."participantId"
 		 WHERE rp."retreatId" = ? AND rp."isCancelled" = 0
@@ -250,19 +261,42 @@ export async function getReceiptLinks(
 		[retreatId],
 	);
 	return (rows as {
+		retreatParticipantId: string;
 		participantId: string;
 		firstName: string | null;
 		lastName: string | null;
 		nickname: string | null;
+		cellPhone: string | null;
+		receiptLinkSharedAt: string | Date | null;
 	}[]).map((row) => ({
 		participantId: row.participantId,
+		retreatParticipantId: row.retreatParticipantId,
 		participantName: fullNameOf({
 			firstName: row.firstName,
 			lastName: row.lastName,
 			nickname: row.nickname,
 		}),
 		link: buildPaymentReceiptLinkUrl(DEFAULT_FRONTEND_URL, retreatId, row.participantId),
+		cellPhone: row.cellPhone ?? null,
+		sharedAt: row.receiptLinkSharedAt ? new Date(row.receiptLinkSharedAt).toISOString() : null,
 	}));
+}
+
+/**
+ * Marca de difusión del link de comprobante (mejora 9): la clave es
+ * {id, retreatId} — un rp de otro retiro no matchea y responde 404
+ * (anti-IDOR al nivel del recurso más específico).
+ */
+export async function markReceiptLinkShared(
+	retreatId: string,
+	retreatParticipantId: string,
+): Promise<Date> {
+	const repo = AppDataSource.getRepository(RetreatParticipant);
+	const rp = await repo.findOne({ where: { id: retreatParticipantId, retreatId } });
+	if (!rp) throw new PaymentClaimError('unknown_claim', 404);
+	rp.receiptLinkSharedAt = new Date();
+	await repo.save(rp);
+	return rp.receiptLinkSharedAt;
 }
 
 async function copyClaimPhotoToPayment(
@@ -300,6 +334,8 @@ export async function applyReceiptClaim(
 	const repo = AppDataSource.getRepository(PaymentReceiptClaim);
 	const claim = await repo.findOne({ where: { id: claimId } });
 	if (!claim) throw new PaymentClaimError('unknown_claim', 404);
+	// Anti-IDOR: el permiso de pagos es global; el claim es de UN retiro.
+	await assertRetreatAccess(userId, claim.retreatId);
 	if (claim.status !== 'pending') throw new PaymentClaimError('claim_not_pending', 409);
 
 	const paymentId = randomUUID();
@@ -351,6 +387,8 @@ export async function dismissReceiptClaim(claimId: string, userId: string): Prom
 	const repo = AppDataSource.getRepository(PaymentReceiptClaim);
 	const claim = await repo.findOne({ where: { id: claimId } });
 	if (!claim) throw new PaymentClaimError('unknown_claim', 404);
+	// Anti-IDOR: el permiso de pagos es global; el claim es de UN retiro.
+	await assertRetreatAccess(userId, claim.retreatId);
 	if (claim.status !== 'pending') throw new PaymentClaimError('claim_not_pending', 409);
 
 	claim.status = 'dismissed';
@@ -367,6 +405,91 @@ export async function dismissReceiptClaim(claimId: string, userId: string): Prom
 }
 
 const PAYMENT_METHODS = ['cash', 'transfer', 'check', 'card', 'other'] as const;
+
+/** Lee la foto de una carta del bucket y la normaliza (magic bytes + resize, WebP). */
+async function processLetterPhoto(
+	storageKey: string,
+	mimeType: string,
+): Promise<{ buffer: Buffer; contentType: string }> {
+	const stream = await s3Service.getObjectStream(storageKey);
+	const chunks: Buffer[] = [];
+	for await (const chunk of stream) chunks.push(chunk as Buffer);
+	return imageService.processPhoto(Buffer.concat(chunks), mimeType).catch((err: unknown) => {
+		if (err instanceof FlyerAssetError) {
+			throw new PaymentClaimError('no_photo', 400, (err as Error).message);
+		}
+		throw err;
+	});
+}
+
+/** Carta + acceso al retiro + que siga pudiendo volverse comprobante. */
+async function loadLetterForReceipt(letterId: string, userId: string): Promise<Letter> {
+	const letter = await AppDataSource.getRepository(Letter).findOne({
+		where: { id: letterId },
+		relations: ['attachments', 'retreatParticipant'],
+	});
+	if (!letter) throw new PaymentClaimError('unknown_claim', 404);
+	await assertRetreatAccess(userId, letter.retreatId);
+	// Oculta = descartada; attached = ya es el comprobante de un pago.
+	if (letter.status === 'hidden' || letter.status === 'attached') {
+		throw new PaymentClaimError('claim_not_pending', 409, 'La carta ya no se puede registrar como pago');
+	}
+	return letter;
+}
+
+/**
+ * Foto de la carta para precargar el formulario de pago estándar: data-URL ya
+ * normalizada (WebP) + el participante, para abrir el formulario sobre él.
+ */
+export async function getLetterReceiptPhoto(
+	letterId: string,
+	userId: string,
+): Promise<{ dataUrl: string; fileName: string; participantId: string }> {
+	const letter = await loadLetterForReceipt(letterId, userId);
+	const participantId = letter.retreatParticipant?.participantId;
+	if (!participantId) throw new PaymentClaimError('unknown_claim', 404);
+	const photo = (letter.attachments ?? []).find((a) => a.isBrowserSafeImage);
+	if (!photo) throw new PaymentClaimError('no_photo', 400, 'La carta no tiene foto adjunta');
+
+	if (config.avatar.storage === 's3' && photo.storageKey) {
+		const processed = await processLetterPhoto(photo.storageKey, photo.mimeType);
+		return {
+			dataUrl: `data:${processed.contentType};base64,${processed.buffer.toString('base64')}`,
+			fileName: photo.fileName,
+			participantId,
+		};
+	}
+	// Dev sin S3: el adjunto ya es un data-URL de imagen.
+	return { dataUrl: photo.storageUrl, fileName: photo.fileName, participantId };
+}
+
+/**
+ * Después de guardar el pago con el formulario estándar: la carta queda
+ * `attached` (sale de la revisión y no va al papel). El pago tiene que ser del
+ * mismo retiro y del mismo caminante que la carta.
+ */
+export async function attachLetterToPayment(
+	letterId: string,
+	paymentId: string,
+	userId: string,
+): Promise<void> {
+	const letter = await loadLetterForReceipt(letterId, userId);
+	const payment = await AppDataSource.getRepository(Payment).findOne({ where: { id: paymentId } });
+	if (
+		!payment ||
+		payment.retreatId !== letter.retreatId ||
+		payment.participantId !== letter.retreatParticipant?.participantId
+	) {
+		throw new PaymentClaimError('invalid_participant', 404, 'El pago no corresponde a esta carta');
+	}
+	await AppDataSource.getRepository(Letter).update(letter.id, { status: 'attached' });
+	void domainAuditService.log({
+		action: DomainAuditAction.PAYMENT_RECEIPT_FROM_LETTER,
+		resourceType: 'payment',
+		retreatId: letter.retreatId,
+		metadata: { letterId, paymentId, via: 'payment-form' },
+	});
+}
 
 /**
  * Registra el adjunto foto de una CARTA del buzón como comprobante: crea el
@@ -390,6 +513,7 @@ export async function createPaymentFromLetter(
 		relations: ['attachments', 'retreatParticipant'],
 	});
 	if (!letter) throw new PaymentClaimError('unknown_claim', 404);
+	await assertRetreatAccess(userId, letter.retreatId);
 	if (letter.status !== 'pending') {
 		throw new PaymentClaimError('claim_not_pending', 409, 'La carta no está pendiente de revisión');
 	}
@@ -404,17 +528,7 @@ export async function createPaymentFromLetter(
 	let receiptS3Key: string | null = null;
 
 	if (config.avatar.storage === 's3' && photo.storageKey) {
-		const stream = await s3Service.getObjectStream(photo.storageKey);
-		const chunks: Buffer[] = [];
-		for await (const chunk of stream) chunks.push(chunk as Buffer);
-		const processed = await imageService
-			.processPhoto(Buffer.concat(chunks), photo.mimeType)
-			.catch((err: unknown) => {
-				if (err instanceof FlyerAssetError) {
-					throw new PaymentClaimError('no_photo', 400, (err as Error).message);
-				}
-				throw err;
-			});
+		const processed = await processLetterPhoto(photo.storageKey, photo.mimeType);
 		const uploaded = await s3Service.uploadPaymentReceipt(
 			paymentId,
 			processed.buffer,

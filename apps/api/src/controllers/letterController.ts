@@ -8,16 +8,19 @@ import {
 	buildMailboxAddress,
 	fullName,
 	getMailboxesForRetreat,
+	markMailboxShared,
 	setMailboxEnabled,
 } from '../services/letterMailboxService';
 import {
 	getLetterDetail,
+	getLetterFolders,
 	getLetterRetreatId,
 	getPrintBatch,
 	letterCountsByStatus,
 	listLetters,
 	markPrinted,
 	reviewLetter,
+	unmarkPrinted,
 } from '../services/letterService';
 import type { Letter } from '../entities/letter.entity';
 import type { LetterAttachment } from '../entities/letterAttachment.entity';
@@ -83,6 +86,7 @@ export const listLettersHandler = async (req: Request, res: Response) => {
 			tableId: asId(req.query.tableId),
 			status: ((req.query.status as string) || '') as LetterStatus | '',
 			q: (req.query.q as string) || undefined,
+			palanquero: (req.query.palanquero as string) || undefined,
 		});
 		const letters = await Promise.all(result.letters.map(letterToDTO));
 		void domainAuditService.log({
@@ -97,6 +101,7 @@ export const listLettersHandler = async (req: Request, res: Response) => {
 					tableId: req.query.tableId || undefined,
 					status: req.query.status || undefined,
 					q: req.query.q || undefined,
+					palanquero: req.query.palanquero || undefined,
 				},
 			},
 		});
@@ -218,6 +223,65 @@ export const toggleMailboxHandler = async (req: Request, res: Response) => {
 	}
 };
 
+/**
+ * POST /retreats/:retreatId/letters/mailbox/:retreatParticipantId/shared —
+ * marca de difusión (mejora 9): la dirección ya se mandó a la familia.
+ */
+export const markMailboxSharedHandler = async (req: Request, res: Response) => {
+	try {
+		const sharedAt = await markMailboxShared(req.params.retreatId, req.params.retreatParticipantId);
+		void domainAuditService.log({
+			action: DomainAuditAction.LETTER_MAILBOX_MARK_SHARED,
+			resourceType: 'letter',
+			retreatId: req.params.retreatId,
+			metadata: { retreatParticipantId: req.params.retreatParticipantId },
+		});
+		res.json({ retreatParticipantId: req.params.retreatParticipantId, mailboxSharedAt: sharedAt });
+	} catch (error) {
+		if (error instanceof Error && error.message === 'RetreatParticipant not found') {
+			return res.status(404).json({ message: 'Participante del retiro no encontrado' });
+		}
+		console.error('markMailboxShared error:', error);
+		res.status(500).json({ message: 'Error al marcar la difusión' });
+	}
+};
+
+/** POST /retreats/:retreatId/letters/print-unmark — quita la marca de impresa. */
+export const unmarkPrintedHandler = async (req: Request, res: Response) => {
+	try {
+		const { letterIds, participantIds } = req.body as {
+			letterIds?: string[];
+			participantIds?: string[];
+		};
+		const unmarked = await unmarkPrinted(req.params.retreatId, { letterIds, participantIds });
+		void domainAuditService.log({
+			action: DomainAuditAction.LETTER_PRINT_UNMARK,
+			resourceType: 'letter',
+			retreatId: req.params.retreatId,
+			metadata: {
+				count: unmarked,
+				letterIds: letterIds?.length ? letterIds : undefined,
+				participantIds: participantIds?.length ? participantIds : undefined,
+			},
+		});
+		res.json({ unmarked });
+	} catch (error) {
+		console.error('unmarkPrinted error:', error);
+		res.status(500).json({ message: 'Error al quitar la marca de impresa' });
+	}
+};
+
+/** GET /retreats/:retreatId/letters/folders — estado del folder por participante. */
+export const getFoldersHandler = async (req: Request, res: Response) => {
+	try {
+		const folders = await getLetterFolders(req.params.retreatId);
+		res.json({ folders });
+	} catch (error) {
+		console.error('getFolders error:', error);
+		res.status(500).json({ message: 'Error al listar las carpetas' });
+	}
+};
+
 /** POST /retreats/:retreatId/letters/print-mark — marca el lote impreso. */
 export const markPrintedHandler = async (req: Request, res: Response) => {
 	try {
@@ -245,7 +309,14 @@ export const getPrintBatchHandler = async (req: Request, res: Response) => {
 			.map((s) => s.trim())
 			.filter((s) => /^[0-9a-f-]{36}$/i.test(s));
 		const tableId = asId(req.query.tableId);
-		const entries = await getPrintBatch(req.params.retreatId, scope, participantIds, tableId);
+		const onlyUnprinted = req.query.onlyUnprinted === 'true';
+		const entries = await getPrintBatch(
+			req.params.retreatId,
+			scope,
+			participantIds,
+			tableId,
+			onlyUnprinted,
+		);
 		void domainAuditService.log({
 			action: DomainAuditAction.LETTER_INBOX_VIEW,
 			resourceType: 'letter',

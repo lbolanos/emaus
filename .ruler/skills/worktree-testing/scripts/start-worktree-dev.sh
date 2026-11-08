@@ -87,10 +87,14 @@ window.EMAUS_RUNTIME_CONFIG = {
 EOF
 
 # Arrancar API en background
+# Cookie de sesión propia por puerto: el navegador no separa cookies por puerto,
+# así que con el `emaus.sid` de siempre el main y este worktree se pisaban la
+# sesión en localhost (401 al alternar pestañas).
 echo "→ Arrancando API en :$API_PORT"
 PORT=$API_PORT \
 DB_DATABASE=$DB_NAME \
 FRONTEND_URL="http://localhost:$WEB_PORT" \
+SESSION_COOKIE_NAME="emaus-wt$API_PORT.sid" \
   pnpm --filter api dev > /tmp/emaus-worktree-api.log 2>&1 &
 API_PID=$!
 echo "  PID=$API_PID, log=/tmp/emaus-worktree-api.log"

@@ -18,6 +18,7 @@ import {
 	generateMailboxCode,
 	resolveMailbox,
 	setMailboxEnabled,
+	markMailboxShared,
 	buildMailboxAddress,
 	MAILBOX_ELIGIBLE_TYPES,
 } from '@/services/letterMailboxService';
@@ -176,6 +177,38 @@ describe('letterMailboxService (integration)', () => {
 				.getRepository(RetreatParticipant)
 				.findOne({ where: { participantId: walker.id } });
 			await expect(setMailboxEnabled(retreat.id, rp!.id, true)).rejects.toThrow(
+				'RetreatParticipant not found',
+			);
+		});
+	});
+
+	describe('markMailboxShared', () => {
+		it('setea mailboxSharedAt del buzón del retiro (mejora 9)', async () => {
+			const walker = await TestDataFactory.createTestParticipant(retreat.id, {
+				type: 'walker',
+			} as any);
+			const rp = await getDS()
+				.getRepository(RetreatParticipant)
+				.findOne({ where: { participantId: walker.id } });
+
+			const sharedAt = await markMailboxShared(retreat.id, rp!.id);
+			expect(sharedAt).toBeTruthy();
+
+			const reloaded = await getDS()
+				.getRepository(RetreatParticipant)
+				.findOneByOrFail({ id: rp!.id });
+			expect(reloaded.mailboxSharedAt).toBeTruthy();
+		});
+
+		it('falla cuando el retreatParticipant no es del retiro', async () => {
+			const otherRetreat = await TestDataFactory.createTestRetreat();
+			const walker = await TestDataFactory.createTestParticipant(otherRetreat.id, {
+				type: 'walker',
+			} as any);
+			const rp = await getDS()
+				.getRepository(RetreatParticipant)
+				.findOne({ where: { participantId: walker.id } });
+			await expect(markMailboxShared(retreat.id, rp!.id)).rejects.toThrow(
 				'RetreatParticipant not found',
 			);
 		});
