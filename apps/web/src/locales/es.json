@@ -4749,7 +4749,9 @@
       "unmarkLetter": "Quitar marca de impresa",
       "unmarkedTitle": "Marca de impresa quitada a {count} carta(s)",
       "unmarkError": "No se pudo quitar la marca de impresa",
-      "sessionExpired": "Tu sesión se cerró: vuelve a iniciar sesión."
+      "sessionExpired": "Tu sesión se cerró: vuelve a iniciar sesión.",
+      "documentsNotPrinted": "{count} documento(s) adjunto(s) no salen en este papel: ábrelos desde la carta e imprímelos aparte.",
+      "andMore": "y {count} más"
     },
     "activateDone": {
       "doneTitle": "Buzones activados",
@@ -4789,7 +4791,8 @@
       "status": {
         "complete": "✓ Completa",
         "unprinted": "Faltan {count}",
-        "review": "{count} por revisar"
+        "review": "{count} por revisar",
+        "documents": "{count} documento(s)"
       },
       "unmarkFolder": "Marcar la carpeta como no impresa",
       "openLetters": "Ver las cartas de {name}"
@@ -4805,6 +4808,24 @@
       "search": "Búsqueda: «{value}»",
       "remove": "Quitar filtro {label}",
       "clearAll": "Limpiar filtros"
+    },
+    "documentsBadge": "{count} adjunto(s) para abrir aparte",
+    "viewer": {
+      "open": "Ver en grande",
+      "previous": "Anterior",
+      "next": "Siguiente",
+      "download": "Descargar",
+      "openPdf": "Abrir"
+    },
+    "attachmentKind": {
+      "photo": "Foto",
+      "pdf": "PDF",
+      "word": "Documento de texto",
+      "slides": "Presentación",
+      "sheet": "Hoja de cálculo",
+      "text": "Texto",
+      "image": "Foto (HEIC)",
+      "file": "Archivo"
     }
   },
   "paymentClaims": {

@@ -190,6 +190,11 @@ export interface LetterFolderRow {
 	/** Aprobadas ya impresas / aprobadas aún sin imprimir. */
 	printed: number;
 	unprinted: number;
+	/**
+	 * Adjuntos que NO salen en el papel (PDF, Office, HEIC) en cartas por revisar
+	 * o aprobadas: el palanquero los abre e imprime aparte.
+	 */
+	documents: number;
 }
 
 export interface LetterPrintBatchEntry {

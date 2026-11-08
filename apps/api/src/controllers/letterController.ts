@@ -44,7 +44,12 @@ const attachmentToDTO = async (
 	mimeType: attachment.mimeType,
 	sizeBytes: attachment.sizeBytes,
 	isBrowserSafeImage: attachment.isBrowserSafeImage,
-	storageUrl: await s3Service.presignPrivateUrl(attachment.storageUrl),
+	// PDF: firmado «inline» para verlo en el navegador. Fotos y documentos de
+	// Office: la descarga de siempre (el objeto se guardó como attachment).
+	storageUrl: await s3Service.presignPrivateUrl(
+		attachment.storageUrl,
+		attachment.mimeType === 'application/pdf' ? { inlineAs: 'application/pdf' } : {},
+	),
 	sortOrder: attachment.sortOrder,
 	createdAt: attachment.createdAt,
 });

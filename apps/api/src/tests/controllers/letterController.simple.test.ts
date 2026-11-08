@@ -364,6 +364,30 @@ describe('letterController (integration)', () => {
 			expect(empty.counts).toEqual({ pending: 0, approved: 0, hidden: 0, attached: 0 });
 		});
 
+		it('folders: cuenta los documentos (no imprimibles) de cartas vigentes, no los de ocultas', async () => {
+			const { LetterAttachment } = await import('@/entities/letterAttachment.entity');
+			const rpId = (await getDS().getRepository(Letter).findOneByOrFail({ id: letterId }))
+				.retreatParticipantId;
+			const hidden = await getDS().getRepository(Letter).save({
+				retreatId: retreat.id, retreatParticipantId: rpId, fromEmail: 'x@ejemplo.com',
+				bodyText: 'Oculta', status: 'hidden', receivedAt: new Date(),
+			});
+			const att = (letter: string, fileName: string, mimeType: string, isBrowserSafeImage: boolean) =>
+				getDS().getRepository(LetterAttachment).save({
+					letterId: letter, fileName, mimeType, sizeBytes: 10, isBrowserSafeImage,
+					storageKey: '', storageUrl: 'data:x', sortOrder: 0,
+				});
+			await att(letterId, 'carta.pdf', 'application/pdf', false);
+			await att(letterId, 'carta.docx', 'application/msword', false);
+			await att(letterId, 'foto.jpg', 'image/jpeg', true);
+			await att(hidden.id, 'oculta.pdf', 'application/pdf', false);
+
+			const res = mockRes();
+			await getFoldersHandler(fakeReq({ params: { retreatId: retreat.id } }), res);
+			const mine = res.body.folders.find((f: any) => f.retreatParticipantId === rpId);
+			expect(mine.documents).toBe(2);
+		});
+
 		it('print-batch onlyUnprinted: solo las aprobadas que aún no salieron en papel', async () => {
 			const rp = await getDS().getRepository(Letter).findOneByOrFail({ id: letterId });
 			const second = await getDS().getRepository(Letter).save({

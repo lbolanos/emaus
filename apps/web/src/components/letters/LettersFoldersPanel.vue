@@ -9,7 +9,7 @@ import {
 	DropdownMenuItem,
 	DropdownMenuTrigger,
 } from '@repo/ui';
-import { Eye, Inbox, MoreVertical, Printer, Search, Share2, Stamp } from 'lucide-vue-next';
+import { Eye, Inbox, MoreVertical, Paperclip, Printer, Search, Share2, Stamp } from 'lucide-vue-next';
 import type { LetterFolderRow } from '@/services/api';
 import { useRekaDialogFix } from '@/composables/useRekaDialogFix';
 import { folderMatchesPalanquero } from '@/utils/letterFolders';
@@ -221,6 +221,11 @@ const fmtDate = (value: string) =>
 						</Badge>
 						<Badge v-if="needsReview(f)" variant="outline">
 							{{ t('letters.folders.status.review', { count: f.counts.pending }) }}
+						</Badge>
+						<!-- Documentos (PDF, Word…) que no salen en el papel: imprimir aparte -->
+						<Badge v-if="f.documents > 0" variant="outline" data-testid="folder-documents">
+							<Paperclip class="mr-1 h-3 w-3" />
+							{{ t('letters.folders.status.documents', { count: f.documents }) }}
 						</Badge>
 					</div>
 					<p class="mt-0.5 text-xs text-muted-foreground">

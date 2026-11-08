@@ -36,7 +36,7 @@ export class LetterIngestError extends Error {
 	}
 }
 
-/** Tipos que se guardan tal cual (HEIC no imprime, pero se conserva). */
+/** Imágenes y PDF por magic bytes (HEIC y PDF se guardan pero no se imprimen). */
 const IMAGE_MIME_BY_MAGIC: { mime: string; browserSafe: boolean; test: (b: Buffer) => boolean }[] = [
 	{
 		mime: 'image/jpeg',
@@ -88,17 +88,75 @@ const IMAGE_MIME_BY_MAGIC: { mime: string; browserSafe: boolean; test: (b: Buffe
 ];
 
 /**
- * Clasifica un adjunto por magic bytes (D11): el mimeType declarado viene del
- * remitente y no se confía en él. Devuelve null si el tipo NO se guarda
- * (ejecutables, office, zip…) — se descarta con warning.
+ * Documentos que se guardan (no se imprimen; se abren o descargan desde la
+ * bandeja): el contenedor se verifica por magic bytes y la extensión decide
+ * el tipo concreto. Sin macros: los .docm/.pptm/.xlsm y cualquier contenedor
+ * con proyecto VBA o Basic se descartan — es la vía habitual de malware en
+ * adjuntos de Office.
  */
-const classifyAttachment = (
-	buffer: Buffer,
-): { mime: string; browserSafe: boolean } | null => {
+const DOCUMENT_BY_EXT: Record<string, { mime: string; container: 'ooxml' | 'odf' | 'ole' | 'text' }> = {
+	docx: { mime: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', container: 'ooxml' },
+	pptx: { mime: 'application/vnd.openxmlformats-officedocument.presentationml.presentation', container: 'ooxml' },
+	xlsx: { mime: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', container: 'ooxml' },
+	odt: { mime: 'application/vnd.oasis.opendocument.text', container: 'odf' },
+	odp: { mime: 'application/vnd.oasis.opendocument.presentation', container: 'odf' },
+	ods: { mime: 'application/vnd.oasis.opendocument.spreadsheet', container: 'odf' },
+	doc: { mime: 'application/msword', container: 'ole' },
+	ppt: { mime: 'application/vnd.ms-powerpoint', container: 'ole' },
+	xls: { mime: 'application/vnd.ms-excel', container: 'ole' },
+	txt: { mime: 'text/plain', container: 'text' },
+};
+
+const ZIP_MAGIC = Buffer.from([0x50, 0x4b, 0x03, 0x04]);
+const OLE_MAGIC = Buffer.from([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]);
+
+const hasMacros = (buffer: Buffer, container: 'ooxml' | 'odf' | 'ole'): boolean => {
+	if (container === 'ooxml') return buffer.includes('vbaProject.bin');
+	if (container === 'odf') return buffer.includes('Basic/');
+	// OLE: los nombres del directorio van en UTF-16LE.
+	return (
+		buffer.includes(Buffer.from('_VBA_PROJECT', 'utf16le')) ||
+		buffer.includes(Buffer.from('Macros', 'utf16le'))
+	);
+};
+
+type Classification =
+	| { kind: 'stored'; mime: string; browserSafe: boolean }
+	| { kind: 'rejected'; reason: 'unsupported' | 'macros' };
+
+/**
+ * Clasifica un adjunto (D11): el mimeType declarado viene del remitente y no
+ * se confía en él. Imágenes y PDF por magic bytes; documentos por contenedor
+ * (magic bytes) + extensión. Todo lo demás (ejecutables, comprimidos, HTML,
+ * SVG…) se descarta con warning.
+ */
+const classifyAttachment = (buffer: Buffer, fileName: string): Classification => {
 	for (const entry of IMAGE_MIME_BY_MAGIC) {
-		if (entry.test(buffer)) return { mime: entry.mime, browserSafe: entry.browserSafe };
+		if (entry.test(buffer)) return { kind: 'stored', mime: entry.mime, browserSafe: entry.browserSafe };
 	}
-	return null;
+	const ext = (fileName.split('.').pop() ?? '').toLowerCase();
+	if (['docm', 'pptm', 'xlsm', 'dotm', 'potm', 'xltm'].includes(ext)) {
+		return { kind: 'rejected', reason: 'macros' };
+	}
+	const doc = DOCUMENT_BY_EXT[ext];
+	if (!doc) return { kind: 'rejected', reason: 'unsupported' };
+
+	if (doc.container === 'text') {
+		const isUtf8 = Buffer.from(buffer.toString('utf8'), 'utf8').equals(buffer);
+		return !buffer.includes(0) && isUtf8
+			? { kind: 'stored', mime: doc.mime, browserSafe: false }
+			: { kind: 'rejected', reason: 'unsupported' };
+	}
+	const isZip = buffer.subarray(0, 4).equals(ZIP_MAGIC);
+	const containerOk =
+		doc.container === 'ooxml'
+			? isZip && buffer.includes('[Content_Types].xml')
+			: doc.container === 'odf'
+				? isZip && buffer.includes('mimetype') && buffer.includes(doc.mime)
+				: buffer.subarray(0, 8).equals(OLE_MAGIC);
+	if (!containerOk) return { kind: 'rejected', reason: 'unsupported' };
+	if (hasMacros(buffer, doc.container)) return { kind: 'rejected', reason: 'macros' };
+	return { kind: 'stored', mime: doc.mime, browserSafe: false };
 };
 
 /**
@@ -208,10 +266,12 @@ export async function ingestLetter(payload: InboundLetterPayload): Promise<Inges
 			warnings.push(`Adjunto "${attachment.fileName}" descartado: se superó el total por carta`);
 			continue;
 		}
-		const classified = classifyAttachment(buffer);
-		if (!classified) {
+		const classified = classifyAttachment(buffer, attachment.fileName);
+		if (classified.kind === 'rejected') {
 			warnings.push(
-				`Adjunto "${attachment.fileName}" descartado: formato no soportado (${attachment.mimeType})`,
+				classified.reason === 'macros'
+					? `Adjunto "${attachment.fileName}" descartado: documento con macros`
+					: `Adjunto "${attachment.fileName}" descartado: formato no soportado (${attachment.mimeType})`,
 			);
 			continue;
 		}
@@ -385,6 +445,15 @@ export async function getLetterFolders(retreatId: string): Promise<LetterFolderR
 			[retreatId],
 		);
 	const withLetters = new Set(countRows.map((r) => r.rpId));
+	// Adjuntos que no van en el papel (PDF, Office, HEIC), por participante.
+	const documentRows: { rpId: string; c: number }[] = await AppDataSource.query(
+		`SELECT l."retreatParticipantId" AS rpId, COUNT(a."id") AS c
+		 FROM "letter_attachments" a JOIN "letters" l ON l."id" = a."letterId"
+		 WHERE l."retreatId" = ? AND a."isBrowserSafeImage" = 0 AND l."status" IN ('pending', 'approved')
+		 GROUP BY l."retreatParticipantId"`,
+		[retreatId],
+	);
+	const documentsByRp = new Map(documentRows.map((r) => [r.rpId, Number(r.c)]));
 
 	const qb = AppDataSource.getRepository(RetreatParticipant)
 		.createQueryBuilder('rp')
@@ -437,6 +506,7 @@ export async function getLetterFolders(retreatId: string): Promise<LetterFolderR
 				mailboxEnabled: rp.mailboxEnabled,
 				mailboxSharedAt: rp.mailboxSharedAt ? rp.mailboxSharedAt.toISOString() : null,
 				...stats,
+				documents: documentsByRp.get(rp.id) ?? 0,
 			};
 		})
 		.sort((a, b) => {

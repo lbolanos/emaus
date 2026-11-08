@@ -410,7 +410,11 @@ class S3Service {
 			Key: key,
 			Body: buffer,
 			ContentType: contentType,
-			ContentDisposition: `attachment; filename="${safeName.replace(/"/g, '')}"`,
+			// filename* (RFC 5987) lleva el nombre real con acentos; filename="…" es
+			// el respaldo ASCII — un «é» o un emoji crudo en la cabecera no es seguro.
+			ContentDisposition: `attachment; filename="${
+				safeName.replace(/[^\x20-\x7e]/g, '_').replace(/"/g, '') || 'attachment'
+			}"; filename*=UTF-8''${encodeURIComponent(safeName || 'attachment')}`,
 			CacheControl: 'private, max-age=3600',
 		});
 
@@ -547,13 +551,23 @@ class S3Service {
 	 * past 500 entries; keys are stable (one per table photo), so a cached URL
 	 * keeps pointing at the current object even after the photo is replaced.
 	 */
-	async getSignedReadUrl(key: string, expiresIn: number = SIGNED_URL_TTL_SECONDS): Promise<string> {
-		const cacheKey = `${expiresIn}:${key}`;
+	async getSignedReadUrl(
+		key: string,
+		expiresIn: number = SIGNED_URL_TTL_SECONDS,
+		options: { inlineAs?: string } = {},
+	): Promise<string> {
+		const cacheKey = `${expiresIn}:${options.inlineAs ?? ''}:${key}`;
 		const hit = this.signedUrlCache.get(cacheKey);
 		if (hit && hit.expiresAt - Date.now() > SIGNED_URL_REUSE_MS) return hit.url;
+		// inlineAs: la respuesta se pide como «ver en el navegador» con ese tipo,
+		// pisando el Content-Disposition: attachment guardado en el objeto (así
+		// abren los PDF ya subidos sin re-subirlos).
 		const command = new GetObjectCommand({
 			Bucket: this.bucketName,
 			Key: key,
+			...(options.inlineAs
+				? { ResponseContentDisposition: 'inline', ResponseContentType: options.inlineAs }
+				: {}),
 		});
 		const url = await getSignedUrl(this.ensureClient(), command, { expiresIn });
 		this.signedUrlCache.set(cacheKey, { url, expiresAt: Date.now() + expiresIn * 1000 });
@@ -581,14 +595,17 @@ class S3Service {
 	 *   - private prefixes (retreat-memories)→ replaced with a presigned URL
 	 * Also a no-op when storage isn't S3, so base64-mode deployments are untouched.
 	 */
-	async presignPrivateUrl<T extends string | null | undefined>(url: T): Promise<T | string> {
+	async presignPrivateUrl<T extends string | null | undefined>(
+		url: T,
+		options: { inlineAs?: string } = {},
+	): Promise<T | string> {
 		if (!url || config.avatar.storage !== 's3') return url;
 		const base = `https://${this.bucketName}.s3.${config.aws.region}.amazonaws.com/`;
 		if (!url.startsWith(base)) return url;
 		// Drop any pre-existing query string before deriving the key.
 		const key = url.slice(base.length).split('?')[0];
 		if (!PRIVATE_PREFIXES.some((p) => key.startsWith(p))) return url;
-		return this.getSignedReadUrl(key);
+		return this.getSignedReadUrl(key, SIGNED_URL_TTL_SECONDS, options);
 	}
 }
 

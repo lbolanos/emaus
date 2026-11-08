@@ -23,11 +23,17 @@ import {
 	Check,
 	ChevronDown,
 	Copy,
+	Download,
+	ExternalLink,
 	EyeOff,
-	ImageOff,
+	File,
+	FileSpreadsheet,
+	FileText,
 	Mail,
 	Mailbox,
 	MoreVertical,
+	Paperclip,
+	Presentation,
 	Printer,
 	Search,
 	Share2,
@@ -55,6 +61,8 @@ import {
 import LettersMailboxDialog from '@/components/letters/LettersMailboxDialog.vue';
 import LettersShareDialog from '@/components/letters/LettersShareDialog.vue';
 import LettersFoldersPanel from '@/components/letters/LettersFoldersPanel.vue';
+import LetterPhotoViewer from '@/components/letters/LetterPhotoViewer.vue';
+import { attachmentKind, formatBytes, openAttachment } from '@/utils/letterAttachments';
 import { folderMatchesPalanquero, LETTER_PALANQUERO_NONE } from '@/utils/letterFolders';
 
 const route = useRoute();
@@ -173,6 +181,28 @@ onBeforeUnmount(() => {
 
 const firstPhotoUrl = (letter: Letter): string | null =>
 	letter.attachments?.find((a) => a.isBrowserSafeImage)?.storageUrl ?? null;
+
+// -- Adjuntos: fotos al visor; documentos (PDF, Office, HEIC…) se abren o descargan --
+const photosOf = (letter: Letter) => (letter.attachments ?? []).filter((a) => a.isBrowserSafeImage);
+const documentsOf = (letter: Letter) => (letter.attachments ?? []).filter((a) => !a.isBrowserSafeImage);
+
+const documentIcon = (doc: Parameters<typeof attachmentKind>[0]) => {
+	const kind = attachmentKind(doc);
+	if (kind === 'pdf' || kind === 'word' || kind === 'text') return FileText;
+	if (kind === 'sheet') return FileSpreadsheet;
+	if (kind === 'slides') return Presentation;
+	return File;
+};
+
+const viewerOpen = ref(false);
+const viewerPhotos = ref<Letter['attachments']>([]);
+const viewerIndex = ref(0);
+
+const openPhotos = (letter: Letter, index: number) => {
+	viewerPhotos.value = photosOf(letter);
+	viewerIndex.value = index;
+	viewerOpen.value = true;
+};
 
 watch(retreatId, (id) => {
 	newLettersCount.value = 0;
@@ -499,7 +529,12 @@ const selectedId = ref<string | null>(null);
 const onKeydown = (e: KeyboardEvent) => {
 	const target = e.target as HTMLElement | null;
 	if (target && ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName)) return;
-	if (mailboxDialogOpen.value || shareDialogOpen.value || printPreviewOpen.value) return;
+	if (mailboxDialogOpen.value || shareDialogOpen.value || printPreviewOpen.value || viewerOpen.value) {
+		return;
+	}
+	// Solo en la bandeja: en Carpetas las cartas no se ven, y «a» aprobaría la
+	// que quedó seleccionada antes de cambiar de vista.
+	if (viewMode.value !== 'inbox') return;
 	const letters = letterStore.letters;
 	if (letters.length === 0) return;
 	const idx = letters.findIndex((l) => l.id === selectedId.value);
@@ -609,6 +644,17 @@ const foldersInScope = (scope: PrintScope): LetterFolderRow[] => {
 	}
 	return letterStore.folders;
 };
+
+/** Adjuntos de las cartas del lote que no salen en el papel: se imprimen aparte. */
+const printDocuments = computed(() =>
+	printEntries.value.flatMap((entry) =>
+		entry.letters.flatMap((letter) =>
+			(letter.attachments ?? [])
+				.filter((a) => !a.isBrowserSafeImage)
+				.map((a) => ({ id: a.id, participant: entry.participantName, fileName: a.fileName })),
+		),
+	),
+);
 
 const printNotice = computed(() => {
 	const folders = foldersInScope(printScope.value);
@@ -1268,12 +1314,20 @@ const toggleExpanded = (id: string) => {
 						@click.stop
 						@change="toggleSelect(letter)"
 					/>
-					<img
+					<button
 						v-if="firstPhotoUrl(letter)"
-						:src="firstPhotoUrl(letter)!"
-						:alt="t('letters.receiptAlt')"
-						class="h-14 w-20 shrink-0 object-cover border rounded"
-					/>
+						type="button"
+						class="shrink-0 cursor-zoom-in"
+						:aria-label="t('letters.viewer.open')"
+						data-testid="row-thumbnail"
+						@click.stop="openPhotos(letter, 0)"
+					>
+						<img
+							:src="firstPhotoUrl(letter)!"
+							:alt="t('letters.receiptAlt')"
+							class="h-14 w-20 object-cover border rounded"
+						/>
+					</button>
 					<div class="min-w-0 flex-1">
 						<div class="flex flex-wrap items-center gap-2">
 							<span class="font-medium">{{ letter.participantName ?? '—' }}</span>
@@ -1283,9 +1337,9 @@ const toggleExpanded = (id: string) => {
 								<Stamp class="mr-1 h-3 w-3" />
 								{{ t('letters.printed') }}
 							</Badge>
-							<Badge v-if="letter.attachments?.some((a) => !a.isBrowserSafeImage)" variant="outline">
-								<ImageOff class="mr-1 h-3 w-3" />
-								{{ t('letters.hasNonPrintable') }}
+							<Badge v-if="documentsOf(letter).length" variant="outline">
+								<Paperclip class="mr-1 h-3 w-3" />
+								{{ t('letters.documentsBadge', { count: documentsOf(letter).length }) }}
 							</Badge>
 						</div>
 						<div class="mt-1 text-sm text-muted-foreground">
@@ -1360,27 +1414,57 @@ const toggleExpanded = (id: string) => {
 						<div v-for="warning in letter.warnings" :key="warning">{{ warning }}</div>
 					</div>
 
-					<div v-if="letter.attachments?.length" class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
+					<!-- Fotos: click → en grande. Documentos: PDF en pestaña, el resto se
+					     descarga y lo abre su programa (nunca dentro de la página). -->
+					<div v-if="photosOf(letter).length" class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
 						<figure
-							v-for="attachment in letter.attachments"
-							:key="attachment.id"
+							v-for="(photo, i) in photosOf(letter)"
+							:key="photo.id"
 							class="overflow-hidden rounded-lg border"
 						>
-							<img
-								v-if="attachment.isBrowserSafeImage"
-								:src="attachment.storageUrl"
-								:alt="attachment.fileName"
-								class="max-h-64 w-full object-contain bg-white"
-							/>
-							<div v-else class="flex h-24 flex-col items-center justify-center gap-1 bg-muted p-2 text-xs text-muted-foreground">
-								<ImageOff class="h-5 w-5" />
-								<span class="truncate">{{ attachment.fileName }}</span>
-							</div>
+							<button
+								type="button"
+								class="block w-full cursor-zoom-in"
+								:aria-label="t('letters.viewer.open')"
+								data-testid="detail-photo"
+								@click="openPhotos(letter, i)"
+							>
+								<img
+									:src="photo.storageUrl"
+									:alt="photo.fileName"
+									class="max-h-64 w-full object-contain bg-white"
+								/>
+							</button>
 							<figcaption class="truncate border-t px-2 py-1 text-xs text-muted-foreground">
-								{{ attachment.fileName }}
+								{{ photo.fileName }}
 							</figcaption>
 						</figure>
 					</div>
+					<ul v-if="documentsOf(letter).length" class="mt-4 space-y-2">
+						<li
+							v-for="doc in documentsOf(letter)"
+							:key="doc.id"
+							class="flex items-center gap-3 rounded-lg border p-2"
+							data-testid="detail-document"
+						>
+							<component :is="documentIcon(doc)" class="h-6 w-6 shrink-0 text-muted-foreground" />
+							<div class="min-w-0 flex-1">
+								<p class="truncate text-sm">{{ doc.fileName }}</p>
+								<p class="text-xs text-muted-foreground">
+									{{ t(`letters.attachmentKind.${attachmentKind(doc)}`) }} · {{ formatBytes(doc.sizeBytes) }}
+								</p>
+							</div>
+							<Button
+								size="sm"
+								variant="outline"
+								:data-testid="`open-${attachmentKind(doc)}`"
+								@click="openAttachment(doc)"
+							>
+								<component :is="attachmentKind(doc) === 'pdf' ? ExternalLink : Download" class="mr-2 h-4 w-4" />
+								{{ attachmentKind(doc) === 'pdf' ? t('letters.viewer.openPdf') : t('letters.viewer.download') }}
+							</Button>
+						</li>
+					</ul>
 				</div>
 			</div>
 			<!-- Hint de atajos (solo escritorio: en táctil no aplican) -->
@@ -1398,6 +1482,11 @@ const toggleExpanded = (id: string) => {
 			:loading="letterStore.mailboxesLoading"
 			@toggle="toggleMailbox"
 			@share="openShare"
+		/>
+		<LetterPhotoViewer
+			v-model:open="viewerOpen"
+			v-model:index="viewerIndex"
+			:photos="viewerPhotos ?? []"
 		/>
 		<LettersShareDialog
 			v-model:open="shareDialogOpen"
@@ -1427,6 +1516,21 @@ const toggleExpanded = (id: string) => {
 						{{ t('letters.print.alreadyPrintedSkipped', { count: printNotice.alreadyPrinted }) }}
 					</template>
 				</p>
+				<div
+					v-if="printDocuments.length"
+					class="rounded border border-sky-300 bg-sky-50 px-3 py-2 text-sm text-sky-900"
+					data-testid="print-documents"
+				>
+					<p>{{ t('letters.print.documentsNotPrinted', { count: printDocuments.length }) }}</p>
+					<ul class="mt-1 list-disc pl-5 text-xs">
+						<li v-for="d in printDocuments.slice(0, 6)" :key="d.id">
+							{{ d.participant }} — {{ d.fileName }}
+						</li>
+						<li v-if="printDocuments.length > 6">
+							{{ t('letters.print.andMore', { count: printDocuments.length - 6 }) }}
+						</li>
+					</ul>
+				</div>
 				<iframe
 					v-if="printPreviewUrl"
 					ref="previewFrame"
