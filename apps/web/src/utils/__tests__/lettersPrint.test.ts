@@ -51,8 +51,29 @@ describe('lettersPrint', () => {
 		expect(html).toContain('Juan Pérez');
 		expect(html).toContain('Ana');
 		expect(html).toContain('Mesa 3');
-		// Solo el separador del 2º participante (el <style> define la clase una vez).
-		expect((html.match(/class="letter-page-break"/g) || []).length).toBe(1);
+		// Una hoja-tabla por participante; del 2º en adelante empieza en hoja nueva.
+		expect((html.match(/<table class="letter-sheet">/g) || []).length).toBe(2);
+		expect(html).toContain('.letter-sheet + .letter-sheet { break-before: page; }');
+	});
+
+	it('carátula opcional: una hoja con nombre, mesa y número de cartas antes del folder', () => {
+		const sin = buildLettersBodyHtml([entry()]);
+		expect(sin).not.toContain('class="letter-cover"');
+		const con = buildLettersBodyHtml([entry()], { cover: true });
+		expect(con).toContain('class="letter-cover"');
+		expect(con).toContain('letter-cover-name">Juan Pérez<');
+		expect(con).toMatch(/letter-cover-count">1 carta</);
+		// Carátula y cartas son hojas aparte: 2 tablas por participante.
+		expect((con.match(/<table class="letter-sheet">/g) || []).length).toBe(2);
+	});
+
+	it('papel sin cromo del navegador: @page en 0 y margen por espaciadores que se repiten', () => {
+		const html = buildLettersBodyHtml([entry()]);
+		// Con cualquier margen > 0 Chrome pinta fecha, título, URL y n/N
+		// (verificado con Chrome headless: 9mm no basta).
+		expect(html).toContain('@page { size: A4; margin: 0; }');
+		expect(html).toMatch(/<thead><tr><td><\/td><\/tr><\/thead>/);
+		expect(html).toMatch(/<tfoot><tr><td><\/td><\/tr><\/tfoot>/);
 	});
 
 	it('escapa el texto de la carta: un <script> sale como texto, no como HTML', () => {

@@ -509,6 +509,7 @@ import { LogOut, Users, UtensilsCrossed, LayoutDashboard, ChevronLeft, Home, Ban
 import { useAuthStore } from '@/stores/authStore';
 import { useReceptionStore } from '@/stores/receptionStore';
 import { useLetterStore } from '@/stores/letterStore';
+import { useReceiptClaimsStore } from '@/stores/receiptClaimsStore';
 import { useRouter, useRoute } from 'vue-router';
 import { Button } from '@repo/ui';
 import {
@@ -625,12 +626,12 @@ const ITEM_BADGE: Record<string, { color: string; count: () => number | null }> 
   // Cartas de familias: pendientes de revisión (specs/letters-email).
   letters:      { color: 'bg-purple-600', count: () => letterStore.pendingCount          || null },
   // Comprobantes de pago enviados por las familias, pendientes de aplicar.
-  payments:     { color: 'bg-emerald-600', count: () => pendingClaims.value              || null },
+  payments:     { color: 'bg-emerald-600', count: () => receiptClaimsStore.pendingCount  || null },
 };
 
-// Comprobantes pendientes (badge de «Pagos»): un fetch por cambio de retiro;
-// sin permiso payment:read el endpoint responde 403 y el badge queda vacío.
-const pendingClaims = ref<number | null>(null);
+// Comprobantes pendientes (badge de «Pagos»): store compartido con la bandeja
+// de comprobantes, que lo baja al aplicar/descartar. Sin payment:read → null.
+const receiptClaimsStore = useReceiptClaimsStore();
 
 function itemBadge(name: string): number | null {
   return ITEM_BADGE[name]?.count() ?? null;
@@ -766,13 +767,7 @@ watch(
       }
 
       // Comprobantes de pago pendientes de aplicar (badge de «Pagos»).
-      try {
-        const { receiptClaimsApi } = await import('@/services/api');
-        const claims = await receiptClaimsApi.list(newId, 'pending');
-        pendingClaims.value = claims.length;
-      } catch {
-        // non-critical (sin payment:read → sin badge)
-      }
+      void receiptClaimsStore.refreshPending(newId);
     }
   },
   { immediate: true },

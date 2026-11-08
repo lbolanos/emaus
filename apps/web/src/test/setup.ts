@@ -273,6 +273,38 @@ vi.mock('@repo/ui', () => ({
 		name: 'DialogFooter',
 		template: '<div><slot /></div>',
 	},
+	// Dropdown* (menú de acciones): los items renderizan SIEMPRE en línea y
+	// emiten `select` en su click nativo — así un test puede disparar la acción
+	// del item sin montar reka-ui real.
+	DropdownMenu: {
+		name: 'DropdownMenu',
+		template: '<div><slot /></div>',
+	},
+	DropdownMenuTrigger: {
+		name: 'DropdownMenuTrigger',
+		template: '<div><slot /></div>',
+	},
+	DropdownMenuContent: {
+		name: 'DropdownMenuContent',
+		template: '<div><slot /></div>',
+	},
+	DropdownMenuItem: {
+		name: 'DropdownMenuItem',
+		// El click nativo emite `select` (contrato reka) Y `click` — así un test
+		// puede disparar items que el componente real maneja con cualquiera de
+		// los dos (acciones simples con @click; dialogs vía @select+deferOpen).
+		methods: {
+			emitBoth() {
+				this.$emit('select');
+				this.$emit('click');
+			},
+		},
+		template: '<div role="menuitem" @click="emitBoth"><slot /></div>',
+	},
+	DropdownMenuSeparator: {
+		name: 'DropdownMenuSeparator',
+		template: '<hr />',
+	},
 	DialogHeader: {
 		name: 'DialogHeader',
 		template: '<div><slot /></div>',
@@ -436,6 +468,8 @@ vi.mock('@repo/ui', () => ({
 // Mock lucide-vue-next icons
 vi.mock('lucide-vue-next', () => ({
 	Cake: { name: 'Cake', template: '<svg></svg>' },
+	FolderOpen: { name: 'FolderOpen', template: '<svg></svg>' },
+	Inbox: { name: 'Inbox', template: '<svg></svg>' },
 	ChevronLeft: { name: 'ChevronLeft', template: '<svg></svg>' },
 	LogOut: { name: 'LogOut', template: '<svg></svg>' },
 	Users: { name: 'Users', template: '<svg></svg>' },

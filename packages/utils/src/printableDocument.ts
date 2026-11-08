@@ -244,6 +244,12 @@ export interface PrintableHtmlOptions {
 	 */
 	omitRunningHead?: boolean;
 	/**
+	 * Omite el `<header class="doc-head">` (título grande del papel): el título
+	 * queda solo en el `<title>` del documento. Para impresiones donde el
+	 * contenido es el documento entero (cartas de familias por participante).
+	 */
+	omitBodyHead?: boolean;
+	/**
 	 * Interlineado holgado para documentos cortos que se leen en papel (la carta
 	 * al párroco). Los documentos de preparación lo dejan apagado: su
 	 * interlineado sale de los `.docx` originales.
@@ -337,13 +343,17 @@ export function buildPrintableHtml(
 			}</footer>`
 		: '';
 
+	const bodyHead = options.omitBodyHead
+		? ''
+		: `<header class="doc-head">${logo}<h1>${title}</h1></header>`;
+
 	return `<!DOCTYPE html>
 <html lang="es"><head><meta charset="UTF-8" />
 ${base}
 <title>${title}</title>
 <style>${PRINT_STYLESHEET}</style></head><body${options.relaxedLeading ? ' class="relaxed"' : ''}>
 ${runningHead}
-<header class="doc-head">${logo}<h1>${title}</h1></header>
+${bodyHead}
 ${data.bodyHtml}
 ${signature}
 <script>

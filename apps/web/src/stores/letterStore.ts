@@ -1,9 +1,11 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
 import {
+	getPalanqueroOptions,
 	lettersApi,
 	type LettersInbox,
 	type Letter,
+	type LetterFolderRow,
 	type LetterMailboxRow,
 	type LetterPrintBatchEntry,
 	type LetterStatus,
@@ -22,6 +24,11 @@ export const useLetterStore = defineStore('letters', () => {
 		attached: 0,
 	});
 	const mailboxes = ref<LetterMailboxRow[]>([]);
+	// Carpetas: estado del folder por participante (también alimenta el filtro).
+	const folders = ref<LetterFolderRow[]>([]);
+	const foldersLoading = ref(false);
+	// Palanqueros del retiro para el filtro: «Palanquero N (servidor asignado)».
+	const palanqueroOptions = ref<{ value: string; label: string }[]>([]);
 	const loading = ref(false);
 	const mailboxesLoading = ref(false);
 	const error = ref<string | null>(null);
@@ -77,6 +84,7 @@ export const useLetterStore = defineStore('letters', () => {
 			tableId?: string;
 			status?: LetterStatus | '';
 			q?: string;
+			palanquero?: string;
 		} = {},
 	) => {
 		loading.value = true;
@@ -173,9 +181,29 @@ export const useLetterStore = defineStore('letters', () => {
 	const fetchPrintBatch = async (
 		retreatId: string,
 		scope: 'participant' | 'table' | 'retreat',
-		opts: { participantIds?: string[]; tableId?: string } = {},
+		opts: { participantIds?: string[]; tableId?: string; onlyUnprinted?: boolean } = {},
 	): Promise<LetterPrintBatchEntry[]> => {
 		return lettersApi.getPrintBatch(retreatId, scope, opts);
+	};
+
+	/** Sin participant:read el endpoint responde 403: el filtro no se muestra. */
+	const fetchPalanqueroOptions = async (retreatId: string) => {
+		try {
+			palanqueroOptions.value = await getPalanqueroOptions(retreatId);
+		} catch {
+			palanqueroOptions.value = [];
+		}
+	};
+
+	const fetchFolders = async (retreatId: string) => {
+		foldersLoading.value = true;
+		try {
+			folders.value = await lettersApi.getFolders(retreatId);
+		} catch (e: unknown) {
+			error.value = apiErrorMessage(e, 'No se pudieron cargar las carpetas');
+		} finally {
+			foldersLoading.value = false;
+		}
 	};
 
 	return {
@@ -196,5 +224,10 @@ export const useLetterStore = defineStore('letters', () => {
 		reviewLetter,
 		markPrinted,
 		fetchPrintBatch,
+		folders,
+		foldersLoading,
+		fetchFolders,
+		palanqueroOptions,
+		fetchPalanqueroOptions,
 	};
 });

@@ -110,6 +110,26 @@
         <p class="text-3xl">✅</p>
         <p class="font-semibold">{{ t('receiptClaim.receivedTitle') }}</p>
         <p class="text-sm">{{ t('receiptClaim.receivedBody') }}</p>
+        <!-- Certeza para la familia (mejora 11): folio interno + fecha local -->
+        <p
+          v-if="receiptFolio"
+          class="border-t border-green-200 pt-2 text-xs text-green-700"
+          data-testid="receipt-folio"
+        >
+          {{
+            t('receiptClaim.receiptFolio', {
+              folio: receiptFolio,
+              date: submittedAt
+                ? submittedAt.toLocaleString('es-MX', {
+                    day: 'numeric',
+                    month: 'short',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })
+                : '',
+            })
+          }}
+        </p>
       </div>
     </main>
   </div>
@@ -147,6 +167,13 @@ const noteInput = ref('');
 const senderInput = ref('');
 const submitting = ref(false);
 const submitted = ref(false);
+// Confirmación con certeza (mejora 11): folio interno + fecha de recepción.
+const receiptFolio = ref('');
+const submittedAt = ref<Date | null>(null);
+
+// Tope ANTES de procesar (mejora 12): el resize del navegador tarda segundos
+// con archivos enormes y el error llegaría al final; cortamos de entrada.
+const MAX_SOURCE_BYTES = 30 * 1024 * 1024;
 
 onMounted(async () => {
   try {
@@ -164,6 +191,12 @@ const pickPhoto = async () => {
   try {
     const file = (await pickFile({ accept: 'image/*', capture: 'environment' })) as File;
     if (!file) return;
+    if (file.size > MAX_SOURCE_BYTES) {
+      photoError.value = t('receiptClaim.tooLarge', {
+        size: (file.size / (1024 * 1024)).toFixed(0),
+      });
+      return;
+    }
     const dataUrl = await receiptPhotoFromFile(file);
     photoDataUrl.value = dataUrl;
     photoPreview.value = dataUrl;
@@ -178,13 +211,15 @@ const submit = async () => {
   if (!photoDataUrl.value || submitting.value) return;
   submitting.value = true;
   try {
-    await receiptClaimsApi.submit(props.token, {
+    const result = await receiptClaimsApi.submit(props.token, {
       photo: photoDataUrl.value,
       amountClaimed: amountInput.value ? Number(amountInput.value) : undefined,
       reference: referenceInput.value || undefined,
       note: noteInput.value || undefined,
       senderContact: senderInput.value || undefined,
     });
+    receiptFolio.value = result.claimId.slice(0, 8).toUpperCase();
+    submittedAt.value = new Date();
     submitted.value = true;
     context.value = null;
   } catch {

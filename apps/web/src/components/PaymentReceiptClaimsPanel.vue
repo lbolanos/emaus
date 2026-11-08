@@ -16,6 +16,13 @@
 			<Button variant="ghost" size="sm" class="border" @click="refresh">
 				{{ t('paymentClaims.refresh') }}
 			</Button>
+			<input
+				v-model="searchQuery"
+				type="search"
+				:placeholder="t('paymentClaims.searchPlaceholder')"
+				class="h-8 w-40 sm:w-56 rounded-md border border-input bg-background px-3 text-sm"
+				data-testid="claims-search"
+			/>
 			<Button variant="outline" size="sm" class="ml-auto" @click="openShare">
 				<Share2 class="mr-1 h-4 w-4" />
 				{{ t('paymentClaims.share.open') }}
@@ -119,6 +126,10 @@
 							<Badge :variant="statusVariant(claim.status)">
 								{{ t(`paymentClaims.status.${claim.status}`) }}
 							</Badge>
+							<!-- El mismo folio que vio la familia al enviar: para conciliar -->
+							<span class="font-mono text-xs text-muted-foreground" data-testid="claim-folio">
+								{{ t('paymentClaims.folio', { folio: claimFolio(claim) }) }}
+							</span>
 						</div>
 						<div class="mt-1 text-sm text-muted-foreground">
 							<template v-if="claim.amountClaimed != null">
@@ -246,12 +257,14 @@ import {
 } from '@/services/api';
 import { buildWhatsAppSendLink, toE164Phone } from '@/utils/phone';
 import { useRetreatStore } from '@/stores/retreatStore';
+import { useReceiptClaimsStore } from '@/stores/receiptClaimsStore';
 
 const route = useRoute();
 const { t } = useI18n();
 const { toast } = useToast();
 
 const retreatStore = useRetreatStore();
+const receiptClaimsStore = useReceiptClaimsStore();
 const retreatId = () => (route.params.id as string) || retreatStore.selectedRetreatId || '';
 
 const shareOpen = ref(false);
@@ -344,6 +357,9 @@ const loading = ref(false);
 const applying = ref<string | null>(null);
 const viewerUrl = ref<string | null>(null);
 const activeStatus = ref<'pending' | 'attached' | 'dismissed' | ''>('');
+// Búsqueda por participante (mejora 14): client-side — la bandeja ya trae
+// hasta 200 claims con nombre.
+const searchQuery = ref('');
 
 const applyForms = reactive<Record<string, { amount: string; paymentMethod: string }>>({});
 
@@ -353,15 +369,29 @@ const counts = computed(() => {
 	return map;
 });
 
-const filteredClaims = computed(() =>
-	activeStatus.value ? claims.value.filter((c) => c.status === activeStatus.value) : claims.value,
-);
+/** Folio que la familia vio al enviar (PublicReceiptClaimView): 8 primeros del id. */
+const claimFolio = (claim: ReceiptClaim): string => claim.id.slice(0, 8).toUpperCase();
+
+const filteredClaims = computed(() => {
+	let rows = activeStatus.value
+		? claims.value.filter((c) => c.status === activeStatus.value)
+		: claims.value;
+	const q = searchQuery.value.trim().toLowerCase();
+	if (q) {
+		rows = rows.filter(
+			(c) => c.participantName.toLowerCase().includes(q) || claimFolio(c).toLowerCase().includes(q),
+		);
+	}
+	return rows;
+});
 
 const refresh = async () => {
 	if (!retreatId()) return;
 	loading.value = true;
 	try {
 		claims.value = await receiptClaimsApi.list(retreatId());
+		// Badge de «Pagos» del sidebar: baja al aplicar/descartar (ambos refrescan).
+		receiptClaimsStore.setPending(claims.value.filter((c) => c.status === 'pending').length);
 		for (const claim of claims.value) {
 			if (!applyForms[claim.id]) {
 				// Pre-llenar con el SALDO pendiente (suele ser el monto correcto);

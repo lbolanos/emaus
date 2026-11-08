@@ -73,9 +73,15 @@ export const ListLettersQuerySchema = z.object({
 		tableId: optionalIdQuery,
 		status: z.enum(LETTER_STATUSES).or(z.literal('')).optional(),
 		q: z.string().max(200).optional(),
+		// Palanquero asignado al caminante (retreat_participants.palancasCoordinator,
+		// p. ej. «Palanquero 1»); LETTER_PALANQUERO_NONE = sin asignar.
+		palanquero: z.string().max(60).optional(),
 	}),
 });
 export type ListLettersQuery = z.infer<typeof ListLettersQuerySchema>;
+
+/** Valor del filtro de palanquero para «caminantes sin palanquero asignado». */
+export const LETTER_PALANQUERO_NONE = '__none__';
 
 export const ReviewLetterSchema = z.object({
 	params: z.object({ id: idSchema }),
@@ -98,6 +104,8 @@ export const PrintBatchQuerySchema = z.object({
 		scope: z.enum(['participant', 'table', 'retreat']),
 		participantIds: z.string().optional(), // csv de participantIds para scope=participant
 		tableId: optionalIdQuery,
+		// 'true' = solo las aprobadas que aún no se imprimieron (lo que falta del folder).
+		onlyUnprinted: z.enum(['true', 'false']).optional(),
 	}),
 });
 export type PrintBatchQuery = z.infer<typeof PrintBatchQuerySchema>;
@@ -133,6 +141,8 @@ export interface LetterMailboxRow {
 	participantId: string | null;
 	participantName: string;
 	participantType: string | null;
+	/** Palanquero asignado (palancasCoordinator, p. ej. «Palanquero 1»). */
+	palancasCoordinator: string | null;
 	tableId: string | null;
 	tableName: string | null;
 	cellPhone: string | null;
@@ -142,6 +152,28 @@ export interface LetterMailboxRow {
 	/** Cuándo se mandó a la familia (marca de difusión, mejora 9). */
 	mailboxSharedAt: string | null;
 	letterCounts: { pending: number; approved: number; hidden: number };
+}
+
+/**
+ * Estado del folder de un participante (vista Carpetas): cuántas cartas
+ * tiene por estado y cuántas de las aprobadas ya salieron en papel.
+ */
+export interface LetterFolderRow {
+	retreatParticipantId: string;
+	participantId: string | null;
+	participantName: string;
+	participantType: string | null;
+	/** Palanquero asignado (palancasCoordinator, p. ej. «Palanquero 1»). */
+	palancasCoordinator: string | null;
+	tableId: string | null;
+	tableName: string | null;
+	idOnRetreat: number | null;
+	mailboxEnabled: boolean;
+	mailboxSharedAt: string | null;
+	counts: { pending: number; approved: number; hidden: number; attached: number };
+	/** Aprobadas ya impresas / aprobadas aún sin imprimir. */
+	printed: number;
+	unprinted: number;
 }
 
 export interface LetterPrintBatchEntry {

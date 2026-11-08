@@ -42,7 +42,8 @@
       "payment": {
         "create": "Payment recorded",
         "update": "Payment edited",
-        "delete": "Payment deleted"
+        "delete": "Payment deleted",
+        "receipt_link_mark_shared": "Receipt link marked as sent to the family"
       },
       "participant_debt": {
         "create": "Debt recorded",
@@ -229,7 +230,8 @@
         "inbox_view": "Letters inbox viewed",
         "review": "Letter review (approve/hide)",
         "print_mark": "Letter batch marked as printed",
-        "mailbox_toggle": "Letter mailbox enabled/disabled"
+        "mailbox_toggle": "Letter mailbox enabled/disabled",
+        "mailbox_mark_shared": "Mailbox address marked as sent to the family"
       }
     },
     "resources": {
@@ -4325,7 +4327,15 @@
       "attached": "Attached to payment"
     },
     "filter": {
-      "allTables": "All tables"
+      "allTables": "All tables",
+      "allParticipants": "All participants",
+      "searchParticipant": "Filter participant…",
+      "noMatches": "No matches",
+      "clearParticipant": "Clear participant filter",
+      "letterCount": "{count} letters",
+      "allPalanqueros": "All palanqueros",
+      "noPalanquero": "No palanquero assigned",
+      "palanquero": "Filter by palanquero"
     },
     "review": {
       "approve": "Approve",
@@ -4384,14 +4394,65 @@
       "previewTitle": "Print preview",
       "printNow": "Print now",
       "close": "Close",
-      "error": "Could not build the printout"
+      "error": "Could not build the printout",
+      "selection": "Print selected ({count})",
+      "selectionTitle": "Letters — selection ({count})",
+      "menu": "Print",
+      "filtered": "Print filtered (1 participant)",
+      "participant": "Print all letters of this participant",
+      "rateLimited": "Too many requests: wait a few seconds and retry",
+      "errorStatus": "Server responded {status}",
+      "emptyUnprintedDescription": "Every approved letter in this scope is already printed.",
+      "pendingNotIncluded": "{count} letter(s) still under review are not on the paper: approve them first if they belong in the folder. ",
+      "alreadyPrintedSkipped": "{count} already printed letter(s) are skipped.",
+      "withCover": "Include a cover page per participant",
+      "didItPrint": "Did the {count} letters print correctly?",
+      "notPrinted": "No, do not mark",
+      "yesMark": "Yes, mark {count} as printed",
+      "markError": "Could not mark the letters as printed",
+      "palanquero": "Palanquero's folders ({count})"
     },
     "activateDone": {
       "doneTitle": "Mailboxes activated",
       "doneDescription": "{activated} new mailboxes, {alreadyActive} already existed."
     },
     "receivedToast": "📬 New letter from {name}",
-    "receiptAlt": "Attached photo"
+    "receiptAlt": "Attached photo",
+    "newLetters": "{count} new letter arrived | {count} new letters arrived",
+    "newLettersRefresh": "Refresh inbox",
+    "selectLetter": "Select letter for {name}",
+    "rowActions": "Actions",
+    "headerActions": "Mailbox actions",
+    "views": {
+      "inbox": "Inbox",
+      "folders": "Folders"
+    },
+    "folders": {
+      "filter": {
+        "all": "All",
+        "unprinted": "To print",
+        "review": "To review",
+        "complete": "Complete",
+        "empty": "No letters"
+      },
+      "searchPlaceholder": "Search participant or table…",
+      "printAllMissing": "Print everything missing ({count})",
+      "printAllTitle": "Missing — {count} folders",
+      "printMissing": "Print missing ({count})",
+      "printAll": "Print the whole folder again",
+      "viewLetters": "View their letters",
+      "sendAddress": "Send the address to the family",
+      "resendAddress": "Resend the address to the family",
+      "empty": "No folders match this filter.",
+      "summary": "{total} letters · {printed} printed",
+      "emptyShared": "Address sent on {date} — no letters yet",
+      "emptyNotShared": "No letters and the address has not been sent",
+      "status": {
+        "complete": "✓ Complete",
+        "unprinted": "{count} missing",
+        "review": "{count} to review"
+      }
+    }
   },
   "paymentClaims": {
     "tab": "Receipts",
@@ -4444,7 +4505,9 @@
       "amount": "Amount",
       "method": "Method",
       "create": "Create payment"
-    }
+    },
+    "folio": "Reference {folio}",
+    "searchPlaceholder": "Search participant or reference…"
   },
   "receiptClaim": {
     "title": "Payment receipt",
@@ -4465,6 +4528,8 @@
     "amountLabel": "Amount (optional)",
     "referenceLabel": "Reference / folio (optional)",
     "noteLabel": "Note for the team (optional)",
-    "senderLabel": "Your name or email (optional)"
+    "senderLabel": "Your name or email (optional)",
+    "tooLarge": "The photo is too large ({size} MB). Choose a smaller one or take it again.",
+    "receiptFolio": "Reference {folio} · Received on {date}"
   }
 }

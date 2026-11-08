@@ -32,6 +32,7 @@ import type {
   FlyerTemplate,
   Letter,
   LetterAttachment,
+  LetterFolderRow,
   LetterMailboxRow,
   LetterPrintBatchEntry,
   LetterStatus,
@@ -4982,6 +4983,7 @@ export const deleteParticipantNote = async (id: string): Promise<void> => {
 export type {
   Letter,
   LetterAttachment,
+  LetterFolderRow,
   LetterMailboxRow,
   LetterPrintBatchEntry,
   LetterStatus,
@@ -5140,6 +5142,7 @@ export const lettersApi = {
       tableId?: string;
       status?: LetterStatus | "";
       q?: string;
+      palanquero?: string;
     } = {},
   ): Promise<LettersInbox> => {
     const r = await api.get(`/letters/retreats/${retreatId}/letters`, { params: filters });
@@ -5185,15 +5188,22 @@ export const lettersApi = {
   getPrintBatch: async (
     retreatId: string,
     scope: "participant" | "table" | "retreat",
-    opts: { participantIds?: string[]; tableId?: string } = {},
+    opts: { participantIds?: string[]; tableId?: string; onlyUnprinted?: boolean } = {},
   ): Promise<LetterPrintBatchEntry[]> => {
     const r = await api.get(`/letters/retreats/${retreatId}/letters/print-batch`, {
       params: {
         scope,
         participantIds: opts.participantIds?.join(",") || undefined,
         tableId: opts.tableId || undefined,
+        onlyUnprinted: opts.onlyUnprinted ? "true" : undefined,
       },
     });
     return r.data.entries;
+  },
+
+  /** Estado del folder por participante (vista Carpetas). */
+  getFolders: async (retreatId: string): Promise<LetterFolderRow[]> => {
+    const r = await api.get(`/letters/retreats/${retreatId}/letters/folders`);
+    return r.data.folders;
   },
 };

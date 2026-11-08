@@ -42,7 +42,8 @@
       "payment": {
         "create": "Pago registrado",
         "update": "Pago editado",
-        "delete": "Pago eliminado"
+        "delete": "Pago eliminado",
+        "receipt_link_mark_shared": "Link de comprobante marcado como enviado a la familia"
       },
       "participant_debt": {
         "create": "Deuda registrada",
@@ -229,7 +230,8 @@
         "inbox_view": "Consulta de bandeja de cartas",
         "review": "Revisión de carta (aprobar/ocultar)",
         "print_mark": "Lote de cartas marcado como impreso",
-        "mailbox_toggle": "Buzón de cartas activado/desactivado"
+        "mailbox_toggle": "Buzón de cartas activado/desactivado",
+        "mailbox_mark_shared": "Dirección de buzón marcada como enviada a la familia"
       }
     },
     "resources": {
@@ -4647,7 +4649,15 @@
       "attached": "Adjunta a pago"
     },
     "filter": {
-      "allTables": "Todas las mesas"
+      "allTables": "Todas las mesas",
+      "allParticipants": "Todos los participantes",
+      "searchParticipant": "Filtrar caminante…",
+      "noMatches": "Sin coincidencias",
+      "clearParticipant": "Quitar filtro de caminante",
+      "letterCount": "{count} cartas",
+      "allPalanqueros": "Todos los palanqueros",
+      "noPalanquero": "Sin palanquero asignado",
+      "palanquero": "Filtrar por palanquero"
     },
     "review": {
       "approve": "Aprobar",
@@ -4706,14 +4716,65 @@
       "previewTitle": "Vista previa de impresión",
       "printNow": "Imprimir ahora",
       "close": "Cerrar",
-      "error": "No se pudo armar la impresión"
+      "error": "No se pudo armar la impresión",
+      "selection": "Imprimir seleccionadas ({count})",
+      "selectionTitle": "Cartas — selección ({count})",
+      "menu": "Imprimir",
+      "filtered": "Imprimir lo filtrado (1 participante)",
+      "participant": "Imprimir todas de este participante",
+      "rateLimited": "Demasiadas peticiones: espera unos segundos y reintenta",
+      "errorStatus": "El servidor respondió {status}",
+      "emptyUnprintedDescription": "Todas las cartas aprobadas de este alcance ya están impresas.",
+      "pendingNotIncluded": "Hay {count} carta(s) por revisar que no van en el papel: apruébalas primero si deben ir en la carpeta. ",
+      "alreadyPrintedSkipped": "Se omiten {count} carta(s) que ya estaban impresas.",
+      "withCover": "Incluir carátula por participante",
+      "didItPrint": "¿Salió bien la impresión de las {count} cartas?",
+      "notPrinted": "No, no marcar",
+      "yesMark": "Sí, marcar {count} como impresas",
+      "markError": "No se pudieron marcar las cartas como impresas",
+      "palanquero": "Carpetas del palanquero ({count})"
     },
     "activateDone": {
       "doneTitle": "Buzones activados",
       "doneDescription": "{activated} buzones nuevos, {alreadyActive} ya existían."
     },
     "receivedToast": "📬 Nueva carta de {name}",
-    "receiptAlt": "Foto adjunta"
+    "receiptAlt": "Foto adjunta",
+    "newLetters": "Llegó {count} carta nueva | Llegaron {count} cartas nuevas",
+    "newLettersRefresh": "Actualizar bandeja",
+    "selectLetter": "Seleccionar carta de {name}",
+    "rowActions": "Acciones",
+    "headerActions": "Acciones de buzones",
+    "views": {
+      "inbox": "Bandeja",
+      "folders": "Carpetas"
+    },
+    "folders": {
+      "filter": {
+        "all": "Todas",
+        "unprinted": "Faltan imprimir",
+        "review": "Por revisar",
+        "complete": "Completas",
+        "empty": "Sin cartas"
+      },
+      "searchPlaceholder": "Buscar caminante o mesa…",
+      "printAllMissing": "Imprimir todo lo que falta ({count})",
+      "printAllTitle": "Lo que falta — {count} carpetas",
+      "printMissing": "Imprimir lo que falta ({count})",
+      "printAll": "Imprimir la carpeta completa de nuevo",
+      "viewLetters": "Ver sus cartas",
+      "sendAddress": "Mandar la dirección a la familia",
+      "resendAddress": "Reenviar la dirección a la familia",
+      "empty": "No hay carpetas con este filtro.",
+      "summary": "{total} cartas · {printed} impresas",
+      "emptyShared": "Dirección enviada el {date} — aún sin cartas",
+      "emptyNotShared": "Sin cartas y la dirección no se ha mandado",
+      "status": {
+        "complete": "✓ Completa",
+        "unprinted": "Faltan {count}",
+        "review": "{count} por revisar"
+      }
+    }
   },
   "paymentClaims": {
     "tab": "Comprobantes",
@@ -4766,7 +4827,9 @@
       "amount": "Monto",
       "method": "Método",
       "create": "Crear pago"
-    }
+    },
+    "folio": "Folio {folio}",
+    "searchPlaceholder": "Buscar caminante o folio…"
   },
   "receiptClaim": {
     "title": "Comprobante de pago",
@@ -4787,6 +4850,8 @@
     "amountLabel": "Monto (opcional)",
     "referenceLabel": "Referencia / folio (opcional)",
     "noteLabel": "Nota para el equipo (opcional)",
-    "senderLabel": "Tu nombre o correo (opcional)"
+    "senderLabel": "Tu nombre o correo (opcional)",
+    "tooLarge": "La foto es demasiado grande ({size} MB). Elige una más pequeña o tómala de nuevo.",
+    "receiptFolio": "Folio {folio} · Recibido el {date}"
   }
 }
