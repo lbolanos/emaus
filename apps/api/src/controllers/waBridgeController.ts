@@ -10,6 +10,7 @@ import { authorizationService, ensureRetreatAccess } from '../middleware/authori
 import { waBridgeService, acceptedJidDigitVariants } from '../services/waBridge';
 import { WacliError } from '../services/waBridge';
 import { Payment } from '../entities/payment.entity';
+import { RetreatParticipant } from '../entities/retreatParticipant.entity';
 import { emitInboxChanged } from '../realtime';
 import { createLetterFromWhatsapp, WaLetterError } from '../services/waBridge/waLetterService';
 
@@ -575,10 +576,10 @@ export class WaBridgeController {
 	 */
 	addAsLetter = async (req: Request, res: Response): Promise<Response> => {
 		const body = (req.body ?? {}) as Record<string, unknown>;
-		const retreatParticipantId = String(body.retreatParticipantId ?? '');
+		const participantId = String(body.participantId ?? '');
 		const bodyText = typeof body.bodyText === 'string' ? body.bodyText : '';
 		const attachmentRaw = body.attachment as { fileName?: unknown; dataUrl?: unknown } | null;
-		if (!UUID_RE.test(retreatParticipantId)) {
+		if (!UUID_RE.test(participantId)) {
 			return res.status(400).json({ message: 'Elige el participante destinatario de la carta.' });
 		}
 		const message = await AppDataSource.getRepository(WhatsappInboxMessage).findOneBy({
@@ -586,6 +587,15 @@ export class WaBridgeController {
 		});
 		if (!message) return res.status(404).json({ message: 'Mensaje no encontrado' });
 		if (!(await ensureRetreatAccess(req, res, message.retreatId))) return res;
+		// Letters belong to the retreat registration, resolved server-side.
+		const registration = await AppDataSource.getRepository(RetreatParticipant).findOne({
+			where: { participantId, retreatId: message.retreatId },
+			select: ['id'],
+		});
+		if (!registration) {
+			return res.status(400).json({ message: 'El participante elegido no pertenece a este retiro.' });
+		}
+		const retreatParticipantId = registration.id;
 
 		const index = await waBridgeService.getWalkerDigitsIndex(message.retreatId);
 		const senders = index.get(message.chatPhone) ?? [];
