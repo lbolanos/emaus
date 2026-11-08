@@ -20,6 +20,7 @@ import {
 import { resolveSafeTimeZone } from '../../utils/date.transformer';
 import { emitInboxChanged } from '../../realtime';
 import { imageService } from '../imageService';
+import { classifyAttachment } from '../letterService';
 import { mediaDownload, WacliError } from './wacliClient';
 import {
 	WaBridgeSupervisor,
@@ -997,33 +998,30 @@ export class WaBridgeService {
 	 * these are played or opened once, and documents can be large. The caller
 	 * decides what to do with them (play, open, render a PDF page client-side).
 	 */
-	async downloadRawMedia(
-		message: WhatsappInboxMessage,
-	): Promise<{ buffer: Buffer; mime: string; fileName: string | null }> {
+	async downloadRawMedia(message: WhatsappInboxMessage): Promise<WaRawMedia> {
 		const link = await this.linkRepo.findOneBy({ id: message.linkId });
 		if (!link) {
 			throw new WacliError(
 				'El archivo ya no está disponible: la sesión que lo recibió fue desvinculada o purgada.',
 			);
 		}
-		const cap = message.messageType === 'audio' ? AUDIO_MAX_BYTES : DOCUMENT_MAX_BYTES;
+		const cap = RAW_MEDIA_MAX_BYTES[message.messageType] ?? DOCUMENT_MAX_BYTES;
 		const outPath = `${this.mediaTmpDir()}/${message.id}.bin`;
+		let buffer: Buffer;
 		try {
 			await mediaDownload(link.storePath, message.chatJid, message.waMessageId, outPath);
 			const stat = fs.statSync(outPath);
 			if (stat.size > cap) {
-				throw new WacliError(
-					`El archivo pesa ${(stat.size / 1048576).toFixed(1)} MB (tope ${cap / 1048576} MB)`,
+				throw new WaMediaRejectedError(
+					'too_large',
+					`El archivo pesa ${(stat.size / 1048576).toFixed(1)} MB (tope ${cap / 1048576} MB).`,
 				);
 			}
-			return {
-				buffer: fs.readFileSync(outPath),
-				mime: message.mediaMime || 'application/octet-stream',
-				fileName: message.mediaFileName ?? null,
-			};
+			buffer = fs.readFileSync(outPath);
 		} finally {
 			fs.rmSync(outPath, { force: true });
 		}
+		return classifyRawMedia(message, buffer);
 	}
 
 	/** Drops every cached variant that came from this link (unlink/purge). */
@@ -1076,6 +1074,118 @@ const RECEIPT_MAX_BYTES = 10 * 1024 * 1024;
 /** Caps for on-demand voice notes and documents. */
 const AUDIO_MAX_BYTES = 8 * 1024 * 1024;
 const DOCUMENT_MAX_BYTES = 10 * 1024 * 1024;
+const VIDEO_MAX_BYTES = 16 * 1024 * 1024;
+const RAW_MEDIA_MAX_BYTES: Record<string, number> = {
+	audio: AUDIO_MAX_BYTES,
+	video: VIDEO_MAX_BYTES,
+	document: DOCUMENT_MAX_BYTES,
+};
+
+/**
+ * How the browser may show a downloaded file (v1.5). Everything that is not
+ * an image, a PDF, plain text, audio or video is handed to the system
+ * ("download") — never rendered by the page.
+ */
+export type WaRawPreviewKind = 'audio' | 'video' | 'image' | 'pdf' | 'text' | 'download';
+
+export interface WaRawMedia {
+	buffer: Buffer;
+	/** Verified from the bytes for documents and video; never the sender's claim. */
+	mime: string;
+	fileName: string;
+	previewKind: WaRawPreviewKind;
+}
+
+/** A file the inbox does not hand out (v1.5): too large, macros, or a risky type. */
+export class WaMediaRejectedError extends Error {
+	constructor(
+		public readonly reason: 'too_large' | 'macros' | 'unsupported',
+		message: string,
+	) {
+		super(message);
+		this.name = 'WaMediaRejectedError';
+	}
+}
+
+/** Extension for a sender-declared type, used only when the file has no name. */
+const EXT_BY_DECLARED_MIME: Record<string, string> = {
+	'application/pdf': 'pdf',
+	'application/msword': 'doc',
+	'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
+	'application/vnd.ms-powerpoint': 'ppt',
+	'application/vnd.openxmlformats-officedocument.presentationml.presentation': 'pptx',
+	'application/vnd.ms-excel': 'xls',
+	'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'xlsx',
+	'application/vnd.oasis.opendocument.text': 'odt',
+	'application/vnd.oasis.opendocument.presentation': 'odp',
+	'application/vnd.oasis.opendocument.spreadsheet': 'ods',
+	'text/plain': 'txt',
+};
+
+const EXT_BY_VERIFIED_MIME: Record<string, string> = {
+	...EXT_BY_DECLARED_MIME,
+	'image/jpeg': 'jpg',
+	'image/png': 'png',
+	'image/gif': 'gif',
+	'image/webp': 'webp',
+	'image/heic': 'heic',
+	'video/mp4': 'mp4',
+	'video/quicktime': 'mov',
+};
+
+/**
+ * Decides what the inbox may do with a downloaded file (v1.5, D26). Documents
+ * go through the letters' classifier (specs/letters-email): the type comes
+ * from the bytes (magic + container) and the extension, the sender's MIME is
+ * ignored, and macros, executables, archives, HTML and SVG are refused — an
+ * HTML "document" opened from a blob would run with the app's origin. Voice
+ * notes only ever play in <audio>; videos must be an ISO-BMFF (mp4/mov).
+ */
+export function classifyRawMedia(message: WhatsappInboxMessage, buffer: Buffer): WaRawMedia {
+	const id = message.id.slice(0, 8);
+	if (message.messageType === 'audio') {
+		const declared = message.mediaMime ?? '';
+		const mime = declared.startsWith('audio/') ? declared.split(';')[0] : 'audio/ogg';
+		return { buffer, mime, fileName: message.mediaFileName || `nota-de-voz-${id}.ogg`, previewKind: 'audio' };
+	}
+	if (message.messageType === 'video') {
+		const isoBmff = buffer.length > 12 && buffer.subarray(4, 8).toString('ascii') === 'ftyp';
+		if (!isoBmff) {
+			throw new WaMediaRejectedError('unsupported', 'Este video no está en un formato que el navegador reproduzca.');
+		}
+		const mime = buffer.subarray(8, 12).toString('ascii') === 'qt  ' ? 'video/quicktime' : 'video/mp4';
+		return {
+			buffer,
+			mime,
+			fileName: message.mediaFileName || `video-${id}.${EXT_BY_VERIFIED_MIME[mime]}`,
+			previewKind: 'video',
+		};
+	}
+	const declaredExt = EXT_BY_DECLARED_MIME[(message.mediaMime ?? '').split(';')[0]];
+	const nameForType = message.mediaFileName || (declaredExt ? `archivo.${declaredExt}` : '');
+	const classified = classifyAttachment(buffer, nameForType);
+	if (classified.kind === 'rejected') {
+		throw new WaMediaRejectedError(
+			classified.reason,
+			classified.reason === 'macros'
+				? 'Este documento trae macros y no se abre desde la bandeja por seguridad. Si confías en quien lo mandó, ábrelo desde tu WhatsApp.'
+				: 'Este tipo de archivo no se abre desde la bandeja por seguridad (se abren PDF, Word, PowerPoint, Excel, OpenDocument, texto e imágenes). Si confías en quien lo mandó, ábrelo desde tu WhatsApp.',
+		);
+	}
+	const previewKind: WaRawPreviewKind = classified.browserSafe
+		? 'image'
+		: classified.mime === 'application/pdf'
+			? 'pdf'
+			: classified.mime === 'text/plain'
+				? 'text'
+				: 'download';
+	return {
+		buffer,
+		mime: classified.mime,
+		fileName: message.mediaFileName || `whatsapp-${id}.${EXT_BY_VERIFIED_MIME[classified.mime] ?? 'bin'}`,
+		previewKind,
+	};
+}
 
 /**
  * Cache of downloaded image variants: 30 min, 40 entries (~8 MB worst case).

@@ -126,12 +126,22 @@ export interface WaInboxMessageDto {
 	letterAddedAt?: string | Date | null;
 }
 
-/** On-demand voice note or document (v1.3). */
+/**
+ * How the inbox may show a downloaded file (v1.5): in the app (image, pdf,
+ * text, audio, video) or handed to the system as a download (Word,
+ * PowerPoint, Excel, OpenDocument, HEIC…). Never rendered by the page.
+ */
+export type WaRawPreviewKind = 'audio' | 'video' | 'image' | 'pdf' | 'text' | 'download';
+
+/** On-demand voice note, video (v1.5) or document (v1.3). */
 export interface WaRawMediaDto {
 	dataUrl: string;
+	/** v1.5: verified from the bytes for documents and video (not the sender's claim). */
 	mime: string;
 	fileName: string | null;
 	sizeBytes: number;
+	/** v1.5: absent on responses from older servers — treat as 'download'. */
+	previewKind?: WaRawPreviewKind;
 }
 
 /**

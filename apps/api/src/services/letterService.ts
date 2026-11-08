@@ -120,7 +120,7 @@ const hasMacros = (buffer: Buffer, container: 'ooxml' | 'odf' | 'ole'): boolean 
 	);
 };
 
-type Classification =
+export type AttachmentClassification =
 	| { kind: 'stored'; mime: string; browserSafe: boolean }
 	| { kind: 'rejected'; reason: 'unsupported' | 'macros' };
 
@@ -130,7 +130,7 @@ type Classification =
  * (magic bytes) + extensión. Todo lo demás (ejecutables, comprimidos, HTML,
  * SVG…) se descarta con warning.
  */
-const classifyAttachment = (buffer: Buffer, fileName: string): Classification => {
+export const classifyAttachment = (buffer: Buffer, fileName: string): AttachmentClassification => {
 	for (const entry of IMAGE_MIME_BY_MAGIC) {
 		if (entry.test(buffer)) return { kind: 'stored', mime: entry.mime, browserSafe: entry.browserSafe };
 	}

@@ -13,6 +13,7 @@ import {
 	primaryParticipantOf,
 	senderDisplayName,
 	senderKindOf,
+	WaMediaRejectedError,
 	type WaSenderMatch,
 } from '../services/waBridge';
 import { WacliError } from '../services/waBridge';
@@ -42,6 +43,8 @@ function currentUser(req: Request): User {
  */
 
 const ONE_TO_ONE_JID = /^\d+@s\.whatsapp\.net$/;
+/** Message types the on-demand raw download serves (images go through /media). */
+const RAW_MEDIA_TYPES = new Set(['audio', 'video', 'document']);
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const REFUSAL_HTTP: Record<string, number> = {
@@ -584,9 +587,12 @@ export class WaBridgeController {
 	};
 
 	/**
-	 * POST /messages/:messageId/raw-media (v1.3): a voice note or document,
-	 * downloaded on demand and returned as a data-URL — the browser plays the
-	 * audio, opens the document, or renders a PDF page to an image.
+	 * POST /messages/:messageId/raw-media (v1.3): a voice note, video (v1.5) or
+	 * document, downloaded on demand and returned as a data-URL. v1.5 (D26):
+	 * the type is verified from the bytes (letters' classifier) and comes with
+	 * a `previewKind` — the browser shows images, PDFs, text, audio and video
+	 * in the app and hands everything else to the system as a download.
+	 * Macros and risky types (HTML, SVG, executables, archives) are refused.
 	 */
 	rawMedia = async (req: Request, res: Response): Promise<Response> => {
 		const message = await AppDataSource.getRepository(WhatsappInboxMessage).findOneBy({
@@ -594,8 +600,8 @@ export class WaBridgeController {
 		});
 		if (!message) return res.status(404).json({ message: 'Mensaje no encontrado' });
 		if (!(await ensureRetreatAccess(req, res, message.retreatId))) return res;
-		if (message.messageType !== 'audio' && message.messageType !== 'document') {
-			return res.status(400).json({ message: 'Este mensaje no trae audio ni documento.' });
+		if (!RAW_MEDIA_TYPES.has(message.messageType)) {
+			return res.status(400).json({ message: 'Este mensaje no trae audio, video ni documento.' });
 		}
 		if (!(await this.visibleChat(req, res, message.retreatId, message.chatPhone))) return res;
 		try {
@@ -605,8 +611,14 @@ export class WaBridgeController {
 				mime: media.mime,
 				fileName: media.fileName,
 				sizeBytes: media.buffer.length,
+				previewKind: media.previewKind,
 			});
 		} catch (err) {
+			if (err instanceof WaMediaRejectedError) {
+				return res
+					.status(err.reason === 'too_large' ? 413 : 415)
+					.json({ message: err.message, reason: err.reason });
+			}
 			console.error('[waBridge][raw-media] download failed:', (err as Error).message);
 			const status = err instanceof WacliError ? 502 : 500;
 			return res.status(status).json({
@@ -656,6 +668,9 @@ export class WaBridgeController {
 		const participantId = String(body.participantId ?? '');
 		const bodyText = typeof body.bodyText === 'string' ? body.bodyText : '';
 		const attachmentRaw = body.attachment as { fileName?: unknown; dataUrl?: unknown } | null;
+		// v1.5: keep the original document (Word, PDF…) with the letter; the
+		// server downloads and verifies it itself — the client never uploads it.
+		const includeDocument = body.includeDocument === true;
 		if (!UUID_RE.test(participantId)) {
 			return res.status(400).json({ message: 'Elige el participante destinatario de la carta.' });
 		}
@@ -679,6 +694,10 @@ export class WaBridgeController {
 		// "Mamá — María (contacto de Juan Pérez)" for an emergency contact.
 		const senderName = senderDisplayName(match, `+${message.chatPhone}`);
 		try {
+			const document =
+				includeDocument && message.messageType === 'document'
+					? await waBridgeService.downloadRawMedia(message)
+					: null;
 			const result = await createLetterFromWhatsapp({
 				message,
 				retreatParticipantId,
@@ -690,6 +709,14 @@ export class WaBridgeController {
 					typeof attachmentRaw.fileName === 'string'
 						? { fileName: attachmentRaw.fileName, dataUrl: attachmentRaw.dataUrl }
 						: null,
+				document: document
+					? {
+							fileName: document.fileName,
+							mimeType: document.mime,
+							buffer: document.buffer,
+							printable: document.previewKind === 'image',
+						}
+					: null,
 				actorUserId: currentUser(req).id,
 			});
 			emitInboxChanged({ retreatId: message.retreatId, newCount: 0 });
@@ -697,6 +724,12 @@ export class WaBridgeController {
 		} catch (err) {
 			if (err instanceof WaLetterError) {
 				return res.status(err.httpStatus).json({ message: err.message });
+			}
+			if (err instanceof WaMediaRejectedError) {
+				return res.status(err.reason === 'too_large' ? 413 : 415).json({ message: err.message });
+			}
+			if (err instanceof WacliError) {
+				return res.status(502).json({ message: `No se pudo descargar el documento: ${err.message}` });
 			}
 			console.error('[waBridge][letter] create failed:', (err as Error).message);
 			return res.status(500).json({ message: 'No se pudo crear la carta. Reintenta.' });

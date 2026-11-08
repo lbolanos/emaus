@@ -24,6 +24,8 @@ export {
 	contactWalkers,
 	primaryParticipantOf,
 	senderDisplayName,
+	classifyRawMedia,
+	WaMediaRejectedError,
 } from './waBridgeService';
 export type {
 	WaLinkWindow,
@@ -31,6 +33,8 @@ export type {
 	WaLinkStartResult,
 	WaSenderMatch,
 	WaSenderKind,
+	WaRawMedia,
+	WaRawPreviewKind,
 } from './waBridgeService';
 export { filterWhitelistedChats, normalizeWacliMessage, jidToDigits } from './waBridgePoller';
 export { parseWacliEventLine, WaBridgeSupervisor } from './waBridgeSupervisor';

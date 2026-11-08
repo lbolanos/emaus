@@ -21,6 +21,12 @@ import { emitLetterReceived } from '../../realtime';
  * Attachments follow the letters rule: only browser-safe images print. A PDF
  * reaches this function already rendered to PNG by the browser (pdf.js), so
  * the server never parses PDFs.
+ *
+ * v1.5 (D26): the letter may also keep the ORIGINAL document (Word, PDF,
+ * PowerPoint…) — families send letters that way. It arrives already
+ * downloaded and verified by the letters' classifier (no macros, no HTML) and
+ * is stored like a mailbox attachment: listed and opened from the folder,
+ * printed only when it is a browser-safe image.
  */
 
 export class WaLetterError extends Error {
@@ -72,7 +78,17 @@ export interface CreateLetterFromWhatsappInput {
 	bodyText: string;
 	senderName: string;
 	attachment?: { fileName: string; dataUrl: string } | null;
+	/** v1.5: the original document, verified server-side (waBridgeService.downloadRawMedia). */
+	document?: { fileName: string; mimeType: string; buffer: Buffer; printable: boolean } | null;
 	actorUserId: string;
+}
+
+interface PendingAttachment {
+	id: string;
+	fileName: string;
+	mimeType: string;
+	buffer: Buffer;
+	printable: boolean;
 }
 
 export async function createLetterFromWhatsapp(
@@ -100,7 +116,7 @@ export async function createLetterFromWhatsapp(
 		throw new WaLetterError(400, 'La carta necesita texto. Escribe al menos una línea.');
 	}
 
-	let attachment: { id: string; fileName: string; mimeType: string; buffer: Buffer } | null = null;
+	const attachments: PendingAttachment[] = [];
 	if (input.attachment) {
 		const buffer = dataUrlToBuffer(input.attachment.dataUrl);
 		if (!buffer || buffer.length === 0) {
@@ -113,20 +129,30 @@ export async function createLetterFromWhatsapp(
 		if (!mimeType) {
 			throw new WaLetterError(400, 'Solo se imprimen imágenes JPG, PNG o WebP.');
 		}
-		attachment = {
+		attachments.push({
 			id: randomUUID(),
 			fileName: input.attachment.fileName.slice(0, 200) || 'whatsapp',
 			mimeType,
 			buffer,
-		};
+			printable: true,
+		});
+	}
+	if (input.document) {
+		attachments.push({
+			id: randomUUID(),
+			fileName: input.document.fileName.slice(0, 200) || 'whatsapp',
+			mimeType: input.document.mimeType,
+			buffer: input.document.buffer,
+			printable: input.document.printable,
+		});
 	}
 
 	// Upload outside the transaction (same accepted risk as ingestLetter: an
 	// orphan private object if the DB insert fails afterwards).
 	const letterId = randomUUID();
-	let stored: { url: string; key: string } | null = null;
-	if (attachment) {
-		stored =
+	const stored: Array<{ url: string; key: string }> = [];
+	for (const attachment of attachments) {
+		stored.push(
 			envConfig.avatar.storage === 's3'
 				? await s3Service.uploadLetterAttachment(
 						letterId,
@@ -138,7 +164,8 @@ export async function createLetterFromWhatsapp(
 				: {
 						url: `data:${attachment.mimeType};base64,${attachment.buffer.toString('base64')}`,
 						key: '',
-					};
+					},
+		);
 	}
 
 	const now = new Date();
@@ -160,17 +187,17 @@ export async function createLetterFromWhatsapp(
 				reviewedById: input.actorUserId,
 			}),
 		);
-		if (attachment && stored) {
+		for (const [index, attachment] of attachments.entries()) {
 			await em.insert(LetterAttachment, {
 				id: attachment.id,
 				letterId,
 				fileName: attachment.fileName,
 				mimeType: attachment.mimeType,
 				sizeBytes: attachment.buffer.length,
-				isBrowserSafeImage: true,
-				storageKey: stored.key,
-				storageUrl: stored.url,
-				sortOrder: 0,
+				isBrowserSafeImage: attachment.printable,
+				storageKey: stored[index].key,
+				storageUrl: stored[index].url,
+				sortOrder: index,
 			});
 		}
 		await em.update(
