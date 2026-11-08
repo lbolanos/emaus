@@ -11,6 +11,17 @@
 import { setupTestDatabase, teardownTestDatabase, clearTestData } from '../test-setup';
 import { TestDataFactory } from '../test-utils/testDataFactory';
 
+// Acceso al retiro (anti-IDOR): el servicio de autorización lee roles por su
+// propia conexión, que la DB de test no trae; se simula con la regla real
+// —solo el revisor de ESTE retiro tiene acceso— y se verifica que el servicio
+// la consulta con el retiro del claim/carta.
+jest.mock('@/middleware/authorization', () => {
+	const actual = jest.requireActual('@/middleware/authorization');
+	return {
+		...actual,
+		authorizationService: { ...actual.authorizationService, hasRetreatAccess: jest.fn() },
+	};
+});
 jest.mock('@/services/domainAuditService', () => {
 	const actual = jest.requireActual('@/services/domainAuditService');
 	return {
@@ -41,6 +52,8 @@ import {
 	createPaymentFromLetter,
 	getReceiptLinks,
 	markReceiptLinkShared,
+	getLetterReceiptPhoto,
+	attachLetterToPayment,
 	PaymentClaimError,
 } from '@/services/paymentReceiptClaimService';
 import {
@@ -76,18 +89,10 @@ describe('paymentReceiptClaimService (integration)', () => {
 		participant = await TestDataFactory.createTestParticipant(retreat.id, { type: 'walker' } as any);
 		const user = await TestDataFactory.createTestUser();
 		userId = user.id;
-		// Acceso del revisor al retiro: hasRetreatAccess lo exige en apply/dismiss
-		// (anti-IDOR) y los tests del servicio lo ejercitan con acceso real. El
-		// rol va creado por factory: la DB de test enforcea FKs (roleId=1 no existe).
-		const role = await TestDataFactory.createTestRole();
-		await getDS()
-			.getRepository(await import('@/entities/userRetreat.entity').then((m) => m.UserRetreat))
-			.save({
-				userId: user.id,
-				retreatId: retreat.id,
-				roleId: role.id,
-				status: 'active',
-			} as any);
+		const { authorizationService } = await import('@/middleware/authorization');
+		(authorizationService.hasRetreatAccess as jest.Mock).mockImplementation(
+			async (uid: string, rid: string) => uid === userId && rid === retreat.id,
+		);
 	});
 
 	const tokenFor = (participantId = participant.id): string =>
@@ -163,6 +168,119 @@ describe('paymentReceiptClaimService (integration)', () => {
 		await dismissReceiptClaim(claimId, userId);
 		const claim = await getDS().getRepository(PaymentReceiptClaim).findOneByOrFail({ id: claimId });
 		expect(claim.status).toBe('dismissed');
+	});
+
+	describe('formulario de pago estándar desde una carta', () => {
+		const letterWithPhoto = async (over: Record<string, unknown> = {}, withPhoto = true) => {
+			const rp = (
+				await getDS().query(
+					`SELECT "id" FROM "retreat_participants" WHERE "participantId" = ? LIMIT 1`,
+					[participant.id],
+				)
+			)[0];
+			const letter = await getDS().getRepository(Letter).save({
+				retreatId: retreat.id, retreatParticipantId: rp.id, fromEmail: 'familia@ejemplo.com',
+				bodyText: 'Va el comprobante', status: 'pending', receivedAt: new Date(), ...over,
+			});
+			if (withPhoto) {
+				await getDS()
+					.getRepository(await import('@/entities/letterAttachment.entity').then((m) => m.LetterAttachment))
+					.save({
+						letterId: letter.id, fileName: 'transferencia.jpg', mimeType: 'image/jpeg', sizeBytes: 1000,
+						isBrowserSafeImage: true, storageKey: '', storageUrl: PHOTO, sortOrder: 0,
+					});
+			}
+			return letter;
+		};
+		const paymentFor = async (pid = participant.id) => {
+			const { claimId } = await submitReceiptClaim(tokenFor(pid), { photo: PHOTO });
+			return (await applyReceiptClaim(claimId, { amount: 500 }, userId)).paymentId;
+		};
+
+		it('photo: devuelve la foto como data-URL y el caminante, para abrir el formulario', async () => {
+			const letter = await letterWithPhoto();
+			const result = await getLetterReceiptPhoto(letter.id, userId);
+			expect(result.dataUrl).toBe(PHOTO);
+			expect(result.participantId).toBe(participant.id);
+			expect(result.fileName).toBe('transferencia.jpg');
+		});
+
+		it('photo: carta sin foto → 400; carta oculta → 409; otro retiro → 403', async () => {
+			const noPhoto = await letterWithPhoto({}, false);
+			await expect(getLetterReceiptPhoto(noPhoto.id, userId)).rejects.toMatchObject({ code: 'no_photo' });
+			const hidden = await letterWithPhoto({ status: 'hidden' });
+			await expect(getLetterReceiptPhoto(hidden.id, userId)).rejects.toMatchObject({ httpStatus: 409 });
+			const other = (await TestDataFactory.createTestUser()).id;
+			await expect(getLetterReceiptPhoto(hidden.id, other)).rejects.toMatchObject({ httpStatus: 403 });
+		});
+
+		it('attach: sella la carta attached con un pago del mismo caminante', async () => {
+			const letter = await letterWithPhoto({ status: 'approved' });
+			const paymentId = await paymentFor();
+			await attachLetterToPayment(letter.id, paymentId, userId);
+			const sealed = await getDS().getRepository(Letter).findOneByOrFail({ id: letter.id });
+			expect(sealed.status).toBe('attached');
+		});
+
+		it('attach: un pago de OTRO caminante no sella la carta (404)', async () => {
+			const letter = await letterWithPhoto();
+			const other = await TestDataFactory.createTestParticipant(retreat.id, { type: 'walker' } as any);
+			const paymentId = await paymentFor(other.id);
+			await expect(attachLetterToPayment(letter.id, paymentId, userId)).rejects.toMatchObject({
+				code: 'invalid_participant',
+				httpStatus: 404,
+			});
+			const still = await getDS().getRepository(Letter).findOneByOrFail({ id: letter.id });
+			expect(still.status).toBe('pending');
+		});
+	});
+
+	describe('anti-IDOR: el permiso de pagos no basta, hace falta acceso al retiro', () => {
+		// Un coordinador de OTRO retiro: usuario real, sin user_retreat en éste.
+		const outsider = async () => (await TestDataFactory.createTestUser()).id;
+
+		it('aplicar un comprobante de otro retiro → 403 y no crea pago', async () => {
+			const { claimId } = await submitReceiptClaim(tokenFor(participant.id), { photo: PHOTO });
+			const intruder = await outsider();
+			// clearTestData no vacía payments: se compara antes/después.
+			const paymentsBefore = await getDS().getRepository(Payment).count();
+			await expect(applyReceiptClaim(claimId, { amount: 100 }, intruder)).rejects.toMatchObject({
+				code: 'no_access',
+				httpStatus: 403,
+			});
+			// Se consultó el acceso al retiro DEL CLAIM (no a otro).
+			const { authorizationService } = await import('@/middleware/authorization');
+			expect(authorizationService.hasRetreatAccess).toHaveBeenCalledWith(intruder, retreat.id);
+			expect(await getDS().getRepository(Payment).count()).toBe(paymentsBefore);
+			const claim = await getDS().getRepository(PaymentReceiptClaim).findOneByOrFail({ id: claimId });
+			expect(claim.status).toBe('pending');
+		});
+
+		it('descartar un comprobante de otro retiro → 403 y sigue pendiente', async () => {
+			const { claimId } = await submitReceiptClaim(tokenFor(participant.id), { photo: PHOTO });
+			await expect(dismissReceiptClaim(claimId, await outsider())).rejects.toMatchObject({
+				code: 'no_access',
+				httpStatus: 403,
+			});
+			const claim = await getDS().getRepository(PaymentReceiptClaim).findOneByOrFail({ id: claimId });
+			expect(claim.status).toBe('pending');
+		});
+
+		it('pago desde una carta de otro retiro → 403', async () => {
+			const rp = (
+				await getDS().query(
+					`SELECT "id" FROM "retreat_participants" WHERE "participantId" = ? LIMIT 1`,
+					[participant.id],
+				)
+			)[0];
+			const letter = await getDS().getRepository(Letter).save({
+				retreatId: retreat.id, retreatParticipantId: rp.id, fromEmail: 'familia@ejemplo.com',
+				bodyText: 'Comprobante', status: 'pending', receivedAt: new Date(),
+			});
+			await expect(
+				createPaymentFromLetter(letter.id, { amount: 100 }, await outsider()),
+			).rejects.toMatchObject({ code: 'no_access', httpStatus: 403 });
+		});
 	});
 
 	it('getReceiptLinks trae link y sharedAt null; markReceiptLinkShared lo sella (mejora 9)', async () => {

@@ -46,6 +46,7 @@ import {
 	getMailboxesHandler,
 	getFoldersHandler,
 	getPrintBatchHandler,
+	unmarkPrintedHandler,
 } from '@/controllers/letterController';
 
 const getDS = () => (TestDataFactory as any)['testDataSource'];
@@ -224,6 +225,66 @@ describe('letterController (integration)', () => {
 			const row = res.body.mailboxes[0];
 			expect(row.mailboxAddress).toBe(`carta.${row.mailboxCode}@emaus.cc`);
 			expect(row.letterCounts).toEqual({ pending: 1, approved: 0, hidden: 0 });
+		});
+	});
+
+	describe('quitar la marca de impresa', () => {
+		const approveAndPrint = async (id: string) => {
+			await reviewLetterHandler(fakeReq({ params: { id }, body: { status: 'approved' } }), mockRes());
+			await markPrintedHandler(
+				fakeReq({ params: { retreatId: retreat.id }, body: { letterIds: [id], batchId: uuidv4() } }),
+				mockRes(),
+			);
+		};
+		const unmark = async (body: Record<string, unknown>, retreatId = retreat.id) => {
+			const res = mockRes();
+			await unmarkPrintedHandler(fakeReq({ params: { retreatId }, body }), res);
+			return res;
+		};
+
+		it('por carta: limpia printedAt y printedBatchId y lo audita', async () => {
+			await approveAndPrint(letterId);
+			const res = await unmark({ letterIds: [letterId] });
+			expect(res.body.unmarked).toBe(1);
+			const letter = await getDS().getRepository(Letter).findOneByOrFail({ id: letterId });
+			expect(letter.printedAt).toBeNull();
+			expect(letter.printedBatchId).toBeNull();
+			expect(domainAuditService.log).toHaveBeenCalledWith(
+				expect.objectContaining({ action: 'letter.print_unmark', metadata: expect.objectContaining({ count: 1 }) }),
+			);
+		});
+
+		it('por carpeta: todas las impresas de ese participante', async () => {
+			await approveAndPrint(letterId);
+			const rp = await getDS().getRepository(Letter).findOneByOrFail({ id: letterId });
+			const second = await getDS().getRepository(Letter).save({
+				retreatId: retreat.id, retreatParticipantId: rp.retreatParticipantId, fromEmail: 'tia@ejemplo.com',
+				bodyText: 'Segunda', status: 'pending', receivedAt: new Date(),
+			});
+			await approveAndPrint(second.id);
+			const participantId = (
+				await getDS().query(`SELECT "participantId" FROM "retreat_participants" WHERE "id" = ?`, [
+					rp.retreatParticipantId,
+				])
+			)[0].participantId;
+
+			const res = await unmark({ participantIds: [participantId] });
+			expect(res.body.unmarked).toBe(2);
+		});
+
+		it('acotado al retiro: una carta de otro retiro no se toca (anti-IDOR)', async () => {
+			await approveAndPrint(letterId);
+			const otherRetreat = await TestDataFactory.createTestRetreat();
+			const res = await unmark({ letterIds: [letterId] }, otherRetreat.id);
+			expect(res.body.unmarked).toBe(0);
+			const letter = await getDS().getRepository(Letter).findOneByOrFail({ id: letterId });
+			expect(letter.printedAt).toBeTruthy();
+		});
+
+		it('schema: exige letterIds o participantIds', async () => {
+			const { UnmarkLettersPrintedSchema } = await import('@repo/types');
+			const parsed = UnmarkLettersPrintedSchema.safeParse({ params: { retreatId: retreat.id }, body: {} });
+			expect(parsed.success).toBe(false);
 		});
 	});
 

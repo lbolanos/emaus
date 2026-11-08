@@ -8,6 +8,7 @@ import {
 	MarkLetterMailboxSharedSchema,
 	MarkLettersPrintedSchema,
 	PrintBatchQuerySchema,
+	UnmarkLettersPrintedSchema,
 	ReviewLetterSchema,
 	UpdateLetterMailboxSchema,
 } from '@repo/types';
@@ -23,6 +24,7 @@ import {
 	markPrintedHandler,
 	reviewLetterHandler,
 	toggleMailboxHandler,
+	unmarkPrintedHandler,
 } from '../controllers/letterController';
 
 /**
@@ -92,6 +94,14 @@ router.post(
 	requireRetreatAccess('retreatId'),
 	validateRequest(MarkLettersPrintedSchema),
 	markPrintedHandler,
+);
+router.post(
+	'/retreats/:retreatId/letters/print-unmark',
+	isAuthenticated,
+	requirePermission('letter:print'),
+	requireRetreatAccess('retreatId'),
+	validateRequest(UnmarkLettersPrintedSchema),
+	unmarkPrintedHandler,
 );
 router.get(
 	'/retreats/:retreatId/letters/print-batch',

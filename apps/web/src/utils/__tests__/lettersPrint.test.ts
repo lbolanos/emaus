@@ -46,13 +46,21 @@ const entry = (over: Partial<LetterPrintBatchEntry> = {}): LetterPrintBatchEntry
 });
 
 describe('lettersPrint', () => {
-	it('arma una sección por participante con su encabezado y page-break entre participantes', () => {
-		const html = buildLettersBodyHtml([entry(), entry({ retreatParticipantId: 'rp2', participantName: 'Ana' })]);
-		expect(html).toContain('Juan Pérez');
-		expect(html).toContain('Ana');
-		expect(html).toContain('Mesa 3');
-		// Una hoja-tabla por participante; del 2º en adelante empieza en hoja nueva.
-		expect((html.match(/<table class="letter-sheet">/g) || []).length).toBe(2);
+	it('en papel va SOLO el cuerpo: sin caminante, mesa, remitente, correo, fecha ni asunto', () => {
+		const html = buildLettersBodyHtml([entry()]);
+		expect(html).toContain('Hola Juan');
+		const body = html.slice(html.indexOf('</style>'));
+		for (const metadata of ['Juan Pérez', 'Mesa 3', 'De:', 'familia@ejemplo.com', 'María', 'Para Juan']) {
+			expect(body).not.toContain(metadata);
+		}
+	});
+
+	it('una hoja por carta, del 2º caminante en adelante también en hoja nueva', () => {
+		const html = buildLettersBodyHtml([
+			entry({ letters: [letter(), letter({ id: 'l2', bodyText: 'Segunda' })] }),
+			entry({ retreatParticipantId: 'rp2', participantName: 'Ana' }),
+		]);
+		expect((html.match(/<table class="letter-sheet">/g) || []).length).toBe(3);
 		expect(html).toContain('.letter-sheet + .letter-sheet { break-before: page; }');
 	});
 
@@ -63,7 +71,7 @@ describe('lettersPrint', () => {
 		expect(con).toContain('class="letter-cover"');
 		expect(con).toContain('letter-cover-name">Juan Pérez<');
 		expect(con).toMatch(/letter-cover-count">1 carta</);
-		// Carátula y cartas son hojas aparte: 2 tablas por participante.
+		// Carátula y carta son hojas aparte.
 		expect((con.match(/<table class="letter-sheet">/g) || []).length).toBe(2);
 	});
 
@@ -84,7 +92,7 @@ describe('lettersPrint', () => {
 		expect(html).toContain('&lt;script&gt;');
 	});
 
-	it('inlinea imágenes browser-safe y deja placeholder para HEIC/PDF', () => {
+	it('inlinea las fotos imprimibles; una HEIC no sale en papel (el aviso queda en pantalla)', () => {
 		const html = buildLettersBodyHtml([
 			entry({
 				letters: [
@@ -98,8 +106,8 @@ describe('lettersPrint', () => {
 			}),
 		]);
 		expect(html).toContain('<img src="https://bucket/signed-url"');
-		expect(html).toContain('formato no imprimible');
-		expect(html).toContain('retrato.heic');
+		expect(html).not.toContain('formato no imprimible');
+		expect(html).not.toContain('retrato.heic');
 	});
 
 	it('incluye solo los datos que el caller pasa: no filtra approved (eso lo hace el API)', () => {
@@ -107,11 +115,11 @@ describe('lettersPrint', () => {
 		expect(html).toContain('Hola Juan');
 	});
 
-	it('muestra avisos (warnings) del ingest dentro de la carta', () => {
+	it('los avisos internos del ingest no salen en papel', () => {
 		const html = buildLettersBodyHtml([
 			entry({ letters: [letter({ warnings: ['Adjunto "raro.exe" descartado: formato no soportado'] })] }),
 		]);
-		expect(html).toContain('raro.exe');
+		expect(html).not.toContain('raro.exe');
 	});
 
 	it('vacío: mensaje claro sin secciones', () => {

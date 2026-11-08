@@ -234,7 +234,8 @@
         "review": "Revisión de carta (aprobar/ocultar)",
         "print_mark": "Lote de cartas marcado como impreso",
         "mailbox_toggle": "Buzón de cartas activado/desactivado",
-        "mailbox_mark_shared": "Dirección de buzón marcada como enviada a la familia"
+        "mailbox_mark_shared": "Dirección de buzón marcada como enviada a la familia",
+        "print_unmark": "Marca de impresa quitada a cartas"
       }
     },
     "resources": {
@@ -4741,7 +4742,14 @@
       "notPrinted": "No, no marcar",
       "yesMark": "Sí, marcar {count} como impresas",
       "markError": "No se pudieron marcar las cartas como impresas",
-      "palanquero": "Carpetas del palanquero ({count})"
+      "palanquero": "Carpetas del palanquero ({count})",
+      "unprinted": "Solo las no impresas ({count}) — {scope}",
+      "unprintedTitle": "No impresas — {scope}",
+      "wholeRetreat": "todo el retiro",
+      "unmarkLetter": "Quitar marca de impresa",
+      "unmarkedTitle": "Marca de impresa quitada a {count} carta(s)",
+      "unmarkError": "No se pudo quitar la marca de impresa",
+      "sessionExpired": "Tu sesión se cerró: vuelve a iniciar sesión."
     },
     "activateDone": {
       "doneTitle": "Buzones activados",
@@ -4782,7 +4790,21 @@
         "complete": "✓ Completa",
         "unprinted": "Faltan {count}",
         "review": "{count} por revisar"
-      }
+      },
+      "unmarkFolder": "Marcar la carpeta como no impresa",
+      "openLetters": "Ver las cartas de {name}"
+    },
+    "backToFolders": "Volver a Carpetas",
+    "participantSummary": "{total} cartas · {printed} impresas · {pending} por revisar",
+    "emptyFiltered": "No hay cartas con estos filtros.",
+    "chips": {
+      "status": "Estado: {value}",
+      "table": "Mesa: {value}",
+      "palanquero": "Palanquero: {value}",
+      "participant": "Caminante: {value}",
+      "search": "Búsqueda: «{value}»",
+      "remove": "Quitar filtro {label}",
+      "clearAll": "Limpiar filtros"
     }
   },
   "paymentClaims": {

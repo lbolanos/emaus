@@ -141,6 +141,37 @@ export async function dismissReceiptClaimHandler(req: Request, res: Response) {
 }
 
 /** POST /payments/from-letter/:letterId — registra el adjunto foto de una carta. */
+/** GET /payments/from-letter/:letterId/photo — foto de la carta para el formulario. */
+export async function getLetterReceiptPhotoHandler(req: Request, res: Response) {
+	try {
+		const userId = (req as any).user?.id;
+		const { getLetterReceiptPhoto } = await import('../services/paymentReceiptClaimService');
+		res.json(await getLetterReceiptPhoto(req.params.letterId, userId));
+	} catch (error) {
+		if (error instanceof PaymentClaimError) {
+			return res.status(error.httpStatus).json({ error: error.code, message: error.message });
+		}
+		console.error('getLetterReceiptPhoto error:', error);
+		res.status(500).json({ message: 'Error al leer la foto de la carta' });
+	}
+}
+
+/** POST /payments/from-letter/:letterId/attach — sella la carta con el pago creado. */
+export async function attachLetterToPaymentHandler(req: Request, res: Response) {
+	try {
+		const userId = (req as any).user?.id;
+		const { attachLetterToPayment } = await import('../services/paymentReceiptClaimService');
+		await attachLetterToPayment(req.params.letterId, req.body.paymentId, userId);
+		res.json({ status: 'attached' });
+	} catch (error) {
+		if (error instanceof PaymentClaimError) {
+			return res.status(error.httpStatus).json({ error: error.code, message: error.message });
+		}
+		console.error('attachLetterToPayment error:', error);
+		res.status(500).json({ message: 'Error al asociar la carta al pago' });
+	}
+}
+
 export async function createPaymentFromLetterHandler(req: Request, res: Response) {
 	try {
 		const userId = (req as any).user?.id;

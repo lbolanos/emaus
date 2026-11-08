@@ -16,9 +16,20 @@ const api = vi.hoisted(() => ({
 		getLetter: vi.fn(),
 		reviewLetter: vi.fn(),
 		markPrinted: vi.fn(),
+		unmarkPrinted: vi.fn(),
 		getPrintBatch: vi.fn(),
 		getFolders: vi.fn(),
 	},
+}));
+
+// Ruta controlable: los filtros viajan en la URL (vista/palanquero/caminante).
+const nav = vi.hoisted(() => ({
+	route: { params: { id: 'r1' } as Record<string, string>, query: {} as Record<string, string> },
+	replace: vi.fn(),
+}));
+vi.mock('vue-router', () => ({
+	useRoute: () => nav.route,
+	useRouter: () => ({ replace: nav.replace, push: vi.fn() }),
 }));
 
 // Socket de prueba: captura los handlers para disparar realtime en el test.
@@ -95,6 +106,10 @@ describe('LettersView', () => {
 		setActivePinia(createPinia());
 		vi.clearAllMocks();
 		socketHandlers.clear();
+		// El último palanquero elegido se recuerda por retiro: aislar cada caso.
+		localStorage.clear();
+		nav.route.query = {};
+		api.lettersApi.unmarkPrinted.mockResolvedValue({ unmarked: 1 });
 		api.lettersApi.listLetters.mockResolvedValue(inbox([letter()]));
 		api.lettersApi.getMailboxes.mockResolvedValue([]);
 		api.lettersApi.getPrintBatch.mockResolvedValue([]);
@@ -240,12 +255,35 @@ describe('LettersView', () => {
 		expect(api.lettersApi.markPrinted).not.toHaveBeenCalled();
 	});
 
-	it('imprimir por mesa sin mesa elegida no llama al API', async () => {
+	it('imprimir por mesa solo se ofrece con una mesa elegida', async () => {
 		const wrapper = await mountView();
-		const printTableBtn = wrapper.findAll('[role="menuitem"]').find((b) => b.text().includes('letters.print.table'));
-		await printTableBtn!.trigger('click');
+		const printTableItem = wrapper
+			.findAll('[role="menuitem"]')
+			.find((b) => b.text().includes('letters.print.table'));
+		expect(printTableItem).toBeUndefined();
+	});
+
+	it('el detalle de una carta ya no repite las acciones del ⋮ (aprobar, ocultar, copiar)', async () => {
+		const wrapper = await mountView();
+		await wrapper.find('.cursor-pointer').trigger('click');
 		await flushPromises();
-		expect(api.lettersApi.getPrintBatch).not.toHaveBeenCalled();
+		// Las acciones están una sola vez: en el ⋮ (menuitem), no como botones.
+		const buttons = wrapper.findAll('button').map((b) => b.text());
+		expect(buttons.some((t) => t.includes('letters.review.approve'))).toBe(false);
+		expect(buttons.some((t) => t.includes('letters.copyAddress'))).toBe(false);
+	});
+
+	it('una carta oculta se puede volver a aprobar desde el ⋮', async () => {
+		api.lettersApi.listLetters.mockResolvedValue(inbox([letter({ status: 'hidden' })]));
+		api.lettersApi.reviewLetter.mockResolvedValue({ ...letter(), status: 'approved' });
+		const wrapper = await mountView();
+		const approve = wrapper
+			.findAll('[role="menuitem"]')
+			.find((i) => i.text().includes('letters.review.approve'));
+		expect(approve).toBeTruthy();
+		await approve!.trigger('click');
+		await flushPromises();
+		expect(api.lettersApi.reviewLetter).toHaveBeenCalledWith('l1', 'approved');
 	});
 
 	it('selección granular: checkbox → Imprimir seleccionadas usa scope participant (mejora 15)', async () => {
@@ -274,9 +312,6 @@ describe('LettersView', () => {
 		// El alcance vive en el menú «Imprimir ▾»; deferOpen abre el preview con
 		// timers reales (80+50ms), así que esperamos de verdad. Con el stub del
 		// setup, el item está en el wrapper y su click nativo emite `select`.
-		const menuBtn = wrapper.findAll('button').find((b) => b.text().includes('letters.print.menu'));
-		expect(menuBtn).toBeTruthy();
-
 		const item = wrapper
 			.findAll('[role="menuitem"]')
 			.find((i) => i.text().includes('letters.print.selection'));
@@ -513,6 +548,158 @@ describe('LettersView', () => {
 		expect(api.lettersApi.getPrintBatch).toHaveBeenCalledWith('r1', 'participant', {
 			tableId: undefined,
 			participantIds: ['p2'],
+			onlyUnprinted: true,
+		});
+	});
+
+	it('click en una carpeta abre sus cartas; «Volver a Carpetas» regresa y resalta la fila', async () => {
+		api.lettersApi.getFolders.mockResolvedValue(foldersByPalanquero());
+		const wrapper = await mountView();
+		await wrapper.find('[data-testid="view-folders"]').trigger('click');
+		await flushPromises();
+
+		await wrapper.findAll('[data-testid="folder-row"]')[1].trigger('click');
+		await flushPromises();
+		expect(api.lettersApi.listLetters).toHaveBeenLastCalledWith(
+			'r1',
+			expect.objectContaining({ participantId: 'p2' }),
+		);
+		const header = wrapper.find('[data-testid="participant-header"]');
+		expect(header.text()).toContain('Rosa Díaz');
+
+		await wrapper.find('[data-testid="back-to-folders"]').trigger('click');
+		await flushPromises();
+		expect(wrapper.find('[data-testid="participant-header"]').exists()).toBe(false);
+		const rows = wrapper.findAll('[data-testid="folder-row"]');
+		expect(rows[1].classes()).toContain('ring-2');
+		expect(api.lettersApi.listLetters).toHaveBeenLastCalledWith(
+			'r1',
+			expect.objectContaining({ participantId: undefined }),
+		);
+	});
+
+	it('una carpeta sin cartas no es clicable', async () => {
+		api.lettersApi.getFolders.mockResolvedValue([folder()]);
+		const wrapper = await mountView();
+		await wrapper.find('[data-testid="view-folders"]').trigger('click');
+		await flushPromises();
+		api.lettersApi.listLetters.mockClear();
+		const row = wrapper.find('[data-testid="folder-row"]');
+		expect(row.attributes('role')).toBeUndefined();
+		await row.trigger('click');
+		await flushPromises();
+		expect(api.lettersApi.listLetters).not.toHaveBeenCalled();
+	});
+
+	it('filtros activos: etiqueta con ✕ por filtro y «Limpiar filtros»', async () => {
+		api.getPalanqueroOptions.mockResolvedValue(palanqueros);
+		api.lettersApi.getFolders.mockResolvedValue(foldersByPalanquero());
+		const wrapper = await mountView();
+		expect(wrapper.find('[data-testid="active-filters"]').exists()).toBe(false);
+
+		await wrapper.find('[data-testid="palanquero-filter"]').setValue('Palanquero 1');
+		await flushPromises();
+		const pendingChip = wrapper.findAll('button').find((b) => b.text().includes('letters.status.pending'));
+		await pendingChip!.trigger('click');
+		await flushPromises();
+		expect(wrapper.find('[data-testid="chip-clear-palanquero"]').exists()).toBe(true);
+		expect(wrapper.find('[data-testid="chip-clear-status"]').exists()).toBe(true);
+
+		await wrapper.find('[data-testid="chip-clear-status"]').trigger('click');
+		await flushPromises();
+		expect(api.lettersApi.listLetters).toHaveBeenLastCalledWith(
+			'r1',
+			expect.objectContaining({ status: '', palanquero: 'Palanquero 1' }),
+		);
+
+		await pendingChip!.trigger('click');
+		await flushPromises();
+		await wrapper.find('[data-testid="clear-all-filters"]').trigger('click');
+		await flushPromises();
+		expect(api.lettersApi.listLetters).toHaveBeenLastCalledWith(
+			'r1',
+			expect.objectContaining({ status: '', palanquero: undefined }),
+		);
+		expect(wrapper.find('[data-testid="active-filters"]').exists()).toBe(false);
+	});
+
+	it('vacío por filtros: dice que es por los filtros y ofrece limpiarlos', async () => {
+		api.lettersApi.listLetters.mockResolvedValue(inbox([]));
+		const wrapper = await mountView();
+		const pendingChip = wrapper.findAll('button').find((b) => b.text().includes('letters.status.pending'));
+		await pendingChip!.trigger('click');
+		await flushPromises();
+		expect(wrapper.text()).toContain('letters.emptyFiltered');
+		expect(wrapper.text()).not.toContain('letters.empty ');
+	});
+
+	it('URL: abre en Carpetas con el palanquero del enlace, y escribe los filtros al cambiarlos', async () => {
+		nav.route.query = { vista: 'carpetas', palanquero: 'Palanquero 2' };
+		api.getPalanqueroOptions.mockResolvedValue(palanqueros);
+		api.lettersApi.getFolders.mockResolvedValue(foldersByPalanquero());
+		const wrapper = await mountView();
+		const rows = wrapper.findAll('[data-testid="folder-row"]');
+		expect(rows).toHaveLength(1);
+		expect(rows[0].text()).toContain('Rosa Díaz');
+		expect(api.lettersApi.listLetters).toHaveBeenCalledWith(
+			'r1',
+			expect.objectContaining({ palanquero: 'Palanquero 2' }),
+		);
+
+		await wrapper.find('[data-testid="view-inbox"]').trigger('click');
+		await flushPromises();
+		expect(nav.replace).toHaveBeenLastCalledWith({ query: { palanquero: 'Palanquero 2' } });
+	});
+
+	it('el último palanquero elegido se recuerda en el retiro', async () => {
+		localStorage.setItem('letters.palanquero.r1', 'Palanquero 1');
+		await mountView();
+		expect(api.lettersApi.listLetters).toHaveBeenCalledWith(
+			'r1',
+			expect.objectContaining({ palanquero: 'Palanquero 1' }),
+		);
+	});
+
+	it('quitar la marca de impresa: desde la carta y desde la carpeta', async () => {
+		api.lettersApi.listLetters.mockResolvedValue(
+			inbox([letter({ status: 'approved', printedAt: '2026-11-07T10:00:00Z' })]),
+		);
+		api.lettersApi.getFolders.mockResolvedValue([
+			folder({ counts: { pending: 0, approved: 1, hidden: 0, attached: 0 }, printed: 1 }),
+		]);
+		const wrapper = await mountView();
+		const fromLetter = wrapper
+			.findAll('[role="menuitem"]')
+			.find((i) => i.text().includes('letters.print.unmarkLetter'));
+		await fromLetter!.trigger('click');
+		await flushPromises();
+		expect(api.lettersApi.unmarkPrinted).toHaveBeenCalledWith('r1', { letterIds: ['l1'] });
+
+		const fromFolder = wrapper
+			.findAll('[role="menuitem"]')
+			.find((i) => i.text().includes('letters.folders.unmarkFolder'));
+		await fromFolder!.trigger('click');
+		await flushPromises();
+		expect(api.lettersApi.unmarkPrinted).toHaveBeenLastCalledWith('r1', { participantIds: ['p1'] });
+	});
+
+	it('«Solo las no impresas»: toma el alcance del filtro (palanquero) y pide onlyUnprinted', async () => {
+		api.getPalanqueroOptions.mockResolvedValue(palanqueros);
+		api.lettersApi.getFolders.mockResolvedValue(foldersByPalanquero());
+		api.lettersApi.getPrintBatch.mockResolvedValue(batch);
+		const wrapper = await mountView();
+		const sinFiltro = wrapper.find('[data-testid="print-unprinted"]');
+		// Retiro entero: 2 + 1 + 1 aprobadas sin imprimir.
+		expect(sinFiltro.text()).toContain('letters.print.unprinted');
+
+		await wrapper.find('[data-testid="palanquero-filter"]').setValue('Palanquero 1');
+		await flushPromises();
+		await wrapper.find('[data-testid="print-unprinted"]').trigger('click');
+		await new Promise((r) => setTimeout(r, 250));
+		await flushPromises();
+		expect(api.lettersApi.getPrintBatch).toHaveBeenCalledWith('r1', 'participant', {
+			tableId: undefined,
+			participantIds: ['p1', 'p3'],
 			onlyUnprinted: true,
 		});
 	});

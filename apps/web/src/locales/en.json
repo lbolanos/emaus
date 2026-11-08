@@ -234,7 +234,8 @@
         "review": "Letter review (approve/hide)",
         "print_mark": "Letter batch marked as printed",
         "mailbox_toggle": "Letter mailbox enabled/disabled",
-        "mailbox_mark_shared": "Mailbox address marked as sent to the family"
+        "mailbox_mark_shared": "Mailbox address marked as sent to the family",
+        "print_unmark": "Printed mark removed from letters"
       }
     },
     "resources": {
@@ -4419,7 +4420,14 @@
       "notPrinted": "No, do not mark",
       "yesMark": "Yes, mark {count} as printed",
       "markError": "Could not mark the letters as printed",
-      "palanquero": "Palanquero's folders ({count})"
+      "palanquero": "Palanquero's folders ({count})",
+      "unprinted": "Only unprinted ({count}) — {scope}",
+      "unprintedTitle": "Unprinted — {scope}",
+      "wholeRetreat": "whole retreat",
+      "unmarkLetter": "Remove printed mark",
+      "unmarkedTitle": "Printed mark removed from {count} letter(s)",
+      "unmarkError": "Could not remove the printed mark",
+      "sessionExpired": "Your session ended: please sign in again."
     },
     "activateDone": {
       "doneTitle": "Mailboxes activated",
@@ -4460,7 +4468,21 @@
         "complete": "✓ Complete",
         "unprinted": "{count} missing",
         "review": "{count} to review"
-      }
+      },
+      "unmarkFolder": "Mark folder as not printed",
+      "openLetters": "View letters of {name}"
+    },
+    "backToFolders": "Back to Folders",
+    "participantSummary": "{total} letters · {printed} printed · {pending} to review",
+    "emptyFiltered": "No letters match these filters.",
+    "chips": {
+      "status": "Status: {value}",
+      "table": "Table: {value}",
+      "palanquero": "Palanquero: {value}",
+      "participant": "Participant: {value}",
+      "search": "Search: “{value}”",
+      "remove": "Remove filter {label}",
+      "clearAll": "Clear filters"
     }
   },
   "paymentClaims": {

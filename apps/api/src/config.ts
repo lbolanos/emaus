@@ -61,6 +61,11 @@ export const config = {
 	session: {
 		secret: process.env.SESSION_SECRET || crypto.randomBytes(64).toString('hex'),
 		cookieDomain: process.env.COOKIE_DOMAIN,
+		// Nombre de la cookie. En dev, el main y cada worktree corren en
+		// localhost y el navegador no separa cookies por puerto: con el mismo
+		// nombre se pisaban la sesión (401 al alternar). El script de arranque
+		// del worktree pone uno propio; prod usa el de siempre.
+		cookieName: process.env.SESSION_COOKIE_NAME || 'emaus.sid',
 		// Ventana de inactividad en días (rolling): la sesión expira si no hay
 		// actividad en este lapso. Se renueva en cada request. Configurable.
 		maxAgeDays: parseDaysEnv(process.env.SESSION_MAX_AGE_DAYS, 30, 365),

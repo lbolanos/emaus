@@ -305,6 +305,10 @@ vi.mock('@repo/ui', () => ({
 		name: 'DropdownMenuSeparator',
 		template: '<hr />',
 	},
+	DropdownMenuLabel: {
+		name: 'DropdownMenuLabel',
+		template: '<div><slot /></div>',
+	},
 	DialogHeader: {
 		name: 'DialogHeader',
 		template: '<div><slot /></div>',

@@ -7,6 +7,8 @@ import {
 	ApplyPaymentReceiptClaimSchema,
 	DismissPaymentReceiptClaimSchema,
 	PaymentFromLetterSchema,
+	LetterReceiptPhotoSchema,
+	AttachLetterToPaymentSchema,
 } from '@repo/types';
 import { PaymentController } from '../controllers/paymentController';
 import {
@@ -18,6 +20,8 @@ import {
 	applyReceiptClaimHandler,
 	dismissReceiptClaimHandler,
 	createPaymentFromLetterHandler,
+	getLetterReceiptPhotoHandler,
+	attachLetterToPaymentHandler,
 } from '../controllers/paymentReceiptClaimController';
 import { isAuthenticated } from '../middleware/authentication';
 import { validateRequest } from '../middleware/validateRequest';
@@ -88,6 +92,21 @@ router.post(
 	requirePermission('payment:create'),
 	validateRequest(PaymentFromLetterSchema),
 	createPaymentFromLetterHandler,
+);
+// Formulario de pago estándar desde una carta: la foto (data-URL desde el
+// servidor) y, al guardar, sellar la carta con ese pago. El acceso al retiro
+// de la carta lo valida el servicio (recurso más específico).
+router.get(
+	'/from-letter/:letterId/photo',
+	requirePermission('payment:create'),
+	validateRequest(LetterReceiptPhotoSchema),
+	getLetterReceiptPhotoHandler,
+);
+router.post(
+	'/from-letter/:letterId/attach',
+	requirePermission('payment:create'),
+	validateRequest(AttachLetterToPaymentSchema),
+	attachLetterToPaymentHandler,
 );
 
 // Create payment

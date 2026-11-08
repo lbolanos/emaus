@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
-import { useRoute } from 'vue-router';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { useToast } from '@repo/ui';
 import {
@@ -14,6 +14,7 @@ import {
 	DropdownMenu,
 	DropdownMenuContent,
 	DropdownMenuItem,
+	DropdownMenuLabel,
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 	Input,
@@ -57,6 +58,7 @@ import LettersFoldersPanel from '@/components/letters/LettersFoldersPanel.vue';
 import { folderMatchesPalanquero, LETTER_PALANQUERO_NONE } from '@/utils/letterFolders';
 
 const route = useRoute();
+const router = useRouter();
 const { t } = useI18n();
 const { toast } = useToast();
 
@@ -128,6 +130,7 @@ onMounted(async () => {
 	if (route.params.id && route.params.id !== retreatStore.selectedRetreatId) {
 		retreatStore.selectedRetreatId = route.params.id as string;
 	}
+	restoreFilters();
 	await load();
 	tableMesaStore.fetchTables();
 	if (retreatStore.retreats.length === 0) retreatStore.fetchRetreats();
@@ -175,11 +178,72 @@ watch(retreatId, (id) => {
 	newLettersCount.value = 0;
 	participantFilter.value = '';
 	participantSearch.value = '';
-	palanqueroFilter.value = '';
+	palanqueroFilter.value = id ? storedPalanquero(id) : '';
 	applyFilters();
 	loadFolders();
 	if (id) letterStore.fetchPalanqueroOptions(id);
 });
+
+// -- Filtros en la URL (y palanquero recordado por retiro) --
+// vista/palanquero/caminante viajan en la URL: el palanquero guarda o recibe
+// por WhatsApp su enlace y entra directo a SUS carpetas. El último palanquero
+// elegido se recuerda en este navegador para el mismo retiro.
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const palanqueroStorageKey = (id: string) => `letters.palanquero.${id}`;
+
+const storedPalanquero = (id: string): string => {
+	try {
+		return localStorage.getItem(palanqueroStorageKey(id)) ?? '';
+	} catch {
+		return '';
+	}
+};
+
+function restoreFilters() {
+	const q = route.query ?? {};
+	if (q.vista === 'carpetas') viewMode.value = 'folders';
+	palanqueroFilter.value =
+		typeof q.palanquero === 'string' ? q.palanquero : storedPalanquero(retreatId.value);
+	if (typeof q.caminante === 'string' && UUID_RE.test(q.caminante)) {
+		participantFilter.value = q.caminante;
+	}
+}
+
+const syncFiltersToUrl = () => {
+	const query: Record<string, unknown> = { ...(route.query ?? {}) };
+	const put = (key: string, value: string) => {
+		if (value) query[key] = value;
+		else delete query[key];
+	};
+	put('vista', viewMode.value === 'folders' ? 'carpetas' : '');
+	put('palanquero', palanqueroFilter.value);
+	put('caminante', participantFilter.value);
+	void Promise.resolve(router.replace({ query: query as Record<string, string> })).catch(() => {});
+	try {
+		if (retreatId.value) {
+			if (palanqueroFilter.value) {
+				localStorage.setItem(palanqueroStorageKey(retreatId.value), palanqueroFilter.value);
+			} else {
+				localStorage.removeItem(palanqueroStorageKey(retreatId.value));
+			}
+		}
+	} catch {
+		// Sin almacenamiento (modo privado): solo la URL.
+	}
+};
+watch([viewMode, palanqueroFilter, participantFilter], syncFiltersToUrl);
+
+// Caminante que llega por la URL: su nombre en el buscador en cuanto llegan
+// las carpetas.
+watch(
+	() => letterStore.folders,
+	(folders) => {
+		if (participantFilter.value && !participantSearch.value) {
+			participantSearch.value =
+				folders.find((f) => f.participantId === participantFilter.value)?.participantName ?? '';
+		}
+	},
+);
 
 // -- Filtro por participante (palanquero): solo SUS cartas en la bandeja --
 const folderLabel = (f: LetterFolderRow): string =>
@@ -270,14 +334,124 @@ const onPalanqueroChange = () => {
 	applyFilters();
 };
 
-/** Desde Carpetas: «Ver cartas» de una persona → bandeja filtrada por ella. */
+// Carpeta de la que se vino: al volver se resalta y se lleva a la vista.
+const lastFolderId = ref<string | null>(null);
+
+/** Desde Carpetas: click en una persona → bandeja filtrada por ella. */
 const viewParticipantLetters = (participantId: string) => {
 	const folder = letterStore.folders.find((f) => f.participantId === participantId);
+	lastFolderId.value = folder?.retreatParticipantId ?? null;
 	participantFilter.value = participantId;
 	participantSearch.value = folder?.participantName ?? '';
 	statusFilter.value = '';
 	viewMode.value = 'inbox';
 	applyFilters();
+};
+
+/** «← Volver a Carpetas»: suelta al caminante y regresa a su fila. */
+const backToFolders = () => {
+	clearParticipant();
+	viewMode.value = 'folders';
+	loadFolders();
+	nextTick(() => {
+		const row = lastFolderId.value
+			? document.querySelector(`[data-folder-id="${lastFolderId.value}"]`)
+			: null;
+		(row as HTMLElement | null)?.scrollIntoView?.({ block: 'center' });
+	});
+};
+
+// -- Filtros activos como etiquetas con ✕ --
+const activeFilters = computed(() => {
+	const chips: { key: string; label: string; clear: () => void }[] = [];
+	if (statusFilter.value) {
+		chips.push({
+			key: 'status',
+			label: t('letters.chips.status', { value: t(`letters.status.${statusFilter.value}`) }),
+			clear: () => {
+				statusFilter.value = '';
+				applyFilters();
+			},
+		});
+	}
+	if (tableFilter.value) {
+		const name = tableMesaStore.tables.find((tb) => tb.id === tableFilter.value)?.name ?? '';
+		chips.push({
+			key: 'table',
+			label: t('letters.chips.table', { value: name }),
+			clear: () => {
+				tableFilter.value = '';
+				applyFilters();
+			},
+		});
+	}
+	if (palanqueroFilter.value) {
+		chips.push({
+			key: 'palanquero',
+			label: t('letters.chips.palanquero', { value: palanqueroLabel.value }),
+			clear: () => {
+				palanqueroFilter.value = '';
+				applyFilters();
+			},
+		});
+	}
+	if (participantFilter.value) {
+		chips.push({
+			key: 'participant',
+			label: t('letters.chips.participant', {
+				value: filteredFolder.value?.participantName ?? participantSearch.value,
+			}),
+			clear: clearParticipant,
+		});
+	}
+	if (searchQuery.value.trim()) {
+		chips.push({
+			key: 'search',
+			label: t('letters.chips.search', { value: searchQuery.value.trim() }),
+			clear: () => {
+				searchQuery.value = '';
+				applyFilters();
+			},
+		});
+	}
+	return chips;
+});
+
+const clearAllFilters = () => {
+	statusFilter.value = '';
+	tableFilter.value = '';
+	palanqueroFilter.value = '';
+	searchQuery.value = '';
+	participantFilter.value = '';
+	participantSearch.value = '';
+	applyFilters();
+};
+
+// -- Quitar la marca de impresa (hoja perdida, salió mal, rehacer carpeta) --
+const afterUnmark = (unmarked: number) => {
+	toast({ title: t('letters.print.unmarkedTitle', { count: unmarked }) });
+	load();
+	loadFolders();
+};
+
+const unmarkLetter = async (letter: Letter) => {
+	try {
+		const { unmarked } = await letterStore.unmarkPrinted(retreatId.value, { letterIds: [letter.id] });
+		afterUnmark(unmarked);
+	} catch {
+		toast({ title: t('letters.print.unmarkError'), variant: 'destructive' });
+	}
+};
+
+const unmarkFolder = async (participantId: string) => {
+	try {
+		const { unmarked } = await letterStore.unmarkPrinted(retreatId.value, {
+			participantIds: [participantId],
+		});
+		afterUnmark(unmarked);
+	} catch {
+		toast({ title: t('letters.print.unmarkError'), variant: 'destructive' });
+	}
 };
 
 /** Imprime el folder del participante filtrado (sus aprobadas). */
@@ -449,11 +623,13 @@ const printNotice = computed(() => {
 const printErrorToast = (err: unknown) => {
 	const status = (err as { response?: { status?: number } })?.response?.status;
 	const description =
-		status === 429
-			? t('letters.print.rateLimited')
-			: status
-				? t('letters.print.errorStatus', { status })
-				: undefined;
+		status === 401
+			? t('letters.print.sessionExpired')
+			: status === 429
+				? t('letters.print.rateLimited')
+				: status
+					? t('letters.print.errorStatus', { status })
+					: undefined;
 	toast({ title: t('letters.print.error'), description, variant: 'destructive' });
 };
 
@@ -514,6 +690,55 @@ const printBatch = (kind: 'retreat' | 'table', tableId?: string) =>
  */
 const printParticipants = (participantIds: string[], title: string, onlyUnprinted = false) =>
 	runPrint({ kind: 'participant', participantIds }, () => title, onlyUnprinted);
+
+/**
+ * «Solo las no impresas» con el alcance de lo que se está mirando: caminante
+ * > palanquero (con su mesa, si hay) > mesa > retiro entero. El número sale de
+ * las carpetas (aprobadas sin papel), igual que en la vista Carpetas.
+ */
+const unprintedContext = computed((): { scope: PrintScope; count: number; title: string } => {
+	const sum = (folders: LetterFolderRow[]) => folders.reduce((acc, f) => acc + f.unprinted, 0);
+	if (participantFilter.value) {
+		const folder = filteredFolder.value;
+		return {
+			scope: { kind: 'participant', participantIds: [participantFilter.value] },
+			count: folder?.unprinted ?? 0,
+			title: folder?.participantName ?? '',
+		};
+	}
+	if (palanqueroFilter.value) {
+		const folders = letterStore.folders.filter(
+			(f) =>
+				f.participantId &&
+				f.unprinted > 0 &&
+				folderMatchesPalanquero(f, palanqueroFilter.value) &&
+				(!tableFilter.value || f.tableId === tableFilter.value),
+		);
+		return {
+			scope: { kind: 'participant', participantIds: folders.map((f) => f.participantId as string) },
+			count: sum(folders),
+			title: palanqueroLabel.value,
+		};
+	}
+	if (tableFilter.value) {
+		return {
+			scope: { kind: 'table', tableId: tableFilter.value },
+			count: sum(letterStore.folders.filter((f) => f.tableId === tableFilter.value)),
+			title: tableMesaStore.tables.find((tb) => tb.id === tableFilter.value)?.name ?? '',
+		};
+	}
+	return {
+		scope: { kind: 'retreat' },
+		count: sum(letterStore.folders),
+		title: t('letters.print.wholeRetreat'),
+	};
+});
+
+const printUnprinted = () => {
+	const ctx = unprintedContext.value;
+	if (ctx.count === 0) return;
+	void runPrint(ctx.scope, () => t('letters.print.unprintedTitle', { scope: ctx.title }), true);
+};
 
 // -- Selección granular (mejora 15): imprimir solo los participantes elegidos --
 const selectedIds = ref<Set<string>>(new Set());
@@ -665,6 +890,50 @@ const toggleExpanded = (id: string) => {
 						</Button>
 					</DropdownMenuTrigger>
 					<DropdownMenuContent align="end">
+						<!-- Imprimir: los alcances, en el mismo ⋮ que el resto (menos botones) -->
+						<DropdownMenuLabel>{{ t('letters.print.menu') }}</DropdownMenuLabel>
+						<DropdownMenuItem
+							v-if="unprintedContext.count > 0"
+							:disabled="printing"
+							data-testid="print-unprinted"
+							@select="deferOpen(() => printUnprinted())"
+						>
+							<Printer class="mr-2 h-4 w-4" />
+							{{ t('letters.print.unprinted', { count: unprintedContext.count, scope: unprintedContext.title }) }}
+						</DropdownMenuItem>
+						<DropdownMenuItem :disabled="printing" @select="deferOpen(() => printBatch('retreat'))">
+							<Printer class="mr-2 h-4 w-4" />
+							{{ t('letters.print.retreat') }}
+						</DropdownMenuItem>
+						<DropdownMenuItem v-if="tableFilter" :disabled="printing" @select="deferOpen(() => printTable())">
+							<Printer class="mr-2 h-4 w-4" />
+							{{ t('letters.print.table') }}
+						</DropdownMenuItem>
+						<DropdownMenuItem
+							v-if="palanqueroFilter && palanqueroPrintIds.length"
+							:disabled="printing"
+							@select="deferOpen(() => printPalanquero())"
+						>
+							<Printer class="mr-2 h-4 w-4" />
+							{{ t('letters.print.palanquero', { count: palanqueroPrintIds.length }) }}
+						</DropdownMenuItem>
+						<DropdownMenuItem
+							v-if="participantFilter"
+							:disabled="printing"
+							@select="deferOpen(() => printFiltered())"
+						>
+							<Printer class="mr-2 h-4 w-4" />
+							{{ t('letters.print.filtered') }}
+						</DropdownMenuItem>
+						<DropdownMenuItem
+							v-if="selectedCount > 0"
+							:disabled="printing"
+							@select="deferOpen(() => printSelection())"
+						>
+							<Printer class="mr-2 h-4 w-4" />
+							{{ t('letters.print.selection', { count: selectedCount }) }}
+						</DropdownMenuItem>
+						<DropdownMenuSeparator />
 						<DropdownMenuItem @select="deferOpen(() => openMailboxes())">
 							<Mailbox class="mr-2 h-4 w-4" />
 							{{ t('letters.mailboxes') }}
@@ -726,18 +995,87 @@ const toggleExpanded = (id: string) => {
 			</select>
 		</div>
 
+		<!-- v-show (no v-if): al volver de las cartas de alguien, Carpetas conserva
+		     su búsqueda y su filtro, y se resalta la fila de la que se vino. -->
 		<LettersFoldersPanel
-			v-if="viewMode === 'folders'"
+			v-show="viewMode === 'folders'"
 			:folders="letterStore.folders"
 			:loading="letterStore.foldersLoading"
 			:palanquero-options="letterStore.palanqueroOptions"
 			:palanquero="palanqueroFilter"
+			:highlight-id="lastFolderId"
 			@print="printFromFolders"
 			@view-letters="viewParticipantLetters"
 			@share="shareOne"
+			@unmark="unmarkFolder"
 		/>
 
-		<template v-else>
+		<template v-if="viewMode === 'inbox'">
+		<!-- Caminante filtrado: su carpeta arriba, con cómo volver a Carpetas -->
+		<div
+			v-if="participantFilter && filteredFolder"
+			class="flex flex-wrap items-center gap-3 rounded-lg border bg-muted/30 p-3"
+			data-testid="participant-header"
+		>
+			<Button variant="ghost" size="sm" data-testid="back-to-folders" @click="backToFolders">
+				← {{ t('letters.backToFolders') }}
+			</Button>
+			<div class="min-w-0 flex-1">
+				<div class="flex flex-wrap items-center gap-2">
+					<span class="font-semibold">{{ filteredFolder.participantName }}</span>
+					<span v-if="filteredFolder.tableName" class="text-sm text-muted-foreground">
+						· {{ filteredFolder.tableName }}<template v-if="filteredFolder.idOnRetreat != null"> · Nº {{ filteredFolder.idOnRetreat }}</template>
+					</span>
+					<span
+						v-if="filteredFolder.palancasCoordinator"
+						class="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground"
+					>
+						{{
+							letterStore.palanqueroOptions.find((o) => o.value === filteredFolder?.palancasCoordinator)?.label ??
+							filteredFolder.palancasCoordinator
+						}}
+					</span>
+				</div>
+				<p class="text-xs text-muted-foreground">
+					{{
+						t('letters.participantSummary', {
+							total: filteredFolder.counts.pending + filteredFolder.counts.approved,
+							printed: filteredFolder.printed,
+							pending: filteredFolder.counts.pending,
+						})
+					}}
+				</p>
+			</div>
+			<Button
+				v-if="filteredFolder.unprinted > 0"
+				size="sm"
+				@click="printParticipants([participantFilter], filteredFolder.participantName, true)"
+			>
+				<Printer class="mr-2 h-4 w-4" />
+				{{ t('letters.folders.printMissing', { count: filteredFolder.unprinted }) }}
+			</Button>
+			<DropdownMenu v-if="filteredFolder.counts.approved > 0">
+				<DropdownMenuTrigger as-child>
+					<Button variant="ghost" size="icon" class="h-8 w-8" :aria-label="t('letters.rowActions')">
+						<MoreVertical class="h-4 w-4" />
+					</Button>
+				</DropdownMenuTrigger>
+				<DropdownMenuContent align="end">
+					<DropdownMenuItem @select="deferOpen(() => printFiltered())">
+						<Printer class="mr-2 h-4 w-4" />
+						{{ t('letters.folders.printAll') }}
+					</DropdownMenuItem>
+					<DropdownMenuItem
+						v-if="filteredFolder.printed > 0"
+						@click="unmarkFolder(participantFilter)"
+					>
+						<Stamp class="mr-2 h-4 w-4" />
+						{{ t('letters.folders.unmarkFolder') }}
+					</DropdownMenuItem>
+				</DropdownMenuContent>
+			</DropdownMenu>
+		</div>
+
 		<!-- Resumen por estado (chips = filtro) -->
 		<div class="flex flex-wrap gap-2">
 			<Button
@@ -847,42 +1185,6 @@ const toggleExpanded = (id: string) => {
 					{{ t('letters.filter.noMatches') }}
 				</p>
 			</div>
-			<!-- Los tres alcances de impresión, en un solo menú (menos botones) -->
-			<DropdownMenu>
-				<DropdownMenuTrigger as-child>
-					<Button variant="outline" :disabled="printing">
-						<Printer class="mr-2 h-4 w-4" />
-						{{ t('letters.print.menu') }}
-						<ChevronDown class="ml-1 h-4 w-4" />
-					</Button>
-				</DropdownMenuTrigger>
-				<DropdownMenuContent align="end">
-					<DropdownMenuItem @select="deferOpen(() => printBatch('retreat'))">
-						{{ t('letters.print.retreat') }}
-					</DropdownMenuItem>
-					<DropdownMenuItem :disabled="!tableFilter" @select="deferOpen(() => printTable())">
-						{{ t('letters.print.table') }}
-					</DropdownMenuItem>
-					<DropdownMenuItem
-						v-if="palanqueroFilter && palanqueroPrintIds.length"
-						@select="deferOpen(() => printPalanquero())"
-					>
-						{{ t('letters.print.palanquero', { count: palanqueroPrintIds.length }) }}
-					</DropdownMenuItem>
-					<DropdownMenuItem
-						v-if="participantFilter"
-						@select="deferOpen(() => printFiltered())"
-					>
-						{{ t('letters.print.filtered') }}
-					</DropdownMenuItem>
-					<DropdownMenuItem
-						v-if="selectedCount > 0"
-						@select="deferOpen(() => printSelection())"
-					>
-						{{ t('letters.print.selection', { count: selectedCount }) }}
-					</DropdownMenuItem>
-				</DropdownMenuContent>
-			</DropdownMenu>
 		</div>
 
 		<!-- Banner agrupado de cartas nuevas (mejora 7): con más de una llega
@@ -899,6 +1201,36 @@ const toggleExpanded = (id: string) => {
 			</Button>
 		</div>
 
+		<!-- Filtros activos: que no quede uno puesto sin que se note -->
+		<div v-if="activeFilters.length" class="flex flex-wrap items-center gap-2" data-testid="active-filters">
+			<span
+				v-for="chip in activeFilters"
+				:key="chip.key"
+				class="inline-flex items-center gap-1 rounded-full border bg-muted/40 py-0.5 pl-3 pr-1 text-xs"
+			>
+				{{ chip.label }}
+				<button
+					type="button"
+					class="flex h-5 w-5 items-center justify-center rounded-full hover:bg-muted"
+					:aria-label="t('letters.chips.remove', { label: chip.label })"
+					:data-testid="`chip-clear-${chip.key}`"
+					@click="chip.clear()"
+				>
+					✕
+				</button>
+			</span>
+			<Button
+				v-if="activeFilters.length > 1"
+				variant="ghost"
+				size="sm"
+				class="h-6 text-xs"
+				data-testid="clear-all-filters"
+				@click="clearAllFilters"
+			>
+				{{ t('letters.chips.clearAll') }}
+			</Button>
+		</div>
+
 		<!-- Bandeja -->
 		<div v-if="letterStore.loading" class="py-10 text-center text-sm text-muted-foreground">
 			{{ t('common.loading') }}
@@ -907,7 +1239,13 @@ const toggleExpanded = (id: string) => {
 			v-else-if="letterStore.letters.length === 0"
 			class="rounded-lg border border-dashed py-12 text-center text-sm text-muted-foreground"
 		>
-			{{ t('letters.empty') }}
+			<template v-if="activeFilters.length">
+				<p>{{ t('letters.emptyFiltered') }}</p>
+				<Button variant="outline" size="sm" class="mt-3" @click="clearAllFilters">
+					{{ t('letters.chips.clearAll') }}
+				</Button>
+			</template>
+			<template v-else>{{ t('letters.empty') }}</template>
 		</div>
 		<div v-else class="space-y-2">
 			<div
@@ -972,13 +1310,16 @@ const toggleExpanded = (id: string) => {
 							</DropdownMenuTrigger>
 							<DropdownMenuContent align="end">
 								<DropdownMenuItem
-									v-if="letter.status === 'pending'"
+									v-if="letter.status === 'pending' || letter.status === 'hidden'"
 									@click="review(letter, 'approved')"
 								>
 									<Check class="mr-2 h-4 w-4 text-green-600" />
 									{{ t('letters.review.approve') }}
 								</DropdownMenuItem>
-								<DropdownMenuItem v-if="letter.status !== 'hidden'" @click="review(letter, 'hidden')">
+								<DropdownMenuItem
+									v-if="letter.status === 'pending' || letter.status === 'approved'"
+									@click="review(letter, 'hidden')"
+								>
 									<EyeOff class="mr-2 h-4 w-4" />
 									{{ t('letters.review.hide') }}
 								</DropdownMenuItem>
@@ -986,10 +1327,14 @@ const toggleExpanded = (id: string) => {
 									<Copy class="mr-2 h-4 w-4" />
 									{{ t('letters.copyAddress') }}
 								</DropdownMenuItem>
-								<DropdownMenuSeparator v-if="letter.participantId" />
+								<DropdownMenuSeparator v-if="letter.participantId || letter.printedAt" />
 								<DropdownMenuItem v-if="letter.participantId" @select="printOneParticipant(letter)">
 									<Printer class="mr-2 h-4 w-4" />
 									{{ t('letters.print.participant') }}
+								</DropdownMenuItem>
+								<DropdownMenuItem v-if="letter.printedAt" @click="unmarkLetter(letter)">
+									<Stamp class="mr-2 h-4 w-4" />
+									{{ t('letters.print.unmarkLetter') }}
 								</DropdownMenuItem>
 							</DropdownMenuContent>
 						</DropdownMenu>
@@ -1002,34 +1347,11 @@ const toggleExpanded = (id: string) => {
 
 				<!-- Detalle expandido: texto interpolado (Vue escapa; NUNCA v-html, D10) -->
 				<div v-if="expandedId === letter.id" class="border-t p-4">
-					<div class="mb-3 flex flex-wrap items-center justify-between gap-2">
-						<div class="flex gap-2">
-							<Button
-								v-if="letter.status !== 'approved'"
-								size="sm"
-								@click="review(letter, 'approved')"
-							>
-								<Check class="mr-1 h-4 w-4" />
-								{{ t('letters.review.approve') }}
-							</Button>
-							<Button
-								v-if="letter.status !== 'hidden'"
-								size="sm"
-								variant="outline"
-								@click="review(letter, 'hidden')"
-							>
-								<EyeOff class="mr-1 h-4 w-4" />
-								{{ t('letters.review.hide') }}
-							</Button>
-							<Button size="sm" variant="ghost" @click="copyAddress(letter)">
-								<Copy class="mr-1 h-4 w-4" />
-								{{ t('letters.copyAddress') }}
-							</Button>
-						</div>
-						<span v-if="letter.reviewedAt" class="text-xs text-muted-foreground">
-							{{ t('letters.reviewedAt', { date: fmtDate(letter.reviewedAt) }) }}
-						</span>
-					</div>
+					<!-- Las acciones (aprobar, ocultar, copiar dirección, imprimir) viven
+					     en el ⋮ de la fila: aquí solo el contenido. -->
+					<p v-if="letter.reviewedAt" class="mb-3 text-xs text-muted-foreground">
+						{{ t('letters.reviewedAt', { date: fmtDate(letter.reviewedAt) }) }}
+					</p>
 
 					<div v-if="letter.subject" class="mb-2 text-sm font-medium">«{{ letter.subject }}»</div>
 					<div class="whitespace-pre-wrap text-sm leading-relaxed">{{ letter.bodyText }}</div>

@@ -178,6 +178,18 @@ export const useLetterStore = defineStore('letters', () => {
 		}
 	};
 
+	const unmarkPrinted = async (
+		retreatId: string,
+		target: { letterIds?: string[]; participantIds?: string[] },
+	) => {
+		try {
+			return await lettersApi.unmarkPrinted(retreatId, target);
+		} catch (e: unknown) {
+			error.value = apiErrorMessage(e, 'No se pudo quitar la marca de impresa');
+			throw e;
+		}
+	};
+
 	const fetchPrintBatch = async (
 		retreatId: string,
 		scope: 'participant' | 'table' | 'retreat',
@@ -223,6 +235,7 @@ export const useLetterStore = defineStore('letters', () => {
 		toggleMailbox,
 		reviewLetter,
 		markPrinted,
+		unmarkPrinted,
 		fetchPrintBatch,
 		folders,
 		foldersLoading,

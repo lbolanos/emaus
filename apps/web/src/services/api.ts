@@ -5184,6 +5184,15 @@ export const lettersApi = {
     return r.data;
   },
 
+  /** Quita la marca de impresa: cartas sueltas o la carpeta entera de participantes. */
+  unmarkPrinted: async (
+    retreatId: string,
+    target: { letterIds?: string[]; participantIds?: string[] },
+  ): Promise<{ unmarked: number }> => {
+    const r = await api.post(`/letters/retreats/${retreatId}/letters/print-unmark`, target);
+    return r.data;
+  },
+
   /** Datos ordenados para el documento imprimible (solo approved). */
   getPrintBatch: async (
     retreatId: string,

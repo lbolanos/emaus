@@ -20,6 +20,7 @@ import {
 	listLetters,
 	markPrinted,
 	reviewLetter,
+	unmarkPrinted,
 } from '../services/letterService';
 import type { Letter } from '../entities/letter.entity';
 import type { LetterAttachment } from '../entities/letterAttachment.entity';
@@ -242,6 +243,31 @@ export const markMailboxSharedHandler = async (req: Request, res: Response) => {
 		}
 		console.error('markMailboxShared error:', error);
 		res.status(500).json({ message: 'Error al marcar la difusión' });
+	}
+};
+
+/** POST /retreats/:retreatId/letters/print-unmark — quita la marca de impresa. */
+export const unmarkPrintedHandler = async (req: Request, res: Response) => {
+	try {
+		const { letterIds, participantIds } = req.body as {
+			letterIds?: string[];
+			participantIds?: string[];
+		};
+		const unmarked = await unmarkPrinted(req.params.retreatId, { letterIds, participantIds });
+		void domainAuditService.log({
+			action: DomainAuditAction.LETTER_PRINT_UNMARK,
+			resourceType: 'letter',
+			retreatId: req.params.retreatId,
+			metadata: {
+				count: unmarked,
+				letterIds: letterIds?.length ? letterIds : undefined,
+				participantIds: participantIds?.length ? participantIds : undefined,
+			},
+		});
+		res.json({ unmarked });
+	} catch (error) {
+		console.error('unmarkPrinted error:', error);
+		res.status(500).json({ message: 'Error al quitar la marca de impresa' });
 	}
 };
 

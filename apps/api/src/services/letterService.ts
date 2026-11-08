@@ -485,6 +485,41 @@ export async function markPrinted(
 	return result.affected ?? 0;
 }
 
+/**
+ * Quita la marca de impresa. Siempre acotado al retiro: ids de cartas o de
+ * participantes de otro retiro no matchean (anti-IDOR por recurso).
+ */
+export async function unmarkPrinted(
+	retreatId: string,
+	target: { letterIds?: string[]; participantIds?: string[] },
+): Promise<number> {
+	const letterIds = target.letterIds ?? [];
+	const participantIds = target.participantIds ?? [];
+	if (letterIds.length === 0 && participantIds.length === 0) return 0;
+
+	const qb = AppDataSource.getRepository(Letter)
+		.createQueryBuilder('letter')
+		.innerJoin('letter.retreatParticipant', 'rp')
+		.select('letter.id', 'id')
+		.where('letter.retreatId = :retreatId', { retreatId })
+		.andWhere('letter.printedAt IS NOT NULL');
+	const either: string[] = [];
+	if (letterIds.length) either.push('letter.id IN (:...letterIds)');
+	if (participantIds.length) either.push('rp.participantId IN (:...participantIds)');
+	qb.andWhere(`(${either.join(' OR ')})`, { letterIds, participantIds });
+	const rows: { id: string }[] = await qb.getRawMany();
+	const ids = rows.map((r) => r.id);
+	if (ids.length === 0) return 0;
+
+	const result = await AppDataSource.getRepository(Letter)
+		.createQueryBuilder()
+		.update(Letter)
+		.set({ printedAt: null, printedBatchId: null })
+		.where('retreatId = :retreatId AND id IN (:...ids)', { retreatId, ids })
+		.execute();
+	return result.affected ?? 0;
+}
+
 /** Detalle de una carta con adjuntos presigned (la URL cruda nunca sale del API). */
 export async function getLetterDetail(letterId: string) {
 	const letter = await AppDataSource.getRepository(Letter).findOne({

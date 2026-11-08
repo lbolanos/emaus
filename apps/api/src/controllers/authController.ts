@@ -320,7 +320,7 @@ export const logout = (req: Request, res: Response, next: NextFunction) => {
 			if (err) {
 				return next(err);
 			}
-			res.clearCookie('emaus.sid');
+			res.clearCookie(config.session.cookieName);
 			res.json({ message: 'Logged out' });
 		});
 	});

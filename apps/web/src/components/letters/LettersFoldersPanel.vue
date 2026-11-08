@@ -9,7 +9,7 @@ import {
 	DropdownMenuItem,
 	DropdownMenuTrigger,
 } from '@repo/ui';
-import { Eye, Inbox, MoreVertical, Printer, Search, Share2 } from 'lucide-vue-next';
+import { Eye, Inbox, MoreVertical, Printer, Search, Share2, Stamp } from 'lucide-vue-next';
 import type { LetterFolderRow } from '@/services/api';
 import { useRekaDialogFix } from '@/composables/useRekaDialogFix';
 import { folderMatchesPalanquero } from '@/utils/letterFolders';
@@ -32,14 +32,17 @@ const props = withDefaults(
 		 * mismo filtro vale para las dos). '' = todos.
 		 */
 		palanquero?: string;
+		/** Carpeta de la que se vino (retreatParticipantId): se resalta al volver. */
+		highlightId?: string | null;
 	}>(),
-	{ palanqueroOptions: () => [], palanquero: '' },
+	{ palanqueroOptions: () => [], palanquero: '', highlightId: null },
 );
 
 const emit = defineEmits<{
 	print: [payload: { participantIds: string[]; onlyUnprinted: boolean; title: string }];
 	'view-letters': [participantId: string];
 	share: [retreatParticipantId: string];
+	unmark: [participantId: string];
 }>();
 
 const { t } = useI18n();
@@ -122,6 +125,14 @@ const printFolder = (f: LetterFolderRow, onlyUnprinted: boolean) => {
 	});
 };
 
+/** Click en la fila: sus cartas (si tiene alguna; una carpeta vacía no lleva a nada). */
+const hasAnyLetter = (f: LetterFolderRow) =>
+	f.counts.pending + f.counts.approved + f.counts.hidden + f.counts.attached > 0;
+
+const openFolder = (f: LetterFolderRow) => {
+	if (f.participantId && hasAnyLetter(f)) emit('view-letters', f.participantId);
+};
+
 const fmtDate = (value: string) =>
 	new Date(value).toLocaleString('es-MX', { day: 'numeric', month: 'short' });
 </script>
@@ -177,7 +188,17 @@ const fmtDate = (value: string) =>
 				v-for="f in visible"
 				:key="f.retreatParticipantId"
 				class="flex flex-wrap items-center gap-3 p-3"
+				:class="[
+					hasAnyLetter(f) ? 'cursor-pointer hover:bg-muted/40' : '',
+					props.highlightId === f.retreatParticipantId ? 'ring-2 ring-primary ring-inset' : '',
+				]"
+				:data-folder-id="f.retreatParticipantId"
+				:role="hasAnyLetter(f) ? 'button' : undefined"
+				:tabindex="hasAnyLetter(f) ? 0 : undefined"
+				:aria-label="hasAnyLetter(f) ? t('letters.folders.openLetters', { name: f.participantName }) : undefined"
 				data-testid="folder-row"
+				@click="openFolder(f)"
+				@keydown.enter="openFolder(f)"
 			>
 				<div class="min-w-0 flex-1">
 					<div class="flex flex-wrap items-center gap-2">
@@ -217,6 +238,7 @@ const fmtDate = (value: string) =>
 					</p>
 				</div>
 
+				<div class="flex items-center gap-1" @click.stop @keydown.enter.stop>
 				<Button
 					v-if="hasUnprinted(f)"
 					size="sm"
@@ -249,6 +271,13 @@ const fmtDate = (value: string) =>
 							{{ t('letters.folders.printAll') }}
 						</DropdownMenuItem>
 						<DropdownMenuItem
+							v-if="f.printed > 0 && f.participantId"
+							@click="emit('unmark', f.participantId)"
+						>
+							<Stamp class="mr-2 h-4 w-4" />
+							{{ t('letters.folders.unmarkFolder') }}
+						</DropdownMenuItem>
+						<DropdownMenuItem
 							v-if="f.mailboxEnabled"
 							@select="deferOpen(() => emit('share', f.retreatParticipantId))"
 						>
@@ -257,6 +286,7 @@ const fmtDate = (value: string) =>
 						</DropdownMenuItem>
 					</DropdownMenuContent>
 				</DropdownMenu>
+				</div>
 			</li>
 		</ul>
 	</div>

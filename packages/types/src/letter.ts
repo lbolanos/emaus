@@ -98,6 +98,24 @@ export const MarkLettersPrintedSchema = z.object({
 });
 export type MarkLettersPrinted = z.infer<typeof MarkLettersPrintedSchema>;
 
+/**
+ * Quitar la marca de impresa (se imprimió mal, se perdió la hoja, se va a
+ * rehacer la carpeta): por cartas sueltas o por la carpeta entera de uno o
+ * más participantes. Al menos uno de los dos.
+ */
+export const UnmarkLettersPrintedSchema = z.object({
+	params: z.object({ retreatId: idSchema }),
+	body: z
+		.object({
+			letterIds: z.array(idSchema).max(2000).optional(),
+			participantIds: z.array(idSchema).max(500).optional(),
+		})
+		.refine((b) => (b.letterIds?.length ?? 0) + (b.participantIds?.length ?? 0) > 0, {
+			message: 'letterIds o participantIds',
+		}),
+});
+export type UnmarkLettersPrinted = z.infer<typeof UnmarkLettersPrintedSchema>;
+
 export const PrintBatchQuerySchema = z.object({
 	params: z.object({ retreatId: idSchema }),
 	query: z.object({
