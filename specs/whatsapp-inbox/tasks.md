@@ -299,3 +299,22 @@
   cronológico, con inbound take = limit+offset). Antes: skip por fuente
   descartaba filas y al 2.º click la lista quedaba vacía. Verificado:
   41 entradas estables y el botón desaparece al completar.
+
+## QA v1.2 ronda 3 (feedback de Leo, 2026-11-07 noche)
+
+- [x] **«request failed» al guardar pago**: NO era el comprobante — era el id
+  del caminante de QA (`qa-walker-0001`, seed con id legible, no UUID): el
+  schema de pagos valida uuid y respondía 400. Con un caminante de UUID real
+  el guardado con comprobante adjunto responde 201 (verificado en navegador).
+  El validador queda estricto (580/580 participantes reales tienen UUID).
+  Pendiente para QA limpio: recrear el caminante de prueba con UUID.
+- [x] **Imagen visible en el historial**: las entradas entrantes con imagen
+  traen thumbnail (lote `/media` con ids `wa-inbox:`; fallos quedan como
+  placeholder). Verificado: 4 thumbs renderizados.
+- [x] **Preview de comprobante en el modal**: aspecto original
+  (`h-20 object-contain`, max 160px) en vez de cuadrado 56px recortado;
+  click para ampliar también en el recién adjuntado.
+- [x] **Deuda técnica (pre-M4)**: mocks locales de lucide en
+  Sidebar.test/SidebarFocusState.test sin `MessageCircle` (regresión del
+  ítem wa-inbox añadido en M4) + aserción de orden adyacente rotas —
+  868/868 en components tests.

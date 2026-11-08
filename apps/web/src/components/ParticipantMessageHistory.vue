@@ -99,6 +99,14 @@
           </div>
         </div>
 
+        <!-- Imagen entrante: thumbnail visible (v1.2, feedback QA) -->
+        <img
+          v-if="isInbound(message) && message.waMessageType === 'image' && mediaThumbs[message.id]"
+          :src="mediaThumbs[message.id]"
+          class="w-auto max-h-40 rounded border object-contain"
+          alt="Imagen recibida"
+        />
+
         <!-- Message Content Preview -->
         <div class="text-sm text-muted-foreground">
           {{ formatMessageContent(message.messageContent, 80) }}
@@ -153,6 +161,7 @@ import { Button } from '@repo/ui';
 import { Badge } from '@repo/ui';
 import { useParticipantCommunicationStore } from '@/stores/participantCommunicationStore';
 import { buildWhatsAppChatLink } from '@/utils/phone';
+import { getWaThreadMedia } from '@/services/api';
 
 interface ParticipantCommunication {
   id: string;
@@ -246,6 +255,43 @@ const audienceLabel = (a?: string | null): string => (a ? AUDIENCE_LABELS[a] || 
 // Entrantes de WhatsApp (bandeja v1.2): badge propio. El click abre el
 // diálogo de detalle igual que los enviados (QA v1.2: «ver más grande»).
 const isInbound = (m: ParticipantCommunication): boolean => m.direction === 'inbound';
+
+// Thumbnails de las imágenes entrantes (v1.2, feedback QA: «no se ve la
+// imagen en historial»): lote único por carga con el endpoint de media de la
+// bandeja; ids `wa-inbox:<messageId>` → se quita el prefijo. Los fallos
+// (vínculo purgado) quedan sin thumb y el texto placeholder cubre.
+const mediaThumbs = ref<Record<string, string>>({});
+let loadingThumbs = false;
+async function fetchInboundThumbs() {
+  const pending = communications.value
+    .filter(
+      (m) =>
+        isInbound(m) &&
+        m.waMessageType === 'image' &&
+        !mediaThumbs.value[m.id] &&
+        m.id.startsWith('wa-inbox:'),
+    )
+    .map((m) => m.id.slice('wa-inbox:'.length))
+    .slice(0, 30);
+  if (pending.length === 0 || loadingThumbs || !props.retreatId) return;
+  loadingThumbs = true;
+  try {
+    const data = await getWaThreadMedia(props.retreatId, pending);
+    const byRaw = new Map(Object.entries(data.media));
+    for (const m of communications.value) {
+      if (!isInbound(m) || !m.id.startsWith('wa-inbox:')) continue;
+      const v = byRaw.get(m.id.slice('wa-inbox:'.length));
+      if (v) mediaThumbs.value = { ...mediaThumbs.value, [m.id]: v.thumb };
+    }
+  } catch {
+    // Sin permiso de bandeja o sin media: queda el placeholder de texto.
+  } finally {
+    loadingThumbs = false;
+  }
+}
+watch(communications, () => {
+  void fetchInboundThumbs();
+});
 
 // Local state
 const localLoading = ref(false);

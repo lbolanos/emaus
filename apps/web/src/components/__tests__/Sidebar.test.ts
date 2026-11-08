@@ -230,6 +230,7 @@ vi.mock('lucide-vue-next', () => ({
 	Briefcase: { template: '<div data-icon="Briefcase" />' },
 	Search: { template: '<div data-icon="Search" />' },
 	X: { template: '<div data-icon="X" />' },
+	MessageCircle: { template: '<div data-icon="MessageCircle" />' },
 	ArrowLeft: { template: '<div data-icon="ArrowLeft" />' },
 	ArrowRight: { template: '<div data-icon="ArrowRight" />' },
 	ChevronDown: { template: '<div data-icon="ChevronDown" />' },
@@ -1238,7 +1239,11 @@ describe('Sidebar Component', () => {
 			});
 			const communications = getSections(grantedWrapper).find((s: any) => s.category === 'communications');
 			const names = communications.items.map((i: any) => i.name);
-			expect(names.indexOf('special-cases')).toBe(names.indexOf('palancas') + 1);
+			// La bandeja WhatsApp (wa-inbox) también vive en communications
+			// (v1.2): el orden relativo special-cases > palancas se mantiene,
+			// pero ya NO es adyacente necesariamente.
+			expect(names).toContain('wa-inbox');
+			expect(names.indexOf('special-cases')).toBeGreaterThan(names.indexOf('palancas'));
 
 			grantedWrapper.unmount();
 		});

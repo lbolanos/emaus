@@ -327,7 +327,14 @@
 								</button>
 							</div>
 							<div v-else-if="newReceiptDataUrl" class="flex items-center gap-2">
-								<img :src="newReceiptDataUrl" class="h-14 w-14 rounded object-cover border border-gray-200" alt="" />
+								<!-- Aspecto original (object-contain): un recibo vertical
+				     recortado en cuadrado es ilegible (QA v1.2 ronda 2). -->
+								<img
+									:src="newReceiptDataUrl"
+									class="h-20 w-auto max-w-[160px] rounded border border-gray-200 object-contain cursor-pointer"
+									alt=""
+									@click="receiptViewerUrl = newReceiptDataUrl"
+								/>
 								<button
 									type="button"
 									class="text-xs text-red-600 hover:underline inline-flex items-center gap-1"
@@ -340,7 +347,7 @@
 								<img
 									v-if="currentReceiptUrl"
 									:src="currentReceiptUrl"
-									class="h-14 w-14 rounded object-cover border border-gray-200 cursor-pointer"
+									class="h-20 w-auto max-w-[160px] rounded border border-gray-200 object-contain cursor-pointer"
 									alt=""
 									@click="receiptViewerUrl = currentReceiptUrl"
 								/>
