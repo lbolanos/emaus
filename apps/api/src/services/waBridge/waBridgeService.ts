@@ -602,8 +602,12 @@ export class WaBridgeService {
 	 * índice del poller, expuesto para el controller.
 	 */
 	async getWalkerDigitsMap(retreatId: string): Promise<Map<string, Participant>> {
+		// createdAt DESC: si dos inscripciones comparten teléfono, el Map se
+		// queda con la MÁS RECIENTE (determinista) — sin esto, el ganador es
+		// el orden del SELECT (QA v1.2: el seed viejo pisaba al re-registrado).
 		const registrations = await AppDataSource.getRepository(RetreatParticipant).find({
 			where: { retreatId, type: 'walker', isCancelled: false },
+			order: { createdAt: 'DESC' },
 			select: ['participantId'],
 		});
 		const participantIds = registrations
@@ -614,8 +618,10 @@ export class WaBridgeService {
 		const walkers = await AppDataSource.getRepository(Participant).find({
 			where: participantIds.map((id) => ({ id })),
 		});
-		for (const walker of walkers) {
-			if (!walker.cellPhone || !walker.country) continue;
+		const walkerById = new Map(walkers.map((walker) => [walker.id, walker]));
+		for (const reg of registrations) {
+			const walker = reg.participantId ? walkerById.get(reg.participantId) : undefined;
+			if (!walker?.cellPhone || !walker.country) continue;
 			const national = toNationalPhone(walker.cellPhone, walker.country);
 			if (!national) continue;
 			for (const digits of acceptedJidDigitVariants(national, walker.country)) {

@@ -271,7 +271,7 @@
 						{{ editingPayment ? $t('paymentManagement.modal.editDesc') : $t('paymentManagement.modal.addDesc') }}
 					</DialogDescription>
 				</DialogHeader>
-				<form @submit.prevent="savePayment">
+				<form class="min-w-0" @submit.prevent="savePayment">
 					<div class="space-y-4">
 						<div>
 							<label class="block text-sm font-medium text-gray-700 mb-1">{{ $t('paymentManagement.modal.participant') }}</label>
@@ -372,8 +372,12 @@
 							</div>
 						</div>
 					</div>
-					<div class="mt-6 flex flex-col-reverse sm:flex-row sm:justify-between gap-2">
-						<div v-if="!editingPayment" class="flex flex-col-reverse sm:flex-row gap-2">
+					<!-- flex-wrap + min-w-0: los 4 botones superan el ancho del panel
+					     (max-w-md); sin wrap el min-content del item agranda la columna
+					     del grid del diálogo y TODO el formulario se desborda
+					     (QA v1.2 ronda 3). -->
+					<div class="mt-6 flex flex-col-reverse sm:flex-row sm:justify-between flex-wrap gap-2">
+						<div v-if="!editingPayment" class="flex flex-col-reverse sm:flex-row flex-wrap gap-2">
 							<Button
 								type="button"
 								variant="outline"

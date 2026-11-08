@@ -318,3 +318,25 @@
   Sidebar.test/SidebarFocusState.test sin `MessageCircle` (regresión del
   ítem wa-inbox añadido en M4) + aserción de orden adyacente rotas —
   868/868 en components tests.
+
+## QA v1.2 ronda 4 (2026-11-07 noche, feedback Leo: «formulario roto» + «sigue fallando 400»)
+
+- [x] **Formulario de pago desbordado**: el footer (4 botones en fila) tenía
+  min-content ~634px > panel `max-w-md` (448) — como item del grid del diálogo
+  agrandaba la COLUMNA y todo el form se salía. Fix: `min-w-0` en el form +
+  `flex-wrap` en el footer. Verificado en viewport 700px: todo dentro.
+- [x] **Recreado QA Caminante con UUID real** (`e6924084…`, vía
+  `/participants/new` + `confirm-registration`): el guardado de pago con
+  comprobante responde 201 de punta a punta (verificado). El seed viejo
+  (`qa-walker-0001`) queda cancelado/fuera del mapa.
+- [x] **Mapa de dígitos determinista**: `getWalkerDigitsMap` ordena
+  inscripciones por createdAt DESC (ante teléfono duplicado gana la más
+  reciente) y `conversations` REUSA el mapa en vez de su bloque inline
+  (dos resoluciones distintas podían apuntar a participantes distintos).
+  Bug de producto: participante sin `retreatId` borrado no cancelaba su
+  fila de retiro (syncRetreatFields se salta) — solo afecta seeds huérfanos;
+  documentado, no se cambia el flujo de delete en esta versión.
+- Nota: PUT/PATCH con fetch crudo desde el navegador devolvió «body
+  undefined» en participantRoutes (POST funciona); con axios de la app el
+  PUT /:id también falla el validateRequest — pendiente investigar fuera de
+  esta ronda (no bloquea: la cancelación de inscripciones va por el wizard).

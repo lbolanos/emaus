@@ -1,9 +1,7 @@
 import type { Request, Response } from 'express';
 import { AppDataSource } from '../data-source';
 import { config } from '../config';
-import { Participant } from '../entities/participant.entity';
 import { Retreat } from '../entities/retreat.entity';
-import { RetreatParticipant } from '../entities/retreatParticipant.entity';
 import { User } from '../entities/user.entity';
 import { WhatsappBridgeLink } from '../entities/whatsappBridgeLink.entity';
 import { WhatsappInboxMessage } from '../entities/whatsappInboxMessage.entity';
@@ -11,7 +9,6 @@ import { WhatsappInboxReadState } from '../entities/whatsappInboxReadState.entit
 import { authorizationService, ensureRetreatAccess } from '../middleware/authorization';
 import { waBridgeService, acceptedJidDigitVariants } from '../services/waBridge';
 import { WacliError } from '../services/waBridge';
-import { toNationalPhone } from '@repo/types';
 
 /** El passport monta la entidad User en req.user, pero Express la tipa genérica. */
 function currentUser(req: Request): User {
@@ -160,27 +157,11 @@ export class WaBridgeController {
 			order: { timestamp: 'DESC' },
 		});
 
-		const registrations = await AppDataSource.getRepository(RetreatParticipant).find({
-			where: { retreatId, type: 'walker', isCancelled: false },
-			select: ['participantId'],
-		});
-		const participantIds = registrations
-			.map((reg) => reg.participantId)
-			.filter((id): id is string => Boolean(id));
-		const walkers = participantIds.length
-			? await AppDataSource.getRepository(Participant).find({
-					where: participantIds.map((id) => ({ id })),
-				})
-			: [];
-		const digitsToParticipant = new Map<string, Participant>();
-		for (const walker of walkers) {
-			if (!walker.cellPhone || !walker.country) continue;
-			const national = toNationalPhone(walker.cellPhone, walker.country);
-			if (!national) continue;
-			for (const digits of acceptedJidDigitVariants(national, walker.country)) {
-				if (!digitsToParticipant.has(digits)) digitsToParticipant.set(digits, walker);
-			}
-		}
+		// Resolución phone→participante: UNA sola fuente de verdad
+		// (getWalkerDigitsMap, determinista ante teléfonos duplicados) — el
+		// bloque inline anterior repetía la lógica con otro orden y la bandeja
+		// podía apuntar al participante equivocado.
+		const digitsToParticipant = await waBridgeService.getWalkerDigitsMap(retreatId);
 
 		const readStates = await AppDataSource.getRepository(WhatsappInboxReadState).find({
 			where: { retreatId, userId },
