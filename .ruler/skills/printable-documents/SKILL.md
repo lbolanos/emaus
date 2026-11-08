@@ -56,8 +56,34 @@ unzip -p doc.docx word/theme/theme1.xml | grep -oE '<a:(majorFont|minorFont)>.{0
    impresión que ocultan diálogos; una ventana hija da un contexto limpio.
 
 El pie de página lo pinta el navegador con la URL de la ventana — salía `about:blank`. Se arregla
-con `history.replaceState` a una ruta legible. **Quitarlo del todo no se puede por CSS**: solo con
-`@page { margin: 0 }`, que deja sin margen superior las páginas 2 en adelante.
+con `history.replaceState` a una ruta legible.
+
+### Papel sin fecha, título, URL ni «n/N» del navegador
+
+Chrome pinta ese cromo **dentro del margen de `@page`**, y solo deja de hacerlo con
+`@page { margin: 0 }`. Un margen chico **no** basta: con 9 mm siguen saliendo la fecha y la URL
+(verificado el 2026-11-07; el usuario lo vio impreso). El costo del margen 0 —páginas 2+ pegadas
+al borde— se resuelve con espaciadores que el navegador repite en **cada** hoja: envolver el
+contenido en una tabla con `thead` y `tfoot` vacíos de altura fija (`apps/web/src/utils/
+lettersPrint.ts`, `.letter-sheet`). Un `padding` del `body` solo vale para la primera hoja.
+
+Dos trampas al hacerlo sobre `PRINT_STYLESHEET`:
+
+- Su `@media print` pone `body { padding: 0 }` y `tr { break-inside: avoid }`: hay que
+  redeclarar el lateral del body y `break-inside: auto` en la tabla de maqueta, o el texto queda
+  a 4 mm del borde y una carta larga empuja todo a la hoja siguiente.
+- Sus reglas de `table`/`td` son para tablas de datos (10pt, primera celda centrada al 8 % y en
+  negrita azul): una tabla de maqueta las hereda y el texto sale en azul. Anularlas en esa clase.
+
+Se verifica sin navegador abierto: Chrome headless imprime encabezado y pie **por defecto**, así
+que es el control negativo natural.
+
+```bash
+CH="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+"$CH" --headless=new --user-data-dir=/tmp/x --print-to-pdf=out.pdf "file://$PWD/doc.html"
+pdftotext -layout out.pdf - | grep -E "[0-9]+/[0-9]+/[0-9]+|file://|^\s*[0-9]+/[0-9]+\s*$"   # vacío = limpio
+pdftotext -bbox out.pdf bbox.html    # yMin/xMin de las palabras → márgenes reales por hoja
+```
 
 ## Ruta B — PDF con jsPDF
 

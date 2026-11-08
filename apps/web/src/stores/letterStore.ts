@@ -169,9 +169,13 @@ export const useLetterStore = defineStore('letters', () => {
 		}
 	};
 
-	const markPrinted = async (retreatId: string, letterIds: string[], batchId: string) => {
+	const markPrinted = async (
+		retreatId: string,
+		target: { letterIds?: string[]; participantIds?: string[] },
+		batchId?: string,
+	) => {
 		try {
-			return await lettersApi.markPrinted(retreatId, letterIds, batchId);
+			return await lettersApi.markPrinted(retreatId, target, batchId);
 		} catch (e: unknown) {
 			error.value = apiErrorMessage(e, 'No se pudo marcar el lote impreso');
 			throw e;

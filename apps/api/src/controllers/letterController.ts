@@ -44,7 +44,12 @@ const attachmentToDTO = async (
 	mimeType: attachment.mimeType,
 	sizeBytes: attachment.sizeBytes,
 	isBrowserSafeImage: attachment.isBrowserSafeImage,
-	storageUrl: await s3Service.presignPrivateUrl(attachment.storageUrl),
+	// PDF: firmado «inline» para verlo en el navegador. Fotos y documentos de
+	// Office: la descarga de siempre (el objeto se guardó como attachment).
+	storageUrl: await s3Service.presignPrivateUrl(
+		attachment.storageUrl,
+		attachment.mimeType === 'application/pdf' ? { inlineAs: 'application/pdf' } : {},
+	),
 	sortOrder: attachment.sortOrder,
 	createdAt: attachment.createdAt,
 });
@@ -282,16 +287,26 @@ export const getFoldersHandler = async (req: Request, res: Response) => {
 	}
 };
 
-/** POST /retreats/:retreatId/letters/print-mark — marca el lote impreso. */
+/** POST /retreats/:retreatId/letters/print-mark — marca el lote impreso, o a mano. */
 export const markPrintedHandler = async (req: Request, res: Response) => {
 	try {
-		const { letterIds, batchId } = req.body as { letterIds: string[]; batchId: string };
-		const marked = await markPrinted(req.params.retreatId, letterIds, batchId);
+		const { letterIds, participantIds, batchId } = req.body as {
+			letterIds?: string[];
+			participantIds?: string[];
+			batchId?: string;
+		};
+		const marked = await markPrinted(req.params.retreatId, { letterIds, participantIds }, batchId);
 		void domainAuditService.log({
 			action: DomainAuditAction.LETTER_PRINT_MARK,
 			resourceType: 'letter',
 			retreatId: req.params.retreatId,
-			metadata: { batchId, count: marked },
+			metadata: {
+				batchId: batchId ?? undefined,
+				manual: !batchId || undefined,
+				count: marked,
+				letterIds: !batchId && letterIds?.length ? letterIds : undefined,
+				participantIds: participantIds?.length ? participantIds : undefined,
+			},
 		});
 		res.json({ marked });
 	} catch (error) {

@@ -96,15 +96,20 @@ router.post(
 // Formulario de pago estándar desde una carta: la foto (data-URL desde el
 // servidor) y, al guardar, sellar la carta con ese pago. El acceso al retiro
 // de la carta lo valida el servicio (recurso más específico).
+// letter:read además de payment:create: la foto de una carta es contenido de
+// la familia (no siempre un comprobante) y su lectura exige el permiso de
+// cartas; el botón vive en la bandeja, que ya lo pide para entrar.
 router.get(
 	'/from-letter/:letterId/photo',
 	requirePermission('payment:create'),
+	requirePermission('letter:read'),
 	validateRequest(LetterReceiptPhotoSchema),
 	getLetterReceiptPhotoHandler,
 );
 router.post(
 	'/from-letter/:letterId/attach',
 	requirePermission('payment:create'),
+	requirePermission('letter:read'),
 	validateRequest(AttachLetterToPaymentSchema),
 	attachLetterToPaymentHandler,
 );

@@ -76,7 +76,7 @@ Respuestas:
 | GET | `/retreats/:retreatId/letters?participantId=&tableId=&status=&q=` | letter:read | bandeja |
 | GET | `/letters/:id` | letter:read + ensureRetreatAccess | detalle presigned |
 | PATCH | `/letters/:id/review` `{status}` | letter:update + ensureRetreatAccess | revisión + audit |
-| POST | `/retreats/:retreatId/letters/print-mark` `{letterIds,batchId}` | letter:print | marca lote |
+| POST | `/retreats/:retreatId/letters/print-mark` `{letterIds?,participantIds?,batchId?}` | letter:print | marca lote (con `batchId`) o a mano (sin él: solo aprobadas que faltaban) |
 | GET | `/retreats/:retreatId/letters/print-batch?scope=&participantIds=&tableId=` | letter:read | datos ordenados |
 
 - **Tests**: migration (índices + grants, patrón del skill sqlite-migrations), mailbox service

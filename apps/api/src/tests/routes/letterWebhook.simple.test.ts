@@ -184,6 +184,53 @@ describe('letterWebhook — contrato Worker → API', () => {
 		expect(attachment.storageUrl.startsWith('data:image/jpeg;base64,') || attachment.storageKey.startsWith('letters/')).toBe(true);
 	});
 
+	it('documentos: Office/OpenDocument/texto se guardan; con macros o disfrazados se descartan', async () => {
+		const zip = (...entries: string[]) =>
+			Buffer.concat([Buffer.from([0x50, 0x4b, 0x03, 0x04]), Buffer.from(entries.join('\0'))]);
+		const ole = (...extra: Buffer[]) =>
+			Buffer.concat([Buffer.from([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]), Buffer.alloc(32), ...extra]);
+		const response = await postWebhook(
+			makePayload({
+				attachments: [
+					{ fileName: 'Carta para José.docx', mimeType: 'application/octet-stream', contentBase64: b64(zip('[Content_Types].xml', 'word/document.xml')) },
+					{ fileName: 'fotos.pptx', mimeType: 'application/octet-stream', contentBase64: b64(zip('[Content_Types].xml', 'ppt/presentation.xml')) },
+					{ fileName: 'carta.odt', mimeType: 'application/octet-stream', contentBase64: b64(zip('mimetype', 'application/vnd.oasis.opendocument.text')) },
+					{ fileName: 'vieja.doc', mimeType: 'application/msword', contentBase64: b64(ole()) },
+					{ fileName: 'nota.txt', mimeType: 'text/plain', contentBase64: b64(Buffer.from('Querido Juan:\nTe queremos.')) },
+					// Descartados:
+					{ fileName: 'macro.docx', mimeType: 'application/octet-stream', contentBase64: b64(zip('[Content_Types].xml', 'word/vbaProject.bin')) },
+					{ fileName: 'macro.docm', mimeType: 'application/octet-stream', contentBase64: b64(zip('[Content_Types].xml')) },
+					{ fileName: 'macro.doc', mimeType: 'application/msword', contentBase64: b64(ole(Buffer.from('_VBA_PROJECT', 'utf16le'))) },
+					{ fileName: 'disfrazado.docx', mimeType: 'application/octet-stream', contentBase64: b64(Buffer.from('MZ ejecutable')) },
+					{ fileName: 'dibujo.svg', mimeType: 'image/svg+xml', contentBase64: b64(Buffer.from('<svg onload="x()"/>')) },
+				],
+			}),
+		);
+		expect(response.status).toBe(200);
+		const letter = await getDS().getRepository(Letter).findOne({
+			where: { id: response.body.letterId },
+			relations: ['attachments'],
+		});
+		const byName = new Map(letter!.attachments!.map((a) => [a.fileName, a]));
+		expect([...byName.keys()].sort()).toEqual(
+			['Carta para José.docx', 'carta.odt', 'fotos.pptx', 'nota.txt', 'vieja.doc'].sort(),
+		);
+		expect(byName.get('Carta para José.docx')!.mimeType).toBe(
+			'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+		);
+		expect(byName.get('vieja.doc')!.mimeType).toBe('application/msword');
+		expect(byName.get('nota.txt')!.mimeType).toBe('text/plain');
+		// Ningún documento cuenta como imagen imprimible.
+		expect([...byName.values()].every((a) => !a.isBrowserSafeImage)).toBe(true);
+
+		const warnings = letter!.warnings!.join(' | ');
+		expect(warnings).toContain('"macro.docx" descartado: documento con macros');
+		expect(warnings).toContain('"macro.docm" descartado: documento con macros');
+		expect(warnings).toContain('"macro.doc" descartado: documento con macros');
+		expect(warnings).toContain('"disfrazado.docx" descartado: formato no soportado');
+		expect(warnings).toContain('"dibujo.svg" descartado: formato no soportado');
+	});
+
 	it('200 duplicate: mismo messageId no crea segunda carta', async () => {
 		const payload = makePayload();
 		const first = await postWebhook(payload);
