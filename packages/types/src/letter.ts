@@ -159,8 +159,6 @@ export interface LetterMailboxRow {
 	participantId: string | null;
 	participantName: string;
 	participantType: string | null;
-	/** Palanquero asignado (palancasCoordinator, p. ej. «Palanquero 1»). */
-	palancasCoordinator: string | null;
 	tableId: string | null;
 	tableName: string | null;
 	cellPhone: string | null;
