@@ -336,7 +336,9 @@
   Bug de producto: participante sin `retreatId` borrado no cancelaba su
   fila de retiro (syncRetreatFields se salta) — solo afecta seeds huérfanos;
   documentado, no se cambia el flujo de delete en esta versión.
-- Nota: PUT/PATCH con fetch crudo desde el navegador devolvió «body
-  undefined» en participantRoutes (POST funciona); con axios de la app el
-  PUT /:id también falla el validateRequest — pendiente investigar fuera de
-  esta ronda (no bloquea: la cancelación de inscripciones va por el wizard).
+- Corrección (revisión 2026-11-08): el «body undefined» en PUT/PATCH de
+  participantRoutes NO era un bug del body. El id `qa-walker-0001` no es UUID
+  y falla `params.id`; como ese error no es «deep body», `validateRequest`
+  devuelve los errores del fallback (`body`/`params` «Required»), que
+  esconden la causa real. Es deuda preexistente de `validateRequest`,
+  fuera del alcance de esta feature.
