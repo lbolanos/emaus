@@ -3,10 +3,12 @@ import { AppDataSource } from '../data-source';
 import { ParticipantCommunication, MessageType } from '../entities/participantCommunication.entity';
 import { MessageTemplate } from '../entities/messageTemplate.entity';
 import { Participant } from '../entities/participant.entity';
-import { DeepPartial } from 'typeorm';
+import { WhatsappInboxMessage } from '../entities/whatsappInboxMessage.entity';
+import { In, DeepPartial } from 'typeorm';
 import { EmailService, ParticipantEmailData } from '../services/emailService';
 import { authorizationService } from '../middleware/authorization';
-import { messageTemplateTypes } from '@repo/types';
+import { acceptedJidDigitVariants } from '../services/waBridge';
+import { messageTemplateTypes, toNationalPhone } from '@repo/types';
 
 class CreateCommunicationDTO {
 	participantId!: string;
@@ -73,19 +75,146 @@ export class ParticipantCommunicationController {
 				where.retreatId = retreatId;
 			}
 
+			// Both sources read the first offset+limit rows and the page is cut on
+			// the merged, sorted list below: skipping per source would drop rows
+			// whenever offset > 0.
 			const [communications, total] = await this.communicationRepository.findAndCount({
 				where,
 				relations: ['participant', 'retreat', 'template', 'sender'],
 				order: {
 					sentAt: 'DESC',
 				},
-				take: Number(limit),
-				skip: Number(offset),
+				take: Number(limit) + Number(offset),
+				skip: 0,
 			});
 
+			// INCOMING WhatsApp messages of the walker (specs/whatsapp-inbox v1.2):
+			// the history used to log only what we sent. Included only for users
+			// who can read the inbox (same permission) and only when the
+			// participant has a phone with a resolvable country (JID match, like
+			// the poller). v1.4: also their emergency contacts' messages, only
+			// with participant:health (contacts are SENSITIVE_HEALTH_FIELDS).
+			let inbound: Array<Record<string, unknown>> = [];
+			let inboundTotal = 0;
+			const userId = (req.user as any)?.id as string | undefined;
+			const canReadInbox =
+				userId &&
+				(await authorizationService.hasPermission(userId, 'whatsappInbox:read').catch(() => false));
+			if (canReadInbox) {
+				const canSeeContacts = await authorizationService
+					.hasPermission(userId, 'participant:health')
+					.catch(() => false);
+				const walker = await this.participantRepository.findOne({
+					where: { id: participantId },
+					select: [
+						'id',
+						'cellPhone',
+						'country',
+						'emergencyContact1Name',
+						'emergencyContact1Relation',
+						'emergencyContact1CellPhone',
+						'emergencyContact1HomePhone',
+						'emergencyContact1WorkPhone',
+						'emergencyContact2Name',
+						'emergencyContact2Relation',
+						'emergencyContact2CellPhone',
+						'emergencyContact2HomePhone',
+						'emergencyContact2WorkPhone',
+					],
+				});
+				const country = walker?.country ?? '';
+				const digitsOf = (phone: string | null | undefined): string[] => {
+					if (!phone || !country) return [];
+					const national = toNationalPhone(phone, country);
+					return national ? acceptedJidDigitVariants(national, country) : [];
+				};
+				// JID digits → emergency contact (the walker's own number wins).
+				const ownDigits = new Set(digitsOf(walker?.cellPhone));
+				const contactByDigits = new Map<string, { name: string; relation: string }>();
+				if (walker && canSeeContacts) {
+					const slots = [
+						{
+							name: walker.emergencyContact1Name,
+							relation: walker.emergencyContact1Relation,
+							phones: [
+								walker.emergencyContact1CellPhone,
+								walker.emergencyContact1HomePhone,
+								walker.emergencyContact1WorkPhone,
+							],
+						},
+						{
+							name: walker.emergencyContact2Name,
+							relation: walker.emergencyContact2Relation,
+							phones: [
+								walker.emergencyContact2CellPhone,
+								walker.emergencyContact2HomePhone,
+								walker.emergencyContact2WorkPhone,
+							],
+						},
+					];
+					for (const slot of slots) {
+						for (const digits of slot.phones.flatMap((phone) => digitsOf(phone))) {
+							if (ownDigits.has(digits) || contactByDigits.has(digits)) continue;
+							contactByDigits.set(digits, {
+								name: slot.name ?? '',
+								relation: slot.relation ?? '',
+							});
+						}
+					}
+				}
+				const jids = [...ownDigits, ...contactByDigits.keys()].map(
+					(digits) => `${digits}@s.whatsapp.net`,
+				);
+				if (jids.length > 0) {
+					// take = limit+offset and skip 0: the page is cut on the merge
+					// (skipping per source dropped rows and "Load more" emptied the
+					// list — QA v1.2).
+					const [rows, count] = await AppDataSource.getRepository(
+						WhatsappInboxMessage,
+					).findAndCount({
+						where: { retreatId: effectiveRetreatId, chatJid: In(jids), fromMe: false },
+						select: ['id', 'chatJid', 'chatPhone', 'timestamp', 'body', 'messageType'],
+						order: { timestamp: 'DESC' },
+						take: Number(limit) + Number(offset),
+						skip: 0,
+					});
+					inboundTotal = count;
+					inbound = rows.map((row) => {
+						const contact = contactByDigits.get(row.chatPhone);
+						return {
+							id: `wa-inbox:${row.id}`,
+							participantId,
+							retreatId: effectiveRetreatId,
+							messageType: 'whatsapp',
+							direction: 'inbound',
+							waMessageType: row.messageType,
+							recipientContact: row.chatPhone,
+							// v1.4: who wrote it — the walker or one of their contacts.
+							senderKind: contact ? 'emergency_contact' : 'walker',
+							contactName: contact?.name ?? null,
+							contactRelation: contact?.relation ?? null,
+							// Media without a caption: the client labels it by
+							// waMessageType (i18n) and shows the thumbnail for images.
+							messageContent: row.body ?? '',
+							sentAt: row.timestamp,
+						};
+					});
+				}
+			}
+
+			// Chronological merge; the page is cut on the combined list (never a
+			// per-source skip: QA v1.2 emptied it on the second click).
+			const merged = [...communications, ...inbound] as Array<Record<string, unknown>>;
+			merged.sort((a, b) => {
+				const ta = new Date(a.sentAt as string).getTime() || 0;
+				const tb = new Date(b.sentAt as string).getTime() || 0;
+				return tb - ta;
+			});
+			const page = merged.slice(Number(offset), Number(offset) + Number(limit));
+
 			res.json({
-				communications,
-				total,
+				communications: page,
+				total: total + inboundTotal,
 				limit: Number(limit),
 				offset: Number(offset),
 			});

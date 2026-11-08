@@ -504,10 +504,11 @@
 
 <script setup lang="ts">
 import { storeToRefs } from 'pinia';
-import { ref, computed, nextTick, onMounted, onBeforeUnmount, watch } from 'vue';
-import { LogOut, Users, UtensilsCrossed, LayoutDashboard, ChevronLeft, Home, Ban, Bed, HandHeart, DollarSign, NotebookPen, Building, UsersRound, Salad, FileX, UserCheck, ShoppingBag, Pill, Shirt, UserCog, Table, Settings, Package, Globe, Briefcase, Search, X, ArrowRight, ChevronDown, Lock, CreditCard, Activity, KeyRound, Heart, UserPlus, UserCircle, MessageSquare, Clock, ClipboardList, BookOpen, Plus, Edit as EditIcon, HelpCircle, Cross, User as UserIcon, Languages, DoorOpen, Trash2, Flag, Mail } from 'lucide-vue-next';
+import { ref, computed, nextTick, onMounted, onBeforeUnmount, onUnmounted, watch } from 'vue';
+import { LogOut, Users, UtensilsCrossed, LayoutDashboard, ChevronLeft, Home, Ban, Bed, HandHeart, DollarSign, NotebookPen, Building, UsersRound, Salad, FileX, UserCheck, ShoppingBag, Pill, Shirt, UserCog, Table, Settings, Package, Globe, Briefcase, Search, X, ArrowRight, ChevronDown, Lock, CreditCard, Activity, KeyRound, Heart, UserPlus, UserCircle, MessageSquare, MessageCircle, Clock, ClipboardList, BookOpen, Plus, Edit as EditIcon, HelpCircle, Cross, User as UserIcon, Languages, DoorOpen, Trash2, Flag, Mail } from 'lucide-vue-next';
 import { useAuthStore } from '@/stores/authStore';
 import { useReceptionStore } from '@/stores/receptionStore';
+import { useWaInboxStore } from '@/stores/waInboxStore';
 import { useLetterStore } from '@/stores/letterStore';
 import { useReceiptClaimsStore } from '@/stores/receiptClaimsStore';
 import { useRouter, useRoute } from 'vue-router';
@@ -556,7 +557,7 @@ import CommunityContextSection from '@/components/layout/CommunityContextSection
 import ConnectivityChip from '@/components/offline/ConnectivityChip.vue';
 import { pendingOps } from '@/offline/outbox';
 
-type PermissionType = 'retreat' | 'participant' | 'table' | 'house' | 'user' | 'retreatInventory' | 'inventoryItem' | 'payment' | 'responsability' | 'messageTemplate' | 'santisimo' | 'schedule' | 'scheduleTemplate' | 'preRetreatTask' | 'preRetreatTaskTemplate' | 'retreatPreparation' | 'letter' | 'superadmin';
+type PermissionType = 'retreat' | 'participant' | 'table' | 'house' | 'user' | 'retreatInventory' | 'inventoryItem' | 'payment' | 'responsability' | 'messageTemplate' | 'santisimo' | 'schedule' | 'scheduleTemplate' | 'preRetreatTask' | 'preRetreatTaskTemplate' | 'retreatPreparation' | 'whatsappInbox' | 'letter' | 'superadmin';
 
 export interface MenuItem {
   name: string;
@@ -592,6 +593,7 @@ const uiStore = useUIStore();
 const receptionStore = useReceptionStore();
 const letterStore = useLetterStore();
 const participantStore = useParticipantStore();
+const waInboxStore = useWaInboxStore();
 const menuFavoritesStore = useMenuFavoritesStore();
 const { participants } = storeToRefs(participantStore);
 const { isSidebarCollapsed, isMobile, collapsedSections, isRetreatGroupCollapsed } = storeToRefs(uiStore);
@@ -623,6 +625,10 @@ const ITEM_BADGE: Record<string, { color: string; count: () => number | null }> 
   canceled:     { color: 'bg-red-500',    count: () => participantCounts.value.canceled  || null },
   reception:    { color: 'bg-amber-500',  count: () => receptionStore.pendingCount       || null },
   'special-cases': { color: 'bg-amber-500', count: () => participantCounts.value.specialCases || null },
+  // WhatsApp inbox (specs/whatsapp-inbox v1.1): the user's unread. The store
+  // refreshes on retreat change and through the view's socket; the poll below
+  // covers the closed view.
+  'wa-inbox': { color: 'bg-emerald-500', count: () => waInboxStore.totalUnread || null },
   // Cartas de familias: pendientes de revisión (specs/letters-email).
   letters:      { color: 'bg-purple-600', count: () => letterStore.pendingCount          || null },
   // Comprobantes de pago enviados por las familias, pendientes de aplicar.
@@ -639,6 +645,17 @@ function itemBadge(name: string): number | null {
 function itemBadgeColor(name: string): string {
   return ITEM_BADGE[name]?.color ?? 'bg-gray-500';
 }
+
+// WhatsApp inbox badge (v1.1): refresh on retreat change and every 60 s — the
+// open view also refreshes instantly over the socket. The API answers 403
+// without the permission and the store swallows it (the badge stays as is).
+const refreshWaBadge = () => {
+  const id = retreatStore.selectedRetreatId;
+  if (id) void waInboxStore.refreshBadge(id);
+};
+watch(() => retreatStore.selectedRetreatId, refreshWaBadge, { immediate: true });
+const waBadgeTimer = setInterval(refreshWaBadge, 60_000);
+onUnmounted(() => clearInterval(waBadgeTimer));
 
 const ROLE_DISPLAY_NAMES: Record<string, string> = {
   superadmin: 'Super Administrador',
@@ -1081,6 +1098,16 @@ const menuSections: MenuSection[] = [
         permission: 'participant',
         requiresRetreat: true,
         label: 'sidebar.palancas'
+      },
+      {
+        // Read-only WhatsApp inbox (specs/whatsapp-inbox)
+        name: 'wa-inbox',
+        routeName: 'wa-inbox',
+        icon: MessageCircle,
+        permission: 'whatsappInbox',
+        permissionOperation: 'read',
+        requiresRetreat: true,
+        label: 'sidebar.waInbox'
       },
       {
         name: 'special-cases',

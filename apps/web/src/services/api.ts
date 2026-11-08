@@ -4976,6 +4976,183 @@ export const deleteParticipantNote = async (id: string): Promise<void> => {
   await api.delete(`/crm/notes/${id}`);
 };
 
+// ── Read-only WhatsApp bridge (specs/whatsapp-inbox) ──
+
+import type { WaLinkDto, WaConversationDto, WaInboxMessageDto, WaThreadMediaDto, WaRawMediaDto } from "@repo/types";
+
+export const startWaLink = async (
+  retreatId: string,
+  consentAccepted: boolean,
+): Promise<{ link: WaLinkDto }> => {
+  const r = await api.post(`/wa-bridge/retreat/${retreatId}/link`, { consentAccepted });
+  return r.data;
+};
+
+export const getWaLinks = async (
+  retreatId: string,
+): Promise<{ links: WaLinkDto[]; enabled: boolean }> => {
+  const r = await api.get(`/wa-bridge/retreat/${retreatId}/links`);
+  return r.data;
+};
+
+/** Per-retreat activation — superadmin ONLY (D13, specs/whatsapp-inbox v1.1). */
+export const setWaBridgeEnabled = async (
+  retreatId: string,
+  enabled: boolean,
+): Promise<{ ok: boolean; enabled: boolean }> => {
+  const r = await api.patch(`/wa-bridge/retreat/${retreatId}/enabled`, { enabled });
+  return r.data;
+};
+
+/** Terminate every bridge session of the retreat — superadmin ONLY (D14). */
+export const terminateWaBridgeAll = async (
+  retreatId: string,
+  disable = true,
+): Promise<{ ok: boolean; terminated: number; disabled: boolean }> => {
+  const r = await api.post(`/wa-bridge/retreat/${retreatId}/terminate-all`, { disable });
+  return r.data;
+};
+
+export interface WaLinkStatus {
+  status: WaLinkDto["status"];
+  qr: string | null;
+  linkedPhone: string | null;
+  linkedJid: string | null;
+  lastError: string | null;
+  lastSyncAt: string | Date | null;
+}
+
+export const getWaLinkStatus = async (linkId: string): Promise<WaLinkStatus> => {
+  const r = await api.get(`/wa-bridge/link/${linkId}/status`);
+  return r.data;
+};
+
+export const unlinkWaLink = async (linkId: string): Promise<{ ok: boolean }> => {
+  const r = await api.delete(`/wa-bridge/link/${linkId}`);
+  return r.data;
+};
+
+export const getWaConversations = async (
+  retreatId: string,
+): Promise<{ conversations: WaConversationDto[] }> => {
+  const r = await api.get(`/wa-bridge/retreat/${retreatId}/conversations`);
+  return r.data;
+};
+
+export const getWaMessages = async (
+  retreatId: string,
+  chatJid: string,
+  before?: string,
+): Promise<{ messages: WaInboxMessageDto[] }> => {
+  const r = await api.get(`/wa-bridge/retreat/${retreatId}/messages`, {
+    params: { chatJid, before, limit: 50 },
+  });
+  return r.data;
+};
+
+export const markWaChatSeen = async (
+  retreatId: string,
+  chatJid: string,
+): Promise<{ ok: boolean; lastSeen: string | Date | null }> => {
+  const r = await api.post(`/wa-bridge/retreat/${retreatId}/seen`, { chatJid });
+  return r.data;
+};
+
+export interface WaReceiptDownload {
+  receiptPhoto: string;
+  participantId: string | null;
+  participantFirstName: string;
+  participantLastName: string;
+  country: string | null;
+}
+
+/** FR14 (v1.1): ON-DEMAND download of the message image for `receiptPhoto`. */
+export const getWaReceiptDataUrl = async (messageId: string): Promise<WaReceiptDownload> => {
+  const r = await api.post(`/wa-bridge/messages/${messageId}/receipt`);
+  return r.data;
+};
+
+/** v1.3: voice note or document of a message, on demand. */
+export const getWaRawMedia = async (messageId: string): Promise<WaRawMediaDto> => {
+  const r = await api.post(`/wa-bridge/messages/${messageId}/raw-media`);
+  return r.data;
+};
+
+/** v1.3: link the payment just created from a message (duplicate-payment guard). */
+export const linkWaMessagePayment = async (
+  messageId: string,
+  paymentId: string,
+): Promise<{ ok: boolean; paymentId: string }> => {
+  const r = await api.post(`/wa-bridge/messages/${messageId}/payment`, { paymentId });
+  return r.data;
+};
+
+/** v1.3: "add as letter" — the message becomes a printable letter. */
+export const addWaMessageAsLetter = async (
+  messageId: string,
+  payload: {
+    participantId: string;
+    bodyText: string;
+    attachment?: { fileName: string; dataUrl: string } | null;
+    /** v1.5: keep the original document; the server downloads and verifies it. */
+    includeDocument?: boolean;
+  },
+): Promise<{ letterId: string; duplicate: boolean }> => {
+  const r = await api.post(`/wa-bridge/messages/${messageId}/letter`, payload);
+  return r.data;
+};
+
+/** Thread thumbnails in one batch (v1.2), cached server side. */
+export const getWaThreadMedia = async (
+  retreatId: string,
+  messageIds: string[],
+): Promise<WaThreadMediaDto> => {
+  const r = await api.post(`/wa-bridge/retreat/${retreatId}/media`, { messageIds });
+  return r.data;
+};
+
+/** Sidebar badge (v1.1): the retreat's total unread for the user. */
+export const getWaUnreadCount = async (
+  retreatId: string,
+): Promise<{ total: number }> => {
+  const r = await api.get(`/wa-bridge/retreat/${retreatId}/unread`);
+  return r.data;
+};
+
+/** Marks EVERY chat as read for the user (v1.1). */
+export const markWaAllSeen = async (
+  retreatId: string,
+): Promise<{ ok: boolean; marked: number }> => {
+  const r = await api.post(`/wa-bridge/retreat/${retreatId}/seen-all`);
+  return r.data;
+};
+
+export interface WaSearchResult {
+  id: string;
+  chatJid: string;
+  chatPhone: string;
+  timestamp: string | Date;
+  body: string | null;
+  messageType: string;
+  /** v1.4: the walker of the chat (the one who listed the contact). */
+  participantId?: string | null;
+  participantFirstName: string;
+  participantLastName: string;
+  /** v1.4: written by the walker or by one of their emergency contacts. */
+  senderKind?: 'walker' | 'emergency_contact';
+  contactName?: string | null;
+  contactRelation?: string | null;
+}
+
+/** Text search over the stored messages (v1.1). */
+export const searchWaMessages = async (
+  retreatId: string,
+  q: string,
+): Promise<{ results: WaSearchResult[] }> => {
+  const r = await api.get(`/wa-bridge/retreat/${retreatId}/search`, { params: { q } });
+  return r.data;
+};
+
 // ---------------------------------------------------------------------------
 // Cartas de familias por email (specs/letters-email)
 // ---------------------------------------------------------------------------

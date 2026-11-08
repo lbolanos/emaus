@@ -5,6 +5,9 @@ import { UniquePhonePerCommunity20260521170000 } from '../migrations/sqlite/2026
 import { House } from '../entities/house.entity';
 import { Bed } from '../entities/bed.entity';
 import { Retreat } from '../entities/retreat.entity';
+import { WhatsappBridgeLink } from '../entities/whatsappBridgeLink.entity';
+import { WhatsappInboxMessage } from '../entities/whatsappInboxMessage.entity';
+import { WhatsappInboxReadState } from '../entities/whatsappInboxReadState.entity';
 import { RetreatBed } from '../entities/retreatBed.entity';
 import { TableMesa } from '../entities/tableMesa.entity';
 import { Participant } from '../entities/participant.entity';
@@ -172,6 +175,10 @@ const entities = [
 	Letter,
 	LetterAttachment,
 	PaymentReceiptClaim,
+	// WhatsApp inbox bridge (specs/whatsapp-inbox)
+	WhatsappBridgeLink,
+	WhatsappInboxMessage,
+	WhatsappInboxReadState,
 ];
 
 // Test database configuration - will be created in setupTestDatabase
@@ -353,10 +360,16 @@ export async function clearTestData() {
 	// Clear tables in dependency order (children before parents)
 	// This respects foreign key constraints
 	const clearOrder = [
+		// WhatsApp inbox bridge: messages/read-state before their link.
+		'whatsapp_inbox_message',
+		'whatsapp_inbox_read_state',
+		'whatsapp_bridge_link',
 		// Cartas de familias (specs/letters-email): hijas primero — letters
 		// referencia retreat_participants, que se limpia más abajo.
 		'letter_attachments',
 		'letters',
+		// Receipt claims point at retreat, participant, payment and user.
+		'payment_receipt_claims',
 		'community_attendance',
 		'community_meeting_photo_tag',
 		'community_meeting',

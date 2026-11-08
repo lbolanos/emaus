@@ -78,7 +78,7 @@ Cierran la confusión "cuenta de usuario vs. registro al retiro" que ya viene en
 - [x] ~~**Comunidades**~~ — publicado — https://youtu.be/xIVmHyhkDHA *(propósito pastoral/acompañamiento — no control; ruta al registro público desde la landing (mapa → formulario que un admin aprueba); panel; miembros con búsqueda/filtros, crear e importar de un retiro; estado como marca de acompañamiento; editar datos por comunidad; reuniones; y las varias formas de registrar asistencia: manual por reunión y por miembro, enlace público en el celular, y el asistente/bot con foto del listado; analítica; Mis Comunidades; administradores).*
 - [x] ~~**Secuencias y plantillas de mensajes**~~ — publicado (arriba).
 - [ ] **Tablero de comunicación y seguimiento** — `communication-dashboard`, `follow-up`.
-- [ ] **WhatsApp** — envío y administración (skill `whatsapp-admin`).
+- [x] ~~**WhatsApp del Retiro — bandeja de lectura**~~ — publicado **unlisted** 2026-11-06 — https://youtu.be/_SLDmmOjTPo *(bandeja consolidada de mensajes de caminantes: vinculación por QR por logístico, activación por retiro solo-superadmin, solo lectura sin visto azul, comprobante → pago, purga automática; ayuda in-app enlazada; spec `specs/whatsapp-inbox`).*
 
 ## 🔵 P4 — Vista del usuario / servidor
 

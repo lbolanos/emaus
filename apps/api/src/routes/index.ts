@@ -29,6 +29,7 @@ import telemetryRoutes from './telemetryRoutes';
 import tagRoutes from './tagRoutes';
 import savedSegmentRoutes from './savedSegmentRoutes';
 import messageSequenceRoutes from './messageSequenceRoutes';
+import waBridgeRoutes from './waBridgeRoutes';
 import globalMessageSequenceRoutes from './globalMessageSequenceRoutes';
 import crmRoutes from './crmRoutes';
 import serviceTeamRoutes from './serviceTeamRoutes';
@@ -119,6 +120,8 @@ router.use('/telemetry', telemetryRoutes);
 router.use('/tags', tagRoutes);
 router.use('/saved-segments', savedSegmentRoutes);
 router.use('/message-sequences', messageSequenceRoutes);
+// Read-only WhatsApp bridge (specs/whatsapp-inbox)
+router.use('/wa-bridge', waBridgeRoutes);
 router.use('/global-message-sequences', globalMessageSequenceRoutes);
 router.use('/crm', crmRoutes);
 router.use('/service-teams', serviceTeamRoutes);

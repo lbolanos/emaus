@@ -231,6 +231,7 @@ vi.mock('lucide-vue-next', () => ({
 	Briefcase: { template: '<div data-icon="Briefcase" />' },
 	Search: { template: '<div data-icon="Search" />' },
 	X: { template: '<div data-icon="X" />' },
+	MessageCircle: { template: '<div data-icon="MessageCircle" />' },
 	ArrowLeft: { template: '<div data-icon="ArrowLeft" />' },
 	ArrowRight: { template: '<div data-icon="ArrowRight" />' },
 	ChevronDown: { template: '<div data-icon="ChevronDown" />' },
@@ -1239,7 +1240,11 @@ describe('Sidebar Component', () => {
 			});
 			const communications = getSections(grantedWrapper).find((s: any) => s.category === 'communications');
 			const names = communications.items.map((i: any) => i.name);
-			expect(names.indexOf('special-cases')).toBe(names.indexOf('palancas') + 1);
+			// The WhatsApp inbox (wa-inbox) also lives in communications (v1.2):
+			// special-cases still comes after palancas, but no longer
+			// necessarily right after it.
+			expect(names).toContain('wa-inbox');
+			expect(names.indexOf('special-cases')).toBeGreaterThan(names.indexOf('palancas'));
 
 			grantedWrapper.unmount();
 		});

@@ -233,6 +233,19 @@ export const DomainAuditAction = {
 	RETREAT_PREPARATION_DOCUMENT_CREATE: 'retreat_preparation_document.create',
 	RETREAT_PREPARATION_DOCUMENT_UPDATE: 'retreat_preparation_document.update',
 	RETREAT_PREPARATION_DOCUMENT_DELETE: 'retreat_preparation_document.delete',
+	// The retreat's read-only WhatsApp bridge (specs/whatsapp-inbox). Every
+	// link transition leaves an event; sync errors are rate-limited by the
+	// service. metadata carries state/counters — NEVER message content or
+	// another staff member's linked number.
+	WA_BRIDGE_LINK_START: 'wa_bridge.link_start',
+	WA_BRIDGE_LINKED: 'wa_bridge.linked',
+	WA_BRIDGE_UNLINKED: 'wa_bridge.unlinked',
+	WA_BRIDGE_PURGED: 'wa_bridge.purged',
+	WA_BRIDGE_SYNC_ERROR: 'wa_bridge.sync_error',
+	WA_BRIDGE_WINDOW_DENIED: 'wa_bridge.window_denied',
+	// Per-retreat activation (v1.1 D13): only the superadmin changes it.
+	WA_BRIDGE_RETREAT_ENABLED: 'wa_bridge.retreat_enabled',
+	WA_BRIDGE_RETREAT_DISABLED: 'wa_bridge.retreat_disabled',
 	// Cartas de familias (specs/letters-email). El inbox_view registra lectura
 	// porque el contenido es sensible (mismo criterio que participant.health_view).
 	// En metadata van solo contadores/ids — el texto de la carta jamás.
@@ -282,6 +295,7 @@ export const DOMAIN_RESOURCE_TYPES = [
 	'participant_note',
 	'retreat_preparation',
 	'retreat_preparation_document',
+	'whatsapp_bridge_link',
 	'letter',
 ] as const;
 

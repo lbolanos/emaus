@@ -125,6 +125,39 @@ export function initRealtime(httpServer: HttpServer, sessionMiddleware: RequestH
 			}
 		});
 
+		socket.on('inbox:subscribe', async (retreatId: unknown, ack?: (ok: boolean) => void) => {
+			const user = reqUser();
+			if (!user?.id || typeof retreatId !== 'string' || !retreatId) {
+				ack?.(false);
+				return;
+			}
+			try {
+				const hasAccess = await authorizationService.hasRetreatAccess(user.id, retreatId);
+				if (!hasAccess) {
+					ack?.(false);
+					return;
+				}
+				// El contenido del inbox (conversaciones privadas de caminantes) es
+				// más sensible que la cola de salida: exige además el permiso
+				// específico (S5 de specs/whatsapp-inbox).
+				const allowed = await authorizationService.hasPermission(user.id, 'whatsappInbox:read');
+				if (!allowed) {
+					ack?.(false);
+					return;
+				}
+				await socket.join(inboxRoom(retreatId));
+				ack?.(true);
+			} catch {
+				ack?.(false);
+			}
+		});
+
+		socket.on('inbox:unsubscribe', (retreatId: unknown) => {
+			if (typeof retreatId === 'string' && retreatId) {
+				void socket.leave(inboxRoom(retreatId));
+			}
+		});
+
 		socket.on('schedule:subscribe', async (retreatId: unknown, ack?: (ok: boolean) => void) => {
 			const user = reqUser();
 			if (!user?.id || typeof retreatId !== 'string' || !retreatId) {
@@ -274,6 +307,36 @@ export type LetterReceivedPayload = {
  */
 export function emitLetterReceived(payload: LetterReceivedPayload): void {
 	io?.to(lettersRoom(payload.retreatId)).emit('letters:received', payload);
+}
+
+// --- WhatsApp inbox (bandeja de lectura del puente, specs/whatsapp-inbox) ---
+
+export function inboxRoom(retreatId: string): string {
+	return `retreat:${retreatId}:inbox`;
+}
+
+export type InboxChangedPayload = {
+	retreatId: string;
+	/** Mensajes nuevos insertados en el último ciclo de ingesta. */
+	newCount: number;
+	/** Para el toast in-app: remitente y vista previa del último mensaje. */
+	senderName?: string | null;
+	preview?: string | null;
+	/**
+	 * v1.4: new messages from emergency contacts. Count only: the room is
+	 * shared by users without participant:health, so the contact is never
+	 * named here (the client shows the toast only to those who can see it).
+	 */
+	contactCount?: number;
+};
+
+/**
+ * Notifica a las vistas con la bandeja WhatsApp abierta que llegaron mensajes
+ * nuevos de caminantes. Un solo evento — la reacción del cliente siempre es
+ * refetch (conversaciones + hilo activo). La sala exige whatsappInbox:read.
+ */
+export function emitInboxChanged(payload: InboxChangedPayload): void {
+	io?.to(inboxRoom(payload.retreatId)).emit('inbox:changed', payload);
 }
 
 // --- Schedule (Minuto a Minuto) ---

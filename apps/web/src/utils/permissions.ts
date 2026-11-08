@@ -26,6 +26,10 @@ export const RESOURCES = {
 	preRetreatTaskTemplate: ['read', 'manage'] as const,
 	retreatPreparation: ['read', 'manage'] as const,
 	shirtType: ['read', 'manage'] as const,
+	// The retreat's read-only WhatsApp inbox (specs/whatsapp-inbox). 'read' =
+	// consolidated inbox and board; 'manage' = link/unlink one's own account.
+	// Copy of the @repo/types catalog — keep in sync.
+	whatsappInbox: ['read', 'manage'] as const,
 	// Cartas de familias (specs/letters-email): sin create/delete — las crea el
 	// webhook y v1 no borra (solo status hidden).
 	letter: ['read', 'update', 'print', 'manage'] as const,

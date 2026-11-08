@@ -127,6 +127,7 @@ vi.mock('lucide-vue-next', () => {
 		Shirt: icon('Shirt'), UserCog: icon('UserCog'), Table: icon('Table'),
 		Settings: icon('Settings'), Package: icon('Package'), Globe: icon('Globe'),
 		Briefcase: icon('Briefcase'), Search: icon('Search'), X: icon('X'),
+		MessageCircle: icon('MessageCircle'),
 		ArrowRight: icon('ArrowRight'), ChevronDown: icon('ChevronDown'), Lock: icon('Lock'),
 		CreditCard: icon('CreditCard'), Activity: icon('Activity'), KeyRound: icon('KeyRound'),
 		Heart: icon('Heart'), UserPlus: icon('UserPlus'), UserCircle: icon('UserCircle'),

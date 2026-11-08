@@ -271,7 +271,7 @@
 						{{ editingPayment ? $t('paymentManagement.modal.editDesc') : $t('paymentManagement.modal.addDesc') }}
 					</DialogDescription>
 				</DialogHeader>
-				<form @submit.prevent="savePayment">
+				<form class="min-w-0" @submit.prevent="savePayment">
 					<div class="space-y-4">
 						<div>
 							<label class="block text-sm font-medium text-gray-700 mb-1">{{ $t('paymentManagement.modal.participant') }}</label>
@@ -327,7 +327,14 @@
 								</button>
 							</div>
 							<div v-else-if="newReceiptDataUrl" class="flex items-center gap-2">
-								<img :src="newReceiptDataUrl" class="h-14 w-14 rounded object-cover border border-gray-200" alt="" />
+								<!-- Original aspect (object-contain): a portrait receipt
+				     cropped to a square is unreadable (QA v1.2 round 2). -->
+								<img
+									:src="newReceiptDataUrl"
+									class="h-20 w-auto max-w-[160px] rounded border border-gray-200 object-contain cursor-pointer"
+									alt=""
+									@click="receiptViewerUrl = newReceiptDataUrl"
+								/>
 								<button
 									type="button"
 									class="text-xs text-red-600 hover:underline inline-flex items-center gap-1"
@@ -340,7 +347,7 @@
 								<img
 									v-if="currentReceiptUrl"
 									:src="currentReceiptUrl"
-									class="h-14 w-14 rounded object-cover border border-gray-200 cursor-pointer"
+									class="h-20 w-auto max-w-[160px] rounded border border-gray-200 object-contain cursor-pointer"
 									alt=""
 									@click="receiptViewerUrl = currentReceiptUrl"
 								/>
@@ -365,8 +372,12 @@
 							</div>
 						</div>
 					</div>
-					<div class="mt-6 flex flex-col-reverse sm:flex-row sm:justify-between gap-2">
-						<div v-if="!editingPayment" class="flex flex-col-reverse sm:flex-row gap-2">
+					<!-- flex-wrap + min-w-0: the 4 buttons exceed the panel width
+					     (max-w-md); without wrap the item's min-content widens the
+					     dialog grid column and the WHOLE form overflows
+					     (QA v1.2 round 3). -->
+					<div class="mt-6 flex flex-col-reverse sm:flex-row sm:justify-between flex-wrap gap-2">
+						<div v-if="!editingPayment" class="flex flex-col-reverse sm:flex-row flex-wrap gap-2">
 							<Button
 								type="button"
 								variant="outline"
@@ -516,6 +527,17 @@ import { usePaysAtHouseToggle } from '@/composables/usePaysAtHouseToggle';
 
 const { t } = useI18n();
 const { toast } = useToast();
+const props = withDefaults(
+	defineProps<{
+		/** Only the payment modal is used (no list, no fetches on mount). */
+		embedded?: boolean;
+	}>(),
+	{ embedded: false },
+);
+const emit = defineEmits<{
+	(e: 'payment-saved', payment: Payment): void;
+}>();
+
 const paymentStore = usePaymentStore();
 const retreatStore = useRetreatStore();
 const participantStore = useParticipantStore();
@@ -664,12 +686,33 @@ const openPaymentFor = (participantId: string) => {
 	showPaymentModal.value = true;
 };
 
+/**
+ * Opens the create modal with the receipt ALREADY attached (specs/whatsapp-inbox
+ * v1.1, FR14; prefill v1.3): the image comes from the WhatsApp inbox (or a
+ * letter), as a data-URL. The participant arrives preselected — the staff
+ * only fills amount/date/method.
+ */
+const openPaymentForWithReceipt = (
+	participantId: string,
+	receiptDataUrl: string,
+	prefill: { amount?: number | null; referenceNumber?: string | null; notes?: string | null } = {},
+) => {
+	editingPayment.value = null;
+	resetPaymentForm();
+	paymentForm.value.participantId = participantId;
+	if (prefill.amount != null && prefill.amount > 0) paymentForm.value.amount = String(prefill.amount);
+	if (prefill.referenceNumber) paymentForm.value.referenceNumber = prefill.referenceNumber;
+	if (prefill.notes) paymentForm.value.notes = prefill.notes;
+	newReceiptDataUrl.value = receiptDataUrl;
+	showPaymentModal.value = true;
+};
+
 const openChargeFor = (participantId: string) => {
 	debtParticipantId.value = participantId;
 	showDebtModal.value = true;
 };
 
-defineExpose({ openPaymentFor, openChargeFor });
+defineExpose({ openPaymentFor, openChargeFor, openPaymentForWithReceipt });
 
 const editPayment = (payment: Payment) => {
 	editingPayment.value = payment;
@@ -748,7 +791,10 @@ const savePayment = async () => {
 		if (editingPayment.value) {
 			await paymentStore.updatePaymentById(editingPayment.value.id, paymentData);
 		} else {
-			await paymentStore.addPayment(paymentData);
+			const created = await paymentStore.addPayment(paymentData);
+			// Callers that opened the modal from elsewhere (WhatsApp inbox,
+			// letters) link their source item to the payment just created.
+			if (created?.id) emit('payment-saved', created);
 		}
 
 		closePaymentModal();
@@ -866,6 +912,10 @@ const loadSummary = async () => {
 
 // Lifecycle
 onMounted(async () => {
+	// Embedded = only the payment modal is used (WhatsApp inbox, letters): the
+	// host already hydrated participantStore, and loading every payment of the
+	// retreat plus overwriting participantStore.filters would be pure cost.
+	if (props.embedded) return;
 	await retreatStore.fetchRetreats();
 
 	if (retreatStore.selectedRetreatId) {
@@ -883,6 +933,7 @@ onMounted(async () => {
 
 // Watch for sidebar retreat selection changes
 watch(() => retreatStore.selectedRetreatId, async (newId) => {
+	if (props.embedded) return;
 	participantStore.filters.retreatId = newId || '';
 	await participantStore.fetchParticipants();
 	if (newId) {

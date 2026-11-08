@@ -55,9 +55,9 @@
       <svg class="w-12 h-12 mx-auto text-muted-foreground/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/>
       </svg>
-      <p class="text-sm text-muted-foreground mt-2">No hay mensajes enviados</p>
+      <p class="text-sm text-muted-foreground mt-2">No hay mensajes</p>
       <p class="text-xs text-muted-foreground mt-1">
-        Los mensajes enviados aparecerán aquí
+        Los mensajes enviados y los recibidos por WhatsApp aparecerán aquí
       </p>
     </div>
 
@@ -76,6 +76,10 @@
             <span :class="getMessageTypeColor(message.messageType)" class="text-sm font-medium">
               {{ getMessageTypeLabel(message.messageType) }}
             </span>
+            <!-- WhatsApp inbox messages (v1.2): their own badge -->
+            <Badge v-if="isInbound(message)" variant="outline" class="text-xs">
+              Recibido
+            </Badge>
           </div>
           <div class="flex items-center gap-1">
             <span class="text-xs text-muted-foreground">
@@ -95,9 +99,23 @@
           </div>
         </div>
 
+        <!-- Imagen entrante: thumbnail visible (v1.2, feedback QA) -->
+        <img
+          v-if="isInbound(message) && message.waMessageType === 'image' && mediaThumbs[message.id]"
+          :src="mediaThumbs[message.id]"
+          class="w-auto max-h-40 rounded border object-contain"
+          alt="Imagen recibida"
+        />
+
         <!-- Message Content Preview -->
         <div class="text-sm text-muted-foreground">
-          {{ formatMessageContent(message.messageContent, 80) }}
+          {{
+            message.messageContent
+              ? formatMessageContent(message.messageContent, 80)
+              : isInbound(message)
+                ? t(waMediaLabelKey(message.waMessageType))
+                : ''
+          }}
         </div>
 
         <!-- Template Info + Audiencia -->
@@ -110,10 +128,20 @@
           </Badge>
         </div>
 
-        <!-- Recipient Info -->
-        <div class="text-xs text-muted-foreground">
+        <!-- Recipient (sent) / Sender (WhatsApp received) -->
+        <div v-if="!isInbound(message)" class="text-xs text-muted-foreground">
           Enviado a:
           <span v-if="message.recipientName" class="font-medium">{{ message.recipientName }} — </span>{{ message.recipientContact }}
+        </div>
+        <div v-else class="text-xs text-muted-foreground">
+          Recibido de:
+          <!-- v1.4: written by an emergency contact (only with participant:health). -->
+          <span
+            v-if="message.senderKind === 'emergency_contact'"
+            class="font-medium text-sky-800"
+            data-testid="history-contact-sender"
+          >👪 {{ contactSenderLabel(message) }} — </span>
+          <span class="font-medium">+{{ message.recipientContact }}</span>
         </div>
 
         <!-- Sender Info -->
@@ -146,12 +174,22 @@ import { Button } from '@repo/ui';
 import { Badge } from '@repo/ui';
 import { useParticipantCommunicationStore } from '@/stores/participantCommunicationStore';
 import { buildWhatsAppChatLink } from '@/utils/phone';
+import { getWaThreadMedia } from '@/services/api';
+import { useI18n } from 'vue-i18n';
+import { waMediaLabelKey } from '@/utils/waMedia';
 
 interface ParticipantCommunication {
   id: string;
   participantId: string;
   retreatId: string;
   messageType: 'whatsapp' | 'email';
+  /** 'inbound' = message received from the walker through the inbox (v1.2). */
+  direction?: 'inbound' | 'outbound';
+  waMessageType?: string | null;
+  /** v1.4: inbound from the walker or from one of their emergency contacts. */
+  senderKind?: 'walker' | 'emergency_contact';
+  contactName?: string | null;
+  contactRelation?: string | null;
   recipientContact: string;
   messageContent: string;
   templateId?: string;
@@ -204,6 +242,7 @@ const props = withDefaults(defineProps<Props>(), {
 
 const emit = defineEmits<Emits>();
 
+const { t } = useI18n();
 const communicationStore = useParticipantCommunicationStore();
 
 const {
@@ -211,8 +250,7 @@ const {
   loading,
   error,
   total,
-  limit,
-  offset
+  limit
 } = storeToRefs(communicationStore);
 
 const {
@@ -234,6 +272,61 @@ const AUDIENCE_LABELS: Record<string, string> = {
 };
 const audienceLabel = (a?: string | null): string => (a ? AUDIENCE_LABELS[a] || a : '');
 
+// Incoming WhatsApp messages (inbox v1.2): their own badge. Clicking opens the
+// detail dialog like sent messages do (QA v1.2: "see it larger").
+const isInbound = (m: ParticipantCommunication): boolean => m.direction === 'inbound';
+
+/** "Mamá — María (contacto de emergencia)" for a contact's inbound message (v1.4). */
+const contactSenderLabel = (m: ParticipantCommunication): string =>
+  t('waInbox.contactSender', {
+    contact: [m.contactRelation, m.contactName].filter(Boolean).join(' — ') || t('waInbox.emergencyContact'),
+  });
+
+// Thumbnails of incoming images (v1.2, QA feedback: "the image does not show
+// in the history"): one batch per load through the inbox media endpoint; ids
+// `wa-inbox:<messageId>` lose their prefix. Failures (purged link) get no
+// thumb and the type label covers them.
+const mediaThumbs = ref<Record<string, string>>({});
+let loadingThumbs = false;
+async function fetchInboundThumbs() {
+  const pending = communications.value
+    .filter(
+      (m) =>
+        isInbound(m) &&
+        m.waMessageType === 'image' &&
+        !mediaThumbs.value[m.id] &&
+        m.id.startsWith('wa-inbox:'),
+    )
+    .map((m) => m.id.slice('wa-inbox:'.length))
+    .slice(0, 30);
+  if (pending.length === 0 || loadingThumbs || !props.retreatId) return;
+  loadingThumbs = true;
+  try {
+    const data = await getWaThreadMedia(props.retreatId, pending);
+    const byRaw = new Map(Object.entries(data.media));
+    for (const m of communications.value) {
+      if (!isInbound(m) || !m.id.startsWith('wa-inbox:')) continue;
+      const v = byRaw.get(m.id.slice('wa-inbox:'.length));
+      if (v) mediaThumbs.value = { ...mediaThumbs.value, [m.id]: v.thumb };
+    }
+  } catch {
+    // No inbox permission or no media: the text label stays.
+  } finally {
+    loadingThumbs = false;
+  }
+}
+// Only the visible history downloads photos: MessageDialog also mounts a
+// hidden instance just to count messages, and that one must not trigger media
+// downloads on the server every time the dialog opens.
+watch(
+  [communications, () => props.visible],
+  () => {
+    if (props.visible) void fetchInboundThumbs();
+  },
+  // immediate: the shared store may already hold the list when this mounts.
+  { immediate: true },
+);
+
 // Local state
 const localLoading = ref(false);
 const hasMore = computed(() => {
@@ -251,12 +344,15 @@ const loadHistory = async (loadMore = false) => {
   emit('loading-changed', true);
 
   try {
+    // Cumulative: limit grows, offset ALWAYS 0 (QA v1.2 — with a growing
+    // offset the second "Load more" returned empty pages and the list
+    // vanished; the API cuts the page on the chronological merge).
     await fetchParticipantCommunications(
       props.participantId,
       {
         retreatId: props.retreatId,
         limit: loadMore ? limit.value + 20 : 20,
-        offset: loadMore ? offset.value + limit.value : 0
+        offset: 0
       }
     );
   } catch (error) {

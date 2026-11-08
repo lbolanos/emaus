@@ -4,6 +4,9 @@ import { Bed } from '../entities/bed.entity';
 import { Retreat } from '../entities/retreat.entity';
 import { RetreatBed } from '../entities/retreatBed.entity';
 import { TableMesa } from '../entities/tableMesa.entity';
+import { WhatsappBridgeLink } from '../entities/whatsappBridgeLink.entity';
+import { WhatsappInboxMessage } from '../entities/whatsappInboxMessage.entity';
+import { WhatsappInboxReadState } from '../entities/whatsappInboxReadState.entity';
 import { Participant } from '../entities/participant.entity';
 import { User } from '../entities/user.entity';
 import { Responsability } from '../entities/responsability.entity';
@@ -190,6 +193,10 @@ export function createDatabaseConfig() {
 		ParticipantFollowUp,
 		CrmTask,
 		ParticipantNote,
+		// WhatsApp inbox bridge (specs/whatsapp-inbox)
+		WhatsappBridgeLink,
+		WhatsappInboxMessage,
+		WhatsappInboxReadState,
 		// Cartas de familias por email (specs/letters-email)
 		Letter,
 		LetterAttachment,

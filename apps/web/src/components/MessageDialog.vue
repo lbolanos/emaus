@@ -383,20 +383,21 @@
         <DialogTitle class="flex items-center gap-2">
           <span>{{ viewingMessage?.messageType === 'whatsapp' ? '📱' : '📧' }}</span>
           <span>{{ viewingMessage?.messageType === 'whatsapp' ? 'WhatsApp' : 'Email' }}</span>
+          <Badge v-if="isInboundMessage" variant="outline" class="ml-2">Recibido</Badge>
           <Badge v-if="viewingMessage?.templateName" variant="secondary" class="ml-2">
             {{ viewingMessage.templateName }}
           </Badge>
         </DialogTitle>
         <DialogDescription>
-          Detalle completo del mensaje enviado
+          {{ isInboundMessage ? 'Detalle completo del mensaje recibido' : 'Detalle completo del mensaje enviado' }}
         </DialogDescription>
       </DialogHeader>
       <div v-if="viewingMessage" class="space-y-4">
         <div class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
-          <span class="font-medium text-muted-foreground">Enviado:</span>
+          <span class="font-medium text-muted-foreground">{{ isInboundMessage ? 'Recibido:' : 'Enviado:' }}</span>
           <span>{{ formatFullDate(viewingMessage.sentAt) }}</span>
-          <span class="font-medium text-muted-foreground">Destinatario:</span>
-          <span>{{ viewingMessage.recipientContact }}</span>
+          <span class="font-medium text-muted-foreground">{{ isInboundMessage ? 'Remitente:' : 'Destinatario:' }}</span>
+          <span>{{ isInboundMessage ? inboundSenderLabel : viewingMessage.recipientContact }}</span>
           <template v-if="viewingMessage.sender?.email">
             <span class="font-medium text-muted-foreground">Enviado por:</span>
             <span>{{ viewingMessage.sender.email }}</span>
@@ -1422,6 +1423,23 @@ const viewingMessage = ref<ParticipantCommunication | CommunityCommunication | n
 const handleMessageClick = (message: ParticipantCommunication | CommunityCommunication) => {
 	viewingMessage.value = message;
 };
+
+// Incoming WhatsApp messages (inbox v1.2): the detail uses its own labels.
+const isInboundMessage = computed(
+	() => (viewingMessage.value as ParticipantCommunication | null)?.direction === 'inbound',
+);
+
+/** v1.4: "Mamá — María (contacto de emergencia) · +52…" when a contact wrote it. */
+const inboundSenderLabel = computed(() => {
+	const message = viewingMessage.value as ParticipantCommunication | null;
+	if (!message) return '';
+	const phone = `+${message.recipientContact}`;
+	if (message.senderKind !== 'emergency_contact') return phone;
+	const contact =
+		[message.contactRelation, message.contactName].filter(Boolean).join(' — ') ||
+		'Contacto de emergencia';
+	return `${contact} (contacto de emergencia) · ${phone}`;
+});
 
 const formatFullDate = (iso: string) => {
 	const d = new Date(iso);

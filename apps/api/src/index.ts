@@ -31,6 +31,10 @@ import { santisimoReminderService } from './services/santisimoReminderService';
 import { meetingInstanceGeneratorService } from './services/meetingInstanceGeneratorService';
 import { passwordResetCleanupService } from './services/passwordResetCleanupService';
 import { messageSequenceService } from './services/messageSequenceService';
+import {
+	startScheduledTasks as waBridgeStartScheduledTasks,
+	waBridgeShutdown,
+} from './services/waBridge';
 import { PerformanceMiddleware, PerformanceRequest } from './middleware/performanceMiddleware';
 import { performanceOptimizationService } from './services/performanceOptimizationService';
 import { csrfMiddleware } from './middleware/csrfAlternative';
@@ -245,6 +249,9 @@ async function main() {
 	santisimoReminderService.startScheduledTasks();
 	meetingInstanceGeneratorService.startScheduledTasks();
 	messageSequenceService.startScheduledTasks();
+	// Puente WhatsApp de solo lectura (specs/whatsapp-inbox): respawn de links,
+	// poller de ingesta y retención (la retención corre siempre, ver FR7).
+	waBridgeStartScheduledTasks();
 	await performanceOptimizationService.optimizeHeavyQueries();
 
 	// Ensure minuto-a-minuto default templates exist (idempotent by name).
@@ -327,6 +334,9 @@ async function main() {
 		shuttingDown = true;
 		console.log(`📥 ${signal} received — shutting down`);
 		clearInterval(upcomingTimer);
+		// Hijos wacli del puente: SIGTERM → SIGKILL para no dejarlos con el lock
+		// del store (specs/whatsapp-inbox).
+		waBridgeShutdown();
 
 		// Watchdog: if close() hangs (eg. open WS connections), force-exit so
 		// PM2 can rebind. 8s leaves headroom under PM2's kill_timeout=10000.
