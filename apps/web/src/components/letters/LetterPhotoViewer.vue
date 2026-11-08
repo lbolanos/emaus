@@ -2,24 +2,27 @@
 import { computed, onBeforeUnmount, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { Button, Dialog, DialogContent, DialogHeader, DialogTitle } from '@repo/ui';
-import { ChevronLeft, ChevronRight, Download } from 'lucide-vue-next';
+import { ChevronLeft, ChevronRight, Download, Wallet } from 'lucide-vue-next';
 import type { LetterAttachment } from '@repo/types';
 import { openAttachment } from '@/utils/letterAttachments';
 
 /**
- * Las fotos de una carta en grande: flechas (o ←/→) para pasar entre ellas y
- * descarga de la que se ve. Solo fotos imprimibles; los documentos se abren
+ * Las fotos de una carta en grande: flechas (o ←/→) para pasar entre ellas,
+ * descarga de la que se ve y — si la carta es elegible — registro de ESA foto
+ * como comprobante de pago. Solo fotos imprimibles; los documentos se abren
  * o descargan aparte (openAttachment).
  */
 const props = defineProps<{
 	open: boolean;
 	photos: Pick<LetterAttachment, 'id' | 'fileName' | 'storageUrl' | 'mimeType' | 'isBrowserSafeImage'>[];
 	index: number;
+	canRegister?: boolean;
 }>();
 
 const emit = defineEmits<{
 	'update:open': [value: boolean];
 	'update:index': [value: number];
+	register: [attachmentId: string];
 }>();
 
 const { t } = useI18n();
@@ -60,7 +63,9 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey));
 					</span>
 				</DialogTitle>
 			</DialogHeader>
-			<div class="relative flex items-center justify-center bg-muted/30" data-testid="photo-viewer">
+			<!-- Alto propio del visor: la foto lo llena sin deformarse (object-contain
+			     agranda las pequeñas y ajusta las enormes; nunca recorta). -->
+			<div class="relative flex h-[70vh] items-center justify-center bg-muted/30" data-testid="photo-viewer">
 				<Button
 					v-if="hasMany"
 					variant="ghost"
@@ -76,7 +81,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey));
 					v-if="current"
 					:src="current.storageUrl"
 					:alt="current.fileName"
-					class="max-h-[75vh] w-auto max-w-full object-contain"
+					class="h-full w-full object-contain"
 				/>
 				<Button
 					v-if="hasMany"
@@ -90,7 +95,17 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey));
 					<ChevronRight class="h-6 w-6" />
 				</Button>
 			</div>
-			<div class="flex justify-end">
+			<div class="flex justify-end gap-2">
+				<Button
+					v-if="current && props.canRegister"
+					variant="default"
+					size="sm"
+					data-testid="viewer-register-receipt"
+					@click="emit('register', current.id)"
+				>
+					<Wallet class="mr-2 h-4 w-4" />
+					{{ t('letters.receipt.registerThis') }}
+				</Button>
 				<Button v-if="current" variant="outline" size="sm" @click="openAttachment(current)">
 					<Download class="mr-2 h-4 w-4" />
 					{{ t('letters.viewer.download') }}

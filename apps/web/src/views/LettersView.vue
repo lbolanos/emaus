@@ -38,6 +38,7 @@ import {
 	Search,
 	Share2,
 	Stamp,
+	Wallet,
 } from 'lucide-vue-next';
 import { useLetterStore } from '@/stores/letterStore';
 import { useRetreatStore } from '@/stores/retreatStore';
@@ -45,6 +46,7 @@ import { useTableMesaStore } from '@/stores/tableMesaStore';
 import { useRekaDialogFix } from '@/composables/useRekaDialogFix';
 import {
 	lettersApi,
+	letterPaymentsApi,
 	type Letter,
 	type LetterFolderRow,
 	type LetterMailboxRow,
@@ -62,6 +64,7 @@ import LettersMailboxDialog from '@/components/letters/LettersMailboxDialog.vue'
 import LettersShareDialog from '@/components/letters/LettersShareDialog.vue';
 import LettersFoldersPanel from '@/components/letters/LettersFoldersPanel.vue';
 import LetterPhotoViewer from '@/components/letters/LetterPhotoViewer.vue';
+import PaymentManagement from '@/components/PaymentManagement.vue';
 import { attachmentKind, formatBytes, openAttachment } from '@/utils/letterAttachments';
 import { folderMatchesPalanquero, LETTER_PALANQUERO_NONE } from '@/utils/letterFolders';
 
@@ -197,11 +200,23 @@ const documentIcon = (doc: Parameters<typeof attachmentKind>[0]) => {
 const viewerOpen = ref(false);
 const viewerPhotos = ref<Letter['attachments']>([]);
 const viewerIndex = ref(0);
+const viewerLetter = ref<Letter | null>(null);
 
 const openPhotos = (letter: Letter, index: number) => {
 	viewerPhotos.value = photosOf(letter);
 	viewerIndex.value = index;
+	viewerLetter.value = letter;
 	viewerOpen.value = true;
+};
+
+const viewerCanRegister = computed(() => (viewerLetter.value ? canRegisterReceipt(viewerLetter.value) : false));
+
+/** Del visor: registrar ESA foto como comprobante (la que está viendo). */
+const registerFromViewer = (attachmentId: string) => {
+	const letter = viewerLetter.value;
+	if (!letter) return;
+	viewerOpen.value = false;
+	void registerReceipt(letter, attachmentId);
 };
 
 watch(retreatId, (id) => {
@@ -481,6 +496,48 @@ const unmarkFolder = async (participantId: string) => {
 		afterUnmark(unmarked);
 	} catch {
 		toast({ title: t('letters.print.unmarkError'), variant: 'destructive' });
+	}
+};
+
+// -- Registrar la foto de una carta como comprobante de pago --
+// El formulario es el PaymentManagement estándar (patrón de la bandeja de
+// WhatsApp): se monta oculto al primer uso, abre prellenado con la foto y al
+// guardar el pago se enlaza con la carta (attach) y queda en «Comprobantes».
+const paymentRef = ref<InstanceType<typeof PaymentManagement> | null>(null);
+const paymentMounted = ref(false);
+const pendingReceiptLetter = ref<{ letterId: string; participantId: string } | null>(null);
+
+const canRegisterReceipt = (letter: Letter): boolean =>
+	!!letter.participantId &&
+	(letter.status === 'pending' || letter.status === 'approved') &&
+	photosOf(letter).length > 0;
+
+const registerReceipt = async (letter: Letter, attachmentId?: string) => {
+	if (!letter.participantId) return;
+	try {
+		const photo = await letterPaymentsApi.getReceiptPhoto(letter.id, attachmentId);
+		pendingReceiptLetter.value = { letterId: letter.id, participantId: photo.participantId };
+		paymentMounted.value = true;
+		await nextTick();
+		paymentRef.value?.openPaymentForWithReceipt(photo.participantId, photo.dataUrl);
+	} catch {
+		pendingReceiptLetter.value = null;
+		toast({ title: t('letters.receipt.photoError'), variant: 'destructive' });
+	}
+};
+
+const onReceiptPaymentSaved = async (payment: { id: string }) => {
+	const pending = pendingReceiptLetter.value;
+	pendingReceiptLetter.value = null;
+	if (!pending) return;
+	try {
+		await letterPaymentsApi.attach(pending.letterId, payment.id);
+		toast({ title: t('letters.receipt.attached') });
+		load();
+		loadFolders();
+	} catch {
+		// El pago ya existe: el reintento es desde Pagos; la carta queda como estaba.
+		toast({ title: t('letters.receipt.attachError'), variant: 'destructive' });
 	}
 };
 
@@ -1416,8 +1473,12 @@ const toggleExpanded = (id: string) => {
 									{{ t('letters.copyAddress') }}
 								</DropdownMenuItem>
 								<DropdownMenuSeparator
-									v-if="letter.participantId || letter.printedAt || letter.status === 'approved'"
+									v-if="canRegisterReceipt(letter) || letter.participantId || letter.printedAt || letter.status === 'approved'"
 								/>
+								<DropdownMenuItem v-if="canRegisterReceipt(letter)" @click="registerReceipt(letter)">
+									<Wallet class="mr-2 h-4 w-4" />
+									{{ t('letters.receipt.register') }}
+								</DropdownMenuItem>
 								<DropdownMenuItem v-if="letter.participantId" @select="printOneParticipant(letter)">
 									<Printer class="mr-2 h-4 w-4" />
 									{{ t('letters.print.participant') }}
@@ -1530,6 +1591,8 @@ const toggleExpanded = (id: string) => {
 			v-model:open="viewerOpen"
 			v-model:index="viewerIndex"
 			:photos="viewerPhotos ?? []"
+			:can-register="viewerCanRegister"
+			@register="registerFromViewer"
 		/>
 		<LettersShareDialog
 			v-model:open="shareDialogOpen"
@@ -1610,5 +1673,16 @@ const toggleExpanded = (id: string) => {
 				</DialogFooter>
 			</DialogContent>
 		</Dialog>
+
+		<!-- Formulario de pago estándar para «Registrar como comprobante»: montado
+		     oculto al primer uso (embedded no trae listas); su Dialog teleporta a body. -->
+		<div class="hidden">
+			<PaymentManagement
+				v-if="paymentMounted"
+				ref="paymentRef"
+				embedded
+				@payment-saved="onReceiptPaymentSaved"
+			/>
+		</div>
 	</div>
 </template>

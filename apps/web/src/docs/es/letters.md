@@ -1,6 +1,6 @@
 # Cartas de familias
 
-📺 **[Ver video tutorial](https://youtu.be/b5ADc_QGmCE)**
+📺 **[Ver video tutorial](https://youtu.be/L7gsglbSZVY)**
 
 Las cartas son la sorpresa del retiro: las familias de los participantes (caminantes **y**
 servidores) escriben un mensaje de apoyo que se imprime y se entrega durante el fin de semana.
@@ -31,6 +31,10 @@ Todo arranca en el **⋮** de arriba a la derecha: ahí están **Imprimir**, **B
    filtros), el retiro completo, la mesa, las carpetas de un palanquero, el caminante filtrado
    o las cartas que marques con la casilla. Antes de imprimir ves la vista previa; al terminar
    te pregunta si salió bien, y **solo entonces** las marca como *Impresas*.
+6. **Si la carta trae comprobante de pago** — ⋮ de su fila → **Registrar como comprobante de
+   pago**: abre el formulario normal de pago ya enlazado al caminante, con su foto cargada.
+   Al guardar, la carta queda enlazada al pago (sale de la revisión) y el pago aparece en
+   **Pagos → Comprobantes** como *Aplicado*.
 
 ## Carpetas: el folder de cada caminante
 

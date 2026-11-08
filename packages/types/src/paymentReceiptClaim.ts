@@ -89,6 +89,8 @@ export type PaymentFromLetter = z.infer<typeof PaymentFromLetterSchema>;
  */
 export const LetterReceiptPhotoSchema = z.object({
 	params: z.object({ letterId: idSchema }),
+	/** Sin `attachmentId` se usa la primera foto imprimible de la carta. */
+	query: z.object({ attachmentId: idSchema.optional() }),
 });
 
 /** Sella la carta `attached` con el pago que creó el formulario estándar. */
