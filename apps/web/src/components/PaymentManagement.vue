@@ -262,9 +262,12 @@
 			</div>
 		</div>
 
-		<!-- Add/Edit Payment Modal -->
+		<!-- Add/Edit Payment Modal. Bounded height + inner scroll: with the
+		     balance summary and the receipt preview the form is taller than a
+		     1280x800 laptop, and the dialog locks page scroll — title and Save
+		     ended up off-screen with no way to reach them (2026-11-08). -->
 		<Dialog v-model:open="showPaymentModal" @update:open="handleModalClose">
-			<DialogContent class="max-w-md">
+			<DialogContent class="max-w-md max-h-[90dvh] overflow-y-auto">
 				<DialogHeader>
 					<DialogTitle>{{ editingPayment ? $t('paymentManagement.modal.editTitle') : $t('paymentManagement.modal.addTitle') }}</DialogTitle>
 					<DialogDescription>

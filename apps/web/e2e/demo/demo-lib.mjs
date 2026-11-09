@@ -95,9 +95,16 @@ export function maskNode(n) {
   if (typeof n.firstName === 'string' || participantFirst !== null) {
     // `participantFirstName/participantLastName`: identidad compuesta de la
     // bandeja WhatsApp (specs/whatsapp-inbox) — el match del comprobante llega
-    // con el nombre real del caminante en claves compuestas.
+    // con el nombre real del caminante en claves compuestas. Esas claves
+    // describen al participante `participantId`, no a la fila: un resultado de
+    // búsqueda trae su propio `id` (el del mensaje) y, sin esta precedencia, el
+    // mismo caminante salía con otro nombre falso que en la lista (2026-11-08).
+    const identity =
+      participantFirst !== null && typeof n.firstName !== 'string'
+        ? n.participantId || n.id
+        : n.id || n.participantId;
     person = fakeFor(
-      n.id || n.participantId || (n.firstName || participantFirst) + '|' + (n.lastName || n.participantLastName || ''),
+      identity || (n.firstName || participantFirst) + '|' + (n.lastName || n.participantLastName || ''),
     );
     if ('firstName' in n) n.firstName = person.first;
     if ('lastName' in n) n.lastName = person.last;
@@ -124,6 +131,13 @@ export function maskNode(n) {
     // angelitos en la toma 4 del demo de guardias (2026-10-14).
     person = fakeFor(n.participantId || n.name);
     n.name = `${person.first} ${person.last}`;
+  } else if (typeof n.name === 'string' && typeof n.relation === 'string' && n.name.trim()) {
+    // Contacto de emergencia de la bandeja WhatsApp (`contact: {name, relation,
+    // slot}`): el nombre real del contacto en la clave plana `name`. Mismo fake
+    // que `emergencyContact1Name` (fakeFor del valor), para que la lista y el
+    // editor de teléfonos digan lo mismo.
+    const f = fakeFor(n.name);
+    n.name = `${f.first} ${f.last}`;
   }
   for (const k of Object.keys(n)) {
     const v = n[k];
@@ -155,7 +169,10 @@ export function maskNode(n) {
     // Seguimiento de caminantes (participant_communications y el timeline):
     // llevan el nombre real en una sola clave, sin firstName al lado, así que la
     // rama de "identidad del objeto" de arriba no los alcanza.
-    } else if (/emergencyContact\d*Name|invitedBy|inviterName|recipientName|contactName|actorName/i.test(k) && v.trim()) {
+    // La bandeja de WhatsApp (2026-11-08) suma los del staff: dueño del vínculo
+    // en el tablero (ownerName), quién respondió (lastReplyByName/senderName) y
+    // quién registró el pago o la carta (*RegisteredByName/*AddedByName).
+    } else if (/emergencyContact\d*Name|invitedBy|inviterName|recipientName|contactName|actorName|ownerName|lastReplyByName|senderName|RegisteredByName|AddedByName/i.test(k) && v.trim()) {
       const f = fakeFor(v);
       n[k] = `${f.first} ${f.last}`;
     } else {

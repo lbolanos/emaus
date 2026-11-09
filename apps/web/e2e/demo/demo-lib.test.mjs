@@ -225,6 +225,55 @@ test('maskNode enmascara los nombres sueltos del historial (recipientName/contac
   }
 });
 
+test('maskNode enmascara los nombres del staff en la bandeja de WhatsApp', async () => {
+  const { maskNode } = await import('./demo-lib.mjs');
+  // Tablero de vínculos, conversación y burbuja: el nombre del voluntario va en
+  // una sola clave, sin firstName al lado.
+  const board = { links: [{ id: 'l1', ownerName: 'Marta Pérez', linkedPhone: '5512345678' }] };
+  const conversation = { chatJid: 'x', lastReplyByName: 'Leonardo Bolaños' };
+  const bubble = {
+    id: 'm1',
+    senderName: 'Ana Ruiz',
+    paymentRegisteredByName: 'Luis Gómez',
+    letterAddedByName: 'Rosa Díaz',
+  };
+  maskNode(board);
+  maskNode(conversation);
+  maskNode(bubble);
+  assert.notEqual(board.links[0].ownerName, 'Marta Pérez');
+  assert.notEqual(conversation.lastReplyByName, 'Leonardo Bolaños');
+  assert.notEqual(bubble.senderName, 'Ana Ruiz');
+  assert.notEqual(bubble.paymentRegisteredByName, 'Luis Gómez');
+  assert.notEqual(bubble.letterAddedByName, 'Rosa Díaz');
+  for (const v of [board.links[0].ownerName, conversation.lastReplyByName, bubble.senderName]) {
+    assert.match(v, /^\S+ \S+$/);
+  }
+});
+
+test('maskNode: el contacto de emergencia de la bandeja sale con el mismo fake que en la ficha', async () => {
+  const { maskNode } = await import('./demo-lib.mjs');
+  const conversation = { chatJid: 'x', contact: { name: 'Lucía Real', relation: 'Mamá', slot: 1 } };
+  const ficha = { id: 'p1', firstName: 'Juan', emergencyContact1Name: 'Lucía Real' };
+  maskNode(conversation);
+  maskNode(ficha);
+  assert.notEqual(conversation.contact.name, 'Lucía Real');
+  assert.equal(conversation.contact.name, ficha.emergencyContact1Name);
+  assert.equal(conversation.contact.relation, 'Mamá'); // el parentesco no es PII
+});
+
+test('maskNode: participantFirstName toma la identidad de participantId, no del id de la fila', async () => {
+  const { maskNode } = await import('./demo-lib.mjs');
+  // La misma persona en la lista (sin id) y en un resultado de búsqueda (con el
+  // id del MENSAJE) debe salir con el mismo nombre falso.
+  const row = { chatJid: 'x', participantId: 'p9', participantFirstName: 'Ana', participantLastName: 'Real' };
+  const hit = { id: 'msg-1', participantId: 'p9', participantFirstName: 'Ana', participantLastName: 'Real' };
+  maskNode(row);
+  maskNode(hit);
+  assert.notEqual(row.participantFirstName, 'Ana');
+  assert.equal(hit.participantFirstName, row.participantFirstName);
+  assert.equal(hit.participantLastName, row.participantLastName);
+});
+
 test('maskNode: signup del santísimo (name plano + slotId) se enmascara; un nombre de plantilla NO', async () => {
   const { maskNode } = await import('./demo-lib.mjs');
   // Toma 4 del demo de guardias (2026-10-14): los nombres reales de angelitos

@@ -397,6 +397,40 @@ Adaptarla a otro video es cambiar el retiro, la URL y los clics; el resto sirve 
   `context.request` (fuera de `page.route`), se compara el `innerText` de cada beat y, antes de
   creerle al verde, se comprueba que detecta en una página sin enmascarar.
 
+## Lecciones (sesión 2026-11-08, bandeja WhatsApp v1.4 `record-wa-inbox.mjs`)
+
+- **Grabá ANTES de cerrar el worktree de la feature.** El escenario del video (DB aislada
+  sembrada, lanzador del API de QA, vite de 5174) vive en el worktree: `cerrar-worktree clean`
+  se lleva la DB y deja los scripts de `/tmp` apuntando a un directorio que ya no existe.
+  Reconstruirlo desde el checkout principal costó una hora: copia de la DB del dev, re-siembra,
+  `pnpm install` (el `node_modules` del main no tenía la dependencia nueva de la rama) y
+  pasarle `VITE_API_URL`/`VITE_API_PROXY_TARGET` **al proceso** de vite de 5174 — nunca
+  escribir `apps/web/.env.local` o `runtime-config.js` en el main: redirigen también su 5173.
+- **El nombre accesible de un ítem del sidebar incluye su contador.** `getByRole('link', {
+  name: 'WhatsApp del Retiro', exact: true })` no encontró «WhatsApp del Retiro9» y abortó la
+  toma en la 2ª escena. Para ítems con badge: regex anclada al inicio (`/^WhatsApp del Retiro/`).
+- **`scrollIntoViewIfNeeded` no mueve nada si el elemento ya asoma**, aunque sea un borde
+  tapado por el subtítulo. Para centrar algo (la foto al fondo de un modal):
+  `locator.evaluate(el => el.scrollIntoView({ block: 'center' }))`. Y si aun así no se mueve,
+  el contenedor no tiene scroll: así salió a la luz que el modal de pago (`PaymentManagement`)
+  no cabía en 1280×800 y su «Guardar» era inalcanzable — **la verificación por frames también
+  encuentra bugs de la app**, no solo del guion.
+- **No esperes una petición que la caché puede ahorrar.** El script esperaba el `POST
+  /receipt` hasta 25 s, pero la foto ya venía en el lote de miniaturas: 25 s de aire muerto
+  entre dos escenas. Esperá el efecto visible (el diálogo), no la request.
+- **El fake del motor externo sirve fixtures por id** (`/tmp/emaus-wa-video/fake-wacli`: el
+  `--id` del mensaje elige un PNG de comprobante o un PDF de carta de EJEMPLO). Un PNG de 1×1
+  para todo deja el visor y el modal de pago vacíos en el video.
+- **Los nombres sembrados tienen que cuadrar con los enmascarados.** El enmascarado le puso
+  «Clara Cruz» al caminante y la siembra decía «Juan» en el texto del mensaje, el nombre del
+  PDF y la carta. Grabá una exploración headless primero, mirá qué fakes salen y escribí los
+  textos con esos nombres. Lo mismo entre pantallas: si dos vistas de la misma persona salen con
+  fakes distintos, el hueco está en `maskNode` (2026-11-08 se arreglaron `contact.name` y la
+  identidad de `participantFirstName` por `participantId`), no en el script.
+- **Puerta de PII de este video**: `_pii-gate`-style sobre 9 pantallas, mirando `innerText`
+  **y los `value` de los inputs** (el editor de teléfonos los tiene en campos, invisibles para
+  `innerText`). Dio 0 fugas con enmascarado y 43 sin él.
+
 ## Verificación (obligatoria antes de entregar)
 
 ```bash
