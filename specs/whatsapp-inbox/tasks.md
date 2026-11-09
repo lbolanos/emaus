@@ -178,6 +178,11 @@
       (2:08, 16 beats) y SUBIDO unlisted 2026-11-06: https://youtu.be/_SLDmmOjTPo**
       (playlist "Emaús Retiros — Tutoriales" pos. 31; ayuda in-app enlazada;
       incluye búsqueda sin acentos, vista ampliada y comprobante → pago)
+- [x] **v1.4/v1.5 regrabado** (2:40, 21 escenas: pestañas, agrupado por caminante con
+      su contacto de emergencia, división y «Ampliar», PDF en grande, comprobante → pago,
+      lápiz de teléfonos, QR) y SUBIDO unlisted 2026-11-08: https://youtu.be/TqejIPj4fF8 —
+      reemplaza a `_SLDmmOjTPo` en la playlist (pos. 31) y en la ayuda in-app; el viejo
+      se borró. PII gate: 0 fugas enmascarado / 43 sin enmascarar (control).
 - Trampas nuevas anotadas: el `--max-messages` del supervisor matchea el case
   `*"messages"*` de un fake-shell (ordenar los cases con anclas de palabra); el
   testid de `DialogContent` de reka-ui no se props-forward (anclar en un hijo);

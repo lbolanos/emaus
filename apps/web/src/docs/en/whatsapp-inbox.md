@@ -4,7 +4,7 @@ The inbox where the team sees the messages walkers — and their emergency
 contacts — send by WhatsApp to the staff's phones (logistics, palanqueros,
 coordination).
 
-📺 **[Watch the video tutorial](https://youtu.be/_SLDmmOjTPo)**
+📺 **[Watch the video tutorial](https://youtu.be/TqejIPj4fF8)**
 
 ## What it does
 
