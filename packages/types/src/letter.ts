@@ -160,6 +160,9 @@ export const InboundLetterPayloadSchema = z.object({
 	html: z.string().max(2_000_000).nullable().optional(),
 	receivedAt: z.coerce.date().optional(),
 	attachments: z.array(InboundLetterAttachmentSchema).max(10).optional(),
+	// Avisos del Worker (D11 revisado): adjuntos que él ya descartó por tamaño
+	// (≤10 MB c/u) antes de postear. Se prepone a los warnings que el API genera.
+	warnings: z.array(z.string().max(300)).max(10).optional(),
 });
 export type InboundLetterPayload = z.infer<typeof InboundLetterPayloadSchema>;
 

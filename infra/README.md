@@ -389,7 +389,8 @@ records MX (`route1/2.mx.cloudflare.net`) y SPF.
 familia → carta.CODE@emaus.cc
   → Cloudflare Email Routing (MX de la zona)
   → catch-all → worker emaus-email-inbound (infra/workers/email-inbound/)
-      postal-mime parsea; topes ≤10 adjuntos, ≤8 MB c/u, ≤12 MB total
+      postal-mime parsea; descarta SIN rebote los adjuntos >10 MB c/u (aviso viaja
+      en payload.warnings); el corte por total (16 MB) y formatos lo hace el API
   → POST /api/letters/webhook  (header X-Emaus-Letter-Secret)
   → API matchea CODE → (retiro, participante) → letters + adjuntos en S3 letters/
 ```

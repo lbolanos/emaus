@@ -10,13 +10,13 @@
 // Comportamiento según respuesta del API (D5):
 //   404 (unknown_mailbox / mailbox_disabled) → setReject → bounce al remitente
 //   401/5xx/timeout → log y drop (Cloudflare reintenta; NO rebota al remitente)
-// Los topes (≤10 adjuntos, ≤8 MB c/u, ≤12 MB total) se aplican AQUÍ antes de
-// postear: el email que excede rebota con causa clara.
+// Topes (D11 revisado 2026-11-08): la carta NUNCA rebota por tamaño — el texto
+// y las fotos que quepan SIEMPRE entran. Aquí solo se descarta (sin rebote) lo
+// que supera 10 MB C/U (con aviso para la bandeja); el corte por total (16 MB)
+// y por formato lo hace el API, que avisa igual en la bandeja.
 import PostalMime from 'postal-mime';
 
-const MAX_ATTACHMENTS = 10;
-const MAX_ATTACHMENT_BYTES = 8 * 1024 * 1024;
-const MAX_TOTAL_ATTACHMENT_BYTES = 12 * 1024 * 1024;
+const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024;
 const API_TIMEOUT_MS = 15_000;
 
 export default {
@@ -44,24 +44,24 @@ export default {
 			return;
 		}
 
-		const attachments = (parsed.attachments ?? []).map((a) => ({
-			fileName: a.filename || 'adjunto',
-			mimeType: a.mimeType || 'application/octet-stream',
-			contentBase64: arrayBufferToBase64(a.content),
-		}));
-
-		// Topes ANTES de postear (D11): exceso → bounce con causa clara.
-		if (attachments.length > MAX_ATTACHMENTS) {
-			message.setReject(`Máximo ${MAX_ATTACHMENTS} adjuntos por carta.`);
-			return;
-		}
-		let totalBytes = 0;
-		for (const a of attachments) {
-			const size = Math.floor((a.contentBase64.length * 3) / 4);
-			if (size > MAX_ATTACHMENT_BYTES || (totalBytes += size) > MAX_TOTAL_ATTACHMENT_BYTES) {
-				message.setReject('Adjuntos demasiado grandes (máx 8 MB c/u, 12 MB en total).');
-				return;
+		// Los adjuntos que superan 10 MB c/u se descartan SIN rebote: quitarlos del
+		// payload acota el POST y el aviso viaja a la bandeja (payload.warnings).
+		// El resto de topes (total 16 MB, formatos, ≤10 adjuntos) los aplica el API.
+		const warnings = [];
+		const attachments = [];
+		for (const a of parsed.attachments ?? []) {
+			const attachment = {
+				fileName: a.filename || 'adjunto',
+				mimeType: a.mimeType || 'application/octet-stream',
+				contentBase64: arrayBufferToBase64(a.content),
+			};
+			if (Math.floor((attachment.contentBase64.length * 3) / 4) > MAX_ATTACHMENT_BYTES) {
+				warnings.push(
+					`Adjunto "${attachment.fileName}" descartado: supera ${MAX_ATTACHMENT_BYTES / 1024 / 1024} MB`,
+				);
+				continue;
 			}
+			attachments.push(attachment);
 		}
 
 		const payload = {
@@ -74,6 +74,7 @@ export default {
 			html: parsed.html || null,
 			receivedAt: new Date().toISOString(),
 			attachments,
+			warnings,
 		};
 
 		let apiStatus = 0;
@@ -99,7 +100,9 @@ export default {
 				return;
 			}
 			if (apiStatus === 413) {
-				message.setReject('Adjuntos demasiado grandes (máx 8 MB c/u, 12 MB en total).');
+				// El payload igual excedió el parser del API (p. ej. muchas fotos de
+				// 9 MB): mejor rebotar con causa clara que perder la carta en silencio.
+				message.setReject('El correo es demasiado grande (máx 10 MB por adjunto).');
 				return;
 			}
 			if (apiStatus >= 200 && apiStatus < 300) {

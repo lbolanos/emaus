@@ -10,9 +10,7 @@ import {
 // Mismos topes que letterService (D11). Se checan ANTES de ingest para poder
 // responder 413 con el código del contrato: el Worker los aplica también, así
 // que llegar aquí con exceso solo puede venir de un cliente mal comportado.
-const MAX_ATTACHMENTS = 10;
-const MAX_ATTACHMENT_BYTES = 8 * 1024 * 1024;
-const MAX_TOTAL_ATTACHMENT_BYTES = 12 * 1024 * 1024;
+
 
 const decodedSize = (base64: string): number => Math.floor((base64.length * 3) / 4);
 
@@ -45,21 +43,10 @@ export const receiveLetterWebhook = async (req: Request, res: Response) => {
 	}
 	const payload: InboundLetterPayload = parsed.data;
 
-	const attachments = payload.attachments ?? [];
-	if (attachments.length > MAX_ATTACHMENTS) {
-		return res.status(413).json({ error: 'too_large' });
-	}
-	let totalBytes = 0;
-	for (const attachment of attachments) {
-		const size = decodedSize(attachment.contentBase64);
-		if (size > MAX_ATTACHMENT_BYTES) {
-			return res.status(413).json({ error: 'too_large' });
-		}
-		totalBytes += size;
-	}
-	if (totalBytes > MAX_TOTAL_ATTACHMENT_BYTES) {
-		return res.status(413).json({ error: 'too_large' });
-	}
+	// Sin topes 413 aquí (D11 revisado): la carta NUNCA rebota por tamaño. El
+	// schema acota ≤10 adjuntos (400 si excede) y el parser de 32mb cubre el
+	// payload; los adjuntos que exceden los descarta ingestLetter CON AVISO en
+	// la bandeja — el texto y las fotos que quepan siempre entran.
 
 	try {
 		const result = await ingestLetter(payload);

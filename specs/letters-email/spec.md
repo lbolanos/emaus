@@ -84,12 +84,16 @@ qué carta llegó para qué participante, ni qué se imprimió. Escalar esto al 
 - **D11 — HEIC/formatos raros: guardar tal cual, no normalizar** (sharp prebuilt no decodifica
   HEIC y `imageService` es para avatares). `isBrowserSafeImage` precalculado al ingest con
   magic bytes (jpeg/png/gif/webp + `%PDF` para PDF). En impresión, solo los browser-safe se
-  inlinean; el resto placeholder textual + badge "no imprimible" en bandeja. Topes: ≤10
-  adjuntos, ≤8 MB c/u, ≤12 MB total binario (re-valida el API con 413; el Worker aplica los
-  mismos antes de postear).
+  inlinean; el resto placeholder textual + badge "no imprimible" en bandeja. **Topes con
+  aceptación parcial (revisado 2026-11-08, caso real de bounce)**: la carta NUNCA rebota por
+  tamaño — el texto y las fotos que quepan SIEMPRE entran. Topes: ≤10 adjuntos, ≤10 MB c/u,
+  ≤16 MB total binario; el Worker descarta SIN rebote los >10 MB c/u (aviso en
+  `payload.warnings`, prepuesto en la bandeja) y el API corta por total/formato/macros con
+  sus warnings. El 413 queda solo para payloads que excedan el parser del API (32 MB).
 - **D12 — Webhook**: ruta pública `POST /api/letters/webhook`, CSRF-exempt, limiter propio
   (60/min por IP), header `X-Emaus-Letter-Secret` con comparación constant-time sobre hashes
-  SHA-256, body parser específico de 16 MB montado antes del global de 5 MB.
+  SHA-256, body parser específico de 32 MB (16 MB binarios de adjuntos ≈ 21.3 MB en base64)
+  montado antes del global de 5 MB.
 - **D13 — Impresión reutiliza la hoja A4 sin tocar `@repo/utils`**: `buildPrintableHtml` ya
   acepta `bodyHtml`; nueva función hermana `printHtmlDocument` en `usePrintableDocument.ts`
   (`autoPrint` ya espera imágenes presigned). Orden de reparto: mesa (natural) → `idOnRetreat` →
@@ -112,8 +116,9 @@ qué carta llegó para qué participante, ni qué se imprimió. Escalar esto al 
   (`reviewedAt/reviewedById` + audit), print-mark por lote, y print-batch con datos ordenados
   para el documento.
 - **R3** — Webhook D12 con contrato versionado (ver `plan.md` §Contrato): acepta carta válida
-  (200), rebota por código (404 unknown/disabled), dedupe (200 duplicate), topes (413),
-  payload inválido (400), sin secret (503). La carta entra siempre como `pending`.
+  (200; adjuntos que excedan → warnings, no rebote), rebota por código (404 unknown/disabled),
+  dedupe (200 duplicate), 413 solo si el payload excede el parser, payload inválido (400), sin
+  secret (503). La carta entra siempre como `pending`.
 - **R4** — Bandeja web (`LettersView.vue` + store Pinia): activación, resumen por estado,
   filtros, revisión, detalle con texto interpolado (sin `v-html`) y adjuntos; badge no
   imprimible; marca de impresa visible.

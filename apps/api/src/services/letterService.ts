@@ -14,8 +14,8 @@ import type { InboundLetterPayload, LetterFolderRow, LetterPrintBatchEntry } fro
 // Topes del ingest (D11). El Worker aplica los mismos ANTES de postear; el API
 // nunca confía en el cliente.
 const MAX_ATTACHMENTS = 10;
-const MAX_ATTACHMENT_BYTES = 8 * 1024 * 1024;
-const MAX_TOTAL_ATTACHMENT_BYTES = 12 * 1024 * 1024;
+const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024;
+const MAX_TOTAL_ATTACHMENT_BYTES = 16 * 1024 * 1024;
 
 export type LetterIngestErrorCode =
 	| 'unknown_mailbox'
@@ -326,7 +326,11 @@ export async function ingestLetter(payload: InboundLetterPayload): Promise<Inges
 				status: 'pending' as LetterStatus,
 				messageId: payload.messageId ?? null,
 				receivedAt: payload.receivedAt ?? new Date(),
-				warnings: warnings.length ? warnings : null,
+				// Los avisos del Worker (adjuntos descartados por tamaño antes del
+				// POST) van primero; después los que el API generó al procesar.
+				warnings: warnings.length || payload.warnings?.length
+					? [...(payload.warnings ?? []), ...warnings]
+					: null,
 			});
 			await em.save(letter);
 			for (let i = 0; i < attachments.length; i++) {

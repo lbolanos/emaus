@@ -231,6 +231,65 @@ describe('letterWebhook — contrato Worker → API', () => {
 		expect(warnings).toContain('"dibujo.svg" descartado: formato no soportado');
 	});
 
+	it('tamaño: >10 MB c/u se descarta con warning, el total corta en 16 MB, y los avisos del Worker van primero', async () => {
+		// Payload ~30 MB: por encima del parser de testApp (2mb) — handler directo
+		// (la carta entra, NO hay 413: D11 revisado, aceptación parcial).
+		// Fotos REALES (el JPEG válido del fixture) replicadas hasta el tamaño:
+		// buffers inválidos harían fallar al procesador de imágenes (500).
+		const bigJpeg = (mb: number) => {
+			const parts = [];
+			let size = 0;
+			while (size < mb * 1024 * 1024) {
+				parts.push(JPEG);
+				size += JPEG.length;
+			}
+			return Buffer.concat(parts).subarray(0, mb * 1024 * 1024);
+		};
+		const big = bigJpeg(11); // 11 MB > tope por adjunto
+		const first = bigJpeg(9); // 9 MB: cabe
+		const second = bigJpeg(9); // 9 MB: 9+9=18 > 16 MB total
+		const small = JPEG; // JPEG válido (magic bytes) para que el classify la acepte
+		const req: any = {
+			header: (name: string) => (name === 'X-Emaus-Letter-Secret' ? SECRET : undefined),
+			body: makePayload({
+				// El Worker avisa lo que él ya quitó (p. ej. un TIFF de 12 MB).
+				warnings: ['Adjunto "gigante.tiff" descartado: supera 10 MB'],
+				attachments: [
+					{ fileName: 'gigante.jpg', mimeType: 'image/jpeg', contentBase64: b64(big) },
+					{ fileName: 'primera.jpg', mimeType: 'image/jpeg', contentBase64: b64(first) },
+					{ fileName: 'segunda.jpg', mimeType: 'image/jpeg', contentBase64: b64(second) },
+					{ fileName: 'chica.jpg', mimeType: 'image/jpeg', contentBase64: b64(small) },
+				],
+			}),
+		};
+		const res = mockRes();
+		await receiveLetterWebhook(req, res);
+		// res.json() en express responde 200; el mock arranca en 500 y solo el
+		// body acredita la respuesta.
+		expect(res.body).toMatchObject({ status: 'accepted' });
+		const letterId: string = res.body.letterId;
+		expect(letterId).toBeTruthy();
+
+		const letter = await getDS().getRepository(Letter).findOne({
+			where: { id: letterId },
+			relations: ['attachments'],
+		});
+		// El API procesa EN ORDEN: gigante se descarta por c/u (no suma al total);
+		// primera entra (9 MB); segunda excede el total (9+9=18 > 16) y se descarta;
+		// chica entra (el total quedó en 9 MB).
+		const byName = new Map(letter!.attachments!.map((a) => [a.fileName, a]));
+		expect(byName.has('gigante.jpg')).toBe(false);
+		expect(byName.has('primera.jpg')).toBe(true);
+		expect(byName.has('segunda.jpg')).toBe(false);
+		expect(byName.has('chica.jpg')).toBe(true);
+
+		// Avisos del Worker primero; después los descartes del API en orden de llegada.
+		expect(letter!.warnings).toHaveLength(3);
+		expect(letter!.warnings![0]).toBe('Adjunto "gigante.tiff" descartado: supera 10 MB');
+		expect(letter!.warnings![1]).toContain('gigante.jpg');
+		expect(letter!.warnings![2]).toContain('segunda.jpg');
+	});
+
 	it('200 duplicate: mismo messageId no crea segunda carta', async () => {
 		const payload = makePayload();
 		const first = await postWebhook(payload);
@@ -267,22 +326,6 @@ describe('letterWebhook — contrato Worker → API', () => {
 		expect(bad.status).toBe(401);
 		const missing = await request(app).post('/api/letters/webhook').send(makePayload());
 		expect(missing.status).toBe(401);
-	});
-
-	it('413 too_large: adjunto > 8 MB (handler directo; el parser de testApp es 2mb)', async () => {
-		const bigAttachment = {
-			fileName: 'grande.jpg',
-			mimeType: 'image/jpeg',
-			contentBase64: b64(Buffer.alloc(9 * 1024 * 1024 + 16, 0xff)),
-		};
-		const req: any = {
-			header: (name: string) => (name === 'X-Emaus-Letter-Secret' ? SECRET : undefined),
-			body: makePayload({ attachments: [bigAttachment] }),
-		};
-		const res = mockRes();
-		await receiveLetterWebhook(req, res);
-		expect(res.statusCode).toBe(413);
-		expect(res.body.error).toBe('too_large');
 	});
 
 	it('400 invalid_payload: sin from o sin to', async () => {
