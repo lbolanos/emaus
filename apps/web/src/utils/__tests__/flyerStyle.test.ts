@@ -84,6 +84,27 @@ describe('resolveBlockStyle', () => {
 		expect(style['font-family']).toBe(FLYER_FONT_STACKS.playfair);
 	});
 
+	it('defaults both size scales to 1', () => {
+		const style = resolveBlockStyle('startTime');
+
+		expect(style['--fb-text-scale']).toBe('1');
+		expect(style['--fb-heading-scale']).toBe('1');
+	});
+
+	it('scales text and headings independently, theme over block', () => {
+		const themed = resolveBlockStyle('startTime', { textScale: 110, headingScale: 85 });
+		expect(themed['--fb-text-scale']).toBe('1.1');
+		expect(themed['--fb-heading-scale']).toBe('0.85');
+
+		const overridden = resolveBlockStyle(
+			'startTime',
+			{ textScale: 110 },
+			{ startTime: { headingScale: 130 } },
+		);
+		expect(overridden['--fb-text-scale']).toBe('1.1');
+		expect(overridden['--fb-heading-scale']).toBe('1.3');
+	});
+
 	it('only overrides the fields that are actually set', () => {
 		const style = resolveBlockStyle(
 			'location',

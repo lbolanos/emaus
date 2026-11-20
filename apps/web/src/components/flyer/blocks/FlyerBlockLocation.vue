@@ -8,12 +8,12 @@
 			</div>
 			<div class="flex-1 min-w-0">
 				<h4
-					class="font-black text-[15px] uppercase text-[color:var(--fb-heading)] tracking-[0.15em] mb-1.5"
+					class="font-black text-[length:calc(0.9375rem*var(--fb-heading-scale,1))] uppercase text-[color:var(--fb-heading)] tracking-[0.15em] mb-1.5"
 				>
 					{{ t('retreatFlyer.location') }}
 				</h4>
-				<p class="text-[18px] font-black text-[color:var(--fb-text)] leading-tight">{{ content.retreatLocation }}</p>
-				<p class="text-[11px] text-[color:var(--fb-text)] leading-snug mt-1 font-medium opacity-90">
+				<p class="text-[length:calc(1.125rem*var(--fb-text-scale,1))] font-black text-[color:var(--fb-text)] leading-tight">{{ content.retreatLocation }}</p>
+				<p class="text-[length:calc(0.6875rem*var(--fb-text-scale,1))] text-[color:var(--fb-text)] leading-snug mt-1 font-medium opacity-90">
 					{{ content.retreatAddress }}
 				</p>
 			</div>
@@ -30,7 +30,7 @@
 						class="rounded-lg"
 					/>
 				</div>
-				<span class="text-[11px] text-[color:var(--fb-text)] font-black uppercase tracking-wider">
+				<span class="text-[length:calc(0.6875rem*var(--fb-text-scale,1))] text-[color:var(--fb-text)] font-black uppercase tracking-wider">
 					{{ t('retreatFlyer.locationQR') }}
 				</span>
 			</div>

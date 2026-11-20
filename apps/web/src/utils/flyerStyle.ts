@@ -27,6 +27,9 @@ export interface FlyerBlockCssVars {
 	/** And for capped boxes, which line up by margin rather than by justify-content. */
 	'--fb-box-ml': string;
 	'--fb-box-mr': string;
+	/** Text size multipliers (as strings: '1', '1.1'…). Body and headings move apart. */
+	'--fb-text-scale': string;
+	'--fb-heading-scale': string;
 }
 
 export interface ResolvedBlockStyle extends FlyerBlockCssVars {
@@ -124,6 +127,8 @@ export function resolveBlockStyle(
 		'--fb-justify': JUSTIFY[align],
 		'--fb-box-ml': boxMarginLeft,
 		'--fb-box-mr': boxMarginRight,
+		'--fb-text-scale': String((merged.textScale ?? 100) / 100),
+		'--fb-heading-scale': String((merged.headingScale ?? 100) / 100),
 		'font-family': FLYER_FONT_STACKS[merged.fontFamily ?? 'inherit'],
 	};
 }

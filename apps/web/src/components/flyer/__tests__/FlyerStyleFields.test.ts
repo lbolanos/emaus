@@ -53,13 +53,15 @@ describe('FlyerStyleFields', () => {
 		const none = buttonWith(wrapper, 'retreatFlyerEditor.design.background.none');
 
 		expect(none!.classes().join(' ')).toContain('border-primary');
-		// …and the opacity slider is out of the way while there is no box
-		expect(wrapper.find('input[type="range"]').exists()).toBe(false);
+		// …and the opacity slider is out of the way while there is no box (the
+		// size sliders are a different knob and stay)
+		expect(wrapper.find('[data-opacity-slider]').exists()).toBe(false);
+		expect(wrapper.findAll('input[type="range"]').length).toBe(2);
 	});
 
 	it('offers the opacity slider once there is a box', () => {
 		const wrapper = mountFields({ backgroundColor: '#ffffff', backgroundOpacity: 65 });
-		expect(wrapper.find('input[type="range"]').exists()).toBe(true);
+		expect(wrapper.find('[data-opacity-slider]').exists()).toBe(true);
 	});
 
 	it('emits the text and heading colours independently of the background', async () => {
@@ -102,5 +104,22 @@ describe('FlyerStyleFields', () => {
 		expect(oswald.attributes('style')).toContain('Oswald');
 		// The "original" button carries no inline font: it renders as the panel does
 		expect(wrapper.find('[data-font-option="inherit"]').attributes('style')).toBeUndefined();
+	});
+
+	it('emits the two size scales separately, and clears each at 100', async () => {
+		const wrapper = mountFields();
+		const ranges = wrapper.findAll('input[type="range"]');
+		// [textScale, headingScale] — the opacity one only exists with a box
+		expect(ranges.length).toBe(2);
+
+		await ranges[0].setValue('115');
+		await ranges[1].setValue('90');
+
+		expect(updates(wrapper)).toContainEqual(['textScale', 115]);
+		expect(updates(wrapper)).toContainEqual(['headingScale', 90]);
+
+		// Back at the designed size the override is removed, not stored as 100
+		await ranges[0].setValue('100');
+		expect(updates(wrapper)).toContainEqual(['textScale', undefined]);
 	});
 });

@@ -2,7 +2,7 @@
 	<div class="p-2.5">
 		<h4
 			v-if="content.whatToBringText"
-			class="fb-lead font-black text-[13px] uppercase text-[color:var(--fb-heading)] mb-2 flex items-center gap-2 border-b border-current/30 pb-2 tracking-[0.1em]"
+			class="fb-lead font-black text-[length:calc(0.8125rem*var(--fb-heading-scale,1))] uppercase text-[color:var(--fb-heading)] mb-2 flex items-center gap-2 border-b border-current/30 pb-2 tracking-[0.1em]"
 		>
 			<div
 				class="bg-gradient-to-br from-purple-400 to-purple-600 p-2.5 rounded-xl text-white shadow-xl flex-shrink-0"
@@ -12,13 +12,13 @@
 			{{ content.whatToBringText }}
 			<span
 				v-if="content.thingsToBringSubtitle"
-				class="text-yellow-300 ml-2 text-[11px] normal-case tracking-normal font-bold"
+				class="text-[color:var(--fb-text)] ml-2 text-[length:calc(0.6875rem*var(--fb-text-scale,1))] normal-case tracking-normal font-bold"
 			>
 				{{ content.thingsToBringSubtitle }}
 			</span>
 		</h4>
 
-		<ul class="grid grid-cols-3 gap-x-3 gap-y-1.5 text-[11px] text-[color:var(--fb-text)]">
+		<ul class="grid grid-cols-3 gap-x-3 gap-y-1.5 text-[length:calc(0.6875rem*var(--fb-text-scale,1))] text-[color:var(--fb-text)]">
 			<li v-for="item in items" :key="item" class="fb-row flex items-start gap-1.5">
 				<div
 					class="w-1.5 h-1.5 mt-1.5 rounded-full bg-gradient-to-br from-green-400 to-emerald-600 flex-shrink-0"

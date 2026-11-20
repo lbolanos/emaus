@@ -93,6 +93,14 @@ export const flyerBlockStyleSchema = z.object({
 	/** Which way the block's own contents line up: its icons, lists and text. */
 	textAlign: z.enum(['left', 'center', 'right']).optional(),
 	fontFamily: flyerFontFamilySchema.optional(),
+	/**
+	 * Text size, in percent of the designed size (85–140; absent = 100). Body text
+	 * and headings scale independently: what counts as a heading is fixed per block
+	 * (its title and the emphasized lines that paint the heading colour).
+	 */
+	textScale: z.number().int().min(85).max(140).optional(),
+	/** Same knob for the headings. */
+	headingScale: z.number().int().min(85).max(140).optional(),
 });
 export type FlyerBlockStyle = z.infer<typeof flyerBlockStyleSchema>;
 export type FlyerTextAlign = NonNullable<FlyerBlockStyle['textAlign']>;

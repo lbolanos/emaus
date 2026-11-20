@@ -204,6 +204,34 @@ describe('RetreatFlyerCanvas', () => {
 			expect(style).toContain('Playfair Display');
 		});
 
+		// The intro used to hard-code Playfair inline, which beat every editor
+		// control — "introducción no deja cambiar la letra".
+		it('gives the intro its Playfair default through the style layer, overridable', () => {
+			const asDefault = mountCanvas().find('[data-flyer-block="intro"]').attributes('style') ?? '';
+			expect(asDefault).toContain('Playfair Display');
+
+			const overridden =
+				mountCanvas({ blockStyles: { intro: { fontFamily: 'oswald' } } })
+					.find('[data-flyer-block="intro"]')
+					.attributes('style') ?? '';
+			expect(overridden).toContain('Oswald');
+			expect(overridden).not.toContain('Playfair');
+			// And no inline font survives in the block's own markup
+			expect(mountCanvas().find('[data-flyer-block="intro"]').html()).not.toContain(
+				"font-family: 'Playfair Display'",
+			);
+		});
+
+		it('carries the two size scales into the block wrapper', () => {
+			const style =
+				mountCanvas({ theme: { textScale: 110, headingScale: 90 } })
+					.find('[data-flyer-block="startTime"]')
+					.attributes('style') ?? '';
+
+			expect(style).toContain('--fb-text-scale: 1.1');
+			expect(style).toContain('--fb-heading-scale: 0.9');
+		});
+
 		// As a block it stretched across the column: a white bar with the address stranded
 		// at one end. happy-dom has no layout, so this fixes the class that does it.
 		it('sizes the address plate to the address', () => {

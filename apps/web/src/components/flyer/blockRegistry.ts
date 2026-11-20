@@ -56,7 +56,16 @@ export const FLYER_PRESET_IMAGES = {
  * per-block overrides in the editor are for.
  */
 export const FLYER_BLOCK_STYLE_DEFAULTS: Record<FlyerBlockId, FlyerBlockStyle> = {
-	intro: { textColor: '#111827', headingColor: '#1e40af', textShadow: false, textAlign: 'center' },
+	// The intro was born in Playfair: kept as its default (used to be a hard-coded
+	// inline style no editor control could reach) so the look is unchanged until
+	// someone picks another typeface for it.
+	intro: {
+		textColor: '#111827',
+		headingColor: '#1e40af',
+		textShadow: false,
+		textAlign: 'center',
+		fontFamily: 'playfair',
+	},
 	startTime: { textColor: '#111827', headingColor: '#1d4ed8', textShadow: false, textAlign: 'left' },
 	location: { textColor: '#000000', headingColor: '#15803d', textShadow: false, textAlign: 'left' },
 	// Sits over the dark lower half of the original artwork, so it defaults to white

@@ -4475,6 +4475,8 @@
         "playfair": "Playfair",
         "dancing": "Cursiva"
       },
+      "textScale": "Texto",
+      "headingScale": "Títulos",
       "textShadow": "Sombra en el texto (se lee mejor sobre la foto)",
       "scrim": "Atenuar la imagen de fondo",
       "scrimHint": "Útil cuando la foto tiene mucho contraste y el texto compite con ella.",

@@ -39,6 +39,7 @@
 					max="100"
 					step="5"
 					class="flex-1"
+					data-opacity-slider
 					:value="values.backgroundOpacity ?? 100"
 					@input="
 						emit('update', 'backgroundOpacity', Number(($event.target as HTMLInputElement).value))
@@ -119,6 +120,45 @@
 			</div>
 		</div>
 
+		<!-- Two independent sliders: the block's title and its content move apart -->
+		<div class="space-y-1.5">
+			<div class="flex items-center gap-2">
+				<span class="w-24 text-[11px] text-muted-foreground">
+					{{ t('retreatFlyerEditor.design.textScale') }}
+				</span>
+				<input
+					type="range"
+					min="85"
+					max="140"
+					step="5"
+					class="flex-1"
+					:value="values.textScale ?? 100"
+					:data-scale-slider="true"
+					@input="emitScale('textScale', ($event.target as HTMLInputElement).value)"
+				/>
+				<span class="w-10 text-right text-[11px] tabular-nums text-muted-foreground">
+					{{ values.textScale ?? 100 }}%
+				</span>
+			</div>
+			<div class="flex items-center gap-2">
+				<span class="w-24 text-[11px] text-muted-foreground">
+					{{ t('retreatFlyerEditor.design.headingScale') }}
+				</span>
+				<input
+					type="range"
+					min="85"
+					max="140"
+					step="5"
+					class="flex-1"
+					:value="values.headingScale ?? 100"
+					@input="emitScale('headingScale', ($event.target as HTMLInputElement).value)"
+				/>
+				<span class="w-10 text-right text-[11px] tabular-nums text-muted-foreground">
+					{{ values.headingScale ?? 100 }}%
+				</span>
+			</div>
+		</div>
+
 		<!-- Not just the words: the icons, the bullets and the capped boxes move with them -->
 		<div class="space-y-1.5">
 			<Label class="text-xs">{{ t('retreatFlyerEditor.design.align') }}</Label>
@@ -193,6 +233,15 @@ const FONT_OPTIONS: { id: FlyerFontFamily; stack?: string }[] = [
 ];
 
 const activeFont = computed(() => props.values.fontFamily ?? 'inherit');
+
+/**
+ * 100 is the designed size and the stored default — emitting it as an override
+ * would only add noise to the saved options, so back at 100 the field is cleared.
+ */
+function emitScale(key: 'textScale' | 'headingScale', raw: string) {
+	const value = Number(raw);
+	emit('update', key, value === 100 ? undefined : value);
+}
 
 const TEXT_SWATCHES = ['#ffffff', '#111827', '#1f2937', '#fde68a'];
 const HEADING_SWATCHES = ['#fde68a', '#1d4ed8', '#15803d', '#ffffff'];
