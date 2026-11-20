@@ -258,10 +258,12 @@ const blocksInSlot = computed(() => {
 	text-shadow: var(--fb-body-shadow, var(--fb-shadow, none));
 }
 
-/* The registration domain plate is a width-capped box, not running text:
-   text-align cannot move it, so it lines up by auto margins driven by the
-   emphasis slot's alignment — the same trick the block-level fb-box uses. */
-.print-optimized [data-registration-domain] {
+/* Width-capped emphasis boxes (the domain plate, the intro badge, the price
+   pill) are not running text: text-align cannot move them, so they line up by
+   auto margins driven by the emphasis slot's alignment — the same trick the
+   block-level fb-box uses. */
+.print-optimized [data-registration-domain],
+.print-optimized [data-emphasis-box] {
 	margin-left: var(--fb-emph-ml, 0);
 	margin-right: var(--fb-emph-mr, auto);
 }

@@ -13,7 +13,8 @@
 				{{ t('retreatFlyer.cost') }}
 			</span>
 			<div
-				class="fb-emphasis text-[length:calc(2.375rem*var(--fb-emphasis-scale,1))] font-black text-gray-900 leading-none drop-shadow-md bg-gradient-to-r from-yellow-200/50 to-orange-200/50 px-4 py-2 rounded-xl inline-block border-2 border-yellow-300/50"
+				data-emphasis-box
+				class="fb-emphasis block w-fit text-[length:calc(2.375rem*var(--fb-emphasis-scale,1))] font-black text-gray-900 leading-none drop-shadow-md bg-gradient-to-r from-yellow-200/50 to-orange-200/50 px-4 py-2 rounded-xl border-2 border-yellow-300/50"
 			>
 				{{ content.formatCost }}
 			</div>

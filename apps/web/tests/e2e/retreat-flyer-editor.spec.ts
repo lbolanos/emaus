@@ -154,6 +154,27 @@ test.describe.serial('Retreat flyer editor — slots, undo/redo, text jump (E2E)
 		);
 	});
 
+	test('emphasis alignment moves the intro badge, a width-capped box', async () => {
+		test.skip(!!skipReason, skipReason ?? '');
+		await openEditorClean();
+		await page.locator('[data-block="intro"] button').first().click();
+
+		const emphasisCard = page.locator('[data-font-slot-section="emphasis"]').last();
+		await emphasisCard.getByRole('button', { name: /destacado/i }).click();
+		await emphasisCard.locator('[data-slot-align="emphasis:right"]').click();
+
+		// The badge is an inline-block span text-align cannot move; the emphasis
+		// slot flips its auto margins instead
+		await expect(page.locator('[data-flyer-block="intro"]')).toHaveAttribute(
+			'style',
+			/--fb-emph-ml: auto/,
+		);
+		await expect(page.locator('[data-flyer-block="intro"]')).toHaveAttribute(
+			'style',
+			/--fb-emph-mr: 0/,
+		);
+	});
+
 	test('double-clicking copy on the flyer opens its Texts field', async () => {
 		test.skip(!!skipReason, skipReason ?? '');
 		await openEditorClean();
