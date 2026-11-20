@@ -265,14 +265,27 @@ async function copyDesignFrom(sourceId: string) {
  */
 function jumpToTextField(overrideKey: string) {
 	activeTab.value = 'texts';
-	nextTick(() => {
+	// The tab content mounts asynchronously and something along the way
+	// (remount, the Tabs transition) hands focus back to <body>. Retry on
+	// frames until it sticks, bounded — then flash the field.
+	const settle = (attempts = 24) => {
 		const field = document.getElementById(`flyer-text-${overrideKey}`);
-		if (!field) return;
+		// The input mounts when the Tabs content does — later than nextTick.
+		// Retry on frames until it exists AND holds focus, bounded.
+		if (!field) {
+			if (attempts > 0) requestAnimationFrame(() => settle(attempts - 1));
+			return;
+		}
 		field.scrollIntoView({ block: 'center', behavior: 'smooth' });
 		field.focus();
-		field.classList.add('flyer-field-flash');
-		window.setTimeout(() => field.classList.remove('flyer-field-flash'), 1600);
-	});
+		if (document.activeElement === field || attempts <= 0) {
+			field.classList.add('flyer-field-flash');
+			window.setTimeout(() => field.classList.remove('flyer-field-flash'), 1600);
+			return;
+		}
+		requestAnimationFrame(() => settle(attempts - 1));
+	};
+	nextTick(() => settle());
 }
 
 const updateScale = () => {
