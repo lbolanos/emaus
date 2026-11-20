@@ -142,6 +142,21 @@
 				</span>
 				<div class="ml-auto flex items-center gap-1">
 					<button
+						v-for="hex in palette ?? []"
+						:key="`art-${hex}`"
+						type="button"
+						class="h-6 w-6 rounded-full border"
+						:class="
+							values.fonts?.[slot]?.color?.toLowerCase() === hex
+								? 'border-primary ring-2 ring-primary/40'
+								: 'border-muted'
+						"
+						:style="{ backgroundColor: hex }"
+						:aria-label="hex"
+						:data-palette-swatch="hex"
+						@click="emitSlot(slot, 'color', hex)"
+					></button>
+					<button
 						v-for="swatch in COLOR_SWATCHES"
 						:key="swatch"
 						type="button"
@@ -241,6 +256,8 @@ const props = withDefaults(
 		values: FlyerBlockStyle;
 		/** Which typography slots to offer: the ones this block actually mixes. */
 		fontSlots?: FlyerFontSlot[];
+		/** Colours read off the artwork, offered before the stock swatches. */
+		palette?: string[];
 	}>(),
 	{ fontSlots: () => ['title', 'emphasis', 'body'] },
 );

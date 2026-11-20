@@ -33,6 +33,36 @@
 				<Wand2 v-else class="mr-1.5 h-4 w-4" />
 				{{ tp('design.matchBackground') }}
 			</Button>
+			<!-- The artwork's own colours, as swatches: the Virgin's teal instead
+			     of a guessed hex -->
+			<Button
+				v-if="!imagePalette.length"
+				type="button"
+				size="sm"
+				variant="outline"
+				class="w-full"
+				:disabled="matching"
+				data-palette-button
+				@click="readPalette"
+			>
+				{{ tp('design.readPalette') }}
+			</Button>
+			<p v-else class="flex items-center gap-1.5" data-palette-row>
+				<span class="text-[11px] text-muted-foreground">{{ tp('design.paletteFromImage') }}</span>
+				<span
+					v-for="hex in imagePalette"
+					:key="hex"
+					class="h-3.5 w-3.5 rounded-full border border-black/10"
+					:style="{ backgroundColor: hex }"
+				/>
+				<button
+					type="button"
+					class="text-[11px] text-muted-foreground underline"
+					@click="imagePalette = []"
+				>
+					{{ tp('design.hidePalette') }}
+				</button>
+			</p>
 			<p v-if="matchError" class="text-[11px] text-destructive">{{ matchError }}</p>
 		</div>
 
@@ -57,6 +87,7 @@
 
 			<FlyerStyleFields
 				:values="theme"
+				:palette="imagePalette"
 				@update="(key, value) => emit('updateTheme', key, value)"
 				@hover-slot="(slot) => emit('hoverSlot', slot)"
 			/>
@@ -212,6 +243,7 @@
 				<FlyerStyleFields
 					:values="blockStyles[selectedBlockId] ?? {}"
 					:font-slots="fontSlotsByBlock[selectedBlockId] ?? ['title', 'emphasis', 'body']"
+				:palette="imagePalette"
 					@update="(key, value) => emit('updateBlockStyle', selectedBlockId!, key, value)"
 					@hover-slot="(slot) => emit('hoverSlot', slot)"
 				/>
@@ -243,6 +275,7 @@ import {
 	type FlyerThemePreset,
 } from '@/utils/flyerStyle';
 import { averageImageLuminance } from '@/utils/imageLuminance';
+import { imagePalette as imagePaletteFromImage } from '@/utils/imagePalette';
 import { FLYER_BLOCK_FONT_SLOTS, FLYER_BLOCK_STYLE_DEFAULTS, FLYER_SLOTS } from '../blockRegistry';
 import FlyerPanelSection from './FlyerPanelSection.vue';
 import FlyerStyleFields from './FlyerStyleFields.vue';
@@ -303,6 +336,8 @@ function tp(key: string, count?: number) {
 
 const matching = ref(false);
 const matchError = ref('');
+/** Colours read off the current artwork; empty until asked for. */
+const imagePalette = ref<string[]>([]);
 
 // The block list is the one you keep coming back to; the palette is set once and left alone
 const openBlocks = ref(true);
@@ -355,6 +390,16 @@ function moveByStep(block: AnyBlockLayout, direction: -1 | 1) {
 	// Crossing slots: land at the near end of the neighbouring one
 	const slotBlocks = list.filter((b) => b.slot === target.slot);
 	emit('moveBlock', block.id, target.slot, direction === 1 ? 0 : slotBlocks.length);
+}
+
+async function readPalette() {
+	if (!props.backgroundImage) return;
+	matchError.value = '';
+	try {
+		imagePalette.value = await imagePaletteFromImage(props.backgroundImage, 5);
+	} catch {
+		matchError.value = tp('design.matchFailed');
+	}
 }
 
 async function matchBackground() {
