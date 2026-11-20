@@ -59,7 +59,9 @@ export const FLYER_BLOCK_STYLE_DEFAULTS: Record<FlyerBlockId, FlyerBlockStyle> =
 	intro: { textColor: '#111827', headingColor: '#1e40af', textShadow: false, textAlign: 'center' },
 	startTime: { textColor: '#111827', headingColor: '#1d4ed8', textShadow: false, textAlign: 'left' },
 	location: { textColor: '#000000', headingColor: '#15803d', textShadow: false, textAlign: 'left' },
-	// Sits over the dark lower half: white heading, amber date, as in the original
+	// Sits over the dark lower half of the original artwork, so it defaults to white
+	// on white. The date reads headingColor too — it used to be a hard-coded amber
+	// that no theme or block colour could reach.
 	endTime: { textColor: '#ffffff', headingColor: '#ffffff', textShadow: true, textAlign: 'left' },
 	registrationQr: {
 		textColor: '#4b5563',

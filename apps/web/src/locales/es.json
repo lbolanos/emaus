@@ -4468,6 +4468,13 @@
       "opacity": "Opacidad",
       "textColor": "Texto",
       "headingColor": "Títulos",
+      "fontFamily": "Tipografía",
+      "font": {
+        "inherit": "Original",
+        "oswald": "Oswald",
+        "playfair": "Playfair",
+        "dancing": "Cursiva"
+      },
       "textShadow": "Sombra en el texto (se lee mejor sobre la foto)",
       "scrim": "Atenuar la imagen de fondo",
       "scrimHint": "Útil cuando la foto tiene mucho contraste y el texto compite con ella.",

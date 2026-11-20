@@ -12,7 +12,7 @@
 				>
 					{{ t('retreatFlyer.endTime') }}
 				</h4>
-				<p data-end-date class="text-[17px] text-yellow-300 font-bold mb-0.5 drop-shadow-lg">
+				<p data-end-date class="text-[17px] text-[color:var(--fb-heading)] font-bold mb-0.5">
 					{{ content.formatDate(content.endDate) }}
 				</p>
 				<div v-if="content.closingLocation" class="mb-2">

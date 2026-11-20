@@ -77,4 +77,30 @@ describe('FlyerStyleFields', () => {
 
 		expect(updates(wrapper)).toContainEqual(['textShadow', true]);
 	});
+
+	it('emits the chosen typeface, and clears it for the original font', async () => {
+		const wrapper = mountFields({ fontFamily: 'oswald' });
+
+		// The active option is marked
+		expect(wrapper.find('[data-font-option="oswald"]').classes().join(' ')).toContain(
+			'border-primary',
+		);
+
+		await wrapper.find('[data-font-option="playfair"]').trigger('click');
+		expect(updates(wrapper)).toContainEqual(['fontFamily', 'playfair']);
+
+		// "Original" removes the override instead of naming a font: the layer
+		// below (theme, then the flyer's own Roboto) shows through again
+		await wrapper.find('[data-font-option="inherit"]').trigger('click');
+		expect(updates(wrapper)).toContainEqual(['fontFamily', undefined]);
+	});
+
+	it('previews each typeface option in its own font', () => {
+		const wrapper = mountFields();
+		const oswald = wrapper.find('[data-font-option="oswald"]');
+
+		expect(oswald.attributes('style')).toContain('Oswald');
+		// The "original" button carries no inline font: it renders as the panel does
+		expect(wrapper.find('[data-font-option="inherit"]').attributes('style')).toBeUndefined();
+	});
 });

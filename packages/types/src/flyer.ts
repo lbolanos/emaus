@@ -67,6 +67,15 @@ export type FlyerImages = z.infer<typeof flyerImagesSchema>;
 const hexColorSchema = z.string().regex(/^#[0-9a-fA-F]{6}$/, 'Debe ser un color en formato #rrggbb');
 
 /**
+ * Typefaces a block (or the whole flyer, via the theme) can switch to. All of them are
+ * webfonts the flyer canvas already loads, so no extra font payload appears. 'inherit'
+ * keeps the flyer's own Roboto — it is also how a block goes back to following the
+ * theme after a per-block override.
+ */
+export const flyerFontFamilySchema = z.enum(['inherit', 'oswald', 'playfair', 'dancing']);
+export type FlyerFontFamily = z.infer<typeof flyerFontFamilySchema>;
+
+/**
  * How a block is painted. Every field is optional and falls back to the theme, and
  * then to the block's built-in default.
  *
@@ -83,6 +92,7 @@ export const flyerBlockStyleSchema = z.object({
 	textShadow: z.boolean().optional(),
 	/** Which way the block's own contents line up: its icons, lists and text. */
 	textAlign: z.enum(['left', 'center', 'right']).optional(),
+	fontFamily: flyerFontFamilySchema.optional(),
 });
 export type FlyerBlockStyle = z.infer<typeof flyerBlockStyleSchema>;
 export type FlyerTextAlign = NonNullable<FlyerBlockStyle['textAlign']>;

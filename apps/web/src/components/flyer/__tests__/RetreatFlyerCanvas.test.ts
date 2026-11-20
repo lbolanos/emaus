@@ -184,6 +184,26 @@ describe('RetreatFlyerCanvas', () => {
 			expect(wrapper.find('[data-flyer-block="payment"] .fb-box').exists()).toBe(true);
 		});
 
+		// The closing date used to be a hard-coded amber that no theme or block
+		// colour could reach — the reported bug of the Veracruz XXIV flyer.
+		it('paints the end date with the heading colour the editor sets', () => {
+			const date = mountCanvas({ theme: { headingColor: '#14524d' } }).find('[data-end-date]');
+
+			expect(date.classes().join(' ')).toContain('text-[color:var(--fb-heading)]');
+			expect(date.classes().join(' ')).not.toContain('text-yellow-300');
+		});
+
+		it('carries the theme typeface into every block wrapper', () => {
+			const style =
+				mountCanvas({ theme: { fontFamily: 'playfair' } })
+					.find('[data-flyer-block="location"]')
+					.attributes('style') ?? '';
+
+			// happy-dom quotes font names with ", browsers with ' — both are the same rule
+			expect(style).toContain('font-family:');
+			expect(style).toContain('Playfair Display');
+		});
+
 		// As a block it stretched across the column: a white bar with the address stranded
 		// at one end. happy-dom has no layout, so this fixes the class that does it.
 		it('sizes the address plate to the address', () => {

@@ -1,5 +1,17 @@
-import type { FlyerBlockStyle, FlyerTextAlign, FlyerTheme } from '@repo/types';
+import type { FlyerBlockStyle, FlyerFontFamily, FlyerTextAlign, FlyerTheme } from '@repo/types';
 import { FLYER_BLOCK_STYLE_DEFAULTS } from '@/components/flyer/blockRegistry';
+
+/**
+ * The CSS each font option maps to. The names are the webfonts the canvas already
+ * imports (see RetreatFlyerCanvas.vue), so nothing new gets downloaded. 'inherit'
+ * resolves to the CSS keyword: the block takes the flyer's Roboto back.
+ */
+export const FLYER_FONT_STACKS: Record<FlyerFontFamily, string> = {
+	inherit: 'inherit',
+	oswald: `'Oswald', sans-serif`,
+	playfair: `'Playfair Display', serif`,
+	dancing: `'Dancing Script', cursive`,
+};
 
 /** CSS custom properties the blocks read. */
 export interface FlyerBlockCssVars {
@@ -18,6 +30,12 @@ export interface FlyerBlockCssVars {
 }
 
 export interface ResolvedBlockStyle extends FlyerBlockCssVars {
+	/**
+	 * A real CSS property, not a custom one: the block wrapper carries it and every
+	 * line inside inherits it (no block sets its own font-family). 'inherit' hands
+	 * the block back to the flyer's Roboto.
+	 */
+	'font-family': string;
 	/** True when the block paints a box, which is what earns it a radius and shadow. */
 	hasBox: boolean;
 	/** Mirrored as an attribute: some of the reflow needs a selector, not a value. */
@@ -106,6 +124,7 @@ export function resolveBlockStyle(
 		'--fb-justify': JUSTIFY[align],
 		'--fb-box-ml': boxMarginLeft,
 		'--fb-box-mr': boxMarginRight,
+		'font-family': FLYER_FONT_STACKS[merged.fontFamily ?? 'inherit'],
 	};
 }
 

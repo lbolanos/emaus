@@ -96,6 +96,29 @@
 			</div>
 		</div>
 
+		<!-- Each button previews itself in its own typeface, so no sample text is needed -->
+		<div class="space-y-1.5">
+			<Label class="text-xs">{{ t('retreatFlyerEditor.design.fontFamily') }}</Label>
+			<div class="flex flex-wrap items-center gap-1.5">
+				<button
+					v-for="option in FONT_OPTIONS"
+					:key="option.id"
+					type="button"
+					class="rounded border px-2.5 py-1 text-[13px] transition-colors"
+					:class="
+						activeFont === option.id
+							? 'border-primary bg-primary/10 text-foreground'
+							: 'border-muted text-muted-foreground hover:text-foreground'
+					"
+					:style="option.stack ? { fontFamily: option.stack } : undefined"
+					:data-font-option="option.id"
+					@click="emit('update', 'fontFamily', option.id === 'inherit' ? undefined : option.id)"
+				>
+					{{ t(`retreatFlyerEditor.design.font.${option.id}`) }}
+				</button>
+			</div>
+		</div>
+
 		<!-- Not just the words: the icons, the bullets and the capped boxes move with them -->
 		<div class="space-y-1.5">
 			<Label class="text-xs">{{ t('retreatFlyerEditor.design.align') }}</Label>
@@ -136,7 +159,8 @@ import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { AlignCenter, AlignLeft, AlignRight } from 'lucide-vue-next';
 import { Label } from '@repo/ui';
-import type { FlyerBlockStyle } from '@repo/types';
+import type { FlyerBlockStyle, FlyerFontFamily } from '@repo/types';
+import { FLYER_FONT_STACKS } from '@/utils/flyerStyle';
 
 const props = defineProps<{
 	values: FlyerBlockStyle;
@@ -159,6 +183,16 @@ const ALIGN_OPTIONS = [
 	{ id: 'center', icon: AlignCenter },
 	{ id: 'right', icon: AlignRight },
 ] as const;
+
+/** 'inherit' carries no stack: the button renders in the panel's own font. */
+const FONT_OPTIONS: { id: FlyerFontFamily; stack?: string }[] = [
+	{ id: 'inherit' },
+	{ id: 'oswald', stack: FLYER_FONT_STACKS.oswald },
+	{ id: 'playfair', stack: FLYER_FONT_STACKS.playfair },
+	{ id: 'dancing', stack: FLYER_FONT_STACKS.dancing },
+];
+
+const activeFont = computed(() => props.values.fontFamily ?? 'inherit');
 
 const TEXT_SWATCHES = ['#ffffff', '#111827', '#1f2937', '#fde68a'];
 const HEADING_SWATCHES = ['#fde68a', '#1d4ed8', '#15803d', '#ffffff'];

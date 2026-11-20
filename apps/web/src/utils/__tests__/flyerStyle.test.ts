@@ -7,6 +7,7 @@ import {
 	checkBlockContrast,
 	themeForBackground,
 	FLYER_THEME_PRESETS,
+	FLYER_FONT_STACKS,
 } from '../flyerStyle';
 import { FLYER_BLOCK_STYLE_DEFAULTS } from '@/components/flyer/blockRegistry';
 
@@ -51,6 +52,36 @@ describe('resolveBlockStyle', () => {
 		);
 
 		expect(style['--fb-text']).toBe('#111827');
+	});
+
+	it('defaults the typeface to inherit, so the flyer font shows through', () => {
+		const style = resolveBlockStyle('startTime');
+
+		expect(style['font-family']).toBe('inherit');
+	});
+
+	it('resolves a theme typeface every block can inherit', () => {
+		const style = resolveBlockStyle('location', { fontFamily: 'oswald' });
+
+		expect(style['font-family']).toBe(FLYER_FONT_STACKS.oswald);
+	});
+
+	it('lets a block take its own typeface over the theme one', () => {
+		const style = resolveBlockStyle(
+			'intro',
+			{ fontFamily: 'playfair' },
+			{ intro: { fontFamily: 'dancing' } },
+		);
+
+		expect(style['font-family']).toBe(FLYER_FONT_STACKS.dancing);
+	});
+
+	it('resets to the flyer font when the block override is cleared', () => {
+		// definedFields drops the undefined key, exactly what the editor emits
+		// for the "Original" option — the theme layer is what remains
+		const style = resolveBlockStyle('intro', { fontFamily: 'playfair' }, { intro: {} });
+
+		expect(style['font-family']).toBe(FLYER_FONT_STACKS.playfair);
 	});
 
 	it('only overrides the fields that are actually set', () => {
