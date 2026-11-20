@@ -199,6 +199,8 @@ const blocksInSlot = computed(() => {
  */
 .print-optimized [data-flyer-block] {
 	text-align: var(--fb-align, left);
+	/* Same contract as the retreat canvas: the block-wide text shadow switch. */
+	text-shadow: var(--fb-shadow, none);
 }
 
 /* Per-slot lettering — same contract as the retreat canvas. */

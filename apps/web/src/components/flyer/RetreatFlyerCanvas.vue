@@ -212,6 +212,9 @@ const blocksInSlot = computed(() => {
  */
 .print-optimized [data-flyer-block] {
 	text-align: var(--fb-align, left);
+	/* The "sombra en el texto" switch: one flag the whole block's text inherits.
+	   It used to write a variable nothing consumed — a switch with no wire. */
+	text-shadow: var(--fb-shadow, none);
 }
 
 /* Per-slot lettering: family, colour and alignment ride the slot class; the size
