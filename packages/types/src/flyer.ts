@@ -94,8 +94,8 @@ export type FlyerFontSlot = z.infer<typeof flyerFontSlotSchema>;
  *  then the theme's slot, then the block's own slot. */
 export const flyerSlotSpecSchema = z.object({
 	family: flyerFontFamilySchema.optional(),
-	/** Size in percent of the designed size (70–160; absent = 100). */
-	scale: z.number().int().min(70).max(160).optional(),
+	/** Size in percent of the designed size (5–200; absent = 100). */
+	scale: z.number().int().min(5).max(200).optional(),
 	color: hexColorSchema.optional(),
 	align: z.enum(['left', 'center', 'right']).optional(),
 });

@@ -51,17 +51,23 @@
 			</div>
 		</div>
 
-		<!-- A whole section per typography slot: family, size, colour and alignment
+		<!-- A collapsible section per typography slot, closed by default: three
+		     open cards crowded the panel. Family, size, colour and alignment
 		     change independently, and a block only gets the slots it mixes. -->
-		<div
+		<FlyerPanelSection
 			v-for="slot in fontSlots"
 			:key="slot"
-			class="space-y-2 rounded-md border border-muted p-2.5"
+			:name="`font-${slot}`"
+			:title="t(`retreatFlyerEditor.design.slot.${slot}`)"
+			:open="openSlots[slot] ?? false"
 			:data-font-slot-section="slot"
+			@update:open="(open) => (openSlots[slot] = open)"
 		>
-			<p class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-				{{ t(`retreatFlyerEditor.design.slot.${slot}`) }}
-			</p>
+			<template #summary>
+				<span class="text-[11px] font-normal normal-case tracking-normal text-muted-foreground">
+					{{ slotSummary(slot) }}
+				</span>
+			</template>
 
 			<div class="flex items-center gap-2">
 				<span class="w-14 shrink-0 text-[11px] text-muted-foreground">
@@ -94,7 +100,7 @@
 						class="rounded border border-muted p-1 text-muted-foreground transition-colors hover:text-foreground disabled:opacity-30"
 						:aria-label="t('retreatFlyerEditor.design.scaleDown')"
 						:data-slot-scale-minus="slot"
-						:disabled="(values.fonts?.[slot]?.scale ?? 100) <= 70"
+						:disabled="(values.fonts?.[slot]?.scale ?? 100) <= 5"
 						@click="stepScale(slot, -5)"
 					>
 						<Minus class="h-3.5 w-3.5" />
@@ -110,7 +116,7 @@
 						class="rounded border border-muted p-1 text-muted-foreground transition-colors hover:text-foreground disabled:opacity-30"
 						:aria-label="t('retreatFlyerEditor.design.scaleUp')"
 						:data-slot-scale-plus="slot"
-						:disabled="(values.fonts?.[slot]?.scale ?? 100) >= 160"
+						:disabled="(values.fonts?.[slot]?.scale ?? 100) >= 200"
 						@click="stepScale(slot, 5)"
 					>
 						<Plus class="h-3.5 w-3.5" />
@@ -180,7 +186,7 @@
 					</button>
 				</div>
 			</div>
-		</div>
+		</FlyerPanelSection>
 
 		<label class="flex items-center gap-2 text-xs">
 			<input
@@ -194,12 +200,13 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, reactive } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { AlignCenter, AlignLeft, AlignRight, Minus, Plus, RotateCcw } from 'lucide-vue-next';
 import { Label } from '@repo/ui';
 import type { FlyerBlockStyle, FlyerFontFamily, FlyerFontSlot, FlyerFonts } from '@repo/types';
 import { FLYER_FONT_STACKS } from '@/utils/flyerStyle';
+import FlyerPanelSection from './FlyerPanelSection.vue';
 
 const props = withDefaults(
 	defineProps<{
@@ -218,6 +225,18 @@ const emit = defineEmits<{
 }>();
 
 const { t } = useI18n();
+
+/** Slot sections ship collapsed: three open cards crowded the panel. */
+const openSlots = reactive<Partial<Record<FlyerFontSlot, boolean>>>({});
+
+/** One glance at what the closed section holds: family and size. */
+function slotSummary(slot: FlyerFontSlot): string {
+	const family = props.values.fonts?.[slot]?.family;
+	const scale = props.values.fonts?.[slot]?.scale ?? 100;
+	const familyLabel =
+		family && family !== 'inherit' ? t(`retreatFlyerEditor.design.font.${family}`) : null;
+	return familyLabel ? `${familyLabel} · ${scale}%` : `${scale}%`;
+}
 
 const BACKGROUND_OPTIONS = [
 	{ id: 'none', color: undefined },
@@ -240,10 +259,10 @@ const FONT_OPTIONS: { id: FlyerFontFamily }[] = [
 	{ id: 'mono' },
 ];
 
-/** Steps the slot's size by 5%, clamped to the 70–160 range the schema allows. */
+/** Steps the slot's size by 5%, clamped to the 5–200 range the schema allows. */
 function stepScale(slot: FlyerFontSlot, delta: number) {
 	const current = props.values.fonts?.[slot]?.scale ?? 100;
-	const next = Math.min(160, Math.max(70, current + delta));
+	const next = Math.min(200, Math.max(5, current + delta));
 	emitSlot(slot, 'scale', String(next));
 }
 

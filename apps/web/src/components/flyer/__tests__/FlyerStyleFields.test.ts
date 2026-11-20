@@ -103,9 +103,9 @@ describe('FlyerStyleFields', () => {
 		expect(updates(wrapper)).toContainEqual(['fonts', undefined]);
 
 		// Clamped at the range edges — the buttons disable instead of wrapping
-		await wrapper.setProps({ values: { fonts: { emphasis: { scale: 160 } } } });
+		await wrapper.setProps({ values: { fonts: { emphasis: { scale: 200 } } } });
 		expect(wrapper.find('[data-slot-scale-plus="emphasis"]').attributes('disabled')).toBeDefined();
-		await wrapper.setProps({ values: { fonts: { emphasis: { scale: 70 } } } });
+		await wrapper.setProps({ values: { fonts: { emphasis: { scale: 5 } } } });
 		expect(wrapper.find('[data-slot-scale-minus="emphasis"]').attributes('disabled')).toBeDefined();
 		// And one tap on reset clears a stray value
 		await wrapper.find('[data-slot-scale-reset="emphasis"]').trigger('click');

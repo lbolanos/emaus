@@ -240,7 +240,10 @@ const blocksInSlot = computed(() => {
 }
 
 /* The furniture follows its slot: the lead row (icon + title) the title slot,
-   list rows and notes the body slot. Falls back to the block-wide alignment. */
+   list rows and notes the body slot. Falls back to the block-wide alignment.
+   The [data-flyer-block] anchor buys specificity over the block-wide rules
+   above — without it, a block whose flat alignment is 'center' (intro, QR,
+   payment) ignored its slot alignment: the flat rule came later and won. */
 .print-optimized .fb-lead {
 	justify-content: var(--fb-title-justify, var(--fb-justify, flex-start));
 }
@@ -249,21 +252,21 @@ const blocksInSlot = computed(() => {
 	justify-content: var(--fb-body-justify, var(--fb-justify, flex-start));
 }
 
-.print-optimized [data-title-align='center'] .fb-lead,
-.print-optimized [data-body-align='center'] .fb-row {
+.print-optimized [data-flyer-block][data-title-align='center'] .fb-lead,
+.print-optimized [data-flyer-block][data-body-align='center'] .fb-row {
 	flex-direction: column;
 	align-items: center;
 }
 
 /* Stacked, the child that used to take the leftover width would grow in height
    instead — same fix the block-wide centring already applies. */
-.print-optimized [data-title-align='center'] .fb-lead > .flex-1 {
+.print-optimized [data-flyer-block][data-title-align='center'] .fb-lead > .flex-1 {
 	flex: none;
 	width: 100%;
 }
 
-.print-optimized [data-title-align='right'] .fb-lead,
-.print-optimized [data-body-align='right'] .fb-row {
+.print-optimized [data-flyer-block][data-title-align='right'] .fb-lead,
+.print-optimized [data-flyer-block][data-body-align='right'] .fb-row {
 	flex-direction: row-reverse;
 	justify-content: flex-start;
 }
