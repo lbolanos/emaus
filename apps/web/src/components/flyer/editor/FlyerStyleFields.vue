@@ -62,6 +62,8 @@
 			:open="openSlots[slot] ?? false"
 			:data-font-slot-section="slot"
 			@update:open="(open) => (openSlots[slot] = open)"
+			@mouseenter="emit('hoverSlot', slot)"
+			@mouseleave="emit('hoverSlot', null)"
 		>
 			<template #summary>
 				<span class="text-[11px] font-normal normal-case tracking-normal text-muted-foreground">
@@ -248,6 +250,8 @@ const emit = defineEmits<{
 		key: keyof FlyerBlockStyle,
 		value: string | number | boolean | FlyerFonts | undefined,
 	];
+	/** Pointer over a slot section: the canvas glows the lines it drives. */
+	hoverSlot: [slot: string | null];
 }>();
 
 const { t } = useI18n();

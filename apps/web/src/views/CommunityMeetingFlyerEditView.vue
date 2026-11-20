@@ -88,6 +88,7 @@
 								@clear-block-style="store.clearBlockStyle"
 								@toggle-visibility="store.toggleVisibility"
 								@select-block="store.selectBlock"
+								@hover-slot="store.setHighlightSlot"
 							/>
 							<Button
 								variant="ghost"
@@ -167,6 +168,7 @@
 						:printable="false"
 						editable
 						:selected-block-id="store.selectedBlockId"
+						:highlight-slot="store.highlightSlot"
 						:empty-slot-label="t('meetingFlyerEditor.emptySlot')"
 						@move-block="store.moveBlock"
 						@select-block="store.selectBlock"

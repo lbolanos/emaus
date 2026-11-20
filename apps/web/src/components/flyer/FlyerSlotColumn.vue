@@ -11,6 +11,7 @@
 			:key="block.id"
 			:data-flyer-block="block.id"
 			:data-align="stylesById[block.id]?.align"
+			:data-highlight-slot="highlightSlot"
 			:data-title-align="stylesById[block.id]?.titleAlign"
 			:data-body-align="stylesById[block.id]?.bodyAlign"
 			:style="styleFor(block.id)"
@@ -61,6 +62,7 @@ const props = withDefaults(
 		styleDefaults?: Record<string, FlyerBlockStyle>;
 		editable?: boolean;
 		selectedBlockId?: string | null;
+		highlightSlot?: string | null;
 		emptyLabel?: string;
 	}>(),
 	{

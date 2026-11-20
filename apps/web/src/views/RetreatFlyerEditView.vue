@@ -45,7 +45,7 @@
 			<!-- Side panel -->
 			<Card class="h-fit lg:sticky lg:top-4">
 				<CardContent class="p-4">
-					<Tabs default-value="design">
+					<Tabs v-model="activeTab" default-value="design">
 						<TabsList class="grid w-full grid-cols-4">
 							<TabsTrigger value="design">{{ t('retreatFlyerEditor.tabs.design') }}</TabsTrigger>
 							<TabsTrigger value="images">{{ t('retreatFlyerEditor.tabs.images') }}</TabsTrigger>
@@ -70,6 +70,7 @@
 								@clear-block-style="store.clearBlockStyle"
 								@toggle-visibility="store.toggleVisibility"
 								@select-block="store.selectBlock"
+								@hover-slot="store.setHighlightSlot"
 							/>
 							<Button variant="ghost" size="sm" class="mt-4 w-full" @click="store.resetToDefaultLayout()">
 								<RotateCcw class="mr-1.5 h-4 w-4" />
@@ -147,7 +148,9 @@
 						:scale="previewScale"
 						editable
 						:selected-block-id="store.selectedBlockId"
+						:highlight-slot="store.highlightSlot"
 						:empty-slot-label="t('retreatFlyerEditor.emptySlot')"
+						@edit-text="jumpToTextField"
 						@move-block="store.moveBlock"
 						@select-block="store.selectBlock"
 					/>
@@ -158,7 +161,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import { onBeforeRouteLeave, useRoute } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { ArrowLeft, Loader2, RotateCcw, Undo2 } from 'lucide-vue-next';
@@ -190,6 +193,25 @@ const canvasRef = ref<{ $el: HTMLElement }>();
 const previewScale = ref(1);
 const canvasHeight = ref(0);
 let resizeObserver: ResizeObserver | null = null;
+
+/** Which editor tab is open, so a double-click on the flyer can jump to Textos. */
+const activeTab = ref('design');
+
+/**
+ * Double-clicked copy on the flyer: open the Texts tab on that exact field,
+ * scrolled into view, focused and flashed once.
+ */
+function jumpToTextField(overrideKey: string) {
+	activeTab.value = 'texts';
+	nextTick(() => {
+		const field = document.getElementById(`flyer-text-${overrideKey}`);
+		if (!field) return;
+		field.scrollIntoView({ block: 'center', behavior: 'smooth' });
+		field.focus();
+		field.classList.add('flyer-field-flash');
+		window.setTimeout(() => field.classList.remove('flyer-field-flash'), 1600);
+	});
+}
 
 const updateScale = () => {
 	if (!previewColumnRef.value) return;
@@ -267,3 +289,20 @@ watch(retreatId, async (newId, oldId) => {
 	if (newId && newId !== oldId) await load(newId);
 });
 </script>
+
+<style scoped>
+@keyframes flyerFieldFlash {
+	0%,
+	100% {
+		box-shadow: 0 0 0 0 rgba(59, 130, 246, 0);
+	}
+	30% {
+		box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.45);
+	}
+}
+
+.flyer-field-flash {
+	animation: flyerFieldFlash 1.6s ease-out 1;
+	border-radius: 6px;
+}
+</style>

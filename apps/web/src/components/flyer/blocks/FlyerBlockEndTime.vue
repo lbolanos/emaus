@@ -27,6 +27,7 @@
 				<p
 					v-if="content.arrivalTimeNoteText"
 					data-arrival-note
+				data-text-override="arrivalTimeNoteOverride"
 					class="fb-row text-gray-800 font-bold uppercase fb-body text-[length:calc(0.75rem*var(--fb-body-scale,1))] inline-flex max-w-full items-center gap-2 bg-amber-50/80 px-3 py-2 rounded-lg border border-amber-200 whitespace-pre-line"
 				>
 					<Users class="w-5 h-5 flex-shrink-0" /> {{ content.arrivalTimeNoteText }}

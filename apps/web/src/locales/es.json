@@ -4353,7 +4353,14 @@
       "lowContrastHint": "Este texto casi no se lee sobre su fondo. Prueba otro color de texto, un velo, o atenuar la imagen.",
       "moveUp": "Subir el bloque",
       "moveDown": "Bajar el bloque",
-      "hiddenCount": "{count} bloque oculto | {count} bloques ocultos"
+      "hiddenCount": "{count} bloque oculto | {count} bloques ocultos",
+      "blockHints": {
+        "dateTime": "Destacado es la fecha grande; Texto, la hora y la duración.",
+        "description": "Texto es la descripción completa de la reunión.",
+        "location": "Destacado es el nombre del lugar; Texto, la dirección.",
+        "locationQr": "Texto es todo el contenido; ajusta su tamaño y color.",
+        "community": "Destacado es el nombre de la comunidad (Oswald de fábrica)."
+      }
     },
     "leaveWithoutSaving": "Tienes cambios sin guardar en el volante. ¿Salir de todas formas?",
     "undo": "Deshacer",
@@ -4518,7 +4525,17 @@
       "lowContrastHint": "Este texto casi no se lee sobre su fondo. Prueba otro color de texto, un velo, o atenuar la imagen.",
       "moveUp": "Subir el bloque",
       "moveDown": "Bajar el bloque",
-      "hiddenCount": "{count} bloque oculto | {count} bloques ocultos"
+      "hiddenCount": "{count} bloque oculto | {count} bloques ocultos",
+      "blockHints": {
+        "intro": "Destacado es la insignia \"¡Atrévete!\"; Texto, el párrafo. Este bloque nació en Playfair.",
+        "startTime": "Destacado agrupa la fecha y la hora; Texto, la nota de llegada.",
+        "endTime": "Destacado es la fecha de cierre; Texto, la ubicación y el aviso a la familia.",
+        "location": "Destacado es el nombre de la casa; Texto, la dirección.",
+        "contact": "Destacado son los teléfonos y correos (mono de fábrica); Texto, sus etiquetas.",
+        "payment": "Destacado es el precio (Oswald de fábrica); Texto, la información de pago.",
+        "whatToBring": "Título es \"QUÉ LLEVAR\"; Texto, el subtítulo ámbar y la lista.",
+        "registrationQr": "Destacado es el enlace bajo el código (mono de fábrica); Texto, \"Escanea…\"."
+      }
     },
     "leaveWithoutSaving": "Tienes cambios sin guardar en el volante. ¿Salir de todas formas?",
     "undo": "Deshacer",

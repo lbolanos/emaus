@@ -40,6 +40,7 @@
 					:theme="theme"
 					:block-styles="blockStyles"
 					:components="MEETING_FLYER_BLOCK_COMPONENTS"
+					:highlight-slot="highlightSlot"
 					:style-defaults="MEETING_FLYER_BLOCK_STYLE_DEFAULTS"
 					:editable="editable"
 					:selected-block-id="selectedBlockId"
@@ -55,6 +56,7 @@
 				v-if="blocksInSlot.wide.length || editable"
 				slot-name="wide"
 				class="relative z-10 mt-3"
+				:highlight-slot="highlightSlot"
 				:blocks="blocksInSlot.wide"
 				:content="content"
 				:theme="theme"
@@ -120,6 +122,7 @@ const props = withDefaults(
 		/** Turns the flyer into a drop target. Off for the read-only view. */
 		editable?: boolean;
 		selectedBlockId?: string | null;
+	highlightSlot?: string | null;
 		emptySlotLabel?: string;
 	}>(),
 	{ scale: 1, editable: false, emptySlotLabel: '', printable: true },
@@ -312,6 +315,28 @@ const blocksInSlot = computed(() => {
 /* Override AppLayout's mobile rule that hides every h1, which also kills the flyer title */
 .print-optimized h1 {
 	display: block !important;
+}
+
+
+/* Pointer over a slot section in the panel: glow exactly the lines that slot
+   drives, so "Destacado" stops being a guess. */
+@keyframes fbSlotGlow {
+	0%,
+	100% {
+		outline-color: rgba(59, 130, 246, 0.9);
+	}
+	50% {
+		outline-color: rgba(59, 130, 246, 0.35);
+	}
+}
+
+.print-optimized [data-highlight-slot='title'] .fb-title,
+.print-optimized [data-highlight-slot='emphasis'] .fb-emphasis,
+.print-optimized [data-highlight-slot='body'] .fb-body {
+	outline: 2px dashed rgba(59, 130, 246, 0.9);
+	outline-offset: 3px;
+	border-radius: 4px;
+	animation: fbSlotGlow 1.2s ease-in-out infinite;
 }
 
 @media print {

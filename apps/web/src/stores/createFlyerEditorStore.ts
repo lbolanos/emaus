@@ -53,6 +53,11 @@ export function createFlyerEditorStoreSetup<TBlock extends AnyBlockLayout>(
 		const hiddenTexts = ref<string[]>([]);
 		/** Which block the editor panel is showing the style of. */
 		const selectedBlockId = ref<string | null>(null);
+		/**
+		 * Which typography slot the pointer is over in the panel, so the canvas can
+		 * glow exactly the lines that slot drives — the answer to "¿qué es cada rol?".
+		 */
+		const highlightSlot = ref<string | null>(null);
 		const savedSnapshot = ref('');
 		const saving = ref(false);
 
@@ -225,6 +230,10 @@ export function createFlyerEditorStoreSetup<TBlock extends AnyBlockLayout>(
 			selectedBlockId.value = blockId;
 		}
 
+		function setHighlightSlot(slot: string | null) {
+			highlightSlot.value = slot;
+		}
+
 		/** An undefined value clears the field so the layer below shows through again. */
 		function setThemeField<K extends keyof FlyerTheme>(key: K, value: FlyerTheme[K] | undefined) {
 			pushUndo(`theme:${String(key)}`);
@@ -340,6 +349,8 @@ export function createFlyerEditorStoreSetup<TBlock extends AnyBlockLayout>(
 			setTextOverride,
 			toggleTextVisibility,
 			selectBlock,
+			highlightSlot,
+			setHighlightSlot,
 			setThemeField,
 			applyThemePreset,
 			clearTheme,

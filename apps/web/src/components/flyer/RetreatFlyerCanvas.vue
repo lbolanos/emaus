@@ -1,6 +1,7 @@
 <template>
 	<div
 		:id="printable ? 'printable-area' : undefined"
+		@dblclick="onDoubleClick"
 		class="print-optimized shadow-2xl print:shadow-none rounded-3xl overflow-hidden print:overflow-visible print:rounded-none relative bg-white border border-gray-200 print:border-none"
 		:style="[
 			{ fontFamily: `'Roboto', sans-serif`, width: '100%', maxWidth: '850px', margin: '0 auto' },
@@ -42,6 +43,7 @@
 					:block-styles="blockStyles"
 					:editable="editable"
 					:selected-block-id="selectedBlockId"
+					:highlight-slot="highlightSlot"
 					:empty-label="emptySlotLabel"
 					@drop-at="onDropAt"
 					@select-block="(id) => emit('selectBlock', id)"
@@ -60,6 +62,7 @@
 				:block-styles="blockStyles"
 				:editable="editable"
 				:selected-block-id="selectedBlockId"
+				:highlight-slot="highlightSlot"
 				:empty-label="emptySlotLabel"
 				@drop-at="onDropAt"
 				@select-block="(id) => emit('selectBlock', id)"
@@ -114,6 +117,8 @@ const props = withDefaults(
 		/** Turns the flyer into a drop target. Off for the read-only view. */
 		editable?: boolean;
 		selectedBlockId?: string | null;
+		/** Slot whose panel row the pointer is on: its lines glow on canvas. */
+		highlightSlot?: string | null;
 		emptySlotLabel?: string;
 	}>(),
 	{ scale: 1, editable: false, emptySlotLabel: '', printable: true },
@@ -122,6 +127,8 @@ const props = withDefaults(
 const emit = defineEmits<{
 	moveBlock: [blockId: string, slot: FlyerSlot, index: number];
 	selectBlock: [blockId: string];
+	/** Double-clicked a text the Texts tab owns: jump to its field. */
+	editText: [overrideKey: string];
 }>();
 
 /** Which block the pointer is carrying; the columns only report where it landed. */
@@ -131,6 +138,17 @@ function onDropAt(slot: FlyerSlot, index: number) {
 	if (!draggingId.value) return;
 	emit('moveBlock', draggingId.value, slot, index);
 	draggingId.value = null;
+}
+
+/**
+ * Double-clicking a piece of copy on the flyer is the shortest path to editing
+ * it: report which override key it belongs to and the view focuses that field.
+ */
+function onDoubleClick(event: MouseEvent) {
+	if (!props.editable) return;
+	const target = (event.target as HTMLElement).closest('[data-text-override]');
+	const key = target?.getAttribute('data-text-override');
+	if (key) emit('editText', key);
 }
 
 const scrimColor = computed(() => resolveScrim(props.theme));
@@ -357,6 +375,28 @@ const blocksInSlot = computed(() => {
 /* Override AppLayout's mobile rule that hides every h1, which also kills the flyer title */
 .print-optimized h1 {
 	display: block !important;
+}
+
+
+/* Pointer over a slot section in the panel: glow exactly the lines that slot
+   drives, so "Destacado" stops being a guess. */
+@keyframes fbSlotGlow {
+	0%,
+	100% {
+		outline-color: rgba(59, 130, 246, 0.9);
+	}
+	50% {
+		outline-color: rgba(59, 130, 246, 0.35);
+	}
+}
+
+.print-optimized [data-highlight-slot='title'] .fb-title,
+.print-optimized [data-highlight-slot='emphasis'] .fb-emphasis,
+.print-optimized [data-highlight-slot='body'] .fb-body {
+	outline: 2px dashed rgba(59, 130, 246, 0.9);
+	outline-offset: 3px;
+	border-radius: 4px;
+	animation: fbSlotGlow 1.2s ease-in-out infinite;
 }
 
 @media print {

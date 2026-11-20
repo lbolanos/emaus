@@ -11,6 +11,7 @@
 				<h3
 					v-if="content.catholicRetreatText"
 					data-banner-title
+				data-text-override="catholicRetreatOverride"
 					class="text-xl md:text-2xl font-bold uppercase tracking-widest font-header"
 				>
 					{{ content.catholicRetreatText }}

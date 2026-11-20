@@ -58,6 +58,7 @@
 			<FlyerStyleFields
 				:values="theme"
 				@update="(key, value) => emit('updateTheme', key, value)"
+				@hover-slot="(slot) => emit('hoverSlot', slot)"
 			/>
 
 			<div class="space-y-1.5 border-t pt-3">
@@ -198,6 +199,9 @@
 						{{ tp('design.reset') }}
 					</Button>
 				</div>
+				<p v-if="blockHint(selectedBlockId)" class="text-[11px] leading-snug text-muted-foreground">
+					{{ blockHint(selectedBlockId) }}
+				</p>
 				<p
 					v-if="poorContrast.has(selectedBlockId)"
 					class="flex items-start gap-1.5 text-[11px] text-amber-600"
@@ -209,6 +213,7 @@
 					:values="blockStyles[selectedBlockId] ?? {}"
 					:font-slots="fontSlotsByBlock[selectedBlockId] ?? ['title', 'emphasis', 'body']"
 					@update="(key, value) => emit('updateBlockStyle', selectedBlockId!, key, value)"
+					@hover-slot="(slot) => emit('hoverSlot', slot)"
 				/>
 			</div>
 			<p v-else class="text-[11px] text-muted-foreground">
@@ -279,9 +284,17 @@ const emit = defineEmits<{
 	clearBlockStyle: [blockId: string];
 	toggleVisibility: [blockId: string];
 	selectBlock: [blockId: string];
+	hoverSlot: [slot: string | null];
 }>();
 
 const { t } = useI18n();
+const i18n = useI18n();
+
+/** One line saying what each slot is ON THIS BLOCK, when we have one. */
+function blockHint(blockId: string): string | null {
+	const key = `${props.tPrefix}.design.blockHints.${blockId}`;
+	return i18n.te(key) ? t(key) : null;
+}
 
 /** Translations live under the flavour prefix; this keeps the call sites short. */
 function tp(key: string, count?: number) {
