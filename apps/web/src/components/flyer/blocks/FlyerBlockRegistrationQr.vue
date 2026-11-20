@@ -31,7 +31,7 @@
 		-->
 		<div
 			data-registration-domain
-			class="mt-2 inline-block max-w-full fb-body text-[length:calc(0.5625rem*var(--fb-body-scale,1))] text-blue-700 font-black font-mono lowercase tracking-normal bg-white/80 px-2 py-1.5 rounded-lg border border-blue-200/50 shadow-sm break-all leading-tight"
+			class="mt-2 inline-block max-w-full fb-emphasis text-[length:calc(0.5625rem*var(--fb-emphasis-scale,1))] text-[color:var(--fb-emphasis-color)] font-black lowercase tracking-normal bg-white/80 px-2 py-1.5 rounded-lg border border-blue-200/50 shadow-sm break-all leading-tight"
 		>
 			{{ content.registrationDomain }}
 		</div>

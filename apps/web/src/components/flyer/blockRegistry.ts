@@ -42,7 +42,8 @@ export const FLYER_BLOCK_FONT_SLOTS: Record<FlyerBlockId, FlyerFontSlot[]> = {
 	// emphasis = the price plate
 	payment: ['title', 'emphasis', 'body'],
 	whatToBring: ['title', 'body'],
-	registrationQr: ['title', 'body'],
+	// emphasis = the registration domain under the code, monospaced as designed
+	registrationQr: ['title', 'emphasis', 'body'],
 };
 
 export const FLYER_SLOTS: FlyerSlot[] = ['left', 'right', 'wide'];
@@ -101,6 +102,9 @@ export const FLYER_BLOCK_STYLE_DEFAULTS: Record<FlyerBlockId, FlyerBlockStyle> =
 		headingColor: '#1d4ed8',
 		textShadow: false,
 		textAlign: 'center',
+		// The domain plate under the code was born monospaced blue on its white
+		// plate (font-mono + text-blue-700); now it is the emphasis slot's default
+		fonts: { emphasis: { family: 'mono' } },
 	},
 	// The original hung contact off the right edge; now that is a default, not a
 	// hard-coded class. Its numbers keep their designed monospaced look as the
