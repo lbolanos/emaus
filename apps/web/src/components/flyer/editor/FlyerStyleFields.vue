@@ -186,6 +186,32 @@
 					</button>
 				</div>
 			</div>
+
+			<!-- Auto follows the block-wide switch; Sí/No force this slot alone -->
+			<div class="flex items-center gap-2">
+				<span class="w-14 shrink-0 text-[11px] text-muted-foreground">
+					{{ t('retreatFlyerEditor.design.row.shadow') }}
+				</span>
+				<div class="ml-auto flex items-center gap-1.5">
+					<button
+						v-for="option in SHADOW_OPTIONS"
+						:key="option.id"
+						type="button"
+						class="rounded border px-2 py-1 text-[11px] transition-colors"
+						:class="
+							shadowState(slot) === option.state
+								? 'border-primary bg-primary/10 text-foreground'
+								: 'border-muted text-muted-foreground hover:text-foreground'
+						"
+						:data-slot-shadow="`${slot}:${option.id}`"
+						@click="
+							emitSlot(slot, 'shadow', option.state === 'auto' ? undefined : option.state === 'on')
+						"
+					>
+						{{ t(`retreatFlyerEditor.design.shadowMode.${option.id}`) }}
+					</button>
+				</div>
+			</div>
 		</FlyerPanelSection>
 
 		<label class="flex items-center gap-2 text-xs">
@@ -250,6 +276,18 @@ const ALIGN_OPTIONS = [
 	{ id: 'right', icon: AlignRight },
 ] as const;
 
+const SHADOW_OPTIONS = [
+	{ id: 'auto', state: 'auto' },
+	{ id: 'on', state: 'on' },
+	{ id: 'off', state: 'off' },
+] as const;
+
+/** 'auto' until the slot forces its own; mirrors the three buttons' states. */
+function shadowState(slot: FlyerFontSlot): 'auto' | 'on' | 'off' {
+	const shadow = props.values.fonts?.[slot]?.shadow;
+	return shadow === undefined ? 'auto' : shadow ? 'on' : 'off';
+}
+
 /** 'inherit' renders in the panel's own font: it follows whatever layer is below. */
 const FONT_OPTIONS: { id: FlyerFontFamily }[] = [
 	{ id: 'inherit' },
@@ -286,21 +324,24 @@ function clearSlot(slot: FlyerFontSlot) {
 }
 
 /**
- * Writes one field of one slot. 'inherit' and 100% are the designed state —
- * they clear the field instead of being stored, so the layer below (theme,
- * then the block's default) shows through again.
+ * Writes one field of one slot. 'inherit', 100% and undefined are the designed
+ * state — they clear the field instead of being stored, so the layer below
+ * (theme, then the block's default) shows through again.
  */
 function emitSlot(
 	slot: FlyerFontSlot,
-	field: 'family' | 'scale' | 'color' | 'align',
-	raw: string,
+	field: 'family' | 'scale' | 'color' | 'align' | 'shadow',
+	raw: string | boolean | undefined,
 ) {
 	const value = field === 'scale' ? Number(raw) : raw;
-	const isDefault = field === 'family' ? value === 'inherit' : value === 100;
+	const isDefault =
+		raw === undefined ||
+		(field === 'family' && value === 'inherit') ||
+		(field === 'scale' && value === 100);
 	const fonts: FlyerFonts = { ...(props.values.fonts ?? {}) };
 	const spec = { ...(fonts[slot] ?? {}) };
 	if (isDefault) delete spec[field];
-	else spec[field] = value as never;
+	else (spec as Record<string, unknown>)[field] = value;
 	if (Object.keys(spec).length === 0) delete fonts[slot];
 	else fonts[slot] = spec;
 	emit('update', 'fonts', Object.keys(fonts).length ? fonts : undefined);

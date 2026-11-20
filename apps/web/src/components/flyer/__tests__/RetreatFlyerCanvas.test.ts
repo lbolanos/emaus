@@ -236,7 +236,8 @@ describe('RetreatFlyerCanvas', () => {
 		it('sizes the address plate to the address', () => {
 			const plate = mountCanvas().find('[data-registration-domain]');
 
-			expect(plate.classes()).toContain('inline-block');
+			expect(plate.classes()).toContain('block');
+			expect(plate.classes()).toContain('w-fit');
 			expect(plate.classes()).toContain('max-w-full');
 		});
 

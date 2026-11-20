@@ -4473,7 +4473,13 @@
         "family": "Familia",
         "size": "Tamaño",
         "color": "Color",
-        "align": "Alinear"
+        "align": "Alinear",
+        "shadow": "Sombra"
+      },
+      "shadowMode": {
+        "auto": "Auto",
+        "on": "Sí",
+        "off": "No"
       },
       "scaleUp": "Aumentar el tamaño",
       "scaleDown": "Reducir el tamaño",

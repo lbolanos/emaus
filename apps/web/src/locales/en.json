@@ -4151,7 +4151,13 @@
         "family": "Family",
         "size": "Size",
         "color": "Colour",
-        "align": "Align"
+        "align": "Align",
+        "shadow": "Shadow"
+      },
+      "shadowMode": {
+        "auto": "Auto",
+        "on": "On",
+        "off": "Off"
       },
       "scaleUp": "Increase size",
       "scaleDown": "Decrease size",

@@ -98,6 +98,8 @@ export const flyerSlotSpecSchema = z.object({
 	scale: z.number().int().min(5).max(200).optional(),
 	color: hexColorSchema.optional(),
 	align: z.enum(['left', 'center', 'right']).optional(),
+	/** Text shadow for this slot alone; absent follows the block-wide flag. */
+	shadow: z.boolean().optional(),
 });
 export type FlyerSlotSpec = z.infer<typeof flyerSlotSpecSchema>;
 /** @deprecated Renamed: a slot tunes more than its font. Alias kept for callers. */

@@ -47,8 +47,8 @@ type FlyerBlockCssVarsFonts = {
 	[K in `--fb-${FlyerFontSlot}-scale`]: string;
 };
 
-/** Per-slot typography, colour and alignment: family stack, size multiplier,
- *  text colour and text-align (+ its flex translation). */
+/** Per-slot typography, colour, alignment and shadow: family stack, size
+ *  multiplier, text colour, text-align (+ its flex translation), text shadow. */
 type FlyerBlockCssVarsSlots = {
 	[K in `--fb-${FlyerFontSlot}-font`]: string;
 } & {
@@ -59,6 +59,12 @@ type FlyerBlockCssVarsSlots = {
 	[K in `--fb-${FlyerFontSlot}-align`]: FlyerTextAlign;
 } & {
 	[K in `--fb-${FlyerFontSlot}-justify`]: string;
+} & {
+	[K in `--fb-${FlyerFontSlot}-shadow`]: string;
+} & {
+	/** Auto margins that line up a width-capped emphasis box (the domain plate). */
+	'--fb-emph-ml': string;
+	'--fb-emph-mr': string;
 };
 
 export type FlyerBlockCssVars = FlyerBlockCssVarsBase & FlyerBlockCssVarsSlots;
@@ -99,8 +105,8 @@ const SLOT_COLOR_FALLBACK: Record<FlyerFontSlot, 'headingColor' | 'textColor'> =
 
 /**
  * One slot's resolved spec. Layers, later winning: the block's default slot, the
- * flat fields the pre-slot editor wrote (colour and alignment), the theme's slot,
- * the block's own slot. Each layer only replaces the fields it sets.
+ * flat fields the pre-slot editor wrote (colour, alignment, shadow), the theme's
+ * slot, the block's own slot. Each layer only replaces the fields it sets.
  */
 function resolveSlot(
 	slot: FlyerFontSlot,
@@ -108,7 +114,7 @@ function resolveSlot(
 	theme?: FlyerTheme | null,
 	blockStyles?: Partial<Record<string, FlyerBlockStyle>> | null,
 	defaults: Record<string, FlyerBlockStyle> = FLYER_BLOCK_STYLE_DEFAULTS,
-): Required<Pick<FlyerSlotSpec, 'family' | 'scale' | 'color' | 'align'>> {
+): Required<Pick<FlyerSlotSpec, 'family' | 'scale' | 'color' | 'align' | 'shadow'>> {
 	const flat: FlyerBlockStyle = {
 		...defaults[blockId],
 		...definedFields(theme as FlyerBlockStyle | undefined),
@@ -122,6 +128,7 @@ function resolveSlot(
 		{
 			color: SLOT_COLOR_FALLBACK[slot] === 'headingColor' ? flatHeading : flatBody,
 			align: flat.textAlign,
+			shadow: flat.textShadow,
 		},
 		theme?.fonts?.[slot],
 		blockStyles?.[blockId]?.fonts?.[slot],
@@ -133,12 +140,14 @@ function resolveSlot(
 		if (layer.scale !== undefined) spec.scale = layer.scale;
 		if (layer.color !== undefined) spec.color = layer.color;
 		if (layer.align !== undefined) spec.align = layer.align;
+		if (layer.shadow !== undefined) spec.shadow = layer.shadow;
 	}
 	return {
 		family: spec.family ?? 'inherit',
 		scale: spec.scale ?? 100,
 		color: spec.color ?? flatBody,
 		align: spec.align ?? 'left',
+		shadow: spec.shadow ?? false,
 	};
 }
 
@@ -206,8 +215,12 @@ export function resolveBlockStyle(
 		slotVars[`--fb-${slot}-color`] = spec.color;
 		slotVars[`--fb-${slot}-align`] = spec.align;
 		slotVars[`--fb-${slot}-justify`] = JUSTIFY[spec.align];
+		slotVars[`--fb-${slot}-shadow`] = spec.shadow ? TEXT_SHADOW : 'none';
 		if (slot === 'title') slotAligns.titleAlign = spec.align;
 		if (slot === 'body') slotAligns.bodyAlign = spec.align;
+		if (slot === 'emphasis') {
+			[slotVars['--fb-emph-ml'], slotVars['--fb-emph-mr']] = BOX_MARGINS[spec.align];
+		}
 	}
 
 	return {

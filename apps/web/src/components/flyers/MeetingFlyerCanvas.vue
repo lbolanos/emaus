@@ -208,18 +208,21 @@ const blocksInSlot = computed(() => {
 	font-family: var(--fb-title-font, inherit);
 	color: var(--fb-title-color, var(--fb-heading));
 	text-align: var(--fb-title-align, var(--fb-align, left));
+	text-shadow: var(--fb-title-shadow, var(--fb-shadow, none));
 }
 
 .print-optimized .fb-emphasis {
 	font-family: var(--fb-emphasis-font, inherit);
 	color: var(--fb-emphasis-color, var(--fb-heading));
 	text-align: var(--fb-emphasis-align, var(--fb-align, left));
+	text-shadow: var(--fb-emphasis-shadow, var(--fb-shadow, none));
 }
 
 .print-optimized .fb-body {
 	font-family: var(--fb-body-font, inherit);
 	color: var(--fb-body-color, var(--fb-text));
 	text-align: var(--fb-body-align, var(--fb-align, left));
+	text-shadow: var(--fb-body-shadow, var(--fb-shadow, none));
 }
 
 .print-optimized .fb-lead {
