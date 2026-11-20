@@ -4052,6 +4052,11 @@
     "saved": "Saved",
     "unsavedChanges": "You have unsaved changes",
     "discard": "Discard changes",
+    "redo": "Redo",
+    "redoHint": "Redo (Cmd+Shift+Z)",
+    "copyDesignFrom": "Copy design from…",
+    "discardDraft": "Discard draft",
+    "draftRecovered": "Recovered your unsaved draft from {0}. Keep editing or discard it.",
     "preview": "Preview",
     "resetLayout": "Restore the original layout",
     "tabs": {

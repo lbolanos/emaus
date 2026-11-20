@@ -2173,6 +2173,15 @@ export async function getPublicRetreats(): Promise<Retreat[]> {
  * `PublicRetreatFlyerModal`. A propósito NO viene en `getPublicRetreats`
  * (el listado): ver el comentario en `buildPublicRetreatDetail` del backend.
  */
+/**
+ * Design-only read of another retreat: copying its flyer must not touch the
+ * global selected retreat (the app's retreat switcher follows that state).
+ */
+export async function getRetreatFlyerOptions(retreatId: string): Promise<Record<string, any> | null> {
+  const response = await api.get(`/retreats/${retreatId}`);
+  return (response.data as any)?.flyer_options ?? null;
+}
+
 export async function getPublicRetreatDetail(retreatId: string): Promise<Retreat> {
   const response = await api.get(`/retreats/public/${retreatId}`);
   return response.data;

@@ -4374,6 +4374,11 @@
     "saved": "Guardado",
     "unsavedChanges": "Tienes cambios sin guardar",
     "discard": "Descartar cambios",
+    "redo": "Rehacer",
+    "redoHint": "Rehacer (Cmd+Shift+Z)",
+    "copyDesignFrom": "Copiar diseño de…",
+    "discardDraft": "Descartar borrador",
+    "draftRecovered": "Se recuperó tu borrador sin guardar del {0}. Sigue editando o descártalo.",
     "preview": "Vista previa",
     "resetLayout": "Restaurar distribución original",
     "tabs": {

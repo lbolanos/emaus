@@ -13,6 +13,20 @@
 			</div>
 
 			<div class="flex items-center gap-2">
+				<!-- Copy another retreat's design as the starting point (undoable) -->
+				<select
+					class="h-8 rounded-md border border-muted bg-transparent px-2 text-xs text-muted-foreground"
+					data-copy-design-select
+					:value="''"
+					@change="copyDesignFrom(($event.target as HTMLSelectElement).value)"
+				>
+					<option value="" disabled>
+						{{ t('retreatFlyerEditor.copyDesignFrom') }}
+					</option>
+					<option v-for="other in otherRetreats" :key="other.id" :value="other.id">
+						{{ other.parish }} — {{ formatDateLabel(other.startDate) }}
+					</option>
+				</select>
 				<span v-if="store.isDirty" class="text-xs text-amber-600">
 					{{ t('retreatFlyerEditor.unsavedChanges') }}
 				</span>
@@ -27,6 +41,16 @@
 					{{ t('retreatFlyerEditor.undo') }}
 				</Button>
 				<Button
+					variant="ghost"
+					size="sm"
+					:disabled="!store.canRedo || store.saving"
+					:title="t('retreatFlyerEditor.redoHint')"
+					@click="store.redo()"
+				>
+					<Redo2 class="mr-1.5 h-4 w-4" />
+					{{ t('retreatFlyerEditor.redo') }}
+				</Button>
+				<Button
 					variant="outline"
 					size="sm"
 					:disabled="!store.isDirty || store.saving"
@@ -39,6 +63,20 @@
 					{{ store.saving ? t('retreatFlyerEditor.saving') : t('retreatFlyerEditor.save') }}
 				</Button>
 			</div>
+		</div>
+
+		<!-- A design session the browser tab took with it, back from localStorage -->
+		<div
+			v-if="store.draftRestoredAt"
+			class="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800"
+			data-draft-banner
+		>
+			<span>
+				{{ t('retreatFlyerEditor.draftRecovered', store.draftRestoredAt.toLocaleString()) }}
+			</span>
+			<Button variant="outline" size="sm" @click="store.discardDraft()">
+				{{ t('retreatFlyerEditor.discardDraft') }}
+			</Button>
 		</div>
 
 		<div class="grid gap-6 lg:grid-cols-[22rem_1fr]">
@@ -164,9 +202,10 @@
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import { onBeforeRouteLeave, useRoute } from 'vue-router';
 import { useI18n } from 'vue-i18n';
-import { ArrowLeft, Loader2, RotateCcw, Undo2 } from 'lucide-vue-next';
+import { ArrowLeft, Loader2, Redo2, RotateCcw, Undo2 } from 'lucide-vue-next';
 import { Button, Card, CardContent, Tabs, TabsContent, TabsList, TabsTrigger } from '@repo/ui';
 import { useRetreatStore } from '@/stores/retreatStore';
+import { getRetreatFlyerOptions } from '@/services/api';
 import { useFlyerEditorStore } from '@/stores/flyerEditorStore';
 import RetreatFlyerCanvas from '@/components/flyer/RetreatFlyerCanvas.vue';
 import FlyerDesignPanel from '@/components/flyer/editor/FlyerDesignPanel.vue';
@@ -196,6 +235,29 @@ let resizeObserver: ResizeObserver | null = null;
 
 /** Which editor tab is open, so a double-click on the flyer can jump to Textos. */
 const activeTab = ref('design');
+
+/** Other retreats to copy a design from, loaded once on mount. */
+const otherRetreats = computed(() =>
+	(retreatStore.retreats as any[]).filter((r) => r.id !== retreatId.value),
+);
+
+function formatDateLabel(value: string) {
+	return value ? new Date(value).toLocaleDateString() : '';
+}
+
+/**
+ * Loads another retreat's saved design into the editor as the new draft —
+ * nothing is persisted until Guardar, and Deshacer brings the previous
+ * design back.
+ */
+async function copyDesignFrom(sourceId: string) {
+	if (!sourceId) return;
+	const options = await getRetreatFlyerOptions(sourceId);
+	if (options) store.applyTemplate(options);
+	// The select always shows the placeholder again; the copy is in the draft
+	const select = document.querySelector('[data-copy-design-select]') as HTMLSelectElement | null;
+	if (select) select.value = '';
+}
 
 /**
  * Double-clicked copy on the flyer: open the Texts tab on that exact field,
@@ -239,16 +301,18 @@ async function load(id: string) {
 
 /** Cmd/Ctrl+Z, which is what everyone tries first. */
 const onKeydown = (event: KeyboardEvent) => {
-	if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'z' && !event.shiftKey) {
+	if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'z') {
 		const target = event.target as HTMLElement | null;
 		// Let the browser undo typing inside a field
 		if (target && ['INPUT', 'TEXTAREA'].includes(target.tagName)) return;
 		event.preventDefault();
-		store.undo();
+		if (event.shiftKey) store.redo();
+		else store.undo();
 	}
 };
 
 onMounted(async () => {
+	if (!retreatStore.retreats.length) retreatStore.fetchRetreats().catch(() => {});
 	window.addEventListener('beforeunload', warnOnUnload);
 	window.addEventListener('keydown', onKeydown);
 	await load(retreatId.value);
