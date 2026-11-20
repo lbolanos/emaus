@@ -295,6 +295,15 @@ describe('checkBlockContrast', () => {
 		expect(check.isPoor).toBe(true);
 	});
 
+	// The QR's stock grey-blue fails the grey baseline; warning about the design
+	// as shipped only taught people to ignore the warning
+	it('keeps quiet while the body colour is the stock one', () => {
+		expect(checkBlockContrast('registrationQr').isPoor).toBe(false);
+
+		const chosen = checkBlockContrast('registrationQr', { fonts: { body: { color: '#6b7280' } } });
+		expect(chosen.isPoor).toBe(true);
+	});
+
 	it('flags white text on a white veil', () => {
 		const check = checkBlockContrast('intro', {
 			textColor: '#ffffff',

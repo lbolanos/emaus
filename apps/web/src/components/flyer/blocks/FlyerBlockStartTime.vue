@@ -20,7 +20,7 @@
 					v-if="content.registrationDeadline"
 					class="mt-3 border-l-4 border-[color:var(--fb-heading)] pl-3.5 py-1"
 				>
-					<p class="fb-body text-[length:calc(0.8125rem*var(--fb-body-scale,1))] text-[color:var(--fb-body-color)] font-bold flex items-center gap-2.5">
+					<p class="fb-body fb-row text-[length:calc(0.8125rem*var(--fb-body-scale,1))] text-[color:var(--fb-body-color)] font-bold flex items-center gap-2.5">
 						<span class="fb-body text-[length:calc(0.875rem*var(--fb-body-scale,1))] leading-tight whitespace-pre-line">
 							{{ content.registrationDeadline }}
 						</span>

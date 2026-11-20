@@ -291,6 +291,15 @@ export function checkBlockContrast(
 	const resolved = resolveBlockStyle(blockId, theme, blockStyles, defaults);
 	const text = resolved['--fb-body-color'];
 
+	// The stock design was drawn over its artwork and reads fine there; the grey
+	// baseline below is only meaningful for colours someone actually chose. A
+	// stock colour that fails it (the QR's grey-blue) is a false positive that
+	// trains people to ignore the warning.
+	const stock = resolveBlockStyle(blockId, null, null, defaults);
+	if (text.toLowerCase() === stock['--fb-body-color'].toLowerCase()) {
+		return { ratio: contrastRatio(text, '#808080'), isPoor: false };
+	}
+
 	let background = '#808080';
 	if (resolved.hasBox) {
 		const merged = { ...defaults[blockId], ...(theme ?? {}), ...(blockStyles?.[blockId] ?? {}) };
