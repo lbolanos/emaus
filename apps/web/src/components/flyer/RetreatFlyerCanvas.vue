@@ -214,6 +214,20 @@ const blocksInSlot = computed(() => {
 	text-align: var(--fb-align, left);
 }
 
+/* Per-slot typefaces: each kind of lettering inside a block picks its own family.
+   The size travel with the element (calc classes); the family rides the slot class. */
+.print-optimized .fb-title {
+	font-family: var(--fb-title-font, inherit);
+}
+
+.print-optimized .fb-emphasis {
+	font-family: var(--fb-emphasis-font, inherit);
+}
+
+.print-optimized .fb-body {
+	font-family: var(--fb-body-font, inherit);
+}
+
 .print-optimized .fb-lead,
 .print-optimized .fb-row {
 	justify-content: var(--fb-justify, flex-start);

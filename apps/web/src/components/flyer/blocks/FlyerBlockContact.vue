@@ -2,7 +2,7 @@
 	<!-- A heading with no numbers under it reads as a mistake, so render nothing -->
 	<div v-if="content.totalContactItems > 0" class="p-2.5">
 		<h4
-			class="fb-lead text-[length:calc(0.875rem*var(--fb-heading-scale,1))] font-black text-[color:var(--fb-heading)] uppercase mb-1.5 flex items-center gap-3 tracking-[0.1em]"
+			class="fb-lead fb-title text-[length:calc(0.875rem*var(--fb-title-scale,1))] font-black text-[color:var(--fb-heading)] uppercase mb-1.5 flex items-center gap-3 tracking-[0.1em]"
 		>
 			<div
 				class="bg-gradient-to-br from-blue-400 to-blue-600 p-2.5 rounded-xl text-white shadow-xl flex-shrink-0"
@@ -35,14 +35,14 @@
 					</div>
 					<div class="min-w-0">
 						<span
-							class="font-bold text-[color:var(--fb-text)] block text-[length:calc(0.5rem*var(--fb-text-scale,1))] uppercase tracking-wider truncate opacity-80"
+							class="font-bold text-[color:var(--fb-text)] block fb-body text-[length:calc(0.5rem*var(--fb-body-scale,1))] uppercase tracking-wider truncate opacity-80"
 						>
 							{{ phone?.name || t('retreatFlyer.contact') }}
 						</span>
 						<span
 							:class="[
-								'font-black font-mono text-[color:var(--fb-text)]',
-								content.totalContactItems > 2 ? 'text-[length:calc(0.6875rem*var(--fb-text-scale,1))]' : 'text-[length:calc(0.8125rem*var(--fb-text-scale,1))]',
+								'font-black text-[color:var(--fb-text)]',
+								content.totalContactItems > 2 ? 'fb-emphasis text-[length:calc(0.6875rem*var(--fb-emphasis-scale,1))]' : 'fb-emphasis text-[length:calc(0.8125rem*var(--fb-emphasis-scale,1))]',
 							]"
 						>
 							{{ phone?.number }}
@@ -63,13 +63,13 @@
 						<Mail class="w-3.5 h-3.5" />
 					</div>
 					<div class="min-w-0">
-						<span class="font-bold text-[color:var(--fb-text)] block text-[length:calc(0.5rem*var(--fb-text-scale,1))] uppercase tracking-wider opacity-80">
+						<span class="font-bold text-[color:var(--fb-text)] block fb-body text-[length:calc(0.5rem*var(--fb-body-scale,1))] uppercase tracking-wider opacity-80">
 							Email
 						</span>
 						<span
 							:class="[
 								'font-black break-all text-[color:var(--fb-text)]',
-								content.totalContactItems > 2 ? 'text-[length:calc(0.6875rem*var(--fb-text-scale,1))]' : 'text-[length:calc(0.75rem*var(--fb-text-scale,1))]',
+								content.totalContactItems > 2 ? 'fb-body text-[length:calc(0.6875rem*var(--fb-body-scale,1))]' : 'fb-body text-[length:calc(0.75rem*var(--fb-body-scale,1))]',
 							]"
 						>
 							{{ email }}

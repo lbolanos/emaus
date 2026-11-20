@@ -69,11 +69,40 @@ const hexColorSchema = z.string().regex(/^#[0-9a-fA-F]{6}$/, 'Debe ser un color 
 /**
  * Typefaces a block (or the whole flyer, via the theme) can switch to. All of them are
  * webfonts the flyer canvas already loads, so no extra font payload appears. 'inherit'
- * keeps the flyer's own Roboto — it is also how a block goes back to following the
- * theme after a per-block override.
+ * keeps the flyer's own Roboto — it is also how a slot goes back to following the
+ * theme after a per-block override. 'mono' keeps the monospaced look some blocks
+ * were designed with (phone numbers, the registration domain).
  */
-export const flyerFontFamilySchema = z.enum(['inherit', 'oswald', 'playfair', 'dancing']);
+export const flyerFontFamilySchema = z.enum(['inherit', 'oswald', 'playfair', 'dancing', 'mono']);
 export type FlyerFontFamily = z.infer<typeof flyerFontFamilySchema>;
+
+/**
+ * A block mixes up to three kinds of lettering, and each one is styled on its own:
+ *
+ *   title    the block's heading ("INICIO:", "LUGAR:"…)
+ *   emphasis its star line — the date, the price, the badge, the venue name
+ *   body     everything that supports the above
+ *
+ * A block declares which slots it actually has, and the editor only shows those
+ * (a two-slot block shows two rows, not three).
+ */
+export const flyerFontSlotSchema = z.enum(['title', 'emphasis', 'body']);
+export type FlyerFontSlot = z.infer<typeof flyerFontSlotSchema>;
+
+/** What can be tuned on one slot: the typeface and its size, each optional. */
+export const flyerFontSpecSchema = z.object({
+	family: flyerFontFamilySchema.optional(),
+	/** Size in percent of the designed size (85–140; absent = 100). */
+	scale: z.number().int().min(85).max(140).optional(),
+});
+export type FlyerFontSpec = z.infer<typeof flyerFontSpecSchema>;
+
+export const flyerFontsSchema = z.object({
+	title: flyerFontSpecSchema.optional(),
+	emphasis: flyerFontSpecSchema.optional(),
+	body: flyerFontSpecSchema.optional(),
+});
+export type FlyerFonts = z.infer<typeof flyerFontsSchema>;
 
 /**
  * How a block is painted. Every field is optional and falls back to the theme, and
@@ -92,15 +121,8 @@ export const flyerBlockStyleSchema = z.object({
 	textShadow: z.boolean().optional(),
 	/** Which way the block's own contents line up: its icons, lists and text. */
 	textAlign: z.enum(['left', 'center', 'right']).optional(),
-	fontFamily: flyerFontFamilySchema.optional(),
-	/**
-	 * Text size, in percent of the designed size (85–140; absent = 100). Body text
-	 * and headings scale independently: what counts as a heading is fixed per block
-	 * (its title and the emphasized lines that paint the heading colour).
-	 */
-	textScale: z.number().int().min(85).max(140).optional(),
-	/** Same knob for the headings. */
-	headingScale: z.number().int().min(85).max(140).optional(),
+	/** Per-slot typography; each slot merges with the theme's independently. */
+	fonts: flyerFontsSchema.optional(),
 });
 export type FlyerBlockStyle = z.infer<typeof flyerBlockStyleSchema>;
 export type FlyerTextAlign = NonNullable<FlyerBlockStyle['textAlign']>;

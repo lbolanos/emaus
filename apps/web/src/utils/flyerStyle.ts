@@ -1,20 +1,31 @@
-import type { FlyerBlockStyle, FlyerFontFamily, FlyerTextAlign, FlyerTheme } from '@repo/types';
+import type {
+	FlyerBlockStyle,
+	FlyerFontFamily,
+	FlyerFontSlot,
+	FlyerFontSpec,
+	FlyerTextAlign,
+	FlyerTheme,
+} from '@repo/types';
 import { FLYER_BLOCK_STYLE_DEFAULTS } from '@/components/flyer/blockRegistry';
 
 /**
  * The CSS each font option maps to. The names are the webfonts the canvas already
  * imports (see RetreatFlyerCanvas.vue), so nothing new gets downloaded. 'inherit'
- * resolves to the CSS keyword: the block takes the flyer's Roboto back.
+ * resolves to the CSS keyword: the slot takes the flyer's Roboto back.
  */
 export const FLYER_FONT_STACKS: Record<FlyerFontFamily, string> = {
 	inherit: 'inherit',
 	oswald: `'Oswald', sans-serif`,
 	playfair: `'Playfair Display', serif`,
 	dancing: `'Dancing Script', cursive`,
+	mono: `ui-monospace, SFMono-Regular, Menlo, monospace`,
 };
 
-/** CSS custom properties the blocks read. */
-export interface FlyerBlockCssVars {
+/** The three slots, in the order the editor lists them. */
+export const FLYER_FONT_SLOTS: FlyerFontSlot[] = ['title', 'emphasis', 'body'];
+
+/** The fixed CSS custom properties the blocks read. */
+interface FlyerBlockCssVarsBase {
 	'--fb-bg': string;
 	'--fb-text': string;
 	'--fb-heading': string;
@@ -27,18 +38,18 @@ export interface FlyerBlockCssVars {
 	/** And for capped boxes, which line up by margin rather than by justify-content. */
 	'--fb-box-ml': string;
 	'--fb-box-mr': string;
-	/** Text size multipliers (as strings: '1', '1.1'…). Body and headings move apart. */
-	'--fb-text-scale': string;
-	'--fb-heading-scale': string;
 }
 
+/** Per-slot typography: family stack and size multiplier ('1', '1.1'…). */
+type FlyerBlockCssVarsFonts = {
+	[K in `--fb-${FlyerFontSlot}-font`]: string;
+} & {
+	[K in `--fb-${FlyerFontSlot}-scale`]: string;
+};
+
+export type FlyerBlockCssVars = FlyerBlockCssVarsBase & FlyerBlockCssVarsFonts;
+
 export interface ResolvedBlockStyle extends FlyerBlockCssVars {
-	/**
-	 * A real CSS property, not a custom one: the block wrapper carries it and every
-	 * line inside inherits it (no block sets its own font-family). 'inherit' hands
-	 * the block back to the flyer's Roboto.
-	 */
-	'font-family': string;
 	/** True when the block paints a box, which is what earns it a radius and shadow. */
 	hasBox: boolean;
 	/** Mirrored as an attribute: some of the reflow needs a selector, not a value. */
@@ -59,6 +70,32 @@ const BOX_MARGINS: Record<FlyerTextAlign, [string, string]> = {
 };
 
 const TEXT_SHADOW = '0 2px 6px rgba(0, 0, 0, 0.65), 0 1px 2px rgba(0, 0, 0, 0.5)';
+
+/**
+ * One slot's resolved spec: the block default, then the theme's, then the block's
+ * own override — each layer only replaces the fields it sets, like the flat fields.
+ */
+function resolveSlot(
+	slot: FlyerFontSlot,
+	blockId: string,
+	theme?: FlyerTheme | null,
+	blockStyles?: Partial<Record<string, FlyerBlockStyle>> | null,
+	defaults: Record<string, FlyerBlockStyle> = FLYER_BLOCK_STYLE_DEFAULTS,
+): Required<Pick<FlyerFontSpec, 'family' | 'scale'>> {
+	const layers = [
+		defaults[blockId]?.fonts?.[slot],
+		theme?.fonts?.[slot],
+		blockStyles?.[blockId]?.fonts?.[slot],
+	];
+	const spec: FlyerFontSpec = {};
+	for (const layer of layers) {
+		if (!layer) continue;
+		// Later layers win: defaults first, then the theme, then the block itself
+		if (layer.family !== undefined) spec.family = layer.family;
+		if (layer.scale !== undefined) spec.scale = layer.scale;
+	}
+	return { family: spec.family ?? 'inherit', scale: spec.scale ?? 100 };
+}
 
 /**
  * Composes a hex colour and a 0-100 opacity into a single rgba() string.
@@ -115,6 +152,13 @@ export function resolveBlockStyle(
 	const align = merged.textAlign ?? 'left';
 	const [boxMarginLeft, boxMarginRight] = BOX_MARGINS[align];
 
+	const fontVars = {} as Record<`--fb-${FlyerFontSlot}-font` | `--fb-${FlyerFontSlot}-scale`, string>;
+	for (const slot of FLYER_FONT_SLOTS) {
+		const spec = resolveSlot(slot, blockId, theme, blockStyles, defaults);
+		fontVars[`--fb-${slot}-font`] = FLYER_FONT_STACKS[spec.family];
+		fontVars[`--fb-${slot}-scale`] = String(spec.scale / 100);
+	}
+
 	return {
 		hasBox,
 		align,
@@ -127,9 +171,7 @@ export function resolveBlockStyle(
 		'--fb-justify': JUSTIFY[align],
 		'--fb-box-ml': boxMarginLeft,
 		'--fb-box-mr': boxMarginRight,
-		'--fb-text-scale': String((merged.textScale ?? 100) / 100),
-		'--fb-heading-scale': String((merged.headingScale ?? 100) / 100),
-		'font-family': FLYER_FONT_STACKS[merged.fontFamily ?? 'inherit'],
+		...fontVars,
 	};
 }
 

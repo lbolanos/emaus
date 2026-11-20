@@ -55,7 +55,10 @@
 				</span>
 			</template>
 
-			<FlyerStyleFields :values="theme" @update="(key, value) => emit('updateTheme', key, value)" />
+			<FlyerStyleFields
+				:values="theme"
+				@update="(key, value) => emit('updateTheme', key, value)"
+			/>
 
 			<div class="space-y-1.5 border-t pt-3">
 				<Label class="text-xs">{{ tp('design.scrim') }}</Label>
@@ -204,6 +207,7 @@
 				</p>
 				<FlyerStyleFields
 					:values="blockStyles[selectedBlockId] ?? {}"
+					:font-slots="fontSlotsByBlock[selectedBlockId] ?? ['title', 'emphasis', 'body']"
 					@update="(key, value) => emit('updateBlockStyle', selectedBlockId!, key, value)"
 				/>
 			</div>
@@ -219,7 +223,13 @@ import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { AlertTriangle, ChevronDown, ChevronUp, Eye, EyeOff, Loader2, Wand2 } from 'lucide-vue-next';
 import { Button, Label } from '@repo/ui';
-import type { FlyerBlockStyle, FlyerSlot, FlyerTheme } from '@repo/types';
+import type {
+	FlyerBlockStyle,
+	FlyerFontSlot,
+	FlyerFonts,
+	FlyerSlot,
+	FlyerTheme,
+} from '@repo/types';
 import type { AnyBlockLayout } from '@/utils/flyerLayout';
 import {
 	FLYER_THEME_PRESETS,
@@ -228,7 +238,7 @@ import {
 	type FlyerThemePreset,
 } from '@/utils/flyerStyle';
 import { averageImageLuminance } from '@/utils/imageLuminance';
-import { FLYER_BLOCK_STYLE_DEFAULTS, FLYER_SLOTS } from '../blockRegistry';
+import { FLYER_BLOCK_FONT_SLOTS, FLYER_BLOCK_STYLE_DEFAULTS, FLYER_SLOTS } from '../blockRegistry';
 import FlyerPanelSection from './FlyerPanelSection.vue';
 import FlyerStyleFields from './FlyerStyleFields.vue';
 
@@ -246,16 +256,19 @@ const props = withDefaults(
 		styleDefaults?: Record<string, FlyerBlockStyle>;
 		/** One-click looks; flavours with boxed block defaults ship their own set. */
 		presets?: FlyerThemePreset[];
+		/** Which typography slots each block of this flavour mixes. */
+		fontSlotsByBlock?: Record<string, FlyerFontSlot[]>;
 	}>(),
 	{
 		tPrefix: 'retreatFlyerEditor',
 		styleDefaults: () => FLYER_BLOCK_STYLE_DEFAULTS,
 		presets: () => FLYER_THEME_PRESETS,
+		fontSlotsByBlock: () => FLYER_BLOCK_FONT_SLOTS,
 	},
 );
 
 /** Every style field is a colour, a percentage or a flag. */
-type StyleValue = string | number | boolean | undefined;
+type StyleValue = string | number | boolean | FlyerFonts | undefined;
 
 const emit = defineEmits<{
 	moveBlock: [blockId: string, slot: FlyerSlot, index: number];

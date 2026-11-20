@@ -2,13 +2,13 @@
 	<div class="p-4">
 		<h3
 			v-if="content.registerText"
-			class="text-[length:calc(1.375rem*var(--fb-heading-scale,1))] font-black text-[color:var(--fb-heading)] uppercase mb-2 tracking-[0.15em]"
+			class="fb-title text-[length:calc(1.375rem*var(--fb-title-scale,1))] font-black text-[color:var(--fb-heading)] uppercase mb-2 tracking-[0.15em]"
 		>
 			{{ content.registerText }}
 		</h3>
 		<p
 			v-if="content.scanToRegisterText"
-			class="text-[length:calc(0.6875rem*var(--fb-text-scale,1))] text-[color:var(--fb-text)] mb-4 font-bold leading-tight whitespace-pre-line"
+			class="fb-body text-[length:calc(0.6875rem*var(--fb-body-scale,1))] text-[color:var(--fb-text)] mb-4 font-bold leading-tight whitespace-pre-line"
 		>
 			{{ content.scanToRegisterText }}
 		</p>
@@ -31,7 +31,7 @@
 		-->
 		<div
 			data-registration-domain
-			class="mt-2 inline-block max-w-full text-[length:calc(0.5625rem*var(--fb-text-scale,1))] text-blue-700 font-black font-mono lowercase tracking-normal bg-white/80 px-2 py-1.5 rounded-lg border border-blue-200/50 shadow-sm break-all leading-tight"
+			class="mt-2 inline-block max-w-full fb-body text-[length:calc(0.5625rem*var(--fb-body-scale,1))] text-blue-700 font-black font-mono lowercase tracking-normal bg-white/80 px-2 py-1.5 rounded-lg border border-blue-200/50 shadow-sm break-all leading-tight"
 		>
 			{{ content.registrationDomain }}
 		</div>

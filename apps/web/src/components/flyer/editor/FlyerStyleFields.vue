@@ -97,64 +97,47 @@
 			</div>
 		</div>
 
-		<!-- Each button previews itself in its own typeface, so no sample text is needed -->
-		<div class="space-y-1.5">
-			<Label class="text-xs">{{ t('retreatFlyerEditor.design.fontFamily') }}</Label>
-			<div class="flex flex-wrap items-center gap-1.5">
-				<button
-					v-for="option in FONT_OPTIONS"
-					:key="option.id"
-					type="button"
-					class="rounded border px-2.5 py-1 text-[13px] transition-colors"
-					:class="
-						activeFont === option.id
-							? 'border-primary bg-primary/10 text-foreground'
-							: 'border-muted text-muted-foreground hover:text-foreground'
-					"
-					:style="option.stack ? { fontFamily: option.stack } : undefined"
-					:data-font-option="option.id"
-					@click="emit('update', 'fontFamily', option.id === 'inherit' ? undefined : option.id)"
+		<!-- One row per typography slot the block actually mixes: a block with two
+		     kinds of lettering shows two rows, one with three shows three. -->
+		<div class="space-y-1.5 rounded-md border border-muted p-2">
+			<Label class="text-xs">{{ t('retreatFlyerEditor.design.typography') }}</Label>
+			<div
+				v-for="slot in fontSlots"
+				:key="slot"
+				class="flex items-center gap-2"
+				:data-font-slot="slot"
+			>
+				<span class="w-16 shrink-0 text-[11px] capitalize text-muted-foreground">
+					{{ t(`retreatFlyerEditor.design.slot.${slot}`) }}
+				</span>
+				<!-- The picker previews each family in itself; "Original" follows the
+				     theme (or the flyer's Roboto at theme level) -->
+				<select
+					:value="values.fonts?.[slot]?.family ?? 'inherit'"
+					class="h-7 w-24 shrink-0 rounded border border-muted bg-transparent px-1 text-[11px]"
+					:style="{
+						fontFamily:
+							values.fonts?.[slot]?.family && values.fonts[slot]!.family !== 'inherit'
+								? FLYER_FONT_STACKS[values.fonts[slot]!.family]
+								: undefined,
+					}"
+					@change="emitSlot(slot, 'family', ($event.target as HTMLSelectElement).value)"
 				>
-					{{ t(`retreatFlyerEditor.design.font.${option.id}`) }}
-				</button>
-			</div>
-		</div>
-
-		<!-- Two independent sliders: the block's title and its content move apart -->
-		<div class="space-y-1.5">
-			<div class="flex items-center gap-2">
-				<span class="w-24 text-[11px] text-muted-foreground">
-					{{ t('retreatFlyerEditor.design.textScale') }}
-				</span>
+					<option v-for="option in FONT_OPTIONS" :key="option.id" :value="option.id">
+						{{ t(`retreatFlyerEditor.design.font.${option.id}`) }}
+					</option>
+				</select>
 				<input
 					type="range"
 					min="85"
 					max="140"
 					step="5"
-					class="flex-1"
-					:value="values.textScale ?? 100"
-					:data-scale-slider="true"
-					@input="emitScale('textScale', ($event.target as HTMLInputElement).value)"
+					class="min-w-0 flex-1"
+					:value="values.fonts?.[slot]?.scale ?? 100"
+					@input="emitSlot(slot, 'scale', ($event.target as HTMLInputElement).value)"
 				/>
-				<span class="w-10 text-right text-[11px] tabular-nums text-muted-foreground">
-					{{ values.textScale ?? 100 }}%
-				</span>
-			</div>
-			<div class="flex items-center gap-2">
-				<span class="w-24 text-[11px] text-muted-foreground">
-					{{ t('retreatFlyerEditor.design.headingScale') }}
-				</span>
-				<input
-					type="range"
-					min="85"
-					max="140"
-					step="5"
-					class="flex-1"
-					:value="values.headingScale ?? 100"
-					@input="emitScale('headingScale', ($event.target as HTMLInputElement).value)"
-				/>
-				<span class="w-10 text-right text-[11px] tabular-nums text-muted-foreground">
-					{{ values.headingScale ?? 100 }}%
+				<span class="w-10 shrink-0 text-right text-[11px] tabular-nums text-muted-foreground">
+					{{ values.fonts?.[slot]?.scale ?? 100 }}%
 				</span>
 			</div>
 		</div>
@@ -199,15 +182,23 @@ import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { AlignCenter, AlignLeft, AlignRight } from 'lucide-vue-next';
 import { Label } from '@repo/ui';
-import type { FlyerBlockStyle, FlyerFontFamily } from '@repo/types';
+import type { FlyerBlockStyle, FlyerFontFamily, FlyerFontSlot, FlyerFonts } from '@repo/types';
 import { FLYER_FONT_STACKS } from '@/utils/flyerStyle';
 
-const props = defineProps<{
-	values: FlyerBlockStyle;
-}>();
+const props = withDefaults(
+	defineProps<{
+		values: FlyerBlockStyle;
+		/** Which typography slots to offer: the ones this block actually mixes. */
+		fontSlots?: FlyerFontSlot[];
+	}>(),
+	{ fontSlots: () => ['title', 'emphasis', 'body'] },
+);
 
 const emit = defineEmits<{
-	update: [key: keyof FlyerBlockStyle, value: string | number | boolean | undefined];
+	update: [
+		key: keyof FlyerBlockStyle,
+		value: string | number | boolean | FlyerFonts | undefined,
+	];
 }>();
 
 const { t } = useI18n();
@@ -224,23 +215,30 @@ const ALIGN_OPTIONS = [
 	{ id: 'right', icon: AlignRight },
 ] as const;
 
-/** 'inherit' carries no stack: the button renders in the panel's own font. */
-const FONT_OPTIONS: { id: FlyerFontFamily; stack?: string }[] = [
+/** 'inherit' renders in the panel's own font: it follows whatever layer is below. */
+const FONT_OPTIONS: { id: FlyerFontFamily }[] = [
 	{ id: 'inherit' },
-	{ id: 'oswald', stack: FLYER_FONT_STACKS.oswald },
-	{ id: 'playfair', stack: FLYER_FONT_STACKS.playfair },
-	{ id: 'dancing', stack: FLYER_FONT_STACKS.dancing },
+	{ id: 'oswald' },
+	{ id: 'playfair' },
+	{ id: 'dancing' },
+	{ id: 'mono' },
 ];
 
-const activeFont = computed(() => props.values.fontFamily ?? 'inherit');
-
 /**
- * 100 is the designed size and the stored default — emitting it as an override
- * would only add noise to the saved options, so back at 100 the field is cleared.
+ * Writes one field of one slot. 'inherit' and 100% are the designed state —
+ * they clear the field instead of being stored, so the layer below (theme,
+ * then the block's default) shows through again.
  */
-function emitScale(key: 'textScale' | 'headingScale', raw: string) {
-	const value = Number(raw);
-	emit('update', key, value === 100 ? undefined : value);
+function emitSlot(slot: FlyerFontSlot, field: 'family' | 'scale', raw: string) {
+	const value = field === 'scale' ? Number(raw) : raw;
+	const isDefault = field === 'family' ? value === 'inherit' : value === 100;
+	const fonts: FlyerFonts = { ...(props.values.fonts ?? {}) };
+	const spec = { ...(fonts[slot] ?? {}) };
+	if (isDefault) delete spec[field];
+	else spec[field] = value as never;
+	if (Object.keys(spec).length === 0) delete fonts[slot];
+	else fonts[slot] = spec;
+	emit('update', 'fonts', Object.keys(fonts).length ? fonts : undefined);
 }
 
 const TEXT_SWATCHES = ['#ffffff', '#111827', '#1f2937', '#fde68a'];

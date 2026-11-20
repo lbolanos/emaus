@@ -4468,15 +4468,19 @@
       "opacity": "Opacidad",
       "textColor": "Texto",
       "headingColor": "Títulos",
-      "fontFamily": "Tipografía",
+      "typography": "Tipografía",
+      "slot": {
+        "title": "Título",
+        "emphasis": "Destacado",
+        "body": "Texto"
+      },
       "font": {
         "inherit": "Original",
         "oswald": "Oswald",
         "playfair": "Playfair",
-        "dancing": "Cursiva"
+        "dancing": "Cursiva",
+        "mono": "Mono"
       },
-      "textScale": "Texto",
-      "headingScale": "Títulos",
       "textShadow": "Sombra en el texto (se lee mejor sobre la foto)",
       "scrim": "Atenuar la imagen de fondo",
       "scrimHint": "Útil cuando la foto tiene mucho contraste y el texto compite con ella.",

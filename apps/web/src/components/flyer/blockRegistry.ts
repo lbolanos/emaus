@@ -1,5 +1,11 @@
 import type { Component } from 'vue';
-import type { FlyerBlockId, FlyerBlockLayout, FlyerBlockStyle, FlyerSlot } from '@repo/types';
+import type {
+	FlyerBlockId,
+	FlyerBlockLayout,
+	FlyerBlockStyle,
+	FlyerFontSlot,
+	FlyerSlot,
+} from '@repo/types';
 
 import FlyerBlockIntro from './blocks/FlyerBlockIntro.vue';
 import FlyerBlockStartTime from './blocks/FlyerBlockStartTime.vue';
@@ -19,6 +25,24 @@ export const FLYER_BLOCK_COMPONENTS: Record<FlyerBlockId, Component> = {
 	payment: FlyerBlockPayment,
 	whatToBring: FlyerBlockWhatToBring,
 	registrationQr: FlyerBlockRegistrationQr,
+};
+
+/**
+ * Which typography slots each block actually mixes — what the editor offers, in
+ * display order. A block with two kinds of lettering shows two rows, not three.
+ */
+export const FLYER_BLOCK_FONT_SLOTS: Record<FlyerBlockId, FlyerFontSlot[]> = {
+	// The paragraph and the "¡Atrévete!" badge; no heading of its own
+	intro: ['emphasis', 'body'],
+	startTime: ['title', 'emphasis', 'body'],
+	endTime: ['title', 'emphasis', 'body'],
+	location: ['title', 'emphasis', 'body'],
+	// emphasis = the phone numbers and emails, monospaced as designed
+	contact: ['title', 'emphasis', 'body'],
+	// emphasis = the price plate
+	payment: ['title', 'emphasis', 'body'],
+	whatToBring: ['title', 'body'],
+	registrationQr: ['title', 'body'],
 };
 
 export const FLYER_SLOTS: FlyerSlot[] = ['left', 'right', 'wide'];
@@ -64,7 +88,7 @@ export const FLYER_BLOCK_STYLE_DEFAULTS: Record<FlyerBlockId, FlyerBlockStyle> =
 		headingColor: '#1e40af',
 		textShadow: false,
 		textAlign: 'center',
-		fontFamily: 'playfair',
+		fonts: { emphasis: { family: 'playfair' }, body: { family: 'playfair' } },
 	},
 	startTime: { textColor: '#111827', headingColor: '#1d4ed8', textShadow: false, textAlign: 'left' },
 	location: { textColor: '#000000', headingColor: '#15803d', textShadow: false, textAlign: 'left' },
@@ -78,9 +102,25 @@ export const FLYER_BLOCK_STYLE_DEFAULTS: Record<FlyerBlockId, FlyerBlockStyle> =
 		textShadow: false,
 		textAlign: 'center',
 	},
-	// The original hung contact off the right edge; now that is a default, not a hard-coded class
-	contact: { textColor: '#111827', headingColor: '#374151', textShadow: false, textAlign: 'right' },
-	payment: { textColor: '#374151', headingColor: '#1d4ed8', textShadow: false, textAlign: 'center' },
+	// The original hung contact off the right edge; now that is a default, not a
+	// hard-coded class. Its numbers keep their designed monospaced look as the
+	// emphasis slot's default (the font-mono class is gone from the block).
+	contact: {
+		textColor: '#111827',
+		headingColor: '#374151',
+		textShadow: false,
+		textAlign: 'right',
+		fonts: { emphasis: { family: 'mono' } },
+	},
+	// The price plate was born in Oswald (the font-header class); that stays as the
+	// emphasis slot's default so the look survives, now reachable from the editor.
+	payment: {
+		textColor: '#374151',
+		headingColor: '#1d4ed8',
+		textShadow: false,
+		textAlign: 'center',
+		fonts: { emphasis: { family: 'oswald' } },
+	},
 	whatToBring: {
 		textColor: '#f3f4f6',
 		headingColor: '#ffffff',

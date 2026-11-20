@@ -54,55 +54,46 @@ describe('resolveBlockStyle', () => {
 		expect(style['--fb-text']).toBe('#111827');
 	});
 
-	it('defaults the typeface to inherit, so the flyer font shows through', () => {
+	it('defaults every slot to the flyer font and the designed size', () => {
 		const style = resolveBlockStyle('startTime');
 
-		expect(style['font-family']).toBe('inherit');
+		expect(style['--fb-title-font']).toBe('inherit');
+		expect(style['--fb-emphasis-font']).toBe('inherit');
+		expect(style['--fb-body-font']).toBe('inherit');
+		expect(style['--fb-title-scale']).toBe('1');
+		expect(style['--fb-emphasis-scale']).toBe('1');
+		expect(style['--fb-body-scale']).toBe('1');
 	});
 
-	it('resolves a theme typeface every block can inherit', () => {
-		const style = resolveBlockStyle('location', { fontFamily: 'oswald' });
+	it('resolves a theme slot every block inherits', () => {
+		const style = resolveBlockStyle('location', {
+			fonts: { emphasis: { family: 'oswald', scale: 115 } },
+		});
 
-		expect(style['font-family']).toBe(FLYER_FONT_STACKS.oswald);
+		expect(style['--fb-emphasis-font']).toBe(FLYER_FONT_STACKS.oswald);
+		expect(style['--fb-emphasis-scale']).toBe('1.15');
+		// The other slots are untouched
+		expect(style['--fb-title-font']).toBe('inherit');
 	});
 
-	it('lets a block take its own typeface over the theme one', () => {
+	it('lets a block override one slot while the theme drives the others', () => {
 		const style = resolveBlockStyle(
 			'intro',
-			{ fontFamily: 'playfair' },
-			{ intro: { fontFamily: 'dancing' } },
+			{ fonts: { emphasis: { family: 'oswald' } } },
+			{ intro: { fonts: { emphasis: { family: 'dancing' } } } },
 		);
 
-		expect(style['font-family']).toBe(FLYER_FONT_STACKS.dancing);
+		// intro's default body Playfair survives; only emphasis moved
+		expect(style['--fb-emphasis-font']).toBe(FLYER_FONT_STACKS.dancing);
+		expect(style['--fb-body-font']).toBe(FLYER_FONT_STACKS.playfair);
 	});
 
-	it('resets to the flyer font when the block override is cleared', () => {
-		// definedFields drops the undefined key, exactly what the editor emits
-		// for the "Original" option — the theme layer is what remains
-		const style = resolveBlockStyle('intro', { fontFamily: 'playfair' }, { intro: {} });
+	it('keeps the designed monospaced numbers and Oswald price as slot defaults', () => {
+		const contact = resolveBlockStyle('contact');
+		expect(contact['--fb-emphasis-font']).toBe(FLYER_FONT_STACKS.mono);
 
-		expect(style['font-family']).toBe(FLYER_FONT_STACKS.playfair);
-	});
-
-	it('defaults both size scales to 1', () => {
-		const style = resolveBlockStyle('startTime');
-
-		expect(style['--fb-text-scale']).toBe('1');
-		expect(style['--fb-heading-scale']).toBe('1');
-	});
-
-	it('scales text and headings independently, theme over block', () => {
-		const themed = resolveBlockStyle('startTime', { textScale: 110, headingScale: 85 });
-		expect(themed['--fb-text-scale']).toBe('1.1');
-		expect(themed['--fb-heading-scale']).toBe('0.85');
-
-		const overridden = resolveBlockStyle(
-			'startTime',
-			{ textScale: 110 },
-			{ startTime: { headingScale: 130 } },
-		);
-		expect(overridden['--fb-text-scale']).toBe('1.1');
-		expect(overridden['--fb-heading-scale']).toBe('1.3');
+		const payment = resolveBlockStyle('payment');
+		expect(payment['--fb-emphasis-font']).toBe(FLYER_FONT_STACKS.oswald);
 	});
 
 	it('only overrides the fields that are actually set', () => {

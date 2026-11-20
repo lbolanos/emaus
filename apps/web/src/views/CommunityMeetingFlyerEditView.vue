@@ -71,6 +71,7 @@
 							<FlyerDesignPanel
 								t-prefix="meetingFlyerEditor"
 								:style-defaults="MEETING_FLYER_BLOCK_STYLE_DEFAULTS"
+								:font-slots-by-block="MEETING_FLYER_BLOCK_FONT_SLOTS"
 								:presets="MEETING_FLYER_THEME_PRESETS"
 								:blocks="store.blocks"
 								:background-image="
@@ -193,6 +194,7 @@ import { FLYER_IMAGE_KEYS } from '@/components/flyer/flyerPresetAssets';
 import type { FlyerBlockStyle, FlyerTheme } from '@repo/types';
 import { innerAvailableWidth } from '@/utils/flyerScale';
 import {
+	MEETING_FLYER_BLOCK_FONT_SLOTS,
 	MEETING_FLYER_BLOCK_STYLE_DEFAULTS,
 	MEETING_FLYER_PRESET_ASSETS,
 	MEETING_FLYER_PRESET_IMAGES,

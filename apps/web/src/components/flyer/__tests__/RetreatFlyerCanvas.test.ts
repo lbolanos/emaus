@@ -193,14 +193,13 @@ describe('RetreatFlyerCanvas', () => {
 			expect(date.classes().join(' ')).not.toContain('text-yellow-300');
 		});
 
-		it('carries the theme typeface into every block wrapper', () => {
+		it('carries the theme slots into every block wrapper', () => {
 			const style =
-				mountCanvas({ theme: { fontFamily: 'playfair' } })
+				mountCanvas({ theme: { fonts: { emphasis: { family: 'playfair' } } } })
 					.find('[data-flyer-block="location"]')
 					.attributes('style') ?? '';
 
-			// happy-dom quotes font names with ", browsers with ' — both are the same rule
-			expect(style).toContain('font-family:');
+			expect(style).toContain('--fb-emphasis-font');
 			expect(style).toContain('Playfair Display');
 		});
 
@@ -211,25 +210,25 @@ describe('RetreatFlyerCanvas', () => {
 			expect(asDefault).toContain('Playfair Display');
 
 			const overridden =
-				mountCanvas({ blockStyles: { intro: { fontFamily: 'oswald' } } })
+				mountCanvas({ blockStyles: { intro: { fonts: { emphasis: { family: 'oswald' } } } } })
 					.find('[data-flyer-block="intro"]')
 					.attributes('style') ?? '';
 			expect(overridden).toContain('Oswald');
-			expect(overridden).not.toContain('Playfair');
-			// And no inline font survives in the block's own markup
+			// The body slot keeps the designed Playfair — slots move independently
+			expect(overridden).toContain('Playfair Display');
 			expect(mountCanvas().find('[data-flyer-block="intro"]').html()).not.toContain(
 				"font-family: 'Playfair Display'",
 			);
 		});
 
-		it('carries the two size scales into the block wrapper', () => {
+		it('carries the per-slot size scales into the block wrapper', () => {
 			const style =
-				mountCanvas({ theme: { textScale: 110, headingScale: 90 } })
+				mountCanvas({ theme: { fonts: { title: { scale: 90 }, body: { scale: 110 } } } })
 					.find('[data-flyer-block="startTime"]')
 					.attributes('style') ?? '';
 
-			expect(style).toContain('--fb-text-scale: 1.1');
-			expect(style).toContain('--fb-heading-scale: 0.9');
+			expect(style).toContain('--fb-title-scale: 0.9');
+			expect(style).toContain('--fb-body-scale: 1.1');
 		});
 
 		// As a block it stretched across the column: a white bar with the address stranded

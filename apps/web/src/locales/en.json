@@ -4146,15 +4146,19 @@
       "opacity": "Opacity",
       "textColor": "Text",
       "headingColor": "Headings",
-      "fontFamily": "Typeface",
+      "typography": "Typography",
+      "slot": {
+        "title": "Title",
+        "emphasis": "Emphasis",
+        "body": "Text"
+      },
       "font": {
         "inherit": "Original",
         "oswald": "Oswald",
         "playfair": "Playfair",
-        "dancing": "Script"
+        "dancing": "Script",
+        "mono": "Mono"
       },
-      "textScale": "Text",
-      "headingScale": "Headings",
       "textShadow": "Text shadow (reads better over the photo)",
       "scrim": "Dim the background image",
       "scrimHint": "Useful when the photo is busy and competes with the text.",

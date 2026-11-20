@@ -54,9 +54,9 @@ describe('FlyerStyleFields', () => {
 
 		expect(none!.classes().join(' ')).toContain('border-primary');
 		// …and the opacity slider is out of the way while there is no box (the
-		// size sliders are a different knob and stay)
+		// per-slot size sliders are a different knob and stay)
 		expect(wrapper.find('[data-opacity-slider]').exists()).toBe(false);
-		expect(wrapper.findAll('input[type="range"]').length).toBe(2);
+		expect(wrapper.findAll('input[type="range"]').length).toBe(3);
 	});
 
 	it('offers the opacity slider once there is a box', () => {
@@ -80,46 +80,39 @@ describe('FlyerStyleFields', () => {
 		expect(updates(wrapper)).toContainEqual(['textShadow', true]);
 	});
 
-	it('emits the chosen typeface, and clears it for the original font', async () => {
-		const wrapper = mountFields({ fontFamily: 'oswald' });
+	it('emits one slot family and size at a time, clearing at the designed value', async () => {
+		const wrapper = mountFields();
+		// One row per slot the block mixes
+		expect(wrapper.findAll('[data-font-slot]').length).toBe(3);
 
-		// The active option is marked
-		expect(wrapper.find('[data-font-option="oswald"]').classes().join(' ')).toContain(
-			'border-primary',
-		);
+		const emphasis = wrapper.find('[data-font-slot="emphasis"]');
+		await emphasis.find('select').setValue('oswald');
+		expect(updates(wrapper)).toContainEqual(['fonts', { emphasis: { family: 'oswald' } }]);
 
-		await wrapper.find('[data-font-option="playfair"]').trigger('click');
-		expect(updates(wrapper)).toContainEqual(['fontFamily', 'playfair']);
+		// In the app the store writes the emitted value back before the next
+		// gesture; simulate that round-trip so the second field adds to the first
+		await wrapper.setProps({ values: { fonts: { emphasis: { family: 'oswald' } } } });
+		await emphasis.find('input[type="range"]').setValue('115');
+		expect(updates(wrapper)).toContainEqual([
+			'fonts',
+			{ emphasis: { family: 'oswald', scale: 115 } },
+		]);
 
-		// "Original" removes the override instead of naming a font: the layer
-		// below (theme, then the flyer's own Roboto) shows through again
-		await wrapper.find('[data-font-option="inherit"]').trigger('click');
-		expect(updates(wrapper)).toContainEqual(['fontFamily', undefined]);
+		// Back at "Original"/100% the slot disappears instead of storing the default
+		await wrapper.setProps({ values: { fonts: { emphasis: { family: 'oswald', scale: 115 } } } });
+		await emphasis.find('select').setValue('inherit');
+		await wrapper.setProps({ values: { fonts: { emphasis: { scale: 115 } } } });
+		await emphasis.find('input[type="range"]').setValue('100');
+		expect(updates(wrapper)).toContainEqual(['fonts', undefined]);
 	});
 
-	it('previews each typeface option in its own font', () => {
-		const wrapper = mountFields();
-		const oswald = wrapper.find('[data-font-option="oswald"]');
+	it('shows only the slots the block actually mixes', () => {
+		const wrapper = mount(FlyerStyleFields, {
+			props: { values: {}, fontSlots: ['title', 'body'] },
+		});
 
-		expect(oswald.attributes('style')).toContain('Oswald');
-		// The "original" button carries no inline font: it renders as the panel does
-		expect(wrapper.find('[data-font-option="inherit"]').attributes('style')).toBeUndefined();
-	});
-
-	it('emits the two size scales separately, and clears each at 100', async () => {
-		const wrapper = mountFields();
-		const ranges = wrapper.findAll('input[type="range"]');
-		// [textScale, headingScale] — the opacity one only exists with a box
-		expect(ranges.length).toBe(2);
-
-		await ranges[0].setValue('115');
-		await ranges[1].setValue('90');
-
-		expect(updates(wrapper)).toContainEqual(['textScale', 115]);
-		expect(updates(wrapper)).toContainEqual(['headingScale', 90]);
-
-		// Back at the designed size the override is removed, not stored as 100
-		await ranges[0].setValue('100');
-		expect(updates(wrapper)).toContainEqual(['textScale', undefined]);
+		const slots = wrapper.findAll('[data-font-slot]');
+		expect(slots.length).toBe(2);
+		expect(wrapper.find('[data-font-slot="emphasis"]').exists()).toBe(false);
 	});
 });

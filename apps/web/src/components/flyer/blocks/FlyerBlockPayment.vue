@@ -9,27 +9,27 @@
 	-->
 	<div class="fb-box max-w-[360px] p-3">
 		<div class="mb-3 pb-3 border-b-2 border-current/25">
-			<span class="text-[length:calc(1.25rem*var(--fb-heading-scale,1))] font-black uppercase text-[color:var(--fb-heading)] tracking-[0.2em] block mb-1">
+			<span class="fb-title text-[length:calc(1.25rem*var(--fb-title-scale,1))] font-black uppercase text-[color:var(--fb-heading)] tracking-[0.2em] block mb-1">
 				{{ t('retreatFlyer.cost') }}
 			</span>
 			<div
-				class="text-[length:calc(2.375rem*var(--fb-heading-scale,1))] font-black text-gray-900 leading-none font-header drop-shadow-md bg-gradient-to-r from-yellow-200/50 to-orange-200/50 px-4 py-2 rounded-xl inline-block border-2 border-yellow-300/50"
+				class="fb-emphasis text-[length:calc(2.375rem*var(--fb-emphasis-scale,1))] font-black text-gray-900 leading-none drop-shadow-md bg-gradient-to-r from-yellow-200/50 to-orange-200/50 px-4 py-2 rounded-xl inline-block border-2 border-yellow-300/50"
 			>
 				{{ content.formatCost }}
 			</div>
 		</div>
-		<div class="space-y-2 text-[length:calc(0.75rem*var(--fb-text-scale,1))]">
+		<div class="space-y-2 fb-body text-[length:calc(0.75rem*var(--fb-body-scale,1))]">
 			<div
 				v-if="content.paymentInfo"
 				class="text-gray-700 leading-relaxed bg-white/60 p-2 rounded-lg"
 			>
-				<span v-html="content.paymentInfo" class="font-semibold text-[length:calc(0.625rem*var(--fb-text-scale,1))] leading-relaxed"></span>
+				<span v-html="content.paymentInfo" class="font-semibold fb-body text-[length:calc(0.625rem*var(--fb-body-scale,1))] leading-relaxed"></span>
 			</div>
 			<div
 				v-if="content.paymentMethods"
 				class="bg-white/80 p-3 rounded-xl shadow-md border border-yellow-200"
 			>
-				<span class="block text-[length:calc(0.625rem*var(--fb-text-scale,1))] text-gray-500 uppercase tracking-[0.15em] mb-1 font-black">
+				<span class="block fb-body text-[length:calc(0.625rem*var(--fb-body-scale,1))] text-gray-500 uppercase tracking-[0.15em] mb-1 font-black">
 					{{ t('retreatFlyer.paymentMethods') }}
 				</span>
 				<span
