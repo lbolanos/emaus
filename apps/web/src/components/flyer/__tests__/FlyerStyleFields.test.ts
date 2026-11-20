@@ -54,9 +54,9 @@ describe('FlyerStyleFields', () => {
 
 		expect(none!.classes().join(' ')).toContain('border-primary');
 		// …and the opacity slider is out of the way while there is no box (the
-		// per-slot size sliders are a different knob and stay)
+		// per-slot size steppers are buttons, not ranges)
 		expect(wrapper.find('[data-opacity-slider]').exists()).toBe(false);
-		expect(wrapper.findAll('input[type="range"]').length).toBe(3);
+		expect(wrapper.findAll('input[type="range"]').length).toBe(0);
 	});
 
 	it('offers the opacity slider once there is a box', () => {
@@ -80,29 +80,40 @@ describe('FlyerStyleFields', () => {
 		expect(updates(wrapper)).toContainEqual(['textShadow', true]);
 	});
 
-	it('emits one slot family and size at a time, clearing at the designed value', async () => {
+	it('steps the slot size with taps, clamped, and resets to the designed size', async () => {
 		const wrapper = mountFields();
-		// One row per slot the block mixes
 		expect(wrapper.findAll('[data-font-slot]').length).toBe(3);
+
+		// No reset button while at the designed size
+		expect(wrapper.find('[data-slot-scale-reset]').exists()).toBe(false);
+
+		await wrapper.find('[data-slot-scale-plus="emphasis"]').trigger('click');
+		expect(updates(wrapper)).toContainEqual(['fonts', { emphasis: { scale: 105 } }]);
+
+		// Store round-trip, then down again: back at 100 the slot clears itself
+		await wrapper.setProps({ values: { fonts: { emphasis: { scale: 105 } } } });
+		await wrapper.find('[data-slot-scale-minus="emphasis"]').trigger('click');
+		expect(updates(wrapper)).toContainEqual(['fonts', undefined]);
+
+		// Clamped at the range edges — the buttons disable instead of wrapping
+		await wrapper.setProps({ values: { fonts: { emphasis: { scale: 140 } } } });
+		expect(wrapper.find('[data-slot-scale-plus="emphasis"]').attributes('disabled')).toBeDefined();
+		await wrapper.setProps({ values: { fonts: { emphasis: { scale: 85 } } } });
+		expect(wrapper.find('[data-slot-scale-minus="emphasis"]').attributes('disabled')).toBeDefined();
+		// And one tap on reset clears a stray value
+		await wrapper.find('[data-slot-scale-reset="emphasis"]').trigger('click');
+		expect(updates(wrapper)).toContainEqual(['fonts', undefined]);
+	});
+
+	it('emits one slot family at a time, clearing at Original', async () => {
+		const wrapper = mountFields();
 
 		const emphasis = wrapper.find('[data-font-slot="emphasis"]');
 		await emphasis.find('select').setValue('oswald');
 		expect(updates(wrapper)).toContainEqual(['fonts', { emphasis: { family: 'oswald' } }]);
 
-		// In the app the store writes the emitted value back before the next
-		// gesture; simulate that round-trip so the second field adds to the first
 		await wrapper.setProps({ values: { fonts: { emphasis: { family: 'oswald' } } } });
-		await emphasis.find('input[type="range"]').setValue('115');
-		expect(updates(wrapper)).toContainEqual([
-			'fonts',
-			{ emphasis: { family: 'oswald', scale: 115 } },
-		]);
-
-		// Back at "Original"/100% the slot disappears instead of storing the default
-		await wrapper.setProps({ values: { fonts: { emphasis: { family: 'oswald', scale: 115 } } } });
 		await emphasis.find('select').setValue('inherit');
-		await wrapper.setProps({ values: { fonts: { emphasis: { scale: 115 } } } });
-		await emphasis.find('input[type="range"]').setValue('100');
 		expect(updates(wrapper)).toContainEqual(['fonts', undefined]);
 	});
 

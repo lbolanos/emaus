@@ -127,18 +127,46 @@
 						{{ t(`retreatFlyerEditor.design.font.${option.id}`) }}
 					</option>
 				</select>
-				<input
-					type="range"
-					min="85"
-					max="140"
-					step="5"
-					class="min-w-0 flex-1"
-					:value="values.fonts?.[slot]?.scale ?? 100"
-					@input="emitSlot(slot, 'scale', ($event.target as HTMLInputElement).value)"
-				/>
-				<span class="w-10 shrink-0 text-right text-[11px] tabular-nums text-muted-foreground">
-					{{ values.fonts?.[slot]?.scale ?? 100 }}%
-				</span>
+				<!-- Stepper instead of a slider: the row is too narrow to drag with
+				     any precision, and taps land exactly on the 5% steps -->
+				<div class="ml-auto flex items-center gap-1">
+					<button
+						type="button"
+						class="rounded border border-muted p-1 text-muted-foreground transition-colors hover:text-foreground disabled:opacity-30"
+						:aria-label="t('retreatFlyerEditor.design.scaleDown')"
+						:data-slot-scale-minus="slot"
+						:disabled="(values.fonts?.[slot]?.scale ?? 100) <= 85"
+						@click="stepScale(slot, -5)"
+					>
+						<Minus class="h-3.5 w-3.5" />
+					</button>
+					<span
+						class="w-11 text-center text-[11px] tabular-nums text-muted-foreground"
+						:data-slot-scale-value="slot"
+					>
+						{{ values.fonts?.[slot]?.scale ?? 100 }}%
+					</span>
+					<button
+						type="button"
+						class="rounded border border-muted p-1 text-muted-foreground transition-colors hover:text-foreground disabled:opacity-30"
+						:aria-label="t('retreatFlyerEditor.design.scaleUp')"
+						:data-slot-scale-plus="slot"
+						:disabled="(values.fonts?.[slot]?.scale ?? 100) >= 140"
+						@click="stepScale(slot, 5)"
+					>
+						<Plus class="h-3.5 w-3.5" />
+					</button>
+					<button
+						v-if="(values.fonts?.[slot]?.scale ?? 100) !== 100"
+						type="button"
+						class="rounded border border-muted p-1 text-muted-foreground transition-colors hover:text-foreground"
+						:aria-label="t('retreatFlyerEditor.design.scaleReset')"
+						:data-slot-scale-reset="slot"
+						@click="emitSlot(slot, 'scale', '100')"
+					>
+						<RotateCcw class="h-3 w-3" />
+					</button>
+				</div>
 			</div>
 		</div>
 
@@ -180,7 +208,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { AlignCenter, AlignLeft, AlignRight } from 'lucide-vue-next';
+import { AlignCenter, AlignLeft, AlignRight, Minus, Plus, RotateCcw } from 'lucide-vue-next';
 import { Label } from '@repo/ui';
 import type { FlyerBlockStyle, FlyerFontFamily, FlyerFontSlot, FlyerFonts } from '@repo/types';
 import { FLYER_FONT_STACKS } from '@/utils/flyerStyle';
@@ -223,6 +251,13 @@ const FONT_OPTIONS: { id: FlyerFontFamily }[] = [
 	{ id: 'dancing' },
 	{ id: 'mono' },
 ];
+
+/** Steps the slot's size by 5%, clamped to the 85–140 range the schema allows. */
+function stepScale(slot: FlyerFontSlot, delta: number) {
+	const current = props.values.fonts?.[slot]?.scale ?? 100;
+	const next = Math.min(140, Math.max(85, current + delta));
+	emitSlot(slot, 'scale', String(next));
+}
 
 /**
  * Writes one field of one slot. 'inherit' and 100% are the designed state —

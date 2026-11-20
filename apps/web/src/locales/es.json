@@ -4469,6 +4469,9 @@
       "textColor": "Texto",
       "headingColor": "Títulos",
       "typography": "Tipografía",
+      "scaleUp": "Aumentar el tamaño",
+      "scaleDown": "Reducir el tamaño",
+      "scaleReset": "Volver al tamaño de diseño",
       "slot": {
         "title": "Título",
         "emphasis": "Destacado",

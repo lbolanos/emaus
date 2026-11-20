@@ -4147,6 +4147,9 @@
       "textColor": "Text",
       "headingColor": "Headings",
       "typography": "Typography",
+      "scaleUp": "Increase size",
+      "scaleDown": "Decrease size",
+      "scaleReset": "Back to designed size",
       "slot": {
         "title": "Title",
         "emphasis": "Emphasis",
