@@ -8,16 +8,16 @@
 			</div>
 			<div class="flex-1 min-w-0">
 				<h4
-					class="font-black fb-title text-[length:calc(0.9375rem*var(--fb-title-scale,1))] uppercase text-[color:var(--fb-heading)] tracking-[0.15em] mb-1.5"
+					class="font-black fb-title text-[length:calc(0.9375rem*var(--fb-title-scale,1))] uppercase text-[color:var(--fb-title-color)] tracking-[0.15em] mb-1.5"
 				>
 					{{ t('retreatFlyer.endTime') }}
 				</h4>
-				<p data-end-date class="fb-emphasis text-[length:calc(1.0625rem*var(--fb-emphasis-scale,1))] text-[color:var(--fb-heading)] font-bold mb-0.5">
+				<p data-end-date class="fb-emphasis text-[length:calc(1.0625rem*var(--fb-emphasis-scale,1))] text-[color:var(--fb-emphasis-color)] font-bold mb-0.5">
 					{{ content.formatDate(content.endDate) }}
 				</p>
 				<div v-if="content.closingLocation" class="mb-2">
 					<p
-						class="font-semibold text-[color:var(--fb-text)] fb-body text-[length:calc(0.75rem*var(--fb-body-scale,1))] leading-tight whitespace-pre-line"
+						class="font-semibold text-[color:var(--fb-body-color)] fb-body text-[length:calc(0.75rem*var(--fb-body-scale,1))] leading-tight whitespace-pre-line"
 					>
 						{{ content.closingLocation }}
 					</p>

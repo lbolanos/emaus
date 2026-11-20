@@ -18,7 +18,7 @@
 			</div>
 			<span
 				v-if="content.qrCaptionText"
-				class="fb-body text-[length:calc(0.625rem*var(--fb-body-scale,1))] text-[color:var(--fb-text)] font-black uppercase tracking-wider text-center"
+				class="fb-body text-[length:calc(0.625rem*var(--fb-body-scale,1))] text-[color:var(--fb-body-color)] font-black uppercase tracking-wider text-center"
 			>
 				{{ content.qrCaptionText }}
 			</span>

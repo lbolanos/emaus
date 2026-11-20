@@ -4469,6 +4469,12 @@
       "textColor": "Texto",
       "headingColor": "Títulos",
       "typography": "Tipografía",
+      "row": {
+        "family": "Familia",
+        "size": "Tamaño",
+        "color": "Color",
+        "align": "Alinear"
+      },
       "scaleUp": "Aumentar el tamaño",
       "scaleDown": "Reducir el tamaño",
       "scaleReset": "Volver al tamaño de diseño",

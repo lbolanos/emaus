@@ -189,7 +189,7 @@ describe('RetreatFlyerCanvas', () => {
 		it('paints the end date with the heading colour the editor sets', () => {
 			const date = mountCanvas({ theme: { headingColor: '#14524d' } }).find('[data-end-date]');
 
-			expect(date.classes().join(' ')).toContain('text-[color:var(--fb-heading)]');
+			expect(date.classes().join(' ')).toContain('text-[color:var(--fb-emphasis-color)]');
 			expect(date.classes().join(' ')).not.toContain('text-yellow-300');
 		});
 

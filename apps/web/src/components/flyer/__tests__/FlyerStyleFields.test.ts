@@ -33,11 +33,11 @@ describe('FlyerStyleFields', () => {
 		expect(updates(wrapper)).toContainEqual(['backgroundOpacity', 85]);
 	});
 
-	it('sets the alignment, which moves the icons and boxes too, not just the words', async () => {
-		const wrapper = mountFields({ textAlign: 'left' });
-		await wrapper.find('[data-align-option="right"]').trigger('click');
+	it('aligns one slot without moving the others', async () => {
+		const wrapper = mountFields();
+		await wrapper.find('[data-slot-align="title:right"]').trigger('click');
 
-		expect(updates(wrapper)).toContainEqual(['textAlign', 'right']);
+		expect(updates(wrapper)).toContainEqual(['fonts', { title: { align: 'right' } }]);
 	});
 
 	it('leaves a chosen opacity alone when only the colour changes', async () => {
@@ -64,13 +64,20 @@ describe('FlyerStyleFields', () => {
 		expect(wrapper.find('[data-opacity-slider]').exists()).toBe(true);
 	});
 
-	it('emits the text and heading colours independently of the background', async () => {
+	it('colours one slot without touching the others', async () => {
 		const wrapper = mountFields();
 
-		const swatches = wrapper.findAll('button[aria-label^="#"]');
-		await swatches[0].trigger('click');
+		await wrapper.find('[data-slot-color-swatch="emphasis:#fde68a"]').trigger('click');
+		expect(updates(wrapper)).toContainEqual(['fonts', { emphasis: { color: '#fde68a' } }]);
 
-		expect(updates(wrapper)[0][0]).toBe('textColor');
+		// The free picker writes the same slot
+		await wrapper.setProps({ values: { fonts: { emphasis: { color: '#fde68a' } } } });
+		const section = wrapper.find('[data-font-slot-section="emphasis"]');
+		await section.find('input[type="color"]').setValue('#b45309');
+		expect(updates(wrapper)).toContainEqual([
+			'fonts',
+			{ emphasis: { color: '#b45309' } },
+		]);
 	});
 
 	it('toggles the text shadow', async () => {
@@ -82,7 +89,7 @@ describe('FlyerStyleFields', () => {
 
 	it('steps the slot size with taps, clamped, and resets to the designed size', async () => {
 		const wrapper = mountFields();
-		expect(wrapper.findAll('[data-font-slot]').length).toBe(3);
+		expect(wrapper.findAll('[data-font-slot-section]').length).toBe(3);
 
 		// No reset button while at the designed size
 		expect(wrapper.find('[data-slot-scale-reset]').exists()).toBe(false);
@@ -96,9 +103,9 @@ describe('FlyerStyleFields', () => {
 		expect(updates(wrapper)).toContainEqual(['fonts', undefined]);
 
 		// Clamped at the range edges — the buttons disable instead of wrapping
-		await wrapper.setProps({ values: { fonts: { emphasis: { scale: 140 } } } });
+		await wrapper.setProps({ values: { fonts: { emphasis: { scale: 160 } } } });
 		expect(wrapper.find('[data-slot-scale-plus="emphasis"]').attributes('disabled')).toBeDefined();
-		await wrapper.setProps({ values: { fonts: { emphasis: { scale: 85 } } } });
+		await wrapper.setProps({ values: { fonts: { emphasis: { scale: 70 } } } });
 		expect(wrapper.find('[data-slot-scale-minus="emphasis"]').attributes('disabled')).toBeDefined();
 		// And one tap on reset clears a stray value
 		await wrapper.find('[data-slot-scale-reset="emphasis"]').trigger('click');
@@ -108,7 +115,7 @@ describe('FlyerStyleFields', () => {
 	it('emits one slot family at a time, clearing at Original', async () => {
 		const wrapper = mountFields();
 
-		const emphasis = wrapper.find('[data-font-slot="emphasis"]');
+		const emphasis = wrapper.find('[data-font-slot-section="emphasis"]');
 		await emphasis.find('select').setValue('oswald');
 		expect(updates(wrapper)).toContainEqual(['fonts', { emphasis: { family: 'oswald' } }]);
 
@@ -122,8 +129,8 @@ describe('FlyerStyleFields', () => {
 			props: { values: {}, fontSlots: ['title', 'body'] },
 		});
 
-		const slots = wrapper.findAll('[data-font-slot]');
+		const slots = wrapper.findAll('[data-font-slot-section]');
 		expect(slots.length).toBe(2);
-		expect(wrapper.find('[data-font-slot="emphasis"]').exists()).toBe(false);
+		expect(wrapper.find('[data-font-slot-section="emphasis"]').exists()).toBe(false);
 	});
 });

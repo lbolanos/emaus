@@ -4147,6 +4147,12 @@
       "textColor": "Text",
       "headingColor": "Headings",
       "typography": "Typography",
+      "row": {
+        "family": "Family",
+        "size": "Size",
+        "color": "Colour",
+        "align": "Align"
+      },
       "scaleUp": "Increase size",
       "scaleDown": "Decrease size",
       "scaleReset": "Back to designed size",

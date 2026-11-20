@@ -2,13 +2,13 @@
 	<div class="p-4">
 		<h3
 			v-if="content.registerText"
-			class="fb-title text-[length:calc(1.375rem*var(--fb-title-scale,1))] font-black text-[color:var(--fb-heading)] uppercase mb-2 tracking-[0.15em]"
+			class="fb-title text-[length:calc(1.375rem*var(--fb-title-scale,1))] font-black text-[color:var(--fb-title-color)] uppercase mb-2 tracking-[0.15em]"
 		>
 			{{ content.registerText }}
 		</h3>
 		<p
 			v-if="content.scanToRegisterText"
-			class="fb-body text-[length:calc(0.6875rem*var(--fb-body-scale,1))] text-[color:var(--fb-text)] mb-4 font-bold leading-tight whitespace-pre-line"
+			class="fb-body text-[length:calc(0.6875rem*var(--fb-body-scale,1))] text-[color:var(--fb-body-color)] mb-4 font-bold leading-tight whitespace-pre-line"
 		>
 			{{ content.scanToRegisterText }}
 		</p>

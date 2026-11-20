@@ -11,6 +11,8 @@
 			:key="block.id"
 			:data-flyer-block="block.id"
 			:data-align="stylesById[block.id]?.align"
+			:data-title-align="stylesById[block.id]?.titleAlign"
+			:data-body-align="stylesById[block.id]?.bodyAlign"
 			:style="styleFor(block.id)"
 			class="relative bg-[color:var(--fb-bg)] rounded-[length:var(--fb-radius)] text-[color:var(--fb-text)]"
 			:class="[
@@ -89,7 +91,8 @@ const stylesById = computed(() => {
 });
 
 function styleFor(blockId: string) {
-	const { hasBox: _hasBox, align: _align, ...cssVars } = stylesById.value[blockId] ?? {};
+	const { hasBox: _hasBox, align: _align, titleAlign: _t, bodyAlign: _b, ...cssVars } =
+		stylesById.value[blockId] ?? {};
 	return cssVars as Record<string, string>;
 }
 

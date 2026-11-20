@@ -96,6 +96,37 @@ describe('resolveBlockStyle', () => {
 		expect(payment['--fb-emphasis-font']).toBe(FLYER_FONT_STACKS.oswald);
 	});
 
+	it('gives each slot its own colour, with the flat fields as the base layer', () => {
+		// No slot overrides: the pre-slots look, title and emphasis on headingColor
+		const flat = resolveBlockStyle('startTime', {
+			textColor: '#3d3428',
+			headingColor: '#14524d',
+		});
+		expect(flat['--fb-title-color']).toBe('#14524d');
+		expect(flat['--fb-emphasis-color']).toBe('#14524d');
+		expect(flat['--fb-body-color']).toBe('#3d3428');
+
+		// A slot colour beats the flat layer — the "destacado solito" ask
+		const emphatic = resolveBlockStyle('startTime', undefined, {
+			startTime: { fonts: { emphasis: { color: '#b45309' } } },
+		});
+		expect(emphatic['--fb-emphasis-color']).toBe('#b45309');
+		expect(emphatic['--fb-title-color']).toBe('#1d4ed8'); // startTime default heading
+	});
+
+	it('aligns slots independently, falling back to the flat alignment', () => {
+		const style = resolveBlockStyle(
+			'startTime',
+			{ textAlign: 'left' },
+			{ startTime: { fonts: { title: { align: 'center' } } } },
+		);
+
+		expect(style['--fb-title-align']).toBe('center');
+		expect(style['--fb-title-justify']).toBe('center');
+		expect(style['--fb-body-align']).toBe('left');
+		expect(style.titleAlign).toBe('center');
+	});
+
 	it('only overrides the fields that are actually set', () => {
 		const style = resolveBlockStyle(
 			'location',

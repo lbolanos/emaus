@@ -9,7 +9,7 @@
 	-->
 	<div class="fb-box max-w-[360px] p-3">
 		<div class="mb-3 pb-3 border-b-2 border-current/25">
-			<span class="fb-title text-[length:calc(1.25rem*var(--fb-title-scale,1))] font-black uppercase text-[color:var(--fb-heading)] tracking-[0.2em] block mb-1">
+			<span class="fb-title text-[length:calc(1.25rem*var(--fb-title-scale,1))] font-black uppercase text-[color:var(--fb-title-color)] tracking-[0.2em] block mb-1">
 				{{ t('retreatFlyer.cost') }}
 			</span>
 			<div

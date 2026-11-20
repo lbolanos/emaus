@@ -201,17 +201,48 @@ const blocksInSlot = computed(() => {
 	text-align: var(--fb-align, left);
 }
 
-/* Per-slot typefaces — same contract as the retreat canvas. */
+/* Per-slot lettering — same contract as the retreat canvas. */
 .print-optimized .fb-title {
 	font-family: var(--fb-title-font, inherit);
+	color: var(--fb-title-color, var(--fb-heading));
+	text-align: var(--fb-title-align, var(--fb-align, left));
 }
 
 .print-optimized .fb-emphasis {
 	font-family: var(--fb-emphasis-font, inherit);
+	color: var(--fb-emphasis-color, var(--fb-heading));
+	text-align: var(--fb-emphasis-align, var(--fb-align, left));
 }
 
 .print-optimized .fb-body {
 	font-family: var(--fb-body-font, inherit);
+	color: var(--fb-body-color, var(--fb-text));
+	text-align: var(--fb-body-align, var(--fb-align, left));
+}
+
+.print-optimized .fb-lead {
+	justify-content: var(--fb-title-justify, var(--fb-justify, flex-start));
+}
+
+.print-optimized .fb-row {
+	justify-content: var(--fb-body-justify, var(--fb-justify, flex-start));
+}
+
+.print-optimized [data-title-align='center'] .fb-lead,
+.print-optimized [data-body-align='center'] .fb-row {
+	flex-direction: column;
+	align-items: center;
+}
+
+.print-optimized [data-title-align='center'] .fb-lead > .flex-1 {
+	flex: none;
+	width: 100%;
+}
+
+.print-optimized [data-title-align='right'] .fb-lead,
+.print-optimized [data-body-align='right'] .fb-row {
+	flex-direction: row-reverse;
+	justify-content: flex-start;
 }
 
 .print-optimized .fb-lead,

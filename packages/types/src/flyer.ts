@@ -89,18 +89,24 @@ export type FlyerFontFamily = z.infer<typeof flyerFontFamilySchema>;
 export const flyerFontSlotSchema = z.enum(['title', 'emphasis', 'body']);
 export type FlyerFontSlot = z.infer<typeof flyerFontSlotSchema>;
 
-/** What can be tuned on one slot: the typeface and its size, each optional. */
-export const flyerFontSpecSchema = z.object({
+/** What can be tuned on one slot. Every field is optional and falls back through
+ *  the layers: the block's flat fields first (so saved flyers keep their look),
+ *  then the theme's slot, then the block's own slot. */
+export const flyerSlotSpecSchema = z.object({
 	family: flyerFontFamilySchema.optional(),
-	/** Size in percent of the designed size (85–140; absent = 100). */
-	scale: z.number().int().min(85).max(140).optional(),
+	/** Size in percent of the designed size (70–160; absent = 100). */
+	scale: z.number().int().min(70).max(160).optional(),
+	color: hexColorSchema.optional(),
+	align: z.enum(['left', 'center', 'right']).optional(),
 });
-export type FlyerFontSpec = z.infer<typeof flyerFontSpecSchema>;
+export type FlyerSlotSpec = z.infer<typeof flyerSlotSpecSchema>;
+/** @deprecated Renamed: a slot tunes more than its font. Alias kept for callers. */
+export type FlyerFontSpec = FlyerSlotSpec;
 
 export const flyerFontsSchema = z.object({
-	title: flyerFontSpecSchema.optional(),
-	emphasis: flyerFontSpecSchema.optional(),
-	body: flyerFontSpecSchema.optional(),
+	title: flyerSlotSpecSchema.optional(),
+	emphasis: flyerSlotSpecSchema.optional(),
+	body: flyerSlotSpecSchema.optional(),
 });
 export type FlyerFonts = z.infer<typeof flyerFontsSchema>;
 

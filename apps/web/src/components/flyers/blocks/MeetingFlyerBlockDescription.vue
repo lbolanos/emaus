@@ -9,12 +9,12 @@
 			<div class="flex-1 min-w-0">
 				<h4
 					v-if="content.descriptionLabelText"
-					class="font-black fb-title text-[length:calc(0.9375rem*var(--fb-title-scale,1))] uppercase text-[color:var(--fb-heading)] tracking-[0.15em] mb-2"
+					class="font-black fb-title text-[length:calc(0.9375rem*var(--fb-title-scale,1))] uppercase text-[color:var(--fb-title-color)] tracking-[0.15em] mb-2"
 				>
 					{{ content.descriptionLabelText }}
 				</h4>
 				<!-- The meeting's template keeps its own line breaks and bullets -->
-				<div class="fb-body text-[length:calc(1rem*var(--fb-body-scale,1))] text-[color:var(--fb-text)] leading-relaxed whitespace-pre-line">
+				<div class="fb-body text-[length:calc(1rem*var(--fb-body-scale,1))] text-[color:var(--fb-body-color)] leading-relaxed whitespace-pre-line">
 					{{ content.descriptionText }}
 				</div>
 			</div>

@@ -2,7 +2,7 @@ import type {
 	FlyerBlockStyle,
 	FlyerFontFamily,
 	FlyerFontSlot,
-	FlyerFontSpec,
+	FlyerSlotSpec,
 	FlyerTextAlign,
 	FlyerTheme,
 } from '@repo/types';
@@ -47,13 +47,31 @@ type FlyerBlockCssVarsFonts = {
 	[K in `--fb-${FlyerFontSlot}-scale`]: string;
 };
 
-export type FlyerBlockCssVars = FlyerBlockCssVarsBase & FlyerBlockCssVarsFonts;
+/** Per-slot typography, colour and alignment: family stack, size multiplier,
+ *  text colour and text-align (+ its flex translation). */
+type FlyerBlockCssVarsSlots = {
+	[K in `--fb-${FlyerFontSlot}-font`]: string;
+} & {
+	[K in `--fb-${FlyerFontSlot}-scale`]: string;
+} & {
+	[K in `--fb-${FlyerFontSlot}-color`]: string;
+} & {
+	[K in `--fb-${FlyerFontSlot}-align`]: FlyerTextAlign;
+} & {
+	[K in `--fb-${FlyerFontSlot}-justify`]: string;
+};
+
+export type FlyerBlockCssVars = FlyerBlockCssVarsBase & FlyerBlockCssVarsSlots;
 
 export interface ResolvedBlockStyle extends FlyerBlockCssVars {
 	/** True when the block paints a box, which is what earns it a radius and shadow. */
 	hasBox: boolean;
 	/** Mirrored as an attribute: some of the reflow needs a selector, not a value. */
 	align: FlyerTextAlign;
+	/** The title and body slot alignments, mirrored the same way: the icon row
+	 *  follows the title, list rows and capped boxes follow the body. */
+	titleAlign: FlyerTextAlign;
+	bodyAlign: FlyerTextAlign;
 }
 
 const JUSTIFY: Record<FlyerTextAlign, string> = {
@@ -71,9 +89,18 @@ const BOX_MARGINS: Record<FlyerTextAlign, [string, string]> = {
 
 const TEXT_SHADOW = '0 2px 6px rgba(0, 0, 0, 0.65), 0 1px 2px rgba(0, 0, 0, 0.5)';
 
+/** Which flat field each slot's colour falls back to — the pre-slots look, kept
+ *  so every saved flyer renders exactly as it did. */
+const SLOT_COLOR_FALLBACK: Record<FlyerFontSlot, 'headingColor' | 'textColor'> = {
+	title: 'headingColor',
+	emphasis: 'headingColor',
+	body: 'textColor',
+};
+
 /**
- * One slot's resolved spec: the block default, then the theme's, then the block's
- * own override — each layer only replaces the fields it sets, like the flat fields.
+ * One slot's resolved spec. Layers, later winning: the block's default slot, the
+ * flat fields the pre-slot editor wrote (colour and alignment), the theme's slot,
+ * the block's own slot. Each layer only replaces the fields it sets.
  */
 function resolveSlot(
 	slot: FlyerFontSlot,
@@ -81,20 +108,38 @@ function resolveSlot(
 	theme?: FlyerTheme | null,
 	blockStyles?: Partial<Record<string, FlyerBlockStyle>> | null,
 	defaults: Record<string, FlyerBlockStyle> = FLYER_BLOCK_STYLE_DEFAULTS,
-): Required<Pick<FlyerFontSpec, 'family' | 'scale'>> {
+): Required<Pick<FlyerSlotSpec, 'family' | 'scale' | 'color' | 'align'>> {
+	const flat: FlyerBlockStyle = {
+		...defaults[blockId],
+		...definedFields(theme as FlyerBlockStyle | undefined),
+		...definedFields(blockStyles?.[blockId]),
+	};
+	// The pre-slots resolution the flat fields produced — identical look, by slot
+	const flatHeading = flat.headingColor ?? flat.textColor ?? '#111827';
+	const flatBody = flat.textColor ?? '#111827';
 	const layers = [
 		defaults[blockId]?.fonts?.[slot],
+		{
+			color: SLOT_COLOR_FALLBACK[slot] === 'headingColor' ? flatHeading : flatBody,
+			align: flat.textAlign,
+		},
 		theme?.fonts?.[slot],
 		blockStyles?.[blockId]?.fonts?.[slot],
 	];
-	const spec: FlyerFontSpec = {};
+	const spec: FlyerSlotSpec = {};
 	for (const layer of layers) {
 		if (!layer) continue;
-		// Later layers win: defaults first, then the theme, then the block itself
 		if (layer.family !== undefined) spec.family = layer.family;
 		if (layer.scale !== undefined) spec.scale = layer.scale;
+		if (layer.color !== undefined) spec.color = layer.color;
+		if (layer.align !== undefined) spec.align = layer.align;
 	}
-	return { family: spec.family ?? 'inherit', scale: spec.scale ?? 100 };
+	return {
+		family: spec.family ?? 'inherit',
+		scale: spec.scale ?? 100,
+		color: spec.color ?? flatBody,
+		align: spec.align ?? 'left',
+	};
 }
 
 /**
@@ -152,16 +197,23 @@ export function resolveBlockStyle(
 	const align = merged.textAlign ?? 'left';
 	const [boxMarginLeft, boxMarginRight] = BOX_MARGINS[align];
 
-	const fontVars = {} as Record<`--fb-${FlyerFontSlot}-font` | `--fb-${FlyerFontSlot}-scale`, string>;
+	const slotVars = {} as FlyerBlockCssVarsSlots;
+	const slotAligns = {} as Pick<ResolvedBlockStyle, 'titleAlign' | 'bodyAlign'>;
 	for (const slot of FLYER_FONT_SLOTS) {
 		const spec = resolveSlot(slot, blockId, theme, blockStyles, defaults);
-		fontVars[`--fb-${slot}-font`] = FLYER_FONT_STACKS[spec.family];
-		fontVars[`--fb-${slot}-scale`] = String(spec.scale / 100);
+		slotVars[`--fb-${slot}-font`] = FLYER_FONT_STACKS[spec.family];
+		slotVars[`--fb-${slot}-scale`] = String(spec.scale / 100);
+		slotVars[`--fb-${slot}-color`] = spec.color;
+		slotVars[`--fb-${slot}-align`] = spec.align;
+		slotVars[`--fb-${slot}-justify`] = JUSTIFY[spec.align];
+		if (slot === 'title') slotAligns.titleAlign = spec.align;
+		if (slot === 'body') slotAligns.bodyAlign = spec.align;
 	}
 
 	return {
 		hasBox,
 		align,
+		...slotAligns,
 		'--fb-bg': hasBox ? toRgba(merged.backgroundColor!, opacity) : 'transparent',
 		'--fb-text': merged.textColor ?? '#111827',
 		'--fb-heading': merged.headingColor ?? merged.textColor ?? '#111827',
@@ -171,7 +223,7 @@ export function resolveBlockStyle(
 		'--fb-justify': JUSTIFY[align],
 		'--fb-box-ml': boxMarginLeft,
 		'--fb-box-mr': boxMarginRight,
-		...fontVars,
+		...slotVars,
 	};
 }
 
@@ -225,6 +277,10 @@ export interface ContrastCheck {
  * With no box we cannot know the artwork's colour under that spot, so we compare
  * against the scrim over a mid-grey: it catches white-on-white and black-on-black,
  * which is what people hit, without pretending to sample the image.
+ *
+ * Deliberately the body slot only: the designed heading colours (blue on grey in
+ * the heuristic's fake background) would flag every stock block the moment the
+ * editor opens, crying wolf until nobody reads the warning anymore.
  */
 export function checkBlockContrast(
 	blockId: string,
@@ -233,7 +289,7 @@ export function checkBlockContrast(
 	defaults: Record<string, FlyerBlockStyle> = FLYER_BLOCK_STYLE_DEFAULTS,
 ): ContrastCheck {
 	const resolved = resolveBlockStyle(blockId, theme, blockStyles, defaults);
-	const text = resolved['--fb-text'];
+	const text = resolved['--fb-body-color'];
 
 	let background = '#808080';
 	if (resolved.hasBox) {

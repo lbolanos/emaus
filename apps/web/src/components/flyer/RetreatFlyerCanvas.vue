@@ -214,23 +214,58 @@ const blocksInSlot = computed(() => {
 	text-align: var(--fb-align, left);
 }
 
-/* Per-slot typefaces: each kind of lettering inside a block picks its own family.
-   The size travel with the element (calc classes); the family rides the slot class. */
+/* Per-slot lettering: family, colour and alignment ride the slot class; the size
+   travels with each element (its calc class). */
 .print-optimized .fb-title {
 	font-family: var(--fb-title-font, inherit);
+	color: var(--fb-title-color, var(--fb-heading));
+	text-align: var(--fb-title-align, var(--fb-align, left));
 }
 
 .print-optimized .fb-emphasis {
 	font-family: var(--fb-emphasis-font, inherit);
+	color: var(--fb-emphasis-color, var(--fb-heading));
+	text-align: var(--fb-emphasis-align, var(--fb-align, left));
 }
 
 .print-optimized .fb-body {
 	font-family: var(--fb-body-font, inherit);
+	color: var(--fb-body-color, var(--fb-text));
+	text-align: var(--fb-body-align, var(--fb-align, left));
 }
 
 .print-optimized .fb-lead,
 .print-optimized .fb-row {
 	justify-content: var(--fb-justify, flex-start);
+}
+
+/* The furniture follows its slot: the lead row (icon + title) the title slot,
+   list rows and notes the body slot. Falls back to the block-wide alignment. */
+.print-optimized .fb-lead {
+	justify-content: var(--fb-title-justify, var(--fb-justify, flex-start));
+}
+
+.print-optimized .fb-row {
+	justify-content: var(--fb-body-justify, var(--fb-justify, flex-start));
+}
+
+.print-optimized [data-title-align='center'] .fb-lead,
+.print-optimized [data-body-align='center'] .fb-row {
+	flex-direction: column;
+	align-items: center;
+}
+
+/* Stacked, the child that used to take the leftover width would grow in height
+   instead — same fix the block-wide centring already applies. */
+.print-optimized [data-title-align='center'] .fb-lead > .flex-1 {
+	flex: none;
+	width: 100%;
+}
+
+.print-optimized [data-title-align='right'] .fb-lead,
+.print-optimized [data-body-align='right'] .fb-row {
+	flex-direction: row-reverse;
+	justify-content: flex-start;
 }
 
 .print-optimized [data-align='center'] .fb-lead {
