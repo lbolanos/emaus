@@ -55,7 +55,7 @@
             <div class="col-span-3">
               <div class="relative">
                 <gmp-place-autocomplete
-                  v-if="address1_is_editing"
+                  v-if="address1_is_editing && mapsLibReady"
                   ref="autocompleteField"
                   class="w-full"
                   placeholder="Buscar dirección..."
@@ -664,6 +664,10 @@ const emit = defineEmits<{ (e: 'update:open', value: boolean): void; (e: 'submit
 const { toast } = useToast();
 const currentStep = ref(1);
 const address1_is_editing = ref(true);
+// gmp-place-autocomplete solo existe si la librería places de Google ya cargó;
+// sin esto el elemento queda sin definir (0x0, sin input) y la validación
+// igual exige la dirección.
+const mapsLibReady = ref(false);
 const mapLoading = ref(false);
 const isSubmitting = ref(false);
 const hasUnsavedChanges = ref(false);
@@ -705,30 +709,30 @@ const timezoneOptions = computed(() => {
 });
 
 const step1Schema = z.object({
-  name: z.string().min(1, 'Name is required'),
-  address1: z.string().min(1, 'Address 1 is required'),
+  name: z.string().min(1, 'El nombre es obligatorio'),
+  address1: z.string().min(1, 'La dirección es obligatoria'),
   address2: z.string().optional(),
-  city: z.string().min(1, 'City is required'),
-  state: z.string().min(1, 'State is required'),
+  city: z.string().min(1, 'La ciudad es obligatoria'),
+  state: z.string().min(1, 'El estado es obligatorio'),
   zipCode: z.string().optional(),
-  country: z.string().min(1, 'Country is required'),
-  googleMapsUrl: z.string().url('Must be a valid URL').min(1, 'Google Maps URL is required'),
+  country: z.string().min(1, 'El país es obligatorio'),
+  googleMapsUrl: z.string().url('Debe ser una URL válida').min(1, 'La URL de Google Maps es obligatoria'),
   latitude: z.number().nullable(),
   longitude: z.number().nullable(),
 }).refine((data: any) => data.latitude !== null && data.longitude !== null, {
-    message: "A valid address with location is required. Please use the autocomplete.",
+    message: "Selecciona una dirección de la lista de sugerencias de Google para completar ubicación, ciudad, estado y país.",
     path: ["address1"],
 });
 
 const step2Schema = z.object({
   beds: z.array(z.object({
-    roomNumber: z.string().min(1, 'Required'),
-    bedNumber: z.string().min(1, 'Required'),
+    roomNumber: z.string().min(1, 'La habitación es obligatoria'),
+    bedNumber: z.string().min(1, 'El número de cama es obligatorio'),
     floor: z.number().int().optional(),
-    type: z.string().min(1, 'Type is required'),
-    defaultUsage: z.string().min(1, 'Usage is required'),
+    type: z.string().min(1, 'El tipo es obligatorio'),
+    defaultUsage: z.string().min(1, 'El uso es obligatorio'),
     floorLabel: z.string().nullable().optional(),
-  })).min(1, 'At least one bed is required'),
+  })).min(1, 'Se necesita al menos una cama'),
 });
 
 const step3Schema = z.object({
@@ -856,14 +860,14 @@ const validateField = (fieldName: string) => {
 
   // Create a partial schema with just the field we want to validate
   const fieldSchemaMap: Record<string, z.ZodTypeAny> = {
-    name: z.string().min(1, 'Name is required'),
-    address1: z.string().min(1, 'Address 1 is required'),
+    name: z.string().min(1, 'El nombre es obligatorio'),
+    address1: z.string().min(1, 'La dirección es obligatoria'),
     address2: z.string().optional(),
-    city: z.string().min(1, 'City is required'),
-    state: z.string().min(1, 'State is required'),
+    city: z.string().min(1, 'La ciudad es obligatoria'),
+    state: z.string().min(1, 'El estado es obligatorio'),
     zipCode: z.string().optional(),
-    country: z.string().min(1, 'Country is required'),
-    googleMapsUrl: z.string().url('Must be a valid URL').min(1, 'Google Maps URL is required'),
+    country: z.string().min(1, 'El país es obligatorio'),
+    googleMapsUrl: z.string().url('Debe ser una URL válida').min(1, 'La URL de Google Maps es obligatoria'),
     latitude: z.number().nullable(),
     longitude: z.number().nullable(),
   };
@@ -1468,6 +1472,25 @@ watch(() => props.open, async (isOpen) => {
     showBulkOperations.value = false;
     Object.keys(formErrors).forEach(key => delete formErrors[key]);
     address1_is_editing.value = !formData.value.address1;
+
+    mapsLibReady.value = !!window.google?.maps;
+    if (!mapsLibReady.value) {
+      try {
+        await loadGoogleMaps();
+      } catch {
+        // Sin librería el buscador no estará disponible; el campo cae al
+        // input readonly y el toast explica qué pasó.
+      }
+      mapsLibReady.value = !!window.google?.maps;
+      if (!mapsLibReady.value && address1_is_editing.value) {
+        toast({
+          title: 'Buscador de direcciones no disponible',
+          description:
+            'No se pudo cargar Google Maps. Revisa tu conexión e intenta de nuevo más tarde.',
+          variant: 'destructive',
+        });
+      }
+    }
 
     await nextTick();
     if (autocompleteField.value) {
