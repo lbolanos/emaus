@@ -160,9 +160,40 @@
 			<div
 				class="order-first min-w-0 sticky top-0 z-20 -mx-4 border-b bg-gray-100 px-4 pb-3 pt-2 lg:static lg:order-none lg:mx-0 lg:border-0 lg:bg-transparent lg:px-0 lg:pb-0"
 			>
-				<h2 class="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-					{{ t('retreatFlyerEditor.preview') }}
-				</h2>
+				<div class="mb-2 flex items-center justify-between gap-2">
+					<h2 class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+						{{ t('retreatFlyerEditor.preview') }}
+					</h2>
+					<!-- Shrink the preview so the whole flyer fits the pane at a glance -->
+					<div class="flex items-center gap-1" data-preview-zoom>
+						<button
+							type="button"
+							class="rounded border border-muted p-1 text-muted-foreground hover:text-foreground disabled:opacity-30"
+							:aria-label="t('retreatFlyerEditor.zoomOut')"
+							:disabled="previewZoom <= 0.4"
+							@click="previewZoom = Math.max(0.4, previewZoom - 0.1)"
+						>
+							<Minus class="h-3.5 w-3.5" />
+						</button>
+						<button
+							type="button"
+							class="w-11 text-center text-[11px] tabular-nums text-muted-foreground"
+							:title="t('retreatFlyerEditor.zoomReset')"
+							@click="previewZoom = 1"
+						>
+							{{ Math.round(previewZoom * 100) }}%
+						</button>
+						<button
+							type="button"
+							class="rounded border border-muted p-1 text-muted-foreground hover:text-foreground disabled:opacity-30"
+							:aria-label="t('retreatFlyerEditor.zoomIn')"
+							:disabled="previewZoom >= 1"
+							@click="previewZoom = Math.min(1, previewZoom + 0.1)"
+						>
+							<Plus class="h-3.5 w-3.5" />
+						</button>
+					</div>
+				</div>
 				<!--
 					The ref goes here, on the box the flyer actually has to fit into: measuring
 					the wrapper counted its padding as usable width and the flyer overflowed.
@@ -183,7 +214,7 @@
 						:theme="store.theme"
 						:block-styles="store.blockStyles"
 						:registration-link="walkerRegistrationLink"
-						:scale="previewScale"
+						:scale="effectivePreviewScale"
 						editable
 						:selected-block-id="store.selectedBlockId"
 						:highlight-slot="store.highlightSlot"
@@ -202,7 +233,7 @@
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import { onBeforeRouteLeave, useRoute } from 'vue-router';
 import { useI18n } from 'vue-i18n';
-import { ArrowLeft, Loader2, Redo2, RotateCcw, Undo2 } from 'lucide-vue-next';
+import { ArrowLeft, Loader2, Minus, Plus, Redo2, RotateCcw, Undo2 } from 'lucide-vue-next';
 import { Button, Card, CardContent, Tabs, TabsContent, TabsList, TabsTrigger } from '@repo/ui';
 import { useRetreatStore } from '@/stores/retreatStore';
 import { getRetreatFlyerOptions } from '@/services/api';
@@ -288,6 +319,10 @@ function jumpToTextField(overrideKey: string) {
 	nextTick(() => settle());
 }
 
+/** Manual zoom on top of the width fit: shrink until the whole flyer fits. */
+const previewZoom = ref(1);
+const effectivePreviewScale = computed(() => previewScale.value * previewZoom.value);
+
 const updateScale = () => {
 	if (!previewColumnRef.value) return;
 	previewScale.value = Math.min(previewColumnRef.value.clientWidth / 850, 1);
@@ -298,7 +333,7 @@ const updateScale = () => {
 /** A scaled element keeps its unscaled layout box, so reserve the scaled height. */
 const previewHeight = computed(() => {
 	if (previewScale.value >= 1 || !canvasHeight.value) return undefined;
-	return `${canvasHeight.value * previewScale.value}px`;
+	return `${canvasHeight.value * effectivePreviewScale.value}px`;
 });
 
 function discard() {

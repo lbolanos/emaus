@@ -89,7 +89,7 @@
 				:values="theme"
 				:palette="imagePalette"
 				@update="(key, value) => emit('updateTheme', key, value)"
-				@hover-slot="(slot) => emit('hoverSlot', slot)"
+				@hover-slot="(slot) => emit('hoverSlot', slot ? { slot, blockId: null } : null)"
 			/>
 
 			<div class="space-y-1.5 border-t pt-3">
@@ -246,7 +246,7 @@
 					:palette="imagePalette"
 					:text-shadow-default="blockTextShadowDefault"
 					@update="(key, value) => emit('updateBlockStyle', selectedBlockId!, key, value)"
-					@hover-slot="(slot) => emit('hoverSlot', slot)"
+					@hover-slot="(slot) => emit('hoverSlot', slot ? { slot, blockId: selectedBlockId } : null)"
 				/>
 			</div>
 			<p v-else class="text-[11px] text-muted-foreground">
@@ -318,7 +318,7 @@ const emit = defineEmits<{
 	clearBlockStyle: [blockId: string];
 	toggleVisibility: [blockId: string];
 	selectBlock: [blockId: string];
-	hoverSlot: [slot: string | null];
+	hoverSlot: [payload: { slot: string; blockId: string | null } | null];
 }>();
 
 const { t } = useI18n();

@@ -4380,6 +4380,9 @@
     "discardDraft": "Descartar borrador",
     "draftRecovered": "Se recuperó tu borrador sin guardar del {0}. Sigue editando o descártalo.",
     "preview": "Vista previa",
+    "zoomIn": "Aumentar la vista previa",
+    "zoomOut": "Reducir la vista previa",
+    "zoomReset": "Volver al 100%",
     "resetLayout": "Restaurar distribución original",
     "tabs": {
       "images": "Imágenes",

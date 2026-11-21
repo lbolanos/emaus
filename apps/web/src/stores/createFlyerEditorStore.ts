@@ -54,10 +54,11 @@ export function createFlyerEditorStoreSetup<TBlock extends AnyBlockLayout>(
 		/** Which block the editor panel is showing the style of. */
 		const selectedBlockId = ref<string | null>(null);
 		/**
-		 * Which typography slot the pointer is over in the panel, so the canvas can
-		 * glow exactly the lines that slot drives — the answer to "¿qué es cada rol?".
+		 * Which typography slot the pointer is over in the panel, and on which
+		 * block it applies — the block's own section glows that block only; the
+		 * whole-flyer panel glows every block. The answer to "¿qué es cada rol?".
 		 */
-		const highlightSlot = ref<string | null>(null);
+		const highlightSlot = ref<{ slot: string; blockId: string | null } | null>(null);
 		const savedSnapshot = ref('');
 		/** Set while the editor holds a draft recovered from localStorage. */
 		const draftRestoredAt = ref<Date | null>(null);
@@ -302,8 +303,8 @@ export function createFlyerEditorStoreSetup<TBlock extends AnyBlockLayout>(
 			selectedBlockId.value = blockId;
 		}
 
-		function setHighlightSlot(slot: string | null) {
-			highlightSlot.value = slot;
+		function setHighlightSlot(payload: { slot: string; blockId: string | null } | null) {
+			highlightSlot.value = payload;
 		}
 
 		/** An undefined value clears the field so the layer below shows through again. */

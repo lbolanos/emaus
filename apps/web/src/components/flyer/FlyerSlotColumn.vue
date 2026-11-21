@@ -11,7 +11,7 @@
 			:key="block.id"
 			:data-flyer-block="block.id"
 			:data-align="stylesById[block.id]?.align"
-			:data-highlight-slot="highlightSlot"
+			:data-highlight-slot="highlightFor(block.id)"
 			:data-title-align="stylesById[block.id]?.titleAlign"
 			:data-body-align="stylesById[block.id]?.bodyAlign"
 			:style="styleFor(block.id)"
@@ -62,7 +62,7 @@ const props = withDefaults(
 		styleDefaults?: Record<string, FlyerBlockStyle>;
 		editable?: boolean;
 		selectedBlockId?: string | null;
-		highlightSlot?: string | null;
+		highlightSlot?: { slot: string; blockId: string | null } | null;
 		emptyLabel?: string;
 	}>(),
 	{
@@ -91,6 +91,14 @@ const stylesById = computed(() => {
 	}
 	return result;
 });
+
+/** The hover glow only reaches its own block; the whole-flyer panel (null
+ *  blockId) reaches every one of them. */
+function highlightFor(blockId: string): string | null {
+	const highlight = props.highlightSlot;
+	if (!highlight) return null;
+	return highlight.blockId && highlight.blockId !== blockId ? null : highlight.slot;
+}
 
 function styleFor(blockId: string) {
 	const { hasBox: _hasBox, align: _align, titleAlign: _t, bodyAlign: _b, ...cssVars } =

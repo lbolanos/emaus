@@ -4058,6 +4058,9 @@
     "discardDraft": "Discard draft",
     "draftRecovered": "Recovered your unsaved draft from {0}. Keep editing or discard it.",
     "preview": "Preview",
+    "zoomIn": "Increase preview size",
+    "zoomOut": "Decrease preview size",
+    "zoomReset": "Back to 100%",
     "resetLayout": "Restore the original layout",
     "tabs": {
       "images": "Images",

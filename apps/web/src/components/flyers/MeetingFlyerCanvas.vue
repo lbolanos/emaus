@@ -122,7 +122,7 @@ const props = withDefaults(
 		/** Turns the flyer into a drop target. Off for the read-only view. */
 		editable?: boolean;
 		selectedBlockId?: string | null;
-	highlightSlot?: string | null;
+	highlightSlot?: { slot: string; blockId: string | null } | null;
 		emptySlotLabel?: string;
 	}>(),
 	{ scale: 1, editable: false, emptySlotLabel: '', printable: true },

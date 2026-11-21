@@ -117,8 +117,10 @@ const props = withDefaults(
 		/** Turns the flyer into a drop target. Off for the read-only view. */
 		editable?: boolean;
 		selectedBlockId?: string | null;
-		/** Slot whose panel row the pointer is on: its lines glow on canvas. */
-		highlightSlot?: string | null;
+		/** Slot whose panel row the pointer is on: its lines glow on canvas. The
+		 *  blockId scopes the glow to one block; null means every block (the
+		 *  whole-flyer panel). */
+		highlightSlot?: { slot: string; blockId: string | null } | null;
 		emptySlotLabel?: string;
 	}>(),
 	{ scale: 1, editable: false, emptySlotLabel: '', printable: true },
