@@ -11,8 +11,20 @@ const SAMPLE_SIZE = 32;
 export async function averageImageLuminance(url: string): Promise<number> {
 	const image = new Image();
 	// Needed for the canvas to stay readable with an S3-hosted background
+
+/**
+ * A cached non-CORS copy of this URL — the flyer's own background load — is
+ * served to the CORS request without the ACAO header and the load dies with
+ * "No se pudo leer la imagen de fondo" (S3 answers the header only on a fresh
+ * request). Bust the cache for this read-only fetch; data URIs need nothing.
+ */
+function corsReadableSrc(url: string): string {
+	if (url.startsWith('data:')) return url;
+	return url + (url.includes('?') ? '&' : '?') + 'flyer-reader=' + Date.now();
+}
+
 	image.crossOrigin = 'anonymous';
-	image.src = url;
+	image.src = corsReadableSrc(url);
 
 	await new Promise<void>((resolve, reject) => {
 		image.onload = () => resolve();
