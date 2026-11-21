@@ -47,8 +47,6 @@ jobs:
         NODE_OPTIONS: '--max-old-space-size=8192'
         # Set default production environment variables
         VITE_API_URL: https://emaus.cc/api
-        # Google Maps API key should be set as repository secret
-        VITE_GOOGLE_MAPS_API_KEY: ${{ secrets.VITE_GOOGLE_MAPS_API_KEY }}
 
     - name: Create release archives
       run: |
@@ -85,7 +83,6 @@ jobs:
         export RELEASE_TAG=${{ github.ref_name }}
         # Set environment variables (required for production)
         export VITE_API_URL=https://your-api-domain.com/api
-        export VITE_GOOGLE_MAPS_API_KEY=your-google-maps-key
         ./release-from-github.sh
         \`\`\`
 
@@ -151,8 +148,6 @@ jobs:
         echo "export GITHUB_REPO=${{ github.repository }}" >> $GITHUB_STEP_SUMMARY
         echo "export RELEASE_TAG=$RELEASE_VERSION" >> $GITHUB_STEP_SUMMARY
         echo "export VITE_API_URL=https://your-api-domain.com/api" >> $GITHUB_STEP_SUMMARY
-        echo "export VITE_GOOGLE_MAPS_API_KEY=your-google-maps-key" >> $GITHUB_STEP_SUMMARY
         echo "./release-from-github.sh" >> $GITHUB_STEP_SUMMARY
         echo '```' >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
-        echo "⚠️ **Note:** Set VITE_GOOGLE_MAPS_API_KEY as a repository secret" >> $GITHUB_STEP_SUMMARY

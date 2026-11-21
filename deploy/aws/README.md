@@ -91,7 +91,6 @@ This installs Node.js, pnpm, PM2, Nginx, and other dependencies.
 # Set environment variables
 export RELEASE_TAG=v1.0.0               # GitHub release tag to deploy
 export DOMAIN_NAME=yourdomain.com       # Optional: enables SSL with Let's Encrypt
-export VITE_GOOGLE_MAPS_API_KEY=your-key  # Optional
 
 # Deploy from GitHub release
 ./deploy-aws.sh
@@ -157,7 +156,6 @@ export DOMAIN_NAME=yourdomain.com     # Optional: for SSL setup
 | `RELEASE_TAG`              | GitHub release version to deploy                   | -                      | Yes      |
 | `DOMAIN_NAME`              | Domain name for SSL (triggers automatic SSL setup) | -                      | No       |
 | `VITE_API_URL`             | Frontend API URL                                   | `https://emaus.cc/api` | No       |
-| `VITE_GOOGLE_MAPS_API_KEY` | Google Maps API key                                | Empty                  | No       |
 | `API_PORT`                 | API server port                                    | `3001`                 | No       |
 
 ## Managing Instances

@@ -233,7 +233,6 @@ echo -e "${BLUE}🔧 Setting up runtime configuration...${NC}"
 
 # Load environment variables
 VITE_API_URL=${VITE_API_URL:-https://emaus.cc/api}
-VITE_GOOGLE_MAPS_API_KEY=${VITE_GOOGLE_MAPS_API_KEY:-}
 
 if [ -f "apps/web/.env.production" ]; then
     export $(grep -v '^#' apps/web/.env.production | grep -v '^$' | xargs)
@@ -299,7 +298,6 @@ const isProduction = environment === 'production';
 
 window.EMAUS_RUNTIME_CONFIG = {
     apiUrl: getApiUrl(environment),
-    googleMapsApiKey: '$VITE_GOOGLE_MAPS_API_KEY',
     environment,
     isDevelopment,
     isStaging,
