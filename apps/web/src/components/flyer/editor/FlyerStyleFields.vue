@@ -59,9 +59,9 @@
 			:key="slot"
 			:name="`font-${slot}`"
 			:title="t(`retreatFlyerEditor.design.slot.${slot}`)"
-			:open="openSlots[slot] ?? false"
+			:open="openSlot === slot"
 			:data-font-slot-section="slot"
-			@update:open="(open) => (openSlots[slot] = open)"
+			@update:open="(open) => (openSlot = open ? slot : null)"
 			@mouseenter="emit('hoverSlot', slot)"
 			@mouseleave="emit('hoverSlot', null)"
 		>
@@ -301,7 +301,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, reactive } from 'vue';
+import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { AlignCenter, AlignLeft, AlignRight, Minus, Plus, RotateCcw } from 'lucide-vue-next';
 import { Label } from '@repo/ui';
@@ -337,8 +337,9 @@ const emit = defineEmits<{
 
 const { t } = useI18n();
 
-/** Slot sections ship collapsed: three open cards crowded the panel. */
-const openSlots = reactive<Partial<Record<FlyerFontSlot, boolean>>>({});
+/** Slot sections ship collapsed and behave as an accordion — opening one
+ *  closes the others: three open cards crowded the panel. */
+const openSlot = ref<FlyerFontSlot | null>(null);
 
 /** One glance at what the closed section holds: family and size. */
 function slotSummary(slot: FlyerFontSlot): string {
