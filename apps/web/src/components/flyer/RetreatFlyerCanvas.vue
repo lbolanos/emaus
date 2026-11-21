@@ -241,6 +241,26 @@ const blocksInSlot = computed(() => {
 	text-shadow: var(--fb-shadow, none);
 }
 
+/* The slot's own veil: behind this role's lines only (highlight the date,
+   the price), separate from the block-wide background. */
+.print-optimized .fb-title {
+	background-color: var(--fb-title-bg, transparent);
+	border-radius: var(--fb-title-radius, 0);
+	padding: var(--fb-title-pad, 0);
+}
+
+.print-optimized .fb-emphasis {
+	background-color: var(--fb-emphasis-bg, transparent);
+	border-radius: var(--fb-emphasis-radius, 0);
+	padding: var(--fb-emphasis-pad, 0);
+}
+
+.print-optimized .fb-body {
+	background-color: var(--fb-body-bg, transparent);
+	border-radius: var(--fb-body-radius, 0);
+	padding: var(--fb-body-pad, 0);
+}
+
 /* Per-slot lettering: family, colour, alignment and shadow ride the slot class;
    the size travels with each element (its calc class). */
 .print-optimized .fb-title {

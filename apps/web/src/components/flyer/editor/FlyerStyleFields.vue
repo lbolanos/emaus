@@ -229,6 +229,56 @@
 					</button>
 				</div>
 			</div>
+
+			<!-- Veil behind this role's lines only (highlight the date, the price),
+			     separate from the block-wide background -->
+			<div class="flex items-center gap-2">
+				<span class="w-14 shrink-0 text-[11px] text-muted-foreground">
+					{{ t('retreatFlyerEditor.design.row.veil') }}
+				</span>
+				<div class="ml-auto flex items-center gap-1.5">
+					<button
+						v-for="option in VEIL_OPTIONS"
+						:key="option.id"
+						type="button"
+						class="rounded border px-2 py-1 text-[11px] transition-colors"
+						:class="
+							veilState(slot) === option.id
+								? 'border-primary bg-primary/10 text-foreground'
+								: 'border-muted text-muted-foreground hover:text-foreground'
+						"
+						:data-slot-veil="`${slot}:${option.id}`"
+						@click="option.color ? emitSlot(slot, 'backgroundColor', option.color) : clearVeil(slot)"
+					>
+						{{ t(`retreatFlyerEditor.design.background.${option.id}`) }}
+					</button>
+					<input
+						type="color"
+						class="h-6 w-8 cursor-pointer rounded border border-muted bg-transparent p-0.5"
+						:value="values.fonts?.[slot]?.backgroundColor ?? '#ffffff'"
+						@input="emitSlot(slot, 'backgroundColor', ($event.target as HTMLInputElement).value)"
+					/>
+				</div>
+			</div>
+			<div v-if="values.fonts?.[slot]?.backgroundColor" class="flex items-center gap-2">
+				<span class="w-14 shrink-0 text-[11px] text-muted-foreground">
+					{{ t('retreatFlyerEditor.design.opacity') }}
+				</span>
+				<input
+					type="range"
+					min="0"
+					max="100"
+					step="5"
+					class="ml-auto w-36"
+					:value="values.fonts?.[slot]?.backgroundOpacity ?? 85"
+					@input="
+						emitSlot(slot, 'backgroundOpacity', Number(($event.target as HTMLInputElement).value))
+					"
+				/>
+				<span class="w-10 text-right text-[11px] tabular-nums text-muted-foreground">
+					{{ values.fonts?.[slot]?.backgroundOpacity ?? 85 }}%
+				</span>
+			</div>
 		</FlyerPanelSection>
 
 		<label class="flex items-center gap-2 text-xs">
@@ -323,6 +373,28 @@ function shadowState(slot: FlyerFontSlot): 'auto' | 'on' | 'off' {
 	return shadow === undefined ? 'auto' : shadow ? 'on' : 'off';
 }
 
+const VEIL_OPTIONS = [
+	{ id: 'none', color: undefined },
+	{ id: 'light', color: '#ffffff' },
+	{ id: 'dark', color: '#000000' },
+] as const;
+
+/** Which veil shortcut is active: none, or the light/dark shade of the colour. */
+function veilState(slot: FlyerFontSlot): 'none' | 'light' | 'dark' | 'custom' {
+	const color = props.values.fonts?.[slot]?.backgroundColor;
+	if (!color) return 'none';
+	const normalized = color.toLowerCase();
+	if (normalized === '#ffffff') return 'light';
+	if (normalized === '#000000') return 'dark';
+	return 'custom';
+}
+
+/** "Ninguno" clears both fields, the same contract the block background uses. */
+function clearVeil(slot: FlyerFontSlot) {
+	emitSlot(slot, 'backgroundColor', undefined);
+	emitSlot(slot, 'backgroundOpacity', undefined);
+}
+
 /** 'inherit' renders in the panel's own font: it follows whatever layer is below. */
 const FONT_OPTIONS: { id: FlyerFontFamily }[] = [
 	{ id: 'inherit' },
@@ -365,8 +437,8 @@ function clearSlot(slot: FlyerFontSlot) {
  */
 function emitSlot(
 	slot: FlyerFontSlot,
-	field: 'family' | 'scale' | 'color' | 'align' | 'shadow',
-	raw: string | boolean | undefined,
+	field: 'family' | 'scale' | 'color' | 'align' | 'shadow' | 'backgroundColor' | 'backgroundOpacity',
+	raw: string | boolean | number | undefined,
 ) {
 	const value = field === 'scale' ? Number(raw) : raw;
 	const isDefault =

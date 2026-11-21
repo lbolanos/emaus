@@ -103,6 +103,10 @@ export const flyerSlotSpecSchema = z.object({
 	align: z.enum(['left', 'center', 'right']).optional(),
 	/** Text shadow for this slot alone; absent follows the block-wide flag. */
 	shadow: z.boolean().optional(),
+	/** Veil behind this slot's lines only (the date, the price), separate from
+	 *  the block-wide background. Absent colour means no veil at all. */
+	backgroundColor: hexColorSchema.optional(),
+	backgroundOpacity: z.number().int().min(0).max(100).optional(),
 });
 export type FlyerSlotSpec = z.infer<typeof flyerSlotSpecSchema>;
 /** @deprecated Renamed: a slot tunes more than its font. Alias kept for callers. */

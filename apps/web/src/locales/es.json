@@ -4492,7 +4492,8 @@
         "size": "Tamaño",
         "color": "Color",
         "align": "Alinear",
-        "shadow": "Sombra"
+        "shadow": "Sombra",
+        "veil": "Velo"
       },
       "shadowMode": {
         "auto": "Auto",

@@ -62,6 +62,13 @@ type FlyerBlockCssVarsSlots = {
 } & {
 	[K in `--fb-${FlyerFontSlot}-shadow`]: string;
 } & {
+	/** The slot's own veil, when it has one. */
+	[K in `--fb-${FlyerFontSlot}-bg`]: string;
+} & {
+	[K in `--fb-${FlyerFontSlot}-pad`]: string;
+} & {
+	[K in `--fb-${FlyerFontSlot}-radius`]: string;
+} & {
 	/** Auto margins that line up a width-capped emphasis box (the domain plate). */
 	'--fb-emph-ml': string;
 	'--fb-emph-mr': string;
@@ -114,7 +121,9 @@ function resolveSlot(
 	theme?: FlyerTheme | null,
 	blockStyles?: Partial<Record<string, FlyerBlockStyle>> | null,
 	defaults: Record<string, FlyerBlockStyle> = FLYER_BLOCK_STYLE_DEFAULTS,
-): Required<Pick<FlyerSlotSpec, 'family' | 'scale' | 'color' | 'align' | 'shadow'>> {
+): Required<
+	Pick<FlyerSlotSpec, 'family' | 'scale' | 'color' | 'align' | 'shadow' | 'backgroundColor' | 'backgroundOpacity'>
+> {
 	const flat: FlyerBlockStyle = {
 		...defaults[blockId],
 		...definedFields(theme as FlyerBlockStyle | undefined),
@@ -146,6 +155,8 @@ function resolveSlot(
 		if (layer.color !== undefined) spec.color = layer.color;
 		if (layer.align !== undefined) spec.align = layer.align;
 		if (layer.shadow !== undefined) spec.shadow = layer.shadow;
+		if (layer.backgroundColor !== undefined) spec.backgroundColor = layer.backgroundColor;
+		if (layer.backgroundOpacity !== undefined) spec.backgroundOpacity = layer.backgroundOpacity;
 	}
 	return {
 		family: spec.family ?? 'inherit',
@@ -153,6 +164,9 @@ function resolveSlot(
 		color: spec.color ?? flatBody,
 		align: spec.align ?? 'left',
 		shadow: spec.shadow ?? false,
+		// No veil colour means no veil; the opacity default only matters with one
+		backgroundColor: spec.backgroundColor ?? 'transparent',
+		backgroundOpacity: spec.backgroundOpacity ?? 85,
 	};
 }
 
@@ -221,6 +235,13 @@ export function resolveBlockStyle(
 		slotVars[`--fb-${slot}-align`] = spec.align;
 		slotVars[`--fb-${slot}-justify`] = JUSTIFY[spec.align];
 		slotVars[`--fb-${slot}-shadow`] = spec.shadow ? TEXT_SHADOW : 'none';
+		// The slot veil: behind this role's lines only. Padding and radius ride
+		// along so a bare veil doesn't hug the letters.
+		const veilColor = spec.backgroundColor;
+		const hasVeil = veilColor !== undefined && veilColor !== 'transparent' && spec.backgroundOpacity > 0;
+		slotVars[`--fb-${slot}-bg`] = hasVeil ? toRgba(veilColor, spec.backgroundOpacity) : 'transparent';
+		slotVars[`--fb-${slot}-pad`] = hasVeil ? '0.2rem 0.55rem' : '0';
+		slotVars[`--fb-${slot}-radius`] = hasVeil ? '0.5rem' : '0';
 		if (slot === 'title') slotAligns.titleAlign = spec.align;
 		if (slot === 'body') slotAligns.bodyAlign = spec.align;
 		if (slot === 'emphasis') {

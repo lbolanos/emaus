@@ -4170,7 +4170,8 @@
         "size": "Size",
         "color": "Colour",
         "align": "Align",
-        "shadow": "Shadow"
+        "shadow": "Shadow",
+        "veil": "Veil"
       },
       "shadowMode": {
         "auto": "Auto",
