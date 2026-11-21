@@ -289,6 +289,17 @@ export function createFlyerEditorStoreSetup<TBlock extends AnyBlockLayout>(
 			);
 		}
 
+		/** Width within the column, set by dragging the block's resize edge. */
+		function setBlockWidth(blockId: string, width: number) {
+			const clamped = Math.min(100, Math.max(50, Math.round(width)));
+			pushUndo(`width:${blockId}`);
+			blocks.value = blocks.value.map((block) =>
+				block.id === blockId
+					? { ...block, width: clamped === 100 ? undefined : clamped }
+					: block,
+			);
+		}
+
 		function setImage(key: keyof FlyerImages, url: string | undefined) {
 			pushUndo();
 			images.value = { ...images.value, [key]: url || undefined };
@@ -433,6 +444,7 @@ export function createFlyerEditorStoreSetup<TBlock extends AnyBlockLayout>(
 			loadFrom,
 			moveBlock,
 			toggleVisibility,
+			setBlockWidth,
 			setImage,
 			setTextOverride,
 			toggleTextVisibility,

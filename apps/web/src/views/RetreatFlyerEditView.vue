@@ -228,6 +228,7 @@
 							:empty-slot-label="t('retreatFlyerEditor.emptySlot')"
 							@edit-text="jumpToTextField"
 							@move-block="store.moveBlock"
+							@resize-block="store.setBlockWidth"
 							@select-block="store.selectBlock"
 						/>
 					</div>

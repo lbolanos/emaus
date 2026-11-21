@@ -47,6 +47,7 @@
 					:empty-label="emptySlotLabel"
 					@drop-at="onDropAt"
 					@select-block="(id) => emit('selectBlock', id)"
+					@resize-block="(id, width) => emit('resizeBlock', id, width)"
 					@drag-block-start="draggingId = $event"
 					@drag-block-end="draggingId = null"
 				/>
@@ -68,6 +69,7 @@
 				:empty-label="emptySlotLabel"
 				@drop-at="onDropAt"
 				@select-block="(id) => emit('selectBlock', id)"
+				@resize-block="(id, width) => emit('resizeBlock', id, width)"
 				@drag-block-start="draggingId = $event"
 				@drag-block-end="draggingId = null"
 			/>
@@ -131,6 +133,8 @@ const props = withDefaults(
 const emit = defineEmits<{
 	moveBlock: [blockId: string, slot: FlyerSlot, index: number];
 	selectBlock: [blockId: string];
+	/** Edge-drag resize on a block. */
+	resizeBlock: [blockId: string, width: number];
 }>();
 
 /** Which block the pointer is carrying; the columns only report where it landed. */

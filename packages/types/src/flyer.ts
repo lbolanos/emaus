@@ -21,6 +21,9 @@ export const flyerBlockLayoutBaseSchema = z.object({
 	/** Position within its own slot. */
 	order: z.number().int().min(0),
 	visible: z.boolean().default(true),
+	/** Width of the block within its column, in percent (50–100; absent = 100).
+	 *  Set by dragging the block's resize edge in the editor. */
+	width: z.number().int().min(50).max(100).optional(),
 });
 export type FlyerBlockLayoutBase = z.infer<typeof flyerBlockLayoutBaseSchema>;
 

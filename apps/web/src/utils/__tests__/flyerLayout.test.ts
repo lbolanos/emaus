@@ -91,6 +91,20 @@ describe('resolveFlyerLayout', () => {
 			expect(resolved.blocks.find((b) => b.id === 'intro')?.slot).toBe('left');
 		});
 
+		it('carries an edge-drag width through, and drops it out of range', () => {
+			const resolved = resolveFlyerLayout({
+				layoutVersion: 2,
+				blocks: [
+					{ id: 'intro', slot: 'left', order: 0, visible: true, width: 70 },
+					{ id: 'payment', slot: 'right', order: 0, visible: true, width: 40 },
+				],
+			} as any);
+
+			expect(resolved.blocks.find((b) => b.id === 'intro')?.width).toBe(70);
+			// 40 is below the 50 floor: back to filling its column
+			expect(resolved.blocks.find((b) => b.id === 'payment')?.width).toBeUndefined();
+		});
+
 		it('ignores a duplicated block id, keeping the first occurrence', () => {
 			const resolved = resolveFlyerLayout({
 				layoutVersion: 2,

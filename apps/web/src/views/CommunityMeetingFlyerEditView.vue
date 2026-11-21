@@ -171,6 +171,7 @@
 						:highlight-slot="store.highlightSlot"
 						:empty-slot-label="t('meetingFlyerEditor.emptySlot')"
 						@move-block="store.moveBlock"
+						@resize-block="store.setBlockWidth"
 						@select-block="store.selectBlock"
 					/>
 				</div>

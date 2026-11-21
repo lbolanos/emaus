@@ -47,6 +47,7 @@
 					:empty-label="emptySlotLabel"
 					@drop-at="onDropAt"
 					@select-block="(id) => emit('selectBlock', id)"
+					@resize-block="(id, width) => emit('resizeBlock', id, width)"
 					@drag-block-start="draggingId = $event"
 					@drag-block-end="draggingId = null"
 				/>
@@ -66,6 +67,7 @@
 				:empty-label="emptySlotLabel"
 				@drop-at="onDropAt"
 				@select-block="(id) => emit('selectBlock', id)"
+				@resize-block="(id, width) => emit('resizeBlock', id, width)"
 				@drag-block-start="draggingId = $event"
 				@drag-block-end="draggingId = null"
 			/>
@@ -131,6 +133,8 @@ const emit = defineEmits<{
 	selectBlock: [blockId: string];
 	/** Double-clicked a text the Texts tab owns: jump to its field. */
 	editText: [overrideKey: string];
+	/** Edge-drag resize on a block. */
+	resizeBlock: [blockId: string, width: number];
 }>();
 
 /** Which block the pointer is carrying; the columns only report where it landed. */

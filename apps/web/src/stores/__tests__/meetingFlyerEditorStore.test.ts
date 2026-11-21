@@ -117,6 +117,29 @@ describe('meetingFlyerEditorStore', () => {
 			expect(store.isDirty).toBe(false);
 		});
 
+		it('sets the edge-drag width, clamped, and back to full at 100', () => {
+			const store = useMeetingFlyerEditorStore();
+			store.loadFromCommunity(communityWith());
+
+			store.setBlockWidth('description', 73);
+			expect(store.blocks.find((b) => b.id === 'description')?.width).toBe(73);
+			expect(store.isDirty).toBe(true);
+
+			// Out of range clamps instead of storing nonsense
+			store.setBlockWidth('description', 12);
+			expect(store.blocks.find((b) => b.id === 'description')?.width).toBe(50);
+
+			// Full width is the design state: stored as absent, not as a 100 —
+			// and with every width gone the draft matches what was saved
+			store.setBlockWidth('description', 100);
+			expect(store.blocks.find((b) => b.id === 'description')?.width).toBeUndefined();
+			expect(store.isDirty).toBe(false);
+
+			store.setBlockWidth('description', 60);
+			store.undo();
+			expect(store.blocks.find((b) => b.id === 'description')?.width).toBeUndefined();
+		});
+
 		it('hides a text and keeps its custom wording', () => {
 			const store = useMeetingFlyerEditorStore();
 			store.loadFromCommunity(communityWith({ footerTextOverride: '¡Nos vemos!' }));

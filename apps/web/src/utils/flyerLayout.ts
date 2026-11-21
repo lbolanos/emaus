@@ -18,6 +18,8 @@ export interface AnyBlockLayout {
 	slot: FlyerSlot;
 	order: number;
 	visible: boolean;
+	/** Width within the column (50–100), set by the editor's resize edge. */
+	width?: number;
 }
 
 /** Renumbers `order` to 0..n-1 within each slot, so gaps and ties can't survive a save. */
@@ -63,6 +65,11 @@ export function reconcileStoredBlocks<T extends AnyBlockLayout>(
 			slot: block.slot,
 			order: Number.isFinite(block.order) ? block.order : 0,
 			visible: block.visible !== false,
+			// Editor-set width survives the reconcile; anything out of range is
+			// dropped and the block goes back to filling its column
+			...(typeof block.width === 'number' && block.width >= 50 && block.width <= 100
+				? { width: Math.round(block.width) }
+				: {}),
 		} as T);
 	}
 
