@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, watch, nextTick } from 'vue';
+import { ref, onMounted, onBeforeUnmount, watch, nextTick } from 'vue';
 import { useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { useToast } from '@repo/ui';
@@ -173,6 +173,14 @@ const geocodeFromAddress = async () => {
 onMounted(async () => {
 	await nextTick();
 	initMap();
+});
+
+// Leaflet cuelga listeners de window (resize); sin remove() quedan vivos
+// tras navegar fuera de la página.
+onBeforeUnmount(() => {
+	map?.remove();
+	map = null;
+	marker = null;
 });
 
 const validate = (): boolean => {
