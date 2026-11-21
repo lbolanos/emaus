@@ -147,7 +147,6 @@ if [ -n "$MISSING_VARS" ]; then
     echo ""
     echo "Usage:"
     echo "  export DOMAIN_NAME=your-domain.com"
-    echo "  export VITE_GOOGLE_MAPS_API_KEY=your-api-key  # optional"
     echo "  $0"
     echo ""
     read -p "Enter domain name: " DOMAIN_NAME
@@ -252,7 +251,6 @@ print_header "📝 Creating production environment files..."
 mkdir -p apps/web
 cat > apps/web/.env.production << EOF
 VITE_API_URL=https://${DOMAIN_NAME}/api
-VITE_GOOGLE_MAPS_API_KEY=${VITE_GOOGLE_MAPS_API_KEY:-}
 EOF
 print_success "Web app .env.production created"
 

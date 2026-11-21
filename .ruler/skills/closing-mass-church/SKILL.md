@@ -33,20 +33,17 @@ Migration: `apps/api/src/migrations/sqlite/20260509000000_AddClosingChurchAndFam
 
 **Archivo:** `apps/web/src/components/RetreatModal.vue`.
 
-Tab nueva entre "Notes" y "Flyer" (`<TabsTrigger value="closing">Clausura</TabsTrigger>`). Reutiliza el patrón de `<gmp-place-autocomplete>` que ya existe en `AddEditHouseModal.vue:56-92`:
+Tab nueva entre "Notes" y "Flyer" (`<TabsTrigger value="closing">Clausura</TabsTrigger>`). Usa `AddressAutocomplete` (`apps/web/src/components/form/AddressAutocomplete.vue`, buscador sobre Photon/OpenStreetMap, sin API key):
 
 ```html
-<gmp-place-autocomplete
-  v-if="closingChurchAddressEditing"
-  ref="closingChurchAutocompleteField"
-  :requested-fields="['displayName', 'addressComponents', 'location']"
-  :value="formData.closingChurchAddress"
+<AddressAutocomplete
+  v-model="formData.closingChurchAddress"
+  placeholder="Buscar iglesia o dirección..."
+  @select="handleClosingAddressSelect"
 />
 ```
 
-`handleClosingPlaceChange` llena los 4 campos del retiro, usando `place.displayName` como fallback del nombre solo si el campo está vacío (no sobrescribe lo que el usuario haya tipeado).
-
-**Carga lazy de Google Maps**: el script `loadGoogleMaps()` se importa al activar la tab Clausura (watcher sobre `activeTab`) y al primer click sobre el input — evita cargar el SDK si el usuario no edita esa pestaña.
+`handleClosingAddressSelect` llena dirección, lat/lng y —solo si el campo está vacío— el nombre de la iglesia con `address.placeName` (no sobrescribe lo que el usuario haya tipeado). El buscador no carga ninguna librería externa al abrir la tab. Detalle: `docs/features/address-autocomplete-photon.md`.
 
 Bloque "Vista previa de URLs" muestra ambos links (Maps + Waze) construidos desde lat/lng, con botones Copiar/Abrir, para que el coordinador confirme antes de guardar qué URLs irán a las plantillas.
 

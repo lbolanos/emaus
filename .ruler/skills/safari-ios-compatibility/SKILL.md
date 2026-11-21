@@ -143,8 +143,9 @@ places library (~1.5 MB decoded) and reCAPTCHA (~0.8 MB), so the terms page and 
 privacy notice downloaded a map and a captcha they do not have — 3.89 MB of Google on
 a page that is text.
 
-Both preloads turned out to be **dead weight, not a trade-off**: the three screens
-that use Maps already `await loadGoogleMaps()` (the promise is cached), and
+Both preloads turned out to be **dead weight, not a trade-off**: the screens that used Maps already loaded the SDK themselves (and since
+nov 2026 Maps is gone entirely — address search runs on Photon, see
+`docs/features/address-autocomplete-photon.md`), and
 `getRecaptchaToken()` already awaits `loadRecaptchaScript()`. Nothing was being
 anticipated by loading them early.
 

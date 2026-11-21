@@ -163,7 +163,6 @@ NODE_ENV=production
 ```bash
 # Use environment variables, not hardcoded values
 VITE_API_URL=https://yourdomain.com/api
-VITE_GOOGLE_MAPS_API_KEY=your-google-maps-api-key
 ```
 
 ### 🔧 Setting Up Environment Variables
@@ -173,7 +172,6 @@ VITE_GOOGLE_MAPS_API_KEY=your-google-maps-api-key
 ```bash
 # Set at deployment time
 export VITE_API_URL=https://yourdomain.com/api
-export VITE_GOOGLE_MAPS_API_KEY=your-google-maps-key
 
 # Run deployment script
 ./release-from-github.sh
@@ -193,7 +191,6 @@ nano apps/web/.env.production
 
 1. Go to GitHub Repository Settings
 2. Navigate to Secrets and variables > Actions
-3. Add repository secret: `VITE_GOOGLE_MAPS_API_KEY`
 4. The GitHub workflow will automatically use this secret
 
 ### 🔄 Updating Environment Variables
@@ -205,7 +202,6 @@ nano apps/web/.env.production
 
 # Or set environment variables before running deployment:
 export VITE_API_URL=https://new-domain.com/api
-export VITE_GOOGLE_MAPS_API_KEY=new-key
 
 # Restart services to apply changes
 pm2 restart ecosystem.config.js

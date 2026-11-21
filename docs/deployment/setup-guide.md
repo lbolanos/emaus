@@ -77,14 +77,7 @@ Add each secret by clicking "New repository secret" and filling in the form:
 - **Example:** `emaus.cc`
 - **Used for:** SSL certificate setup, web app access
 
-#### 5. `VITE_GOOGLE_MAPS_API_KEY` (Optional)
-
-- **Name:** `VITE_GOOGLE_MAPS_API_KEY`
-- **Value:** Your Google Maps API key
-- **If empty:** Web app will work but map features may be disabled
-- **How to get:** https://developers.google.com/maps/documentation/javascript/get-api-key
-
-#### 6-9. Email Notification Secrets (Optional but Recommended)
+#### 5-8. Email Notification Secrets (Optional but Recommended)
 
 If you want email notifications on deployment:
 

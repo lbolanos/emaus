@@ -49,12 +49,10 @@ describe('runtimeConfig — VITE_API_URL resolution', () => {
 		expect(getApiUrl()).toBe('https://injected.test/api');
 	});
 
-	it('exposes build-time keys for maps and recaptcha', async () => {
-		vi.stubEnv('VITE_GOOGLE_MAPS_API_KEY', 'AIza-test-key');
+	it('exposes build-time key for recaptcha', async () => {
 		vi.stubEnv('VITE_RECAPTCHA_SITE_KEY', 'site-key-test');
-		const { getGoogleMapsApiKey, getRecaptchaSiteKey } = await loadFreshModule();
+		const { getRecaptchaSiteKey } = await loadFreshModule();
 
-		expect(getGoogleMapsApiKey()).toBe('AIza-test-key');
 		expect(getRecaptchaSiteKey()).toBe('site-key-test');
 	});
 });

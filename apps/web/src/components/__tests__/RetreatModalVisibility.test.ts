@@ -38,7 +38,6 @@ vi.mock('@/services/api', () => ({
 	preRetreatTaskTemplateApi: { listSets: vi.fn(async () => []) },
 }));
 
-vi.mock('@/utils/googleMaps', () => ({ loadGoogleMaps: vi.fn(async () => undefined) }));
 vi.mock('@/components/social/MemoryUploadForm.vue', () => ({
 	default: { name: 'MemoryUploadForm', template: '<div />' },
 }));

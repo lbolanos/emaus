@@ -205,7 +205,6 @@ APP_TIMEZONE=America/Mexico_City
 
 ```bash
 VITE_API_URL=https://emaus.cc/api
-VITE_GOOGLE_MAPS_API_KEY=<your-key>
 ```
 
 ### GitHub Secrets
@@ -218,7 +217,6 @@ For automatic deployment, configure these in GitHub Secrets:
 | `EC2_USER`                 | `ubuntu`                  | SSH username       |
 | `EC2_SSH_PRIVATE_KEY`      | Private key file contents | SSH authentication |
 | `DOMAIN_NAME`              | `emaus.cc`                | Domain name        |
-| `VITE_GOOGLE_MAPS_API_KEY` | Maps API key              | Maps functionality |
 
 ## Troubleshooting
 

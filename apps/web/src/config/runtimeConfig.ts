@@ -7,7 +7,6 @@
  */
 export interface EnvironmentConfig {
 	apiUrl: string;
-	googleMapsApiKey?: string;
 	recaptchaSiteKey?: string;
 	environment: 'development' | 'production' | 'staging';
 	isDevelopment: boolean;
@@ -17,7 +16,6 @@ export interface EnvironmentConfig {
 
 export interface RuntimeConfigOverrides {
 	apiUrl?: string;
-	googleMapsApiKey?: string;
 	recaptchaSiteKey?: string;
 	environment?: 'development' | 'production' | 'staging';
 }
@@ -102,7 +100,6 @@ class RuntimeConfigManager {
 		const isProduction = environment === 'production';
 
 		let apiUrl: string;
-		let googleMapsApiKey: string | undefined;
 		let recaptchaSiteKey: string | undefined;
 
 		// Priority order for configuration loading:
@@ -110,12 +107,10 @@ class RuntimeConfigManager {
 		if (window.EMAUS_RUNTIME_CONFIG) {
 			const runtimeConfig = window.EMAUS_RUNTIME_CONFIG;
 			apiUrl = runtimeConfig.apiUrl || this.getDefaultApiUrl(environment);
-			googleMapsApiKey = runtimeConfig.googleMapsApiKey;
 			recaptchaSiteKey = runtimeConfig.recaptchaSiteKey;
 			console.log('[CONFIG] Loaded from runtime configuration:', {
 				environment,
 				apiUrl,
-				googleMapsApiKey,
 				recaptchaSiteKey,
 				source: 'runtime-injected',
 			});
@@ -124,23 +119,19 @@ class RuntimeConfigManager {
 			// import.meta.env.* in the dev server and the bundle, so this is
 			// how VITE_API_URL actually reaches the app.
 			apiUrl = import.meta.env.VITE_API_URL || this.getDefaultApiUrl(environment);
-			googleMapsApiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
 			recaptchaSiteKey = import.meta.env.VITE_RECAPTCHA_SITE_KEY;
 			console.log('[CONFIG] Loaded from build-time environment:', {
 				environment,
 				apiUrl,
-				googleMapsApiKey,
 				recaptchaSiteKey,
 				source: 'build-time',
 			});
 		}
 
 		// Validate configuration
-		this.validateConfig({ apiUrl, googleMapsApiKey, recaptchaSiteKey, environment });
 
 		const config: EnvironmentConfig = {
 			apiUrl,
-			googleMapsApiKey,
 			recaptchaSiteKey,
 			environment,
 			isDevelopment,
@@ -187,9 +178,6 @@ class RuntimeConfigManager {
 			throw new Error(`[CONFIG] Invalid API URL: ${config.apiUrl}`);
 		}
 
-		if (config.googleMapsApiKey && !config.googleMapsApiKey.startsWith('AIza')) {
-			console.warn('[CONFIG] Google Maps API key may be invalid (should start with "AIza")');
-		}
 	}
 
 	/**
@@ -228,7 +216,6 @@ class RuntimeConfigManager {
 			// Update runtime config
 			window.EMAUS_RUNTIME_CONFIG = {
 				apiUrl: updatedConfig.apiUrl,
-				googleMapsApiKey: updatedConfig.googleMapsApiKey,
 				recaptchaSiteKey: updatedConfig.recaptchaSiteKey,
 				environment: updatedConfig.environment,
 				isDevelopment: updatedConfig.isDevelopment,
@@ -286,18 +273,6 @@ class RuntimeConfigManager {
 	}
 
 	/**
-	 * Get Google Maps API Key with error handling
-	 */
-	public getGoogleMapsApiKey(): string | undefined {
-		try {
-			return this.getConfig().googleMapsApiKey;
-		} catch (error) {
-			console.error('[CONFIG] Error getting Google Maps API key:', error);
-			return undefined;
-		}
-	}
-
-	/**
 	 * Get reCAPTCHA Site Key with error handling
 	 */
 	public getRecaptchaSiteKey(): string | undefined {
@@ -341,7 +316,6 @@ export const runtimeConfig = RuntimeConfigManager.getInstance();
 
 // Export convenient functions with backward compatibility
 export const getApiUrl = () => runtimeConfig.getApiUrl();
-export const getGoogleMapsApiKey = () => runtimeConfig.getGoogleMapsApiKey();
 export const getRecaptchaSiteKey = () => runtimeConfig.getRecaptchaSiteKey();
 export const isDevelopment = () => runtimeConfig.isDevelopment();
 export const isProduction = () => runtimeConfig.isProduction();
@@ -351,7 +325,6 @@ declare global {
 	interface Window {
 		EMAUS_RUNTIME_CONFIG?: {
 			apiUrl: string;
-			googleMapsApiKey?: string;
 			recaptchaSiteKey?: string;
 			environment?: 'development' | 'production' | 'staging';
 			isDevelopment?: boolean;

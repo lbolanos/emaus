@@ -15,7 +15,6 @@ Set variables **before** running the deployment script:
 ```bash
 # ✅ CORRECT - Set environment FIRST
 export VITE_API_URL=https://your-api-domain.com/api
-export VITE_GOOGLE_MAPS_API_KEY=your-google-maps-key
 
 # Then run deployment script
 ./release-from-github.sh
@@ -29,7 +28,6 @@ Add to GitHub repository settings **before** running workflow:
 # ✅ CORRECT - In GitHub Actions environment section
 env:
   VITE_API_URL: https://your-api-domain.com/api
-  VITE_GOOGLE_MAPS_API_KEY: ${{ secrets.VITE_GOOGLE_MAPS_API_KEY }}
 ```
 
 ### 3. Configuration Files
@@ -40,7 +38,6 @@ Create `.env` files **before** building:
 # ✅ CORRECT - Configuration files are read during build/deployment
 # apps/web/.env.production
 VITE_API_URL=https://your-api-domain.com/api
-VITE_GOOGLE_MAPS_API_KEY=your-google-maps-key
 
 # apps/api/.env
 DB_TYPE=sqlite
@@ -99,7 +96,6 @@ Runtime Config → Environment Detection → Dynamic Configuration → Live Appl
 
    ```bash
    export VITE_API_URL=https://prod.example.com/api
-   export VITE_GOOGLE_MAPS_API_KEY=your-key
    ./release-from-github.sh
    ```
 
@@ -108,7 +104,6 @@ Runtime Config → Environment Detection → Dynamic Configuration → Live Appl
    ```bash
    # apps/web/.env.production
    VITE_API_URL=https://prod.example.com/api
-   VITE_GOOGLE_MAPS_API_KEY=your-key
    pnpm build
    ```
 
@@ -141,13 +136,11 @@ Runtime Config → Environment Detection → Dynamic Configuration → Live Appl
 ```bash
 # ✅ CORRECT - Environment variables available during config generation
 VITE_API_URL=${VITE_API_URL:-https://emaus.cc/api}
-VITE_GOOGLE_MAPS_API_KEY=${VITE_GOOGLE_MAPS_API_KEY:-}
 
 # Runtime config is generated HERE with these variables
 cat > apps/web/dist/runtime-config.js << EOF
 window.EMAUS_RUNTIME_CONFIG = {
     apiUrl: '$(get_api_url production)',        # ✅ Uses environment variable
-    googleMapsApiKey: '$VITE_GOOGLE_MAPS_API_KEY',   # ✅ Uses environment variable
     // ...
 };
 EOF
@@ -157,7 +150,6 @@ EOF
 
 ```bash
 # Line 227 in release-from-github.sh
-VITE_GOOGLE_MAPS_API_KEY=${VITE_GOOGLE_MAPS_API_KEY:-}
 ```
 
 This line is **correctly placed** because:
@@ -173,7 +165,6 @@ This line is **correctly placed** because:
 ```bash
 # Method 1: Environment variables (recommended)
 export VITE_API_URL=https://your-domain.com/api
-export VITE_GOOGLE_MAPS_API_KEY=your-google-maps-key
 ./release-from-github.sh
 
 # Method 2: Configuration file
@@ -182,7 +173,6 @@ cp apps/web/.env.production.example apps/web/.env.production
 ./release-from-github.sh
 
 # Method 3: GitHub Actions
-# Set VITE_GOOGLE_MAPS_API_KEY as repository secret
 # Push tag to trigger build
 ```
 
@@ -204,7 +194,6 @@ pnpm dev
    ```bash
    # Verify variables are set BEFORE running script
    echo "API_URL: $VITE_API_URL"
-   echo "Maps Key: ${VITE_GOOGLE_MAPS_API_KEY:0:10}..."
    ./release-from-github.sh
    ```
 
@@ -219,7 +208,6 @@ pnpm dev
 3. **Verify Runtime Config**
    ```bash
    # Check generated runtime config file
-   cat apps/web/dist/runtime-config.js | grep -E "(apiUrl|googleMapsApiKey)"
    ```
 
 ### Google Maps API Key Issues

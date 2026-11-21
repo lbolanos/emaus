@@ -286,19 +286,6 @@
                 stagingStatus.className = 'status-indicator error';
             }
 
-            // Google Maps status
-            const mapsStatus = document.getElementById('maps-status');
-            const mapsKeyDisplay = document.getElementById('maps-key-display');
-
-            if (config.googleMapsApiKey) {
-                mapsStatus.textContent = 'AVAILABLE';
-                mapsStatus.className = 'status-indicator success';
-                mapsKeyDisplay.textContent = config.googleMapsApiKey.substring(0, 10) + '...'; // Show first 10 chars for security
-            } else {
-                mapsStatus.textContent = 'MISSING';
-                mapsStatus.className = 'status-indicator warning';
-                mapsKeyDisplay.textContent = 'Not configured';
-            }
         }
 
         function testEnvironmentDetection() {

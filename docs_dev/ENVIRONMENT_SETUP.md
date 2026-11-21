@@ -9,7 +9,6 @@ This document explains how to set up environment variables for the Emaus applica
 | Variable                   | Description         | Example                |
 | -------------------------- | ------------------- | ---------------------- |
 | `VITE_API_URL`             | API endpoint URL    | `https://emaus.cc/api` |
-| `VITE_GOOGLE_MAPS_API_KEY` | Google Maps API key | `AIzaSy...`            |
 
 ### Optional Variables
 
@@ -26,7 +25,6 @@ For GitHub Actions, set up repository secrets:
 1. Go to your GitHub repository
 2. Navigate to **Settings** > **Secrets and variables** > **Actions**
 3. Click **New repository secret**
-4. Add `VITE_GOOGLE_MAPS_API_KEY` with your Google Maps API key
 
 ### 2. Environment Variables (.env files)
 
@@ -36,7 +34,6 @@ Create `apps/web/.env.development`:
 
 ```bash
 VITE_API_URL=http://localhost:3001/api
-VITE_GOOGLE_MAPS_API_KEY=your-dev-key
 ```
 
 #### Staging
@@ -45,7 +42,6 @@ Create `apps/web/.env.staging`:
 
 ```bash
 VITE_API_URL=https://staging.emaus.cc/api
-VITE_GOOGLE_MAPS_API_KEY=your-staging-key
 ```
 
 #### Production
@@ -63,7 +59,6 @@ When using `release-from-github.sh`:
 
 ```bash
 export VITE_API_URL=https://your-api-domain.com/api
-export VITE_GOOGLE_MAPS_API_KEY=your-google-maps-key
 ./release-from-github.sh
 ```
 
@@ -82,7 +77,6 @@ export VITE_GOOGLE_MAPS_API_KEY=your-google-maps-key
 The GitHub workflow (`.github/workflows/build-release.yml`) now:
 
 ✅ **Sets default API URL**: `VITE_API_URL=https://emaus.cc/api`
-✅ **Uses repository secret**: `VITE_GOOGLE_MAPS_API_KEY` from secrets
 ✅ **Builds with environment variables**: All variables available during build
 ✅ **Documents setup**: Release notes include environment variable instructions
 

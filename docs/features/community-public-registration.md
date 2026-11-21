@@ -96,11 +96,10 @@ Componente: `apps/web/src/views/RegisterCommunityView.vue`. Layout autónomo
 (no usa `AppLayout`). Secciones:
 
 1. **Datos de la comunidad**: nombre*, descripción, parroquia, diócesis.
-2. **Ubicación**: `<gmp-place-autocomplete>` con autocompletado de Google
-   Places que rellena `address1/2`, ciudad, estado, CP, país, lat/lng,
-   `googleMapsUrl`. Mapa interactivo con marker arrastrable
-   (`AdvancedMarkerElement`) y `gestureHandling: 'greedy'` (zoom con scroll
-   wheel y move con un dedo en móvil).
+2. **Ubicación**: `AddressAutocomplete` (Photon/OpenStreetMap, sin API key) que rellena
+   `address1/2`, ciudad, estado, CP, país, lat/lng, `googleMapsUrl`. Mapa
+   interactivo **Leaflet** con tiles OSM y pin arrastrable/clicable. Ver
+   `docs/features/address-autocomplete-photon.md`.
 3. **Horario de reunión (opcional)**: día (selector con 7 opciones),
    frecuencia (cada 1/2/3/4 semanas), hora (input `type="time"`),
    duración, descripción del lugar. Si todos los campos del horario están
@@ -176,17 +175,10 @@ Skipeado en `NODE_ENV=development` con `SKIP_RATE_LIMIT=true`.
 
 ### Google Maps
 
-- API key: `VITE_GOOGLE_MAPS_API_KEY` (en `apps/web/.env*`).
-- Helper compartido `apps/web/src/utils/googleMaps.ts` carga el script con
-  `loading=async`. Tras esta feature se añadió un poll que **espera a que
-  `google.maps.importLibrary` esté disponible** antes de resolver — sin
-  esto, en Safari/WebKit el `script.onload` resolvía antes de que los
-  constructores estuvieran instanciables y `new google.maps.Map(...)`
-  lanzaba `TypeError`.
-- `AdvancedMarkerElement` (la API moderna no-deprecada) requiere `mapId`
-  en el `Map`. Se usan strings ad-hoc `'EMAUS_REGISTER_MAP'` y
-  `'EMAUS_HOUSE_MAP'`. Si en el futuro se quieren estilos custom, se
-  registran en Google Cloud Console.
+Desde nov 2026 el buscador de direcciones no usa Google Maps: corre sobre
+Photon/OpenStreetMap sin API key. Ver
+`docs/features/address-autocomplete-photon.md`.
+
 
 ## i18n
 
@@ -263,5 +255,5 @@ pnpm --filter api exec jest src/tests/services/communityPublicRegistration.simpl
    `SKIP_RATE_LIMIT=true` en dev.)
 
 8. **Safari/WebKit**: probar `/registrar-comunidad` y abrir el modal de
-   `AddEditHouseModal` (`/app/houses` → editar). Mapa debe renderizar
-   tiles al primer intento, sin errores `TypeError: google.maps.Map`.
+   `AddEditHouseModal` (`/app/houses` → editar). Los mapas (Leaflet/OSM y el
+   iframe embed) deben renderizar tiles al primer intento.
