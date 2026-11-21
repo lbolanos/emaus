@@ -1,5 +1,5 @@
 <template>
-	<div class="p-4 md:p-6">
+	<div class="p-2 md:p-3">
 		<!-- Toolbar -->
 		<div class="mb-4 flex flex-wrap items-center justify-between gap-3">
 			<div class="flex items-center gap-3">
