@@ -382,9 +382,6 @@ function emitSlot(
 	emit('update', 'fonts', Object.keys(fonts).length ? fonts : undefined);
 }
 
-const TEXT_SWATCHES = ['#ffffff', '#111827', '#1f2937', '#fde68a'];
-const HEADING_SWATCHES = ['#fde68a', '#1d4ed8', '#15803d', '#ffffff'];
-
 /** Opacity used when a colour is picked after the block was set to "no background". */
 const DEFAULT_VEIL_OPACITY = 85;
 

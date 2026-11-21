@@ -239,7 +239,14 @@ export function createFlyerEditorStoreSetup<TBlock extends AnyBlockLayout>(
 			if (!raw) return;
 			try {
 				const draft = JSON.parse(raw) as { at: number; options: Record<string, any> };
-				if (JSON.stringify(draft.options) === savedSnapshot.value) return;
+				// Same shape on both sides: the draft stores draftOptions, and this
+				// runs right after loadFrom built the fresh draftOptions. Comparing
+				// against savedSnapshot (the snapshot form) could never match, so
+				// ANY draft key was restored — even one identical to what is saved.
+				if (JSON.stringify(draft.options) === JSON.stringify(draftOptions.value)) {
+					localStorage.removeItem(key);
+					return;
+				}
 				applyTemplate(draft.options);
 				undoStack.value = [];
 				redoStack.value = [];
@@ -395,6 +402,9 @@ export function createFlyerEditorStoreSetup<TBlock extends AnyBlockLayout>(
 				await config.persist(entityId.value, draftOptions.value as Record<string, any>);
 				savedSnapshot.value = snapshot.value;
 				undoStack.value = [];
+				// Saved is the new truth: redoing over it would hand back a state
+				// the user just chose against, with the editor looking clean
+				redoStack.value = [];
 				const key = draftKey();
 				if (key) localStorage.removeItem(key);
 				draftRestoredAt.value = null;

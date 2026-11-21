@@ -92,7 +92,15 @@ export const FLYER_BLOCK_STYLE_DEFAULTS: Record<FlyerBlockId, FlyerBlockStyle> =
 		fonts: { emphasis: { family: 'playfair' }, body: { family: 'playfair' } },
 	},
 	startTime: { textColor: '#111827', headingColor: '#1d4ed8', textShadow: false, textAlign: 'left' },
-	location: { textColor: '#000000', headingColor: '#15803d', textShadow: false, textAlign: 'left' },
+	location: {
+		textColor: '#000000',
+		headingColor: '#15803d',
+		textShadow: false,
+		textAlign: 'left',
+		// The house name was born --fb-text black; the emphasis slot's colour
+		// default keeps it exactly that instead of inheriting the green heading
+		fonts: { emphasis: { color: '#000000' } },
+	},
 	// Sits over the dark lower half of the original artwork, so it defaults to white
 	// on white. The date reads headingColor too — it used to be a hard-coded amber
 	// that no theme or block colour could reach.
@@ -114,16 +122,18 @@ export const FLYER_BLOCK_STYLE_DEFAULTS: Record<FlyerBlockId, FlyerBlockStyle> =
 		headingColor: '#374151',
 		textShadow: false,
 		textAlign: 'right',
-		fonts: { emphasis: { family: 'mono' } },
+		// Numbers and emails keep their born near-black (they were --fb-text)
+		fonts: { emphasis: { family: 'mono', color: '#111827' } },
 	},
-	// The price plate was born in Oswald (the font-header class); that stays as the
-	// emphasis slot's default so the look survives, now reachable from the editor.
+	// The price plate was born Oswald on near-black (font-header + text-gray-900);
+	// both stay as the emphasis slot's defaults so saved flyers render exactly as
+	// they did, now reachable from the editor.
 	payment: {
 		textColor: '#374151',
 		headingColor: '#1d4ed8',
 		textShadow: false,
 		textAlign: 'center',
-		fonts: { emphasis: { family: 'oswald' } },
+		fonts: { emphasis: { family: 'oswald', color: '#111827' } },
 	},
 	whatToBring: {
 		textColor: '#f3f4f6',

@@ -23,18 +23,24 @@ not appear even when it is visible.
 
 **Quick styles** change the whole flyer at once: Poster, Ink, Veils, and **Original**, which
 brings the usual colours back. **Match colours to the image** reads the background photo and
-suggests the palette that suits it — handy right after changing the image.
+suggests the palette that suits it; **Colours from the image** extracts the photo's real colours
+and offers them as swatches — handy right after changing the image.
 
-Inside, two sections you can fold away:
+Every block mixes up to three kinds of lettering, and each one is styled on its own:
 
-- **Whole flyer** — the text and heading colours for every block, the block background (none, a
-  light or dark veil, or a colour with its opacity), and **dim the background image** when the
-  photo competes with the words.
-- **Blocks** — the list, and when you pick one, its own style: the same settings, for that block
-  alone. **Reset** drops them and hands it back to the overall design.
+- **Title** — the block's heading ("START:", "VENUE:").
+- **Emphasis** — its star line: the date, the time, the price, the badge, the phone numbers.
+- **Text** — the supporting copy: addresses, notes, lists.
 
-Also per block: the **alignment** (left, centre or right). It moves more than the text — the
-icon, the bullets and the boxes travel with it.
+Each role is a section with its own **typeface**, **size** (5% to 200%), **colour**,
+**alignment** and **shadow**. Sections ship folded; their header sums up what they hold
+("Oswald · 115%"). Hovering a section makes the lines that role drives glow on the flyer — you
+know what you are touching before you touch it. A block only shows the roles it has, and each
+block carries a one-line hint of what is what.
+
+The **Whole flyer** panel has the same sections, but its changes reach every block at once. The
+block backgrounds (none, a light or dark veil, or a colour with its opacity) and **dim the
+background image** live there too.
 
 > ⚠️ The amber triangle warns that a text is hard to read against what is behind it. That is the
 > mistake you do not notice on screen and do notice on paper. Try another text colour, a veil, or
@@ -52,6 +58,7 @@ common cause of an unreadable flyer.
 
 Every text on the flyer can be rewritten or taken off:
 
+- **Double-click a text on the flyer** and you land on its field, ready to type.
 - Type over it to change it. Leave it **empty** and the default wording comes back.
 - The **eye** takes it off the flyer entirely — for lines like "Retiro Católico" or "Atrévete,
   vívelo" that not every community uses. Show it again and your wording is still there.
@@ -71,8 +78,14 @@ current design, so it asks first; the dates, cost and contacts stay this retreat
 
 ## When something goes wrong
 
-- **Undo** (`⌘Z` or the button) steps back one change at a time. **Discard changes** throws away
-  everything unsaved.
+- **Undo** (`⌘Z`) steps back one change at a time and **redo** (`⌘⇧Z`) steps forward again.
+  **Discard changes** throws away everything unsaved.
+- The editor **keeps a draft by itself**: if the browser closes on you, the design is where you
+  left it when you come back, with a notice so you can discard it for a clean start.
+- **Copy design from…** (on the toolbar) brings another retreat's design in as a starting point.
+  Nothing is saved until you save, and undo brings it all back.
+- The preview has a **zoom** (the buttons by its title): shrink it to see the whole flyer at a
+  glance; click the percentage to go back to 100%.
 - If you leave with unsaved changes, the app warns you.
 - Nothing here touches the retreat's data: if the flyer shows the wrong date, fix it on the
   retreat, not on the flyer.

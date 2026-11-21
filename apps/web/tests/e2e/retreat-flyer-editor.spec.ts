@@ -97,7 +97,7 @@ test.describe.serial('Retreat flyer editor — slots, undo/redo, text jump (E2E)
 		await expect(emphasisCard.locator('[data-slot-scale-plus="emphasis"]')).toBeHidden();
 
 		// The per-block hint explains what each slot is
-		await expect(page.getByText(/Destacado agrupa la fecha y la hora/i)).toBeVisible();
+		await expect(page.getByText(/Destacado es la fecha; Texto, la hora/i)).toBeVisible();
 	});
 
 	test('colour and size of one slot land on the canvas without touching the others', async () => {

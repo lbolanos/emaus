@@ -4360,7 +4360,10 @@
         "location": "Destacado es el nombre del lugar; Texto, la dirección.",
         "locationQr": "Texto es todo el contenido; ajusta su tamaño y color.",
         "community": "Destacado es el nombre de la comunidad (Oswald de fábrica)."
-      }
+      },
+      "readPalette": "Colores de la imagen",
+      "paletteFromImage": "De la imagen:",
+      "hidePalette": "ocultar"
     },
     "leaveWithoutSaving": "Tienes cambios sin guardar en el volante. ¿Salir de todas formas?",
     "undo": "Deshacer",
@@ -4377,6 +4380,7 @@
     "redo": "Rehacer",
     "redoHint": "Rehacer (Cmd+Shift+Z)",
     "copyDesignFrom": "Copiar diseño de…",
+    "copyFailed": "No se pudo leer el diseño de ese retiro. Intenta de nuevo.",
     "discardDraft": "Descartar borrador",
     "draftRecovered": "Se recuperó tu borrador sin guardar del {0}. Sigue editando o descártalo.",
     "preview": "Vista previa",
@@ -4483,7 +4487,6 @@
       "opacity": "Opacidad",
       "textColor": "Texto",
       "headingColor": "Títulos",
-      "typography": "Tipografía",
       "row": {
         "family": "Familia",
         "size": "Tamaño",
@@ -4539,7 +4542,7 @@
       "hiddenCount": "{count} bloque oculto | {count} bloques ocultos",
       "blockHints": {
         "intro": "Destacado es la insignia \"¡Atrévete!\"; Texto, el párrafo. Este bloque nació en Playfair.",
-        "startTime": "Destacado agrupa la fecha y la hora; Texto, la nota de llegada.",
+        "startTime": "Destacado es la fecha; Texto, la hora y la nota de llegada.",
         "endTime": "Destacado es la fecha de cierre; Texto, la ubicación y el aviso a la familia.",
         "location": "Destacado es el nombre de la casa; Texto, la dirección.",
         "contact": "Destacado son los teléfonos y correos (mono de fábrica); Texto, sus etiquetas.",

@@ -23,18 +23,24 @@ aparece aunque esté visible.
 
 **Estilos rápidos** cambia el volante entero de un golpe: Cartel, Tinta, Velos, y **Original**,
 que devuelve los colores de siempre. **Ajustar colores a la imagen** mira la foto de fondo y
-propone la paleta que le va — útil justo después de cambiar la imagen.
+propone la paleta que le va; **Colores de la imagen** extrae los colores reales de la foto y los
+ofrece como muestras — útil justo después de cambiar la imagen.
 
-Dentro, dos secciones que se abren y cierran:
+Cada bloque mezcla hasta tres clases de letra, y cada una se cambia por separado:
 
-- **Todo el volante** — el color del texto y de los títulos para todos los bloques, el fondo de
-  los bloques (ninguno, un velo claro u oscuro, o un color con su opacidad) y **atenuar la imagen
-  de fondo** si la foto compite con las letras.
-- **Bloques** — la lista, y al tocar uno, su estilo propio: los mismos ajustes, pero solo para él.
-  **Restaurar** le quita lo suyo y lo devuelve a lo que diga el diseño general.
+- **Título** — el rótulo del bloque («INICIO:», «LUGAR:»).
+- **Destacado** — su línea estrella: la fecha, la hora, el precio, la insignia, los teléfonos.
+- **Texto** — lo de apoyo: direcciones, notas, listas.
 
-También por bloque: la **alineación** (izquierda, centro o derecha). No mueve solo el texto —
-también su icono, sus viñetas y sus recuadros.
+Cada rol es una sección con sus propios **tipo de letra**, **tamaño** (de 5% a 200%), **color**,
+**alineación** y **sombra**. Las secciones van cerradas; su encabezado resume lo que traen
+(«Oswald · 115%»). Al pasar el mouse por una sección, brillan en el volante las líneas que ese
+rol controla — así sabes qué estás tocando antes de tocarlo. El bloque muestra solo los roles
+que tiene, y cada bloque trae una pista de qué es cada cosa en él.
+
+El panel **Todo el volante** tiene las mismas secciones, pero sus cambios alcanzan a todos los
+bloques de una vez. Ahí también van el fondo de los bloques (ninguno, un velo claro u oscuro, o
+un color con su opacidad) y **atenuar la imagen de fondo** si la foto compite con las letras.
 
 > ⚠️ El triángulo ámbar avisa de que un texto casi no se lee sobre lo que tiene detrás. Es el
 > error que no se nota en la pantalla y sí en el papel. Prueba otro color de texto, un velo, o
@@ -52,6 +58,7 @@ causa más común de un volante ilegible.
 
 Cada texto del volante se puede reescribir o quitar:
 
+- **Doble clic sobre un texto del volante** te lleva directo a su campo, listo para escribir.
 - Escribe encima para cambiarlo. Si lo dejas **vacío**, vuelve el texto por defecto.
 - El **ojo** lo quita del volante del todo — para frases como "Retiro Católico" o "Atrévete,
   vívelo" que no todas las comunidades usan. Al volver a mostrarlo, recuperas lo que habías
@@ -73,7 +80,14 @@ siendo los de este retiro.
 
 ## Si algo sale mal
 
-- **Deshacer** (`⌘Z` o el botón) va paso a paso. **Descartar cambios** tira todo lo no guardado.
+- **Deshacer** (`⌘Z`) va paso a paso y **rehacer** (`⌘⇧Z`) vuelve sobre lo deshecho.
+  **Descartar cambios** tira todo lo no guardado.
+- El editor **guarda un borrador solo**: si el navegador se cierra sin querer, al volver
+  encuentras el diseño como lo dejaste, con un aviso para descartarlo si prefieres empezar limpio.
+- **Copiar diseño de…** (en la barra) trae el diseño de otro retiro como punto de partida. No se
+  guarda nada hasta que tú guardas, y deshacer lo devuelve todo.
+- La vista previa tiene **zoom** (los botones junto a su título): encógela para ver el volante
+  completo de un vistazo; el porcentaje vuelve al 100% con un clic.
 - Si sales con cambios sin guardar, la app te avisa.
 - Nada de lo que hagas aquí toca los datos del retiro: si el volante dice una fecha equivocada,
   arréglala en el retiro, no en el volante.

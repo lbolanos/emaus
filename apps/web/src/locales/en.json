@@ -4038,7 +4038,10 @@
         "location": "Emphasis is the venue name; Text, the address.",
         "locationQr": "Text is all the content; tune its size and colour.",
         "community": "Emphasis is the community name (Oswald by design)."
-      }
+      },
+      "readPalette": "Colours from the image",
+      "paletteFromImage": "From the image:",
+      "hidePalette": "hide"
     },
     "leaveWithoutSaving": "You have unsaved changes to the flyer. Leave anyway?",
     "undo": "Undo",
@@ -4055,6 +4058,7 @@
     "redo": "Redo",
     "redoHint": "Redo (Cmd+Shift+Z)",
     "copyDesignFrom": "Copy design from…",
+    "copyFailed": "Could not read that retreat design. Try again.",
     "discardDraft": "Discard draft",
     "draftRecovered": "Recovered your unsaved draft from {0}. Keep editing or discard it.",
     "preview": "Preview",
@@ -4161,7 +4165,6 @@
       "opacity": "Opacity",
       "textColor": "Text",
       "headingColor": "Headings",
-      "typography": "Typography",
       "row": {
         "family": "Family",
         "size": "Size",
@@ -4217,7 +4220,7 @@
       "hiddenCount": "{count} block hidden | {count} blocks hidden",
       "blockHints": {
         "intro": "Emphasis is the badge; Text, the paragraph. Born in Playfair.",
-        "startTime": "Emphasis groups the date and the time; Text, the arrival note.",
+        "startTime": "Emphasis is the date; Text, the time and the arrival note.",
         "endTime": "Emphasis is the closing date; Text, the venue and the family notice.",
         "location": "Emphasis is the house name; Text, the address.",
         "contact": "Emphasis is the phones and emails (mono by design); Text, their labels.",

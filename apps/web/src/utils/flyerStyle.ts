@@ -123,13 +123,18 @@ function resolveSlot(
 	// The pre-slots resolution the flat fields produced — identical look, by slot
 	const flatHeading = flat.headingColor ?? flat.textColor ?? '#111827';
 	const flatBody = flat.textColor ?? '#111827';
+	// Layer order, later winning: the flat fields the pre-slot editor wrote are
+	// the BASE — a block's designed slot default (the price's near-black, the
+	// house name's black) is MORE specific than the generic heading colour and
+	// must beat it, or every saved flyer repaints. Then the theme's slot, then
+	// the block's own slot override.
 	const layers = [
-		defaults[blockId]?.fonts?.[slot],
 		{
 			color: SLOT_COLOR_FALLBACK[slot] === 'headingColor' ? flatHeading : flatBody,
 			align: flat.textAlign,
 			shadow: flat.textShadow,
 		},
+		defaults[blockId]?.fonts?.[slot],
 		theme?.fonts?.[slot],
 		blockStyles?.[blockId]?.fonts?.[slot],
 	];

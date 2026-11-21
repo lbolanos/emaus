@@ -351,6 +351,14 @@ const matching = ref(false);
 const matchError = ref('');
 /** Colours read off the current artwork; empty until asked for. */
 const imagePalette = ref<string[]>([]);
+// A new artwork invalidates the read: leaving the old swatches around offers
+// colours that no longer exist anywhere on the flyer
+watch(
+	() => props.backgroundImage,
+	() => {
+		imagePalette.value = [];
+	},
+);
 
 // The block list is the one you keep coming back to; the palette is set once and left alone
 const openBlocks = ref(true);

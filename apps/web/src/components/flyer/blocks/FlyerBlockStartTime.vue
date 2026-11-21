@@ -15,7 +15,10 @@
 				<p class="fb-emphasis text-[length:calc(1.0625rem*var(--fb-emphasis-scale,1))] text-[color:var(--fb-emphasis-color)] font-bold mb-0.5">
 					{{ content.formatDate(content.startDate) }}
 				</p>
-				<p class="fb-emphasis text-[length:calc(1.375rem*var(--fb-emphasis-scale,1))] font-black text-[color:var(--fb-emphasis-color)] mt-1">{{ content.openingTimeDisplay }}</p>
+				<!-- Body, not emphasis: born --fb-text near-black, and one slot cannot
+				     hold two colours — the date keeps the heading colour it was born
+				     with, the time rides Texto so saved flyers render as they did -->
+				<p class="fb-body text-[length:calc(1.375rem*var(--fb-body-scale,1))] font-black text-[color:var(--fb-body-color)] mt-1">{{ content.openingTimeDisplay }}</p>
 				<div
 					v-if="content.registrationDeadline"
 					class="mt-3 border-l-4 border-[color:var(--fb-heading)] pl-3.5 py-1"

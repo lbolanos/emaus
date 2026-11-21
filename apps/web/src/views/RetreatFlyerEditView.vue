@@ -27,6 +27,9 @@
 						{{ other.parish }} — {{ formatDateLabel(other.startDate) }}
 					</option>
 				</select>
+				<span v-if="copyError" class="text-xs text-destructive" data-copy-error>
+					{{ copyError }}
+				</span>
 				<span v-if="store.isDirty" class="text-xs text-amber-600">
 					{{ t('retreatFlyerEditor.unsavedChanges') }}
 				</span>
@@ -273,6 +276,9 @@ let resizeObserver: ResizeObserver | null = null;
 const activeTab = ref('design');
 
 /** Other retreats to copy a design from, loaded once on mount. */
+/** Shown by the copy select when the source design could not be read. */
+const copyError = ref('');
+
 const otherRetreats = computed(() =>
 	(retreatStore.retreats as any[]).filter((r) => r.id !== retreatId.value),
 );
@@ -288,11 +294,19 @@ function formatDateLabel(value: string) {
  */
 async function copyDesignFrom(sourceId: string) {
 	if (!sourceId) return;
-	const options = await getRetreatFlyerOptions(sourceId);
-	if (options) store.applyTemplate(options);
-	// The select always shows the placeholder again; the copy is in the draft
-	const select = document.querySelector('[data-copy-design-select]') as HTMLSelectElement | null;
-	if (select) select.value = '';
+	copyError.value = '';
+	try {
+		const options = await getRetreatFlyerOptions(sourceId);
+		if (options) store.applyTemplate(options);
+	} catch {
+		// Silent would read as copied: nothing lands on the canvas and the user
+		// saves a design that never changed
+		copyError.value = t('retreatFlyerEditor.copyFailed');
+	} finally {
+		// The select always shows the placeholder again; the copy is in the draft
+		const select = document.querySelector('[data-copy-design-select]') as HTMLSelectElement | null;
+		if (select) select.value = '';
+	}
 }
 
 /**
@@ -346,7 +360,9 @@ const previewHeight = computed(() => {
 });
 
 function discard() {
-	store.loadFromRetreat(retreat.value);
+	// discardDraft, not a reload: reloading would find the autosaved draft and
+	// put the just-discarded design right back
+	store.discardDraft();
 }
 
 async function load(id: string) {
