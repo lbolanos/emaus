@@ -40,6 +40,7 @@
 					:theme="theme"
 					:block-styles="blockStyles"
 					:components="MEETING_FLYER_BLOCK_COMPONENTS"
+					:highlight-slot="highlightSlot"
 					:style-defaults="MEETING_FLYER_BLOCK_STYLE_DEFAULTS"
 					:editable="editable"
 					:selected-block-id="selectedBlockId"
@@ -55,6 +56,7 @@
 				v-if="blocksInSlot.wide.length || editable"
 				slot-name="wide"
 				class="relative z-10 mt-3"
+				:highlight-slot="highlightSlot"
 				:blocks="blocksInSlot.wide"
 				:content="content"
 				:theme="theme"
@@ -120,6 +122,7 @@ const props = withDefaults(
 		/** Turns the flyer into a drop target. Off for the read-only view. */
 		editable?: boolean;
 		selectedBlockId?: string | null;
+	highlightSlot?: { slot: string; blockId: string | null } | null;
 		emptySlotLabel?: string;
 	}>(),
 	{ scale: 1, editable: false, emptySlotLabel: '', printable: true },
@@ -199,6 +202,55 @@ const blocksInSlot = computed(() => {
  */
 .print-optimized [data-flyer-block] {
 	text-align: var(--fb-align, left);
+	/* Same contract as the retreat canvas: the block-wide text shadow switch. */
+	text-shadow: var(--fb-shadow, none);
+}
+
+/* Per-slot lettering — same contract as the retreat canvas. */
+.print-optimized .fb-title {
+	font-family: var(--fb-title-font, inherit);
+	color: var(--fb-title-color, var(--fb-heading));
+	text-align: var(--fb-title-align, var(--fb-align, left));
+	text-shadow: var(--fb-title-shadow, var(--fb-shadow, none));
+}
+
+.print-optimized .fb-emphasis {
+	font-family: var(--fb-emphasis-font, inherit);
+	color: var(--fb-emphasis-color, var(--fb-heading));
+	text-align: var(--fb-emphasis-align, var(--fb-align, left));
+	text-shadow: var(--fb-emphasis-shadow, var(--fb-shadow, none));
+}
+
+.print-optimized .fb-body {
+	font-family: var(--fb-body-font, inherit);
+	color: var(--fb-body-color, var(--fb-text));
+	text-align: var(--fb-body-align, var(--fb-align, left));
+	text-shadow: var(--fb-body-shadow, var(--fb-shadow, none));
+}
+
+.print-optimized .fb-lead {
+	justify-content: var(--fb-title-justify, var(--fb-justify, flex-start));
+}
+
+.print-optimized .fb-row {
+	justify-content: var(--fb-body-justify, var(--fb-justify, flex-start));
+}
+
+.print-optimized [data-flyer-block][data-title-align='center'] .fb-lead,
+.print-optimized [data-flyer-block][data-body-align='center'] .fb-row {
+	flex-direction: column;
+	align-items: center;
+}
+
+.print-optimized [data-flyer-block][data-title-align='center'] .fb-lead > .flex-1 {
+	flex: none;
+	width: 100%;
+}
+
+.print-optimized [data-flyer-block][data-title-align='right'] .fb-lead,
+.print-optimized [data-flyer-block][data-body-align='right'] .fb-row {
+	flex-direction: row-reverse;
+	justify-content: flex-start;
 }
 
 .print-optimized .fb-lead,
@@ -263,6 +315,28 @@ const blocksInSlot = computed(() => {
 /* Override AppLayout's mobile rule that hides every h1, which also kills the flyer title */
 .print-optimized h1 {
 	display: block !important;
+}
+
+
+/* Pointer over a slot section in the panel: glow exactly the lines that slot
+   drives, so "Destacado" stops being a guess. */
+@keyframes fbSlotGlow {
+	0%,
+	100% {
+		outline-color: rgba(59, 130, 246, 0.9);
+	}
+	50% {
+		outline-color: rgba(59, 130, 246, 0.35);
+	}
+}
+
+.print-optimized [data-highlight-slot='title'] .fb-title,
+.print-optimized [data-highlight-slot='emphasis'] .fb-emphasis,
+.print-optimized [data-highlight-slot='body'] .fb-body {
+	outline: 2px dashed rgba(59, 130, 246, 0.9);
+	outline-offset: 3px;
+	border-radius: 4px;
+	animation: fbSlotGlow 1.2s ease-in-out infinite;
 }
 
 @media print {

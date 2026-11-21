@@ -3,14 +3,14 @@
 		<div class="fb-lead flex-col items-center justify-center gap-1 text-center">
 			<p
 				v-if="content.communityBrandText"
-				class="text-[13px] font-black uppercase tracking-[0.2em] text-[color:var(--fb-heading)]"
+				class="fb-title text-[length:calc(0.8125rem*var(--fb-title-scale,1))] font-black uppercase tracking-[0.2em] text-[color:var(--fb-title-color)]"
 			>
 				{{ content.communityBrandText }}
 			</p>
 			<!-- Dropped when the community's own name already starts with Emaús -->
 			<p
 				v-if="content.showEmausLine"
-				class="text-[22px] font-black uppercase tracking-[0.35em] text-[color:var(--fb-text)] font-header leading-none"
+				class="fb-emphasis text-[length:calc(1.375rem*var(--fb-emphasis-scale,1))] font-black uppercase tracking-[0.35em] text-[color:var(--fb-emphasis-color)] leading-none"
 			>
 				{{ content.emausLine }}
 			</p>

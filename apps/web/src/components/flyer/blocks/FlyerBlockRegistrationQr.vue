@@ -2,13 +2,15 @@
 	<div class="p-4">
 		<h3
 			v-if="content.registerText"
-			class="text-[22px] font-black text-[color:var(--fb-heading)] uppercase mb-2 tracking-[0.15em]"
+			data-text-override="registerOverride"
+			class="fb-title text-[length:calc(1.375rem*var(--fb-title-scale,1))] font-black text-[color:var(--fb-title-color)] uppercase mb-2 tracking-[0.15em]"
 		>
 			{{ content.registerText }}
 		</h3>
 		<p
 			v-if="content.scanToRegisterText"
-			class="text-[11px] text-[color:var(--fb-text)] mb-4 font-bold leading-tight whitespace-pre-line"
+			data-text-override="scanToRegisterOverride"
+			class="fb-body text-[length:calc(0.6875rem*var(--fb-body-scale,1))] text-[color:var(--fb-body-color)] mb-4 font-bold leading-tight whitespace-pre-line"
 		>
 			{{ content.scanToRegisterText }}
 		</p>
@@ -25,13 +27,14 @@
 			</div>
 		</div>
 		<!--
-			inline-block so the plate is as wide as the address and no wider: as a block it
-			stretched across the column and read as an empty white bar with the text stranded
-			at one end. It lines up by the block's own alignment, like everything else here.
+			A width-capped block (w-fit), not running text: it lines up by the auto
+			margins the canvas drives with the emphasis slot's alignment. As a plain
+			block it would stretch across the column and read as an empty white bar
+			with the text stranded at one end.
 		-->
 		<div
 			data-registration-domain
-			class="mt-2 inline-block max-w-full text-[9px] text-blue-700 font-black font-mono lowercase tracking-normal bg-white/80 px-2 py-1.5 rounded-lg border border-blue-200/50 shadow-sm break-all leading-tight"
+			class="mt-2 block w-fit max-w-full fb-emphasis text-[length:calc(0.5625rem*var(--fb-emphasis-scale,1))] text-[color:var(--fb-emphasis-color)] font-black lowercase tracking-normal bg-white/80 px-2 py-1.5 rounded-lg border border-blue-200/50 shadow-sm break-all leading-tight"
 		>
 			{{ content.registrationDomain }}
 		</div>

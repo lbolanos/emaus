@@ -9,14 +9,14 @@
 			<div class="flex-1 min-w-0">
 				<h4
 					v-if="content.locationLabelText"
-					class="font-black text-[15px] uppercase text-[color:var(--fb-heading)] tracking-[0.15em] mb-1.5"
+					class="font-black fb-title text-[length:calc(0.9375rem*var(--fb-title-scale,1))] uppercase text-[color:var(--fb-title-color)] tracking-[0.15em] mb-1.5"
 				>
 					{{ content.locationLabelText }}
 				</h4>
-				<p class="text-[18px] font-black text-[color:var(--fb-text)] leading-tight">
+				<p class="fb-emphasis text-[length:calc(1.125rem*var(--fb-emphasis-scale,1))] font-black text-[color:var(--fb-emphasis-color)] leading-tight">
 					{{ content.communityName }}
 				</p>
-				<p class="text-[14px] text-[color:var(--fb-text)] leading-snug mt-1 font-medium opacity-90">
+				<p class="fb-body text-[length:calc(0.875rem*var(--fb-body-scale,1))] text-[color:var(--fb-body-color)] leading-snug mt-1 font-medium opacity-90">
 					{{ content.address }}
 				</p>
 			</div>

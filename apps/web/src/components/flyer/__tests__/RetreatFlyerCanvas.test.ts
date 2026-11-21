@@ -184,12 +184,60 @@ describe('RetreatFlyerCanvas', () => {
 			expect(wrapper.find('[data-flyer-block="payment"] .fb-box').exists()).toBe(true);
 		});
 
+		// The closing date used to be a hard-coded amber that no theme or block
+		// colour could reach — the reported bug of the Veracruz XXIV flyer.
+		it('paints the end date with the heading colour the editor sets', () => {
+			const date = mountCanvas({ theme: { headingColor: '#14524d' } }).find('[data-end-date]');
+
+			expect(date.classes().join(' ')).toContain('text-[color:var(--fb-emphasis-color)]');
+			expect(date.classes().join(' ')).not.toContain('text-yellow-300');
+		});
+
+		it('carries the theme slots into every block wrapper', () => {
+			const style =
+				mountCanvas({ theme: { fonts: { emphasis: { family: 'playfair' } } } })
+					.find('[data-flyer-block="location"]')
+					.attributes('style') ?? '';
+
+			expect(style).toContain('--fb-emphasis-font');
+			expect(style).toContain('Playfair Display');
+		});
+
+		// The intro used to hard-code Playfair inline, which beat every editor
+		// control — "introducción no deja cambiar la letra".
+		it('gives the intro its Playfair default through the style layer, overridable', () => {
+			const asDefault = mountCanvas().find('[data-flyer-block="intro"]').attributes('style') ?? '';
+			expect(asDefault).toContain('Playfair Display');
+
+			const overridden =
+				mountCanvas({ blockStyles: { intro: { fonts: { emphasis: { family: 'oswald' } } } } })
+					.find('[data-flyer-block="intro"]')
+					.attributes('style') ?? '';
+			expect(overridden).toContain('Oswald');
+			// The body slot keeps the designed Playfair — slots move independently
+			expect(overridden).toContain('Playfair Display');
+			expect(mountCanvas().find('[data-flyer-block="intro"]').html()).not.toContain(
+				"font-family: 'Playfair Display'",
+			);
+		});
+
+		it('carries the per-slot size scales into the block wrapper', () => {
+			const style =
+				mountCanvas({ theme: { fonts: { title: { scale: 90 }, body: { scale: 110 } } } })
+					.find('[data-flyer-block="startTime"]')
+					.attributes('style') ?? '';
+
+			expect(style).toContain('--fb-title-scale: 0.9');
+			expect(style).toContain('--fb-body-scale: 1.1');
+		});
+
 		// As a block it stretched across the column: a white bar with the address stranded
 		// at one end. happy-dom has no layout, so this fixes the class that does it.
 		it('sizes the address plate to the address', () => {
 			const plate = mountCanvas().find('[data-registration-domain]');
 
-			expect(plate.classes()).toContain('inline-block');
+			expect(plate.classes()).toContain('block');
+			expect(plate.classes()).toContain('w-fit');
 			expect(plate.classes()).toContain('max-w-full');
 		});
 

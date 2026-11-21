@@ -2,6 +2,7 @@ import type { Component } from 'vue';
 import {
 	FLYER_BACKGROUND_PRESETS,
 	type FlyerBlockStyle,
+	type FlyerFontSlot,
 	type FlyerTheme,
 	type MeetingFlyerBlockId,
 	type MeetingFlyerBlockLayout,
@@ -61,6 +62,9 @@ export const MEETING_FLYER_BLOCK_STYLE_DEFAULTS: Record<MeetingFlyerBlockId, Fly
 		headingColor: '#fde68a',
 		textShadow: true,
 		textAlign: 'left',
+		// The big date line was born --fb-text white, not the amber heading:
+		// the emphasis default keeps saved meeting flyers exactly as they were
+		fonts: { emphasis: { color: '#ffffff' } },
 	},
 	description: {
 		backgroundColor: '#ffffff',
@@ -77,6 +81,8 @@ export const MEETING_FLYER_BLOCK_STYLE_DEFAULTS: Record<MeetingFlyerBlockId, Fly
 		headingColor: '#fde68a',
 		textShadow: true,
 		textAlign: 'left',
+		// Same story as dateTime: the venue name was --fb-text white
+		fonts: { emphasis: { color: '#ffffff' } },
 	},
 	locationQr: { textColor: '#111827', headingColor: '#111827', textShadow: false, textAlign: 'center' },
 	community: {
@@ -86,7 +92,21 @@ export const MEETING_FLYER_BLOCK_STYLE_DEFAULTS: Record<MeetingFlyerBlockId, Fly
 		headingColor: '#fde68a',
 		textShadow: true,
 		textAlign: 'center',
+		// The community name was born in Oswald (the font-header class); that stays
+		// as the emphasis slot's default, now reachable from the editor.
+		fonts: { emphasis: { family: 'oswald', color: '#ffffff' } },
 	},
+};
+
+/**
+ * Which typography slots each meeting block mixes — the rows its editor shows.
+ */
+export const MEETING_FLYER_BLOCK_FONT_SLOTS: Record<MeetingFlyerBlockId, FlyerFontSlot[]> = {
+	dateTime: ['title', 'emphasis', 'body'],
+	description: ['title', 'body'],
+	location: ['title', 'emphasis', 'body'],
+	locationQr: ['body'],
+	community: ['title', 'emphasis'],
 };
 
 /** The blocks a look may have to clear; the QR's plate is its own contrast. */

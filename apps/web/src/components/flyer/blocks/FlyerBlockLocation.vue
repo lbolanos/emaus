@@ -8,12 +8,12 @@
 			</div>
 			<div class="flex-1 min-w-0">
 				<h4
-					class="font-black text-[15px] uppercase text-[color:var(--fb-heading)] tracking-[0.15em] mb-1.5"
+					class="font-black fb-title text-[length:calc(0.9375rem*var(--fb-title-scale,1))] uppercase text-[color:var(--fb-title-color)] tracking-[0.15em] mb-1.5"
 				>
 					{{ t('retreatFlyer.location') }}
 				</h4>
-				<p class="text-[18px] font-black text-[color:var(--fb-text)] leading-tight">{{ content.retreatLocation }}</p>
-				<p class="text-[11px] text-[color:var(--fb-text)] leading-snug mt-1 font-medium opacity-90">
+				<p class="fb-emphasis text-[length:calc(1.125rem*var(--fb-emphasis-scale,1))] font-black text-[color:var(--fb-emphasis-color)] leading-tight">{{ content.retreatLocation }}</p>
+				<p class="fb-body text-[length:calc(0.6875rem*var(--fb-body-scale,1))] text-[color:var(--fb-body-color)] leading-snug mt-1 font-medium opacity-90">
 					{{ content.retreatAddress }}
 				</p>
 			</div>
@@ -30,7 +30,7 @@
 						class="rounded-lg"
 					/>
 				</div>
-				<span class="text-[11px] text-[color:var(--fb-text)] font-black uppercase tracking-wider">
+				<span class="fb-body text-[length:calc(0.6875rem*var(--fb-body-scale,1))] text-[color:var(--fb-body-color)] font-black uppercase tracking-wider">
 					{{ t('retreatFlyer.locationQR') }}
 				</span>
 			</div>

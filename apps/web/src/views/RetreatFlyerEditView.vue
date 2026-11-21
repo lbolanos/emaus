@@ -1,5 +1,5 @@
 <template>
-	<div class="p-4 md:p-6">
+	<div class="p-2 md:p-3">
 		<!-- Toolbar -->
 		<div class="mb-4 flex flex-wrap items-center justify-between gap-3">
 			<div class="flex items-center gap-3">
@@ -13,6 +13,23 @@
 			</div>
 
 			<div class="flex items-center gap-2">
+				<!-- Copy another retreat's design as the starting point (undoable) -->
+				<select
+					class="h-8 rounded-md border border-muted bg-transparent px-2 text-xs text-muted-foreground"
+					data-copy-design-select
+					:value="''"
+					@change="copyDesignFrom(($event.target as HTMLSelectElement).value)"
+				>
+					<option value="" disabled>
+						{{ t('retreatFlyerEditor.copyDesignFrom') }}
+					</option>
+					<option v-for="other in otherRetreats" :key="other.id" :value="other.id">
+						{{ other.parish }} — {{ formatDateLabel(other.startDate) }}
+					</option>
+				</select>
+				<span v-if="copyError" class="text-xs text-destructive" data-copy-error>
+					{{ copyError }}
+				</span>
 				<span v-if="store.isDirty" class="text-xs text-amber-600">
 					{{ t('retreatFlyerEditor.unsavedChanges') }}
 				</span>
@@ -25,6 +42,16 @@
 				>
 					<Undo2 class="mr-1.5 h-4 w-4" />
 					{{ t('retreatFlyerEditor.undo') }}
+				</Button>
+				<Button
+					variant="ghost"
+					size="sm"
+					:disabled="!store.canRedo || store.saving"
+					:title="t('retreatFlyerEditor.redoHint')"
+					@click="store.redo()"
+				>
+					<Redo2 class="mr-1.5 h-4 w-4" />
+					{{ t('retreatFlyerEditor.redo') }}
 				</Button>
 				<Button
 					variant="outline"
@@ -41,11 +68,25 @@
 			</div>
 		</div>
 
-		<div class="grid gap-6 lg:grid-cols-[22rem_1fr]">
+		<!-- A design session the browser tab took with it, back from localStorage -->
+		<div
+			v-if="store.draftRestoredAt"
+			class="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800"
+			data-draft-banner
+		>
+			<span>
+				{{ t('retreatFlyerEditor.draftRecovered', store.draftRestoredAt.toLocaleString()) }}
+			</span>
+			<Button variant="outline" size="sm" @click="store.discardDraft()">
+				{{ t('retreatFlyerEditor.discardDraft') }}
+			</Button>
+		</div>
+
+		<div class="grid gap-6 lg:grid-cols-[28rem_1fr]">
 			<!-- Side panel -->
-			<Card class="h-fit lg:sticky lg:top-4">
+			<Card class="h-fit lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto">
 				<CardContent class="p-4">
-					<Tabs default-value="design">
+					<Tabs v-model="activeTab" default-value="design">
 						<TabsList class="grid w-full grid-cols-4">
 							<TabsTrigger value="design">{{ t('retreatFlyerEditor.tabs.design') }}</TabsTrigger>
 							<TabsTrigger value="images">{{ t('retreatFlyerEditor.tabs.images') }}</TabsTrigger>
@@ -70,6 +111,7 @@
 								@clear-block-style="store.clearBlockStyle"
 								@toggle-visibility="store.toggleVisibility"
 								@select-block="store.selectBlock"
+								@hover-slot="store.setHighlightSlot"
 							/>
 							<Button variant="ghost" size="sm" class="mt-4 w-full" @click="store.resetToDefaultLayout()">
 								<RotateCcw class="mr-1.5 h-4 w-4" />
@@ -121,9 +163,40 @@
 			<div
 				class="order-first min-w-0 sticky top-0 z-20 -mx-4 border-b bg-gray-100 px-4 pb-3 pt-2 lg:static lg:order-none lg:mx-0 lg:border-0 lg:bg-transparent lg:px-0 lg:pb-0"
 			>
-				<h2 class="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-					{{ t('retreatFlyerEditor.preview') }}
-				</h2>
+				<div class="mb-2 flex items-center justify-between gap-2">
+					<h2 class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+						{{ t('retreatFlyerEditor.preview') }}
+					</h2>
+					<!-- Shrink the preview so the whole flyer fits the pane at a glance -->
+					<div class="flex items-center gap-1" data-preview-zoom>
+						<button
+							type="button"
+							class="rounded border border-muted p-1 text-muted-foreground hover:text-foreground disabled:opacity-30"
+							:aria-label="t('retreatFlyerEditor.zoomOut')"
+							:disabled="previewZoom <= 0.4"
+							@click="previewZoom = Math.max(0.4, previewZoom - 0.1)"
+						>
+							<Minus class="h-3.5 w-3.5" />
+						</button>
+						<button
+							type="button"
+							class="w-11 text-center text-[11px] tabular-nums text-muted-foreground"
+							:title="t('retreatFlyerEditor.zoomReset')"
+							@click="previewZoom = 1"
+						>
+							{{ Math.round(previewZoom * 100) }}%
+						</button>
+						<button
+							type="button"
+							class="rounded border border-muted p-1 text-muted-foreground hover:text-foreground disabled:opacity-30"
+							:aria-label="t('retreatFlyerEditor.zoomIn')"
+							:disabled="previewZoom >= 1"
+							@click="previewZoom = Math.min(1, previewZoom + 0.1)"
+						>
+							<Plus class="h-3.5 w-3.5" />
+						</button>
+					</div>
+				</div>
 				<!--
 					The ref goes here, on the box the flyer actually has to fit into: measuring
 					the wrapper counted its padding as usable width and the flyer overflowed.
@@ -132,25 +205,32 @@
 				-->
 				<div
 					ref="previewColumnRef"
-					class="max-h-[42vh] overflow-y-auto overflow-x-hidden lg:max-h-none lg:overflow-visible"
-					:style="{ height: previewHeight }"
+					class="max-h-[42vh] self-start overflow-y-auto overflow-x-hidden lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)]"
 				>
-					<RetreatFlyerCanvas
-						ref="canvasRef"
-						:retreat="retreat"
-						:flyer-options="store.draftOptions"
-						:layout="store.blocks"
-						:image-overrides="store.images"
-						:theme="store.theme"
-						:block-styles="store.blockStyles"
-						:registration-link="walkerRegistrationLink"
-						:scale="previewScale"
-						editable
-						:selected-block-id="store.selectedBlockId"
-						:empty-slot-label="t('retreatFlyerEditor.emptySlot')"
-						@move-block="store.moveBlock"
-						@select-block="store.selectBlock"
-					/>
+					<!-- The inner box clips the canvas's UNSCALED layout box (a transform
+					     does not shrink it) down to the scaled size. Its height is what
+					     the pane measures: once the scaled flyer fits the pane, the
+					     scrollbar is gone — not full of empty space below. -->
+					<div :style="{ height: previewHeight }" class="overflow-hidden">
+						<RetreatFlyerCanvas
+							ref="canvasRef"
+							:retreat="retreat"
+							:flyer-options="store.draftOptions"
+							:layout="store.blocks"
+							:image-overrides="store.images"
+							:theme="store.theme"
+							:block-styles="store.blockStyles"
+							:registration-link="walkerRegistrationLink"
+							:scale="effectivePreviewScale"
+							editable
+							:selected-block-id="store.selectedBlockId"
+							:highlight-slot="store.highlightSlot"
+							:empty-slot-label="t('retreatFlyerEditor.emptySlot')"
+							@edit-text="jumpToTextField"
+							@move-block="store.moveBlock"
+							@select-block="store.selectBlock"
+						/>
+					</div>
 				</div>
 			</div>
 		</div>
@@ -158,12 +238,13 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import { onBeforeRouteLeave, useRoute } from 'vue-router';
 import { useI18n } from 'vue-i18n';
-import { ArrowLeft, Loader2, RotateCcw, Undo2 } from 'lucide-vue-next';
+import { ArrowLeft, Loader2, Minus, Plus, Redo2, RotateCcw, Undo2 } from 'lucide-vue-next';
 import { Button, Card, CardContent, Tabs, TabsContent, TabsList, TabsTrigger } from '@repo/ui';
 import { useRetreatStore } from '@/stores/retreatStore';
+import { getRetreatFlyerOptions } from '@/services/api';
 import { useFlyerEditorStore } from '@/stores/flyerEditorStore';
 import RetreatFlyerCanvas from '@/components/flyer/RetreatFlyerCanvas.vue';
 import FlyerDesignPanel from '@/components/flyer/editor/FlyerDesignPanel.vue';
@@ -191,6 +272,76 @@ const previewScale = ref(1);
 const canvasHeight = ref(0);
 let resizeObserver: ResizeObserver | null = null;
 
+/** Which editor tab is open, so a double-click on the flyer can jump to Textos. */
+const activeTab = ref('design');
+
+/** Other retreats to copy a design from, loaded once on mount. */
+/** Shown by the copy select when the source design could not be read. */
+const copyError = ref('');
+
+const otherRetreats = computed(() =>
+	(retreatStore.retreats as any[]).filter((r) => r.id !== retreatId.value),
+);
+
+function formatDateLabel(value: string) {
+	return value ? new Date(value).toLocaleDateString() : '';
+}
+
+/**
+ * Loads another retreat's saved design into the editor as the new draft —
+ * nothing is persisted until Guardar, and Deshacer brings the previous
+ * design back.
+ */
+async function copyDesignFrom(sourceId: string) {
+	if (!sourceId) return;
+	copyError.value = '';
+	try {
+		const options = await getRetreatFlyerOptions(sourceId);
+		if (options) store.applyTemplate(options);
+	} catch {
+		// Silent would read as copied: nothing lands on the canvas and the user
+		// saves a design that never changed
+		copyError.value = t('retreatFlyerEditor.copyFailed');
+	} finally {
+		// The select always shows the placeholder again; the copy is in the draft
+		const select = document.querySelector('[data-copy-design-select]') as HTMLSelectElement | null;
+		if (select) select.value = '';
+	}
+}
+
+/**
+ * Double-clicked copy on the flyer: open the Texts tab on that exact field,
+ * scrolled into view, focused and flashed once.
+ */
+function jumpToTextField(overrideKey: string) {
+	activeTab.value = 'texts';
+	// The tab content mounts asynchronously and something along the way
+	// (remount, the Tabs transition) hands focus back to <body>. Retry on
+	// frames until it sticks, bounded — then flash the field.
+	const settle = (attempts = 24) => {
+		const field = document.getElementById(`flyer-text-${overrideKey}`);
+		// The input mounts when the Tabs content does — later than nextTick.
+		// Retry on frames until it exists AND holds focus, bounded.
+		if (!field) {
+			if (attempts > 0) requestAnimationFrame(() => settle(attempts - 1));
+			return;
+		}
+		field.scrollIntoView({ block: 'center', behavior: 'smooth' });
+		field.focus();
+		if (document.activeElement === field || attempts <= 0) {
+			field.classList.add('flyer-field-flash');
+			window.setTimeout(() => field.classList.remove('flyer-field-flash'), 1600);
+			return;
+		}
+		requestAnimationFrame(() => settle(attempts - 1));
+	};
+	nextTick(() => settle());
+}
+
+/** Manual zoom on top of the width fit: shrink until the whole flyer fits. */
+const previewZoom = ref(1);
+const effectivePreviewScale = computed(() => previewScale.value * previewZoom.value);
+
 const updateScale = () => {
 	if (!previewColumnRef.value) return;
 	previewScale.value = Math.min(previewColumnRef.value.clientWidth / 850, 1);
@@ -200,12 +351,18 @@ const updateScale = () => {
 
 /** A scaled element keeps its unscaled layout box, so reserve the scaled height. */
 const previewHeight = computed(() => {
-	if (previewScale.value >= 1 || !canvasHeight.value) return undefined;
-	return `${canvasHeight.value * previewScale.value}px`;
+	// A transform does not shrink the layout box: without this explicit height
+	// the pane stays as tall as the UNSCALED flyer and keeps a scrollbar full of
+	// empty space below a flyer that already fits. Always track the effective
+	// scale, including zoom on wide columns (previewScale >= 1).
+	if (effectivePreviewScale.value >= 1 || !canvasHeight.value) return undefined;
+	return `${canvasHeight.value * effectivePreviewScale.value}px`;
 });
 
 function discard() {
-	store.loadFromRetreat(retreat.value);
+	// discardDraft, not a reload: reloading would find the autosaved draft and
+	// put the just-discarded design right back
+	store.discardDraft();
 }
 
 async function load(id: string) {
@@ -217,16 +374,18 @@ async function load(id: string) {
 
 /** Cmd/Ctrl+Z, which is what everyone tries first. */
 const onKeydown = (event: KeyboardEvent) => {
-	if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'z' && !event.shiftKey) {
+	if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'z') {
 		const target = event.target as HTMLElement | null;
 		// Let the browser undo typing inside a field
 		if (target && ['INPUT', 'TEXTAREA'].includes(target.tagName)) return;
 		event.preventDefault();
-		store.undo();
+		if (event.shiftKey) store.redo();
+		else store.undo();
 	}
 };
 
 onMounted(async () => {
+	if (!retreatStore.retreats.length) retreatStore.fetchRetreats().catch(() => {});
 	window.addEventListener('beforeunload', warnOnUnload);
 	window.addEventListener('keydown', onKeydown);
 	await load(retreatId.value);
@@ -267,3 +426,20 @@ watch(retreatId, async (newId, oldId) => {
 	if (newId && newId !== oldId) await load(newId);
 });
 </script>
+
+<style scoped>
+@keyframes flyerFieldFlash {
+	0%,
+	100% {
+		box-shadow: 0 0 0 0 rgba(59, 130, 246, 0);
+	}
+	30% {
+		box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.45);
+	}
+}
+
+.flyer-field-flash {
+	animation: flyerFieldFlash 1.6s ease-out 1;
+	border-radius: 6px;
+}
+</style>

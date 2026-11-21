@@ -4353,7 +4353,17 @@
       "lowContrastHint": "Este texto casi no se lee sobre su fondo. Prueba otro color de texto, un velo, o atenuar la imagen.",
       "moveUp": "Subir el bloque",
       "moveDown": "Bajar el bloque",
-      "hiddenCount": "{count} bloque oculto | {count} bloques ocultos"
+      "hiddenCount": "{count} bloque oculto | {count} bloques ocultos",
+      "blockHints": {
+        "dateTime": "Destacado es la fecha grande; Texto, la hora y la duración.",
+        "description": "Texto es la descripción completa de la reunión.",
+        "location": "Destacado es el nombre del lugar; Texto, la dirección.",
+        "locationQr": "Texto es todo el contenido; ajusta su tamaño y color.",
+        "community": "Destacado es el nombre de la comunidad (Oswald de fábrica)."
+      },
+      "readPalette": "Colores de la imagen",
+      "paletteFromImage": "De la imagen:",
+      "hidePalette": "ocultar"
     },
     "leaveWithoutSaving": "Tienes cambios sin guardar en el volante. ¿Salir de todas formas?",
     "undo": "Deshacer",
@@ -4367,7 +4377,16 @@
     "saved": "Guardado",
     "unsavedChanges": "Tienes cambios sin guardar",
     "discard": "Descartar cambios",
+    "redo": "Rehacer",
+    "redoHint": "Rehacer (Cmd+Shift+Z)",
+    "copyDesignFrom": "Copiar diseño de…",
+    "copyFailed": "No se pudo leer el diseño de ese retiro. Intenta de nuevo.",
+    "discardDraft": "Descartar borrador",
+    "draftRecovered": "Se recuperó tu borrador sin guardar del {0}. Sigue editando o descártalo.",
     "preview": "Vista previa",
+    "zoomIn": "Aumentar la vista previa",
+    "zoomOut": "Reducir la vista previa",
+    "zoomReset": "Volver al 100%",
     "resetLayout": "Restaurar distribución original",
     "tabs": {
       "images": "Imágenes",
@@ -4468,6 +4487,33 @@
       "opacity": "Opacidad",
       "textColor": "Texto",
       "headingColor": "Títulos",
+      "row": {
+        "family": "Familia",
+        "size": "Tamaño",
+        "color": "Color",
+        "align": "Alinear",
+        "shadow": "Sombra"
+      },
+      "shadowMode": {
+        "auto": "Auto",
+        "on": "Sí",
+        "off": "No"
+      },
+      "scaleUp": "Aumentar el tamaño",
+      "scaleDown": "Reducir el tamaño",
+      "scaleReset": "Volver al tamaño de diseño",
+      "slot": {
+        "title": "Título",
+        "emphasis": "Destacado",
+        "body": "Texto"
+      },
+      "font": {
+        "inherit": "Original",
+        "oswald": "Oswald",
+        "playfair": "Playfair",
+        "dancing": "Cursiva",
+        "mono": "Mono"
+      },
       "textShadow": "Sombra en el texto (se lee mejor sobre la foto)",
       "scrim": "Atenuar la imagen de fondo",
       "scrimHint": "Útil cuando la foto tiene mucho contraste y el texto compite con ella.",
@@ -4486,11 +4532,24 @@
       "selectHint": "Toca un bloque del volante para darle un estilo propio.",
       "matchBackground": "Ajustar colores a la imagen",
       "matchFailed": "No se pudo leer la imagen de fondo.",
+      "readPalette": "Colores de la imagen",
+      "paletteFromImage": "De la imagen:",
+      "hidePalette": "ocultar",
       "lowContrast": "Este texto casi no se lee sobre su fondo",
       "lowContrastHint": "Este texto casi no se lee sobre su fondo. Prueba otro color de texto, un velo, o atenuar la imagen.",
       "moveUp": "Subir el bloque",
       "moveDown": "Bajar el bloque",
-      "hiddenCount": "{count} bloque oculto | {count} bloques ocultos"
+      "hiddenCount": "{count} bloque oculto | {count} bloques ocultos",
+      "blockHints": {
+        "intro": "Destacado es la insignia \"¡Atrévete!\"; Texto, el párrafo. Este bloque nació en Playfair.",
+        "startTime": "Destacado es la fecha; Texto, la hora y la nota de llegada.",
+        "endTime": "Destacado es la fecha de cierre; Texto, la ubicación y el aviso a la familia.",
+        "location": "Destacado es el nombre de la casa; Texto, la dirección.",
+        "contact": "Destacado son los teléfonos y correos (mono de fábrica); Texto, sus etiquetas.",
+        "payment": "Destacado es el precio (Oswald de fábrica); Texto, la información de pago.",
+        "whatToBring": "Título es \"QUÉ LLEVAR\"; Texto, el subtítulo ámbar y la lista.",
+        "registrationQr": "Destacado es el enlace bajo el código (mono de fábrica); Texto, \"Escanea…\"."
+      }
     },
     "leaveWithoutSaving": "Tienes cambios sin guardar en el volante. ¿Salir de todas formas?",
     "undo": "Deshacer",

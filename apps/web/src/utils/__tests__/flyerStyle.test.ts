@@ -7,6 +7,7 @@ import {
 	checkBlockContrast,
 	themeForBackground,
 	FLYER_THEME_PRESETS,
+	FLYER_FONT_STACKS,
 } from '../flyerStyle';
 import { FLYER_BLOCK_STYLE_DEFAULTS } from '@/components/flyer/blockRegistry';
 
@@ -51,6 +52,79 @@ describe('resolveBlockStyle', () => {
 		);
 
 		expect(style['--fb-text']).toBe('#111827');
+	});
+
+	it('defaults every slot to the flyer font and the designed size', () => {
+		const style = resolveBlockStyle('startTime');
+
+		expect(style['--fb-title-font']).toBe('inherit');
+		expect(style['--fb-emphasis-font']).toBe('inherit');
+		expect(style['--fb-body-font']).toBe('inherit');
+		expect(style['--fb-title-scale']).toBe('1');
+		expect(style['--fb-emphasis-scale']).toBe('1');
+		expect(style['--fb-body-scale']).toBe('1');
+	});
+
+	it('resolves a theme slot every block inherits', () => {
+		const style = resolveBlockStyle('location', {
+			fonts: { emphasis: { family: 'oswald', scale: 115 } },
+		});
+
+		expect(style['--fb-emphasis-font']).toBe(FLYER_FONT_STACKS.oswald);
+		expect(style['--fb-emphasis-scale']).toBe('1.15');
+		// The other slots are untouched
+		expect(style['--fb-title-font']).toBe('inherit');
+	});
+
+	it('lets a block override one slot while the theme drives the others', () => {
+		const style = resolveBlockStyle(
+			'intro',
+			{ fonts: { emphasis: { family: 'oswald' } } },
+			{ intro: { fonts: { emphasis: { family: 'dancing' } } } },
+		);
+
+		// intro's default body Playfair survives; only emphasis moved
+		expect(style['--fb-emphasis-font']).toBe(FLYER_FONT_STACKS.dancing);
+		expect(style['--fb-body-font']).toBe(FLYER_FONT_STACKS.playfair);
+	});
+
+	it('keeps the designed monospaced numbers and Oswald price as slot defaults', () => {
+		const contact = resolveBlockStyle('contact');
+		expect(contact['--fb-emphasis-font']).toBe(FLYER_FONT_STACKS.mono);
+
+		const payment = resolveBlockStyle('payment');
+		expect(payment['--fb-emphasis-font']).toBe(FLYER_FONT_STACKS.oswald);
+	});
+
+	it('gives each slot its own colour, with the flat fields as the base layer', () => {
+		// No slot overrides: the pre-slots look, title and emphasis on headingColor
+		const flat = resolveBlockStyle('startTime', {
+			textColor: '#3d3428',
+			headingColor: '#14524d',
+		});
+		expect(flat['--fb-title-color']).toBe('#14524d');
+		expect(flat['--fb-emphasis-color']).toBe('#14524d');
+		expect(flat['--fb-body-color']).toBe('#3d3428');
+
+		// A slot colour beats the flat layer — the "destacado solito" ask
+		const emphatic = resolveBlockStyle('startTime', undefined, {
+			startTime: { fonts: { emphasis: { color: '#b45309' } } },
+		});
+		expect(emphatic['--fb-emphasis-color']).toBe('#b45309');
+		expect(emphatic['--fb-title-color']).toBe('#1d4ed8'); // startTime default heading
+	});
+
+	it('aligns slots independently, falling back to the flat alignment', () => {
+		const style = resolveBlockStyle(
+			'startTime',
+			{ textAlign: 'left' },
+			{ startTime: { fonts: { title: { align: 'center' } } } },
+		);
+
+		expect(style['--fb-title-align']).toBe('center');
+		expect(style['--fb-title-justify']).toBe('center');
+		expect(style['--fb-body-align']).toBe('left');
+		expect(style.titleAlign).toBe('center');
 	});
 
 	it('only overrides the fields that are actually set', () => {
@@ -219,6 +293,15 @@ describe('checkBlockContrast', () => {
 			{ payment: { backgroundColor: '#000000', backgroundOpacity: 90 } },
 		);
 		expect(check.isPoor).toBe(true);
+	});
+
+	// The QR's stock grey-blue fails the grey baseline; warning about the design
+	// as shipped only taught people to ignore the warning
+	it('keeps quiet while the body colour is the stock one', () => {
+		expect(checkBlockContrast('registrationQr').isPoor).toBe(false);
+
+		const chosen = checkBlockContrast('registrationQr', { fonts: { body: { color: '#6b7280' } } });
+		expect(chosen.isPoor).toBe(true);
 	});
 
 	it('flags white text on a white veil', () => {

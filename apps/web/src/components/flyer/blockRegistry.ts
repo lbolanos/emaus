@@ -1,5 +1,11 @@
 import type { Component } from 'vue';
-import type { FlyerBlockId, FlyerBlockLayout, FlyerBlockStyle, FlyerSlot } from '@repo/types';
+import type {
+	FlyerBlockId,
+	FlyerBlockLayout,
+	FlyerBlockStyle,
+	FlyerFontSlot,
+	FlyerSlot,
+} from '@repo/types';
 
 import FlyerBlockIntro from './blocks/FlyerBlockIntro.vue';
 import FlyerBlockStartTime from './blocks/FlyerBlockStartTime.vue';
@@ -19,6 +25,25 @@ export const FLYER_BLOCK_COMPONENTS: Record<FlyerBlockId, Component> = {
 	payment: FlyerBlockPayment,
 	whatToBring: FlyerBlockWhatToBring,
 	registrationQr: FlyerBlockRegistrationQr,
+};
+
+/**
+ * Which typography slots each block actually mixes — what the editor offers, in
+ * display order. A block with two kinds of lettering shows two rows, not three.
+ */
+export const FLYER_BLOCK_FONT_SLOTS: Record<FlyerBlockId, FlyerFontSlot[]> = {
+	// The paragraph and the "¡Atrévete!" badge; no heading of its own
+	intro: ['emphasis', 'body'],
+	startTime: ['title', 'emphasis', 'body'],
+	endTime: ['title', 'emphasis', 'body'],
+	location: ['title', 'emphasis', 'body'],
+	// emphasis = the phone numbers and emails, monospaced as designed
+	contact: ['title', 'emphasis', 'body'],
+	// emphasis = the price plate
+	payment: ['title', 'emphasis', 'body'],
+	whatToBring: ['title', 'body'],
+	// emphasis = the registration domain under the code, monospaced as designed
+	registrationQr: ['title', 'emphasis', 'body'],
 };
 
 export const FLYER_SLOTS: FlyerSlot[] = ['left', 'right', 'wide'];
@@ -56,20 +81,60 @@ export const FLYER_PRESET_IMAGES = {
  * per-block overrides in the editor are for.
  */
 export const FLYER_BLOCK_STYLE_DEFAULTS: Record<FlyerBlockId, FlyerBlockStyle> = {
-	intro: { textColor: '#111827', headingColor: '#1e40af', textShadow: false, textAlign: 'center' },
+	// The intro was born in Playfair: kept as its default (used to be a hard-coded
+	// inline style no editor control could reach) so the look is unchanged until
+	// someone picks another typeface for it.
+	intro: {
+		textColor: '#111827',
+		headingColor: '#1e40af',
+		textShadow: false,
+		textAlign: 'center',
+		fonts: { emphasis: { family: 'playfair' }, body: { family: 'playfair' } },
+	},
 	startTime: { textColor: '#111827', headingColor: '#1d4ed8', textShadow: false, textAlign: 'left' },
-	location: { textColor: '#000000', headingColor: '#15803d', textShadow: false, textAlign: 'left' },
-	// Sits over the dark lower half: white heading, amber date, as in the original
+	location: {
+		textColor: '#000000',
+		headingColor: '#15803d',
+		textShadow: false,
+		textAlign: 'left',
+		// The house name was born --fb-text black; the emphasis slot's colour
+		// default keeps it exactly that instead of inheriting the green heading
+		fonts: { emphasis: { color: '#000000' } },
+	},
+	// Sits over the dark lower half of the original artwork, so it defaults to white
+	// on white. The date reads headingColor too — it used to be a hard-coded amber
+	// that no theme or block colour could reach.
 	endTime: { textColor: '#ffffff', headingColor: '#ffffff', textShadow: true, textAlign: 'left' },
 	registrationQr: {
 		textColor: '#4b5563',
 		headingColor: '#1d4ed8',
 		textShadow: false,
 		textAlign: 'center',
+		// The domain plate under the code was born monospaced blue on its white
+		// plate (font-mono + text-blue-700); now it is the emphasis slot's default
+		fonts: { emphasis: { family: 'mono' } },
 	},
-	// The original hung contact off the right edge; now that is a default, not a hard-coded class
-	contact: { textColor: '#111827', headingColor: '#374151', textShadow: false, textAlign: 'right' },
-	payment: { textColor: '#374151', headingColor: '#1d4ed8', textShadow: false, textAlign: 'center' },
+	// The original hung contact off the right edge; now that is a default, not a
+	// hard-coded class. Its numbers keep their designed monospaced look as the
+	// emphasis slot's default (the font-mono class is gone from the block).
+	contact: {
+		textColor: '#111827',
+		headingColor: '#374151',
+		textShadow: false,
+		textAlign: 'right',
+		// Numbers and emails keep their born near-black (they were --fb-text)
+		fonts: { emphasis: { family: 'mono', color: '#111827' } },
+	},
+	// The price plate was born Oswald on near-black (font-header + text-gray-900);
+	// both stay as the emphasis slot's defaults so saved flyers render exactly as
+	// they did, now reachable from the editor.
+	payment: {
+		textColor: '#374151',
+		headingColor: '#1d4ed8',
+		textShadow: false,
+		textAlign: 'center',
+		fonts: { emphasis: { family: 'oswald', color: '#111827' } },
+	},
 	whatToBring: {
 		textColor: '#f3f4f6',
 		headingColor: '#ffffff',

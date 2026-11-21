@@ -1,4 +1,4 @@
-import { computed, ref, shallowRef } from 'vue';
+import { computed, ref, shallowRef, watch } from 'vue';
 import {
 	FLYER_LAYOUT_VERSION,
 	type FlyerBlockStyle,
@@ -53,11 +53,21 @@ export function createFlyerEditorStoreSetup<TBlock extends AnyBlockLayout>(
 		const hiddenTexts = ref<string[]>([]);
 		/** Which block the editor panel is showing the style of. */
 		const selectedBlockId = ref<string | null>(null);
+		/**
+		 * Which typography slot the pointer is over in the panel, and on which
+		 * block it applies — the block's own section glows that block only; the
+		 * whole-flyer panel glows every block. The answer to "¿qué es cada rol?".
+		 */
+		const highlightSlot = ref<{ slot: string; blockId: string | null } | null>(null);
 		const savedSnapshot = ref('');
+		/** Set while the editor holds a draft recovered from localStorage. */
+		const draftRestoredAt = ref<Date | null>(null);
 		const saving = ref(false);
 
 		/** Serialised states to step back through. Capped: this is undo, not history. */
 		const undoStack = ref<string[]>([]);
+		/** States undone, so they can be stepped over again (Cmd+Shift+Z). */
+		const redoStack = ref<string[]>([]);
 		const UNDO_LIMIT = 30;
 		/** Set while undoing, so restoring a state doesn't get pushed as a new step. */
 		let restoring = false;
@@ -124,9 +134,12 @@ export function createFlyerEditorStoreSetup<TBlock extends AnyBlockLayout>(
 			lastUndoTag = tag ?? null;
 			lastUndoAt = now;
 			undoStack.value = [...undoStack.value, snapshot.value].slice(-UNDO_LIMIT);
+			// A new action forks history: what was redoable no longer is
+			redoStack.value = [];
 		}
 
 		const canUndo = computed(() => undoStack.value.length > 0);
+		const canRedo = computed(() => redoStack.value.length > 0);
 
 		function applySnapshot(serialised: string) {
 			const state = JSON.parse(serialised);
@@ -144,10 +157,21 @@ export function createFlyerEditorStoreSetup<TBlock extends AnyBlockLayout>(
 			const previous = undoStack.value[undoStack.value.length - 1];
 			if (previous === undefined) return;
 			undoStack.value = undoStack.value.slice(0, -1);
+			redoStack.value = [...redoStack.value, snapshot.value].slice(-UNDO_LIMIT);
 			applySnapshot(previous);
 			// Whatever is typed next must land as a fresh undo step, even with the
 			// same tag inside the window — the pre-typing state is only on record
 			// if it was pushed.
+			lastUndoTag = null;
+		}
+
+		/** Steps forward again over what undo stepped back through. */
+		function redo() {
+			const next = redoStack.value[redoStack.value.length - 1];
+			if (next === undefined) return;
+			redoStack.value = redoStack.value.slice(0, -1);
+			undoStack.value = [...undoStack.value, snapshot.value].slice(-UNDO_LIMIT);
+			applySnapshot(next);
 			lastUndoTag = null;
 		}
 
@@ -189,8 +213,69 @@ export function createFlyerEditorStoreSetup<TBlock extends AnyBlockLayout>(
 			savedSnapshot.value = snapshot.value;
 			// Nothing to step back to once we (re)load the entity
 			undoStack.value = [];
+			redoStack.value = [];
 			lastUndoTag = null;
+			restoreDraftIfAny();
 		}
+
+		/** Localstorage key of this entity's autosaved draft. */
+		function draftKey() {
+			// Off under vitest: drafts leaking between suites corrupt store tests
+			if (import.meta.env.MODE === 'test') return null;
+			return entityId.value ? `emaus-flyer-draft-${entityId.value}` : null;
+		}
+
+		/**
+		 * A crash, a closed tab, a missed beforeunload: the design session used to
+		 * die with it. The draft rides in localStorage, and on load — if it differs
+		 * from what was saved — it comes back into the editor (dirty, undoable to
+		 * the saved state) with a flag the view turns into a notice.
+		 */
+		function restoreDraftIfAny() {
+			draftRestoredAt.value = null;
+			const key = draftKey();
+			if (!key) return;
+			const raw = localStorage.getItem(key);
+			if (!raw) return;
+			try {
+				const draft = JSON.parse(raw) as { at: number; options: Record<string, any> };
+				// Same shape on both sides: the draft stores draftOptions, and this
+				// runs right after loadFrom built the fresh draftOptions. Comparing
+				// against savedSnapshot (the snapshot form) could never match, so
+				// ANY draft key was restored — even one identical to what is saved.
+				if (JSON.stringify(draft.options) === JSON.stringify(draftOptions.value)) {
+					localStorage.removeItem(key);
+					return;
+				}
+				applyTemplate(draft.options);
+				undoStack.value = [];
+				redoStack.value = [];
+				draftRestoredAt.value = new Date(draft.at);
+			} catch {
+				localStorage.removeItem(key);
+			}
+		}
+
+		/** Back to the saved state; the restored draft is thrown away for good. */
+		function discardDraft() {
+			const key = draftKey();
+			if (key) localStorage.removeItem(key);
+			applySnapshot(savedSnapshot.value);
+			undoStack.value = [];
+			redoStack.value = [];
+			draftRestoredAt.value = null;
+		}
+
+		// Autosave on every change: the draft is tiny and localStorage is cheap
+		watch(draftOptions, () => {
+			const key = draftKey();
+			if (!key || restoring) return;
+			if (!isDirty.value) {
+				localStorage.removeItem(key);
+				return;
+			}
+			localStorage.setItem(key, JSON.stringify({ at: Date.now(), options: draftOptions.value }));
+		});
 
 		function moveBlock(blockId: string, toSlot: FlyerSlot, toIndex: number) {
 			pushUndo();
@@ -223,6 +308,10 @@ export function createFlyerEditorStoreSetup<TBlock extends AnyBlockLayout>(
 
 		function selectBlock(blockId: string | null) {
 			selectedBlockId.value = blockId;
+		}
+
+		function setHighlightSlot(payload: { slot: string; blockId: string | null } | null) {
+			highlightSlot.value = payload;
 		}
 
 		/** An undefined value clears the field so the layer below shows through again. */
@@ -313,6 +402,12 @@ export function createFlyerEditorStoreSetup<TBlock extends AnyBlockLayout>(
 				await config.persist(entityId.value, draftOptions.value as Record<string, any>);
 				savedSnapshot.value = snapshot.value;
 				undoStack.value = [];
+				// Saved is the new truth: redoing over it would hand back a state
+				// the user just chose against, with the editor looking clean
+				redoStack.value = [];
+				const key = draftKey();
+				if (key) localStorage.removeItem(key);
+				draftRestoredAt.value = null;
 				lastUndoTag = null;
 			} finally {
 				saving.value = false;
@@ -329,6 +424,8 @@ export function createFlyerEditorStoreSetup<TBlock extends AnyBlockLayout>(
 			textOverrides,
 			hiddenTexts,
 			canUndo,
+			canRedo,
+			draftRestoredAt,
 			saving,
 			isDirty,
 			blocksBySlot,
@@ -340,12 +437,16 @@ export function createFlyerEditorStoreSetup<TBlock extends AnyBlockLayout>(
 			setTextOverride,
 			toggleTextVisibility,
 			selectBlock,
+			highlightSlot,
+			setHighlightSlot,
 			setThemeField,
 			applyThemePreset,
 			clearTheme,
 			setBlockStyleField,
 			clearBlockStyle,
 			undo,
+			redo,
+			discardDraft,
 			applyTemplate,
 			resetToDefaultLayout,
 			save,

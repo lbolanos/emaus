@@ -4031,7 +4031,17 @@
       "lowContrastHint": "This text is barely readable on its background. Try another text colour, a veil, or dimming the image.",
       "moveUp": "Move block up",
       "moveDown": "Move block down",
-      "hiddenCount": "{count} hidden block | {count} hidden blocks"
+      "hiddenCount": "{count} hidden block | {count} hidden blocks",
+      "blockHints": {
+        "dateTime": "Emphasis is the big date; Text, the time and duration.",
+        "description": "Text is the full meeting description.",
+        "location": "Emphasis is the venue name; Text, the address.",
+        "locationQr": "Text is all the content; tune its size and colour.",
+        "community": "Emphasis is the community name (Oswald by design)."
+      },
+      "readPalette": "Colours from the image",
+      "paletteFromImage": "From the image:",
+      "hidePalette": "hide"
     },
     "leaveWithoutSaving": "You have unsaved changes to the flyer. Leave anyway?",
     "undo": "Undo",
@@ -4045,7 +4055,16 @@
     "saved": "Saved",
     "unsavedChanges": "You have unsaved changes",
     "discard": "Discard changes",
+    "redo": "Redo",
+    "redoHint": "Redo (Cmd+Shift+Z)",
+    "copyDesignFrom": "Copy design from…",
+    "copyFailed": "Could not read that retreat design. Try again.",
+    "discardDraft": "Discard draft",
+    "draftRecovered": "Recovered your unsaved draft from {0}. Keep editing or discard it.",
     "preview": "Preview",
+    "zoomIn": "Increase preview size",
+    "zoomOut": "Decrease preview size",
+    "zoomReset": "Back to 100%",
     "resetLayout": "Restore the original layout",
     "tabs": {
       "images": "Images",
@@ -4146,6 +4165,33 @@
       "opacity": "Opacity",
       "textColor": "Text",
       "headingColor": "Headings",
+      "row": {
+        "family": "Family",
+        "size": "Size",
+        "color": "Colour",
+        "align": "Align",
+        "shadow": "Shadow"
+      },
+      "shadowMode": {
+        "auto": "Auto",
+        "on": "On",
+        "off": "Off"
+      },
+      "scaleUp": "Increase size",
+      "scaleDown": "Decrease size",
+      "scaleReset": "Back to designed size",
+      "slot": {
+        "title": "Title",
+        "emphasis": "Emphasis",
+        "body": "Text"
+      },
+      "font": {
+        "inherit": "Original",
+        "oswald": "Oswald",
+        "playfair": "Playfair",
+        "dancing": "Script",
+        "mono": "Mono"
+      },
       "textShadow": "Text shadow (reads better over the photo)",
       "scrim": "Dim the background image",
       "scrimHint": "Useful when the photo is busy and competes with the text.",
@@ -4164,11 +4210,24 @@
       "selectHint": "Tap a block on the flyer to give it its own style.",
       "matchBackground": "Match colours to the image",
       "matchFailed": "The background image could not be read.",
+      "readPalette": "Colours from the image",
+      "paletteFromImage": "From the image:",
+      "hidePalette": "hide",
       "lowContrast": "This text is hard to read on its background",
       "lowContrastHint": "This text is hard to read on its background. Try another text colour, a veil, or dimming the image.",
       "moveUp": "Move the block up",
       "moveDown": "Move the block down",
-      "hiddenCount": "{count} block hidden | {count} blocks hidden"
+      "hiddenCount": "{count} block hidden | {count} blocks hidden",
+      "blockHints": {
+        "intro": "Emphasis is the badge; Text, the paragraph. Born in Playfair.",
+        "startTime": "Emphasis is the date; Text, the time and the arrival note.",
+        "endTime": "Emphasis is the closing date; Text, the venue and the family notice.",
+        "location": "Emphasis is the house name; Text, the address.",
+        "contact": "Emphasis is the phones and emails (mono by design); Text, their labels.",
+        "payment": "Emphasis is the price (Oswald by design); Text, the payment details.",
+        "whatToBring": "Title is the heading; Text, the subtitle and the list.",
+        "registrationQr": "Emphasis is the link under the code (mono by design); Text, the scan line."
+      }
     },
     "leaveWithoutSaving": "You have unsaved changes to the flyer. Leave anyway?",
     "undo": "Undo",

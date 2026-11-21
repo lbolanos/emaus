@@ -33,6 +33,36 @@
 				<Wand2 v-else class="mr-1.5 h-4 w-4" />
 				{{ tp('design.matchBackground') }}
 			</Button>
+			<!-- The artwork's own colours, as swatches: the Virgin's teal instead
+			     of a guessed hex -->
+			<Button
+				v-if="!imagePalette.length"
+				type="button"
+				size="sm"
+				variant="outline"
+				class="w-full"
+				:disabled="matching"
+				data-palette-button
+				@click="readPalette"
+			>
+				{{ tp('design.readPalette') }}
+			</Button>
+			<p v-else class="flex items-center gap-1.5" data-palette-row>
+				<span class="text-[11px] text-muted-foreground">{{ tp('design.paletteFromImage') }}</span>
+				<span
+					v-for="hex in imagePalette"
+					:key="hex"
+					class="h-3.5 w-3.5 rounded-full border border-black/10"
+					:style="{ backgroundColor: hex }"
+				/>
+				<button
+					type="button"
+					class="text-[11px] text-muted-foreground underline"
+					@click="imagePalette = []"
+				>
+					{{ tp('design.hidePalette') }}
+				</button>
+			</p>
 			<p v-if="matchError" class="text-[11px] text-destructive">{{ matchError }}</p>
 		</div>
 
@@ -55,7 +85,12 @@
 				</span>
 			</template>
 
-			<FlyerStyleFields :values="theme" @update="(key, value) => emit('updateTheme', key, value)" />
+			<FlyerStyleFields
+				:values="theme"
+				:palette="imagePalette"
+				@update="(key, value) => emit('updateTheme', key, value)"
+				@hover-slot="(slot) => emit('hoverSlot', slot ? { slot, blockId: null } : null)"
+			/>
 
 			<div class="space-y-1.5 border-t pt-3">
 				<Label class="text-xs">{{ tp('design.scrim') }}</Label>
@@ -195,6 +230,9 @@
 						{{ tp('design.reset') }}
 					</Button>
 				</div>
+				<p v-if="blockHint(selectedBlockId)" class="text-[11px] leading-snug text-muted-foreground">
+					{{ blockHint(selectedBlockId) }}
+				</p>
 				<p
 					v-if="poorContrast.has(selectedBlockId)"
 					class="flex items-start gap-1.5 text-[11px] text-amber-600"
@@ -204,7 +242,11 @@
 				</p>
 				<FlyerStyleFields
 					:values="blockStyles[selectedBlockId] ?? {}"
+					:font-slots="fontSlotsByBlock[selectedBlockId] ?? ['title', 'emphasis', 'body']"
+					:palette="imagePalette"
+					:text-shadow-default="blockTextShadowDefault"
 					@update="(key, value) => emit('updateBlockStyle', selectedBlockId!, key, value)"
+					@hover-slot="(slot) => emit('hoverSlot', slot ? { slot, blockId: selectedBlockId } : null)"
 				/>
 			</div>
 			<p v-else class="text-[11px] text-muted-foreground">
@@ -219,7 +261,13 @@ import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { AlertTriangle, ChevronDown, ChevronUp, Eye, EyeOff, Loader2, Wand2 } from 'lucide-vue-next';
 import { Button, Label } from '@repo/ui';
-import type { FlyerBlockStyle, FlyerSlot, FlyerTheme } from '@repo/types';
+import type {
+	FlyerBlockStyle,
+	FlyerFontSlot,
+	FlyerFonts,
+	FlyerSlot,
+	FlyerTheme,
+} from '@repo/types';
 import type { AnyBlockLayout } from '@/utils/flyerLayout';
 import {
 	FLYER_THEME_PRESETS,
@@ -228,7 +276,8 @@ import {
 	type FlyerThemePreset,
 } from '@/utils/flyerStyle';
 import { averageImageLuminance } from '@/utils/imageLuminance';
-import { FLYER_BLOCK_STYLE_DEFAULTS, FLYER_SLOTS } from '../blockRegistry';
+import { imagePalette as imagePaletteFromImage } from '@/utils/imagePalette';
+import { FLYER_BLOCK_FONT_SLOTS, FLYER_BLOCK_STYLE_DEFAULTS, FLYER_SLOTS } from '../blockRegistry';
 import FlyerPanelSection from './FlyerPanelSection.vue';
 import FlyerStyleFields from './FlyerStyleFields.vue';
 
@@ -246,16 +295,19 @@ const props = withDefaults(
 		styleDefaults?: Record<string, FlyerBlockStyle>;
 		/** One-click looks; flavours with boxed block defaults ship their own set. */
 		presets?: FlyerThemePreset[];
+		/** Which typography slots each block of this flavour mixes. */
+		fontSlotsByBlock?: Record<string, FlyerFontSlot[]>;
 	}>(),
 	{
 		tPrefix: 'retreatFlyerEditor',
 		styleDefaults: () => FLYER_BLOCK_STYLE_DEFAULTS,
 		presets: () => FLYER_THEME_PRESETS,
+		fontSlotsByBlock: () => FLYER_BLOCK_FONT_SLOTS,
 	},
 );
 
 /** Every style field is a colour, a percentage or a flag. */
-type StyleValue = string | number | boolean | undefined;
+type StyleValue = string | number | boolean | FlyerFonts | undefined;
 
 const emit = defineEmits<{
 	moveBlock: [blockId: string, slot: FlyerSlot, index: number];
@@ -266,9 +318,29 @@ const emit = defineEmits<{
 	clearBlockStyle: [blockId: string];
 	toggleVisibility: [blockId: string];
 	selectBlock: [blockId: string];
+	hoverSlot: [payload: { slot: string; blockId: string | null } | null];
 }>();
 
 const { t } = useI18n();
+const i18n = useI18n();
+
+/** One line saying what each slot is ON THIS BLOCK, when we have one. */
+function blockHint(blockId: string): string | null {
+	const key = `${props.tPrefix}.design.blockHints.${blockId}`;
+	return i18n.te(key) ? t(key) : null;
+}
+
+/**
+ * What the block-wide shadow resolves to below the block's own override: some
+ * blocks (Fin del retiro, Qué llevar) are born with it on, and the checkbox
+ * must say so or "turning it on" does nothing visible.
+ */
+const blockTextShadowDefault = computed(() => {
+	if (!props.selectedBlockId) return false;
+	return (
+		props.theme?.textShadow ?? props.styleDefaults[props.selectedBlockId]?.textShadow ?? false
+	);
+});
 
 /** Translations live under the flavour prefix; this keeps the call sites short. */
 function tp(key: string, count?: number) {
@@ -277,6 +349,16 @@ function tp(key: string, count?: number) {
 
 const matching = ref(false);
 const matchError = ref('');
+/** Colours read off the current artwork; empty until asked for. */
+const imagePalette = ref<string[]>([]);
+// A new artwork invalidates the read: leaving the old swatches around offers
+// colours that no longer exist anywhere on the flyer
+watch(
+	() => props.backgroundImage,
+	() => {
+		imagePalette.value = [];
+	},
+);
 
 // The block list is the one you keep coming back to; the palette is set once and left alone
 const openBlocks = ref(true);
@@ -329,6 +411,16 @@ function moveByStep(block: AnyBlockLayout, direction: -1 | 1) {
 	// Crossing slots: land at the near end of the neighbouring one
 	const slotBlocks = list.filter((b) => b.slot === target.slot);
 	emit('moveBlock', block.id, target.slot, direction === 1 ? 0 : slotBlocks.length);
+}
+
+async function readPalette() {
+	if (!props.backgroundImage) return;
+	matchError.value = '';
+	try {
+		imagePalette.value = await imagePaletteFromImage(props.backgroundImage, 5);
+	} catch {
+		matchError.value = tp('design.matchFailed');
+	}
 }
 
 async function matchBackground() {

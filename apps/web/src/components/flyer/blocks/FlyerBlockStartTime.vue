@@ -8,20 +8,23 @@
 			</div>
 			<div class="flex-1 min-w-0">
 				<h4
-					class="font-black text-[15px] uppercase text-[color:var(--fb-heading)] tracking-[0.15em] mb-1.5"
+					class="font-black fb-title text-[length:calc(0.9375rem*var(--fb-title-scale,1))] uppercase text-[color:var(--fb-title-color)] tracking-[0.15em] mb-1.5"
 				>
 					{{ t('retreatFlyer.startTime') }}
 				</h4>
-				<p class="text-[17px] text-[color:var(--fb-heading)] font-bold mb-0.5">
+				<p class="fb-emphasis text-[length:calc(1.0625rem*var(--fb-emphasis-scale,1))] text-[color:var(--fb-emphasis-color)] font-bold mb-0.5">
 					{{ content.formatDate(content.startDate) }}
 				</p>
-				<p class="text-[22px] font-black text-[color:var(--fb-text)] mt-1">{{ content.openingTimeDisplay }}</p>
+				<!-- Body, not emphasis: born --fb-text near-black, and one slot cannot
+				     hold two colours — the date keeps the heading colour it was born
+				     with, the time rides Texto so saved flyers render as they did -->
+				<p class="fb-body text-[length:calc(1.375rem*var(--fb-body-scale,1))] font-black text-[color:var(--fb-body-color)] mt-1">{{ content.openingTimeDisplay }}</p>
 				<div
 					v-if="content.registrationDeadline"
 					class="mt-3 border-l-4 border-[color:var(--fb-heading)] pl-3.5 py-1"
 				>
-					<p class="text-[13px] text-[color:var(--fb-text)] font-bold flex items-center gap-2.5">
-						<span class="text-[14px] leading-tight whitespace-pre-line">
+					<p class="fb-body fb-row text-[length:calc(0.8125rem*var(--fb-body-scale,1))] text-[color:var(--fb-body-color)] font-bold flex items-center gap-2.5">
+						<span class="fb-body text-[length:calc(0.875rem*var(--fb-body-scale,1))] leading-tight whitespace-pre-line">
 							{{ content.registrationDeadline }}
 						</span>
 					</p>

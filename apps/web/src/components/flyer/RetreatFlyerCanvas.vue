@@ -1,6 +1,7 @@
 <template>
 	<div
 		:id="printable ? 'printable-area' : undefined"
+		@dblclick="onDoubleClick"
 		class="print-optimized shadow-2xl print:shadow-none rounded-3xl overflow-hidden print:overflow-visible print:rounded-none relative bg-white border border-gray-200 print:border-none"
 		:style="[
 			{ fontFamily: `'Roboto', sans-serif`, width: '100%', maxWidth: '850px', margin: '0 auto' },
@@ -42,6 +43,7 @@
 					:block-styles="blockStyles"
 					:editable="editable"
 					:selected-block-id="selectedBlockId"
+					:highlight-slot="highlightSlot"
 					:empty-label="emptySlotLabel"
 					@drop-at="onDropAt"
 					@select-block="(id) => emit('selectBlock', id)"
@@ -60,6 +62,7 @@
 				:block-styles="blockStyles"
 				:editable="editable"
 				:selected-block-id="selectedBlockId"
+				:highlight-slot="highlightSlot"
 				:empty-label="emptySlotLabel"
 				@drop-at="onDropAt"
 				@select-block="(id) => emit('selectBlock', id)"
@@ -114,6 +117,10 @@ const props = withDefaults(
 		/** Turns the flyer into a drop target. Off for the read-only view. */
 		editable?: boolean;
 		selectedBlockId?: string | null;
+		/** Slot whose panel row the pointer is on: its lines glow on canvas. The
+		 *  blockId scopes the glow to one block; null means every block (the
+		 *  whole-flyer panel). */
+		highlightSlot?: { slot: string; blockId: string | null } | null;
 		emptySlotLabel?: string;
 	}>(),
 	{ scale: 1, editable: false, emptySlotLabel: '', printable: true },
@@ -122,6 +129,8 @@ const props = withDefaults(
 const emit = defineEmits<{
 	moveBlock: [blockId: string, slot: FlyerSlot, index: number];
 	selectBlock: [blockId: string];
+	/** Double-clicked a text the Texts tab owns: jump to its field. */
+	editText: [overrideKey: string];
 }>();
 
 /** Which block the pointer is carrying; the columns only report where it landed. */
@@ -131,6 +140,17 @@ function onDropAt(slot: FlyerSlot, index: number) {
 	if (!draggingId.value) return;
 	emit('moveBlock', draggingId.value, slot, index);
 	draggingId.value = null;
+}
+
+/**
+ * Double-clicking a piece of copy on the flyer is the shortest path to editing
+ * it: report which override key it belongs to and the view focuses that field.
+ */
+function onDoubleClick(event: MouseEvent) {
+	if (!props.editable) return;
+	const target = (event.target as HTMLElement).closest('[data-text-override]');
+	const key = target?.getAttribute('data-text-override');
+	if (key) emit('editText', key);
 }
 
 const scrimColor = computed(() => resolveScrim(props.theme));
@@ -212,11 +232,79 @@ const blocksInSlot = computed(() => {
  */
 .print-optimized [data-flyer-block] {
 	text-align: var(--fb-align, left);
+	/* The "sombra en el texto" switch: one flag the whole block's text inherits.
+	   It used to write a variable nothing consumed — a switch with no wire. */
+	text-shadow: var(--fb-shadow, none);
+}
+
+/* Per-slot lettering: family, colour, alignment and shadow ride the slot class;
+   the size travels with each element (its calc class). */
+.print-optimized .fb-title {
+	font-family: var(--fb-title-font, inherit);
+	color: var(--fb-title-color, var(--fb-heading));
+	text-align: var(--fb-title-align, var(--fb-align, left));
+	text-shadow: var(--fb-title-shadow, var(--fb-shadow, none));
+}
+
+.print-optimized .fb-emphasis {
+	font-family: var(--fb-emphasis-font, inherit);
+	color: var(--fb-emphasis-color, var(--fb-heading));
+	text-align: var(--fb-emphasis-align, var(--fb-align, left));
+	text-shadow: var(--fb-emphasis-shadow, var(--fb-shadow, none));
+}
+
+.print-optimized .fb-body {
+	font-family: var(--fb-body-font, inherit);
+	color: var(--fb-body-color, var(--fb-text));
+	text-align: var(--fb-body-align, var(--fb-align, left));
+	text-shadow: var(--fb-body-shadow, var(--fb-shadow, none));
+}
+
+/* Width-capped emphasis boxes (the domain plate, the intro badge, the price
+   pill) are not running text: text-align cannot move them, so they line up by
+   auto margins driven by the emphasis slot's alignment — the same trick the
+   block-level fb-box uses. */
+.print-optimized [data-registration-domain],
+.print-optimized [data-emphasis-box] {
+	margin-left: var(--fb-emph-ml, 0);
+	margin-right: var(--fb-emph-mr, auto);
 }
 
 .print-optimized .fb-lead,
 .print-optimized .fb-row {
 	justify-content: var(--fb-justify, flex-start);
+}
+
+/* The furniture follows its slot: the lead row (icon + title) the title slot,
+   list rows and notes the body slot. Falls back to the block-wide alignment.
+   The [data-flyer-block] anchor buys specificity over the block-wide rules
+   above — without it, a block whose flat alignment is 'center' (intro, QR,
+   payment) ignored its slot alignment: the flat rule came later and won. */
+.print-optimized .fb-lead {
+	justify-content: var(--fb-title-justify, var(--fb-justify, flex-start));
+}
+
+.print-optimized .fb-row {
+	justify-content: var(--fb-body-justify, var(--fb-justify, flex-start));
+}
+
+.print-optimized [data-flyer-block][data-title-align='center'] .fb-lead,
+.print-optimized [data-flyer-block][data-body-align='center'] .fb-row {
+	flex-direction: column;
+	align-items: center;
+}
+
+/* Stacked, the child that used to take the leftover width would grow in height
+   instead — same fix the block-wide centring already applies. */
+.print-optimized [data-flyer-block][data-title-align='center'] .fb-lead > .flex-1 {
+	flex: none;
+	width: 100%;
+}
+
+.print-optimized [data-flyer-block][data-title-align='right'] .fb-lead,
+.print-optimized [data-flyer-block][data-body-align='right'] .fb-row {
+	flex-direction: row-reverse;
+	justify-content: flex-start;
 }
 
 .print-optimized [data-align='center'] .fb-lead {
@@ -291,6 +379,28 @@ const blocksInSlot = computed(() => {
 /* Override AppLayout's mobile rule that hides every h1, which also kills the flyer title */
 .print-optimized h1 {
 	display: block !important;
+}
+
+
+/* Pointer over a slot section in the panel: glow exactly the lines that slot
+   drives, so "Destacado" stops being a guess. */
+@keyframes fbSlotGlow {
+	0%,
+	100% {
+		outline-color: rgba(59, 130, 246, 0.9);
+	}
+	50% {
+		outline-color: rgba(59, 130, 246, 0.35);
+	}
+}
+
+.print-optimized [data-highlight-slot='title'] .fb-title,
+.print-optimized [data-highlight-slot='emphasis'] .fb-emphasis,
+.print-optimized [data-highlight-slot='body'] .fb-body {
+	outline: 2px dashed rgba(59, 130, 246, 0.9);
+	outline-offset: 3px;
+	border-radius: 4px;
+	animation: fbSlotGlow 1.2s ease-in-out infinite;
 }
 
 @media print {

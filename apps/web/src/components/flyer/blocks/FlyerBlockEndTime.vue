@@ -8,16 +8,16 @@
 			</div>
 			<div class="flex-1 min-w-0">
 				<h4
-					class="font-black text-[15px] uppercase text-[color:var(--fb-heading)] tracking-[0.15em] mb-1.5"
+					class="font-black fb-title text-[length:calc(0.9375rem*var(--fb-title-scale,1))] uppercase text-[color:var(--fb-title-color)] tracking-[0.15em] mb-1.5"
 				>
 					{{ t('retreatFlyer.endTime') }}
 				</h4>
-				<p data-end-date class="text-[17px] text-yellow-300 font-bold mb-0.5 drop-shadow-lg">
+				<p data-end-date class="fb-emphasis text-[length:calc(1.0625rem*var(--fb-emphasis-scale,1))] text-[color:var(--fb-emphasis-color)] font-bold mb-0.5">
 					{{ content.formatDate(content.endDate) }}
 				</p>
 				<div v-if="content.closingLocation" class="mb-2">
 					<p
-						class="font-semibold text-[color:var(--fb-text)] text-[12px] leading-tight whitespace-pre-line"
+						class="font-semibold text-[color:var(--fb-body-color)] fb-body text-[length:calc(0.75rem*var(--fb-body-scale,1))] leading-tight whitespace-pre-line"
 					>
 						{{ content.closingLocation }}
 					</p>
@@ -27,7 +27,8 @@
 				<p
 					v-if="content.arrivalTimeNoteText"
 					data-arrival-note
-					class="fb-row text-gray-800 font-bold uppercase text-[12px] inline-flex max-w-full items-center gap-2 bg-amber-50/80 px-3 py-2 rounded-lg border border-amber-200 whitespace-pre-line"
+				data-text-override="arrivalTimeNoteOverride"
+					class="fb-row text-gray-800 font-bold uppercase fb-body text-[length:calc(0.75rem*var(--fb-body-scale,1))] inline-flex max-w-full items-center gap-2 bg-amber-50/80 px-3 py-2 rounded-lg border border-amber-200 whitespace-pre-line"
 				>
 					<Users class="w-5 h-5 flex-shrink-0" /> {{ content.arrivalTimeNoteText }}
 				</p>

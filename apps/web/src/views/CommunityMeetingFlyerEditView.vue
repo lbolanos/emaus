@@ -1,5 +1,5 @@
 <template>
-	<div class="p-4 md:p-6">
+	<div class="p-2 md:p-3">
 		<!-- Toolbar -->
 		<div class="mb-4 flex flex-wrap items-center justify-between gap-3">
 			<div class="flex items-center gap-3">
@@ -56,9 +56,9 @@
 			</div>
 		</div>
 
-		<div class="grid gap-6 lg:grid-cols-[22rem_1fr]">
+		<div class="grid gap-6 lg:grid-cols-[28rem_1fr]">
 			<!-- Side panel -->
-			<Card class="h-fit lg:sticky lg:top-4">
+			<Card class="h-fit lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto">
 				<CardContent class="p-4">
 					<Tabs default-value="design">
 						<TabsList class="grid w-full grid-cols-3">
@@ -71,6 +71,7 @@
 							<FlyerDesignPanel
 								t-prefix="meetingFlyerEditor"
 								:style-defaults="MEETING_FLYER_BLOCK_STYLE_DEFAULTS"
+								:font-slots-by-block="MEETING_FLYER_BLOCK_FONT_SLOTS"
 								:presets="MEETING_FLYER_THEME_PRESETS"
 								:blocks="store.blocks"
 								:background-image="
@@ -87,6 +88,7 @@
 								@clear-block-style="store.clearBlockStyle"
 								@toggle-visibility="store.toggleVisibility"
 								@select-block="store.selectBlock"
+								@hover-slot="store.setHighlightSlot"
 							/>
 							<Button
 								variant="ghost"
@@ -150,7 +152,7 @@
 				-->
 				<div
 					ref="previewColumnRef"
-					class="max-h-[42vh] overflow-y-auto overflow-x-hidden lg:max-h-none lg:overflow-visible"
+					class="max-h-[42vh] self-start overflow-y-auto overflow-x-hidden lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)]"
 					:style="{ height: previewHeight }"
 				>
 					<MeetingFlyerCanvas
@@ -166,6 +168,7 @@
 						:printable="false"
 						editable
 						:selected-block-id="store.selectedBlockId"
+						:highlight-slot="store.highlightSlot"
 						:empty-slot-label="t('meetingFlyerEditor.emptySlot')"
 						@move-block="store.moveBlock"
 						@select-block="store.selectBlock"
@@ -193,6 +196,7 @@ import { FLYER_IMAGE_KEYS } from '@/components/flyer/flyerPresetAssets';
 import type { FlyerBlockStyle, FlyerTheme } from '@repo/types';
 import { innerAvailableWidth } from '@/utils/flyerScale';
 import {
+	MEETING_FLYER_BLOCK_FONT_SLOTS,
 	MEETING_FLYER_BLOCK_STYLE_DEFAULTS,
 	MEETING_FLYER_PRESET_ASSETS,
 	MEETING_FLYER_PRESET_IMAGES,

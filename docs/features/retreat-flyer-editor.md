@@ -32,9 +32,11 @@ El lienzo mide 850px de ancho (diseño fijo, se escala para móvil e impresión)
 Cada bloque es un componente "tonto" en `apps/web/src/components/flyer/blocks/` que recibe una
 sola prop `content` (ver `useFlyerContent.ts`). Añadir un bloque nuevo son tres pasos:
 
-1. Crear el componente en `blocks/`, con sus colores en `var(--fb-text)` / `var(--fb-heading)`.
-2. Registrarlo en `FLYER_BLOCK_COMPONENTS`, darle posición en `FLYER_DEFAULT_LAYOUT` y estilo en
-   `FLYER_BLOCK_STYLE_DEFAULTS` (`apps/web/src/components/flyer/blockRegistry.ts`).
+1. Crear el componente en `blocks/`, marcando cada texto con su clase de rol — `fb-title`,
+   `fb-emphasis`, `fb-body` — y su tamaño en `text-[length:calc(Nrem*var(--fb-<rol>-scale,1))]`.
+2. Registrarlo en `FLYER_BLOCK_COMPONENTS`, darle posición en `FLYER_DEFAULT_LAYOUT`, estilo en
+   `FLYER_BLOCK_STYLE_DEFAULTS` y sus roles en `FLYER_BLOCK_FONT_SLOTS`
+   (`apps/web/src/components/flyer/blockRegistry.ts`).
 3. Añadir su id a `flyerBlockIdSchema` en `packages/types/src/index.ts` y su nombre a
    `retreatFlyerEditor.blocks.*` en los locales.
 
@@ -63,8 +65,23 @@ La cascada de estilo (`apps/web/src/utils/flyerStyle.ts`, puro y con tests):
 FLYER_BLOCK_STYLE_DEFAULTS  ←  flyer_options.theme  ←  flyer_options.blockStyles[id]
 ```
 
-Cada capa solo pisa los campos que fija, y el resultado son cuatro CSS vars (`--fb-bg`,
-`--fb-text`, `--fb-heading`, `--fb-shadow`) que el canvas pone en el envoltorio de cada bloque.
+Cada capa solo pisa los campos que fija. Las campos planos (`--fb-bg`, `--fb-text`, `--fb-heading`,
+`--fb-shadow`) gobiernan caja y herencia; y cada **rol de letra** (`title` / `emphasis` / `body`,
+ver `FLYER_BLOCK_FONT_SLOTS`) resuelve además sus propias vars — `--fb-<rol>-font`, `-scale`,
+`-color`, `-align`, `-justify`, `-shadow` — desde `flyer_options.fonts.<rol>` con la misma cascada
+de tres capas. El editor ofrece por rol: familia (webfonts ya cargadas + mono), tamaño (5–200%),
+color, alineación y sombra (Auto/Sí/No).
+
+Lo que cuenta como cada rol está fijado por bloque: **title** es su encabezado («INICIO:»),
+**emphasis** su línea estrella (la fecha, el precio, la insignia, los teléfonos, el dominio del
+QR), **body** lo de apoyo. Los looks de nacimiento viven en `FLYER_BLOCK_STYLE_DEFAULTS.fonts`
+(intro en Playfair, precio en Oswald **y su gris casi negro**, teléfonos y dominio en mono,
+nombre de la casa en negro, líneas blancas de los volantes de reunión) — son datos editables, no
+clases clavadas. ⚠️ Un color de nacimiento que no era `headingColor`/`textColor` (el precio, el
+nombre de la casa, los teléfonos, las fechas de reunión) **debe** ir como default explícito de
+`fonts.<rol>.color`: sin él, el slot hereda el color del título y repinta en silencio todos los
+volantes guardados. La hora de Inicio viaja en **body** por lo mismo: nació casi negra y un solo
+slot no puede sostener dos colores.
 
 ⚠️ **Un campo ausente no borra lo que hereda, solo deja pasar la capa de abajo.** Por eso "sin
 fondo" se dice con `backgroundOpacity: 0` y no quitando `backgroundColor`: el bloque de costo trae
@@ -120,21 +137,26 @@ El índice de inserción es **el índice del bloque sobre el que estás**, sin g
 
 ## Alineación dentro del bloque
 
-`textAlign` (`left` | `center` | `right`) sigue la misma cascada que los colores: valor de
-fábrica del bloque ← tema ← override. Los valores de fábrica son los del volante original —
-contacto a la derecha, introducción, costo y QR centrados, el resto a la izquierda—, así que lo
-que antes eran clases clavadas (`text-right`, `ml-auto`, `justify-end`) ahora son datos que se
-pueden cambiar.
+La alineación es **por rol** (`fonts.<rol>.align`), con el `textAlign` plano como capa base para
+los tres. Los valores de fábrica son los del volante original — contacto a la derecha,
+introducción, costo y QR centrados, el resto a la izquierda.
 
-`text-align` solo mueve las palabras. Los chips de icono, las viñetas y las cajas acotadas se
-colocan con flex y con márgenes automáticos, y se quedarían a la izquierda mientras el texto se
-va. Por eso cada bloque marca sus filas y `resolveBlockStyle` devuelve cuatro variables:
+`text-align` solo mueve las palabras, y hay dos familias de elementos que no se enteran:
+
+- **Cajas inline** (la placa del dominio del QR, la insignia de intro, la píldora del precio):
+  `text-align` no mueve una caja inline. Son `block w-fit` con `data-emphasis-box` y se colocan
+  por los márgenes automáticos `--fb-emph-ml/mr`, que siguen la alineación del rol **emphasis**.
+- **El mobiliario flex** (chips de icono, viñetas, placas): sigue a su dueño vía atributos —
+  `data-title-align` mueve la fila del icono (`.fb-lead`), `data-body-align` las filas de lista
+  (`.fb-row`). ⚠️ Esas reglas anclan en `[data-flyer-block][data-*-align]`: sin el doble
+  atributo, la regla plana de `center` de algunos bloques empata en especificidad y gana por
+  orden — el clic no hacía nada.
 
 | marca | qué es | cómo se mueve |
 |---|---|---|
-| `.fb-lead` | la fila principal: icono y su texto | centrada se apila (icono arriba); a la derecha se invierte |
-| `.fb-row` | una fila secundaria: un ítem de lista, la placa del QR | sigue la alineación sin apilarse |
-| `.fb-box` | una caja con ancho máximo | se coloca por `--fb-box-ml` / `--fb-box-mr` |
+| `.fb-lead` | la fila principal: icono y su texto | sigue al título: centrada se apila (icono arriba); a la derecha se invierte |
+| `.fb-row` | una fila secundaria: un ítem de lista, la nota de llegada | sigue al cuerpo |
+| `.fb-box` / `[data-emphasis-box]` | una caja con ancho máximo | por `--fb-box-ml/mr` (bloque) o `--fb-emph-ml/mr` (destacado) |
 | `.fb-stack` | una rejilla de tarjetas (los contactos) | cada celda se ajusta a su contenido con `justify-items` |
 
 Dos trampas que costaron una vuelta:
@@ -183,20 +205,41 @@ es todo lo que hace falta.
 
 ## Red de seguridad del editor
 
-Cuatro cosas que evitan errores caros, todas nacidas de usarlo:
+Cosas que evitan errores caros, todas nacidas de usarlo:
 
-- **Deshacer** (`⌘Z` o el botón): cada acción apila el estado anterior, con tope de 30 pasos.
-  Cargar o guardar vacía la pila. "Descartar cambios" sigue existiendo para tirarlo todo; deshacer
-  es para el bloque que soltaste donde no era.
+- **Deshacer y rehacer** (`⌘Z` / `⌘⇧Z` o los botones): cada acción apila el estado anterior, con
+  tope de 30 pasos; una acción nueva corta el camino de rehacer. Cargar o guardar vacía la pila.
+- **Autoguardado de borrador**: cada cambio del draft va a `localStorage`
+  (`emaus-flyer-draft-<id>`); si el tab muere sin Guardar, al reabrir el editor el borrador
+  vuelve con un aviso ámbar y su «Descartar borrador». Desactivado bajo vitest (filtraba estados
+  entre suites).
+- **Copiar diseño de…**: trae el `flyer_options` de otro retiro como punto de partida. Lee por
+  `getRetreatFlyerOptions` (servicio de API), **no** con `fetchRetreat` del store — ése cambia el
+  retiro seleccionado global y la app navega sola.
+- **Doble clic sobre un texto del volante** abre la pestaña Textos en ese campo exacto (los
+  elementos editables llevan `data-text-override`). El foco aterriza con reintento por frames:
+  el input monta cuando el contenido del Tabs lo hace, después del `nextTick`.
 - **Salir con cambios sin guardar** pregunta, tanto al navegar dentro de la app
   (`onBeforeRouteLeave`) como al cerrar la pestaña (`beforeunload`).
-- **Aviso de contraste**: `checkBlockContrast` calcula el ratio WCAG del texto contra lo que tiene
-  detrás y marca el bloque en la lista y en su panel. Sin caja no se puede muestrear la foto bajo
-  el bloque, así que se compara contra un gris medio: basta para cazar blanco sobre blanco y
-  oscuro sobre oscuro, que es lo que la gente se hace.
-- **"Ajustar colores a la imagen"**: `averageImageLuminance` mide el brillo medio del fondo en un
-  canvas de 32×32 y `themeForBackground` devuelve la paleta que le va. Cambiar la imagen ya no
-  obliga a repasar ocho bloques.
+- **Aviso de contraste**: `checkBlockContrast` compara el color del cuerpo contra un gris medio y
+  marca el bloque. **Calle mientras el color sea el de fábrica**: el gris-azul original del QR no
+  pasa la línea base teórica aunque sobre el volante real se lea bien — avisar del diseño de
+  fábrica enseñaba a ignorar el aviso.
+- **"Ajustar colores a la imagen"**: `averageImageLuminance` mide el brillo medio y
+  `themeForBackground` devuelve la paleta que le va. **"Colores de la imagen"** (`imagePalette`)
+  extrae además los 5 colores dominantes reales (buckets por canal, duplicados colapsados,
+  oscuro primero) y los ofrece como swatches en la fila Color de cada rol.
+- **Resaltado por rol**: el hover sobre una sección de rol hace brillar en el volante las líneas
+  que controla — con alcance: la sección de un bloque brilla solo ese bloque; la de «Todo el
+  volante», todos. El store lleva `{ slot, blockId }`.
+
+## El layout del editor
+
+Vista dividida en escritorio: panel de herramientas y volante **sticky** con alto del viewport y
+scroll propio cada uno — bajar a las herramientas de abajo no esconde el volante. Sobre el ajuste
+por ancho hay un **zoom manual** (40–100%, `previewZoom`), y el volante vive dentro de una **caja
+interna** `overflow-hidden` con alto = alto × escala efectiva: un `transform` no encoge la caja de
+layout, así que sin esa caja el panel scrollea espacio vacío aunque el volante ya quepa a la vista.
 
 Los bloques se reordenan arrastrando sobre el volante, que es solo con ratón; las flechas de la
 lista del panel hacen lo mismo y llegan por teclado. Al llegar al extremo de una columna, el
@@ -332,6 +375,8 @@ describe botones concretos.
 | `stores/__tests__/flyerEditorStore.test.ts` | El borrador: qué ensucia, qué guarda, deshacer, aplicar plantilla y **no pisar lo que otras pantallas guardan en `flyer_options`** |
 | `views/__tests__/RetreatFlyerView.test.ts` | La vista publicada, incluido que reciba el diseño guardado (§ "Saved design") |
 | `views/__tests__/RetreatFlyerEditView.test.ts` | El editor completo: pestañas, arrastre sobre el volante, guardar y avisar al salir |
+| `utils/__tests__/imagePalette.test.ts` | La extracción de colores dominantes (buckets, duplicados, transparencias) |
+| `tests/e2e/retreat-flyer-editor.spec.ts` | E2E de solo lectura: secciones colapsadas, color/tamaño por rol en el canvas, deshacer/rehacer, doble clic → Textos con foco, alineación de cajas emphasis, paleta de la imagen |
 | `api/tests/services/flyerOptionsSchema.simple.test.ts` | Lo que el API acepta y lo que rechaza en `flyer_options` |
 | `api/tests/services/flyerTemplateService.test.ts` | Quién puede ver, editar y borrar cada plantilla |
 | `api/tests/services/flyerAsset.test.ts` | La subida de imágenes y su recorte a `public-assets/` |

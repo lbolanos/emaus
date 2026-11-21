@@ -67,6 +67,52 @@ export type FlyerImages = z.infer<typeof flyerImagesSchema>;
 const hexColorSchema = z.string().regex(/^#[0-9a-fA-F]{6}$/, 'Debe ser un color en formato #rrggbb');
 
 /**
+ * Typefaces a block (or the whole flyer, via the theme) can switch to. All of them are
+ * webfonts the flyer canvas already loads, so no extra font payload appears. 'inherit'
+ * keeps the flyer's own Roboto — it is also how a slot goes back to following the
+ * theme after a per-block override. 'mono' keeps the monospaced look some blocks
+ * were designed with (phone numbers, the registration domain).
+ */
+export const flyerFontFamilySchema = z.enum(['inherit', 'oswald', 'playfair', 'dancing', 'mono']);
+export type FlyerFontFamily = z.infer<typeof flyerFontFamilySchema>;
+
+/**
+ * A block mixes up to three kinds of lettering, and each one is styled on its own:
+ *
+ *   title    the block's heading ("INICIO:", "LUGAR:"…)
+ *   emphasis its star line — the date, the price, the badge, the venue name
+ *   body     everything that supports the above
+ *
+ * A block declares which slots it actually has, and the editor only shows those
+ * (a two-slot block shows two rows, not three).
+ */
+export const flyerFontSlotSchema = z.enum(['title', 'emphasis', 'body']);
+export type FlyerFontSlot = z.infer<typeof flyerFontSlotSchema>;
+
+/** What can be tuned on one slot. Every field is optional and falls back through
+ *  the layers: the block's flat fields first (so saved flyers keep their look),
+ *  then the theme's slot, then the block's own slot. */
+export const flyerSlotSpecSchema = z.object({
+	family: flyerFontFamilySchema.optional(),
+	/** Size in percent of the designed size (5–200; absent = 100). */
+	scale: z.number().int().min(5).max(200).optional(),
+	color: hexColorSchema.optional(),
+	align: z.enum(['left', 'center', 'right']).optional(),
+	/** Text shadow for this slot alone; absent follows the block-wide flag. */
+	shadow: z.boolean().optional(),
+});
+export type FlyerSlotSpec = z.infer<typeof flyerSlotSpecSchema>;
+/** @deprecated Renamed: a slot tunes more than its font. Alias kept for callers. */
+export type FlyerFontSpec = FlyerSlotSpec;
+
+export const flyerFontsSchema = z.object({
+	title: flyerSlotSpecSchema.optional(),
+	emphasis: flyerSlotSpecSchema.optional(),
+	body: flyerSlotSpecSchema.optional(),
+});
+export type FlyerFonts = z.infer<typeof flyerFontsSchema>;
+
+/**
  * How a block is painted. Every field is optional and falls back to the theme, and
  * then to the block's built-in default.
  *
@@ -83,6 +129,8 @@ export const flyerBlockStyleSchema = z.object({
 	textShadow: z.boolean().optional(),
 	/** Which way the block's own contents line up: its icons, lists and text. */
 	textAlign: z.enum(['left', 'center', 'right']).optional(),
+	/** Per-slot typography; each slot merges with the theme's independently. */
+	fonts: flyerFontsSchema.optional(),
 });
 export type FlyerBlockStyle = z.infer<typeof flyerBlockStyleSchema>;
 export type FlyerTextAlign = NonNullable<FlyerBlockStyle['textAlign']>;

@@ -268,6 +268,31 @@ describe('meetingFlyerEditorStore', () => {
 			expect(store.canUndo).toBe(false);
 		});
 
+		it('steps forward again over what undo stepped back through', () => {
+			const store = useMeetingFlyerEditorStore();
+			store.loadFromCommunity(communityWith());
+
+			store.toggleVisibility('description');
+			store.undo();
+			expect(store.canRedo).toBe(true);
+
+			store.redo();
+			expect(store.blocks.find((b) => b.id === 'description')?.visible).toBe(false);
+			expect(store.canRedo).toBe(false);
+		});
+
+		it('drops the redo path the moment a new change lands', () => {
+			const store = useMeetingFlyerEditorStore();
+			store.loadFromCommunity(communityWith());
+
+			store.toggleVisibility('description');
+			store.undo();
+			expect(store.canRedo).toBe(true);
+
+			store.toggleVisibility('location');
+			expect(store.canRedo).toBe(false);
+		});
+
 		it('leaves nothing to undo once saved', async () => {
 			const store = useMeetingFlyerEditorStore();
 			store.loadFromCommunity(communityWith());
