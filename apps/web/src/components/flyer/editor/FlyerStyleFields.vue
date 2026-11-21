@@ -403,10 +403,16 @@ function pickVeil(slot: FlyerFontSlot, color: string) {
 	emit('update', 'fonts', fonts);
 }
 
-/** "Ninguno" clears both fields, the same contract the block background uses. */
+/** "Ninguno" clears both fields in ONE emit — the same stale-props clobber
+ *  pickVeil documents would eat the first of two sequential calls. */
 function clearVeil(slot: FlyerFontSlot) {
-	emitSlot(slot, 'backgroundColor', undefined);
-	emitSlot(slot, 'backgroundOpacity', undefined);
+	const fonts: FlyerFonts = { ...(props.values.fonts ?? {}) };
+	const spec = { ...(fonts[slot] ?? {}) };
+	delete spec.backgroundColor;
+	delete spec.backgroundOpacity;
+	if (Object.keys(spec).length === 0) delete fonts[slot];
+	else fonts[slot] = spec;
+	emit('update', 'fonts', Object.keys(fonts).length ? fonts : undefined);
 }
 
 /** 'inherit' renders in the panel's own font: it follows whatever layer is below. */

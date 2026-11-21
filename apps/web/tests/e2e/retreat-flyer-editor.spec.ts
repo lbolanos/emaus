@@ -213,6 +213,9 @@ test.describe.serial('Retreat flyer editor — slots, undo/redo, text jump (E2E)
 		// A block with nothing to draw (contact without phones on this retreat)
 		// must say so instead of silently ignoring every control
 		await page.locator('[data-block="contact"] button').first().click();
+		// Anchor first: the selected-block card is up (the block Reset only
+		// lives there), so the count-0 below can't pass against a dead panel
+		await expect(page.getByRole('button', { name: 'Restaurar', exact: true })).toBeVisible();
 		const contactCard = page.locator('[data-contentless-notice]');
 		const contactEmpty = (await page
 			.locator('[data-flyer-block="contact"]')

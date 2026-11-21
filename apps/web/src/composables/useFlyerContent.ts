@@ -2,6 +2,23 @@ import { computed, reactive } from 'vue';
 import { useI18n } from 'vue-i18n';
 import DOMPurify from 'dompurify';
 
+/**
+ * Whether the contact block draws anything for this raw field — the same
+ * semantics the block renders by: entries with a phone number, or any email
+ * anywhere in the string. The editor's "this block draws nothing" notice and
+ * the block itself must agree, or styling an invisible block reads as broken.
+ */
+export function contactBlockHasItems(raw: unknown): boolean {
+	if (typeof raw !== 'string' && !Array.isArray(raw)) return false;
+	const str = (Array.isArray(raw) ? raw.join('\n') : (raw as string)).trim();
+	if (!str) return false;
+	const hasPhone = str
+		.split(/[\n,]+/)
+		.some((entry) => /\d[\d\s-]*\d/.test(entry));
+	const hasEmail = /[\w.-]+@[\w.-]+\.\w+/.test(str);
+	return hasPhone || hasEmail;
+}
+
 export interface FlyerContactPhone {
 	name: string;
 	number: string;

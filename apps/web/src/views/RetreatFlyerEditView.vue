@@ -249,6 +249,7 @@ import { useRetreatStore } from '@/stores/retreatStore';
 import { getRetreatFlyerOptions } from '@/services/api';
 import { useFlyerEditorStore } from '@/stores/flyerEditorStore';
 import RetreatFlyerCanvas from '@/components/flyer/RetreatFlyerCanvas.vue';
+import { contactBlockHasItems } from '@/composables/useFlyerContent';
 import FlyerDesignPanel from '@/components/flyer/editor/FlyerDesignPanel.vue';
 import FlyerTextPanel from '@/components/flyer/editor/FlyerTextPanel.vue';
 import FlyerImagePicker from '@/components/flyer/editor/FlyerImagePicker.vue';
@@ -268,7 +269,7 @@ const retreat = computed(() => (retreatStore.selectedRetreat as any) || null);
  *  emails is the whole list today. Their controls still apply the day the
  *  data arrives, but styling an invisible block reads as broken. */
 const contentlessBlocks = computed(() => {
-	if (retreat.value?.contactPhones?.trim()) return [];
+	if (contactBlockHasItems(retreat.value?.contactPhones)) return [];
 	return ['contact'];
 });
 const walkerRegistrationLink = computed(() => retreatStore.walkerRegistrationLink);
