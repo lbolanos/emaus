@@ -54,40 +54,18 @@
             </Label>
             <div class="col-span-3">
               <div class="relative">
-                <gmp-place-autocomplete
-                  v-if="address1_is_editing && mapsLibReady"
-                  ref="autocompleteField"
-                  class="w-full"
-                  placeholder="Buscar dirección..."
-                  :requested-fields="['addressComponents', 'location', 'googleMapsURI']"
-                  :value="formData.address1"
-                >
-                </gmp-place-autocomplete>
-                <div v-else class="relative">
-                  <Input
-                    id="address1"
-                    v-model="formData.address1"
-                    :class="{ 'border-red-500': formErrors.address1, 'pr-10': true }"
-                    @click="address1_is_editing = true"
-                    readonly
-                    aria-describedby="address1-error address1-help"
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    class="absolute right-0 top-0 h-full px-2"
-                    @click="address1_is_editing = true"
-                  >
-                    <Search class="w-4 h-4" />
-                  </Button>
-                </div>
+                <AddressAutocomplete
+					v-model="formData.address1"
+					:error="!!formErrors.address1"
+					placeholder="Ej: Jalapa 75, Roma Norte, CDMX"
+					@select="handleAddressSelect"
+				/>
                 <p v-if="formErrors.address1" id="address1-error" class="text-red-500 text-sm mt-1 flex items-center gap-1">
                   <AlertCircle class="w-4 h-4" />
                   {{ formErrors.address1 }}
                 </p>
                 <p v-else id="address1-help" class="text-gray-500 text-xs mt-1">
-                  Click para buscar o editar dirección usando Google Maps
+                  Escribe y selecciona una dirección de la lista para autocompletar ciudad, estado y país
                 </p>
               </div>
             </div>
@@ -236,16 +214,16 @@
             </div>
           </div>
 
-          <!-- Map section with loading state -->
+          <!-- Mapa embebido sin API key (embed público de Google Maps) -->
           <div v-if="formData.latitude && formData.longitude" class="mt-2">
-            <div ref="mapContainer" class="h-64 rounded-lg border overflow-hidden relative">
-              <div v-if="mapLoading" class="absolute inset-0 flex items-center justify-center bg-gray-100">
-                <div class="flex items-center gap-2">
-                  <Loader2 class="w-4 h-4 animate-spin" />
-                  <span class="text-sm text-gray-600">Cargando mapa...</span>
-                </div>
-              </div>
-            </div>
+            <iframe
+              :src="mapsEmbedUrl"
+              class="h-64 w-full rounded-lg border-0"
+              loading="lazy"
+              referrerpolicy="no-referrer-when-downgrade"
+              title="Ubicación de la casa"
+              allowfullscreen
+            />
             <p class="text-xs text-gray-500 mt-1 flex items-center gap-1">
               <MapPin class="w-3 h-3" />
               Ubicación: {{ formData.latitude.toFixed(6) }}, {{ formData.longitude.toFixed(6) }}
@@ -619,11 +597,12 @@
 <script setup lang="ts">
 import { ref, watch, computed, nextTick, reactive } from 'vue';
 import { Button, Progress, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Input, Label, Textarea, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, ScrollArea, useToast, Card, Badge, Alert, AlertDescription } from '@repo/ui';
-import { Trash2, Search, AlertCircle, MapPin, Loader2, ExternalLink, Bed as BedIcon, Settings, Upload, Plus, DoorOpen, Info, FileText, RotateCcw, ArrowLeft, ArrowRight, Save, Pencil, Check, X, Globe2 } from 'lucide-vue-next';
+import { Trash2, AlertCircle, MapPin, Loader2, ExternalLink, Bed as BedIcon, Settings, Upload, Plus, DoorOpen, Info, FileText, RotateCcw, ArrowLeft, ArrowRight, Save, Pencil, Check, X, Globe2 } from 'lucide-vue-next';
 import type { House, Bed } from '@repo/types';
 import { z } from 'zod';
 import BulkOperationsModal from './BulkOperationsModal.vue';
-import { loadGoogleMaps } from '@/utils/googleMaps';
+import AddressAutocomplete from './form/AddressAutocomplete.vue';
+import type { PhotonAddress } from '@/services/photon';
 import { getTimezoneFromCoords } from '@/services/api';
 import { floorDisplay } from '@/composables/useFloorLabel';
 
@@ -663,12 +642,6 @@ const emit = defineEmits<{ (e: 'update:open', value: boolean): void; (e: 'submit
 
 const { toast } = useToast();
 const currentStep = ref(1);
-const address1_is_editing = ref(true);
-// gmp-place-autocomplete solo existe si la librería places de Google ya cargó;
-// sin esto el elemento queda sin definir (0x0, sin input) y la validación
-// igual exige la dirección.
-const mapsLibReady = ref(false);
-const mapLoading = ref(false);
 const isSubmitting = ref(false);
 const hasUnsavedChanges = ref(false);
 const showBulkOperations = ref(false);
@@ -1384,48 +1357,13 @@ const prevStep = () => {
 };
 
 const isEditing = computed(() => !!props.house);
-const autocompleteField = ref<any>(null);
-const mapContainer = ref<HTMLElement | null>(null);
-let map: google.maps.Map | null = null;
-let marker: google.maps.marker.AdvancedMarkerElement | null = null;
 
-const initMap = async (lat: number, lng: number) => {
-  if (mapContainer.value) {
-    mapLoading.value = true;
-    try {
-      // Asegurar que google.maps esté completamente listo (importante en Safari/WebKit
-      // donde script.onload se dispara antes de que los constructores estén disponibles).
-      await loadGoogleMaps();
-      const [{ Map }, { AdvancedMarkerElement }] = await Promise.all([
-        google.maps.importLibrary('maps') as Promise<google.maps.MapsLibrary>,
-        google.maps.importLibrary('marker') as Promise<google.maps.MarkerLibrary>,
-      ]);
-      const center = { lat, lng };
-      if (!map) {
-        map = new Map(mapContainer.value, {
-          center,
-          zoom: 15,
-          mapId: 'EMAUS_HOUSE_MAP', // requerido por AdvancedMarkerElement
-        });
-      } else {
-        map.setCenter(center);
-      }
-      if (!marker) {
-        marker = new AdvancedMarkerElement({ position: center, map });
-      } else {
-        marker.position = center;
-      }
-    } catch (error) {
-      toast({
-        title: 'Error al cargar el mapa',
-        description: 'No se pudo inicializar el mapa de Google',
-        variant: 'destructive',
-      });
-    } finally {
-      mapLoading.value = false;
-    }
-  }
-};
+// Embed público de Google Maps: no requiere API key ni facturación.
+const mapsEmbedUrl = computed(() => {
+  const { latitude, longitude } = formData.value;
+  if (typeof latitude !== 'number' || typeof longitude !== 'number') return '';
+  return `https://maps.google.com/maps?q=${latitude},${longitude}&z=15&output=embed`;
+});
 
 const openGoogleMaps = () => {
   if (formData.value.googleMapsUrl) {
@@ -1433,34 +1371,15 @@ const openGoogleMaps = () => {
   }
 };
 
-const handlePlaceChange = async ({ placePrediction }: any) => {
-  if (!placePrediction) return;
-
-  const place = placePrediction.toPlace();
-  await place.fetchFields({
-    fields: ['addressComponents','displayName', 'location', 'googleMapsURI'],
-  });
-
-  if (place.addressComponents) {
-    const address: { [key: string]: string } = {};
-    place.addressComponents.forEach((component: any) => {
-      const type = component.types[0];
-      address[type] = component.longText;
-    });
-    formData.value.address1 = `${address.route || ''} ${address.street_number || ''}, ${address.sublocality_level_1 || ''}`.trim();
-    formData.value.city = address.locality || '';
-    formData.value.state = address.administrative_area_level_1 || '';
-    formData.value.zipCode = address.postal_code || '';
-    formData.value.country = address.country || '';
-  }
-  if (place.location) {
-    formData.value.latitude = place.location.lat();
-    formData.value.longitude = place.location.lng();
-  }
-  if (place.googleMapsURI) {
-    formData.value.googleMapsUrl = place.googleMapsURI;
-  }
-  address1_is_editing.value = false;
+const handleAddressSelect = (address: PhotonAddress) => {
+  formData.value.address1 = address.address1;
+  formData.value.city = address.city;
+  formData.value.state = address.state;
+  formData.value.zipCode = address.zipCode;
+  formData.value.country = address.country;
+  formData.value.latitude = address.latitude;
+  formData.value.longitude = address.longitude;
+  formData.value.googleMapsUrl = address.googleMapsUrl;
 };
 
 watch(() => props.open, async (isOpen) => {
@@ -1471,54 +1390,9 @@ watch(() => props.open, async (isOpen) => {
     isSubmitting.value = false;
     showBulkOperations.value = false;
     Object.keys(formErrors).forEach(key => delete formErrors[key]);
-    address1_is_editing.value = !formData.value.address1;
-
-    mapsLibReady.value = !!window.google?.maps;
-    if (!mapsLibReady.value) {
-      try {
-        await loadGoogleMaps();
-      } catch {
-        // Sin librería el buscador no estará disponible; el campo cae al
-        // input readonly y el toast explica qué pasó.
-      }
-      mapsLibReady.value = !!window.google?.maps;
-      if (!mapsLibReady.value && address1_is_editing.value) {
-        toast({
-          title: 'Buscador de direcciones no disponible',
-          description:
-            'No se pudo cargar Google Maps. Revisa tu conexión e intenta de nuevo más tarde.',
-          variant: 'destructive',
-        });
-      }
-    }
-
     await nextTick();
-    if (autocompleteField.value) {
-      if (formData.value.address1) {
-        autocompleteField.value.value = formData.value.address1;
-      }
-    }
-  } else {
-    map = null;
-    marker = null;
   }
 });
-
-watch(autocompleteField, (newField, oldField) => {
-  if (oldField) {
-    oldField.removeEventListener('gmp-select', handlePlaceChange);
-  }
-  if (newField) {
-    newField.addEventListener('gmp-select', handlePlaceChange);
-  }
-});
-
-watch([() => formData.value.latitude, currentStep], async ([newLat, newStep]) => {
-  if (newLat && formData.value.longitude && newStep === 1) {
-    await nextTick();
-    initMap(newLat, formData.value.longitude);
-  }
-}, { deep: true, immediate: true });
 
 // Inferir timezone desde lat/lon cuando cambian las coordenadas. tz-lookup
 // es muy preciso para tierra firme; si falla (mar, polos), conservamos el
@@ -1630,10 +1504,6 @@ const handleSubmit = async () => {
   isSubmitting.value = true;
 
   try {
-    if (autocompleteField.value) {
-      formData.value.address1 = autocompleteField.value.value || formData.value.address1;
-    }
-
     const success = await emit('submit', { ...formData.value, capacity: formData.value.beds.length });
 
     if (success) {
