@@ -243,7 +243,8 @@
 				<FlyerStyleFields
 					:values="blockStyles[selectedBlockId] ?? {}"
 					:font-slots="fontSlotsByBlock[selectedBlockId] ?? ['title', 'emphasis', 'body']"
-				:palette="imagePalette"
+					:palette="imagePalette"
+					:text-shadow-default="blockTextShadowDefault"
 					@update="(key, value) => emit('updateBlockStyle', selectedBlockId!, key, value)"
 					@hover-slot="(slot) => emit('hoverSlot', slot)"
 				/>
@@ -328,6 +329,18 @@ function blockHint(blockId: string): string | null {
 	const key = `${props.tPrefix}.design.blockHints.${blockId}`;
 	return i18n.te(key) ? t(key) : null;
 }
+
+/**
+ * What the block-wide shadow resolves to below the block's own override: some
+ * blocks (Fin del retiro, Qué llevar) are born with it on, and the checkbox
+ * must say so or "turning it on" does nothing visible.
+ */
+const blockTextShadowDefault = computed(() => {
+	if (!props.selectedBlockId) return false;
+	return (
+		props.theme?.textShadow ?? props.styleDefaults[props.selectedBlockId]?.textShadow ?? false
+	);
+});
 
 /** Translations live under the flavour prefix; this keeps the call sites short. */
 function tp(key: string, count?: number) {

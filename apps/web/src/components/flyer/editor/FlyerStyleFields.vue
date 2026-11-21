@@ -234,8 +234,16 @@
 		<label class="flex items-center gap-2 text-xs">
 			<input
 				type="checkbox"
-				:checked="values.textShadow === true"
-				@change="emit('update', 'textShadow', ($event.target as HTMLInputElement).checked)"
+				:checked="(values.textShadow ?? textShadowDefault) === true"
+				@change="
+					emit(
+						'update',
+						'textShadow',
+						($event.target as HTMLInputElement).checked === textShadowDefault
+							? undefined
+							: ($event.target as HTMLInputElement).checked,
+					)
+				"
 			/>
 			{{ t('retreatFlyerEditor.design.textShadow') }}
 		</label>
@@ -258,8 +266,14 @@ const props = withDefaults(
 		fontSlots?: FlyerFontSlot[];
 		/** Colours read off the artwork, offered before the stock swatches. */
 		palette?: string[];
+		/**
+		 * The block-wide shadow state the layers below resolve to (a block can be
+		 * born with it on). Without it the checkbox shows an inherited shadow as
+		 * off, and "turning it on" visibly does nothing.
+		 */
+		textShadowDefault?: boolean;
 	}>(),
-	{ fontSlots: () => ['title', 'emphasis', 'body'] },
+	{ fontSlots: () => ['title', 'emphasis', 'body'], textShadowDefault: false },
 );
 
 const emit = defineEmits<{
