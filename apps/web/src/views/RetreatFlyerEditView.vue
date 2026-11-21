@@ -79,7 +79,7 @@
 			</Button>
 		</div>
 
-		<div class="grid gap-6 lg:grid-cols-[22rem_1fr]">
+		<div class="grid gap-6 lg:grid-cols-[28rem_1fr]">
 			<!-- Side panel -->
 			<Card class="h-fit lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto">
 				<CardContent class="p-4">
