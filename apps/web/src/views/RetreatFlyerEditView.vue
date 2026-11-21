@@ -203,26 +203,31 @@
 				<div
 					ref="previewColumnRef"
 					class="max-h-[42vh] self-start overflow-y-auto overflow-x-hidden lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)]"
-					:style="{ height: previewHeight }"
 				>
-					<RetreatFlyerCanvas
-						ref="canvasRef"
-						:retreat="retreat"
-						:flyer-options="store.draftOptions"
-						:layout="store.blocks"
-						:image-overrides="store.images"
-						:theme="store.theme"
-						:block-styles="store.blockStyles"
-						:registration-link="walkerRegistrationLink"
-						:scale="effectivePreviewScale"
-						editable
-						:selected-block-id="store.selectedBlockId"
-						:highlight-slot="store.highlightSlot"
-						:empty-slot-label="t('retreatFlyerEditor.emptySlot')"
-						@edit-text="jumpToTextField"
-						@move-block="store.moveBlock"
-						@select-block="store.selectBlock"
-					/>
+					<!-- The inner box clips the canvas's UNSCALED layout box (a transform
+					     does not shrink it) down to the scaled size. Its height is what
+					     the pane measures: once the scaled flyer fits the pane, the
+					     scrollbar is gone — not full of empty space below. -->
+					<div :style="{ height: previewHeight }" class="overflow-hidden">
+						<RetreatFlyerCanvas
+							ref="canvasRef"
+							:retreat="retreat"
+							:flyer-options="store.draftOptions"
+							:layout="store.blocks"
+							:image-overrides="store.images"
+							:theme="store.theme"
+							:block-styles="store.blockStyles"
+							:registration-link="walkerRegistrationLink"
+							:scale="effectivePreviewScale"
+							editable
+							:selected-block-id="store.selectedBlockId"
+							:highlight-slot="store.highlightSlot"
+							:empty-slot-label="t('retreatFlyerEditor.emptySlot')"
+							@edit-text="jumpToTextField"
+							@move-block="store.moveBlock"
+							@select-block="store.selectBlock"
+						/>
+					</div>
 				</div>
 			</div>
 		</div>
@@ -332,7 +337,11 @@ const updateScale = () => {
 
 /** A scaled element keeps its unscaled layout box, so reserve the scaled height. */
 const previewHeight = computed(() => {
-	if (previewScale.value >= 1 || !canvasHeight.value) return undefined;
+	// A transform does not shrink the layout box: without this explicit height
+	// the pane stays as tall as the UNSCALED flyer and keeps a scrollbar full of
+	// empty space below a flyer that already fits. Always track the effective
+	// scale, including zoom on wide columns (previewScale >= 1).
+	if (effectivePreviewScale.value >= 1 || !canvasHeight.value) return undefined;
 	return `${canvasHeight.value * effectivePreviewScale.value}px`;
 });
 
