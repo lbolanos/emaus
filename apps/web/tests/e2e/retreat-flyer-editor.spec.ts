@@ -1,4 +1,5 @@
 import { test, expect, type BrowserContext, type Page } from '@playwright/test';
+import assert from 'node:assert';
 import { loginAs } from './helpers/auth';
 
 /**
@@ -186,6 +187,38 @@ test.describe.serial('Retreat flyer editor — slots, undo/redo, text jump (E2E)
 		const field = page.locator('#flyer-text-registerOverride');
 		await expect(field).toBeVisible();
 		await expect(field).toBeFocused();
+	});
+
+	test('grabs the selected block by its edge to make it smaller and whole again', async () => {
+		test.skip(!!skipReason, skipReason ?? '');
+		await openEditorClean();
+		await page.locator('[data-block="startTime"] button').first().click();
+
+		// Both affordances appear on the selected block
+		const block = page.locator('[data-flyer-block="startTime"]');
+		await expect(block.locator('[data-move-handle]')).toBeVisible();
+		const handle = block.locator('[data-resize-handle]');
+		await expect(handle).toBeVisible();
+
+		// Drag the edge left by ~28% of the column: the width lands snapped to 5%
+		const columnWidth = (await page
+			.locator('[data-flyer-slot="left"]')
+			.evaluate((el) => el.clientWidth)) as number;
+		const box = await handle.boundingBox();
+		assert(box, 'resize handle has a bounding box');
+		await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+		await page.mouse.down();
+		await page.mouse.move(box.x - columnWidth * 0.28, box.y + box.height / 2, { steps: 8 });
+		await page.mouse.up();
+		await expect(block).toHaveAttribute('style', /width: (70|75)%/);
+
+		// A shrunk block lines up by its own alignment (left: flush left)
+		await expect(block).toHaveAttribute('style', /margin-left: 0/);
+		await expect(block).toHaveAttribute('style', /margin-right: auto/);
+
+		// Double-click on the edge restores the full width (stored as absent)
+		await handle.dblclick();
+		await expect(block).not.toHaveAttribute('style', /width: \d+%/);
 	});
 
 	test('reads the artwork palette and offers it as swatches', async () => {
