@@ -286,17 +286,20 @@ describe('RetreatFlyerEditView', () => {
 	// block or changing a colour showed you nothing at all.
 	it('keeps the preview on screen on a phone, and out of the way on a desktop', async () => {
 		const wrapper = await mountEditor();
-		const preview = wrapper.find('#printable-area').element.parentElement!;
+		// The canvas sits inside a clipping box (transform keeps its unscaled
+		// layout height) inside the scroll pane — the pane is what positions
+		const preview = wrapper.find('#printable-area').element.closest('div[class*="overflow-y-auto"]')!;
 		const column = preview.parentElement!;
 
 		expect(column.className).toContain('order-first');
 		expect(column.className).toContain('sticky');
 		expect(preview.className).toContain('max-h-[42vh]');
 
-		// …and from lg up it goes back to being the right-hand column
+		// …and from lg up it goes back to being the right-hand column, sticky
+		// with its own scroll so the tools never push it off screen
 		expect(column.className).toContain('lg:static');
 		expect(column.className).toContain('lg:order-none');
-		expect(preview.className).toContain('lg:max-h-none');
+		expect(preview.className).toContain('lg:sticky');
 	});
 
 	it('feeds text overrides into the preview as they are typed', async () => {

@@ -280,7 +280,7 @@ const activeTab = ref('design');
 const copyError = ref('');
 
 const otherRetreats = computed(() =>
-	(retreatStore.retreats as any[]).filter((r) => r.id !== retreatId.value),
+	((retreatStore.retreats as any[]) ?? []).filter((r) => r.id !== retreatId.value),
 );
 
 function formatDateLabel(value: string) {
@@ -385,7 +385,7 @@ const onKeydown = (event: KeyboardEvent) => {
 };
 
 onMounted(async () => {
-	if (!retreatStore.retreats.length) retreatStore.fetchRetreats().catch(() => {});
+	if (!retreatStore.retreats?.length) retreatStore.fetchRetreats?.().catch(() => {});
 	window.addEventListener('beforeunload', warnOnUnload);
 	window.addEventListener('keydown', onKeydown);
 	await load(retreatId.value);

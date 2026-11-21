@@ -567,6 +567,7 @@ vi.mock('lucide-vue-next', () => ({
 	EllipsisVertical: { name: 'EllipsisVertical', template: '<svg></svg>' },
 	ArrowLeft: { name: 'ArrowLeft', template: '<svg></svg>' },
 	RotateCcw: { name: 'RotateCcw', template: '<svg></svg>' },
+	Redo2: { name: 'Redo2', template: '<svg></svg>' },
 	Eye: { name: 'Eye', template: '<svg></svg>' },
 	EyeOff: { name: 'EyeOff', template: '<svg></svg>' },
 	GripVertical: { name: 'GripVertical', template: '<svg></svg>' },
