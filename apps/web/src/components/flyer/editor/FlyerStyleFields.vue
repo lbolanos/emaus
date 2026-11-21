@@ -248,7 +248,11 @@
 								: 'border-muted text-muted-foreground hover:text-foreground'
 						"
 						:data-slot-veil="`${slot}:${option.id}`"
-						@click="option.color ? emitSlot(slot, 'backgroundColor', option.color) : clearVeil(slot)"
+						@click="
+						option.color
+							? (emitSlot(slot, 'backgroundColor', option.color), emitSlot(slot, 'backgroundOpacity', undefined))
+							: clearVeil(slot)
+					"
 					>
 						{{ t(`retreatFlyerEditor.design.background.${option.id}`) }}
 					</button>
@@ -383,7 +387,8 @@ const VEIL_OPTIONS = [
 /** Which veil shortcut is active: none, or the light/dark shade of the colour. */
 function veilState(slot: FlyerFontSlot): 'none' | 'light' | 'dark' | 'custom' {
 	const color = props.values.fonts?.[slot]?.backgroundColor;
-	if (!color) return 'none';
+	// A veil dragged to opacity 0 renders nothing: it is "none" to the buttons
+	if (!color || (props.values.fonts?.[slot]?.backgroundOpacity ?? 85) <= 0) return 'none';
 	const normalized = color.toLowerCase();
 	if (normalized === '#ffffff') return 'light';
 	if (normalized === '#000000') return 'dark';

@@ -33,8 +33,8 @@ Every block mixes up to three kinds of lettering, and each one is styled on its 
 - **Text** — the supporting copy: addresses, notes, lists.
 
 Each role is a section with its own **typeface**, **size** (5% to 200%), **colour**,
-**alignment** and **shadow**. Sections ship folded; their header sums up what they hold
-("Oswald · 115%"). Hovering a section makes the lines that role drives glow on the flyer — you
+**alignment**, **shadow** and a **veil** — a background behind just those lines. Sections ship
+folded, one at a time; their header sums up what they hold ("Oswald · 115%"). Hovering a section makes the lines that role drives glow on the flyer — you
 know what you are touching before you touch it. A block only shows the roles it has, and each
 block carries a one-line hint of what is what.
 

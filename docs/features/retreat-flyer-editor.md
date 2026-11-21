@@ -70,7 +70,9 @@ Cada capa solo pisa los campos que fija. Las campos planos (`--fb-bg`, `--fb-tex
 ver `FLYER_BLOCK_FONT_SLOTS`) resuelve además sus propias vars — `--fb-<rol>-font`, `-scale`,
 `-color`, `-align`, `-justify`, `-shadow` — desde `flyer_options.fonts.<rol>` con la misma cascada
 de tres capas. El editor ofrece por rol: familia (webfonts ya cargadas + mono), tamaño (5–200%),
-color, alineación y sombra (Auto/Sí/No).
+color, alineación, sombra (Auto/Sí/No) y **velo propio** (fondo solo detrás de las líneas de ese
+rol, con radio y aire — resalta la fecha o el precio sin velar el bloque). Las secciones son
+**acordeón**: abrir una cierra la anterior, y nacen cerradas.
 
 Lo que cuenta como cada rol está fijado por bloque: **title** es su encabezado («INICIO:»),
 **emphasis** su línea estrella (la fecha, el precio, la insignia, los teléfonos, el dominio del
@@ -232,6 +234,20 @@ Cosas que evitan errores caros, todas nacidas de usarlo:
 - **Resaltado por rol**: el hover sobre una sección de rol hace brillar en el volante las líneas
   que controla — con alcance: la sección de un bloque brilla solo ese bloque; la de «Todo el
   volante», todos. El store lleva `{ slot, blockId }`.
+
+## Mover y redimensionar bloques
+
+Arrastrar siempre funcionó (sobre el volante, o las flechas de la lista); el bloque
+seleccionado ahora muestra un **agarre azul** que lo anuncia. Y el borde derecho trae un
+**asa de redimensión**: arrastrar cambia el ancho del bloque (50–100% de su columna, pasos
+de 5%, captura de puntero; doble clic restaura 100%). Persiste en `blocks[].width` —
+`resolveFlyerLayout` lo respeta y descarta fuera de rango — y un bloque encogido se alinea
+por su propia alineación (márgenes auto). Mientras se redimensiona, el drag-and-drop queda
+suspendido para que el borde nunca mueva el bloque.
+
+⚠️ `blocks[].width` vive en el schema de `@repo/types`: tras tocarlo en dev hay que reiniciar
+el API (`touch apps/api/src/index.ts` — nodemon no mira `packages/*`) o el PUT valida con el
+schema viejo y el ancho se pierde en silencio.
 
 ## El layout del editor
 

@@ -220,12 +220,11 @@ tar -xzf "$DOWNLOAD_DIR/api-dist.tar.gz" -C apps/api/dist/
 
 # Deploy runtime configuration for environment flexibility
 echo -e "${BLUE}🔧 Setting up runtime configuration...${NC}"
-echo -e "${YELLOW}⚠️  Note: API keys should be provided via environment variables:${NC}"
-echo -e "${YELLOW}   VITE_API_URL and VITE_GOOGLE_MAPS_API_KEY${NC}"
+echo -e "${YELLOW}⚠️  Note: API URL should be provided via environment variables:${NC}"
+echo -e "${YELLOW}   VITE_API_URL${NC}"
 
 # Load environment variables from .env files if they exist
-VITE_API_URL=${VITE_API_URL:-https://emaus.cc/api
-VITE_GOOGLE_MAPS_API_KEY=${VITE_GOOGLE_MAPS_API_KEY:-}
+VITE_API_URL=${VITE_API_URL:-https://emaus.cc/api}
 if [ -f "apps/web/.env.production" ]; then
     # Export variables from .env.production, ignoring comments and empty lines
     export $(grep -v '^#' apps/web/.env.production | grep -v '^$' | xargs)
@@ -302,7 +301,6 @@ const isProduction = environment === 'production';
 // Set up global configuration
 window.EMAUS_RUNTIME_CONFIG = {
     apiUrl: getApiUrl(environment),
-    googleMapsApiKey: '$VITE_GOOGLE_MAPS_API_KEY',
     environment,
     isDevelopment,
     isStaging,
@@ -345,7 +343,6 @@ echo -e "${BLUE}🔧 Use updateEmausConfig() to change settings at runtime${NC}"
 echo -e ""
 echo -e "${YELLOW}📋 Environment Variable Setup:${NC}"
 echo -e "   export VITE_API_URL=https://your-api-domain.com/api"
-echo -e "   export VITE_GOOGLE_MAPS_API_KEY=your-google-maps-key"
 echo -e "   ./release-from-github.sh"
 echo -e ""
 echo -e "${BLUE}📄 Or create apps/web/.env.production with your values${NC}"

@@ -33,8 +33,8 @@ Cada bloque mezcla hasta tres clases de letra, y cada una se cambia por separado
 - **Texto** — lo de apoyo: direcciones, notas, listas.
 
 Cada rol es una sección con sus propios **tipo de letra**, **tamaño** (de 5% a 200%), **color**,
-**alineación** y **sombra**. Las secciones van cerradas; su encabezado resume lo que traen
-(«Oswald · 115%»). Al pasar el mouse por una sección, brillan en el volante las líneas que ese
+**alineación**, **sombra** y un **velo** — un fondo solo detrás de esas líneas. Las secciones van
+cerradas y una a la vez; su encabezado resume lo que traen («Oswald · 115%»). Al pasar el mouse por una sección, brillan en el volante las líneas que ese
 rol controla — así sabes qué estás tocando antes de tocarlo. El bloque muestra solo los roles
 que tiene, y cada bloque trae una pista de qué es cada cosa en él.
 
