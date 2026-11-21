@@ -103,6 +103,7 @@
 								:theme="store.theme"
 								:block-styles="store.blockStyles"
 								:selected-block-id="store.selectedBlockId"
+								:contentless-blocks="contentlessBlocks"
 								@move-block="store.moveBlock"
 								@apply-preset="store.applyThemePreset"
 								@clear-theme="store.clearTheme"
@@ -262,6 +263,14 @@ const store = useFlyerEditorStore();
 
 const retreatId = computed(() => route.params.id as string);
 const retreat = computed(() => (retreatStore.selectedRetreat as any) || null);
+
+/** Blocks that draw nothing on this retreat — contact with no phones or
+ *  emails is the whole list today. Their controls still apply the day the
+ *  data arrives, but styling an invisible block reads as broken. */
+const contentlessBlocks = computed(() => {
+	if (retreat.value?.contactPhones?.trim()) return [];
+	return ['contact'];
+});
 const walkerRegistrationLink = computed(() => retreatStore.walkerRegistrationLink);
 
 // The available width is measured on the column, not on the wrapper around the canvas:

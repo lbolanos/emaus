@@ -248,11 +248,7 @@
 								: 'border-muted text-muted-foreground hover:text-foreground'
 						"
 						:data-slot-veil="`${slot}:${option.id}`"
-						@click="
-						option.color
-							? (emitSlot(slot, 'backgroundColor', option.color), emitSlot(slot, 'backgroundOpacity', undefined))
-							: clearVeil(slot)
-					"
+						@click="option.color ? pickVeil(slot, option.color) : clearVeil(slot)"
 					>
 						{{ t(`retreatFlyerEditor.design.background.${option.id}`) }}
 					</button>
@@ -393,6 +389,18 @@ function veilState(slot: FlyerFontSlot): 'none' | 'light' | 'dark' | 'custom' {
 	if (normalized === '#ffffff') return 'light';
 	if (normalized === '#000000') return 'dark';
 	return 'custom';
+}
+
+/** One atomic emit: colour plus dropping any stale opacity (the designed 85
+ *  comes back as the fallback). Two sequential emitSlot calls read the props
+ *  of the same tick and the second clobbered the first. */
+function pickVeil(slot: FlyerFontSlot, color: string) {
+	const fonts: FlyerFonts = { ...(props.values.fonts ?? {}) };
+	const spec = { ...(fonts[slot] ?? {}) };
+	spec.backgroundColor = color;
+	delete spec.backgroundOpacity;
+	fonts[slot] = spec;
+	emit('update', 'fonts', fonts);
 }
 
 /** "Ninguno" clears both fields, the same contract the block background uses. */

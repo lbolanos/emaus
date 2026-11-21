@@ -234,6 +234,13 @@
 					{{ blockHint(selectedBlockId) }}
 				</p>
 				<p
+					v-if="contentlessBlocks.includes(selectedBlockId)"
+					class="rounded border border-amber-300 bg-amber-50 px-2 py-1.5 text-[11px] leading-snug text-amber-800"
+					data-contentless-notice
+				>
+					{{ tp('design.contentlessNotice') }}
+				</p>
+				<p
 					v-if="poorContrast.has(selectedBlockId)"
 					class="flex items-start gap-1.5 text-[11px] text-amber-600"
 				>
@@ -297,12 +304,16 @@ const props = withDefaults(
 		presets?: FlyerThemePreset[];
 		/** Which typography slots each block of this flavour mixes. */
 		fontSlotsByBlock?: Record<string, FlyerFontSlot[]>;
+		/** Blocks that draw nothing with this entity's data (contact without
+		 *  phones): styling them reads as broken, so the panel says it. */
+		contentlessBlocks?: string[];
 	}>(),
 	{
 		tPrefix: 'retreatFlyerEditor',
 		styleDefaults: () => FLYER_BLOCK_STYLE_DEFAULTS,
 		presets: () => FLYER_THEME_PRESETS,
 		fontSlotsByBlock: () => FLYER_BLOCK_FONT_SLOTS,
+		contentlessBlocks: () => [],
 	},
 );
 

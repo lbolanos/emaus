@@ -189,6 +189,42 @@ test.describe.serial('Retreat flyer editor — slots, undo/redo, text jump (E2E)
 		await expect(field).toBeFocused();
 	});
 
+	test('puts a veil behind one role only, and warns about blocks with no content', async () => {
+		test.skip(!!skipReason, skipReason ?? '');
+		await openEditorClean();
+
+		// Veil on a block WITH content: startTime's emphasis (the date)
+		await page.locator('[data-block="startTime"] button').first().click();
+		const emphasisCard = page.locator('[data-font-slot-section="emphasis"]').last();
+		await emphasisCard.getByRole('button', { name: /destacado/i }).click();
+		await expect(emphasisCard.locator('[data-slot-veil="emphasis:light"]')).toBeVisible();
+		await emphasisCard.locator('[data-slot-veil="emphasis:light"]').click();
+
+		const block = page.locator('[data-flyer-block="startTime"]');
+		await expect(block).toHaveAttribute('style', /--fb-emphasis-bg: rgba\(255, 255, 255, 0\.85\)/);
+		// It paints behind this role's line…
+		await expect(block.locator('p.fb-emphasis')).toHaveCSS(
+			'background-color',
+			'rgba(255, 255, 255, 0.85)',
+		);
+		// …and nowhere else in the block
+		await expect(block.locator('h4')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+
+		// A block with nothing to draw (contact without phones on this retreat)
+		// must say so instead of silently ignoring every control
+		await page.locator('[data-block="contact"] button').first().click();
+		const contactCard = page.locator('[data-contentless-notice]');
+		const contactEmpty = (await page
+			.locator('[data-flyer-block="contact"]')
+			.evaluate((el) => !(el.textContent || '').trim())) as boolean;
+		if (contactEmpty) {
+			await expect(contactCard).toBeVisible();
+			await expect(contactCard).toContainText(/no dibuja nada/i);
+		} else {
+			await expect(contactCard).toHaveCount(0);
+		}
+	});
+
 	test('grabs the selected block by its edge to make it smaller and whole again', async () => {
 		test.skip(!!skipReason, skipReason ?? '');
 		await openEditorClean();

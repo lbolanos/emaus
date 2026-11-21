@@ -4550,7 +4550,8 @@
         "payment": "Destacado es el precio (Oswald de fábrica); Texto, la información de pago.",
         "whatToBring": "Título es \"QUÉ LLEVAR\"; Texto, el subtítulo ámbar y la lista.",
         "registrationQr": "Destacado es el enlace bajo el código (mono de fábrica); Texto, \"Escanea…\"."
-      }
+      },
+      "contentlessNotice": "Este bloque no dibuja nada en este retiro: no tiene teléfonos ni correos. Los estilos quedan guardados para cuando lleguen."
     },
     "leaveWithoutSaving": "Tienes cambios sin guardar en el volante. ¿Salir de todas formas?",
     "undo": "Deshacer",
