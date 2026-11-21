@@ -791,22 +791,10 @@
             <div class="space-y-2">
               <Label for="closingChurchAddress">Dirección</Label>
               <div class="relative">
-                <gmp-place-autocomplete
-                  v-if="closingChurchAddressEditing"
-                  ref="closingChurchAutocompleteField"
-                  class="w-full"
+                <AddressAutocomplete
+                  v-model="formData.closingChurchAddress"
                   placeholder="Buscar iglesia o dirección..."
-                  :requested-fields="['displayName', 'addressComponents', 'location']"
-                  :value="formData.closingChurchAddress"
-                />
-                <Input
-                  v-else
-                  id="closingChurchAddress"
-                  :model-value="formData.closingChurchAddress"
-                  placeholder="Click para buscar la dirección"
-                  readonly
-                  class="cursor-pointer"
-                  @click="closingChurchAddressEditing = true"
+                  @select="handleClosingAddressSelect"
                 />
               </div>
               <p v-if="formData.closingChurchLatitude != null && formData.closingChurchLongitude != null" class="text-xs text-muted-foreground">
@@ -995,8 +983,9 @@ import { getApiUrl } from '@/config/runtimeConfig';
 import { useToast } from '@repo/ui';
 import type { CreateRetreat, Retreat, RetreatCloneSections } from '@repo/types';
 import { buildClosingChurchMapsUrl, buildClosingChurchWazeUrl } from '@repo/utils';
-import { loadGoogleMaps } from '@/utils/googleMaps';
 import { houseLocationLabel as houseLabel } from '@/utils/houseLabel';
+import AddressAutocomplete from '@/components/form/AddressAutocomplete.vue';
+import type { PhotonAddress } from '@/services/photon';
 import MemoryUploadForm from '@/components/social/MemoryUploadForm.vue';
 
 interface Props {
@@ -1873,10 +1862,7 @@ const copyToClipboard = async (text: string, type: string) => {
   }
 };
 
-// Closing church Google Places autocomplete -------------------------------
-const closingChurchAddressEditing = ref(false);
-const closingChurchAutocompleteField = ref<any>(null);
-
+// Closing church address autocomplete (Photon / OpenStreetMap) --------------
 const closingChurchMapsUrlPreview = computed(() =>
   buildClosingChurchMapsUrl(
     formData.value.closingChurchLatitude,
@@ -1891,68 +1877,22 @@ const closingChurchWazeUrlPreview = computed(() =>
   ),
 );
 
-const handleClosingPlaceChange = async ({ placePrediction }: any) => {
-  if (!placePrediction) return;
-  try {
-    const place = placePrediction.toPlace();
-    await place.fetchFields({ fields: ['displayName', 'addressComponents', 'location'] });
-
-    if (place.displayName && !formData.value.closingChurchName) {
-      formData.value.closingChurchName = place.displayName;
-    }
-    if (place.addressComponents) {
-      const parts: { [key: string]: string } = {};
-      place.addressComponents.forEach((c: any) => {
-        const type = c.types[0];
-        parts[type] = c.longText;
-      });
-      const street = `${parts.route || ''} ${parts.street_number || ''}`.trim();
-      const sublocality = parts.sublocality_level_1 || '';
-      const locality = parts.locality || '';
-      const adminArea = parts.administrative_area_level_1 || '';
-      const country = parts.country || '';
-      formData.value.closingChurchAddress = [street, sublocality, locality, adminArea, country]
-        .filter(Boolean)
-        .join(', ');
-    }
-    if (place.location) {
-      formData.value.closingChurchLatitude = place.location.lat();
-      formData.value.closingChurchLongitude = place.location.lng();
-    }
-    closingChurchAddressEditing.value = false;
-  } catch (err) {
-    console.error('Error resolviendo iglesia de clausura:', err);
+const handleClosingAddressSelect = (address: PhotonAddress) => {
+  if (!formData.value.closingChurchName && address.placeName) {
+    formData.value.closingChurchName = address.placeName;
   }
+  const seen = new Set<string>();
+  formData.value.closingChurchAddress = [address.address1, address.city, address.state, address.country]
+    .filter((part) => {
+      const key = part.trim().toLowerCase();
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .join(', ');
+  formData.value.closingChurchLatitude = address.latitude;
+  formData.value.closingChurchLongitude = address.longitude;
 };
-
-watch(closingChurchAutocompleteField, (newField, oldField) => {
-  if (oldField) oldField.removeEventListener('gmp-select', handleClosingPlaceChange);
-  if (newField) newField.addEventListener('gmp-select', handleClosingPlaceChange);
-});
-
-watch(closingChurchAddressEditing, async (editing) => {
-  if (editing) {
-    // Lazy-load Google Maps script al activar el autocomplete (no se carga
-    // si el usuario nunca abre la tab Clausura).
-    try {
-      await loadGoogleMaps();
-    } catch (err) {
-      console.warn('No se pudo cargar Google Maps:', err);
-    }
-    await nextTick();
-    if (closingChurchAutocompleteField.value && formData.value.closingChurchAddress) {
-      closingChurchAutocompleteField.value.value = formData.value.closingChurchAddress;
-    }
-  }
-});
-
-// Pre-cargar Google Maps cuando el usuario abre la tab Clausura por primera
-// vez (mejora UX: el primer click en el input queda casi instantáneo).
-watch(activeTab, (tab) => {
-  if (tab === 'closing') {
-    void loadGoogleMaps().catch(() => undefined);
-  }
-});
 
 async function copyClosingChurchUrl(kind: 'maps' | 'waze') {
   const url =
@@ -1987,7 +1927,6 @@ watch(() => props.open, (newOpen) => {
     // Reset to first tab when modal opens
     activeTab.value = 'general';
     refreshBedsFromHouse.value = false;
-    closingChurchAddressEditing.value = false;
     void loadScheduleTemplateSets();
     void loadPreTaskTemplateSets();
 

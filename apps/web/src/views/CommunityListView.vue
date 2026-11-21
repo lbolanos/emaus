@@ -123,34 +123,12 @@
               <div class="space-y-2">
                 <Label for="address1">Dirección <span class="text-red-500">*</span></Label>
                 <div class="relative">
-                  <gmp-place-autocomplete
-                    v-if="address1_is_editing"
-                    ref="autocompleteField"
-                    class="w-full"
-                    placeholder="Buscar dirección..."
-                    :requested-fields="['addressComponents', 'location', 'googleMapsURI']"
-                    :value="form.address1"
-                  >
-                  </gmp-place-autocomplete>
-                  <div v-else class="relative">
-                    <Input
-                      id="address1"
-                      v-model="form.address1"
-                      class="pr-10"
-                      @click="address1_is_editing = true"
-                      readonly
-                    />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      class="absolute right-0 top-0 h-full px-2"
-                      @click="address1_is_editing = true"
-                    >
-                      <Search class="w-4 h-4" />
-                    </Button>
-                  </div>
-                  <p class="text-foreground/70 text-xs mt-1">Click para buscar o editar dirección usando Google Maps</p>
+                  <AddressAutocomplete
+                    v-model="form.address1"
+                    placeholder="Ej: Jalapa 75, Roma Norte, CDMX"
+                    @select="handleAddressSelect"
+                  />
+                  <p class="text-foreground/70 text-xs mt-1">Escribe y selecciona una dirección de la lista para autocompletar ciudad, estado y país</p>
                 </div>
               </div>
 
@@ -310,10 +288,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount, computed, watch, nextTick } from 'vue';
+import { ref, onMounted, computed, watch, nextTick } from 'vue';
 import { useCommunityStore } from '@/stores/communityStore';
 import { storeToRefs } from 'pinia';
-import { Plus, Users, MoreHorizontal, Edit, Trash2, ChevronRight, Loader2, Search, ExternalLink, FileText } from 'lucide-vue-next';
+import { Plus, Users, MoreHorizontal, Edit, Trash2, ChevronRight, Loader2, ExternalLink, FileText } from 'lucide-vue-next';
+import AddressAutocomplete from '@/components/form/AddressAutocomplete.vue';
+import type { PhotonAddress } from '@/services/photon';
 import {
   Button, Card, CardHeader, CardTitle, CardDescription, CardFooter,
   Label, Input, Textarea, Switch,
@@ -380,9 +360,6 @@ const confirmFaceRecognitionChange = async () => {
     isSavingFaceRecognition.value = false;
   }
 };
-const address1_is_editing = ref(true);
-const autocompleteField = ref<any>(null);
-
 const form = ref({
   name: '',
   address1: '',
@@ -397,34 +374,15 @@ const form = ref({
   description: ''
 });
 
-const handlePlaceChange = async ({ placePrediction }: any) => {
-  if (!placePrediction) return;
-
-  const place = placePrediction.toPlace();
-  await place.fetchFields({
-    fields: ['addressComponents', 'displayName', 'location', 'googleMapsURI'],
-  });
-
-  if (place.addressComponents) {
-    const address: { [key: string]: string } = {};
-    place.addressComponents.forEach((component: any) => {
-      const type = component.types[0];
-      address[type] = component.longText;
-    });
-    form.value.address1 = `${address.route || ''} ${address.street_number || ''}, ${address.sublocality_level_1 || ''}`.trim();
-    form.value.city = address.locality || '';
-    form.value.state = address.administrative_area_level_1 || '';
-    form.value.zipCode = address.postal_code || '';
-    form.value.country = address.country || '';
-  }
-  if (place.location) {
-    form.value.latitude = place.location.lat();
-    form.value.longitude = place.location.lng();
-  }
-  if (place.googleMapsURI) {
-    form.value.googleMapsUrl = place.googleMapsURI;
-  }
-  address1_is_editing.value = false;
+const handleAddressSelect = (address: PhotonAddress) => {
+  form.value.address1 = address.address1;
+  form.value.city = address.city;
+  form.value.state = address.state;
+  form.value.zipCode = address.zipCode;
+  form.value.country = address.country;
+  form.value.latitude = address.latitude;
+  form.value.longitude = address.longitude;
+  form.value.googleMapsUrl = address.googleMapsUrl;
 };
 
 const openGoogleMaps = () => {
@@ -432,40 +390,6 @@ const openGoogleMaps = () => {
     window.open(form.value.googleMapsUrl, '_blank');
   }
 };
-
-// Watch for autocomplete field changes to set up event listener
-watch(autocompleteField, (newField, oldField) => {
-  if (oldField) {
-    oldField.removeEventListener('gmp-select', handlePlaceChange);
-  }
-  if (newField) {
-    newField.addEventListener('gmp-select', handlePlaceChange);
-  }
-});
-
-// Watch for modal opening to reset autocomplete state
-watch(isFormModalOpen, async (isOpen) => {
-  if (isOpen) {
-    await nextTick();
-    if (autocompleteField.value && form.value.address1) {
-      autocompleteField.value.value = form.value.address1;
-      address1_is_editing.value = false;
-    } else {
-      address1_is_editing.value = true;
-    }
-  }
-});
-
-// Cleanup before component unmounts
-onBeforeUnmount(() => {
-  // Remove event listener from autocomplete field
-  if (autocompleteField.value) {
-    autocompleteField.value.removeEventListener('gmp-select', handlePlaceChange);
-  }
-
-  // Remove Google Places autocomplete dropdowns
-  document.querySelectorAll('.pac-container').forEach(el => el.remove());
-});
 
 onMounted(async () => {
   await communityStore.fetchCommunities();
@@ -486,7 +410,6 @@ const openAddModal = () => {
     longitude: null,
     description: ''
   };
-  address1_is_editing.value = true;
   isFormModalOpen.value = true;
 };
 
@@ -506,7 +429,6 @@ const openEditModal = (community: any) => {
     longitude: community.longitude || null,
     description: community.description || ''
   };
-  address1_is_editing.value = false;
   isFormModalOpen.value = true;
 };
 
@@ -522,10 +444,6 @@ const handleSave = async () => {
 
   isSaving.value = true;
   try {
-    if (autocompleteField.value) {
-      form.value.address1 = autocompleteField.value.value || form.value.address1;
-    }
-
     const dataToSave = {
       ...form.value,
       latitude: form.value.latitude || null,

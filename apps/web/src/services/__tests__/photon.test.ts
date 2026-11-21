@@ -68,7 +68,15 @@ describe('parsePhotonFeature', () => {
 			),
 		);
 		expect(result!.address.address1).toBe('Parroquia Santa María, Del Valle Centro');
+		expect(result!.address.placeName).toBe('Parroquia Santa María');
 		expect(result!.address.city).toBe('Ciudad de México');
+	});
+
+	it('placeName queda vacío cuando el resultado es una calle', () => {
+		const result = parsePhotonFeature(
+			feature({ street: 'Calle Jalapa', housenumber: '75' }, -99.16, 19.42),
+		);
+		expect(result!.address.placeName).toBe('');
 	});
 
 	it('sin coordenadas devuelve null (resultado no seleccionable)', () => {
@@ -126,6 +134,16 @@ describe('searchPhoton', () => {
 		const controller = new AbortController();
 		await searchPhoton('Jalapa 75', { signal: controller.signal });
 		expect(fetchMock.mock.calls[0][1].signal).toBe(controller.signal);
+	});
+
+	it('incluye el sesgo geográfico cuando se pasan lat/lon', async () => {
+		const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ features: [] }) });
+		vi.stubGlobal('fetch', fetchMock);
+		await searchPhoton('Jalapa 75', { lat: 19.4326, lon: -99.1332, zoom: 9 });
+		const calledUrl = fetchMock.mock.calls[0][0] as string;
+		expect(calledUrl).toContain('lat=19.4326');
+		expect(calledUrl).toContain('lon=-99.1332');
+		expect(calledUrl).toContain('zoom=9');
 	});
 
 	it('lanza error si el endpoint responde mal', async () => {

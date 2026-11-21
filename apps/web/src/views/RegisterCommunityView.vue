@@ -15,9 +15,12 @@ import {
 	SelectValue,
 } from '@repo/ui';
 import { Loader2, MapPin, CheckCircle2, ArrowLeft } from 'lucide-vue-next';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 import { publicRegisterCommunity } from '@/services/api';
 import { getRecaptchaToken, RECAPTCHA_ACTIONS } from '@/services/recaptcha';
-import { loadGoogleMaps } from '@/utils/googleMaps';
+import AddressAutocomplete from '@/components/form/AddressAutocomplete.vue';
+import { searchPhoton, type PhotonAddress } from '@/services/photon';
 
 const router = useRouter();
 const { t } = useI18n();
@@ -26,10 +29,8 @@ const { toast } = useToast();
 const isSubmitting = ref(false);
 const submitted = ref(false);
 const mapContainer = ref<HTMLElement | null>(null);
-let map: google.maps.Map | null = null;
-let marker: google.maps.marker.AdvancedMarkerElement | null = null;
-const mapLoading = ref(false);
-const autocompleteField = ref<any>(null);
+let map: L.Map | null = null;
+let marker: L.Marker | null = null;
 
 const formData = ref({
 	name: '',
@@ -90,120 +91,66 @@ const setMarkerPosition = (lat: number, lng: number) => {
 	formData.value.longitude = lng;
 };
 
-const waitForGoogleMaps = async (timeoutMs = 5000): Promise<boolean> => {
-	const start = Date.now();
-	while (Date.now() - start < timeoutMs) {
-		if (typeof window.google?.maps?.importLibrary === 'function') return true;
-		await new Promise((resolve) => setTimeout(resolve, 100));
+// Pin CSS puro: los iconos default de Leaflet traen rutas de imagen que los
+// bundlers rompen; un divIcon no depende de assets.
+const pinIcon = L.divIcon({
+	className: 'emaus-map-pin',
+	html: '<div style="width:18px;height:18px;border-radius:50%;background:#DC2626;border:3px solid white;box-shadow:0 1px 6px rgba(0,0,0,.4)"></div>',
+	iconSize: [18, 18],
+	iconAnchor: [9, 9],
+});
+
+const recenterMap = (lat: number, lng: number, zoom?: number) => {
+	setMarkerPosition(lat, lng);
+	if (map && marker) {
+		map.setView([lat, lng], zoom ?? map.getZoom());
+		marker.setLatLng([lat, lng]);
 	}
-	return false;
 };
 
-const initMap = async () => {
-	if (!mapContainer.value) return;
-	mapLoading.value = true;
+const initMap = () => {
+	if (!mapContainer.value || map) return;
 	try {
-		await loadGoogleMaps();
-		// En Safari/WebKit, script.onload se dispara antes de que google.maps.importLibrary
-		// esté disponible; el script base cargó pero la API aún se inicializa.
-		const ready = await waitForGoogleMaps();
-		if (!ready) {
-			console.warn('[RegisterCommunity] Google Maps no disponible — usa lat/lng manual.');
-			return;
-		}
+		map = L.map(mapContainer.value, {
+			zoomControl: true,
+			scrollWheelZoom: true,
+		}).setView([formData.value.latitude, formData.value.longitude], 12);
 
-		// loading=async requiere importLibrary para garantizar que Maps esté listo en
-		// Safari/WebKit (en Chromium suele estar precargado pero en Safari la promesa
-		// resuelve antes de que google.maps.Map exista).
-		const [{ Map }, { AdvancedMarkerElement }] = await Promise.all([
-			google.maps.importLibrary('maps') as Promise<google.maps.MapsLibrary>,
-			google.maps.importLibrary('marker') as Promise<google.maps.MarkerLibrary>,
-		]);
+		L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+			maxZoom: 19,
+			attribution:
+				'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+		}).addTo(map);
 
-		const center = { lat: formData.value.latitude, lng: formData.value.longitude };
-		map = new Map(mapContainer.value, {
-			center,
-			zoom: 12,
-			mapTypeControl: false,
-			streetViewControl: false,
-			scrollwheel: true,
-			gestureHandling: 'greedy',
-			mapId: 'EMAUS_REGISTER_MAP', // requerido por AdvancedMarkerElement
+		marker = L.marker([formData.value.latitude, formData.value.longitude], {
+			draggable: true,
+			icon: pinIcon,
+		}).addTo(map);
+		marker.on('dragend', () => {
+			const pos = marker?.getLatLng();
+			if (pos) setMarkerPosition(pos.lat, pos.lng);
 		});
-		marker = new AdvancedMarkerElement({
-			position: center,
-			map,
-			gmpDraggable: true,
-		});
-		marker.addListener('dragend', () => {
-			const pos = marker?.position;
-			if (!pos) return;
-			const lat = typeof (pos as any).lat === 'function' ? (pos as any).lat() : (pos as any).lat;
-			const lng = typeof (pos as any).lng === 'function' ? (pos as any).lng() : (pos as any).lng;
-			setMarkerPosition(lat, lng);
-		});
-		map.addListener('click', (e: google.maps.MapMouseEvent) => {
-			if (!e.latLng) return;
-			const lat = e.latLng.lat();
-			const lng = e.latLng.lng();
-			if (marker) marker.position = { lat, lng };
-			setMarkerPosition(lat, lng);
+		map.on('click', (e: L.LeafletMouseEvent) => {
+			marker?.setLatLng(e.latlng);
+			setMarkerPosition(e.latlng.lat, e.latlng.lng);
 		});
 	} catch (error) {
 		console.error('Error iniciando mapa:', error);
-	} finally {
-		mapLoading.value = false;
 	}
 };
 
-const handlePlaceChange = async (event: any) => {
-	const placePrediction = event?.placePrediction;
-	if (!placePrediction) return;
-
-	const place = placePrediction.toPlace();
-	await place.fetchFields({
-		fields: ['addressComponents', 'displayName', 'location', 'googleMapsURI'],
-	});
-
-	if (place.addressComponents) {
-		const address: Record<string, string> = {};
-		place.addressComponents.forEach((component: any) => {
-			const type = component.types[0];
-			address[type] = component.longText;
-		});
-		formData.value.address1 = `${address.route || ''} ${address.street_number || ''}`.trim();
-		formData.value.address2 = address.sublocality_level_1 || formData.value.address2;
-		formData.value.city = address.locality || address.administrative_area_level_2 || '';
-		formData.value.state = address.administrative_area_level_1 || '';
-		formData.value.zipCode = address.postal_code || '';
-		formData.value.country = address.country || formData.value.country;
-	}
-	if (place.location) {
-		const lat = place.location.lat();
-		const lng = place.location.lng();
-		setMarkerPosition(lat, lng);
-		if (map && marker) {
-			map.setCenter({ lat, lng });
-			map.setZoom(16);
-			marker.position = { lat, lng };
-		}
-	}
-	if (place.googleMapsURI) {
-		formData.value.googleMapsUrl = place.googleMapsURI;
-	}
+const handleAddressSelect = (address: PhotonAddress) => {
+	formData.value.address1 = address.address1;
+	formData.value.city = address.city || formData.value.city;
+	formData.value.state = address.state || formData.value.state;
+	formData.value.zipCode = address.zipCode || formData.value.zipCode;
+	formData.value.country = address.country || formData.value.country;
+	formData.value.googleMapsUrl = address.googleMapsUrl;
+	recenterMap(address.latitude, address.longitude, 16);
 };
 
-watch(autocompleteField, (newField, oldField) => {
-	if (oldField) {
-		oldField.removeEventListener('gmp-select', handlePlaceChange);
-	}
-	if (newField) {
-		newField.addEventListener('gmp-select', handlePlaceChange);
-	}
-});
-
+// Re-geocode cuando cambia la dirección base: Photon (OpenStreetMap), sin key.
 const geocodeFromAddress = async () => {
-	if (!(await waitForGoogleMaps(2000))) return;
 	const parts = [
 		formData.value.address1,
 		formData.value.city,
@@ -212,31 +159,20 @@ const geocodeFromAddress = async () => {
 	].filter(Boolean);
 	if (parts.length < 2) return;
 
-	const { Geocoder } = (await google.maps.importLibrary(
-		'geocoding',
-	)) as google.maps.GeocodingLibrary;
-	const geocoder = new Geocoder();
 	try {
-		const result = await geocoder.geocode({ address: parts.join(', ') });
-		if (result.results.length > 0) {
-			const location = result.results[0].geometry.location;
-			const lat = location.lat();
-			const lng = location.lng();
-			setMarkerPosition(lat, lng);
-			if (map && marker) {
-				map.setCenter({ lat, lng });
-				map.setZoom(15);
-				marker.position = { lat, lng };
-			}
+		const results = await searchPhoton(parts.join(', '), { limit: 1 });
+		if (results.length > 0) {
+			const { latitude, longitude } = results[0].address;
+			recenterMap(latitude, longitude, 15);
 		}
-	} catch (e) {
-		console.warn('Geocoding falló:', e);
+	} catch {
+		// Fallo de red al geocodificar: el pin conserva su posición.
 	}
 };
 
 onMounted(async () => {
 	await nextTick();
-	await initMap();
+	initMap();
 });
 
 const validate = (): boolean => {
@@ -290,11 +226,6 @@ const trimOrUndefined = (value: string) => {
 };
 
 const handleSubmit = async () => {
-	// Capturar el texto actual del autocomplete si el usuario no eligió sugerencia
-	if (!formData.value.address1 && autocompleteField.value?.value) {
-		formData.value.address1 = autocompleteField.value.value;
-	}
-
 	if (!validate()) {
 		toast({
 			title: 'Revisa el formulario',
@@ -480,22 +411,16 @@ watch(
 						<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
 							<div class="md:col-span-2">
 								<Label for="address1">Dirección *</Label>
-								<gmp-place-autocomplete
-									ref="autocompleteField"
-									class="w-full block"
-									placeholder="Buscar dirección..."
-									:requested-fields="['addressComponents', 'location', 'googleMapsURI']"
-								></gmp-place-autocomplete>
+								<AddressAutocomplete
+									v-model="formData.address1"
+									placeholder="Ej: Jalapa 75, Roma Norte, CDMX"
+									:error="!!errors.address1"
+									@select="handleAddressSelect"
+								/>
 								<p class="text-xs text-stone-500 mt-1">
 									Empieza a escribir y selecciona una sugerencia para autocompletar ciudad,
 									estado y coordenadas.
 								</p>
-								<div
-									v-if="formData.address1"
-									class="text-sm text-stone-700 mt-2 px-3 py-2 bg-stone-50 rounded-lg border border-stone-100"
-								>
-									<strong>Seleccionado:</strong> {{ formData.address1 }}
-								</div>
 								<p v-if="errors.address1" class="text-sm text-destructive mt-1">
 									{{ errors.address1 }}
 								</p>

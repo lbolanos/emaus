@@ -10,6 +10,8 @@
 
 export interface PhotonAddress {
 	address1: string;
+	/** Nombre del lugar (POI) cuando el resultado no es una calle; vacío si lo es. */
+	placeName: string;
 	city: string;
 	state: string;
 	zipCode: string;
@@ -95,6 +97,7 @@ export function parsePhotonFeature(feature: PhotonFeature): PhotonSuggestion | n
 		secondary,
 		address: {
 			address1,
+			placeName: street ? '' : (name ?? ''),
 			city,
 			state,
 			zipCode,
@@ -108,7 +111,15 @@ export function parsePhotonFeature(feature: PhotonFeature): PhotonSuggestion | n
 
 export async function searchPhoton(
 	query: string,
-	options: { limit?: number; signal?: AbortSignal } = {},
+	options: {
+		limit?: number;
+		signal?: AbortSignal;
+		/** Sesgo geográfico: prioriza resultados cercanos a este punto. */
+		lat?: number;
+		lon?: number;
+		/** 1 (país) a 16 (calle): mayor zoom, sesgo más fuerte. */
+		zoom?: number;
+	} = {},
 ): Promise<PhotonSuggestion[]> {
 	const trimmed = query.trim();
 	if (trimmed.length < 3) return [];
@@ -118,6 +129,11 @@ export async function searchPhoton(
 		limit: String(options.limit ?? 6),
 		lang: 'default',
 	});
+	if (typeof options.lat === 'number' && typeof options.lon === 'number') {
+		params.set('lat', String(options.lat));
+		params.set('lon', String(options.lon));
+		params.set('zoom', String(options.zoom ?? 9));
+	}
 	const response = await fetch(`${PHOTON_ENDPOINT}?${params.toString()}`, {
 		signal: options.signal,
 	});

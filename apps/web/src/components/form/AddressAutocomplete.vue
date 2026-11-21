@@ -3,7 +3,7 @@
 		<div class="relative">
 			<Search class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
 			<Input
-				:model-value="modelValue"
+				:model-value="modelValue ?? ''"
 				type="text"
 				autocomplete="street-address"
 				:placeholder="placeholder"
@@ -49,14 +49,21 @@ import { searchPhoton, type PhotonSuggestion } from '@/services/photon';
 
 const props = withDefaults(
 	defineProps<{
-		modelValue?: string;
+		modelValue?: string | null;
 		placeholder?: string;
 		error?: boolean;
+		/** Sesgo de resultados; por defecto prioriza México (comunidad madre). */
+		biasLat?: number;
+		biasLon?: number;
+		biasZoom?: number;
 	}>(),
 	{
 		modelValue: '',
 		placeholder: 'Buscar dirección...',
 		error: false,
+		biasLat: 19.4326,
+		biasLon: -99.1332,
+		biasZoom: 9,
 	},
 );
 
@@ -96,7 +103,13 @@ const onInput = (value: string) => {
 		controller = new AbortController();
 		loading.value = true;
 		try {
-			const results = await searchPhoton(value, { signal: controller.signal, limit: 6 });
+			const results = await searchPhoton(value, {
+				signal: controller.signal,
+				limit: 6,
+				lat: props.biasLat,
+				lon: props.biasLon,
+				zoom: props.biasZoom,
+			});
 			suggestions.value = results;
 			activeIndex.value = results.length > 0 ? 0 : -1;
 			open.value = results.length > 0;

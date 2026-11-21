@@ -352,9 +352,6 @@ importers:
       '@tiptap/vue-3':
         specifier: ^3.4.4
         version: 3.8.0(@floating-ui/dom@1.7.4)(@tiptap/core@3.8.0)(@tiptap/pm@3.8.0)(vue@3.5.22)
-      '@types/leaflet':
-        specifier: ^1.9.21
-        version: 1.9.21
       '@types/leaflet.markercluster':
         specifier: ^1.5.6
         version: 1.5.6
@@ -458,6 +455,9 @@ importers:
       '@tsconfig/node20':
         specifier: ^20.1.2
         version: 20.1.6
+      '@types/leaflet':
+        specifier: ^1.9.21
+        version: 1.9.21
       '@types/node':
         specifier: ^20.11.28
         version: 20.19.23
@@ -7521,7 +7521,6 @@ packages:
 
   /@types/geojson@7946.0.16:
     resolution: {integrity: sha512-6C8nqWur3j98U6+lXDfTUWIfgvZU+EumvpHKcYjujKH7woYyLj2sUmff0tRhrqM7BohUw7Pz3ZB1jj2gW9Fvmg==}
-    dev: false
 
   /@types/google.maps@3.58.1:
     resolution: {integrity: sha512-X9QTSvGJ0nCfMzYOnaVs/k6/4L+7F5uCS+4iUmkLEls6J9S/Phv+m/i3mDeyc49ZBgwab3EFO1HEoBY7k98EGQ==}
@@ -7580,7 +7579,6 @@ packages:
     resolution: {integrity: sha512-TbAd9DaPGSnzp6QvtYngntMZgcRk+igFELwR2N99XZn7RXUdKgsXMR+28bUO0rPsWp8MIu/f47luLIQuSLYv/w==}
     dependencies:
       '@types/geojson': 7946.0.16
-    dev: false
 
   /@types/linkify-it@5.0.0:
     resolution: {integrity: sha512-sVDA58zAw4eWAffKOaQH5/5j3XeayukzDk+ewSsnv3p4yJEZHCCzMDiZM8e0OUrRvmpGZ85jf4yDHkHsgBNr9Q==}
