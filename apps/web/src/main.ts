@@ -43,10 +43,8 @@ if ((window as any).__EMAUS_BOOTED) {
 			}
 		};
 
-		// Google Maps is NOT preloaded here on purpose. The script plus the places
-		// library is ~1.5 MB (decoded) and only three screens use it, but every
-		// page used to pay for it. Each of those screens awaits `loadGoogleMaps()`
-		// itself (the promise is cached), so loading it on boot bought nothing.
+		// Address search runs on Photon (OpenStreetMap) since the Google Maps
+		// migration; nothing heavy is preloaded on boot.
 		initializeCsrfProtection();
 
 		// Wait for the router to resolve the initial navigation before
