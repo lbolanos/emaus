@@ -58,7 +58,7 @@
 
 		<div class="grid gap-6 lg:grid-cols-[22rem_1fr]">
 			<!-- Side panel -->
-			<Card class="h-fit lg:sticky lg:top-4">
+			<Card class="h-fit lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto">
 				<CardContent class="p-4">
 					<Tabs default-value="design">
 						<TabsList class="grid w-full grid-cols-3">
@@ -152,7 +152,7 @@
 				-->
 				<div
 					ref="previewColumnRef"
-					class="max-h-[42vh] overflow-y-auto overflow-x-hidden lg:max-h-none lg:overflow-visible"
+					class="max-h-[42vh] self-start overflow-y-auto overflow-x-hidden lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)]"
 					:style="{ height: previewHeight }"
 				>
 					<MeetingFlyerCanvas
