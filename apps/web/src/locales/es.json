@@ -4547,7 +4547,7 @@
         "startTime": "Destacado es la fecha; Texto, la hora y la nota de llegada.",
         "endTime": "Destacado es la fecha de cierre; Texto, la ubicación y el aviso a la familia.",
         "location": "Destacado es el nombre de la casa; Texto, la dirección.",
-        "contact": "Destacado son los teléfonos y correos (mono de fábrica); Texto, sus etiquetas.",
+        "contact": "Destacado son los teléfonos y correos (mono de fábrica); las cajitas siguen al Título.",
         "payment": "Destacado es el precio (Oswald de fábrica); Texto, la información de pago.",
         "whatToBring": "Título es \"QUÉ LLEVAR\"; Texto, el subtítulo ámbar y la lista.",
         "registrationQr": "Destacado es el enlace bajo el código (mono de fábrica); Texto, \"Escanea…\"."

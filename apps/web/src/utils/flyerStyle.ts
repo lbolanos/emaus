@@ -241,10 +241,11 @@ export function resolveBlockStyle(
 	const opacity = merged.backgroundOpacity ?? 100;
 	const hasBox = !!merged.backgroundColor && opacity > 0;
 	const align = merged.textAlign ?? 'left';
-	// Capped boxes (contact cards, the price card) are content furniture:
-	// they follow the BODY slot, whose alignment the panel exposes
-	const bodyAlignComputed = resolveSlot('body', blockId, theme, blockStyles, defaults).align;
-	const [boxMarginLeft, boxMarginRight] = BOX_MARGINS[bodyAlignComputed];
+	// Capped boxes (contact cards, the price card) are the block's chrome:
+	// they follow the TITLE slot, so "Informes → derecha" moves heading and
+	// cards together — the coordinator's mental model, not a second knob
+	const titleAlignForBoxes = resolveSlot('title', blockId, theme, blockStyles, defaults).align;
+	const [boxMarginLeft, boxMarginRight] = BOX_MARGINS[titleAlignForBoxes];
 
 	const slotVars = {} as FlyerBlockCssVarsSlots;
 	const slotAligns = {} as Pick<ResolvedBlockStyle, 'titleAlign' | 'bodyAlign' | 'chipCustom'>;

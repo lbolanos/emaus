@@ -324,7 +324,7 @@ const blocksInSlot = computed(() => {
 }
 
 .print-optimized .fb-stack {
-	justify-items: var(--fb-body-justify, var(--fb-justify, flex-start));
+	justify-items: var(--fb-title-justify, var(--fb-justify, flex-start));
 }
 
 .print-optimized .font-display {

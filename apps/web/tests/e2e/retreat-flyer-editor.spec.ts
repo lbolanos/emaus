@@ -227,11 +227,10 @@ test.describe.serial('Retreat flyer editor — slots, undo/redo, text jump (E2E)
 			'left',
 		);
 
-		// The phone/email cards follow the TEXT slot (body): left flips the
-		// capped box margins, so the cards move instead of ignoring the panel
-		const contactBodyCard = page.locator('[data-font-slot-section="body"]').last();
-		await contactBodyCard.getByRole('button', { name: /texto/i }).click();
-		await contactBodyCard.locator('[data-slot-align="body:left"]').click();
+		// The phone/email cards follow the TITLE slot — the block's chrome —
+		// so heading and cards travel together
+		const contactTitleCard2 = page.locator('[data-font-slot-section="title"]').last();
+		await contactTitleCard2.locator('[data-slot-align="title:left"]').click();
 		await expect(page.locator('[data-flyer-block="contact"]')).toHaveAttribute(
 			'style',
 			/--fb-box-ml: 0/,
@@ -305,10 +304,10 @@ test.describe.serial('Retreat flyer editor — slots, undo/redo, text jump (E2E)
 		await expect(contactBlock).toHaveAttribute('style', /margin-left: auto/);
 		await expect(contactBlock).toHaveAttribute('style', /margin-right: 0/);
 
-		// TEXT → left flips the SAME knob the cards follow: block flush left
-		const bodyCard = page.locator('[data-font-slot-section="body"]').last();
-		await bodyCard.getByRole('button', { name: /texto/i }).click();
-		await bodyCard.locator('[data-slot-align="body:left"]').click();
+		// TITLE → left flips the SAME knob the cards follow: block flush left
+		const titleCardResize = page.locator('[data-font-slot-section="title"]').last();
+		await titleCardResize.getByRole('button', { name: /título/i }).click();
+		await titleCardResize.locator('[data-slot-align="title:left"]').click();
 		await expect(contactBlock).toHaveAttribute('style', /margin-left: 0/);
 		await expect(contactBlock).toHaveAttribute('style', /margin-right: auto/);
 

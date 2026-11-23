@@ -4225,7 +4225,7 @@
         "startTime": "Emphasis is the date; Text, the time and the arrival note.",
         "endTime": "Emphasis is the closing date; Text, the venue and the family notice.",
         "location": "Emphasis is the house name; Text, the address.",
-        "contact": "Emphasis is the phones and emails (mono by design); Text, their labels.",
+        "contact": "Emphasis is the phones and emails (mono by design); the cards follow the Title.",
         "payment": "Emphasis is the price (Oswald by design); Text, the payment details.",
         "whatToBring": "Title is the heading; Text, the subtitle and the list.",
         "registrationQr": "Emphasis is the link under the code (mono by design); Text, the scan line."
