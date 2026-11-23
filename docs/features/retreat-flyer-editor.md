@@ -162,6 +162,11 @@ introducción, costo y QR centrados, el resto a la izquierda.
 | `.fb-stack` | una rejilla de tarjetas (los contactos) | `auto-fit, minmax(9rem, 1fr)`: dos columnas caben en el tope de 320px, una sola si el bloque se encoge; celdas con `justify-items` del título |
 | `.fb-title-chip` | el cuadrito de icono junto al rótulo | `fonts.title.iconColor` pone `data-chip="custom"` y lo pinta sólido; sin él, el degradado de fábrica |
 
+> ⚠️ `FlyerStyleFields` es el mismo panel en el editor de **reuniones**. Un control nuevo que
+> depende de una marca en los bloques necesita la marca en los dos juegos (`flyer/blocks` y
+> `flyers/blocks`), su regla CSS en los dos canvas y un test en cada canvas. La fila Icono salió
+> sin la marca en reuniones y no hacía nada ahí hasta el cierre del 2026-11-23.
+
 **El título es el mando del bloque.** Las cajas acotadas, las celdas del `fb-stack` y el margen
 del bloque encogido (`width` de la distribución) se resuelven de la alineación del **título**,
 no del texto: con dos mandos, «Informes a la derecha» dejaba las tarjetas en otro lado. La
