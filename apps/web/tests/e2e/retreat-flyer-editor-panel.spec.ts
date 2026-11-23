@@ -429,7 +429,13 @@ test.describe.serial('Retreat flyer editor — panel features (E2E)', () => {
 						...fo,
 						blockStyles: {
 							...(fo.blockStyles ?? {}),
-							endTime: { fonts: { body: { backgroundColor: '#ffffff', align: 'right' } } },
+							// Veracruz XXIV as reported: title AND text on the right
+							endTime: {
+								fonts: {
+									title: { align: 'right' },
+									body: { backgroundColor: '#ffffff', align: 'right' },
+								},
+							},
 						},
 					};
 				};
@@ -450,16 +456,20 @@ test.describe.serial('Retreat flyer editor — panel features (E2E)', () => {
 				const range = document.createRange();
 				range.selectNodeContents(el);
 				const longest = Math.max(...[...range.getClientRects()].map((r) => r.width));
+				const chip = el.closest('[data-flyer-block]')!.querySelector('.fb-title-chip')!.getBoundingClientRect();
 				return {
-					sized: !!(el as HTMLElement).style.width,
 					gapLeft: Math.round(box.left - col.left),
 					gapRight: Math.round(col.right - box.right),
+					// The block's edge is where the icon ends: the box reaches it
+					// (it used to stop at the title, short of the icon)
+					offIconEdge: Math.round(chip.right - box.right),
 					slack: Math.round(box.width - longest),
 				};
 			});
-		await expect.poll(async () => (await geometry()).sized).toBe(true);
+		await expect.poll(async () => (await geometry()).slack).toBeLessThan(16);
 		const g = await geometry();
 		expect(g.gapRight).toBe(0);
+		expect(Math.abs(g.offIconEdge)).toBeLessThanOrEqual(1);
 		expect(g.gapLeft).toBeGreaterThan(0);
 		// The box is the longest line plus its padding, not the column
 		expect(g.slack).toBeLessThan(16);
@@ -481,14 +491,24 @@ test.describe.serial('Retreat flyer editor — panel features (E2E)', () => {
 			note.evaluate((el) => {
 				const col = el.parentElement!.getBoundingClientRect();
 				const box = el.getBoundingClientRect();
-				return { left: Math.round(box.left - col.left), right: Math.round(col.right - box.right) };
+				const chip = el.closest('[data-flyer-block]')!.querySelector('.fb-title-chip')!.getBoundingClientRect();
+				return {
+					left: Math.round(box.left - col.left),
+					right: Math.round(col.right - box.right),
+					offIconEdge: Math.round(chip.right - box.right),
+				};
 			});
 
 		await selectBlock('endTime');
+		// Title on the right too, as in the report: the icon sits on the right edge
+		await openSlot('title');
+		await slotSection('title').locator('[data-slot-align="title:right"]').click();
 		await openSlot('body');
 		await slotSection('body').locator('[data-slot-align="body:right"]').click();
 		await expect.poll(async () => (await gaps()).right).toBe(0);
 		expect((await gaps()).left).toBeGreaterThan(0);
+		// Under the heading row, it reaches the block's edge — where the icon ends
+		expect(Math.abs((await gaps()).offIconEdge)).toBeLessThanOrEqual(1);
 
 		await slotSection('body').locator('[data-slot-align="body:left"]').click();
 		await expect.poll(async () => (await gaps()).left).toBe(0);

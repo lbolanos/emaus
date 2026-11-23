@@ -15,27 +15,33 @@
 				<p data-end-date class="fb-emphasis text-[length:calc(1.0625rem*var(--fb-emphasis-scale,1))] text-[color:var(--fb-emphasis-color)] font-bold mb-0.5">
 					{{ content.formatDate(content.endDate) }}
 				</p>
-				<div v-if="content.closingLocation" class="mb-2">
-					<p
-						class="font-semibold text-[color:var(--fb-body-color)] fb-body text-[length:calc(0.75rem*var(--fb-body-scale,1))] leading-tight whitespace-pre-line"
-					>
-						{{ content.closingLocation }}
-					</p>
-				</div>
-				<!-- A box, not a bar: data-body-box makes it hug its words (block-level
-				     it stretched to the column and read as an empty amber bar) and
-				     travel to the body role's side. inline-flex hugged too, but then
-				     the parent's text-align placed it — the flat one, always left. -->
+			</div>
+		</div>
+		<!-- Below the heading row, like the contact cards: aligned right, the
+		     paragraph and the notice reach the block's edge under the icon. Inside
+		     the title's column they stopped at the icon, short of the edge the
+		     contact cards reach — the block read as pushed left. -->
+		<div v-if="content.closingLocation || content.arrivalTimeNoteText" class="mt-2">
+			<div v-if="content.closingLocation" class="mb-2">
 				<p
-					v-if="content.arrivalTimeNoteText"
-					data-arrival-note
-					data-body-box
-					data-text-override="arrivalTimeNoteOverride"
-					class="fb-row text-gray-800 font-bold uppercase fb-body text-[length:calc(0.75rem*var(--fb-body-scale,1))] flex max-w-full items-center gap-2 bg-amber-50/80 px-3 py-2 rounded-lg border border-amber-200 whitespace-pre-line"
+					class="font-semibold text-[color:var(--fb-body-color)] fb-body text-[length:calc(0.75rem*var(--fb-body-scale,1))] leading-tight whitespace-pre-line"
 				>
-					<Users class="w-5 h-5 flex-shrink-0" /> {{ content.arrivalTimeNoteText }}
+					{{ content.closingLocation }}
 				</p>
 			</div>
+			<!-- A box, not a bar: data-body-box makes it hug its words (block-level
+			     it stretched to the column and read as an empty amber bar) and
+			     travel to the body role's side. inline-flex hugged too, but then
+			     the parent's text-align placed it — the flat one, always left. -->
+			<p
+				v-if="content.arrivalTimeNoteText"
+				data-arrival-note
+				data-body-box
+				data-text-override="arrivalTimeNoteOverride"
+				class="fb-row text-gray-800 font-bold uppercase fb-body text-[length:calc(0.75rem*var(--fb-body-scale,1))] flex max-w-full items-center gap-2 bg-amber-50/80 px-3 py-2 rounded-lg border border-amber-200 whitespace-pre-line"
+			>
+				<Users class="w-5 h-5 flex-shrink-0" /> {{ content.arrivalTimeNoteText }}
+			</p>
 		</div>
 	</div>
 </template>
