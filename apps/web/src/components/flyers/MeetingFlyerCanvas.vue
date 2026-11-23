@@ -1,5 +1,6 @@
 <template>
 	<div
+		ref="rootRef"
 		:id="printable ? 'printable-area' : undefined"
 		@dblclick="onDoubleClick"
 		:data-custom-canvas="printable ? '' : undefined"
@@ -85,6 +86,7 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue';
+import { useShrinkWrapVeils } from '@/utils/flyerShrinkWrap';
 import type {
 	FlyerBlockStyle,
 	FlyerImages,
@@ -194,6 +196,17 @@ const blocksInSlot = computed(() => {
 	}
 	return bySlot;
 });
+
+/** Veiled lines hug their longest line so their box can sit on its role's side. */
+const rootRef = ref<HTMLElement>();
+useShrinkWrapVeils(rootRef, [
+	() => props.blockStyles,
+	() => props.theme,
+	() => props.layout,
+	() => props.flyerOptions,
+	() => props.scale,
+	() => props.meeting, () => props.community,
+]);
 </script>
 
 <style>
@@ -263,6 +276,20 @@ const blocksInSlot = computed(() => {
 .print-optimized [data-flyer-block][data-veils~='body'] .fb-body {
 	width: fit-content;
 	max-width: 100%;
+	/* Same line count, even lengths: a wrapped paragraph's lines fill the
+	   column edge to edge, so there was nothing to hug. Balanced, the longest
+	   line is shorter than the column and the box (sized by
+	   utils/flyerShrinkWrap.ts) can sit on its role's side. */
+	text-wrap: balance;
+}
+
+/* A veiled PARAGRAPH stops short of the column: a wrapped paragraph fills the
+   column edge to edge, so its box could never read as sitting on a side.
+   Capped, it wraps a little earlier and the balanced, measured box shows a
+   clear gap on the other side. Paragraphs only: the names in the contact
+   cards are block spans and must keep their full width. */
+.print-optimized [data-flyer-block][data-veils~='body'] p.fb-body:not(.fb-row) {
+	max-width: 85%;
 }
 
 .print-optimized [data-flyer-block][data-veils~='title'] .fb-title {

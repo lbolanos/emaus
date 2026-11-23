@@ -402,6 +402,75 @@ test.describe.serial('Retreat flyer editor — panel features (E2E)', () => {
 		expect(await layout()).toMatchObject({ inside: true, rowsHugRight: true });
 	});
 
+	// A wrapped paragraph is as wide as its column whatever its lines measure:
+	// its veil was a full-width bar that "right" never moved. Balanced and
+	// measured (utils/flyerShrinkWrap.ts), the box hugs the longest line and
+	// sits on the role's side — once the web fonts are in, which is when the
+	// measurement first comes out right.
+	test('a veiled closing paragraph is a box that hugs its lines and sits on the right', async () => {
+		test.skip(!!skipReason, skipReason ?? '');
+		await openFresh({}, 'deferred');
+		const notes =
+			'Domingo 21 de febrero a las 16:00, misa de clausura en la capilla de la casa. ' +
+			'Es muy importante que la familia venga a recibir al caminante.';
+		await page.route(
+			(url) => /\/api\/retreats\/?$/.test(url.pathname) || url.pathname.endsWith(`/api/retreats/${RETREAT_ID}`),
+			async (route) => {
+				if (route.request().method() !== 'GET') return route.continue();
+				const response = await route.fetch();
+				const body = await response.json();
+				// The SAVED design already carries the veil: the box must come out
+				// right on first paint, with no click to trigger a re-measure
+				const patch = (r: { id?: string; closingNotes?: string; flyer_options?: any }) => {
+					if (r?.id !== RETREAT_ID) return;
+					r.closingNotes = notes;
+					const fo = r.flyer_options ?? {};
+					r.flyer_options = {
+						...fo,
+						blockStyles: {
+							...(fo.blockStyles ?? {}),
+							endTime: { fonts: { body: { backgroundColor: '#ffffff', align: 'right' } } },
+						},
+					};
+				};
+				if (Array.isArray(body)) body.forEach(patch);
+				else if (Array.isArray(body?.data)) body.data.forEach(patch);
+				else patch(body);
+				await route.fulfill({ response, json: body });
+			},
+		);
+		await page.goto(`/app/retreats/${RETREAT_ID}/flyer/edit`);
+		const paragraph = page.locator('[data-flyer-block="endTime"] .mb-2 > p.fb-body');
+		await expect(paragraph).toBeVisible();
+
+		const geometry = () =>
+			paragraph.evaluate((el) => {
+				const col = el.parentElement!.parentElement!.getBoundingClientRect();
+				const box = el.getBoundingClientRect();
+				const range = document.createRange();
+				range.selectNodeContents(el);
+				const longest = Math.max(...[...range.getClientRects()].map((r) => r.width));
+				return {
+					sized: !!(el as HTMLElement).style.width,
+					gapLeft: Math.round(box.left - col.left),
+					gapRight: Math.round(col.right - box.right),
+					slack: Math.round(box.width - longest),
+				};
+			});
+		await expect.poll(async () => (await geometry()).sized).toBe(true);
+		const g = await geometry();
+		expect(g.gapRight).toBe(0);
+		expect(g.gapLeft).toBeGreaterThan(0);
+		// The box is the longest line plus its padding, not the column
+		expect(g.slack).toBeLessThan(16);
+
+		// Left: same box, now flush left
+		await selectBlock('endTime');
+		await openSlot('body');
+		await slotSection('body').locator('[data-slot-align="body:left"]').click();
+		await expect.poll(async () => (await geometry()).gapLeft).toBe(0);
+	});
+
 	test('the family notice follows the Text role: right goes right, left goes left', async () => {
 		test.skip(!!skipReason, skipReason ?? '');
 		await openFresh();
