@@ -169,7 +169,7 @@
 						:style="{ backgroundColor: hex }"
 						:aria-label="hex"
 						:data-palette-swatch="hex"
-						@click="commitTextColor(slot, hex)"
+						@click="emitSlot(slot, 'color', hex)"
 					></button>
 					<button
 						v-for="swatch in COLOR_SWATCHES"
@@ -184,7 +184,7 @@
 						:style="{ backgroundColor: swatch }"
 						:aria-label="swatch"
 						:data-slot-color-swatch="`${slot}:${swatch}`"
-						@click="commitTextColor(slot, swatch)"
+						@click="emitSlot(slot, 'color', swatch)"
 					></button>
 					<input
 						type="color"
@@ -215,7 +215,7 @@
 						:style="{ backgroundColor: hex }"
 						:aria-label="hex"
 						:data-icon-swatch="hex"
-						@click="commitIconColor(hex)"
+						@click="emitSlot('title', 'iconColor', hex)"
 					></button>
 					<button
 						v-if="values.fonts?.title?.iconColor"
@@ -320,7 +320,7 @@
 								: 'border-muted text-muted-foreground hover:text-foreground'
 						"
 						:data-slot-veil="`${slot}:${option.id}`"
-						@click="option.color ? (pickVeil(slot, option.color), recordRecentColor('text', option.color)) : clearVeil(slot)"
+						@click="option.color ? pickVeil(slot, option.color) : clearVeil(slot)"
 					>
 						{{ t(`retreatFlyerEditor.design.background.${option.id}`) }}
 					</button>
@@ -421,13 +421,14 @@ const openSlot = ref<FlyerFontSlot | null>(null);
 const recentTextSwatches = computed(() => recentColors('text').value);
 const recentIconSwatches = computed(() => recentColors('icon').value);
 
-/** A committed text-colour pick: applies AND feeds the shared swatch row. */
+/** Re-picking a recent: applies it and moves it to the front (adds nothing new —
+ *  only the free picker's change event does that, by the requirement). */
 function commitTextColor(slot: FlyerFontSlot, hex: string) {
 	emitSlot(slot, 'color', hex);
 	recordRecentColor('text', hex);
 }
 
-/** A committed icon-colour pick — recorded to the icon list, never the text one. */
+/** Re-picking an icon recent: applies and moves it to the front of the icon list. */
 function commitIconColor(hex: string) {
 	emitSlot('title', 'iconColor', hex);
 	recordRecentColor('icon', hex);

@@ -138,6 +138,48 @@ describe('flyerOptionsSchema', () => {
 		});
 	});
 
+	// The editor's per-role panel writes all of these: a field the schema does
+	// not declare is stripped on save and the design silently loses it
+	describe('per-role typography, width and column gap (editor v3)', () => {
+		it('keeps every per-role field through a parse', () => {
+			const title = {
+				family: 'oswald',
+				scale: 135,
+				color: '#14524d',
+				align: 'right',
+				shadow: true,
+				backgroundColor: '#ffffff',
+				backgroundOpacity: 40,
+				iconColor: '#b45309',
+			} as const;
+			const parsed = flyerOptionsSchema.parse({
+				theme: { columnGap: 96, fonts: { body: { family: 'mono' } } },
+				blockStyles: { contact: { fonts: { title } } },
+				blocks: [{ id: 'contact', slot: 'right', order: 0, visible: true, width: 70 }],
+			});
+
+			expect(parsed.blockStyles?.contact?.fonts?.title).toEqual(title);
+			expect(parsed.theme?.columnGap).toBe(96);
+			expect(parsed.theme?.fonts?.body?.family).toBe('mono');
+			expect(parsed.blocks?.[0]?.width).toBe(70);
+		});
+
+		it('rejects a size, colour, width or gap outside what the editor offers', () => {
+			const bad = [
+				{ blockStyles: { contact: { fonts: { title: { scale: 4 } } } } },
+				{ blockStyles: { contact: { fonts: { title: { scale: 201 } } } } },
+				{ blockStyles: { contact: { fonts: { title: { iconColor: 'red' } } } } },
+				{ blockStyles: { contact: { fonts: { emphasis: { family: 'comic-sans' } } } } },
+				{ blocks: [{ id: 'contact', slot: 'right', order: 0, visible: true, width: 40 }] },
+				{ theme: { columnGap: 201 } },
+				{ theme: { columnGap: -1 } },
+			];
+			for (const options of bad) {
+				expect(flyerOptionsSchema.safeParse(options).success).toBe(false);
+			}
+		});
+	});
+
 	describe('bounds', () => {
 		it('rejects an absurd number of blocks', () => {
 			const blocks = Array.from({ length: 500 }, () => ({
