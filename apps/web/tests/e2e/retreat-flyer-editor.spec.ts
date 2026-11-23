@@ -283,6 +283,34 @@ test.describe.serial('Retreat flyer editor — slots, undo/redo, text jump (E2E)
 		// Double-click on the edge restores the full width (stored as absent)
 		await handle.dblclick();
 		await expect(block).not.toHaveAttribute('style', /width: \d+%/);
+
+		// Contact: born flat-right. Shrunk, it must hug the side its TEXT slot
+		// is on — not drift to the centre between two alignment knobs
+		await page.locator('[data-block="contact"] button').first().click();
+		const contactBlock = page.locator('[data-flyer-block="contact"]');
+		const contactHandle = contactBlock.locator('[data-resize-handle]');
+		const contactColumnWidth = (await page
+			.locator('[data-flyer-slot="right"]')
+			.evaluate((el) => el.clientWidth)) as number;
+		const contactBox = await contactHandle.boundingBox();
+		assert(contactBox, 'contact handle has a bounding box');
+		await page.mouse.move(contactBox.x + contactBox.width / 2, contactBox.y + contactBox.height / 2);
+		await page.mouse.down();
+		await page.mouse.move(contactBox.x - contactColumnWidth * 0.3, contactBox.y + contactBox.height / 2, {
+			steps: 8,
+		});
+		await page.mouse.up();
+		await expect(contactBlock).toHaveAttribute('style', /width: (70|75)%/);
+		// Born right: the shrunk block hugs the RIGHT edge
+		await expect(contactBlock).toHaveAttribute('style', /margin-left: auto/);
+		await expect(contactBlock).toHaveAttribute('style', /margin-right: 0/);
+
+		// TEXT → left flips the SAME knob the cards follow: block flush left
+		const bodyCard = page.locator('[data-font-slot-section="body"]').last();
+		await bodyCard.getByRole('button', { name: /texto/i }).click();
+		await bodyCard.locator('[data-slot-align="body:left"]').click();
+		await expect(contactBlock).toHaveAttribute('style', /margin-left: 0/);
+		await expect(contactBlock).toHaveAttribute('style', /margin-right: auto/);
 	});
 
 	test('reads the artwork palette and offers it as swatches', async () => {

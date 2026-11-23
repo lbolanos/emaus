@@ -119,8 +119,10 @@ const dropIndicator = ref<string | null>(null);
  *  machinery so grabbing the edge never starts a move. */
 const resizingId = ref<string | null>(null);
 
-/** Width as CSS: percent of the column, lined up by the block's alignment
- *  (a shrunk block floats to the side its own words are on). */
+/** Width as CSS: percent of the column, lined up by the TEXT slot's
+ *  alignment — the one the panel exposes. The flat align is invisible since
+ *  the per-role sections, and shrink+cards following different knobs read as
+ *  the block drifting somewhere it was never sent. */
 function widthStyleFor(block: AnyBlockLayout): Record<string, string> {
 	if (!block.width || block.width >= 100) return {};
 	const margins: Record<string, [string, string]> = {
@@ -128,7 +130,7 @@ function widthStyleFor(block: AnyBlockLayout): Record<string, string> {
 		center: ['auto', 'auto'],
 		right: ['auto', '0'],
 	};
-	const [marginLeft, marginRight] = margins[stylesById.value[block.id]?.align ?? 'left'];
+	const [marginLeft, marginRight] = margins[stylesById.value[block.id]?.bodyAlign ?? 'left'];
 	return {
 		width: `${block.width}%`,
 		marginLeft,
