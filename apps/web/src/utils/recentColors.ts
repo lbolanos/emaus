@@ -1,34 +1,44 @@
-import { ref } from 'vue';
+import { ref, type Ref } from 'vue';
 
 /**
  * Colours the coordinator picked recently, offered as one-click swatches in
- * every colour row of the flyer editor — picking the parish's amber once
- * should not mean typing the hex again on the next block.
+ * the flyer editor's colour rows — picking the parish's amber once should not
+ * mean typing the hex again on the next block.
  *
- * Persisted in localStorage, capped, most recent first. Disabled under
- * vitest: cross-suite localStorage pollution already bit the draft feature.
+ * Persisted in localStorage per scope (text picks and icon picks live apart),
+ * capped, most recent first. Disabled under vitest: cross-suite localStorage
+ * pollution already bit the draft feature.
  */
 
-const KEY = 'emaus-flyer-recent-colors';
-const CAP = 8;
+/** Scopes kept apart on purpose — mixing them was the report. */
+export type RecentColorScope = 'text' | 'icon';
 
-const recent = ref<string[]>(load());
+const SCOPES: RecentColorScope[] = ['text', 'icon'];
+const keyFor = (scope: RecentColorScope) => `emaus-flyer-recent-colors/${scope}`;
+const CAP = 10;
 
-function load(): string[] {
+function loadScope(scope: RecentColorScope): string[] {
 	if (import.meta.env.MODE === 'test') return [];
 	try {
-		const raw = localStorage.getItem(KEY);
+		const raw = localStorage.getItem(keyFor(scope));
 		const parsed = raw ? (JSON.parse(raw) as unknown) : [];
-		return Array.isArray(parsed) ? parsed.filter((c): c is string => typeof c === 'string') : [];
+		return Array.isArray(parsed)
+			? parsed.filter((c): c is string => typeof c === 'string')
+			: [];
 	} catch {
 		return [];
 	}
 }
 
-function persist() {
+/** One stable ref per scope — records re-render every swatch row. */
+const refs = Object.fromEntries(
+	SCOPES.map((scope) => [scope, ref<string[]>(loadScope(scope))]),
+) as Record<RecentColorScope, Ref<string[]>>;
+
+function persist(scope: RecentColorScope) {
 	if (import.meta.env.MODE === 'test') return;
 	try {
-		localStorage.setItem(KEY, JSON.stringify(recent.value));
+		localStorage.setItem(keyFor(scope), JSON.stringify(refs[scope].value));
 	} catch {
 		// Private mode/quota: the feature degrades to session-only
 	}
@@ -36,17 +46,18 @@ function persist() {
 
 const HEX = /^#[0-9a-fA-F]{6}$/;
 
-/** Records a picked colour (deduped, most recent first, capped). */
-export function recordRecentColor(hex: string) {
+/** Records a committed pick (deduped, most recent first, capped at 10). */
+export function recordRecentColor(scope: RecentColorScope, hex: string) {
 	if (!HEX.test(hex)) return;
-	recent.value = [hex, ...recent.value.filter((c) => c.toLowerCase() !== hex.toLowerCase())].slice(
-		0,
-		CAP,
-	);
-	persist();
+	const list = refs[scope].value;
+	refs[scope].value = [
+		hex,
+		...list.filter((c) => c.toLowerCase() !== hex.toLowerCase()),
+	].slice(0, CAP);
+	persist(scope);
 }
 
-/** The list to render as swatches. */
-export function recentColors() {
-	return recent;
+/** The scope's list, as a stable ref the swatch rows can render. */
+export function recentColors(scope: RecentColorScope): Ref<string[]> {
+	return refs[scope];
 }

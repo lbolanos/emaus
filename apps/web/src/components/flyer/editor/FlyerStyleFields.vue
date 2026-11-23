@@ -142,7 +142,7 @@
 				</span>
 				<div class="ml-auto flex max-w-full flex-wrap items-center justify-end gap-1">
 					<button
-						v-for="hex in recentSwatches"
+						v-for="hex in recentTextSwatches"
 						:key="`recent-${hex}`"
 						type="button"
 						class="h-5 w-5 rounded border"
@@ -154,7 +154,7 @@
 						:style="{ backgroundColor: hex }"
 						:aria-label="hex"
 						:data-recent-swatch="hex"
-						@click="emitSlot(slot, 'color', hex)"
+						@click="commitTextColor(slot, hex)"
 					></button>
 					<button
 						v-for="hex in palette ?? []"
@@ -169,7 +169,7 @@
 						:style="{ backgroundColor: hex }"
 						:aria-label="hex"
 						:data-palette-swatch="hex"
-						@click="emitSlot(slot, 'color', hex)"
+						@click="commitTextColor(slot, hex)"
 					></button>
 					<button
 						v-for="swatch in COLOR_SWATCHES"
@@ -184,13 +184,14 @@
 						:style="{ backgroundColor: swatch }"
 						:aria-label="swatch"
 						:data-slot-color-swatch="`${slot}:${swatch}`"
-						@click="emitSlot(slot, 'color', swatch)"
+						@click="commitTextColor(slot, swatch)"
 					></button>
 					<input
 						type="color"
 						class="h-6 w-8 cursor-pointer rounded border border-muted bg-transparent p-0.5"
 						:value="values.fonts?.[slot]?.color ?? '#111827'"
 						@input="emitSlot(slot, 'color', ($event.target as HTMLInputElement).value)"
+						@change="recordRecentColor('text', ($event.target as HTMLInputElement).value)"
 					/>
 				</div>
 			</div>
@@ -214,7 +215,7 @@
 						:style="{ backgroundColor: hex }"
 						:aria-label="hex"
 						:data-icon-swatch="hex"
-						@click="emitSlot('title', 'iconColor', hex)"
+						@click="commitIconColor(hex)"
 					></button>
 					<button
 						v-if="values.fonts?.title?.iconColor"
@@ -225,12 +226,28 @@
 					>
 						{{ t('retreatFlyerEditor.design.background.none') }}
 					</button>
+					<button
+						v-for="hex in recentIconSwatches"
+						:key="`icon-recent-${hex}`"
+						type="button"
+						class="h-5 w-5 rounded border"
+						:class="
+							values.fonts?.title?.iconColor?.toLowerCase() === hex
+								? 'border-primary ring-2 ring-primary/40'
+								: 'border-muted'
+						"
+						:style="{ backgroundColor: hex }"
+						:aria-label="hex"
+						:data-icon-recent-swatch="hex"
+						@click="commitIconColor(hex)"
+					></button>
 					<input
 						type="color"
 						class="h-6 w-8 cursor-pointer rounded border border-muted bg-transparent p-0.5"
 						:value="values.fonts?.title?.iconColor ?? '#1d4ed8'"
 						:data-chip-picker="true"
 						@input="emitSlot('title', 'iconColor', ($event.target as HTMLInputElement).value)"
+						@change="recordRecentColor('icon', ($event.target as HTMLInputElement).value)"
 					/>
 				</div>
 			</div>
@@ -303,7 +320,7 @@
 								: 'border-muted text-muted-foreground hover:text-foreground'
 						"
 						:data-slot-veil="`${slot}:${option.id}`"
-						@click="option.color ? pickVeil(slot, option.color) : clearVeil(slot)"
+						@click="option.color ? (pickVeil(slot, option.color), recordRecentColor('text', option.color)) : clearVeil(slot)"
 					>
 						{{ t(`retreatFlyerEditor.design.background.${option.id}`) }}
 					</button>
@@ -312,6 +329,7 @@
 						class="h-6 w-8 cursor-pointer rounded border border-muted bg-transparent p-0.5"
 						:value="values.fonts?.[slot]?.backgroundColor ?? '#ffffff'"
 						@input="emitSlot(slot, 'backgroundColor', ($event.target as HTMLInputElement).value)"
+						@change="recordRecentColor('text', ($event.target as HTMLInputElement).value)"
 					/>
 				</div>
 			</div>
@@ -362,7 +380,7 @@ import { AlignCenter, AlignLeft, AlignRight, Minus, Plus, RotateCcw } from 'luci
 import { Label } from '@repo/ui';
 import type { FlyerBlockStyle, FlyerFontFamily, FlyerFontSlot, FlyerFonts } from '@repo/types';
 import { FLYER_FONT_STACKS } from '@/utils/flyerStyle';
-import { recordRecentColor, recentColors as recentColorsRef } from '@/utils/recentColors';
+import { recordRecentColor, recentColors } from '@/utils/recentColors';
 import FlyerPanelSection from './FlyerPanelSection.vue';
 
 const props = withDefaults(
@@ -397,8 +415,23 @@ const { t } = useI18n();
  *  closes the others: three open cards crowded the panel. */
 const openSlot = ref<FlyerFontSlot | null>(null);
 
-/** Recent picks as a plain array — imported refs don't reliably unwrap in v-for. */
-const recentSwatches = computed(() => recentColorsRef().value);
+/** Recent picks as plain arrays — imported refs don't reliably unwrap in v-for.
+ *  Text and icon live apart; nothing lands in either until the pick is
+ *  committed (a discrete click, or the picker's change event). */
+const recentTextSwatches = computed(() => recentColors('text').value);
+const recentIconSwatches = computed(() => recentColors('icon').value);
+
+/** A committed text-colour pick: applies AND feeds the shared swatch row. */
+function commitTextColor(slot: FlyerFontSlot, hex: string) {
+	emitSlot(slot, 'color', hex);
+	recordRecentColor('text', hex);
+}
+
+/** A committed icon-colour pick — recorded to the icon list, never the text one. */
+function commitIconColor(hex: string) {
+	emitSlot('title', 'iconColor', hex);
+	recordRecentColor('icon', hex);
+}
 
 /** One glance at what the closed section holds: family and size. */
 function slotSummary(slot: FlyerFontSlot): string {
@@ -538,8 +571,6 @@ function emitSlot(
 		| 'iconColor',
 	raw: string | boolean | number | undefined,
 ) {
-	// Every colour picked anywhere feeds the shared swatch row
-	if (typeof raw === 'string' && /^#[0-9a-fA-F]{6}$/.test(raw)) recordRecentColor(raw);
 	const value = field === 'scale' ? Number(raw) : raw;
 	const isDefault =
 		raw === undefined ||
