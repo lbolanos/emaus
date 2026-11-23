@@ -271,6 +271,16 @@ const blocksInSlot = computed(() => {
 	width: 100%;
 }
 
+.print-optimized [data-flyer-block][data-title-align='left'] .fb-lead {
+	flex-direction: row;
+	justify-content: flex-start;
+}
+
+.print-optimized [data-flyer-block][data-body-align='left'] .fb-row {
+	flex-direction: row;
+	justify-content: flex-start;
+}
+
 .print-optimized [data-flyer-block][data-title-align='right'] .fb-lead,
 .print-optimized [data-flyer-block][data-body-align='right'] .fb-row {
 	flex-direction: row-reverse;

@@ -216,6 +216,17 @@ test.describe.serial('Retreat flyer editor — slots, undo/redo, text jump (E2E)
 		// Anchor first: the selected-block card is up (the block Reset only
 		// lives there), so the count-0 below can't pass against a dead panel
 		await expect(page.getByRole('button', { name: 'Restaurar', exact: true })).toBeVisible();
+
+		// Contact is born flat-right; its TITLE slot must still be able to
+		// pull left — the furniture follows the slot, not the flat default
+		const contactTitleCard = page.locator('[data-font-slot-section="title"]').last();
+		await contactTitleCard.getByRole('button', { name: /título/i }).click();
+		await contactTitleCard.locator('[data-slot-align="title:left"]').click();
+		await expect(page.locator('[data-flyer-block="contact"]')).toHaveAttribute(
+			'data-title-align',
+			'left',
+		);
+
 		const contactCard = page.locator('[data-contentless-notice]');
 		const contactEmpty = (await page
 			.locator('[data-flyer-block="contact"]')
