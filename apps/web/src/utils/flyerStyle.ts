@@ -75,6 +75,12 @@ type FlyerBlockCssVarsSlots = {
 	/** Auto margins that line up a width-capped emphasis box (the domain plate). */
 	'--fb-emph-ml': string;
 	'--fb-emph-mr': string;
+} & {
+	/** Auto margins per role: a veiled line (and the arrival note) is a box,
+	 *  and boxes travel by margins, not by text-align. */
+	[K in `--fb-${FlyerFontSlot}-ml`]: string;
+} & {
+	[K in `--fb-${FlyerFontSlot}-mr`]: string;
 };
 
 export type FlyerBlockCssVars = FlyerBlockCssVarsBase & FlyerBlockCssVarsSlots;
@@ -91,6 +97,9 @@ export interface ResolvedBlockStyle extends FlyerBlockCssVars {
 	/** True when a custom icon-chip colour is set: the wrapper carries the
 	 *  attribute the chip override rule keys on. */
 	chipCustom: boolean;
+	/** The roles that carry a veil, space-separated ('' for none): mirrored as
+	 *  `data-veils` so a veiled line can turn into a box that hugs its words. */
+	veils: string;
 }
 
 const JUSTIFY: Record<FlyerTextAlign, string> = {
@@ -249,6 +258,7 @@ export function resolveBlockStyle(
 
 	const slotVars = {} as FlyerBlockCssVarsSlots;
 	const slotAligns = {} as Pick<ResolvedBlockStyle, 'titleAlign' | 'bodyAlign' | 'chipCustom'>;
+	const veiled: FlyerFontSlot[] = [];
 	for (const slot of FLYER_FONT_SLOTS) {
 		const spec = resolveSlot(slot, blockId, theme, blockStyles, defaults);
 		slotVars[`--fb-${slot}-font`] = FLYER_FONT_STACKS[spec.family];
@@ -264,6 +274,8 @@ export function resolveBlockStyle(
 		slotVars[`--fb-${slot}-bg`] = hasVeil ? toRgba(veilColor, spec.backgroundOpacity) : 'transparent';
 		slotVars[`--fb-${slot}-pad`] = hasVeil ? '0.2rem 0.55rem' : '0';
 		slotVars[`--fb-${slot}-radius`] = hasVeil ? '0.5rem' : '0';
+		if (hasVeil) veiled.push(slot);
+		[slotVars[`--fb-${slot}-ml`], slotVars[`--fb-${slot}-mr`]] = BOX_MARGINS[spec.align];
 		if (slot === 'title') {
 			slotAligns.titleAlign = spec.align;
 			const chip = spec.iconColor;
@@ -280,6 +292,7 @@ export function resolveBlockStyle(
 		hasBox,
 		align,
 		...slotAligns,
+		veils: veiled.join(' '),
 		'--fb-bg': hasBox ? toRgba(merged.backgroundColor!, opacity) : 'transparent',
 		'--fb-text': merged.textColor ?? '#111827',
 		'--fb-heading': merged.headingColor ?? merged.textColor ?? '#111827',

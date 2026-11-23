@@ -18,19 +18,18 @@
 		-->
 		<div
 			:class="[
-				// Auto-fit instead of a fixed 2 columns: a block shrunk with the
-				// resize edge reflows the cards to one column instead of spilling
-				// them past the block's edge
-				'fb-box fb-stack grid gap-1 max-w-[320px] w-full',
-				// 9rem floor: two tracks (2×144px+gap) fit the 320px cap, so full width
-				// keeps the classic two columns and only a truly shrunk block reflows
-				'grid-cols-[repeat(auto-fit,minmax(9rem,1fr))]',
+				// flex-wrap, not a grid: each card keeps its own width and the rows
+				// pack against the title's side (.fb-stack justify-content). A grid
+				// split the box into equal columns — an odd card sat in the left
+				// column and a long name spilled out of its cell. Shrunk with the
+				// resize edge, the cards still wrap instead of overflowing.
+				'fb-box fb-stack flex flex-wrap gap-1 max-w-[320px] w-full',
 			]"
 		>
 			<div
 				v-for="(phone, index) in content.contactPhones"
 				:key="phone?.number || index"
-				class="p-1.5 rounded-lg shadow-sm border border-green-200/60"
+				class="max-w-full p-1.5 rounded-lg shadow-sm border border-green-200/60"
 			>
 				<div class="fb-row flex items-center gap-1.5">
 					<div
@@ -58,7 +57,7 @@
 			<div
 				v-for="email in content.contactEmails"
 				:key="email"
-				class="p-1.5 rounded-lg shadow-sm border border-blue-200/60 col-span-full"
+				class="w-full p-1.5 rounded-lg shadow-sm border border-blue-200/60"
 			>
 				<div class="fb-row flex items-center gap-1.5">
 					<div

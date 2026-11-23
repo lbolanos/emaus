@@ -339,7 +339,8 @@ test.describe.serial('Retreat flyer editor — panel features (E2E)', () => {
 		// the single retreat AND the list: the store replaces the selected retreat
 		// with the list's copy when the sidebar loads it, which dropped a stub
 		// that only covered /retreats/:id.
-		const phones = 'Madre Carmen 285 956 60 47\nGuillermo 285 109 65 63';
+		const phones =
+			'Guillermo Álvarez 285 109 65 63\nZeferino Ramos 229 213 71 55\nMadre Carmen (Casa de retiro) 285 956 60 47';
 		await page.route(
 			(url) => /\/api\/retreats\/?$/.test(url.pathname) || url.pathname.endsWith(`/api/retreats/${RETREAT_ID}`),
 			async (route) => {
@@ -358,20 +359,29 @@ test.describe.serial('Retreat flyer editor — panel features (E2E)', () => {
 		await page.goto(`/app/retreats/${RETREAT_ID}/flyer/edit`);
 		await expect(page.locator('[data-flyer-block="contact"] .fb-stack')).toBeVisible();
 
-		const columns = () =>
-			page
-				.locator('[data-flyer-block="contact"] .fb-stack')
-				.evaluate((el) => getComputedStyle(el).gridTemplateColumns.split(' ').length);
-		const cardsInside = () =>
+		/** Cards per row, top to bottom, and whether every card sits inside the
+		 *  block and every row touches the stack's right edge. */
+		const layout = () =>
 			page.locator('[data-flyer-block="contact"]').evaluate((el) => {
 				const block = el.getBoundingClientRect();
-				return [...el.querySelectorAll('.fb-stack > div')].every((card) => {
-					const box = card.getBoundingClientRect();
-					return box.left >= block.left - 1 && box.right <= block.right + 1;
-				});
+				const stack = el.querySelector('.fb-stack')!.getBoundingClientRect();
+				const cards = [...el.querySelectorAll('.fb-stack > div')].map((c) => c.getBoundingClientRect());
+				const rows = new Map<number, DOMRect[]>();
+				for (const c of cards) {
+					const key = Math.round(c.top);
+					rows.set(key, [...(rows.get(key) ?? []), c]);
+				}
+				const ordered = [...rows.entries()].sort((a, b) => a[0] - b[0]).map(([, r]) => r);
+				return {
+					perRow: ordered.map((r) => r.length),
+					inside: cards.every((c) => c.left >= block.left - 1 && c.right <= block.right + 1),
+					rowsHugRight: ordered.every((r) => Math.abs(Math.max(...r.map((c) => c.right)) - stack.right) <= 1),
+				};
 			});
-		expect(await columns()).toBe(2);
-		expect(await cardsInside()).toBe(true);
+
+		// Contact is born right-aligned: two cards fit a row, the odd one wraps,
+		// and EVERY row — the lone card included — hugs the right edge
+		expect(await layout()).toEqual({ perRow: [2, 1], inside: true, rowsHugRight: true });
 
 		// Shrink to ~55% with the edge handle
 		await selectBlock('contact');
@@ -387,8 +397,32 @@ test.describe.serial('Retreat flyer editor — panel features (E2E)', () => {
 		await page.mouse.up();
 		await expect(page.locator('[data-flyer-block="contact"]')).toHaveAttribute('style', /width: (50|55|60)%/);
 
-		await expect.poll(columns).toBe(1);
-		expect(await cardsInside()).toBe(true);
+		// Shrunk: one card per row, still inside, still against the right edge
+		await expect.poll(async () => (await layout()).perRow).toEqual([1, 1, 1]);
+		expect(await layout()).toMatchObject({ inside: true, rowsHugRight: true });
+	});
+
+	test('the family notice follows the Text role: right goes right, left goes left', async () => {
+		test.skip(!!skipReason, skipReason ?? '');
+		await openFresh();
+		const note = page.locator('[data-flyer-block="endTime"] [data-arrival-note]');
+		await expect(note).toBeVisible();
+		/** Gaps between the notice and its text column, left and right. */
+		const gaps = () =>
+			note.evaluate((el) => {
+				const col = el.parentElement!.getBoundingClientRect();
+				const box = el.getBoundingClientRect();
+				return { left: Math.round(box.left - col.left), right: Math.round(col.right - box.right) };
+			});
+
+		await selectBlock('endTime');
+		await openSlot('body');
+		await slotSection('body').locator('[data-slot-align="body:right"]').click();
+		await expect.poll(async () => (await gaps()).right).toBe(0);
+		expect((await gaps()).left).toBeGreaterThan(0);
+
+		await slotSection('body').locator('[data-slot-align="body:left"]').click();
+		await expect.poll(async () => (await gaps()).left).toBe(0);
 	});
 
 	test('the column gap pushes the right column toward the edge, and reset returns to the design', async () => {

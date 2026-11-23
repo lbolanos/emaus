@@ -22,13 +22,16 @@
 						{{ content.closingLocation }}
 					</p>
 				</div>
-				<!-- inline-flex, not flex: block-level it stretched to the column and the
-				     warning read as an empty amber bar with a line of text inside -->
+				<!-- A box, not a bar: data-body-box makes it hug its words (block-level
+				     it stretched to the column and read as an empty amber bar) and
+				     travel to the body role's side. inline-flex hugged too, but then
+				     the parent's text-align placed it — the flat one, always left. -->
 				<p
 					v-if="content.arrivalTimeNoteText"
 					data-arrival-note
-				data-text-override="arrivalTimeNoteOverride"
-					class="fb-row text-gray-800 font-bold uppercase fb-body text-[length:calc(0.75rem*var(--fb-body-scale,1))] inline-flex max-w-full items-center gap-2 bg-amber-50/80 px-3 py-2 rounded-lg border border-amber-200 whitespace-pre-line"
+					data-body-box
+					data-text-override="arrivalTimeNoteOverride"
+					class="fb-row text-gray-800 font-bold uppercase fb-body text-[length:calc(0.75rem*var(--fb-body-scale,1))] flex max-w-full items-center gap-2 bg-amber-50/80 px-3 py-2 rounded-lg border border-amber-200 whitespace-pre-line"
 				>
 					<Users class="w-5 h-5 flex-shrink-0" /> {{ content.arrivalTimeNoteText }}
 				</p>

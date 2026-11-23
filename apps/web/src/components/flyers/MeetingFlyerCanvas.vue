@@ -254,6 +254,41 @@ const blocksInSlot = computed(() => {
 	padding: var(--fb-body-pad, 0);
 }
 
+/* A veiled line is a box: it hugs its words and travels to its role's side by
+   auto margins. Full width, the veil read as a bar that never moved however
+   the role was aligned — only the words inside it did. Inline spans (the
+   numbers in the contact cards) ignore both properties and stay as they are. */
+.print-optimized [data-flyer-block][data-veils~='title'] .fb-title,
+.print-optimized [data-flyer-block][data-veils~='emphasis'] .fb-emphasis,
+.print-optimized [data-flyer-block][data-veils~='body'] .fb-body {
+	width: fit-content;
+	max-width: 100%;
+}
+
+.print-optimized [data-flyer-block][data-veils~='title'] .fb-title {
+	margin-left: var(--fb-title-ml, 0);
+	margin-right: var(--fb-title-mr, auto);
+}
+
+.print-optimized [data-flyer-block][data-veils~='emphasis'] .fb-emphasis {
+	margin-left: var(--fb-emphasis-ml, 0);
+	margin-right: var(--fb-emphasis-mr, auto);
+}
+
+.print-optimized [data-flyer-block][data-veils~='body'] .fb-body {
+	margin-left: var(--fb-body-ml, 0);
+	margin-right: var(--fb-body-mr, auto);
+}
+
+/* Body-role boxes with or without a veil (the arrival note): inline-flex, they
+   were placed by their parent's text-align — the block's flat one, not the role. */
+.print-optimized [data-body-box] {
+	width: fit-content;
+	max-width: 100%;
+	margin-left: var(--fb-body-ml, 0);
+	margin-right: var(--fb-body-mr, auto);
+}
+
 /* Per-slot lettering — same contract as the retreat canvas. */
 .print-optimized .fb-title {
 	font-family: var(--fb-title-font, inherit);
@@ -337,8 +372,10 @@ const blocksInSlot = computed(() => {
 	margin-right: var(--fb-box-mr, auto);
 }
 
+/* Card rows (if a meeting block ever stacks cards) pack against the title's
+   side — same contract as the retreat canvas, which moved off a grid. */
 .print-optimized .fb-stack {
-	justify-items: var(--fb-title-justify, var(--fb-justify, flex-start));
+	justify-content: var(--fb-title-justify, var(--fb-justify, flex-start));
 }
 
 .print-optimized .font-display {

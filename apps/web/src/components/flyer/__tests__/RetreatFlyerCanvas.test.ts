@@ -261,20 +261,39 @@ describe('RetreatFlyerCanvas', () => {
 
 		// Same story as the address plate: block-level cards stretched to the column and
 		// read as empty bars. A grid with fb-stack sizes each card to its own number.
-		it('sizes each contact card to its own number', () => {
+		// Cards keep their own width and wrap in rows packed to the title's side:
+		// a grid split them into equal columns (an odd card sat left, a long name
+		// spilled out of its cell)
+		it('wraps the contact cards in rows instead of a grid of equal columns', () => {
 			const stack = mountCanvas().find('[data-flyer-block="contact"] .fb-stack');
 
 			expect(stack.exists()).toBe(true);
-			expect(stack.classes()).toContain('grid');
-			expect(stack.classes()).not.toContain('space-y-1');
+			expect(stack.classes()).toEqual(expect.arrayContaining(['flex', 'flex-wrap']));
+			expect(stack.classes()).not.toContain('grid');
 		});
 
-		it('sizes the family notice to its wording', () => {
+		// A box that hugs its wording and travels with the body role — inline-flex
+		// hugged too, but the parent's (flat, left) text-align placed it
+		it('makes the family notice a body box', () => {
 			const note = mountCanvas().find('[data-arrival-note]');
 
-			expect(note.classes()).toContain('inline-flex');
+			expect(note.attributes('data-body-box')).toBeDefined();
 			expect(note.classes()).toContain('max-w-full');
-			expect(note.classes()).not.toContain('flex');
+			expect(note.classes()).not.toContain('inline-flex');
+		});
+
+		it('marks the roles that carry a veil, and gives every role its box margins', () => {
+			const wrapper = mountCanvas({
+				blockStyles: { endTime: { fonts: { body: { backgroundColor: '#ffffff', align: 'right' } } } },
+			});
+			const endTime = wrapper.find('[data-flyer-block="endTime"]');
+
+			expect(endTime.attributes('data-veils')).toBe('body');
+			const style = endTime.attributes('style') ?? '';
+			expect(style).toContain('--fb-body-ml: auto');
+			expect(style).toContain('--fb-body-mr: 0');
+			// A block without veils carries no marker
+			expect(wrapper.find('[data-flyer-block="location"]').attributes('data-veils')).toBeUndefined();
 		});
 
 		it('washes the background image when the theme asks for it', () => {
