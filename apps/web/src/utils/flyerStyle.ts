@@ -223,7 +223,10 @@ export function resolveBlockStyle(
 	const opacity = merged.backgroundOpacity ?? 100;
 	const hasBox = !!merged.backgroundColor && opacity > 0;
 	const align = merged.textAlign ?? 'left';
-	const [boxMarginLeft, boxMarginRight] = BOX_MARGINS[align];
+	// Capped boxes (contact cards, the price card) are content furniture:
+	// they follow the BODY slot, whose alignment the panel exposes
+	const bodyAlignComputed = resolveSlot('body', blockId, theme, blockStyles, defaults).align;
+	const [boxMarginLeft, boxMarginRight] = BOX_MARGINS[bodyAlignComputed];
 
 	const slotVars = {} as FlyerBlockCssVarsSlots;
 	const slotAligns = {} as Pick<ResolvedBlockStyle, 'titleAlign' | 'bodyAlign'>;

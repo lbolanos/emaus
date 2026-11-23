@@ -227,6 +227,20 @@ test.describe.serial('Retreat flyer editor — slots, undo/redo, text jump (E2E)
 			'left',
 		);
 
+		// The phone/email cards follow the TEXT slot (body): left flips the
+		// capped box margins, so the cards move instead of ignoring the panel
+		const contactBodyCard = page.locator('[data-font-slot-section="body"]').last();
+		await contactBodyCard.getByRole('button', { name: /texto/i }).click();
+		await contactBodyCard.locator('[data-slot-align="body:left"]').click();
+		await expect(page.locator('[data-flyer-block="contact"]')).toHaveAttribute(
+			'style',
+			/--fb-box-ml: 0/,
+		);
+		await expect(page.locator('[data-flyer-block="contact"]')).toHaveAttribute(
+			'style',
+			/--fb-box-mr: auto/,
+		);
+
 		const contactCard = page.locator('[data-contentless-notice]');
 		const contactEmpty = (await page
 			.locator('[data-flyer-block="contact"]')

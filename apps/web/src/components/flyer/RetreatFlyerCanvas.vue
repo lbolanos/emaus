@@ -369,7 +369,7 @@ const blocksInSlot = computed(() => {
 /* A grid whose cells hug their contents instead of stretching to the column width,
    and line up on the side the block is aligned to. */
 .print-optimized .fb-stack {
-	justify-items: var(--fb-justify, flex-start);
+	justify-items: var(--fb-body-justify, var(--fb-justify, flex-start));
 }
 
 .print-optimized .font-display {
