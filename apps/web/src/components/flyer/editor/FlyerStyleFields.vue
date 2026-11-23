@@ -200,7 +200,22 @@
 				<span class="w-14 shrink-0 text-[11px] text-muted-foreground">
 					{{ t('retreatFlyerEditor.design.row.icon') }}
 				</span>
-				<div class="ml-auto flex items-center gap-1.5">
+				<div class="ml-auto flex max-w-full flex-wrap items-center justify-end gap-1">
+					<button
+						v-for="hex in ICON_SWATCHES"
+						:key="`icon-${hex}`"
+						type="button"
+						class="h-6 w-6 rounded-full border"
+						:class="
+							values.fonts?.title?.iconColor?.toLowerCase() === hex
+								? 'border-primary ring-2 ring-primary/40'
+								: 'border-muted'
+						"
+						:style="{ backgroundColor: hex }"
+						:aria-label="hex"
+						:data-icon-swatch="hex"
+						@click="emitSlot('title', 'iconColor', hex)"
+					></button>
 					<button
 						v-if="values.fonts?.title?.iconColor"
 						type="button"
@@ -476,6 +491,17 @@ function stepScale(slot: FlyerFontSlot, delta: number) {
 }
 
 const COLOR_SWATCHES = ['#ffffff', '#111827', '#fde68a', '#1d4ed8'];
+
+/** The designed chip colours across the flyer's blocks, offered as the icon
+ *  row's own swatch list — the blues/greens/purples coordinators know. */
+const ICON_SWATCHES = [
+	'#1d4ed8', // blue (start/end/contact chips)
+	'#15803d', // green (location)
+	'#7c3aed', // purple (what to bring)
+	'#b45309', // amber
+	'#0d9488', // teal
+	'#dc2626', // red
+];
 
 /** The alignment the slot shows before its own override: the flat block one. */
 function inheritedAlign(slot: FlyerFontSlot): string {
