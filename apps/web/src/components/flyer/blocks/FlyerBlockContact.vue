@@ -22,7 +22,9 @@
 				// resize edge reflows the cards to one column instead of spilling
 				// them past the block's edge
 				'fb-box fb-stack grid gap-1 max-w-[320px] w-full',
-				'grid-cols-[repeat(auto-fit,minmax(10rem,1fr))]',
+				// 9rem floor: two tracks (2×144px+gap) fit the 320px cap, so full width
+				// keeps the classic two columns and only a truly shrunk block reflows
+				'grid-cols-[repeat(auto-fit,minmax(9rem,1fr))]',
 			]"
 		>
 			<div
