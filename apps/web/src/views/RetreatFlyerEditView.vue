@@ -75,7 +75,7 @@
 			data-draft-banner
 		>
 			<span>
-				{{ t('retreatFlyerEditor.draftRecovered', store.draftRestoredAt.toLocaleString()) }}
+				{{ t('retreatFlyerEditor.draftRecovered', [store.draftRestoredAt.toLocaleString()]) }}
 			</span>
 			<Button variant="outline" size="sm" @click="store.discardDraft()">
 				{{ t('retreatFlyerEditor.discardDraft') }}
@@ -240,7 +240,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { onBeforeRouteLeave, useRoute } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { ArrowLeft, Loader2, Minus, Plus, Redo2, RotateCcw, Undo2 } from 'lucide-vue-next';
@@ -250,6 +250,7 @@ import { getRetreatFlyerOptions } from '@/services/api';
 import { useFlyerEditorStore } from '@/stores/flyerEditorStore';
 import RetreatFlyerCanvas from '@/components/flyer/RetreatFlyerCanvas.vue';
 import { contactBlockHasItems } from '@/composables/useFlyerContent';
+import { focusFlyerTextField } from '@/utils/flyerTextJump';
 import FlyerDesignPanel from '@/components/flyer/editor/FlyerDesignPanel.vue';
 import FlyerTextPanel from '@/components/flyer/editor/FlyerTextPanel.vue';
 import FlyerImagePicker from '@/components/flyer/editor/FlyerImagePicker.vue';
@@ -320,33 +321,10 @@ async function copyDesignFrom(sourceId: string) {
 	}
 }
 
-/**
- * Double-clicked copy on the flyer: open the Texts tab on that exact field,
- * scrolled into view, focused and flashed once.
- */
+/** Double-clicked copy on the flyer: open the Texts tab on that exact field. */
 function jumpToTextField(overrideKey: string) {
 	activeTab.value = 'texts';
-	// The tab content mounts asynchronously and something along the way
-	// (remount, the Tabs transition) hands focus back to <body>. Retry on
-	// frames until it sticks, bounded — then flash the field.
-	const settle = (attempts = 24) => {
-		const field = document.getElementById(`flyer-text-${overrideKey}`);
-		// The input mounts when the Tabs content does — later than nextTick.
-		// Retry on frames until it exists AND holds focus, bounded.
-		if (!field) {
-			if (attempts > 0) requestAnimationFrame(() => settle(attempts - 1));
-			return;
-		}
-		field.scrollIntoView({ block: 'center', behavior: 'smooth' });
-		field.focus();
-		if (document.activeElement === field || attempts <= 0) {
-			field.classList.add('flyer-field-flash');
-			window.setTimeout(() => field.classList.remove('flyer-field-flash'), 1600);
-			return;
-		}
-		requestAnimationFrame(() => settle(attempts - 1));
-	};
-	nextTick(() => settle());
+	focusFlyerTextField(overrideKey);
 }
 
 /** Manual zoom on top of the width fit: shrink until the whole flyer fits. */
@@ -437,20 +415,3 @@ watch(retreatId, async (newId, oldId) => {
 	if (newId && newId !== oldId) await load(newId);
 });
 </script>
-
-<style scoped>
-@keyframes flyerFieldFlash {
-	0%,
-	100% {
-		box-shadow: 0 0 0 0 rgba(59, 130, 246, 0);
-	}
-	30% {
-		box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.45);
-	}
-}
-
-.flyer-field-flash {
-	animation: flyerFieldFlash 1.6s ease-out 1;
-	border-radius: 6px;
-}
-</style>

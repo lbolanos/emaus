@@ -4363,11 +4363,21 @@
       },
       "readPalette": "Colores de la imagen",
       "paletteFromImage": "De la imagen:",
-      "hidePalette": "ocultar"
+      "hidePalette": "ocultar",
+      "contentlessNotice": "Este bloque no dibuja nada en esta comunidad: no tiene enlace de Google Maps. Los estilos quedan guardados para cuando lo tenga."
     },
     "leaveWithoutSaving": "Tienes cambios sin guardar en el volante. ¿Salir de todas formas?",
     "undo": "Deshacer",
-    "undoHint": "Deshacer el último cambio (⌘Z)"
+    "undoHint": "Deshacer el último cambio (⌘Z)",
+    "redo": "Rehacer",
+    "redoHint": "Rehacer (Cmd+Shift+Z)",
+    "draftRecovered": "Se recuperó tu borrador sin guardar del {0}. Sigue editando o descártalo.",
+    "discardDraft": "Descartar borrador",
+    "zoomIn": "Aumentar la vista previa",
+    "zoomOut": "Reducir la vista previa",
+    "zoomReset": "Volver al 100%",
+    "copyDesignFrom": "Copiar diseño de…",
+    "copyFailed": "No se pudo leer el diseño de esa comunidad. Intenta de nuevo."
   },
   "retreatFlyerEditor": {
     "title": "Editor del volante",

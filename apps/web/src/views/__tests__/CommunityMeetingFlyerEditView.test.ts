@@ -32,6 +32,17 @@ const meetings = [
 	},
 ];
 
+const { getCommunities, getCommunityFlyerOptions } = vi.hoisted(() => ({
+	getCommunities: vi.fn(),
+	getCommunityFlyerOptions: vi.fn(),
+}));
+// Partial: the editor tree imports other helpers from the same module
+vi.mock('@/services/api', async (importOriginal) => ({
+	...(await importOriginal<Record<string, unknown>>()),
+	getCommunities,
+	getCommunityFlyerOptions,
+}));
+
 vi.mock('@/stores/communityStore', () => ({
 	useCommunityStore: () => ({
 		currentCommunity: community,
@@ -114,8 +125,14 @@ async function mountEditor(
 	fetchMeetings.mockReset().mockResolvedValue(undefined);
 	setFlyerOptions.mockReset().mockResolvedValue(undefined);
 	clearFlyerOptions.mockReset().mockResolvedValue(undefined);
+	getCommunities.mockReset().mockResolvedValue([
+		{ id: 'community-1', name: 'buen despacho' },
+		{ id: 'community-2', name: 'del valle' },
+	]);
+	getCommunityFlyerOptions.mockReset().mockResolvedValue({ theme: { headingColor: '#b91c1c' } });
 
 	const wrapper = mount(CommunityMeetingFlyerEditView, {
+		attachTo: document.body,
 		global: { stubs: { 'router-link': { template: '<a><slot /></a>', props: ['to'] } } },
 	});
 	// onMounted awaits the community and meetings fetches before seeding the store
@@ -453,5 +470,90 @@ describe('CommunityMeetingFlyerEditView', () => {
 		await nextTick();
 
 		expect(wrapper.text()).toContain('¡Nos vemos!');
+	});
+	// Parity with the retreat editor (2026-11-23): redo, copy a design, the
+	// contentless notice and double-click-to-edit were retreat-only.
+	describe('parity with the retreat editor', () => {
+		it('redoes what was undone', async () => {
+			const wrapper = await mountEditor();
+			const store = useMeetingFlyerEditorStore();
+
+			await wrapper.find('[data-toggle-visibility="description"]').trigger('click');
+			expect(previewBlocks(wrapper)).not.toContain('description');
+			await buttonByText(wrapper, 'meetingFlyerEditor.undo')!.trigger('click');
+			expect(previewBlocks(wrapper)).toContain('description');
+
+			const redo = buttonByText(wrapper, 'meetingFlyerEditor.redo');
+			expect(redo!.attributes('disabled')).toBeUndefined();
+			await redo!.trigger('click');
+			await nextTick();
+			expect(previewBlocks(wrapper)).not.toContain('description');
+			expect(store.canRedo).toBe(false);
+			wrapper.unmount();
+		});
+
+		it("copies another community's design into the draft, leaving out this one", async () => {
+			const wrapper = await mountEditor();
+			const store = useMeetingFlyerEditorStore();
+
+			const select = wrapper.find('[data-copy-design-select]');
+			const values = select.findAll('option').map((o) => o.attributes('value'));
+			expect(values).toEqual(['', 'community-2']);
+
+			await select.setValue('community-2');
+			await flushPromises();
+			expect(getCommunityFlyerOptions).toHaveBeenCalledWith('community-2');
+			expect(store.theme.headingColor).toBe('#b91c1c');
+			expect(store.isDirty).toBe(true);
+
+			// Undoable, like any other change
+			await buttonByText(wrapper, 'meetingFlyerEditor.undo')!.trigger('click');
+			expect(store.theme.headingColor).toBeUndefined();
+			wrapper.unmount();
+		});
+
+		it('says so when the other design cannot be read', async () => {
+			const wrapper = await mountEditor();
+			getCommunityFlyerOptions.mockRejectedValueOnce(new Error('boom'));
+
+			await wrapper.find('[data-copy-design-select]').setValue('community-2');
+			await flushPromises();
+			expect(wrapper.find('[data-copy-error]').text()).toBe('meetingFlyerEditor.copyFailed');
+			wrapper.unmount();
+		});
+
+		it('flags the map QR as drawing nothing when the community has no Maps link', async () => {
+			const original = community.googleMapsUrl;
+			try {
+				const wrapper = await mountEditor(undefined, { googleMapsUrl: '' });
+				useMeetingFlyerEditorStore().selectBlock('locationQr');
+				await nextTick();
+				expect(wrapper.find('[data-contentless-notice]').exists()).toBe(true);
+				wrapper.unmount();
+			} finally {
+				community.googleMapsUrl = original;
+			}
+		});
+
+		it('double-clicking a label on the flyer focuses its Texts field', async () => {
+			const wrapper = await mountEditor();
+			await wrapper.find('[data-text-override="dateLabelOverride"]').trigger('dblclick');
+			// The jump retries on animation frames until the field holds focus
+			await vi.waitFor(() =>
+				expect(document.activeElement?.id).toBe('flyer-text-dateLabelOverride'),
+			);
+			wrapper.unmount();
+		});
+
+		it('zooms the preview out and back', async () => {
+			const wrapper = await mountEditor();
+			const zoom = wrapper.find('[data-preview-zoom]');
+			expect(zoom.text()).toContain('100%');
+			await zoom.find('[aria-label="meetingFlyerEditor.zoomOut"]').trigger('click');
+			expect(zoom.text()).toContain('90%');
+			await zoom.find('[title="meetingFlyerEditor.zoomReset"]').trigger('click');
+			expect(zoom.text()).toContain('100%');
+			wrapper.unmount();
+		});
 	});
 });

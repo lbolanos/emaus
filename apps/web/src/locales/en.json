@@ -4041,11 +4041,21 @@
       },
       "readPalette": "Colours from the image",
       "paletteFromImage": "From the image:",
-      "hidePalette": "hide"
+      "hidePalette": "hide",
+      "contentlessNotice": "This block draws nothing for this community: it has no Google Maps link. The styles stay saved for when it does."
     },
     "leaveWithoutSaving": "You have unsaved changes to the flyer. Leave anyway?",
     "undo": "Undo",
-    "undoHint": "Undo the last change (⌘Z)"
+    "undoHint": "Undo the last change (⌘Z)",
+    "redo": "Redo",
+    "redoHint": "Redo (Cmd+Shift+Z)",
+    "draftRecovered": "Recovered your unsaved draft from {0}. Keep editing or discard it.",
+    "discardDraft": "Discard draft",
+    "zoomIn": "Increase preview size",
+    "zoomOut": "Decrease preview size",
+    "zoomReset": "Back to 100%",
+    "copyDesignFrom": "Copy design from…",
+    "copyFailed": "Could not read that community's design. Try again."
   },
   "retreatFlyerEditor": {
     "title": "Flyer editor",

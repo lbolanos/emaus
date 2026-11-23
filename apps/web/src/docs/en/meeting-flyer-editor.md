@@ -50,6 +50,7 @@ Every label on the flyer can be rewritten: the title, the top line, the date, du
 description and location labels, the text under the QR and the footer.
 
 - Type over it to change it. If you leave it **empty**, the default wording comes back.
+- **Double-click** a label on the flyer to jump straight to its field.
 - The **eye** removes it from the flyer entirely. When you show it again, you recover what you
   had written.
 
@@ -58,8 +59,13 @@ circulating.
 
 ## When something goes wrong
 
-- **Undo** (`⌘Z` or the button) steps back one change at a time. **Discard changes** throws away
-  everything unsaved.
+- **Undo** (`⌘Z` or the button) steps back one change at a time, and **Redo** (`⌘⇧Z`) brings it
+  back. **Discard changes** throws away everything unsaved.
+- Close the tab without saving and the app recovers your draft next time, with a notice at the
+  top; discard it from there if you don't want it.
+- **Copy design from…** (top) brings another community's design in as a starting point. Nothing
+  is saved until you press Save, and Undo takes it out.
+- The **− / +** buttons next to the preview shrink it so you see the whole flyer.
 - **Clear design** returns the community to the usual flyer — it asks first.
 - If you leave with unsaved changes, the app warns you.
 - The other three styles don't know about any of this: Default, Poster and WhatsApp keep coming

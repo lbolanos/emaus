@@ -49,6 +49,7 @@ Cada etiqueta del volante se puede reescribir: el título, la línea superior, l
 fecha, duración, descripción y ubicación, el texto bajo el QR y el pie.
 
 - Escribe encima para cambiarlo. Si lo dejas **vacío**, vuelve el texto por defecto.
+- **Doble clic** sobre una etiqueta del volante te lleva directo a su campo.
 - El **ojo** lo quita del volante del todo. Al volver a mostrarlo, recuperas lo que habías
   escrito.
 
@@ -57,7 +58,13 @@ no quieras que circulen.
 
 ## Si algo sale mal
 
-- **Deshacer** (`⌘Z` o el botón) va paso a paso. **Descartar cambios** tira todo lo no guardado.
+- **Deshacer** (`⌘Z` o el botón) va paso a paso, y **Rehacer** (`⌘⇧Z`) lo vuelve a aplicar.
+  **Descartar cambios** tira todo lo no guardado.
+- Si cierras la pestaña sin guardar, al volver la app recupera tu borrador y te lo avisa
+  arriba; desde ese aviso lo descartas si no lo quieres.
+- **Copiar diseño de…** (arriba) trae el diseño de otra comunidad como punto de partida. No
+  se guarda hasta que pulses Guardar, y Deshacer lo quita.
+- Los botones **− / +** junto a la vista previa la achican para ver el volante completo.
 - **Borrar diseño** devuelve la comunidad al volante de siempre — pregunta antes.
 - Si sales con cambios sin guardar, la app te avisa.
 - Los otros tres estilos no se enteran de nada de esto: Default, Cartel y WhatsApp siguen

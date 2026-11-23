@@ -10,6 +10,7 @@
 		<div class="relative z-10 text-center">
 			<h2
 				v-if="content.footerText"
+				data-text-override="footerTextOverride"
 				class="text-[40px] font-bold text-white leading-none mb-2 font-display drop-shadow-2xl"
 				style="font-family: 'Dancing Script', cursive; text-shadow: 4px 4px 12px rgba(0, 0, 0, 0.6)"
 			>

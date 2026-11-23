@@ -1529,6 +1529,14 @@ export async function getCommunityById(id: string): Promise<Community> {
   return response.data;
 }
 
+/** A community's saved meeting-flyer design, for "Copiar diseño de…" in the editor. */
+export async function getCommunityFlyerOptions(
+  communityId: string,
+): Promise<Record<string, any> | null> {
+  const community = await getCommunityById(communityId);
+  return ((community as any)?.flyerOptions as Record<string, any> | null | undefined) ?? null;
+}
+
 export async function createCommunity(data: any): Promise<Community> {
   const response = await api.post("/communities", data);
   return response.data;

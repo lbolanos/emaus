@@ -37,6 +37,7 @@ test.describe.serial('Retreat flyer editor — panel features (E2E)', () => {
 	let page: Page;
 	let skipReason: string | null = null;
 	let meetingPath: string | null = null;
+	let meetingCommunityId: string | null = null;
 	const rateLimited: string[] = [];
 
 	test.beforeAll(async ({ browser, baseURL }) => {
@@ -66,6 +67,7 @@ test.describe.serial('Retreat flyer editor — panel features (E2E)', () => {
 			const meetings = res.ok() ? ((await res.json()) as { id: string }[]) : [];
 			if (Array.isArray(meetings) && meetings.length > 0) {
 				meetingPath = `/app/communities/${community.id}/meetings/${meetings[0].id}/flyer/edit`;
+				meetingCommunityId = community.id;
 				break;
 			}
 		}
@@ -98,16 +100,18 @@ test.describe.serial('Retreat flyer editor — panel features (E2E)', () => {
 			if (res.status() === 429) rateLimited.push(new URL(res.url()).pathname);
 		});
 		await page.addInitScript(
-			({ id, text, icon, textKey, iconKey }) => {
+			({ id, meetingDraftId, text, icon, textKey, iconKey }) => {
 				localStorage.setItem('preferred-locale', 'es');
 				if (sessionStorage.getItem('flyer-e2e-seeded')) return;
 				sessionStorage.setItem('flyer-e2e-seeded', '1');
 				localStorage.removeItem(`emaus-flyer-draft-${id}`);
+				if (meetingDraftId) localStorage.removeItem(`emaus-flyer-draft-${meetingDraftId}`);
 				localStorage.setItem(textKey, JSON.stringify(text));
 				localStorage.setItem(iconKey, JSON.stringify(icon));
 			},
 			{
 				id: RETREAT_ID,
+				meetingDraftId: meetingCommunityId,
 				text: seed.text ?? [],
 				icon: seed.icon ?? [],
 				textKey: TEXT_RECENTS,
@@ -428,6 +432,9 @@ test.describe.serial('Retreat flyer editor — panel features (E2E)', () => {
 
 		await page.reload();
 		await expect(page.locator('[data-draft-banner]')).toBeVisible();
+		// The date really lands in the notice (it used to read "del ." — the
+		// string was passed as the default message, not as {0})
+		await expect(page.locator('[data-draft-banner]')).toContainText(/del \d{1,2}\/\d{1,2}\/\d{4}/);
 		await expect(date).toHaveCSS('color', 'rgb(253, 230, 138)');
 
 		await page.getByRole('button', { name: 'Descartar borrador' }).click();
@@ -518,5 +525,45 @@ test.describe.serial('Retreat flyer editor — panel features (E2E)', () => {
 		const chip = page.locator('[data-flyer-block="dateTime"] .fb-title-chip');
 		await expect(chip).toHaveCSS('background-color', 'rgb(180, 83, 9)');
 		await expect(chip).toHaveCSS('background-image', 'none');
+	});
+	test('the meeting editor matches the retreat one: draft notice, redo, double-click to text, zoom', async () => {
+		test.skip(!!skipReason, skipReason ?? '');
+		test.skip(!meetingPath, 'no hay reuniones en la DB para el E2E');
+		await openFresh({}, 'deferred');
+		await page.goto(meetingPath!);
+		await expect(page.locator('[data-block="dateTime"]')).toBeVisible();
+		const chip = page.locator('[data-flyer-block="dateTime"] .fb-title-chip');
+
+		// A change, undone and redone from the toolbar
+		await page.locator('[data-block="dateTime"] button').first().click();
+		await openSlot('title');
+		await slotSection('title').locator('[data-icon-swatch="#b45309"]').click();
+		await expect(chip).toHaveCSS('background-image', 'none');
+		await page.getByRole('button', { name: 'Deshacer' }).click();
+		await expect(chip).toHaveCSS('background-image', /linear-gradient/);
+		await page.getByRole('button', { name: 'Rehacer' }).click();
+		await expect(chip).toHaveCSS('background-image', 'none');
+
+		// Reloaded: the autosaved draft comes back WITH a notice, and the
+		// notice's Descartar borrador really goes back to the saved design
+		await page.reload();
+		await expect(page.locator('[data-draft-banner]')).toBeVisible();
+		await expect(page.locator('[data-draft-banner]')).toContainText(/del \d{1,2}\/\d{1,2}\/\d{4}/);
+		await expect(chip).toHaveCSS('background-image', 'none');
+		await page.getByRole('button', { name: 'Descartar borrador' }).click();
+		await expect(page.locator('[data-draft-banner]')).toHaveCount(0);
+		await expect(chip).toHaveCSS('background-image', /linear-gradient/);
+
+		// Double-clicking a label on the flyer lands on its Texts field
+		await page.locator('[data-text-override="dateLabelOverride"]').dblclick();
+		await expect(page.locator('#flyer-text-dateLabelOverride')).toBeFocused();
+		// …and flashes it (the old scoped-CSS flash never reached the field)
+		expect(
+			await page.locator('#flyer-text-dateLabelOverride').evaluate((el) => el.getAnimations().length),
+		).toBeGreaterThan(0);
+
+		// Zoom out shrinks the preview, the label follows
+		await page.getByRole('button', { name: 'Reducir la vista previa' }).click();
+		await expect(page.locator('[data-preview-zoom]')).toContainText('90%');
 	});
 });

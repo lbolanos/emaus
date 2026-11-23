@@ -1,6 +1,7 @@
 <template>
 	<div
 		:id="printable ? 'printable-area' : undefined"
+		@dblclick="onDoubleClick"
 		:data-custom-canvas="printable ? '' : undefined"
 		class="print-optimized shadow-2xl print:shadow-none rounded-3xl overflow-hidden print:overflow-visible print:rounded-none relative bg-white border border-gray-200 print:border-none"
 		:style="[
@@ -138,7 +139,20 @@ const emit = defineEmits<{
 	selectBlock: [blockId: string];
 	/** Edge-drag resize on a block. */
 	resizeBlock: [blockId: string, width: number];
+	/** Double-clicked copy on the flyer: which text override it belongs to. */
+	editText: [overrideKey: string];
 }>();
+
+/**
+ * Double-clicking a piece of copy is the shortest path to editing it: report
+ * which override key it belongs to and the editor view focuses that field.
+ */
+function onDoubleClick(event: MouseEvent) {
+	if (!props.editable) return;
+	const target = (event.target as HTMLElement).closest('[data-text-override]');
+	const key = target?.getAttribute('data-text-override');
+	if (key) emit('editText', key);
+}
 
 /** Which block the pointer is carrying; the columns only report where it landed. */
 const draggingId = ref<string | null>(null);

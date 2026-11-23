@@ -17,7 +17,25 @@
 				<h1 class="text-lg font-semibold">{{ t('meetingFlyerEditor.title') }}</h1>
 			</div>
 
-			<div class="flex items-center gap-2">
+			<div class="flex flex-wrap items-center gap-2">
+				<!-- Another community's design as the starting point (undoable) -->
+				<select
+					v-if="otherCommunities.length"
+					class="h-8 rounded-md border border-muted bg-transparent px-2 text-xs text-muted-foreground"
+					data-copy-design-select
+					:value="''"
+					@change="copyDesignFrom(($event.target as HTMLSelectElement).value)"
+				>
+					<option value="" disabled>
+						{{ t('meetingFlyerEditor.copyDesignFrom') }}
+					</option>
+					<option v-for="other in otherCommunities" :key="other.id" :value="other.id">
+						{{ other.name }}
+					</option>
+				</select>
+				<span v-if="copyError" class="text-xs text-destructive" data-copy-error>
+					{{ copyError }}
+				</span>
 				<span v-if="store.isDirty" class="text-xs text-amber-600">
 					{{ t('meetingFlyerEditor.unsavedChanges') }}
 				</span>
@@ -30,6 +48,16 @@
 				>
 					<Undo2 class="mr-1.5 h-4 w-4" />
 					{{ t('meetingFlyerEditor.undo') }}
+				</Button>
+				<Button
+					variant="ghost"
+					size="sm"
+					:disabled="!store.canRedo || store.saving"
+					:title="t('meetingFlyerEditor.redoHint')"
+					@click="store.redo()"
+				>
+					<Redo2 class="mr-1.5 h-4 w-4" />
+					{{ t('meetingFlyerEditor.redo') }}
 				</Button>
 				<Button
 					variant="ghost"
@@ -56,11 +84,27 @@
 			</div>
 		</div>
 
+		<!-- A design session the browser tab took with it, back from localStorage.
+		     Without this notice the draft came back silently: the editor opened
+		     with changes nobody remembered making. -->
+		<div
+			v-if="store.draftRestoredAt"
+			class="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800"
+			data-draft-banner
+		>
+			<span>
+				{{ t('meetingFlyerEditor.draftRecovered', [store.draftRestoredAt.toLocaleString()]) }}
+			</span>
+			<Button variant="outline" size="sm" @click="store.discardDraft()">
+				{{ t('meetingFlyerEditor.discardDraft') }}
+			</Button>
+		</div>
+
 		<div class="grid gap-6 lg:grid-cols-[28rem_1fr]">
 			<!-- Side panel -->
 			<Card class="h-fit lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto">
 				<CardContent class="p-4">
-					<Tabs default-value="design">
+					<Tabs v-model="activeTab" default-value="design">
 						<TabsList class="grid w-full grid-cols-3">
 							<TabsTrigger value="design">{{ t('meetingFlyerEditor.tabs.design') }}</TabsTrigger>
 							<TabsTrigger value="images">{{ t('meetingFlyerEditor.tabs.images') }}</TabsTrigger>
@@ -80,6 +124,7 @@
 								:theme="store.theme"
 								:block-styles="store.blockStyles"
 								:selected-block-id="store.selectedBlockId"
+								:contentless-blocks="contentlessBlocks"
 								@move-block="store.moveBlock"
 								@apply-preset="applyLook"
 								@clear-theme="() => store.clearTheme(true)"
@@ -141,9 +186,40 @@
 			<div
 				class="order-first min-w-0 sticky top-0 z-20 -mx-4 border-b bg-gray-100 px-4 pb-3 pt-2 lg:static lg:order-none lg:mx-0 lg:border-0 lg:bg-transparent lg:px-0 lg:pb-0"
 			>
-				<h2 class="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-					{{ t('meetingFlyerEditor.preview') }}
-				</h2>
+				<div class="mb-2 flex items-center justify-between gap-2">
+					<h2 class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+						{{ t('meetingFlyerEditor.preview') }}
+					</h2>
+					<!-- Shrink the preview so the whole flyer fits the pane at a glance -->
+					<div class="flex items-center gap-1" data-preview-zoom>
+						<button
+							type="button"
+							class="rounded border border-muted p-1 text-muted-foreground hover:text-foreground disabled:opacity-30"
+							:aria-label="t('meetingFlyerEditor.zoomOut')"
+							:disabled="previewZoom <= 0.4"
+							@click="previewZoom = Math.max(0.4, previewZoom - 0.1)"
+						>
+							<Minus class="h-3.5 w-3.5" />
+						</button>
+						<button
+							type="button"
+							class="w-11 text-center text-[11px] tabular-nums text-muted-foreground"
+							:title="t('meetingFlyerEditor.zoomReset')"
+							@click="previewZoom = 1"
+						>
+							{{ Math.round(previewZoom * 100) }}%
+						</button>
+						<button
+							type="button"
+							class="rounded border border-muted p-1 text-muted-foreground hover:text-foreground disabled:opacity-30"
+							:aria-label="t('meetingFlyerEditor.zoomIn')"
+							:disabled="previewZoom >= 1"
+							@click="previewZoom = Math.min(1, previewZoom + 0.1)"
+						>
+							<Plus class="h-3.5 w-3.5" />
+						</button>
+					</div>
+				</div>
 				<!--
 					The ref goes here, on the box the flyer actually has to fit into: measuring
 					the wrapper counted its padding as usable width and the flyer overflowed.
@@ -153,8 +229,11 @@
 				<div
 					ref="previewColumnRef"
 					class="max-h-[42vh] self-start overflow-y-auto overflow-x-hidden lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)]"
-					:style="{ height: previewHeight }"
 				>
+					<!-- The inner box clips the canvas's UNSCALED layout box (a transform
+					     does not shrink it) down to the scaled size, so once the zoomed
+					     flyer fits the pane the scrollbar goes away. -->
+					<div :style="{ height: previewHeight }" class="overflow-hidden">
 					<MeetingFlyerCanvas
 						ref="canvasRef"
 						:meeting="meeting"
@@ -164,7 +243,7 @@
 						:image-overrides="store.images"
 						:theme="store.theme"
 						:block-styles="store.blockStyles"
-						:scale="previewScale"
+						:scale="effectivePreviewScale"
 						:printable="false"
 						editable
 						:selected-block-id="store.selectedBlockId"
@@ -173,7 +252,9 @@
 						@move-block="store.moveBlock"
 						@resize-block="store.setBlockWidth"
 						@select-block="store.selectBlock"
+						@edit-text="jumpToTextField"
 					/>
+					</div>
 				</div>
 			</div>
 		</div>
@@ -184,9 +265,11 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { onBeforeRouteLeave, useRoute } from 'vue-router';
 import { useI18n } from 'vue-i18n';
-import { ArrowLeft, Loader2, RotateCcw, Trash2, Undo2 } from 'lucide-vue-next';
+import { ArrowLeft, Loader2, Minus, Plus, Redo2, RotateCcw, Trash2, Undo2 } from 'lucide-vue-next';
 import { Button, Card, CardContent, Tabs, TabsContent, TabsList, TabsTrigger, useToast } from '@repo/ui';
 import { useCommunityStore } from '@/stores/communityStore';
+import { getCommunities, getCommunityFlyerOptions } from '@/services/api';
+import { focusFlyerTextField } from '@/utils/flyerTextJump';
 import { useMeetingFlyerEditorStore, MEETING_FLYER_TEXT_OVERRIDE_KEYS } from '@/stores/meetingFlyerEditorStore';
 import MeetingFlyerCanvas from '@/components/flyers/MeetingFlyerCanvas.vue';
 import FlyerDesignPanel from '@/components/flyer/editor/FlyerDesignPanel.vue';
@@ -218,6 +301,52 @@ const community = ref<any>(null);
 const meeting = ref<any>(null);
 
 const hasSavedDesign = computed(() => Array.isArray(community.value?.flyerOptions?.blocks));
+
+/** Which editor tab is open, so a double-click on the flyer can jump to Textos. */
+const activeTab = ref('design');
+
+/** Blocks that draw nothing for this community — the map QR without a Google
+ *  Maps link. Their controls still apply the day the link arrives, but styling
+ *  an invisible block reads as broken. */
+const contentlessBlocks = computed(() =>
+	community.value?.googleMapsUrl?.trim() ? [] : ['locationQr'],
+);
+
+/** Other communities to copy a design from, loaded once on mount. */
+const allCommunities = ref<{ id: string; name: string }[]>([]);
+const otherCommunities = computed(() =>
+	allCommunities.value.filter((c) => c.id !== communityId.value),
+);
+/** Shown by the copy select when the source design could not be read. */
+const copyError = ref('');
+
+/**
+ * Loads another community's saved design into the editor as the new draft —
+ * nothing is persisted until Guardar, and Deshacer brings the previous design
+ * back.
+ */
+async function copyDesignFrom(sourceId: string) {
+	if (!sourceId) return;
+	copyError.value = '';
+	try {
+		const options = await getCommunityFlyerOptions(sourceId);
+		if (options) store.applyTemplate(options);
+	} catch {
+		// Silent would read as copied: nothing lands and the user saves a design
+		// that never changed
+		copyError.value = t('meetingFlyerEditor.copyFailed');
+	} finally {
+		// The select always shows the placeholder again; the copy is in the draft
+		const select = document.querySelector('[data-copy-design-select]') as HTMLSelectElement | null;
+		if (select) select.value = '';
+	}
+}
+
+/** Double-clicked copy on the flyer: open the Texts tab on that exact field. */
+function jumpToTextField(overrideKey: string) {
+	activeTab.value = 'texts';
+	focusFlyerTextField(overrideKey);
+}
 
 const placeholderOverrides = computed<Record<string, string>>(() => ({
 	// The meeting's own title is the natural placeholder for its override.
@@ -262,10 +391,16 @@ const updateScale = () => {
 	if (el) canvasHeight.value = el.scrollHeight;
 };
 
+/** Manual zoom on top of the width fit: shrink until the whole flyer fits. */
+const previewZoom = ref(1);
+const effectivePreviewScale = computed(() => previewScale.value * previewZoom.value);
+
 /** A scaled element keeps its unscaled layout box, so reserve the scaled height. */
 const previewHeight = computed(() => {
-	if (previewScale.value >= 1 || !canvasHeight.value) return undefined;
-	return `${canvasHeight.value * previewScale.value}px`;
+	// Tracks the EFFECTIVE scale, zoom included: without it the pane stays as
+	// tall as the unscaled flyer and keeps a scrollbar of empty space
+	if (effectivePreviewScale.value >= 1 || !canvasHeight.value) return undefined;
+	return `${canvasHeight.value * effectivePreviewScale.value}px`;
 });
 
 // discardDraft, not a reload: reloading restores the autosaved draft, so
@@ -330,20 +465,25 @@ async function load(id: string, id2: string) {
 	updateScale();
 }
 
-/** Cmd/Ctrl+Z, which is what everyone tries first. */
+/** Cmd/Ctrl+Z undoes, Cmd/Ctrl+Shift+Z redoes — what everyone tries first. */
 const onKeydown = (event: KeyboardEvent) => {
-	if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'z' && !event.shiftKey) {
+	if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'z') {
 		const target = event.target as HTMLElement | null;
 		// Let the browser undo typing inside a field
 		if (target && ['INPUT', 'TEXTAREA'].includes(target.tagName)) return;
 		event.preventDefault();
-		store.undo();
+		if (event.shiftKey) store.redo();
+		else store.undo();
 	}
 };
 
 onMounted(async () => {
 	window.addEventListener('beforeunload', warnOnUnload);
 	window.addEventListener('keydown', onKeydown);
+	// Best effort: without the list the copy select simply does not show
+	getCommunities()
+		.then((list) => (allCommunities.value = (list ?? []) as { id: string; name: string }[]))
+		.catch(() => {});
 	await load(communityId.value, meetingId.value);
 
 	if (previewColumnRef.value) {

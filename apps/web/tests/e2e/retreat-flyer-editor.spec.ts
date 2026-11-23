@@ -187,6 +187,9 @@ test.describe.serial('Retreat flyer editor — slots, undo/redo, text jump (E2E)
 		const field = page.locator('#flyer-text-registerOverride');
 		await expect(field).toBeVisible();
 		await expect(field).toBeFocused();
+		// …and flashed once (a scoped-CSS class in the view never reached the
+		// field inside FlyerTextPanel: the flash was invisible)
+		expect(await field.evaluate((el) => el.getAnimations().length)).toBeGreaterThan(0);
 	});
 
 	test('puts a veil behind one role only, and warns about blocks with no content', async () => {

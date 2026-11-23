@@ -49,6 +49,7 @@
 		<div class="relative z-10 text-right flex-1 pr-4">
 			<p
 				v-if="content.kickerText"
+				data-text-override="kickerOverride"
 				class="text-[17px] text-white/95 font-bold mb-0.5 uppercase tracking-[0.25em] drop-shadow-lg"
 			>
 				{{ content.kickerText }}
@@ -57,6 +58,7 @@
 				v-if="content.titleText"
 				id="flyer-title"
 				data-flyer-title
+				data-text-override="titleOverride"
 				class="flyer-title font-bold text-white leading-[0.9] transform -rotate-1 origin-bottom-right pb-1 font-display break-words"
 				:class="titleSizeClass"
 				style="font-family: 'Miltonian Tattoo', cursive; filter: drop-shadow(5px 5px 10px rgba(0, 0, 0, 0.7)); text-shadow: 4px 4px 8px rgba(0, 0, 0, 0.5)"

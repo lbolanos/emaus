@@ -9,6 +9,7 @@
 			<div class="flex-1 min-w-0">
 				<h4
 					v-if="content.descriptionLabelText"
+					data-text-override="descriptionLabelOverride"
 					class="font-black fb-title text-[length:calc(0.9375rem*var(--fb-title-scale,1))] uppercase text-[color:var(--fb-title-color)] tracking-[0.15em] mb-2"
 				>
 					{{ content.descriptionLabelText }}

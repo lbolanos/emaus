@@ -37,6 +37,21 @@ canvas:
 | `packages/types/src/flyer.ts` | Esquemas compartidos extraídos del `index.ts` para que `community.ts` pueda usarlos sin ciclo de imports |
 | `MeetingFlyerCanvas.vue`, bloques, header/footer | **Nuevos** — el chrome y el contenido son por definición propios del flavor, como en el retiro |
 
+**Paridad con el editor del retiro (2026-11-23).** La vista de reunión se quedó atrás y eso
+produjo un bug: su «Descartar cambios» recargaba la comunidad, y la recarga restaura el borrador
+autoguardado, así que el botón devolvía los cambios que se le pedía tirar. Ahora usa
+`discardDraft()` y tiene lo mismo que la de retiros: aviso de borrador recuperado
+(`[data-draft-banner]`), Rehacer y `⌘⇧Z`, zoom de la vista previa con la caja interna que recorta
+el layout sin escalar, **Copiar diseño de…** otra comunidad (`getCommunityFlyerOptions`), el aviso
+de bloque sin contenido (`locationQr` sin `googleMapsUrl`) y el doble clic sobre una etiqueta
+(`data-text-override` en header, footer y bloques) que abre su campo de Textos. El salto y el
+destello viven en `utils/flyerTextJump.ts`, compartido: el destello es una Web Animation porque
+una clase del `<style scoped>` de la vista no alcanza el campo, que vive dentro de
+`FlyerTextPanel`, y nunca se veía.
+
+⚠️ Al agregar algo a un editor, agrégalo al otro, o déjalo escrito aquí como diferencia a
+propósito. Lo que hoy es solo del retiro: la pestaña Plantillas.
+
 El bug de la factory que hay que recordar: un parámetro de `applyThemePreset` que se llame igual
 que un ref del store (`blockStyles`) lo sombrea en silencio — compila, pasa types y falla solo en
 pantalla. El parámetro se llama `presetBlockStyles` y hay un regression guard en
@@ -214,7 +229,7 @@ que el del retiro.
 | `apps/web/src/utils/__tests__/meetingFlyerLayout.test.ts` | Honrar `blocks` sin `layoutVersion`, descartar ids del retiro/duplicados/inventados, rellenar faltantes, renumerar, y `moveBlockInLayout` con visibilidad preservada |
 | `apps/web/src/stores/__tests__/meetingFlyerEditorStore.test.ts` | El borrador: semilla del fondo sin ensuciar, qué ensucia, deshacer, **el regression guard del shadowing de `blockStyles`**, el paquete del preset, preservar campos ajenos en el PUT, y guardar completo con `layoutVersion` 2 |
 | `apps/web/src/components/flyers/__tests__/MeetingFlyerCanvas.test.ts` | Bloques por slot y orden, imágenes preset/override, chrome (línea EMAÚS y su omisión), QR, defaults sin caja (texto claro + sombra; `locationQr` oscuro sobre su plato), tema/override por bloque, velo, drag/drop/selección solo con `editable`, e `#printable-area` + `data-custom-canvas` solo con `printable` |
-| `apps/web/src/views/__tests__/CommunityMeetingFlyerEditView.test.ts` | El editor: layout por slots, semilla visible, ocultar del preview, drag entre slots, preset ensucia con su receta, descartar, guardar completo, flechas y su cruce de columna, undo, borrar diseño con confirmación, guard de salida, overrides en vivo, y **toast cuando falla el guardado o el borrado** (antes: silencio y el diseño quedaba sin persistir) |
+| `apps/web/src/views/__tests__/CommunityMeetingFlyerEditView.test.ts` | El editor: layout por slots, semilla visible, ocultar del preview, drag entre slots, preset ensucia con su receta, descartar, guardar completo, flechas y su cruce de columna, undo, borrar diseño con confirmación, guard de salida, overrides en vivo, y **toast cuando falla el guardado o el borrado** (antes: silencio y el diseño quedaba sin persistir). Paridad con el retiro: rehacer, copiar diseño de otra comunidad (y su error visible), aviso de bloque sin contenido, doble clic al campo de texto y zoom |
 | `apps/web/src/views/__tests__/CommunityMeetingFlyerView.test.ts` | La vista publicada: el 4º botón, **"Saved design"** (el canvas recibe layout/imágenes/tema/cajas guardados — el fixture usa valores que NO son los defaults, o una prop olvidada pasaría), los defaults sin caja sin nada guardado, popover Fondo fuera en custom, los tres estilos legacy intactos, y **el botón copiar/compartir por plataforma** (ClipboardItem con Promise en desktop, share sheet con File en teléfono, AbortError silencioso, rechazo del portapapeles → descarga, y la captura del canvas custom a 1:1 con el contenedor a 850px) |
 | `apps/web/src/components/flyer/__tests__/FlyerDesignPanel.test.ts` (describe *meeting flavour*) | El contrato flavor-agnóstico: `tPrefix`, `styleDefaults` (contraste juzgado contra los defaults sin caja) y `presets` con su paquete de cajas |
 | `apps/web/src/components/flyer/__tests__/FlyerTextPanel.test.ts` (describe *meeting flavour*) | El contrato de `config`: 8 campos single-line, placeholder dinámico del título y nota de oculto con prefijo propio |
