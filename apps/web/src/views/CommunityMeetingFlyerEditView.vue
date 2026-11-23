@@ -268,8 +268,10 @@ const previewHeight = computed(() => {
 	return `${canvasHeight.value * previewScale.value}px`;
 });
 
+// discardDraft, not a reload: reloading restores the autosaved draft, so
+// "Descartar cambios" put the very changes it was asked to throw away back
 function discard() {
-	store.loadFromCommunity(community.value);
+	store.discardDraft();
 }
 
 /**

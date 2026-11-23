@@ -484,6 +484,27 @@ test.describe.serial('Retreat flyer editor — panel features (E2E)', () => {
 		await expect.poll(() => blockStyle('location')).toBe(before);
 	});
 
+	// The store autosaves a draft on every change, and the meeting view's
+	// Descartar reloaded the community — which restores that very draft. The
+	// retreat view had the same bug (fixed with discardDraft).
+	test('Descartar cambios in the meeting editor really throws the change away', async () => {
+		test.skip(!!skipReason, skipReason ?? '');
+		test.skip(!meetingPath, 'no hay reuniones en la DB para el E2E');
+		await openFresh({}, 'deferred');
+		await page.goto(meetingPath!);
+		await expect(page.locator('[data-block="dateTime"]')).toBeVisible();
+		const chip = page.locator('[data-flyer-block="dateTime"] .fb-title-chip');
+		await expect(chip).toHaveCSS('background-image', /linear-gradient/);
+
+		await page.locator('[data-block="dateTime"] button').first().click();
+		await openSlot('title');
+		await slotSection('title').locator('[data-icon-swatch="#b45309"]').click();
+		await expect(chip).toHaveCSS('background-image', 'none');
+
+		await page.getByRole('button', { name: 'Descartar cambios' }).click();
+		await expect(chip).toHaveCSS('background-image', /linear-gradient/);
+	});
+
 	test('the meeting editor shares the panel: its Icon row recolours the meeting chip too', async () => {
 		test.skip(!!skipReason, skipReason ?? '');
 		test.skip(!meetingPath, 'no hay reuniones en la DB para el E2E');
