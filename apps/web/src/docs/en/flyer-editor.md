@@ -38,9 +38,18 @@ folded, one at a time; their header sums up what they hold ("Oswald · 115%"). H
 know what you are touching before you touch it. A block only shows the roles it has, and each
 block carries a one-line hint of what is what.
 
+The **Title** alignment moves the whole block: the heading, the Contact cards and a shrunk
+block travel to the same side. Title also has **Icon**, the colour of the little square beside
+the heading; "None" gives it its gradient back.
+
+Every colour you pick stays as a one-click swatch in any block's Colour row (the last 10). It
+is saved when the colour window closes, not while you drag. Icon colours keep a list of their
+own.
+
 The **Whole flyer** panel has the same sections, but its changes reach every block at once. The
 block backgrounds (none, a light or dark veil, or a colour with its opacity) and **dim the
-background image** live there too.
+background image** live there too, and the **column gap**: widen it to pull the right column
+away from the middle of the photo, toward the edge.
 
 > ⚠️ The amber triangle warns that a text is hard to read against what is behind it. That is the
 > mistake you do not notice on screen and do notice on paper. Try another text colour, a veil, or

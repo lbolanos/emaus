@@ -177,6 +177,29 @@ describe('MeetingFlyerCanvas', () => {
 			expect(location).toContain('--fb-text: #ffffff');
 		});
 
+		// The Icon row is shared with the retreat editor: without the chip class
+		// on these blocks the control did nothing on meeting flyers
+		it('recolours the title chip only on the block that asks for it', () => {
+			const wrapper = mountCanvas({
+				blockStyles: { dateTime: { fonts: { title: { iconColor: '#b45309' } } } },
+			});
+			const dateTime = wrapper.find('[data-flyer-block="dateTime"]');
+			const location = wrapper.find('[data-flyer-block="location"]');
+
+			expect(dateTime.attributes('data-chip')).toBe('custom');
+			expect(dateTime.attributes('style')).toContain('--fb-chip: #b45309');
+			expect(dateTime.find('.fb-title-chip').exists()).toBe(true);
+			expect(location.attributes('data-chip')).toBeUndefined();
+		});
+
+		it('widens the gap between the columns from the theme', () => {
+			const grid = (w: ReturnType<typeof mountCanvas>) =>
+				w.find('.grid.grid-cols-2').attributes('style') ?? '';
+
+			expect(grid(mountCanvas())).not.toContain('column-gap');
+			expect(grid(mountCanvas({ theme: { columnGap: 96 } }))).toContain('column-gap: 96px');
+		});
+
 		it('washes the background image when the theme asks for it', () => {
 			const plain = mountCanvas();
 			const dimmed = mountCanvas({ theme: { scrim: 'dark', scrimOpacity: 50 } });

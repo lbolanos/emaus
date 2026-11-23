@@ -158,8 +158,22 @@ introducción, costo y QR centrados, el resto a la izquierda.
 |---|---|---|
 | `.fb-lead` | la fila principal: icono y su texto | sigue al título: centrada se apila (icono arriba); a la derecha se invierte |
 | `.fb-row` | una fila secundaria: un ítem de lista, la nota de llegada | sigue al cuerpo |
-| `.fb-box` / `[data-emphasis-box]` | una caja con ancho máximo | por `--fb-box-ml/mr` (bloque) o `--fb-emph-ml/mr` (destacado) |
-| `.fb-stack` | una rejilla de tarjetas (los contactos) | cada celda se ajusta a su contenido con `justify-items` |
+| `.fb-box` / `[data-emphasis-box]` | una caja con ancho máximo | por `--fb-box-ml/mr` (bloque, sigue al **título**) o `--fb-emph-ml/mr` (destacado) |
+| `.fb-stack` | una rejilla de tarjetas (los contactos) | `auto-fit, minmax(9rem, 1fr)`: dos columnas caben en el tope de 320px, una sola si el bloque se encoge; celdas con `justify-items` del título |
+| `.fb-title-chip` | el cuadrito de icono junto al rótulo | `fonts.title.iconColor` pone `data-chip="custom"` y lo pinta sólido; sin él, el degradado de fábrica |
+
+**El título es el mando del bloque.** Las cajas acotadas, las celdas del `fb-stack` y el margen
+del bloque encogido (`width` de la distribución) se resuelven de la alineación del **título**,
+no del texto: con dos mandos, «Informes a la derecha» dejaba las tarjetas en otro lado. La
+alineación plana (`textAlign`) ya no tiene control en el panel; sólo sirve de default.
+
+**`theme.columnGap`** (px, 0–200; ausente = los 12 de diseño) separa las dos columnas del cuerpo.
+Es la palanca para alejar la columna derecha del motivo de la foto.
+
+**Colores recientes** (`utils/recentColors.ts`): `localStorage` por ámbito
+(`emaus-flyer-recent-colors/text` e `/icon`), tope 10, sólo hex. Se graba en el `change` del
+picker y en los clics de muestra, nunca en `input`, que dispara con cada arrastre. Apagado
+bajo vitest.
 
 Dos trampas que costaron una vuelta:
 

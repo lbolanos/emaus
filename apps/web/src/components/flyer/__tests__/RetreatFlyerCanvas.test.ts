@@ -153,6 +153,24 @@ describe('RetreatFlyerCanvas', () => {
 
 		// The reflow that centring and right-aligning need is a selector, not a value:
 		// stacking the icon row cannot be expressed as a CSS variable.
+		it('marks the title chip of every block that has one', () => {
+			const wrapper = mountCanvas();
+			for (const id of ['startTime', 'endTime', 'location', 'contact', 'whatToBring']) {
+				expect(wrapper.find(`[data-flyer-block="${id}"] .fb-title-chip`).exists()).toBe(true);
+			}
+		});
+
+		// "Informes → Título → izquierda" moves heading AND cards; Texto does not
+		it('lines the capped cards up with the title slot, not the text slot', () => {
+			const style = (fonts: object) =>
+				mountCanvas({ blockStyles: { contact: { fonts } } })
+					.find('[data-flyer-block="contact"]')
+					.attributes('style') ?? '';
+
+			expect(style({ title: { align: 'left' } })).toContain('--fb-box-ml: 0');
+			expect(style({ body: { align: 'left' } })).toContain('--fb-box-ml: auto');
+		});
+
 		it('carries the alignment as both a variable and an attribute', () => {
 			const wrapper = mountCanvas({ blockStyles: { startTime: { textAlign: 'center' } } });
 			const block = wrapper.find('[data-flyer-block="startTime"]');

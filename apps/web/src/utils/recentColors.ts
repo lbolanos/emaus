@@ -16,14 +16,17 @@ export type RecentColorScope = 'text' | 'icon';
 const SCOPES: RecentColorScope[] = ['text', 'icon'];
 const keyFor = (scope: RecentColorScope) => `emaus-flyer-recent-colors/${scope}`;
 const CAP = 10;
+const HEX = /^#[0-9a-fA-F]{6}$/;
 
 function loadScope(scope: RecentColorScope): string[] {
 	if (import.meta.env.MODE === 'test') return [];
 	try {
 		const raw = localStorage.getItem(keyFor(scope));
 		const parsed = raw ? (JSON.parse(raw) as unknown) : [];
+		// Hex only: the values land in a style binding, and an older build or a
+		// hand edit can leave anything under the key
 		return Array.isArray(parsed)
-			? parsed.filter((c): c is string => typeof c === 'string')
+			? parsed.filter((c): c is string => typeof c === 'string' && HEX.test(c)).slice(0, CAP)
 			: [];
 	} catch {
 		return [];
@@ -44,7 +47,6 @@ function persist(scope: RecentColorScope) {
 	}
 }
 
-const HEX = /^#[0-9a-fA-F]{6}$/;
 
 /** Records a committed pick (deduped, most recent first, capped at 10). */
 export function recordRecentColor(scope: RecentColorScope, hex: string) {

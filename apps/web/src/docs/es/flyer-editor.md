@@ -38,9 +38,19 @@ cerradas y una a la vez; su encabezado resume lo que traen («Oswald · 115%»).
 rol controla — así sabes qué estás tocando antes de tocarlo. El bloque muestra solo los roles
 que tiene, y cada bloque trae una pista de qué es cada cosa en él.
 
+La alineación del **Título** mueve el bloque entero: el rótulo, las tarjetas de Informes y el
+bloque encogido van juntos al mismo lado. El Título también trae **Icono**, el color del
+cuadrito junto al rótulo; «Ninguno» le devuelve su degradado.
+
+Cada color que eliges queda como muestra de un clic en la fila Color de cualquier bloque (los
+últimos 10). Se guarda al cerrar la ventanita del color, no mientras arrastras. Los colores de
+icono llevan su propia lista.
+
 El panel **Todo el volante** tiene las mismas secciones, pero sus cambios alcanzan a todos los
 bloques de una vez. Ahí también van el fondo de los bloques (ninguno, un velo claro u oscuro, o
-un color con su opacidad) y **atenuar la imagen de fondo** si la foto compite con las letras.
+un color con su opacidad), **atenuar la imagen de fondo** si la foto compite con las letras, y
+la **separación de columnas**: ensánchala para alejar la columna derecha del centro de la foto
+y llevarla hacia el borde.
 
 > ⚠️ El triángulo ámbar avisa de que un texto casi no se lee sobre lo que tiene detrás. Es el
 > error que no se nota en la pantalla y sí en el papel. Prueba otro color de texto, un velo, o
