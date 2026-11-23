@@ -311,6 +311,21 @@ test.describe.serial('Retreat flyer editor — slots, undo/redo, text jump (E2E)
 		await bodyCard.locator('[data-slot-align="body:left"]').click();
 		await expect(contactBlock).toHaveAttribute('style', /margin-left: 0/);
 		await expect(contactBlock).toHaveAttribute('style', /margin-right: auto/);
+
+		// The cards reflow instead of spilling past the shrunk block: every
+		// card's box stays inside the block's box
+		const cardsInside = contactBlock.evaluate((el) => {
+			const block = el.getBoundingClientRect();
+			return [...el.querySelectorAll('.fb-stack > div')].every((card) => {
+				const box = card.getBoundingClientRect();
+				return (
+					box.left >= block.left - 1 &&
+					box.right <= block.right + 1 &&
+					box.width <= block.width + 1
+				);
+			});
+		});
+		await expect(await cardsInside).toBe(true);
 	});
 
 	test('reads the artwork palette and offers it as swatches', async () => {

@@ -18,8 +18,11 @@
 		-->
 		<div
 			:class="[
-				'fb-box fb-stack grid gap-1 max-w-[320px]',
-				content.totalContactItems > 2 ? 'grid-cols-2' : 'grid-cols-1',
+				// Auto-fit instead of a fixed 2 columns: a block shrunk with the
+				// resize edge reflows the cards to one column instead of spilling
+				// them past the block's edge
+				'fb-box fb-stack grid gap-1 max-w-[320px] w-full',
+				'grid-cols-[repeat(auto-fit,minmax(10rem,1fr))]',
 			]"
 		>
 			<div
@@ -53,8 +56,7 @@
 			<div
 				v-for="email in content.contactEmails"
 				:key="email"
-				class="p-1.5 rounded-lg shadow-sm border border-blue-200/60"
-				:class="content.totalContactItems > 2 ? 'col-span-2' : ''"
+				class="p-1.5 rounded-lg shadow-sm border border-blue-200/60 col-span-full"
 			>
 				<div class="fb-row flex items-center gap-1.5">
 					<div
