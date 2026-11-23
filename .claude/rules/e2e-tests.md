@@ -56,6 +56,16 @@ primero a que la pantalla esté, o el test es un falso verde.
   del flyer — patrón: `captureFlyerState`/`restoreFlyerState` + `mustOk` en
   `tests/e2e/helpers/communityFlyerState.ts`).
 
+- **Un 429 se ve como un bug de la app.** El limitador general del API corta en 300 req/min por
+  IP, y cada pestaña nueva arranca la app completa: una corrida larga (los dos specs del editor
+  del volante) recibe 429 a mitad y falla con «element not found» lejos de la causa. En dev:
+  `NODE_ENV=development` y `SKIP_RATE_LIMIT=true` en `apps/api/.env` (documentado en el
+  `.env.example`). Un spec que abre muchas pestañas debe nombrar el 429 (ejemplo:
+  `rateLimited` en `retreat-flyer-editor-panel.spec.ts`).
+- **Los 4 specs de volantes de comunidad no corren en paralelo entre sí.** Todos toman
+  `list[0]` de `/api/communities` y escriben y restauran su diseño y fondo: en paralelo se
+  pisan (2–3 rojos que solos pasan). Córrelos con `--workers=1`. Arreglo de fondo pendiente:
+  que cada uno use su propia comunidad sembrada (`E2E_COMMUNITIES` en `helpers/auth.ts`).
 - **Un login rechazado no siempre es un fixture sin sembrar.** El limitador de login cuenta los
   fallos por IP + correo (10 cada 15 min) y responde 429, así que un spec con un fixture que no
   existe se bloquea solo tras unas corridas. Decidí el skip por la respuesta de `/api/auth/login`
