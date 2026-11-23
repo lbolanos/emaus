@@ -222,6 +222,15 @@ onUnmounted(() => {
   display: none !important;
 }
 
+/* A flyer's h1 IS its content (the meeting or retreat title), not the page
+   heading. The canvases used to re-show it with `.print-optimized h1` — same
+   specificity as the rule above, so whichever lazy chunk's CSS landed LAST
+   won: on a phone the title vanished or not depending on load order. The
+   exception lives here, next to the rule it overrides, and outranks it. */
+.mobile-hide-h1 .print-optimized h1 {
+  display: block !important;
+}
+
 @media print {
   /* Remove all layout constraints for printing */
   .flex.h-dvh {
