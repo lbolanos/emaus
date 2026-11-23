@@ -4230,7 +4230,10 @@
         "whatToBring": "Title is the heading; Text, the subtitle and the list.",
         "registrationQr": "Emphasis is the link under the code (mono by design); Text, the scan line."
       },
-      "contentlessNotice": "This block draws nothing on this retreat: it has no phone numbers or emails. The styles stay saved for when they do."
+      "contentlessNotice": "This block draws nothing on this retreat: it has no phone numbers or emails. The styles stay saved for when they do.",
+      "columnGap": "Column gap",
+      "columnGapHint": "Widen it to pull the right column away from the artwork's subject, toward the edge.",
+      "columnGapReset": "Back to the designed gap"
     },
     "leaveWithoutSaving": "You have unsaved changes to the flyer. Leave anyway?",
     "undo": "Undo",

@@ -130,6 +130,39 @@
 					</span>
 				</div>
 			</div>
+
+			<!-- Widening the gap pushes the right column toward the flyer's edge —
+			     the lever for "the text sits too close to the artwork's subject" -->
+			<div class="space-y-1.5 border-t pt-3">
+				<Label class="text-xs">{{ tp('design.columnGap') }}</Label>
+				<p class="text-[11px] text-muted-foreground">{{ tp('design.columnGapHint') }}</p>
+				<div class="flex items-center gap-2">
+					<input
+						type="range"
+						min="12"
+						max="200"
+						step="4"
+						class="flex-1"
+						data-column-gap-slider
+						:value="theme.columnGap ?? 12"
+						@input="
+							emit('updateTheme', 'columnGap', Number(($event.target as HTMLInputElement).value))
+						"
+					/>
+					<span class="w-12 text-right text-[11px] tabular-nums text-muted-foreground">
+						{{ theme.columnGap ?? 12 }}px
+					</span>
+					<button
+						v-if="theme.columnGap != null"
+						type="button"
+						class="rounded border border-muted p-1 text-muted-foreground hover:text-foreground"
+						:aria-label="tp('design.columnGapReset')"
+						@click="emit('updateTheme', 'columnGap', undefined)"
+					>
+						<RotateCcw class="h-3 w-3" />
+					</button>
+				</div>
+			</div>
 		</FlyerPanelSection>
 
 		<!-- Blocks: visibility, and click to style one -->
@@ -266,7 +299,16 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { AlertTriangle, ChevronDown, ChevronUp, Eye, EyeOff, Loader2, Wand2 } from 'lucide-vue-next';
+import {
+	AlertTriangle,
+	ChevronDown,
+	ChevronUp,
+	Eye,
+	EyeOff,
+	Loader2,
+	RotateCcw,
+	Wand2,
+} from 'lucide-vue-next';
 import { Button, Label } from '@repo/ui';
 import type {
 	FlyerBlockStyle,

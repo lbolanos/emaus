@@ -30,7 +30,10 @@
 				:style="{ backgroundColor: scrimColor }"
 			></div>
 
-			<div class="relative z-10 grid grid-cols-2 gap-x-3 items-start">
+			<div
+				class="relative z-10 grid grid-cols-2 gap-x-3 items-start"
+				:style="theme?.columnGap != null ? { columnGap: `${theme.columnGap}px` } : {}"
+			>
 				<FlyerSlotColumn
 					v-for="slotName in ['left', 'right'] as const"
 					:key="slotName"
@@ -208,6 +211,13 @@ const blocksInSlot = computed(() => {
 	text-align: var(--fb-align, left);
 	/* Same contract as the retreat canvas: the block-wide text shadow switch. */
 	text-shadow: var(--fb-shadow, none);
+}
+
+/* Custom icon-chip colour: only when one is set (the wrapper carries
+   data-chip), so the designed gradients stay untouched otherwise. */
+.print-optimized [data-flyer-block][data-chip='custom'] .fb-title-chip {
+	background-image: none;
+	background-color: var(--fb-chip);
 }
 
 /* The slot's own veil: behind this role's lines only (highlight the date,

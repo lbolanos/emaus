@@ -149,6 +149,10 @@ export type FlyerTextAlign = NonNullable<FlyerBlockStyle['textAlign']>;
 export const flyerThemeSchema = flyerBlockStyleSchema.extend({
 	scrim: z.enum(['none', 'dark', 'light']).optional(),
 	scrimOpacity: z.number().int().min(0).max(100).optional(),
+	/** Gap between the body's two columns, in px (absent = the designed 12).
+	 *  The lever for "the right column sits too close to the artwork's
+	 *  subject" — widening it pushes the right column toward the edge. */
+	columnGap: z.number().int().min(0).max(200).optional(),
 });
 export type FlyerTheme = z.infer<typeof flyerThemeSchema>;
 
