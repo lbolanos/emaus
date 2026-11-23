@@ -140,7 +140,7 @@
 				<span class="w-14 shrink-0 text-[11px] text-muted-foreground">
 					{{ t('retreatFlyerEditor.design.row.color') }}
 				</span>
-				<div class="ml-auto flex items-center gap-1">
+				<div class="ml-auto flex max-w-full flex-wrap items-center justify-end gap-1">
 					<button
 						v-for="hex in recentSwatches"
 						:key="`recent-${hex}`"
