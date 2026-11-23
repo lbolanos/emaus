@@ -4493,7 +4493,8 @@
         "color": "Color",
         "align": "Alinear",
         "shadow": "Sombra",
-        "veil": "Velo"
+        "veil": "Velo",
+        "icon": "Icono"
       },
       "shadowMode": {
         "auto": "Auto",

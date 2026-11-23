@@ -14,6 +14,7 @@
 			:data-highlight-slot="highlightFor(block.id)"
 			:data-title-align="stylesById[block.id]?.titleAlign"
 			:data-body-align="stylesById[block.id]?.bodyAlign"
+			:data-chip="stylesById[block.id]?.chipCustom ? 'custom' : null"
 			:style="{ ...styleFor(block.id), ...widthStyleFor(block) }"
 			class="relative bg-[color:var(--fb-bg)] rounded-[length:var(--fb-radius)] text-[color:var(--fb-text)]"
 			:class="[
@@ -182,7 +183,7 @@ function highlightFor(blockId: string): string | null {
 }
 
 function styleFor(blockId: string) {
-	const { hasBox: _hasBox, align: _align, titleAlign: _t, bodyAlign: _b, ...cssVars } =
+	const { hasBox: _hasBox, align: _align, titleAlign: _t, bodyAlign: _b, chipCustom: _c, ...cssVars } =
 		stylesById.value[blockId] ?? {};
 	return cssVars as Record<string, string>;
 }

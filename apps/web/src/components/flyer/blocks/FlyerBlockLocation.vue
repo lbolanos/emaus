@@ -2,7 +2,7 @@
 	<div class="p-4">
 		<div class="fb-lead flex gap-4 items-start group">
 			<div
-				class="bg-gradient-to-br from-green-500 to-green-700 p-2.5 rounded-xl text-white shadow-xl flex-shrink-0"
+				class="fb-title-chip bg-gradient-to-br from-green-500 to-green-700 p-2.5 rounded-xl text-white shadow-xl flex-shrink-0"
 			>
 				<MapPin class="w-5 h-5" />
 			</div>

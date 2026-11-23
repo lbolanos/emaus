@@ -4171,7 +4171,8 @@
         "color": "Colour",
         "align": "Align",
         "shadow": "Shadow",
-        "veil": "Veil"
+        "veil": "Veil",
+        "icon": "Icon"
       },
       "shadowMode": {
         "auto": "Auto",

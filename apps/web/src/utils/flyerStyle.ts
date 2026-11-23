@@ -65,6 +65,9 @@ type FlyerBlockCssVarsSlots = {
 	/** The slot's own veil, when it has one. */
 	[K in `--fb-${FlyerFontSlot}-bg`]: string;
 } & {
+	/** Solid override for the title chip's designed gradient. */
+	'--fb-chip': string;
+} & {
 	[K in `--fb-${FlyerFontSlot}-pad`]: string;
 } & {
 	[K in `--fb-${FlyerFontSlot}-radius`]: string;
@@ -85,6 +88,9 @@ export interface ResolvedBlockStyle extends FlyerBlockCssVars {
 	 *  follows the title, list rows and capped boxes follow the body. */
 	titleAlign: FlyerTextAlign;
 	bodyAlign: FlyerTextAlign;
+	/** True when a custom icon-chip colour is set: the wrapper carries the
+	 *  attribute the chip override rule keys on. */
+	chipCustom: boolean;
 }
 
 const JUSTIFY: Record<FlyerTextAlign, string> = {
@@ -122,7 +128,17 @@ function resolveSlot(
 	blockStyles?: Partial<Record<string, FlyerBlockStyle>> | null,
 	defaults: Record<string, FlyerBlockStyle> = FLYER_BLOCK_STYLE_DEFAULTS,
 ): Required<
-	Pick<FlyerSlotSpec, 'family' | 'scale' | 'color' | 'align' | 'shadow' | 'backgroundColor' | 'backgroundOpacity'>
+	Pick<
+		FlyerSlotSpec,
+		| 'family'
+		| 'scale'
+		| 'color'
+		| 'align'
+		| 'shadow'
+		| 'backgroundColor'
+		| 'backgroundOpacity'
+		| 'iconColor'
+	>
 > {
 	const flat: FlyerBlockStyle = {
 		...defaults[blockId],
@@ -157,6 +173,7 @@ function resolveSlot(
 		if (layer.shadow !== undefined) spec.shadow = layer.shadow;
 		if (layer.backgroundColor !== undefined) spec.backgroundColor = layer.backgroundColor;
 		if (layer.backgroundOpacity !== undefined) spec.backgroundOpacity = layer.backgroundOpacity;
+		if (layer.iconColor !== undefined) spec.iconColor = layer.iconColor;
 	}
 	return {
 		family: spec.family ?? 'inherit',
@@ -167,6 +184,7 @@ function resolveSlot(
 		// No veil colour means no veil; the opacity default only matters with one
 		backgroundColor: spec.backgroundColor ?? 'transparent',
 		backgroundOpacity: spec.backgroundOpacity ?? 85,
+		iconColor: spec.iconColor ?? '',
 	};
 }
 
@@ -229,7 +247,7 @@ export function resolveBlockStyle(
 	const [boxMarginLeft, boxMarginRight] = BOX_MARGINS[bodyAlignComputed];
 
 	const slotVars = {} as FlyerBlockCssVarsSlots;
-	const slotAligns = {} as Pick<ResolvedBlockStyle, 'titleAlign' | 'bodyAlign'>;
+	const slotAligns = {} as Pick<ResolvedBlockStyle, 'titleAlign' | 'bodyAlign' | 'chipCustom'>;
 	for (const slot of FLYER_FONT_SLOTS) {
 		const spec = resolveSlot(slot, blockId, theme, blockStyles, defaults);
 		slotVars[`--fb-${slot}-font`] = FLYER_FONT_STACKS[spec.family];
@@ -245,8 +263,13 @@ export function resolveBlockStyle(
 		slotVars[`--fb-${slot}-bg`] = hasVeil ? toRgba(veilColor, spec.backgroundOpacity) : 'transparent';
 		slotVars[`--fb-${slot}-pad`] = hasVeil ? '0.2rem 0.55rem' : '0';
 		slotVars[`--fb-${slot}-radius`] = hasVeil ? '0.5rem' : '0';
-		if (slot === 'title') slotAligns.titleAlign = spec.align;
+		if (slot === 'title') {
+			slotAligns.titleAlign = spec.align;
+			const chip = spec.iconColor;
+			slotVars['--fb-chip'] = chip ?? 'transparent';
+		}
 		if (slot === 'body') slotAligns.bodyAlign = spec.align;
+		if (spec.iconColor) slotAligns.chipCustom = true;
 		if (slot === 'emphasis') {
 			[slotVars['--fb-emph-ml'], slotVars['--fb-emph-mr']] = BOX_MARGINS[spec.align];
 		}

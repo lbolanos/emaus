@@ -6,7 +6,7 @@
 			class="fb-lead font-black fb-title text-[length:calc(0.8125rem*var(--fb-title-scale,1))] uppercase text-[color:var(--fb-title-color)] mb-2 flex items-center gap-2 border-b border-current/30 pb-2 tracking-[0.1em]"
 		>
 			<div
-				class="bg-gradient-to-br from-purple-400 to-purple-600 p-2.5 rounded-xl text-white shadow-xl flex-shrink-0"
+				class="fb-title-chip bg-gradient-to-br from-purple-400 to-purple-600 p-2.5 rounded-xl text-white shadow-xl flex-shrink-0"
 			>
 				<Backpack class="w-5 h-5" />
 			</div>

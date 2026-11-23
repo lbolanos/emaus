@@ -241,6 +241,13 @@ const blocksInSlot = computed(() => {
 	text-shadow: var(--fb-shadow, none);
 }
 
+/* Custom icon-chip colour: only when one is set (the wrapper carries
+   data-chip), so the designed gradients stay untouched otherwise. */
+.print-optimized [data-flyer-block][data-chip='custom'] .fb-title-chip {
+	background-image: none;
+	background-color: var(--fb-chip);
+}
+
 /* The slot's own veil: behind this role's lines only (highlight the date,
    the price), separate from the block-wide background. */
 .print-optimized .fb-title {

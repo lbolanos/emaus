@@ -107,6 +107,9 @@ export const flyerSlotSpecSchema = z.object({
 	 *  the block-wide background. Absent colour means no veil at all. */
 	backgroundColor: hexColorSchema.optional(),
 	backgroundOpacity: z.number().int().min(0).max(100).optional(),
+	/** Solid colour for the title row's icon chip (absent: the designed
+	 *  gradient). Meaningful on the title slot; ignored elsewhere. */
+	iconColor: hexColorSchema.optional(),
 });
 export type FlyerSlotSpec = z.infer<typeof flyerSlotSpecSchema>;
 /** @deprecated Renamed: a slot tunes more than its font. Alias kept for callers. */

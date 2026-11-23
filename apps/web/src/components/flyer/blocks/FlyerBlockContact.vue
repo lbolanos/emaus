@@ -5,7 +5,7 @@
 			class="fb-lead fb-title text-[length:calc(0.875rem*var(--fb-title-scale,1))] font-black text-[color:var(--fb-title-color)] uppercase mb-1.5 flex items-center gap-3 tracking-[0.1em]"
 		>
 			<div
-				class="bg-gradient-to-br from-blue-400 to-blue-600 p-2.5 rounded-xl text-white shadow-xl flex-shrink-0"
+				class="fb-title-chip bg-gradient-to-br from-blue-400 to-blue-600 p-2.5 rounded-xl text-white shadow-xl flex-shrink-0"
 			>
 				<Info class="w-5 h-5" />
 			</div>

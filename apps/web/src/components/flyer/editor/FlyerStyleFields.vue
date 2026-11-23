@@ -142,6 +142,21 @@
 				</span>
 				<div class="ml-auto flex items-center gap-1">
 					<button
+						v-for="hex in recentSwatches"
+						:key="`recent-${hex}`"
+						type="button"
+						class="h-5 w-5 rounded border"
+						:class="
+							values.fonts?.[slot]?.color?.toLowerCase() === hex
+								? 'border-primary ring-2 ring-primary/40'
+								: 'border-muted'
+						"
+						:style="{ backgroundColor: hex }"
+						:aria-label="hex"
+						:data-recent-swatch="hex"
+						@click="emitSlot(slot, 'color', hex)"
+					></button>
+					<button
 						v-for="hex in palette ?? []"
 						:key="`art-${hex}`"
 						type="button"
@@ -176,6 +191,31 @@
 						class="h-6 w-8 cursor-pointer rounded border border-muted bg-transparent p-0.5"
 						:value="values.fonts?.[slot]?.color ?? '#111827'"
 						@input="emitSlot(slot, 'color', ($event.target as HTMLInputElement).value)"
+					/>
+				</div>
+			</div>
+
+			<!-- Title slot only: the gradient chip beside the heading -->
+			<div v-if="slot === 'title'" class="flex items-center gap-2">
+				<span class="w-14 shrink-0 text-[11px] text-muted-foreground">
+					{{ t('retreatFlyerEditor.design.row.icon') }}
+				</span>
+				<div class="ml-auto flex items-center gap-1.5">
+					<button
+						v-if="values.fonts?.title?.iconColor"
+						type="button"
+						class="rounded border border-muted px-2 py-1 text-[11px] text-muted-foreground hover:text-foreground"
+						:data-chip-clear="true"
+						@click="emitSlot('title', 'iconColor', undefined)"
+					>
+						{{ t('retreatFlyerEditor.design.background.none') }}
+					</button>
+					<input
+						type="color"
+						class="h-6 w-8 cursor-pointer rounded border border-muted bg-transparent p-0.5"
+						:value="values.fonts?.title?.iconColor ?? '#1d4ed8'"
+						:data-chip-picker="true"
+						@input="emitSlot('title', 'iconColor', ($event.target as HTMLInputElement).value)"
 					/>
 				</div>
 			</div>
@@ -307,6 +347,7 @@ import { AlignCenter, AlignLeft, AlignRight, Minus, Plus, RotateCcw } from 'luci
 import { Label } from '@repo/ui';
 import type { FlyerBlockStyle, FlyerFontFamily, FlyerFontSlot, FlyerFonts } from '@repo/types';
 import { FLYER_FONT_STACKS } from '@/utils/flyerStyle';
+import { recordRecentColor, recentColors as recentColorsRef } from '@/utils/recentColors';
 import FlyerPanelSection from './FlyerPanelSection.vue';
 
 const props = withDefaults(
@@ -340,6 +381,9 @@ const { t } = useI18n();
 /** Slot sections ship collapsed and behave as an accordion — opening one
  *  closes the others: three open cards crowded the panel. */
 const openSlot = ref<FlyerFontSlot | null>(null);
+
+/** Recent picks as a plain array — imported refs don't reliably unwrap in v-for. */
+const recentSwatches = computed(() => recentColorsRef().value);
 
 /** One glance at what the closed section holds: family and size. */
 function slotSummary(slot: FlyerFontSlot): string {
@@ -457,9 +501,19 @@ function clearSlot(slot: FlyerFontSlot) {
  */
 function emitSlot(
 	slot: FlyerFontSlot,
-	field: 'family' | 'scale' | 'color' | 'align' | 'shadow' | 'backgroundColor' | 'backgroundOpacity',
+	field:
+		| 'family'
+		| 'scale'
+		| 'color'
+		| 'align'
+		| 'shadow'
+		| 'backgroundColor'
+		| 'backgroundOpacity'
+		| 'iconColor',
 	raw: string | boolean | number | undefined,
 ) {
+	// Every colour picked anywhere feeds the shared swatch row
+	if (typeof raw === 'string' && /^#[0-9a-fA-F]{6}$/.test(raw)) recordRecentColor(raw);
 	const value = field === 'scale' ? Number(raw) : raw;
 	const isDefault =
 		raw === undefined ||
