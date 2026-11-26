@@ -334,21 +334,28 @@ export const exportBadgesToDocx = async (retreatId: string) => {
 			};
 
 			const getRoomInfo = (): string => {
-				return `Piso ${bed.floor || '?'}, Cuarto ${bed.roomNumber || '?'}`;
+				// floor 0/null no es "Piso 0": son alas de planta baja cuya referencia
+				// real para ubicar el cuarto es el nombre del ala (floorLabel).
+				const floorTxt =
+					bed.floor && bed.floor > 0 ? `Piso ${bed.floor}` : bed.floorLabel || '?';
+				return `${floorTxt}, Cuarto ${bed.roomNumber || '?'}`;
 			};
 
 			const getTableInfo = (): string => {
-				if (!participant.tableMesa) return 'No table assigned';
+				if (!participant.tableMesa) return 'Servidor';
 				return participant.tableMesa.name;
 			};
 
 			const getBedType = (): string => {
+				// El campo de RetreatBed es `type` (enum BedType); leer bedType
+				// imprimía el fallback inglés "Bed" en todos los gafetes.
 				const bedTypeMap: Record<string, string> = {
 					normal: 'Cama Normal',
-					litera: 'Litera',
+					litera_abajo: 'Litera (abajo)',
+					litera_arriba: 'Litera (arriba)',
 					colchon: 'Colchón',
 				};
-				return bedTypeMap[bed.bedType] || bed.bedType || 'Bed';
+				return bedTypeMap[bed.type] || bed.type || 'Cama';
 			};
 
 			const isServer = participant.type === 'server' || participant.type === 'partial_server';
